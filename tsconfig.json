@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "outDir": "dist",
+    "declaration": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "removeComments": true,
+    "moduleResolution": "node",
+  },
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}
