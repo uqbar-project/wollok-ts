@@ -73,6 +73,10 @@ builtin-modules@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/builtin-modules/-/builtin-modules-1.1.1.tgz#270f076c5a72c02f5b65a47df94c5fe3a278892f"
 
+chai-also@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/chai-also/-/chai-also-0.1.0.tgz#940d4d48386b44a15e117d5bb84bb72c0504e901"
+
 chai@^4.1.2:
   version "4.1.2"
   resolved "https://registry.yarnpkg.com/chai/-/chai-4.1.2.tgz#0f64584ba642f0f2ace2806279f4f06ca23ad73c"

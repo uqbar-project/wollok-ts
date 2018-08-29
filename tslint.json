@@ -50,6 +50,7 @@
     "member-ordering": false,
     "arrow-parens": false,
     "eofline": false,
-    "max-classes-per-file": false
+    "max-classes-per-file": false,
+    "ban-types": false
   }
 }

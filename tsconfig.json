@@ -10,7 +10,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "removeComments": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node"
   },
   "exclude": [
     "node_modules",
