@@ -1,6 +1,8 @@
 import { Index } from 'parsimmon'
 
-export type Node = Parameter | Import | Entity | Member | Sentence
+// TODO: Type for members
+
+export type Node = Parameter | Import | Entity | Field | Method | Constructor | Sentence
 export type NodeKind = Node['kind']
 export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
 export type NodePayload<N extends Node> = Pick<N, Exclude<keyof N, 'kind'>>
@@ -47,22 +49,21 @@ export interface Package extends Traceable {
   readonly kind: 'Package'
   readonly name: Name
   readonly imports: ReadonlyArray<Import>
-  readonly members: ReadonlyArray<Package | Class | Singleton | Mixin | Program | Test>
+  readonly members: ReadonlyArray<Entity>
 }
 
 export interface Class extends Traceable {
   readonly kind: 'Class'
   readonly name: Name
-  readonly superclass: Reference
+  readonly superclass?: Reference
   readonly mixins: ReadonlyArray<Reference>
   readonly members: ReadonlyArray<Method | Field | Constructor>
 }
 
 export interface Singleton extends Traceable {
   readonly kind: 'Singleton'
-  readonly name: Name
-  readonly superclass: Reference
-  readonly superArgs: ReadonlyArray<Expression>
+  readonly name?: Name
+  readonly superCall?: { superclass: Reference, args: ReadonlyArray<Expression> }
   readonly mixins: ReadonlyArray<Reference>
   readonly members: ReadonlyArray<Method | Field>
 }
@@ -70,7 +71,7 @@ export interface Singleton extends Traceable {
 export interface Mixin extends Traceable {
   readonly kind: 'Mixin'
   readonly name: Name
-  readonly mixins: ReadonlyArray<Mixin>
+  readonly mixins: ReadonlyArray<Reference>
   readonly members: ReadonlyArray<Method | Field>
 }
 
@@ -82,15 +83,13 @@ export interface Program extends Traceable {
 
 export interface Test extends Traceable {
   readonly kind: 'Test'
-  readonly description: Literal<string>
+  readonly description: string
   readonly body: ReadonlyArray<Sentence>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-export type Member = Field | Method | Constructor
 
 export interface Field extends Traceable {
   readonly kind: 'Field'
@@ -111,8 +110,7 @@ export interface Method extends Traceable {
 export interface Constructor extends Traceable {
   readonly kind: 'Constructor'
   readonly parameters: ReadonlyArray<Parameter>
-  readonly baseArgs: ReadonlyArray<Expression>
-  readonly callsSuper: boolean
+  readonly baseCall?: { callsSuper: boolean, args: ReadonlyArray<Expression> }
   readonly body?: ReadonlyArray<Sentence>
 }
 

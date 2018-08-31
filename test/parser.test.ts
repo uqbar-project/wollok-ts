@@ -26,6 +26,10 @@ describe('Wollok parser', () => {
         }).and.be.tracedTo(0, 5)
       })
 
+    })
+
+    describe('Null', () => {
+
       it('should parse "null"', () => {
         'null'.should.be.parsedBy(parser).into({
           kind: 'Literal',
@@ -33,49 +37,51 @@ describe('Wollok parser', () => {
         }).and.be.tracedTo(0, 4)
       })
 
-      // tslint:disable:max-line-length
-      //   """10""" should beParsedTo[Literal[Int], Expression] (Literal(10))
-      //   """-1""" should beParsedTo[Literal[Int], Expression] (Literal(-1))
-      //   """1.5""" should beParsedTo[Literal[Double], Expression] (Literal(1.5))
-      //   """1.""" should not (beParsed())
-      //   """.5""" should not (beParsed())
-
-      //   """"foo"""" should beParsedTo[Literal[String], Expression] (Literal("foo"))
-      //   """''""" should beParsedTo[Literal[String], Expression] (Literal(""))
-      //   """"foo\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\nbar"))
-      //   """"foo\\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\\nbar"))
-      //   """"foo\xbar"""" should not (beParsed())
-
-      //   """[]""" should beParsedTo[New, Expression] (New("wollok.List", Nil))
-      //   """[1,2,3]""" should beParsedTo[New, Expression] (New("wollok.List", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
-      //   """#{}""" should beParsedTo[New, Expression] (New("wollok.Set", Nil))
-      //   """#{1,2,3}""" should beParsedTo[New, Expression] (New("wollok.Set", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
-
-      //   """object {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("")))
-      //   """object { var v; method m(){} }""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", members = Field("v", false) :: Method("m") :: Nil)))
-      //   """object inherits D {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil))))
-      //   """object inherits D(5) {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Literal(5) :: Nil))))
-      //   """object inherits D mixed with M {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil), "M" :: Nil)))
-      //   """object inherits D mixed with M and N {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil), ("N": FullyQualifiedReference) :: ("M": FullyQualifiedReference) :: Nil)))
-      //   """object mixed with M and N {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", None, ("N": FullyQualifiedReference) :: ("M": FullyQualifiedReference) :: Nil)))
-      //   """object { constructor(){} }""" should not (beParsed())
-      //   """object""" should not (beParsed())
-      //   """object inherits D inherits E""" should not (beParsed())
-      //   """object inherits {}""" should not (beParsed())
-      //   """object inherits""" should not (beParsed())
-      //   """object mixed with {}""" should not (beParsed())
-      //   """object mixed with""" should not (beParsed())
-
-      //   """{}""" should beParsedTo[Literal[Singleton], Expression] (Closure())
-      //   """{ => }""" should beParsedTo[Literal[Singleton], Expression] (Closure())
-      //   """{ a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Nil, LocalReference("a") :: Nil))
-      //   """{ a => }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil))
-      //   """{ a => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil, LocalReference("a") :: Nil))
-      //   """{ a => a; b }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil, LocalReference("a") :: LocalReference("b") :: Nil))
-      //   """{ a,b => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Parameter("b") :: Nil, LocalReference("a") :: Nil))
-      //   """{ a,b... => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Parameter("b", true) :: Nil, LocalReference("a") :: Nil))
-      //   """{ a, b c }""" should not (beParsed())
     })
+
+    // tslint:disable:max-line-length
+    //   """10""" should beParsedTo[Literal[Int], Expression] (Literal(10))
+    //   """-1""" should beParsedTo[Literal[Int], Expression] (Literal(-1))
+    //   """1.5""" should beParsedTo[Literal[Double], Expression] (Literal(1.5))
+    //   """-1.5""" should beParsedTo[Literal[Double], Expression] (Literal(1.5))
+    //   """1.""" should not (beParsed())
+    //   """.5""" should not (beParsed())
+
+    //   """"foo"""" should beParsedTo[Literal[String], Expression] (Literal("foo"))
+    //   """''""" should beParsedTo[Literal[String], Expression] (Literal(""))
+    //   """"foo\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\nbar"))
+    //   """"foo\\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\\nbar"))
+    //   """"foo\xbar"""" should not (beParsed())
+
+    //   """[]""" should beParsedTo[New, Expression] (New("wollok.List", Nil))
+    //   """[1,2,3]""" should beParsedTo[New, Expression] (New("wollok.List", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
+    //   """#{}""" should beParsedTo[New, Expression] (New("wollok.Set", Nil))
+    //   """#{1,2,3}""" should beParsedTo[New, Expression] (New("wollok.Set", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
+
+    //   """object {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("")))
+    //   """object { var v; method m(){} }""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", members = Field("v", false) :: Method("m") :: Nil)))
+    //   """object inherits D {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil))))
+    //   """object inherits D(5) {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Literal(5) :: Nil))))
+    //   """object inherits D mixed with M {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil), "M" :: Nil)))
+    //   """object inherits D mixed with M and N {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", Some("D", Nil), ("N": FullyQualifiedReference) :: ("M": FullyQualifiedReference) :: Nil)))
+    //   """object mixed with M and N {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", None, ("N": FullyQualifiedReference) :: ("M": FullyQualifiedReference) :: Nil)))
+    //   """object { constructor(){} }""" should not (beParsed())
+    //   """object""" should not (beParsed())
+    //   """object inherits D inherits E""" should not (beParsed())
+    //   """object inherits {}""" should not (beParsed())
+    //   """object inherits""" should not (beParsed())
+    //   """object mixed with {}""" should not (beParsed())
+    //   """object mixed with""" should not (beParsed())
+
+    //   """{}""" should beParsedTo[Literal[Singleton], Expression] (Closure())
+    //   """{ => }""" should beParsedTo[Literal[Singleton], Expression] (Closure())
+    //   """{ a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Nil, LocalReference("a") :: Nil))
+    //   """{ a => }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil))
+    //   """{ a => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil, LocalReference("a") :: Nil))
+    //   """{ a => a; b }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Nil, LocalReference("a") :: LocalReference("b") :: Nil))
+    //   """{ a,b => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Parameter("b") :: Nil, LocalReference("a") :: Nil))
+    //   """{ a,b... => a }""" should beParsedTo[Literal[Singleton], Expression] (Closure(Parameter("a") :: Parameter("b", true) :: Nil, LocalReference("a") :: Nil))
+    //   """{ a, b c }""" should not (beParsed())
 
   })
 

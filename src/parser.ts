@@ -1,7 +1,9 @@
 // tslint:disable:no-shadowed-variable
+// tslint:disable:variable-name
 import { alt, createLanguage, index, of, optWhitespace as _, Parser, regex, seq, seqMap, string } from 'parsimmon'
-import { Expression, LiteralValue, Name, node, NodeKind, NodeOfKind, NodePayload, Parameter, Send, Sentence, Singleton } from './model'
+import { Constructor, Entity, Expression, Field, LiteralValue, Method, Name, node, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Send, Sentence, Singleton } from './model'
 
+const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=']
 const PREFIX_OPERATORS = ['!', '-', '+']
 const INFIX_OPERATORS = [
   ['||'],
@@ -13,23 +15,21 @@ const INFIX_OPERATORS = [
   ['**', '%'],
   ['*', '/'],
 ]
-const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=']
-// const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS)
+const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS)
 
-// type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
-type Parsers = { [K in 'Literal' | 'Parameter' | 'Self' | 'Super' | 'New' | 'If' | 'Throw' |
-  'Try' | 'Send' | 'Variable' | 'Return' | 'Assignment' | 'Reference']: NodeOfKind<K> } & {
-  Expression: Expression
-  Sentence: Sentence
+type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
+  File: Package,
 
   Name: Name
-  Parameters: Parameter[]
-  Arguments: Expression[]
   Block: Sentence[],
-  Closure: Singleton,
-
+  Arguments: Expression[]
+  Parameters: Parameter[]
+  Expression: Expression
+  Sentence: Sentence
   PrimaryExpression: Expression,
   Operation: Expression,
+  Closure: Singleton,
+  String: string,
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -38,17 +38,16 @@ type Parsers = { [K in 'Literal' | 'Parameter' | 'Self' | 'Super' | 'New' | 'If'
 
 const key = (str: string) => string(str).trim(_)
 
-export default createLanguage<Parsers>({
+// TODO: ? or(of(undefined))
+// TODO: wrap({,})
 
-  // TODO:
-  Name: ({ Name }) => Name,
+export default createLanguage<Parsers>({
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // COMMON
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  // TODO:
-  Reference: ({ Reference }) => Reference.trim(_),
+  Name: () => regex(/[a-zA-Z_][a-zA-Z0-9_]*/),
 
   Parameter: ({ Name }) => seqMap(
     Name,
@@ -62,11 +61,118 @@ export default createLanguage<Parsers>({
 
   Block: ({ Sentence }) => Sentence.skip(key(';').atMost(1)).many().wrap(key('{'), key('}')),
 
+  // TODO:
+  // protected lazy val localReference: Parser[LocalReference] = name
+  // protected lazy val Reference: Parser[Reference] = name +~ "."
+  Reference: ({ Reference }) => Reference.trim(_),
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // ENTITIES
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Import: ({ Reference }) => seqMap(
+    key('import').then(Reference),
+    key('.*').or(of(false)).skip(key(';').atMost(1)),
+    (reference, isGeneric) => ({ reference, isGeneric: !!isGeneric })
+  ).thru(makeNode('Import')),
+
+
+  File: ({ Package, Class, Singleton, Mixin, Program, Test, Import }) => seqMap(
+    Import.many(),
+    alt<Entity>(Package, Class, Singleton, Mixin, Program, Test).many(),
+    (imports, members) => ({ name: '', imports, members })
+  ).thru(makeNode('Package')),
+
+
+  Package: ({ Name, Package, Class, Singleton, Mixin, Program, Test, Import }) => seqMap(
+    key('package').then(Name),
+    Import.many(),
+    alt<Entity>(Package, Class, Singleton, Mixin, Program, Test).many().wrap(key('{'), key('}')),
+    (name, imports, members) => ({ name, imports, members })
+  ).thru(makeNode('Package')),
+
+
+  Program: ({ Name, Sentence }) => seqMap(
+    key('program').then(Name),
+    Sentence.many().wrap(key('{'), key('}')),
+    (name, body) => ({ name, body })
+  ).thru(makeNode('Program')),
+
+
+  Test: ({ String, Sentence }) => seqMap(
+    key('test').then(String),
+    Sentence.many().wrap(key('{'), key('}')),
+    (description, body) => ({ description, body })
+  ).thru(makeNode('Test')),
+
+
+  Class: ({ Name, Reference, Method, Field, Constructor }) => seqMap(
+    key('class').then(Name),
+    key('inherits').then(Reference).or(of(undefined)),
+    key('mixed with').then(Reference.sepBy(key('and'))),
+    alt<Method | Field | Constructor>(Method, Field, Constructor).many().wrap(key('{'), key('}')),
+    (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
+  ).thru(makeNode('Class')),
+
+
+  Singleton: ({ Name, Reference, Method, Field, Arguments }) => seqMap(
+    key('object').then(Name.or(of(undefined))),
+    key('inherits').then(seqMap(Reference, Arguments.or(of([])), (reference, args) => ({ reference, args }))).or(of(undefined)),
+    key('mixed with').then(Reference.sepBy(key('and'))),
+    alt<Method | Field>(Method, Field).many().wrap(key('{'), key('}')),
+    (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
+  ).thru(makeNode('Singleton')),
+
+
+  Mixin: ({ Name, Reference, Method, Field }) => seqMap(
+    key('mixin').then(Name),
+    key('mixed with').then(Reference.sepBy(key('and'))),
+    alt<Method | Field>(Method, Field).many().wrap(key('{'), key('}')),
+    (name, mixins, members) => ({ name, mixins, members })
+  ).thru(makeNode('Mixin')),
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // MEMBERS
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Field: ({ Expression, Name }) => seqMap(
+    alt(key('var').result(false), key('const').result(true)),
+    Name,
+    key('=').then(Expression).or(of(undefined)),
+    (isReadOnly, name, value) => ({ isReadOnly, name, value })
+  ).thru(makeNode('Field')),
+
+
+  Method: ({ Name, Parameters, Expression, Block }) => seqMap(
+    key('override').result(true).or(of(false)),
+    key('method').then(alt(Name, ...OPERATORS.map(key))),
+    Parameters,
+    alt(
+      key('native').result({ isNative: true, body: undefined }),
+      key('=').then(Expression.times(1)).map(body => ({ isNative: false, body })),
+      Block.map(body => ({ isNative: false, body })),
+    ),
+    (isOverride, name, parameters, { isNative, body }) => ({ isOverride, name, parameters, isNative, body })
+  ).thru(makeNode('Method')),
+
+
+  Constructor: ({ Parameters, Arguments, Block }) => seqMap(
+    key('constructor').then(Parameters),
+    key('=').then(seqMap(
+      alt(key('self').result(false), key('super').result(true)),
+      Arguments,
+      (callsSuper, args) => ({ callsSuper, args }))
+    ).or(of(undefined)),
+    Block,
+    (parameters, baseCall, body) => ({ parameters, baseCall, body })
+  ).thru(makeNode('Constructor')),
+
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // SENTENCES
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   Sentence: ({ Variable, Return, Assignment, Expression }) => alt(Variable, Return, Assignment, Expression),
+
 
   Variable: ({ Name, Expression }) => seqMap(
     alt(key('var').then(of(false)), key('const').then(of(true))),
@@ -75,7 +181,9 @@ export default createLanguage<Parsers>({
     (isReadOnly, name, value) => ({ isReadOnly, name, value })
   ).thru(makeNode('Variable')),
 
+
   Return: ({ Expression }) => key('return').then(Expression).map(value => ({ value })).thru(makeNode('Return')),
+
 
   Assignment: ({ Reference, Expression }) => seqMap(
     Reference,
@@ -187,21 +295,24 @@ export default createLanguage<Parsers>({
   // LITERALS
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  Literal: ({ Expression, Closure }) => alt<LiteralValue>(
+  Literal: ({ Expression, String, Closure }) => alt<LiteralValue>(
     key('null').result(null),
     key('true').result(true),
     key('false').result(false),
     regex(/-?\d+(\.\d+)?/).map(Number),
-    regex(/(\\b|\\t|\\n|\\f|\\r|\\u|\\"|\\\\|[^"\\])*/).wrap(string('"'), string('"')),
     Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
     Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
+    String,
     Closure,
   ).map(value => ({ value })).thru(makeNode('Literal')),
 
 
+  String: () => regex(/(\\b|\\t|\\n|\\f|\\r|\\u|\\"|\\\\|[^"\\])*/).wrap(string('"'), string('"')),
+
+
   Closure: ({ Parameters, Sentence }) => seqMap(
     Parameters.skip(key('=>')).or(of([])),
-    Sentence.skip(key(';').or(of(''))).many(),
+    Sentence.skip(key(';').atMost(1)).many(),
     makeClosure
   ).wrap(key('{'), key('}')),
 
@@ -220,8 +331,7 @@ const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (pars
 
 const makeClosure = (parameters: Parameter[], body: Sentence[]) => node('Singleton')({
   name: '',
-  superclass: node('Reference')({ name: 'wollok.Closure' }),
-  superArgs: [],
+  superCall: { superclass: node('Reference')({ name: 'wollok.Closure' }), args: [] },
   mixins: [],
   members: [
     node('Method')({ name: 'apply', isOverride: false, isNative: false, parameters, body }),
@@ -237,48 +347,3 @@ const makeSet = (args: Expression[]) => node('New')({
   className: node('Reference')({ name: 'wollok.Set' }),
   args,
 })
-
-
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// // COMMON
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-// protected lazy val name: Parser[Name] = """\^?[a-zA-Z_][a-zA-Z0-9_]*""".r
-
-// protected lazy val localReference: Parser[LocalReference] = name
-// protected lazy val Reference: Parser[Reference] = name +~ "."
-
-
-// private def block[T](content: Parser[T]): Parser[Seq[T]] = "{" ~> (content *~ ";".?) <~ "}"
-
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// // TOP LEVEL
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-// protected lazy val file: Parser[Package] = importStatement.* ~ packageMember.*
-// protected lazy val importStatement: Parser[Import] = "import" ~> Reference ~ ".*".??
-// private lazy val packageMember: Parser[Member[Package]] = packageDef | singletonDef(true) | classDef | mixinDef | programDef | testDef
-
-// protected lazy val programDef: Parser[Program] = "program" ~> name ~ block(sentence)
-// protected lazy val testDef: Parser[Test] = "test" ~> stringLiteral ~ block(sentence)
-// protected lazy val packageDef: Parser[Package] = "package" ~> name ~ ("{" ~> packageMember.* <~ "}")
-// classDef: Parser[Class] = "class" ~> name ~ ("inherits" ~> Reference).? ~ mixinInclusion.?* ~ block(classMember)
-// protected lazy val mixinDef: Parser[Mixin] = "mixin" ~> name ~ block(moduleMember)
-// singletonDef(named: Boolean) = "object" ~> (if (named) name else "") ~
-//    ("inherits" ~> Reference ~ arguments.?*).? ~ mixinInclusion.?* ~ block(moduleMember)
-
-// mixinInclusion: Parser[Seq[Reference]] = "mixed with" ~> (Reference +~ ("and" | ",")) ^^ { _.reverse }
-
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// // MODULE MEMBERS
-// //──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-// private lazy val classMember: Parser[Member[Class]] = constructor | moduleMember
-// private lazy val moduleMember: Parser[Member[Module]] = field | method
-
-// constructor: Parser[Constructor] = "constructor" ~> parameters ~ ("=" ~> ("self" | "super") ~ arguments).? ~ block(sentence).?
-// protected lazy val field: Parser[Field] = ("var" | "const") ~ name ~ ("=" ~> expression).?
-// protected lazy val method: Parser[Method] = ("override".?? <~ "method") ~ (name | operator) ~ parameters ~ methodBody
-
-// methodBody: Parser[(Boolean, Option[Seq[Sentence]])] = "native" ^^^ (true, None)
-//   | (block(sentence) | "=" ~> expression.*#(1)).? ^^ { false -> _ }

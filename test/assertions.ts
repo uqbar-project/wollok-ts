@@ -6,6 +6,7 @@ declare global {
       parsedBy(parser: Parser<any>): Assertion
       into(expected: {}): Assertion
       tracedTo(start: number, end: number): Assertion
+      also: Assertion
     }
   }
 }
@@ -23,7 +24,7 @@ export const parserAssertions = ({ Assertion }: any, { flag }: any) => {
   })
 
   Assertion.addProperty('also', function(this: any) {
-    flag(this, 'object', flag(this, 'objectBeforePropertyChain'))
+    this._obj = flag(this, 'objectBeforePropertyChain')
   })
 
   Assertion.addMethod('parsedBy', function(this: any, parser: Parser<any>) {
