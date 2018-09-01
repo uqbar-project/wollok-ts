@@ -18,18 +18,18 @@ const INFIX_OPERATORS = [
 const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS)
 
 type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
-  File: Package,
+  File: Package
 
   Name: Name
-  Block: Sentence[],
+  Block: Sentence[]
   Arguments: Expression[]
   Parameters: Parameter[]
   Expression: Expression
   Sentence: Sentence
-  PrimaryExpression: Expression,
-  Operation: Expression,
-  Closure: Singleton,
-  String: string,
+  PrimaryExpression: Expression
+  Operation: Expression
+  Closure: Singleton
+  String: string
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -37,9 +37,7 @@ type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const key = (str: string) => string(str).trim(_)
-
-// TODO: ? or(of(undefined))
-// TODO: wrap({,})
+const optional = <T>(parser: Parser<T>) => parser.or(of(undefined))
 
 export default createLanguage<Parsers>({
 
@@ -60,11 +58,6 @@ export default createLanguage<Parsers>({
   Arguments: ({ Expression }) => Expression.sepBy(key(',')).wrap(key('('), key(')')),
 
   Block: ({ Sentence }) => Sentence.skip(key(';').atMost(1)).many().wrap(key('{'), key('}')),
-
-  // TODO:
-  // protected lazy val localReference: Parser[LocalReference] = name
-  // protected lazy val Reference: Parser[Reference] = name +~ "."
-  Reference: ({ Reference }) => Reference.trim(_),
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // ENTITIES
@@ -108,7 +101,7 @@ export default createLanguage<Parsers>({
 
   Class: ({ Name, Reference, Method, Field, Constructor }) => seqMap(
     key('class').then(Name),
-    key('inherits').then(Reference).or(of(undefined)),
+    optional(key('inherits').then(Reference)),
     key('mixed with').then(Reference.sepBy(key('and'))),
     alt<Method | Field | Constructor>(Method, Field, Constructor).many().wrap(key('{'), key('}')),
     (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
@@ -116,8 +109,8 @@ export default createLanguage<Parsers>({
 
 
   Singleton: ({ Name, Reference, Method, Field, Arguments }) => seqMap(
-    key('object').then(Name.or(of(undefined))),
-    key('inherits').then(seqMap(Reference, Arguments.or(of([])), (reference, args) => ({ reference, args }))).or(of(undefined)),
+    key('object').then(optional(Name)),
+    optional(key('inherits').then(seqMap(Reference, Arguments.or(of([])), (reference, args) => ({ reference, args })))),
     key('mixed with').then(Reference.sepBy(key('and'))),
     alt<Method | Field>(Method, Field).many().wrap(key('{'), key('}')),
     (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
@@ -138,7 +131,7 @@ export default createLanguage<Parsers>({
   Field: ({ Expression, Name }) => seqMap(
     alt(key('var').result(false), key('const').result(true)),
     Name,
-    key('=').then(Expression).or(of(undefined)),
+    optional(key('=').then(Expression)),
     (isReadOnly, name, value) => ({ isReadOnly, name, value })
   ).thru(makeNode('Field')),
 
@@ -158,11 +151,11 @@ export default createLanguage<Parsers>({
 
   Constructor: ({ Parameters, Arguments, Block }) => seqMap(
     key('constructor').then(Parameters),
-    key('=').then(seqMap(
+    optional(key('=').then(seqMap(
       alt(key('self').result(false), key('super').result(true)),
       Arguments,
       (callsSuper, args) => ({ callsSuper, args }))
-    ).or(of(undefined)),
+    )),
     Block,
     (parameters, baseCall, body) => ({ parameters, baseCall, body })
   ).thru(makeNode('Constructor')),
@@ -177,7 +170,7 @@ export default createLanguage<Parsers>({
   Variable: ({ Name, Expression }) => seqMap(
     alt(key('var').then(of(false)), key('const').then(of(true))),
     Name,
-    key('=').then(Expression).or(of(undefined)),
+    optional(key('=').then(Expression)),
     (isReadOnly, name, value) => ({ isReadOnly, name, value })
   ).thru(makeNode('Variable')),
 
@@ -218,6 +211,9 @@ export default createLanguage<Parsers>({
   Self: () => key('self').result({}).thru(makeNode('Self')),
 
 
+  Reference: ({ Name }) => Name.sepBy(key('.')).tieWith('.').map(name => ({ name })).thru(makeNode('Reference')),
+
+
   Super: ({ Arguments }) => key('super').then(Arguments).map(args => ({ args })).thru(makeNode('Super')),
 
 
@@ -243,7 +239,7 @@ export default createLanguage<Parsers>({
     key('try').then(alt(Sentence.times(1), Block)),
     seqMap(
       key('catch').then(Parameter),
-      key(':').then(Reference).or(of(undefined)),
+      optional(key(':').then(Reference)),
       alt(Sentence.times(1), Block),
       (parameter, parameterType, body) => ({ parameter, parameterType, body })
     ).many(),
@@ -310,8 +306,8 @@ export default createLanguage<Parsers>({
   String: () => regex(/(\\b|\\t|\\n|\\f|\\r|\\u|\\"|\\\\|[^"\\])*/).wrap(string('"'), string('"')),
 
 
-  Closure: ({ Parameters, Sentence }) => seqMap(
-    Parameters.skip(key('=>')).or(of([])),
+  Closure: ({ Parameter, Sentence }) => seqMap(
+    Parameter.sepBy(key(',')).skip(key('=>')).or(of([])),
     Sentence.skip(key(';').atMost(1)).many(),
     makeClosure
   ).wrap(key('{'), key('}')),
