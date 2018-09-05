@@ -33,7 +33,6 @@ You might also want to copy the following configurations to your user settings (
   "files.exclude": {
     "dist": true,
     ".vscode": true,
-    "yarn.lock": true,
     "node_modules": true,
   },
   "git.enabled": false,
@@ -49,28 +48,20 @@ You might also want to copy the following configurations to your user settings (
   "editor.foldingStrategy": "indentation",
 ```
 
-### Yarn
+### NPM
 
-You will also need to install [Yarn](https://yarnpkg.com/). If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
+You will also need to install [NPM](https://www.npmjs.com/). If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
 
 ```bash
 # This will install all the project dependencies. Give it some time.
-yarn install
+npm install
 ```
 
-After that, you are ready to start working. You can **run the test suite** by typing:
+After that, you are ready to start working. You can **run the tests and style checks** by typing:
 
 ```bash
 # This will run tests for all the modules. Try to do this often and avoid commiting changes if any test fails.
-yarn test
-```
-
-Or check if your changes comply with our **style policies** by running:
-
-```bash
-# This will ensure we all apply the same code style.
-# If you used the tools as described above this won't be necessary, since the IDE will highlight the errors (and fix most of them on save!).
-yarn lint
+npm test
 ```
 
 A full list of the available scripts is listed on the `package.json` file, on the root folder.

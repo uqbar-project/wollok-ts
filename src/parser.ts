@@ -291,7 +291,7 @@ export default createLanguage<Parsers>({
   // LITERALS
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  Literal: ({ Expression, String, Closure }) => alt<LiteralValue>(
+  Literal: ({ Expression, String, Closure, Singleton }) => alt<LiteralValue>(
     key('null').result(null),
     key('true').result(true),
     key('false').result(false),
@@ -300,6 +300,7 @@ export default createLanguage<Parsers>({
     Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
     String,
     Closure,
+    Singleton,
   ).map(value => ({ value })).thru(makeNode('Literal')),
 
 
