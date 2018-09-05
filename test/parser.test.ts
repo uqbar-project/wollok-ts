@@ -39,24 +39,179 @@ describe('Wollok parser', () => {
 
     })
 
-    // tslint:disable:max-line-length
-    //   """10""" should beParsedTo[Literal[Int], Expression] (Literal(10))
-    //   """-1""" should beParsedTo[Literal[Int], Expression] (Literal(-1))
-    //   """1.5""" should beParsedTo[Literal[Double], Expression] (Literal(1.5))
-    //   """-1.5""" should beParsedTo[Literal[Double], Expression] (Literal(1.5))
-    //   """1.""" should not (beParsed())
-    //   """.5""" should not (beParsed())
+    describe('Numbers', () => {
 
-    //   """"foo"""" should beParsedTo[Literal[String], Expression] (Literal("foo"))
-    //   """''""" should beParsedTo[Literal[String], Expression] (Literal(""))
-    //   """"foo\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\nbar"))
-    //   """"foo\\nbar"""" should beParsedTo[Literal[String], Expression] (Literal(raw"foo\\nbar"))
-    //   """"foo\xbar"""" should not (beParsed())
+      it('should parse "10"', () => {
+        '10'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: 10,
+        }).and.be.tracedTo(0, 2)
+      })
 
-    //   """[]""" should beParsedTo[New, Expression] (New("wollok.List", Nil))
-    //   """[1,2,3]""" should beParsedTo[New, Expression] (New("wollok.List", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
-    //   """#{}""" should beParsedTo[New, Expression] (New("wollok.Set", Nil))
-    //   """#{1,2,3}""" should beParsedTo[New, Expression] (New("wollok.Set", Literal(1) :: Literal(2) :: Literal(3) :: Nil))
+      it('should parse "-1"', () => {
+        '-1'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: -1,
+        }).and.be.tracedTo(0, 2)
+      })
+
+      it('should parse "1.5"', () => {
+        '1.5'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: 1.5,
+        }).and.be.tracedTo(0, 3)
+      })
+
+      it('should parse "-1.5"', () => {
+        '-1.5'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: -1.5,
+        }).and.be.tracedTo(0, 4)
+      })
+
+      it('should not parse "1."', () => {
+        '1.'.should.not.be.parsedBy(parser)
+      })
+
+      it('should not parse ".5"', () => {
+        '.5'.should.not.be.parsedBy(parser)
+      })
+
+    })
+
+    describe('Strings', () => {
+
+      it('should parse "foo"', () => {
+        '"foo"'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: "foo",
+        }).and.be.tracedTo(0, 5)
+      })
+
+      it('should parse ""', () => {
+        '""'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: "",
+        }).and.be.tracedTo(0, 2)
+      })
+ 
+      it('should parse "foo\nbar"', () => {
+        '"foo\nbar"'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: "foo\nbar",
+        }).and.be.tracedTo(0, 10)
+      })
+
+      it('should parse "foo\\nbar"', () => {
+        '"foo\\nbar"'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: "foo\\nbar",
+        }).and.be.tracedTo(0, 11)
+      })
+
+      it('should not parse "foo\xbar"', () => {
+        '"foo\xbar"'.should.not.be.parsedBy(parser)
+      })
+
+    })
+
+    describe('Collections', () => {
+      
+      it('should parse "[]"', () => {
+        '[]'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: {
+            kind: 'New',
+            args: [{
+                  kind: 'Reference',
+                  name: '',
+                }],
+            className: {
+              kind: 'Reference',
+              name: 'wollok.List',
+            }
+          },
+        }).and.be.tracedTo(0, 2)
+      })
+
+      it('should parse "[1,2,3]"', () => {
+        '[1,2,3]'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: {
+            kind: 'New',
+            args: [{
+              kind: 'Literal',
+              value: 1,
+              },{
+              kind: 'Literal',
+              value: 2,
+              },{
+              kind: 'Literal',
+              value: 3,
+              }
+            ],
+            className: {
+              kind: 'Reference',
+              name: 'wollok.List',
+            }
+          },
+        }).and.be.tracedTo(0, 7)
+      })
+
+      it('should parse "#{}"', () => {
+        '#{}'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: {
+            kind: 'New',
+            args: [{
+                  kind: 'Reference',
+                  name: '',
+                }],
+            className: {
+              kind: 'Reference',
+              name: 'wollok.Set',
+            }
+          },
+        }).and.be.tracedTo(0, 3)
+      })
+
+      it('should parse "#{1,2,3}"', () => {
+        '#{1,2,3}'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: {
+            kind: 'New',
+            args: [{
+              kind: 'Literal',
+              value: 1,
+              },{
+              kind: 'Literal',
+              value: 2,
+              },{
+              kind: 'Literal',
+              value: 3,
+              }
+            ],
+            className: {
+              kind: 'Reference',
+              name: 'wollok.Set',
+            }
+          },
+        }).and.be.tracedTo(0, 8)
+      })
+
+    })
+
+    /*
+    describe('Objects', () => {
+      it('should parse "object {}"', () => {
+        'object {}'.should.be.parsedBy(parser).into({
+          kind: 'Literal',
+          value: {
+            kind: 'Singleton',
+          },
+        }).and.be.tracedTo(0, 9)
+      })
+    })*/
 
     //   """object {}""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("")))
     //   """object { var v; method m(){} }""" should beParsedTo[Literal[Singleton], Expression] (Literal(Singleton("", members = Field("v", false) :: Method("m") :: Nil)))
