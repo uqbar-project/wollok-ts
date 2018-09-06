@@ -1,5 +1,6 @@
 import { should } from 'chai'
 import link from '../src/linker'
+import { Class, Environment, Field, Package } from './builders'
 
 should()
 
@@ -8,67 +9,78 @@ describe('Wollok linker', () => {
   it('should merge independent packages into a single environment', () => {
 
     link([
-      { kind: 'Package', name: 'A', imports: [], members: [{ kind: 'Package', name: 'B', imports: [], members: [] }] },
-      { kind: 'Package', name: 'B', imports: [], members: [] },
-      { kind: 'Package', name: 'C', imports: [], members: [{ kind: 'Class', name: 'B', mixins: [], members: [] }] },
-    ]).should.deep.equal({
-      members: [
-        { kind: 'Package', name: 'A', imports: [], members: [{ kind: 'Package', name: 'B', imports: [], members: [] }] },
-        { kind: 'Package', name: 'B', imports: [], members: [] },
-        { kind: 'Package', name: 'C', imports: [], members: [{ kind: 'Class', name: 'B', mixins: [], members: [] }] },
-      ],
-    })
+      Package('A')(
+        Package('B')(),
+      ),
+      Package('B')(),
+      Package('C')(
+        Class('B')(),
+      ),
+    ]).should.deep.equal(
+      Environment(
+        Package('A')(
+          Package('B')(),
+        ),
+        Package('B')(),
+        Package('C')(
+          Class('B')(),
+        ),
+      )
+    )
 
 
     link([
-      { kind: 'Package', name: 'A', imports: [], members: [{ kind: 'Class', name: 'X', mixins: [], members: [] }] },
-      { kind: 'Package', name: 'A', imports: [], members: [{ kind: 'Class', name: 'Y', mixins: [], members: [] }] },
-      { kind: 'Package', name: 'B', imports: [], members: [{ kind: 'Class', name: 'X', mixins: [], members: [] }] },
-    ]).should.deep.equal({
-      members: [
-        {
-          kind: 'Package', name: 'A', imports: [], members: [
-            { kind: 'Class', name: 'X', mixins: [], members: [] },
-            { kind: 'Class', name: 'Y', mixins: [], members: [] },
-          ],
-        },
-        { kind: 'Package', name: 'B', imports: [], members: [{ kind: 'Class', name: 'X', mixins: [], members: [] }] }, ],
-    })
+      Package('A')(
+        Class('X')()
+      ),
+      Package('A')(
+        Class('Y')()
+      ),
+      Package('B')(
+        Class('X')()
+      ),
+    ]).should.deep.equal(
+      Environment(
+        Package('A')(
+          Class('X')(),
+          Class('Y')(),
+        ),
+        Package('B')(
+          Class('X')(),
+        ),
+      ),
+    )
 
 
     link([
-      {
-        kind: 'Package', name: 'A', imports: [], members: [
-          {
-            kind: 'Package', name: 'B', imports: [], members: [
-              { kind: 'Class', name: 'X', mixins: [], members: [{ kind: 'Field', isReadOnly: true, name: 'u' }] },
-            ],
-          },
-        ],
-      },
-      {
-        kind: 'Package', name: 'A', imports: [], members: [
-          {
-            kind: 'Package', name: 'B', imports: [], members: [
-              { kind: 'Class', name: 'Y', mixins: [], members: [{ kind: 'Field', isReadOnly: true, name: 'v' }] },
-            ],
-          },
-        ],
-      },
-    ]).should.deep.equal({
-      members: [
-        {
-          kind: 'Package', name: 'A', imports: [], members: [
-            {
-              kind: 'Package', name: 'B', imports: [], members: [
-                { kind: 'Class', name: 'X', mixins: [], members: [{ kind: 'Field', isReadOnly: true, name: 'u' }] },
-                { kind: 'Class', name: 'Y', mixins: [], members: [{ kind: 'Field', isReadOnly: true, name: 'v' }] },
-              ],
-            },
-          ],
-        },
-      ],
-    })
+      Package('A')(
+        Package('B')(
+          Class('X')(
+            Field('u')
+          ),
+        ),
+      ),
+      Package('A')(
+        Package('B')(
+          Class('Y')(
+            Field('v')
+          ),
+        ),
+      ),
+    ]).should.deep.equal(
+      Environment(
+        Package('A')(
+          Package('B')(
+            Class('X')(
+              Field('u')
+            ),
+            Class('Y')(
+              Field('v')
+            ),
+          ),
+        )
+      )
+    )
 
 
   })

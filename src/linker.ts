@@ -1,8 +1,5 @@
-import { Entity, Package } from './model'
+import { Entity, Environment, Package } from './model'
 
-export interface Environment {
-  readonly members: ReadonlyArray<Entity>
-}
 
 export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment => {
   const merge = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
