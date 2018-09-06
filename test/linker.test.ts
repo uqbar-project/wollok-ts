@@ -9,61 +9,76 @@ describe('Wollok linker', () => {
   it('should merge independent packages into a single environment', () => {
 
     link([
-      Package('A', { members: [Package('B')] }),
-      Package('B'),
-      Package('C', { members: [Class('B')] }),
+      Package('A')(
+        Package('B')(),
+      ),
+      Package('B')(),
+      Package('C')(
+        Class('B')(),
+      ),
     ]).should.deep.equal(
       Environment(
-        Package('A', { members: [Package('B')] }),
-        Package('B'),
-        Package('C', { members: [Class('B')] }),
+        Package('A')(
+          Package('B')(),
+        ),
+        Package('B')(),
+        Package('C')(
+          Class('B')(),
+        ),
       )
     )
 
 
     link([
-      Package('A', { members: [Class('X')] }),
-      Package('A', { members: [Class('Y')] }),
-      Package('B', { members: [Class('X')] }),
+      Package('A')(
+        Class('X')()
+      ),
+      Package('A')(
+        Class('Y')()
+      ),
+      Package('B')(
+        Class('X')()
+      ),
     ]).should.deep.equal(
       Environment(
-        Package('A', { members: [Class('X'), Class('Y')] }),
-        Package('B', { members: [Class('X')] }),
+        Package('A')(
+          Class('X')(),
+          Class('Y')(),
+        ),
+        Package('B')(
+          Class('X')(),
+        ),
       ),
     )
 
 
     link([
-      Package('A', {
-        members: [
-          Package('B', {
-            members: [
-              Class('X', { members: [Field('u')] }),
-            ],
-          }),
-        ],
-      }),
-      Package('A', {
-        members: [
-          Package('B', {
-            members: [
-              Class('Y', { members: [Field('v')] }),
-            ],
-          }),
-        ],
-      }),
+      Package('A')(
+        Package('B')(
+          Class('X')(
+            Field('u')
+          ),
+        ),
+      ),
+      Package('A')(
+        Package('B')(
+          Class('Y')(
+            Field('v')
+          ),
+        ),
+      ),
     ]).should.deep.equal(
       Environment(
-        Package('A', {
-          members: [
-            Package('B', {
-              members: [
-                Class('X', { members: [Field('u')] }),
-                Class('Y', { members: [Field('v')] }),
-              ],
-            }),
-          ],
-        })
+        Package('A')(
+          Package('B')(
+            Class('X')(
+              Field('u')
+            ),
+            Class('Y')(
+              Field('v')
+            ),
+          ),
+        )
       )
     )
 

@@ -22,47 +22,57 @@ export const Import = (reference: ReferenceNode, payload?: Partial<NodePayload<I
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode>>) => node('Package')({
-  name,
-  imports: [],
-  members: [],
-  ...payload,
-})
-
-
-export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
-  node('Class')({
+export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode>>) =>
+  (...members: Entity[]) => node('Package')({
     name,
-    mixins: [],
-    members: [],
+    members,
+    imports: [],
     ...payload,
   })
 
-export const Singleton = (name: Name, payload?: Partial<NodePayload<SingletonNode>>) => node('Singleton')({
-  name,
-  mixins: [],
-  members: [],
-  ...payload,
-})
 
-export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) => node('Mixin')({
-  name,
-  mixins: [],
-  members: [],
-  ...payload,
-})
+export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
+  (...members: (FieldNode | MethodNode | ConstructorNode)[]) =>
+    node('Class')({
+      name,
+      members,
+      mixins: [],
+      ...payload,
+    })
 
-export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode>>) => node('Program')({
-  name,
-  body: [],
-  ...payload,
-})
+export const Singleton = (name: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
+  (...members: (FieldNode | MethodNode)[]) =>
+    node('Singleton')({
+      name,
+      members,
+      mixins: [],
+      ...payload,
+    })
 
-export const Test = (description: string, payload?: Partial<NodePayload<TestNode>>) => node('Test')({
-  description,
-  body: [],
-  ...payload,
-})
+export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) =>
+  (...members: (FieldNode | MethodNode)[]) =>
+    node('Mixin')({
+      name,
+      members,
+      mixins: [],
+      ...payload,
+    })
+
+export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode>>) =>
+  (...body: Sentence[]) =>
+    node('Program')({
+      name,
+      body,
+      ...payload,
+    })
+
+export const Test = (description: string, payload?: Partial<NodePayload<TestNode>>) =>
+  (...body: Sentence[]) =>
+    node('Test')({
+      description,
+      body,
+      ...payload,
+    })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
@@ -74,20 +84,22 @@ export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode>>) => 
   ...payload,
 })
 
-export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode>>) => node('Method')({
-  name,
-  isOverride: false,
-  isNative: false,
-  parameters: [],
-  body: [],
-  ...payload,
-})
+export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode>>) =>
+  (...body: Sentence[]) => node('Method')({
+    name,
+    body,
+    isOverride: false,
+    isNative: false,
+    parameters: [],
+    ...payload,
+  })
 
-export const Constructor = (payload?: Partial<NodePayload<ConstructorNode>>) => node('Constructor')({
-  parameters: [],
-  body: [],
-  ...payload,
-})
+export const Constructor = (payload?: Partial<NodePayload<ConstructorNode>>) =>
+  (...body: Sentence[]) => node('Constructor')({
+    body,
+    parameters: [],
+    ...payload,
+  })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
