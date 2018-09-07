@@ -40,7 +40,7 @@ export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
       ...payload,
     })
 
-export const Singleton = (name: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
+export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
   (...members: (FieldNode | MethodNode)[]) =>
     node('Singleton')({
       name,
