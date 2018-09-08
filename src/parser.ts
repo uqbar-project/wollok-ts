@@ -1,7 +1,8 @@
 // tslint:disable:no-shadowed-variable
 // tslint:disable:variable-name
-import { alt, createLanguage, index, of, optWhitespace as _, Parser, regex, seq, seqMap, string } from 'parsimmon'
-import { Constructor, Entity, Expression, Field, LiteralValue, Method, Name, node, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Send, Sentence, Singleton } from './model'
+import { alt, createLanguage, index, notFollowedBy, of, optWhitespace as _, Parser, regex, seq, seqMap, string } from 'parsimmon'
+import { concat } from 'ramda'
+import { Constructor, Entity, Expression, Field, LiteralValue, Method, Name, node, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Reference, Send, Sentence, Singleton } from './model'
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -15,7 +16,7 @@ const INFIX_OPERATORS = [
   ['**', '%'],
   ['*', '/'],
 ]
-const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS)
+const OPERATORS = INFIX_OPERATORS.reduce(concat, PREFIX_OPERATORS.map(op => `${op}_`))
 
 type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
   File: Package
@@ -102,25 +103,42 @@ export default createLanguage<Parsers>({
   Class: ({ Name, Reference, Method, Field, Constructor }) => seqMap(
     key('class').then(Name),
     optional(key('inherits').then(Reference)),
-    key('mixed with').then(Reference.sepBy(key('and'))),
-    alt<Method | Field | Constructor>(Method, Field, Constructor).many().wrap(key('{'), key('}')),
+    key('mixed with').then(Reference.sepBy(key('and'))).or(of([])),
+    alt<Method | Field | Constructor>(Method, Field, Constructor).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
     (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
   ).thru(makeNode('Class')),
 
 
-  Singleton: ({ Name, Reference, Method, Field, Arguments }) => seqMap(
-    key('object').then(optional(Name)),
-    optional(key('inherits').then(seqMap(Reference, Arguments.or(of([])), (reference, args) => ({ reference, args })))),
-    key('mixed with').then(Reference.sepBy(key('and'))),
-    alt<Method | Field>(Method, Field).many().wrap(key('{'), key('}')),
-    (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
-  ).thru(makeNode('Singleton')),
+  Singleton: ({ Name, Reference, Method, Field, Arguments }) => {
+    const SuperCall = key('inherits').then(seqMap(Reference, Arguments.or(of([])), (superclass, args) => ({ superclass, args })))
+    const Mixins = key('mixed with').then(Reference.sepBy1(key('and')))
+
+    return key('object').then(seqMap(
+      alt<{ name?: Name, mixins: ReadonlyArray<Reference>, superCall?: { superclass: Reference; args: Expression[] } }>(
+        Mixins.map(mixins => ({ mixins })),
+        seqMap(
+          SuperCall,
+          Mixins.or(of([])),
+          (superCall, mixins) => ({ superCall, mixins })
+        ),
+        seqMap(
+          notFollowedBy(key('inherits').or(key('mixed with'))).then(Name),
+          optional(SuperCall),
+          Mixins.or(of([])),
+          (name, superCall, mixins) => ({ name, superCall, mixins })
+        ),
+        of({ mixins: [] }),
+      ),
+      alt<Method | Field>(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
+      ({ name, superCall, mixins }, members) => ({ name, superCall, mixins, members })
+    ).thru(makeNode('Singleton')))
+  },
 
 
   Mixin: ({ Name, Reference, Method, Field }) => seqMap(
     key('mixin').then(Name),
-    key('mixed with').then(Reference.sepBy(key('and'))),
-    alt<Method | Field>(Method, Field).many().wrap(key('{'), key('}')),
+    key('mixed with').then(Reference.sepBy(key('and'))).or(of([])),
+    alt<Method | Field>(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
     (name, mixins, members) => ({ name, mixins, members })
   ).thru(makeNode('Mixin')),
 
@@ -211,7 +229,7 @@ export default createLanguage<Parsers>({
   Self: () => key('self').result({}).thru(makeNode('Self')),
 
 
-  Reference: ({ Name }) => Name.sepBy(key('.')).tieWith('.').map(name => ({ name })).thru(makeNode('Reference')),
+  Reference: ({ Name }) => Name.sepBy1(key('.')).tieWith('.').map(name => ({ name })).thru(makeNode('Reference')),
 
 
   Super: ({ Arguments }) => key('super').then(Arguments).map(args => ({ args })).thru(makeNode('Super')),
@@ -304,7 +322,16 @@ export default createLanguage<Parsers>({
   ).map(value => ({ value })).thru(makeNode('Literal')),
 
 
-  String: () => regex(/(\\b|\\t|\\n|\\f|\\r|\\u|\\"|\\\\|[^"\\])*/).wrap(string('"'), string('"')),
+  String: () => alt(
+    regex(/\\\\/).result('\\'),
+    regex(/\\b/).result('\b'),
+    regex(/\\t/).result('\t'),
+    regex(/\\n/).result('\n'),
+    regex(/\\f/).result('\f'),
+    regex(/\\r/).result('\r'),
+    regex(/\\"/).result('"'),
+    regex(/[^\\"]/)
+  ).many().tie().wrap(string('"'), string('"')),
 
 
   Closure: ({ Parameter, Sentence }) => seqMap(
@@ -327,7 +354,6 @@ const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (pars
 )
 
 const makeClosure = (parameters: Parameter[], body: Sentence[]) => node('Singleton')({
-  name: '',
   superCall: { superclass: node('Reference')({ name: 'wollok.Closure' }), args: [] },
   mixins: [],
   members: [

@@ -27,7 +27,9 @@ describe('Wollok linker', () => {
         ),
       )
     )
+  })
 
+  it('should merge same name packages into a single package', () => {
 
     link([
       Package('A')(
@@ -50,7 +52,9 @@ describe('Wollok linker', () => {
         ),
       ),
     )
+  })
 
+  it('should recursively merge same name packages into a single package', () => {
 
     link([
       Package('A')(

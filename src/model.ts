@@ -199,7 +199,6 @@ export interface Environment {
   readonly members: ReadonlyArray<Entity>
 }
 
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODE BUILDER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -207,3 +206,21 @@ export interface Environment {
 export const node = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (payload: NodePayload<N>): N => (
   { ...payload as {}, kind }
 ) as N
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// TYPE GUARDS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const isNode = (n: any): n is Node => !!n.kind
+
+export const isEntity = (n: any): n is Entity => isNode(n) &&
+  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(n.kind)
+
+export const isClassMember = (n: any): n is Field | Method | Constructor => isNode(n) &&
+  ['Field', 'Method', 'Constructor'].includes(n.kind)
+
+export const isExpression = (n: any): n is Expression => isNode(n) &&
+  ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(n.kind)
+
+export const isSentence = (n: any): n is Field | Method | Constructor => isNode(n) &&
+  ['Variable', 'Return', 'Assignment'].includes(n.kind) || isExpression(n)

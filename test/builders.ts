@@ -43,9 +43,9 @@ export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
 export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
   (...members: (FieldNode | MethodNode)[]) =>
     node('Singleton')({
-      name,
       members,
       mixins: [],
+      ...(name ? { name } : {}),
       ...payload,
     })
 
@@ -151,5 +151,12 @@ export const Try = (body: ReadonlyArray<Sentence>, payload?: Partial<NodePayload
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export const Closure = (...parameters: ParameterNode[]) => (...body: Sentence[]) =>
+  Singleton(undefined, { superCall: { superclass: Reference('wollok.Closure'), args: [] } })(
+    Method('apply', { parameters })(
+      ...body
+    )
+  )
 
 export const Environment = (...members: Entity[]): EnvironmentNode => ({ members })

@@ -1,20 +1,34 @@
-import { Entity, Environment, Package } from './model'
+import { mergeDeepWith, uniqBy } from 'ramda'
+import { Environment, isClassMember, isEntity, isNode, Package } from './model'
 
+const { isArray } = Array
 
-export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment => {
-  const merge = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
-    if (isolated.kind !== 'Package') return [...members, isolated]
+export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment =>
+  // const merge = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
+  //   if (isolated.kind !== 'Package') return [...members, isolated]
 
-    const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
+  //   const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
 
-    return existent ? [
-      ...members.filter(member => member !== existent),
-      { ...existent, members: isolated.members.reduce(merge, existent.members) },
-    ] : [...members, isolated]
-  }
+  //   return existent ? [
+  //     ...members.filter(member => member !== existent),
+  //     { ...existent, members: isolated.members.reduce(merge, existent.members) },
+  //   ] : [...members, isolated]
+  // }
 
-  return { ...baseEnvironment, members: newPackages.reduce(merge, baseEnvironment.members) }
-}
+  // return { ...baseEnvironment, members: newPackages.reduce(merge, baseEnvironment.members) }
+
+  mergeDeepWith<Environment, Environment>((left, right) =>
+    isArray(left) && isArray(right)
+      ? uniqBy(obj => {
+        if (!isNode(obj)) return obj
+        switch (obj.kind) {
+          case 'Test': return obj.description
+          case 'Constructor': return `<init ${obj.parameters.length}>`
+          default: return isEntity(obj) || isClassMember(obj) ? obj.name : obj
+        }
+      })([...right.reverse(), ...left.reverse()]).reverse()
+      : right
+  )(baseEnvironment, { members: newPackages })
 
 
 // ---------------------------------------------------------------------------------------------------------------
