@@ -8,6 +8,7 @@ should()
 
 describe('Wollok parser', () => {
 
+  
   describe('Literals', () => {
     const parser = Parse.Literal
 
@@ -62,7 +63,7 @@ describe('Wollok parser', () => {
 
     describe('Strings', () => {
 
-      it('should parse strings only with letters', () => {
+      it('should parse valid strings', () => {
         '"foo"'.should.be.parsedBy(parser).into(Literal('foo')).and.be.tracedTo(0, 5)
       })
 
@@ -73,11 +74,11 @@ describe('Wollok parser', () => {
         '"foo\nbar"'.should.be.parsedBy(parser).into(Literal('foo\nbar')).and.be.tracedTo(0, 9)
       })
 
-      it('should parse strings with \\ escape sequences', () => {
+      it('should parse strings with the escaped escape character without escaping the whole sequence', () => {
         '"foo\\nbar"'.should.be.parsedBy(parser).into(Literal('foo\\nbar')).and.be.tracedTo(0, 10)
       })
 
-      it('should not parse strings with \\ escape sequences not known', () => {
+      it('should not parse strings with invalid escape sequences', () => {
         '"foo\xbar"'.should.not.be.parsedBy(parser)/*
         '"foo\xbar"'.should.be.parsedBy(parser).into({
           kind: 'Literal',
@@ -100,7 +101,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 2)
       })
 
-      it('should parse not empty lists', () => {
+      it('should parse non-empty lists', () => {
         '[1,2,3]'.should.be.parsedBy(parser).into(
           Literal(
             New(
@@ -120,7 +121,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 3)
       })
 
-      it('should parse not empty sets', () => {
+      it('should parse non-empty sets', () => {
         '#{1,2,3}'.should.be.parsedBy(parser).into(
           Literal(
             New(Reference('wollok.Set'), [Literal(1), Literal(2), Literal(3)])
@@ -138,7 +139,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 8)
       })
 
-      it('should parse literal objects with vars and empty methods', () => {
+      it('should parse non empty literal objects', () => {
         'object { var v; method m(){} }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton()(
@@ -148,24 +149,25 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 26)
       })
 
-      it('should parse empty literal objects that inherit from a class', () => {
+      it('should parse literal objects that inherit from a class', () => {
         'object inherits D {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton()()
           )
         ).and.be.tracedTo(0, 20)
       })
-      it('should parse empty literal objects that inherit from a class with explicit builders', () => {
+      it('should parse literal objects that inherit from a class with explicit builders', () => {
         'object inherits D(5) {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
               superCall: { superclass: Reference('D'), args: [] },
+
             })()
           )
         ).and.be.tracedTo(0, 23)
       })
 
-      it('should parse empty literal objects that inherit from a class and have a mixin', () => {
+      it('should parse literal objects that inherit from a class and have a mixin', () => {
         'object inherits D mixed with M {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -175,7 +177,7 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 33)
       })
-      it('should parse empty literal objects that inherit from a class and have mixins separated with "and" ', () => {
+      it('should parse literal objects that inherit from a class and have multiple mixins', () => {
         'object inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -185,7 +187,7 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 39)
       })
-      it('should parse empty literal objects that have mixins separated with "and""', () => {
+      it('should parse literal objects that have multiple mixins', () => {
         'object mixed with M and N {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -199,7 +201,7 @@ describe('Wollok parser', () => {
         'object { constructor(){} }'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse "object"', () => {
+      it('should not parse the "object" keyword without a body', () => {
         'object'.should.not.be.parsedBy(parser)
       })
 
@@ -207,18 +209,18 @@ describe('Wollok parser', () => {
         'object inherits D inherits E'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse objects that don\'t specify the class from which they inherit ', () => {
+      it('should not parse objects that use the "inherits" keyword without a superclass', () => {
         'object inherits {}'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse "object inherits"', () => {
+      it('should not parse the "object inherits" keyword sequence without a body and superclass', () => {
         'object inherits'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse objects that have mixins and don\'t specify the name of it"', () => {
+      it('should not parse the "mixed with" keyword without a mixin', () => {
         'object mixed with {}'.should.not.be.parsedBy(parser)
       })
-      it('should not parse "object mixed with"', () => {
+      it('should not parse the "object mixed with" keyword without a body and mixin', () => {
         'object mixed with'.should.not.be.parsedBy(parser)
       })
     })
@@ -233,7 +235,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 2)
       })
 
-      it('should parse closures that don\'t receive parameters and returns nothing', () => {
+      it('should parse closures that do not receive parameters and returns nothing', () => {
         '{ => }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -245,7 +247,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 4)
       })
 
-      it('should parse closures that don\'t receive parameters and return and object', () => {
+      it('should parse closures without parameters', () => {
         '{ a }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -257,7 +259,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 3)
       })
 
-      it('should parse closure that receive a parameter and returns nothing', () => {
+      it('should parse closure with parameters and no body', () => {
         '{ a => }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -269,7 +271,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 5)
       })
 
-      it('should parse closures that receive a parameter and returns it', () => {
+      it('should parse closures with parameters and body', () => {
         '{ a => a }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -281,7 +283,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 6)
       })
 
-      it('should parse closures that have two sentences ', () => {
+      it('should parse closures with multiple sentence separated by ";"', () => {
         '{ a => a; b }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -305,7 +307,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 6)
       })
 
-      it('should parse closures that receive 2 or more parameters and return the first one', () => {
+      it('should parse closures with vararg parameters', () => {
         '{ a,b... => a }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
@@ -320,7 +322,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 10)
       })
 
-      it('should not parse closures that have missing commas', () => {
+      it('should not parse malformed closures', () => {
         '{ a, b c }'.should.not.be.parsedBy(parser)
       })
     })
