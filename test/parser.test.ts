@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Field, Literal, Method, New, Reference, Singleton } from './builders'
+import { Field, Literal, Method, New, Parameter, Reference, Singleton } from './builders'
 
 use(parserAssertions)
 should()
@@ -160,7 +160,6 @@ describe('Wollok parser', () => {
           Literal(
             Singleton(undefined, {
               superCall: { superclass: Reference('D'), args: [] },
-
             })()
           )
         ).and.be.tracedTo(0, 23)
@@ -224,77 +223,107 @@ describe('Wollok parser', () => {
       })
     })
 
-    /*
-        describe('Closure', () => {
+    describe('Closure', () => {
 
-          it('should parse empty closures', () => {
-            '{}'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 2)
-          })
+      it('should parse empty closures', () => {
+        '{}'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton()()
+          )
+        ).and.be.tracedTo(0, 2)
+      })
 
-          it('should parse closures that don\'t receive parameters and returns nothing', () => {
-            '{ => }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 4)
-          })
+      it('should parse closures that don\'t receive parameters and returns nothing', () => {
+        '{ => }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false })()
+            )
+          )
+        ).and.be.tracedTo(0, 4)
+      })
 
-          it('should parse closures that don\'t receive parameters and return and object', () => {
-            '{ a }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 3)
-          })
+      it('should parse closures that don\'t receive parameters and return and object', () => {
+        '{ a }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false })(Reference('a'))
+            )
+          )
+        ).and.be.tracedTo(0, 3)
+      })
 
-          it('should parse closure that receive a parameter and returns nothing', () => {
-            '{ a => }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 5)
-          })
+      it('should parse closure that receive a parameter and returns nothing', () => {
+        '{ a => }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false, parameters: [Parameter('a')] })()
+            )
+          )
+        ).and.be.tracedTo(0, 5)
+      })
 
-          it('should parse closures that receive a parameter and returns it', () => {
-            '{ a => a }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 6)
-          })
+      it('should parse closures that receive a parameter and returns it', () => {
+        '{ a => a }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false, parameters: [Parameter('a')] })()
+            )
+          )
+        ).and.be.tracedTo(0, 6)
+      })
 
-          it('should parse closures that receive a parameter, returns it and  ', () => {
-            '{ a => a; b }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 6)
-          })
+      it('should parse closures that have two sentences ', () => {
+        '{ a => a; b }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false, parameters: [Parameter('a')] })(Reference('a'), Reference('b'))
+            )
+          )
+        ).and.be.tracedTo(0, 6)
+      })
 
-          it('should parse closures that receive two parameters and return the first one', () => {
-            '{ a,b => a }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 6)
-          })
+      it('should parse closures that receive two parameters and return the first one', () => {
+        '{ a,b => a }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', { isOverride: false, isNative: false, parameters: [Parameter('a'), Parameter('b')] })(Reference('a'))
+            )
+          )
+        ).and.be.tracedTo(0, 6)
+      })
 
-          it('should parse closures that receive infinite parameters and return the first one', () => {
-            '{ a,b... => a }'.should.be.parsedBy(parser).into(
-              Literal(
-                Singleton()()
-              )
-            ).and.be.tracedTo(0, 10)
-          })
+      it('should parse closures that receive 2 or more parameters and return the first one', () => {
+        '{ a,b... => a }'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('wollok.Closure'), args: [] },
+            })(
+              Method('apply', {
+                isOverride: false, isNative: false, parameters: [Parameter('a'), Parameter('b', { name: 'b', isVarArg: true })],
+              })
+                (Reference('a'))
+            )
+          )
+        ).and.be.tracedTo(0, 10)
+      })
 
-          it('should not parse closures that have missing commas', () => {
-            '{ a, b c }'.should.not.be.parsedBy(parser)
-          })
-        })*/
+      it('should not parse closures that have missing commas', () => {
+        '{ a, b c }'.should.not.be.parsedBy(parser)
+      })
+    })
 
   })
 })
