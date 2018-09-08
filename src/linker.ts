@@ -1,34 +1,43 @@
-import { mergeDeepWith, uniqBy } from 'ramda'
-import { Environment, isClassMember, isEntity, isNode, Package } from './model'
+import { Entity, Environment, Package } from './model'
 
-const { isArray } = Array
+export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment => {
 
-export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment =>
-  // const merge = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
-  //   if (isolated.kind !== 'Package') return [...members, isolated]
+  const merge = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
+    if (isolated.kind !== 'Package') return [...members, isolated]
 
-  //   const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
+    const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
 
-  //   return existent ? [
-  //     ...members.filter(member => member !== existent),
-  //     { ...existent, members: isolated.members.reduce(merge, existent.members) },
-  //   ] : [...members, isolated]
+    return existent ? [
+      ...members.filter(member => member !== existent),
+      { ...existent, members: isolated.members.reduce(merge, existent.members) },
+    ] : [...members, isolated]
+  }
+
+  return { ...baseEnvironment, members: newPackages.reduce(merge, baseEnvironment.members) }
+
+  // const identifier = (node: Entity) => {
+  //   switch (node.kind) {
+  //     case 'Test': return node.description
+  //     default: return node.name
+  //   }
   // }
 
-  // return { ...baseEnvironment, members: newPackages.reduce(merge, baseEnvironment.members) }
+  // const mergeInto = (entities: ReadonlyArray<Entity>, entity: Entity): ReadonlyArray<Entity> => {
+  //   switch (entity.kind) {
+  //     case 'Package':
+  //       const preExistent = entities.findIndex(child => identifier(child) === identifier(entity))
+  //       if (preExistent >= 0) {
+  //         const preExistentNode = entities[preExistent]
+  //         if (preExistentNode.kind === 'Package') {
+  //           return adjust(over(lensProp('members'), ms => entity.members.reduce(mergeInto, ms)), preExistent, entities)
+  //         } else return update(preExistent, entity, entities)
+  //       } else return [...entities, entity]
+  //     default: return uniqBy(identifier)([entity, ...entities])
+  //   }
+  // }
 
-  mergeDeepWith<Environment, Environment>((left, right) =>
-    isArray(left) && isArray(right)
-      ? uniqBy(obj => {
-        if (!isNode(obj)) return obj
-        switch (obj.kind) {
-          case 'Test': return obj.description
-          case 'Constructor': return `<init ${obj.parameters.length}>`
-          default: return isEntity(obj) || isClassMember(obj) ? obj.name : obj
-        }
-      })([...right.reverse(), ...left.reverse()]).reverse()
-      : right
-  )(baseEnvironment, { members: newPackages })
+  // return over(lensProp('members'), ms => newPackages.reduce(mergeInto, ms), baseEnvironment)
+}
 
 
 // ---------------------------------------------------------------------------------------------------------------
