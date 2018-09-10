@@ -1,7 +1,8 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Closure, Field, Literal, Method, New, Parameter, Reference, Singleton } from './builders'
+import { Class, Closure, Field, Import, Literal, Method, New, Package, Parameter, Program, Reference, Singleton } from './builders'
+
 
 const { raw } = String
 
@@ -274,4 +275,188 @@ describe('Wollok parser', () => {
 
   })
 
+  describe('Comments', () => {
+    const parser = Parse.Import
+
+    it('should parse imports with some large comment at the right', () => {
+      'import /* some comment */ p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 26)
+    })
+
+    it('should parse import  with some one line comment at the right', () => {
+      'import //some comment \n p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should not parse one line commented imports', () => {
+      '// import p \n //import p'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse large commented imports', () => {
+      '/* import p */'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse imports with a non closed commet at the right', () => {
+      'import p/* non closed comment'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Names', () => {
+
+    const parser = Parse.Name
+
+    it('should parse names that begin with _', () => {
+      '_foo123'.should.be.be.parsedBy(parser).into(
+        Reference('_foo123')
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse names with spaces', () => {
+      'foo bar'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse names that begin with numbers', () => {
+      '4foo'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse operators as names', () => {
+      '=='.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Local references', () => {
+
+    const parser = Parse.Reference
+
+    it('should parse references that begin with _', () => {
+      '_foo123'.should.be.be.parsedBy(parser).into(
+        Reference('_foo123')
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse references with spaces', () => {
+      'foo bar'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references that begin with numbers', () => {
+      '4foo'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse operators as references', () => {
+      '=='.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Fully qualified reference', () => {
+
+    const parser = Parse.Reference
+
+    it('should parse uppercase references', () => {
+      'C'.should.be.be.parsedBy(parser).into(
+        Reference('C')
+      ).and.be.tracedTo(0, 1)
+    })
+
+    it('should parse fully qualified references', () => {
+      'p.q.C'.should.be.be.parsedBy(parser).into(
+        Reference('p.q.C')
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should not parse references that end with wrong characters', () => {
+      'p.q.'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references that begin with wrong characters', () => {
+      '.q.C'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references with wrong characters', () => {
+      '.'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse fully qualified references with wrong characters', () => {
+      'p.*'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Files', () => {
+    const parser = Parse.File
+
+    it('should parse empty packages', () => {
+      ''.should.be.parsedBy(parser).into(
+        Package('')()
+      ).and.be.tracedTo(0, 0)
+    })
+
+    it('should parse non empty packages', () => {
+      'import p import q class C {}'.should.be.parsedBy(parser).into(
+        Package('', {
+          name: '',
+          imports: [Import(Reference('p')), Import(Reference('q'))],
+        })(Class('C')())
+      ).and.be.tracedTo(0, 28)
+    })
+
+  })
+
+  describe('Imports', () => {
+
+    const parser = Parse.Import
+
+    it('should parse imported packages..', () => {
+      'import p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse imported packages..', () => {
+      'import p.q.*'.should.be.parsedBy(parser).into(
+        Import(Reference('p.q'), {
+          reference: Reference('p.q'),
+          isGeneric: true,
+        })
+      ).and.be.tracedTo(0, 12)
+    })
+
+    it('should not parse ...', () => {
+      'import p.*.q'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse ...', () => {
+      'import *'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Programs', () => {
+    const parser = Parse.Program
+    it('should be parse ...', () => {
+      'program name { }'.should.be.parsedBy(parser).into(
+        Program('name')()
+      ).and.be.tracedTo(0, 16)
+    })
+  })
+  /*
+      describe('Tests')
+
+      describe('Packages')
+
+      describe('Classes')
+
+      describe('Mixins')
+
+      describe('Singletons')
+
+      describe('Module members', () => {
+        describe('Fields')
+        describe('Method')
+        describe('Constructor')
+      })*/
 })
