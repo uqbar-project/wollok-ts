@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Class, Closure, Constructor, Field, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Singleton, Test, Variable } from './builders'
+import { Class, Closure, Constructor, Field, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Singleton, Test, Variable } from './builders'
 
 const { raw } = String
 
@@ -857,4 +857,172 @@ describe('Wollok parser', () => {
 
   })
 
+  describe('Constructors', () => {
+
+    const parser = Parse.Constructor
+
+    it('should parse constructor declarations', () => {
+      'constructor()'.should.be.parsedBy(parser).into(
+        Constructor()()
+      ).and.be.tracedTo(0, 13)
+    })
+
+    it('should parse empty constructors', () => {
+      'constructor () { }'.should.be.parsedBy(parser).into(
+        Constructor()()
+      ).and.be.tracedTo(0, 18)
+    })
+
+    it('should parse constructors with explicit builder ', () => {
+      'constructor(p, q) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          parameters: [Parameter('p'), Parameter('q')],
+        })()
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse constructors with explicit builder with vararg parameters', () => {
+      'constructor(p, q...) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          parameters: [Parameter('p'), Parameter('q', {
+            isVarArg: true,
+          })],
+        })()
+      ).and.be.tracedTo(0, 23)
+    })
+
+    it('should parse non-empty constructors', () => {
+      'constructor() {var x}'.should.be.parsedBy(parser).into(
+        Constructor()(Variable('x'))
+      ).and.be.tracedTo(0, 21)
+    })
+
+    it('should parse should parse constructor delegations to another constructor in the same class, with a body', () => {
+      'constructor() = self(5) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: false,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 26)
+    })
+
+    it('should parse constructor delegations to another constructor in the same class, without a body', () => {
+      'constructor() = self(5)'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: false,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse constructor delegations to a superclass and a body', () => {
+      'constructor() = super(5) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: true,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should parse constructor delegations to a superclass without a body', () => {
+      'constructor() = super(5)'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: true,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "constructor" keyword without a body', () => {
+      'constructor'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse constructor delegations without a reference to a superclass or a constructor in the same class', () => {
+      'constructor() = { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse constructor delegations to another constructor in the same class, thats use "self" keyword without ()', () => {
+      'constructor() = self'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse  constructor delegations to a superclass, that use "super" keyword without ()', () => {
+      'constructor() = super'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Variables', () => {
+    const parser = Parse.Variable
+    it('should parse var declaration', () => {
+      'var v'.should.be.parsedBy(parser).into(
+        Variable('v')
+      ).and.be.tracedTo(0, 5)
+    })
+
+
+    it('should parse var asignation', () => {
+      'var v = 5'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 9)
+    })
+
+    it('should parse const declaration', () => {
+      'const v'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          isReadOnly: true,
+        })
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse const asignation', () => {
+      'const v = 5'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          isReadOnly: true,
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should not parse vars without name', () => {
+      'var'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse consts without name', () => {
+      'const'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as vars ', () => {
+      'var 5'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as consts ', () => {
+      'const 5'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Return', () => {
+    const parser = Parse.Return
+
+    it('should parse returns', () => {
+      'return 5'.should.be.parsedBy(parser).into(
+        Return(Literal(5))
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should not parse "return" keyword without a value', () => {
+      'return'.should.not.be.parsedBy(parser)
+    })
+
+
+  })
 })
