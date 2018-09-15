@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Class, Closure, Constructor, Field, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Singleton, Test, Variable } from './builders'
+import { Assignment, Class, Closure, Constructor, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
 
 const { raw } = String
 
@@ -953,7 +953,7 @@ describe('Wollok parser', () => {
       'constructor() = self'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse  constructor delegations to a superclass, that use "super" keyword without ()', () => {
+    it('should not parse  constructor delegations to a superclass, that use "super" keyword without parentheses', () => {
       'constructor() = super'.should.not.be.parsedBy(parser)
     })
 
@@ -1010,7 +1010,7 @@ describe('Wollok parser', () => {
     })
   })
 
-  describe('Return', () => {
+  describe('Returns', () => {
     const parser = Parse.Return
 
     it('should parse returns', () => {
@@ -1023,6 +1023,471 @@ describe('Wollok parser', () => {
       'return'.should.not.be.parsedBy(parser)
     })
 
+  })
+
+  describe('Assignments', () => {
+    const parser = Parse.Assignment
+
+    it('should parse simple assignments', () => {
+      'a = b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Reference('b'))
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse += operation ', () => {
+      'a += b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '+', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse -= operation', () => {
+      'a -= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse *= operation', () => {
+      'a *= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse /= operation', () => {
+      'a /= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '/', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse %= operation', () => {
+      'a %= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '%', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse <<= operation ', () => {
+      'a <<= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '<<', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse >>= operation', () => {
+      'a >>= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '>>', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse >>>= operation ', () => {
+      'a >>>= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '>>>', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should not parse assignments that have other assignment at the right', () => {
+      'a = b = c'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse assignments that have += operation at the right ', () => {
+      'a = b += c'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse += operation that have other assigment at the right', () => {
+      'a += b = c'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Infix operations', () => {
+
+    const parser = Parse.Operation
+
+    it('should parse operations with arithmetic operators that are used infixed', () => {
+      'a + b + c'.should.be.parsedBy(parser).into(
+        Send(Send(Reference('a'), '+',
+          [Reference('b')]), '+', [Reference('c')])
+      ).and.be.tracedTo(0, 9)
+    })
+
+    it('should parse operations with parentheses to separate members', () => {
+      'a + (b + c)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), '+',
+          [Send(Reference('b'), '+', [Reference('c')])])
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse infix operations with logical operators', () => {
+      'a > b || c && d + e == f'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Reference('a'), '>', [Reference('b')]),
+          '||',
+          [
+            Send(
+              Reference('c'),
+              '&&',
+              [
+                Send(
+                  Send(Reference('d'), '+', [Reference('e')]),
+                  '==',
+                  [Reference('f')]
+                ),
+              ]
+            ),
+          ]
+        )
+      ).and.be.tracedTo(0, 24)
+    })
+
 
   })
+
+  describe('Prefix Operations', () => {
+    const parser = Parse.Operation
+
+    it('should parse.......', () => {
+      '!a'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), '!', [])
+      ).and.be.tracedTo(0, 2)
+    })
+
+    it('should parse........', () => {
+      'not!!a'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Send(Reference('a'), '!', []), '!', []),
+          'not',
+          [])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse.............', () => {
+      '-1'.should.be.parsedBy(parser).into(
+        Literal(-1)
+      ).and.be.tracedTo(0, 2)
+    })
+
+
+  })
+
+  describe('Sends', () => {
+    const parser = Parse.Send
+
+    it('should parse sending messages to a method without parameters', () => {
+      'a.m()'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [])
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse sending messages to a method with a parameter', () => {
+      'a.m(5)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(5)])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse sending messages to a method with multiple parameters', () => {
+      'a.m(5,7)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(5), Literal(7)])
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse sending messages to a method with a closure as parameter', () => {
+      'a.m{p => p}'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(Closure(Parameter('p'))(Reference('p')))])
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse compound sending messages', () => {
+      'a.m().n().o()'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Send(Reference('a'), 'm', []), 'n', []),
+          'o',
+          [])
+      ).and.be.tracedTo(0, 13)
+    })
+
+    it('should parse ............', () => {
+      '(a + 1).m(5)'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Reference('a'), '+', [Literal(1)]),
+          'm',
+          [Literal(5)])
+      ).and.be.tracedTo(0, 12)
+    })
+
+    it('should parse ............', () => {
+      '1.5.m()'.should.be.parsedBy(parser).into(
+        Send(Literal(1.5), 'm', [])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse .............', () => {
+      'a.m(p,)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse .............', () => {
+      'a.m(,q)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse .............', () => {
+      'a.m'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse .............', () => {
+      'a.'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse .............', () => {
+      'm(p,q)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse .............', () => {
+      '.m'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Constructors', () => {
+
+    const parser = Parse.New
+
+    it('should parse constructors without parameters', () => {
+      'new C()'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse constructors with parameters', () => {
+      'new C(1,2)'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [Literal(1), Literal(2)])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "new" keyword without a builder', () => {
+      'new C'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "new" keyword without a class', () => {
+      'new'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Super calls', () => {
+    const parser = Parse.Super
+
+    it('should parse super call without parameters', () => {
+      'super()'.should.be.parsedBy(parser).into(
+        Super()
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse super call with parameters', () => {
+      'super(1,2)'.should.be.parsedBy(parser).into(
+        Super([Literal(1), Literal(2)])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "super" keyword without parentheses', () => {
+      'super'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse sending messages to a super call ', () => {
+      'super.m()'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('If expressions', () => {
+    const parser = Parse.If
+
+    it('should parse "if" with "then" body', () => {
+      'if(a) x'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Reference('x')])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse "if" with "then" body with a closure', () => {
+      'if(a){x}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x')))])
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse "if" with "then" with a closure with more than one sentence', () => {
+      'if(a){x;y}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x'), Reference('y')))])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse "if" with "then" and "else" body', () => {
+      'if(a) x else y'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Reference('x')], [Reference('y')])
+      ).and.be.tracedTo(0, 14)
+    })
+
+    it('should parse "if" with "then" and "else" body with a closure ', () => {
+      'if(a){x}else{y}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x')))], [Literal(Closure()(Reference('y')))])
+      ).and.be.tracedTo(0, 15)
+    })
+
+    it('should parse if inside other if', () => {
+      'if(a) if(b) x else y'.should.be.parsedBy(parser).into(
+        If(Reference('a'),
+          [If(Reference('b'),
+            [Reference('x')],
+            [Reference('y')])])
+
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse "if" inside other "if" that have an else', () => {
+      'if(a) if(b) x else y else z'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [If(Reference('b'), [Reference('x')], [Reference('y')])], [Reference('z')])
+
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should not parse "if" that doesn\'t have the condition inside parentheses', () => {
+      'if a x else y'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "if" with an explicit empty "else"', () => {
+      'if(a) x else'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "if" without a body', () => {
+      'if(a)'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Try expressions', () => {
+    const parser = Parse.Try
+
+    it('should parse try expressions', () => {
+      'try x'.should.be.parsedBy(parser).into(
+        Try([Reference('x')])
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse try expressions with a body with a closure', () => {
+      'try{x}'.should.be.parsedBy(parser).into(
+        Try([Literal(Closure()(Reference('x')))])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse try expressions with a catch', () => {
+      'try x catch e h'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 15)
+    })
+
+    it('should parse try expressions with a catch with a closure body', () => {
+      'try x catch e{h}'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Literal(Closure()(Reference('h')))],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 16)
+    })
+
+    it('should parse try expressions with a catch with the parameter type', () => {
+      'try x catch e:E h'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            parameterType: Reference('E'),
+            body: [Literal(Closure()(Reference('h')))],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 17)
+    })
+
+    it('should parse try expressions with a "then always" body', () => {
+      'try x then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 19)
+    })
+
+    it('should parse try expressions with a "then always" body with a closure', () => {
+      'try x then always{a}'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          always: [Literal(Closure()(Reference('a')))],
+        })
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse try expressions with a catch and a "then always" body', () => {
+      'try x catch e h then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }],
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 29)
+    })
+
+    it('should parse try expressions with more than one catch', () => {
+      'try x catch e h catch e i then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }, {
+            parameter: Parameter('e'),
+            body: [Reference('i')],
+          },
+          ],
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 39)
+    })
+
+    it('should not parse try expressions with and incomplete "then always" body', () => {
+      'try x catch e h then always'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse try expressions with and incomplete catch body', () => {
+      'try x catch e'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse try expressions with a malformed catch body', () => {
+      'try x catch{h}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "try" keyword without a body', () => {
+      'try'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse a catch body without a try body', () => {
+      'catch e {}'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Throw Expressions', () => {
+    const parser = Parse.Throw
+
+    it('should parse throw expressions', () => {
+      'throw e'.should.be.parsedBy(parser).into(
+        Throw(Reference('e'))
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse "throw" keyword without a exception', () => {
+      'throw'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
 })
