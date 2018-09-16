@@ -309,7 +309,7 @@ describe('Wollok parser', () => {
 
     it('should parse names that begin with _', () => {
       '_foo123'.should.be.be.parsedBy(parser).into(
-        Reference('_foo123')
+        '_foo123'
       ).and.be.tracedTo(0, 7)
     })
 
@@ -409,13 +409,13 @@ describe('Wollok parser', () => {
 
     const parser = Parse.Import
 
-    it('should parse imported packages..', () => {
+    it('should parse imported packages', () => {
       'import p'.should.be.parsedBy(parser).into(
         Import(Reference('p'))
       ).and.be.tracedTo(0, 8)
     })
 
-    it('should parse imported packages..', () => {
+    it('should parse all imported packages that are inside other package', () => {
       'import p.q.*'.should.be.parsedBy(parser).into(
         Import(Reference('p.q'), {
           reference: Reference('p.q'),
@@ -424,11 +424,11 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 12)
     })
 
-    it('should not parse ...', () => {
+    it('should not parse malformed imports', () => {
       'import p.*.q'.should.not.parsedBy(parser)
     })
 
-    it('should not parse ...', () => {
+    it('should not parse "import" keyword without a package', () => {
       'import *'.should.not.parsedBy(parser)
     })
 
@@ -628,13 +628,13 @@ describe('Wollok parser', () => {
     it('should parse empty objects', () => {
       'object O {}'.should.be.parsedBy(parser).into(
         Singleton('O')()
-      ).and.be.tracedTo(0, 11)
+      ).and.be.tracedTo(7, 11)
     })
 
     it('should parse non-empty objects', () => {
       'object O  { var v; method m(){} }'.should.be.parsedBy(parser).into(
         Singleton('O')(Field('v'), Method('m')())
-      ).and.be.tracedTo(0, 33)
+      ).and.be.tracedTo(7, 33)
     })
 
     it('should parse objects that inherits from a class', () => {
@@ -642,7 +642,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           superCall: { superclass: Reference('D'), args: [] },
         })()
-      ).and.be.tracedTo(0, 22)
+      ).and.be.tracedTo(7, 22)
     })
 
     it('should parse objects that inherit from a class with explicit builders', () => {
@@ -650,7 +650,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           superCall: { superclass: Reference('D'), args: [Literal(5)] },
         })()
-      ).and.be.tracedTo(0, 25)
+      ).and.be.tracedTo(7, 25)
     })
 
     it('should parse objects that inherit from a class and have a mixin', () => {
@@ -659,7 +659,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [] },
           mixins: [Reference('M')],
         })()
-      ).and.be.tracedTo(0, 35)
+      ).and.be.tracedTo(7, 35)
     })
 
     it('should parse objects that inherit from a class and have multiple mixins', () => {
@@ -668,7 +668,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [] },
           mixins: [Reference('M'), Reference('N')],
         })()
-      ).and.be.tracedTo(0, 41)
+      ).and.be.tracedTo(7, 41)
     })
 
     it('should parse objects thats have multiple mixins ', () => {
@@ -676,7 +676,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           mixins: [Reference('M'), Reference('N')],
         })()
-      ).and.be.tracedTo(0, 30)
+      ).and.be.tracedTo(7, 30)
     })
 
     it('should not parse objects with a constructor', () => {
@@ -830,13 +830,15 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 22)
     })
+
     it('should parse native methods', () => {
       'method m() native'.should.be.parsedBy(parser).into(
         Method('m', {
           isNative: true,
-        })
+        })()
       ).and.be.tracedTo(0, 17)
     })
+
     it('should parse methods that have closures', () => {
       'method m() = { 5 }'.should.be.parsedBy(parser).into(
         Method('m')(Literal(Closure()(Literal(5))))
@@ -847,11 +849,11 @@ describe('Wollok parser', () => {
       'method m(p,q) ='.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse ', () => {
+    it('should not parse development of native methods', () => {
       'method m(p,q) native = q'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse ', () => {
+    it('should not parse development with closures of native methods', () => {
       'method m(p,q) native { }'.should.not.be.parsedBy(parser)
     })
 
@@ -1141,13 +1143,13 @@ describe('Wollok parser', () => {
   describe('Prefix Operations', () => {
     const parser = Parse.Operation
 
-    it('should parse.......', () => {
+    it('should parse the negation of a reference with the "!" operator', () => {
       '!a'.should.be.parsedBy(parser).into(
         Send(Reference('a'), '!', [])
       ).and.be.tracedTo(0, 2)
     })
 
-    it('should parse........', () => {
+    it('should parse negation with "not" and "!" operator ', () => {
       'not!!a'.should.be.parsedBy(parser).into(
         Send(
           Send(Send(Reference('a'), '!', []), '!', []),
@@ -1156,9 +1158,9 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 6)
     })
 
-    it('should parse.............', () => {
+    it('should parse arithmetic operators in prefix operations', () => {
       '-1'.should.be.parsedBy(parser).into(
-        Literal(-1)
+        Send((Literal(1)), '-', [])
       ).and.be.tracedTo(0, 2)
     })
 
@@ -1201,7 +1203,7 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 13)
     })
 
-    it('should parse ............', () => {
+    it('should parse compound sending messages using methods with parameters', () => {
       '(a + 1).m(5)'.should.be.parsedBy(parser).into(
         Send(
           Send(Reference('a'), '+', [Literal(1)]),
@@ -1210,33 +1212,33 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 12)
     })
 
-    it('should parse ............', () => {
+    it('should parse sending messages to numeric objects', () => {
       '1.5.m()'.should.be.parsedBy(parser).into(
         Send(Literal(1.5), 'm', [])
       ).and.be.tracedTo(0, 7)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse sending messages calling the method with a "," at the end of the parameters', () => {
       'a.m(p,)'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse sending messages calling the method with a "," at the start of the parameters', () => {
       'a.m(,q)'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse sending messages without parentheses', () => {
       'a.m'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse an expression with a "." at the end', () => {
       'a.'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse a call to a method without the reference that is calling', () => {
       'm(p,q)'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse .............', () => {
+    it('should not parse an expression with a "." at the start', () => {
       '.m'.should.not.be.parsedBy(parser)
     })
 
@@ -1453,11 +1455,11 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 39)
     })
 
-    it('should not parse try expressions with and incomplete "then always" body', () => {
+    it('should not parse try expressions with an incomplete "then always" body', () => {
       'try x catch e h then always'.should.not.be.parsedBy(parser)
     })
 
-    it('should not parse try expressions with and incomplete catch body', () => {
+    it('should not parse try expressions with an incomplete catch body', () => {
       'try x catch e'.should.not.be.parsedBy(parser)
     })
 
