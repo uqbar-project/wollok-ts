@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Closure, Field, Literal, Method, New, Parameter, Reference, Singleton } from './builders'
+import { Assignment, Class, Closure, Constructor, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
 
 const { raw } = String
 
@@ -187,7 +187,7 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 28)
       })
 
-      it('should not parse literal objects with a constructor"', () => {
+      it('should not parse literal objects with a constructor', () => {
         'object { constructor(){} }'.should.not.be.parsedBy(parser)
       })
 
@@ -270,6 +270,1224 @@ describe('Wollok parser', () => {
         '{ a, b c }'.should.not.be.parsedBy(parser)
       })
 
+    })
+
+  })
+
+  describe('Comments', () => {
+    const parser = Parse.Import
+
+    it('should parse imports with some large comment at the right', () => {
+      'import /* some comment */ p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 26)
+    })
+
+    it('should parse import  with some one line comment at the right', () => {
+      'import //some comment \n p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should not parse one line commented imports', () => {
+      '// import p \n //import p'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse large commented imports', () => {
+      '/* import p */'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse imports with a non closed commet at the right', () => {
+      'import p/* non closed comment'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Names', () => {
+
+    const parser = Parse.Name
+
+    it('should parse names that begin with _', () => {
+      '_foo123'.should.be.be.parsedBy(parser).into(
+        '_foo123'
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse names with spaces', () => {
+      'foo bar'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse names that begin with numbers', () => {
+      '4foo'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse operators as names', () => {
+      '=='.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Local references', () => {
+
+    const parser = Parse.Reference
+
+    it('should parse references that begin with _', () => {
+      '_foo123'.should.be.be.parsedBy(parser).into(
+        Reference('_foo123')
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse references with spaces', () => {
+      'foo bar'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references that begin with numbers', () => {
+      '4foo'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse operators as references', () => {
+      '=='.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Fully qualified reference', () => {
+
+    const parser = Parse.Reference
+
+    it('should parse uppercase references', () => {
+      'C'.should.be.be.parsedBy(parser).into(
+        Reference('C')
+      ).and.be.tracedTo(0, 1)
+    })
+
+    it('should parse fully qualified references', () => {
+      'p.q.C'.should.be.be.parsedBy(parser).into(
+        Reference('p.q.C')
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should not parse references that end with wrong characters', () => {
+      'p.q.'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references that begin with wrong characters', () => {
+      '.q.C'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse references with wrong characters', () => {
+      '.'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse fully qualified references with wrong characters', () => {
+      'p.*'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Files', () => {
+    const parser = Parse.File
+
+    it('should parse empty packages', () => {
+      ''.should.be.parsedBy(parser).into(
+        Package('')()
+      ).and.be.tracedTo(0, 0)
+    })
+
+    it('should parse non empty packages', () => {
+      'import p import q class C {}'.should.be.parsedBy(parser).into(
+        Package('', {
+          name: '',
+          imports: [Import(Reference('p')), Import(Reference('q'))],
+        })(Class('C')())
+      ).and.be.tracedTo(0, 28)
+    })
+
+  })
+
+  describe('Imports', () => {
+
+    const parser = Parse.Import
+
+    it('should parse imported packages', () => {
+      'import p'.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse all imported packages that are inside other package', () => {
+      'import p.q.*'.should.be.parsedBy(parser).into(
+        Import(Reference('p.q'), {
+          reference: Reference('p.q'),
+          isGeneric: true,
+        })
+      ).and.be.tracedTo(0, 12)
+    })
+
+    it('should not parse malformed imports', () => {
+      'import p.*.q'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse "import" keyword without a package', () => {
+      'import *'.should.not.parsedBy(parser)
+    })
+
+  })
+
+  describe('Programs', () => {
+    const parser = Parse.Program
+    it('should parse empty programs', () => {
+      'program name { }'.should.be.parsedBy(parser).into(
+        Program('name')()
+      ).and.be.tracedTo(0, 16)
+    })
+
+    it('should parse non-empty programs', () => {
+      'program name { var x }'.should.be.parsedBy(parser).into(
+        Program('name')(Variable('x'))
+      ).and.be.tracedTo(0, 22)
+    })
+
+
+    it('should not parse programs without name', () => {
+      'program { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "program" keyword without name and body', () => {
+      'program'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Tests', () => {
+    const parser = Parse.Test
+
+    it('should parse empty test', () => {
+      'test "name" { }'.should.be.parsedBy(parser).into(
+        Test('name')()
+      ).and.be.tracedTo(0, 15)
+    })
+
+    it('should parse non-empty test', () => {
+      'test "name" { var x }'.should.be.parsedBy(parser).into(
+        Test('name')(Variable('x'))
+      ).and.be.tracedTo(0, 21)
+    })
+
+    it('should not parse tests with names that aren\'t a string', () => {
+      'test name { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse tests without name', () => {
+      'test { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse tests without name and body', () => {
+      'test'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Packages', () => {
+    const parser = Parse.Package
+
+    it('should parse empty packages', () => {
+      'package p {}'.should.be.parsedBy(parser).into(
+        Package('p')()
+      ).and.be.tracedTo(0, 12)
+    })
+
+    it('should parse non-empty packages', () => {
+      'package p { class C {} }'.should.be.parsedBy(parser).into(
+        Package('p')(Class('C')())
+      ).and.be.tracedTo(0, 24)
+    })
+
+    it('should parse non-empty packages', () => {
+      'package p { class C {} class D {} }'.should.be.parsedBy(parser).into(
+        Package('p')(Class('C')(), Class('D')())
+      ).and.be.tracedTo(0, 35)
+    })
+
+    it('should not parse packages without a body', () => {
+      'package p'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Classes', () => {
+    const parser = Parse.Class
+
+    it('should parse empty classes', () => {
+      'class C {}'.should.be.parsedBy(parser).into(
+        Class('C')()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse classes with a constructor', () => {
+      'class C { constructor() {} }'.should.be.parsedBy(parser).into(
+        Class('C')(Constructor()())
+      ).and.be.tracedTo(0, 28)
+    })
+
+    it('should parse classes with sentences', () => {
+      'class C { var v; method m(){} }'.should.be.parsedBy(parser).into(
+        Class('C')(Field('v'), Method('m')())
+      ).and.be.tracedTo(0, 31)
+    })
+
+    it('should parse classes that inherit from other class', () => {
+      'class C inherits D {}'.should.be.parsedBy(parser).into(
+        Class('C',
+          { superclass: Reference('D') }
+        )()
+      ).and.be.tracedTo(0, 21)
+    })
+
+    it('should parse classes that inherit from other class and have a mixin', () => {
+      'class C inherits D mixed with M {}'.should.be.parsedBy(parser).into(
+        Class('C',
+          {
+            superclass: Reference('D'),
+            mixins: [Reference('M')],
+          }
+        )()
+      ).and.be.tracedTo(0, 34)
+    })
+
+    it('should not parse "class" keyword without a body', () => {
+      'class'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse classes without name ', () => {
+      'class {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse classes without a body ', () => {
+      'class C'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse classes thats inherits from more than one class', () => {
+      'class C inherits D inherits E'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse classes that use the "inherits" keyword without a superclass ', () => {
+      'class C inherits {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "class C inherits" keyword without a body and superclass ', () => {
+      'class C inherits'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse the "mixed with" keyword without a mixin', () => {
+      'class C mixed with {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse the "class C mixed with" keyword without a body and mixin ', () => {
+      'class C mixed with'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Mixins', () => {
+
+    const parser = Parse.Mixin
+
+    it('should parse empty mixins', () => {
+      'mixin M {}'.should.be.parsedBy(parser).into(
+        Mixin('M')()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse non-empty programs', () => {
+      'mixin M { var v; method m(){} }'.should.be.parsedBy(parser).into(
+        Mixin('M')(Field('v'), Method('m')())
+      ).and.be.tracedTo(0, 31)
+    })
+
+    it('should not parse mixins with constructor', () => {
+      'mixin M { constructor(){} }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "mixin" keyword without name and body', () => {
+      'mixin'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse mixins without name', () => {
+      'mixin {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse mixins without body', () => {
+      'mixin M'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Singletons', () => {
+
+    const parser = Parse.Singleton
+
+    it('should parse empty objects', () => {
+      'object O {}'.should.be.parsedBy(parser).into(
+        Singleton('O')()
+      ).and.be.tracedTo(7, 11)
+    })
+
+    it('should parse non-empty objects', () => {
+      'object O  { var v; method m(){} }'.should.be.parsedBy(parser).into(
+        Singleton('O')(Field('v'), Method('m')())
+      ).and.be.tracedTo(7, 33)
+    })
+
+    it('should parse objects that inherits from a class', () => {
+      'object O inherits D {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: { superclass: Reference('D'), args: [] },
+        })()
+      ).and.be.tracedTo(7, 22)
+    })
+
+    it('should parse objects that inherit from a class with explicit builders', () => {
+      'object O inherits D(5) {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: { superclass: Reference('D'), args: [Literal(5)] },
+        })()
+      ).and.be.tracedTo(7, 25)
+    })
+
+    it('should parse objects that inherit from a class and have a mixin', () => {
+      'object O inherits D mixed with M {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: { superclass: Reference('D'), args: [] },
+          mixins: [Reference('M')],
+        })()
+      ).and.be.tracedTo(7, 35)
+    })
+
+    it('should parse objects that inherit from a class and have multiple mixins', () => {
+      'object O inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: { superclass: Reference('D'), args: [] },
+          mixins: [Reference('M'), Reference('N')],
+        })()
+      ).and.be.tracedTo(7, 41)
+    })
+
+    it('should parse objects thats have multiple mixins ', () => {
+      'object O mixed with M and N {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          mixins: [Reference('M'), Reference('N')],
+        })()
+      ).and.be.tracedTo(7, 30)
+    })
+
+    it('should not parse objects with a constructor', () => {
+      'object O { constructor(){} }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse the "object" keyword without a body', () => {
+      'object'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects without name', () => {
+      'object {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects without body', () => {
+      'object O'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects that inherit from more than one class', () => {
+      'object O inherits D inherits E'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects that use the "inherits" keyword without a superclass', () => {
+      'object O inherits {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects that use the "inherits" keyword without a body and superclass', () => {
+      'object O inherits'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects thats use "mixed with" keyword without a mixin', () => {
+      'object O mixed with {}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse objects thats use "mixed with" keyword without a mixin and a body', () => {
+      'object O mixed with'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Fields', () => {
+
+    const parser = Parse.Field
+
+    it('should parse var declaration', () => {
+      'var v'.should.be.parsedBy(parser).into(
+        Field('v')
+      ).and.be.tracedTo(0, 5)
+    })
+
+
+    it('should parse var asignation', () => {
+      'var v = 5'.should.be.parsedBy(parser).into(
+        Field('v', {
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 9)
+    })
+
+    it('should parse const declaration', () => {
+      'const v'.should.be.parsedBy(parser).into(
+        Field('v', {
+          isReadOnly: true,
+        })
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse const asignation', () => {
+      'const v = 5'.should.be.parsedBy(parser).into(
+        Field('v', {
+          isReadOnly: true,
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should not parse vars without name', () => {
+      'var'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse consts without name', () => {
+      'const'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as vars ', () => {
+      'var 5'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as consts ', () => {
+      'const 5'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Methods', () => {
+
+    const parser = Parse.Method
+
+    it('should parse method declarations', () => {
+      'method m()'.should.be.parsedBy(parser).into(
+        Method('m')()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse methods with operator characters as names ', () => {
+      'method ==()'.should.be.parsedBy(parser).into(
+        Method('==')()
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse empty methods', () => {
+      'method m() {}'.should.be.parsedBy(parser).into(
+        Method('m')()
+      ).and.be.tracedTo(0, 13)
+    })
+
+    it('should parse methods that have two parameters  ', () => {
+      'method m(p, q) {}'.should.be.parsedBy(parser).into(
+        Method('m', {
+          parameters: [Parameter('p'), Parameter('q')],
+        })()
+      ).and.be.tracedTo(0, 17)
+    })
+
+    it('should parse methods that have vararg parameters', () => {
+      'method m(p, q...) {}'.should.be.parsedBy(parser).into(
+        Method('m', {
+          parameters: [Parameter('p'), Parameter('q', {
+            isVarArg: true,
+          })],
+        })()
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse non-empty methods ', () => {
+      'method m() {var x}'.should.be.parsedBy(parser).into(
+        Method('m')(Variable('x'))
+      ).and.be.tracedTo(0, 18)
+    })
+
+    it('should parse simple return method', () => {
+      'method m() = 5'.should.be.parsedBy(parser).into(
+        Method('m')(Literal(5))
+      ).and.be.tracedTo(0, 14)
+    })
+
+    it('should parse override methods', () => {
+      'override method m() {}'.should.be.parsedBy(parser).into(
+        Method('m', {
+          isOverride: true,
+        })()
+      ).and.be.tracedTo(0, 22)
+    })
+
+    it('should parse native methods', () => {
+      'method m() native'.should.be.parsedBy(parser).into(
+        Method('m', {
+          isNative: true,
+        })()
+      ).and.be.tracedTo(0, 17)
+    })
+
+    it('should parse methods that have closures', () => {
+      'method m() = { 5 }'.should.be.parsedBy(parser).into(
+        Method('m')(Literal(Closure()(Literal(5))))
+      ).and.be.tracedTo(0, 18)
+    })
+
+    it('should not parse incomplete methods', () => {
+      'method m(p,q) ='.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse development of native methods', () => {
+      'method m(p,q) native = q'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse development with closures of native methods', () => {
+      'method m(p,q) native { }'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Constructors', () => {
+
+    const parser = Parse.Constructor
+
+    it('should parse constructor declarations', () => {
+      'constructor()'.should.be.parsedBy(parser).into(
+        Constructor()()
+      ).and.be.tracedTo(0, 13)
+    })
+
+    it('should parse empty constructors', () => {
+      'constructor () { }'.should.be.parsedBy(parser).into(
+        Constructor()()
+      ).and.be.tracedTo(0, 18)
+    })
+
+    it('should parse constructors with explicit builder ', () => {
+      'constructor(p, q) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          parameters: [Parameter('p'), Parameter('q')],
+        })()
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse constructors with explicit builder with vararg parameters', () => {
+      'constructor(p, q...) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          parameters: [Parameter('p'), Parameter('q', {
+            isVarArg: true,
+          })],
+        })()
+      ).and.be.tracedTo(0, 23)
+    })
+
+    it('should parse non-empty constructors', () => {
+      'constructor() {var x}'.should.be.parsedBy(parser).into(
+        Constructor()(Variable('x'))
+      ).and.be.tracedTo(0, 21)
+    })
+
+    it('should parse should parse constructor delegations to another constructor in the same class, with a body', () => {
+      'constructor() = self(5) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: false,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 26)
+    })
+
+    it('should parse constructor delegations to another constructor in the same class, without a body', () => {
+      'constructor() = self(5)'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: false,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse constructor delegations to a superclass and a body', () => {
+      'constructor() = super(5) {}'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: true,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should parse constructor delegations to a superclass without a body', () => {
+      'constructor() = super(5)'.should.be.parsedBy(parser).into(
+        Constructor({
+          baseCall: {
+            callsSuper: true,
+            args: [Literal(5)],
+          },
+        })()
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "constructor" keyword without a body', () => {
+      'constructor'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse constructor delegations without a reference to a superclass or a constructor in the same class', () => {
+      'constructor() = { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse constructor delegations to another constructor in the same class, thats use "self" keyword without ()', () => {
+      'constructor() = self'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse  constructor delegations to a superclass, that use "super" keyword without parentheses', () => {
+      'constructor() = super'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Variables', () => {
+    const parser = Parse.Variable
+    it('should parse var declaration', () => {
+      'var v'.should.be.parsedBy(parser).into(
+        Variable('v')
+      ).and.be.tracedTo(0, 5)
+    })
+
+
+    it('should parse var asignation', () => {
+      'var v = 5'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 9)
+    })
+
+    it('should parse const declaration', () => {
+      'const v'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          isReadOnly: true,
+        })
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse const asignation', () => {
+      'const v = 5'.should.be.parsedBy(parser).into(
+        Variable('v', {
+          isReadOnly: true,
+          value: Literal(5),
+        })
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should not parse vars without name', () => {
+      'var'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse consts without name', () => {
+      'const'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as vars ', () => {
+      'var 5'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse declaration of numbers as consts ', () => {
+      'const 5'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Returns', () => {
+    const parser = Parse.Return
+
+    it('should parse returns', () => {
+      'return 5'.should.be.parsedBy(parser).into(
+        Return(Literal(5))
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should not parse "return" keyword without a value', () => {
+      'return'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Assignments', () => {
+    const parser = Parse.Assignment
+
+    it('should parse simple assignments', () => {
+      'a = b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Reference('b'))
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse += operation ', () => {
+      'a += b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '+', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse -= operation', () => {
+      'a -= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse *= operation', () => {
+      'a *= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse /= operation', () => {
+      'a /= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '/', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse %= operation', () => {
+      'a %= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '%', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse <<= operation ', () => {
+      'a <<= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '<<', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse >>= operation', () => {
+      'a >>= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '>>', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse >>>= operation ', () => {
+      'a >>>= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '>>>', [Reference('b')]))
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should not parse assignments that have other assignment at the right', () => {
+      'a = b = c'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse assignments that have += operation at the right ', () => {
+      'a = b += c'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse += operation that have other assigment at the right', () => {
+      'a += b = c'.should.not.be.parsedBy(parser)
+    })
+  })
+
+  describe('Infix operations', () => {
+
+    const parser = Parse.Operation
+
+    it('should parse operations with arithmetic operators that are used infixed', () => {
+      'a + b + c'.should.be.parsedBy(parser).into(
+        Send(Send(Reference('a'), '+',
+          [Reference('b')]), '+', [Reference('c')])
+      ).and.be.tracedTo(0, 9)
+    })
+
+    it('should parse operations with parentheses to separate members', () => {
+      'a + (b + c)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), '+',
+          [Send(Reference('b'), '+', [Reference('c')])])
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse infix operations with logical operators', () => {
+      'a > b || c && d + e == f'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Reference('a'), '>', [Reference('b')]),
+          '||',
+          [
+            Send(
+              Reference('c'),
+              '&&',
+              [
+                Send(
+                  Send(Reference('d'), '+', [Reference('e')]),
+                  '==',
+                  [Reference('f')]
+                ),
+              ]
+            ),
+          ]
+        )
+      ).and.be.tracedTo(0, 24)
+    })
+
+
+  })
+
+  describe('Prefix Operations', () => {
+    const parser = Parse.Operation
+
+    it('should parse the negation of a reference with the "!" operator', () => {
+      '!a'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), '!', [])
+      ).and.be.tracedTo(0, 2)
+    })
+
+    it('should parse negation with "not" and "!" operator ', () => {
+      'not!!a'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Send(Reference('a'), '!', []), '!', []),
+          'not',
+          [])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse arithmetic operators in prefix operations', () => {
+      '-1'.should.be.parsedBy(parser).into(
+        Send((Literal(1)), '-', [])
+      ).and.be.tracedTo(0, 2)
+    })
+
+
+  })
+
+  describe('Sends', () => {
+    const parser = Parse.Send
+
+    it('should parse sending messages to a method without parameters', () => {
+      'a.m()'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [])
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse sending messages to a method with a parameter', () => {
+      'a.m(5)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(5)])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse sending messages to a method with multiple parameters', () => {
+      'a.m(5,7)'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(5), Literal(7)])
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse sending messages to a method with a closure as parameter', () => {
+      'a.m{p => p}'.should.be.parsedBy(parser).into(
+        Send(Reference('a'), 'm', [Literal(Closure(Parameter('p'))(Reference('p')))])
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse compound sending messages', () => {
+      'a.m().n().o()'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Send(Reference('a'), 'm', []), 'n', []),
+          'o',
+          [])
+      ).and.be.tracedTo(0, 13)
+    })
+
+    it('should parse compound sending messages using methods with parameters', () => {
+      '(a + 1).m(5)'.should.be.parsedBy(parser).into(
+        Send(
+          Send(Reference('a'), '+', [Literal(1)]),
+          'm',
+          [Literal(5)])
+      ).and.be.tracedTo(0, 12)
+    })
+
+    it('should parse sending messages to numeric objects', () => {
+      '1.5.m()'.should.be.parsedBy(parser).into(
+        Send(Literal(1.5), 'm', [])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse sending messages calling the method with a "," at the end of the parameters', () => {
+      'a.m(p,)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse sending messages calling the method with a "," at the start of the parameters', () => {
+      'a.m(,q)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse sending messages without parentheses', () => {
+      'a.m'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse an expression with a "." at the end', () => {
+      'a.'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse a call to a method without the reference that is calling', () => {
+      'm(p,q)'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse an expression with a "." at the start', () => {
+      '.m'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Constructors', () => {
+
+    const parser = Parse.New
+
+    it('should parse constructors without parameters', () => {
+      'new C()'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse constructors with parameters', () => {
+      'new C(1,2)'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [Literal(1), Literal(2)])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "new" keyword without a builder', () => {
+      'new C'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "new" keyword without a class', () => {
+      'new'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Super calls', () => {
+    const parser = Parse.Super
+
+    it('should parse super call without parameters', () => {
+      'super()'.should.be.parsedBy(parser).into(
+        Super()
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse super call with parameters', () => {
+      'super(1,2)'.should.be.parsedBy(parser).into(
+        Super([Literal(1), Literal(2)])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should not parse "super" keyword without parentheses', () => {
+      'super'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse sending messages to a super call ', () => {
+      'super.m()'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('If expressions', () => {
+    const parser = Parse.If
+
+    it('should parse "if" with "then" body', () => {
+      'if(a) x'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Reference('x')])
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should parse "if" with "then" body with a closure', () => {
+      'if(a){x}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x')))])
+      ).and.be.tracedTo(0, 8)
+    })
+
+    it('should parse "if" with "then" with a closure with more than one sentence', () => {
+      'if(a){x;y}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x'), Reference('y')))])
+      ).and.be.tracedTo(0, 10)
+    })
+
+    it('should parse "if" with "then" and "else" body', () => {
+      'if(a) x else y'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Reference('x')], [Reference('y')])
+      ).and.be.tracedTo(0, 14)
+    })
+
+    it('should parse "if" with "then" and "else" body with a closure ', () => {
+      'if(a){x}else{y}'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [Literal(Closure()(Reference('x')))], [Literal(Closure()(Reference('y')))])
+      ).and.be.tracedTo(0, 15)
+    })
+
+    it('should parse if inside other if', () => {
+      'if(a) if(b) x else y'.should.be.parsedBy(parser).into(
+        If(Reference('a'),
+          [If(Reference('b'),
+            [Reference('x')],
+            [Reference('y')])])
+
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse "if" inside other "if" that have an else', () => {
+      'if(a) if(b) x else y else z'.should.be.parsedBy(parser).into(
+        If(Reference('a'), [If(Reference('b'), [Reference('x')], [Reference('y')])], [Reference('z')])
+
+      ).and.be.tracedTo(0, 27)
+    })
+
+    it('should not parse "if" that doesn\'t have the condition inside parentheses', () => {
+      'if a x else y'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "if" with an explicit empty "else"', () => {
+      'if(a) x else'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "if" without a body', () => {
+      'if(a)'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Try expressions', () => {
+    const parser = Parse.Try
+
+    it('should parse try expressions', () => {
+      'try x'.should.be.parsedBy(parser).into(
+        Try([Reference('x')])
+      ).and.be.tracedTo(0, 5)
+    })
+
+    it('should parse try expressions with a body with a closure', () => {
+      'try{x}'.should.be.parsedBy(parser).into(
+        Try([Literal(Closure()(Reference('x')))])
+      ).and.be.tracedTo(0, 6)
+    })
+
+    it('should parse try expressions with a catch', () => {
+      'try x catch e h'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 15)
+    })
+
+    it('should parse try expressions with a catch with a closure body', () => {
+      'try x catch e{h}'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Literal(Closure()(Reference('h')))],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 16)
+    })
+
+    it('should parse try expressions with a catch with the parameter type', () => {
+      'try x catch e:E h'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            parameterType: Reference('E'),
+            body: [Literal(Closure()(Reference('h')))],
+          }],
+
+        })
+      ).and.be.tracedTo(0, 17)
+    })
+
+    it('should parse try expressions with a "then always" body', () => {
+      'try x then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 19)
+    })
+
+    it('should parse try expressions with a "then always" body with a closure', () => {
+      'try x then always{a}'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          always: [Literal(Closure()(Reference('a')))],
+        })
+      ).and.be.tracedTo(0, 20)
+    })
+
+    it('should parse try expressions with a catch and a "then always" body', () => {
+      'try x catch e h then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }],
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 29)
+    })
+
+    it('should parse try expressions with more than one catch', () => {
+      'try x catch e h catch e i then always a'.should.be.parsedBy(parser).into(
+        Try([Reference('x')], {
+          catches: [{
+            parameter: Parameter('e'),
+            body: [Reference('h')],
+          }, {
+            parameter: Parameter('e'),
+            body: [Reference('i')],
+          },
+          ],
+          always: [Reference('a')],
+        })
+      ).and.be.tracedTo(0, 39)
+    })
+
+    it('should not parse try expressions with an incomplete "then always" body', () => {
+      'try x catch e h then always'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse try expressions with an incomplete catch body', () => {
+      'try x catch e'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse try expressions with a malformed catch body', () => {
+      'try x catch{h}'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse "try" keyword without a body', () => {
+      'try'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse a catch body without a try body', () => {
+      'catch e {}'.should.not.be.parsedBy(parser)
+    })
+
+  })
+
+  describe('Throw Expressions', () => {
+    const parser = Parse.Throw
+
+    it('should parse throw expressions', () => {
+      'throw e'.should.be.parsedBy(parser).into(
+        Throw(Reference('e'))
+      ).and.be.tracedTo(0, 7)
+    })
+
+    it('should not parse "throw" keyword without a exception', () => {
+      'throw'.should.not.be.parsedBy(parser)
     })
 
   })
