@@ -447,6 +447,7 @@ describe('Wollok parser', () => {
       'program name { var x }'.should.be.parsedBy(parser).into(
         Program('name')(Variable('x'))
       ).and.be.tracedTo(0, 22)
+        .and.have.nested.property('body.0').tracedTo(15, 20)
     })
 
 
