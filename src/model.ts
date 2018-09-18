@@ -1,12 +1,25 @@
 import { Index } from 'parsimmon'
+import { chain as flatMap, mapObjIndexed } from 'ramda'
+
+const { isArray } = Array
 
 // TODO: Type for members
+// TODO: Add Maybe monads to optional fields. https://github.com/cbowdon/tsmonad (?)
 
 export type Node = Parameter | Import | Entity | Field | Method | Constructor | Sentence
 export type NodeKind = Node['kind']
 export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
 export type NodePayload<N extends Node> = Pick<N, Exclude<keyof N, 'kind'>>
 
+export type Id = string
+type LinkedField<T> =
+  T extends string | number | boolean ? T :
+  T extends ReadonlyArray<infer U> ? U extends {} ? ReadonlyArray<Linked<U>> : ReadonlyArray<U> :
+  T extends {} | undefined ? T extends {} ? Linked<T> : Linked<Exclude<T, undefined>> | undefined :
+  T
+export type Linked<T extends {}> = { [K in keyof T]: LinkedField<T[K]> } & {
+  id: Id
+}
 
 interface Traceable {
   source?: {
@@ -111,7 +124,7 @@ export interface Constructor extends Traceable {
   readonly kind: 'Constructor'
   readonly parameters: ReadonlyArray<Parameter>
   readonly baseCall?: { callsSuper: boolean, args: ReadonlyArray<Expression> }
-  readonly body?: ReadonlyArray<Sentence>
+  readonly body: ReadonlyArray<Sentence>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -184,10 +197,11 @@ export interface Throw extends Traceable {
   readonly arg: Expression
 }
 
+export interface Catch { parameter: Parameter, parameterType?: Reference, body: ReadonlyArray<Sentence> }
 export interface Try extends Traceable {
   readonly kind: 'Try'
   readonly body: ReadonlyArray<Sentence>
-  readonly catches: ReadonlyArray<{ parameter: Parameter, parameterType?: Reference, body: ReadonlyArray<Sentence> }>
+  readonly catches: ReadonlyArray<Catch>
   readonly always: ReadonlyArray<Sentence>
 }
 
@@ -196,14 +210,14 @@ export interface Try extends Traceable {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface Environment {
-  readonly members: ReadonlyArray<Entity>
+  readonly members: ReadonlyArray<Linked<Entity>>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODE BUILDER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const node = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (payload: NodePayload<N>): N => (
+export const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (payload: NodePayload<N>): N => (
   { ...payload as {}, kind }
 ) as N
 
@@ -211,16 +225,95 @@ export const node = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (p
 // TYPE GUARDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = (n: any): n is Node => !!n.kind
+export const isNode = (obj: any): obj is Node => !!obj.kind
 
-export const isEntity = (n: any): n is Entity => isNode(n) &&
-  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(n.kind)
+export const isEntity = (obj: any): obj is Entity => isNode(obj) &&
+  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
 
-export const isClassMember = (n: any): n is Field | Method | Constructor => isNode(n) &&
-  ['Field', 'Method', 'Constructor'].includes(n.kind)
+// TODO: Extract type for this?
+export const isModule = (obj: any): obj is Singleton | Mixin | Class => isNode(obj) &&
+  ['Singleton', 'Mixin', 'Class'].includes(obj.kind)
 
-export const isExpression = (n: any): n is Expression => isNode(n) &&
-  ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(n.kind)
+// TODO: Extract type for this?
+export const isClassMember = (obj: any): obj is Field | Method | Constructor => isNode(obj) &&
+  ['Field', 'Method', 'Constructor'].includes(obj.kind)
 
-export const isSentence = (n: any): n is Field | Method | Constructor => isNode(n) &&
-  ['Variable', 'Return', 'Assignment'].includes(n.kind) || isExpression(n)
+export const isExpression = (obj: any): obj is Expression => isNode(obj) &&
+  ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(obj.kind)
+
+export const isSentence = (obj: any): obj is Field | Method | Constructor => isNode(obj) &&
+  ['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj)
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// TRANSFORMATIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// TODO: Define by comprehension?
+// TODO: Test
+export const children = (node: Linked<Node>): ReadonlyArray<Linked<Node>> => {
+  switch (node.kind) {
+    case 'Import':
+      return [node.reference]
+    case 'Package':
+      return [...node.imports, ...node.members]
+    case 'Class':
+      return [...node.superclass ? [node.superclass] : [], ...node.mixins, ...node.members]
+    case 'Singleton':
+      return [...node.superCall ? [node.superCall.superclass, ...node.superCall.args] : [], ...node.mixins, ...node.members]
+    case 'Mixin':
+      return [...node.mixins, ...node.members]
+    case 'Program':
+      return node.body
+    case 'Test':
+      return node.body
+    case 'Field':
+      return node.value ? [node.value] : []
+    case 'Method':
+      return [...node.parameters, ...node.body || []]
+    case 'Constructor':
+      return [...node.baseCall ? node.baseCall.args : [], ...node.parameters, ...node.body || []]
+    case 'Variable':
+      return node.value ? [node.value] : []
+    case 'Return':
+      return [node.value]
+    case 'Assignment':
+      return [node.reference, node.value]
+    case 'Literal':
+      return isNode(node.value) ? [node.value] : []
+    case 'Send':
+      return [node.receiver, ...node.args]
+    case 'Super':
+      return node.args
+    case 'New':
+      return [node.className, ...node.args]
+    case 'If':
+      return [node.condition, ...node.thenBody, ...node.elseBody]
+    case 'Throw':
+      return [node.arg]
+    case 'Try':
+      return [
+        ...node.body,
+        ...flatMap(({ parameter, body, parameterType }) => [parameter, ...body, ...parameterType ? [parameterType] : []], node.catches),
+        ...node.always,
+      ]
+    case 'Parameter':
+    case 'Reference':
+    case 'Self':
+      return []
+    default:
+      // TODO: use either a function like https://github.com/dividab/ts-exhaustive-check or modeling node types as enums.
+      const exhaustiveCheck: never = node
+      return exhaustiveCheck
+  }
+}
+
+// TODO: Test
+// TODO: I don't think this will work for Catches
+export const transform = <T extends Node, U extends T>(tx: (node: Node) => Node) => (node: T): U => {
+  const applyTransform = (obj: any): any =>
+    isNode(obj) ? tx(obj) :
+      isArray(obj) ? obj.map(applyTransform) :
+        obj
+
+  return mapObjIndexed(applyTransform, tx(node) as any) as U
+}

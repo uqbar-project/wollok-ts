@@ -11,8 +11,7 @@ declare global {
   }
 }
 
-export const parserAssertions = ({ Assertion }: any, { flag }: any) => {
-
+export const also = ({ Assertion }: any, { flag }: any) => {
   Assertion.overwriteMethod('property', (base: any) => {
     return function(this: any) {
       if (!flag(this, 'objectBeforePropertyChain')) {
@@ -26,6 +25,10 @@ export const parserAssertions = ({ Assertion }: any, { flag }: any) => {
   Assertion.addProperty('also', function(this: any) {
     this._obj = flag(this, 'objectBeforePropertyChain')
   })
+}
+
+export const parserAssertions = ({ Assertion }: any, conf: any) => {
+  also({ Assertion }, conf)
 
   Assertion.addMethod('parsedBy', function(this: any, parser: Parser<any>) {
     const result = parser.parse(this._obj)

@@ -1,10 +1,10 @@
 // tslint:disable:no-shadowed-variable
 // tslint:disable:variable-name
-import { alt, createLanguage, index, notFollowedBy, of, optWhitespace as _, Parser, regex, seq, seqMap, string } from 'parsimmon'
+import { alt, createLanguage, index, notFollowedBy, of, Parser, regex, seq, seqMap, string, whitespace } from 'parsimmon'
 import { concat } from 'ramda'
-import { Constructor, Entity, Expression, Field, LiteralValue, Method, Name, node, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Reference, Send, Sentence, Singleton } from './model'
+import { Entity, Expression, LiteralValue, makeNode as node, Name, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Reference, Send, Sentence, Singleton } from './model'
 
-const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=']
+const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
 const INFIX_OPERATORS = [
   ['||'],
@@ -37,8 +37,10 @@ type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
 // PARSERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const key = (str: string) => string(str).trim(_)
+const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
 const optional = <T>(parser: Parser<T>) => parser.or(of(undefined))
+const _ = comment.or(whitespace).many()
+const key = (str: string) => string(str).trim(_)
 
 export default createLanguage<Parsers>({
 
@@ -52,21 +54,21 @@ export default createLanguage<Parsers>({
     Name,
     string('...').atMost(1).map(([s]) => !!s),
     (name, isVarArg) => ({ name, isVarArg })
-  ).thru(makeNode('Parameter')),
+  ).trim(_).thru(makeNode('Parameter')),
 
   Parameters: ({ Parameter }) => Parameter.sepBy(key(',')).wrap(key('('), key(')')),
 
   Arguments: ({ Expression }) => Expression.sepBy(key(',')).wrap(key('('), key(')')),
 
-  Block: ({ Sentence }) => Sentence.skip(key(';').atMost(1)).many().wrap(key('{'), key('}')),
+  Block: ({ Sentence }) => Sentence.skip(optional(key(';'))).many().wrap(key('{'), key('}')),
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // ENTITIES
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  Import: ({ Reference }) => seqMap(
-    key('import').then(Reference),
-    key('.*').or(of(false)).skip(key(';').atMost(1)),
+  Import: ({ Name }) => seqMap(
+    key('import').then(Name.sepBy1(key('.')).tieWith('.').trim(_).map(name => ({ name })).thru(makeNode('Reference'))),
+    key('.*').or(of(false)).skip(optional(key(';'))),
     (reference, isGeneric) => ({ reference, isGeneric: !!isGeneric })
   ).thru(makeNode('Import')),
 
@@ -103,8 +105,8 @@ export default createLanguage<Parsers>({
   Class: ({ Name, Reference, Method, Field, Constructor }) => seqMap(
     key('class').then(Name),
     optional(key('inherits').then(Reference)),
-    key('mixed with').then(Reference.sepBy(key('and'))).or(of([])),
-    alt<Method | Field | Constructor>(Method, Field, Constructor).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
+    key('mixed with').then(Reference.sepBy1(key('and'))).or(of([])),
+    alt(Constructor, Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
     (name, superclass, mixins, members) => ({ name, superclass, mixins, members })
   ).thru(makeNode('Class')),
 
@@ -129,16 +131,16 @@ export default createLanguage<Parsers>({
         ),
         of({ mixins: [] }),
       ),
-      alt<Method | Field>(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
+      alt(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
       ({ name, superCall, mixins }, members) => ({ name, superCall, mixins, members })
-    ).thru(makeNode('Singleton')))
+    )).thru(makeNode('Singleton'))
   },
 
 
   Mixin: ({ Name, Reference, Method, Field }) => seqMap(
     key('mixin').then(Name),
-    key('mixed with').then(Reference.sepBy(key('and'))).or(of([])),
-    alt<Method | Field>(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
+    key('mixed with').then(Reference.sepBy1(key('and'))).or(of([])),
+    alt(Method, Field).sepBy(optional(key(';'))).wrap(key('{'), key('}')),
     (name, mixins, members) => ({ name, mixins, members })
   ).thru(makeNode('Mixin')),
 
@@ -162,6 +164,7 @@ export default createLanguage<Parsers>({
       key('native').result({ isNative: true, body: undefined }),
       key('=').then(Expression.times(1)).map(body => ({ isNative: false, body })),
       Block.map(body => ({ isNative: false, body })),
+      of({ isNative: false, body: undefined })
     ),
     (isOverride, name, parameters, { isNative, body }) => ({ isOverride, name, parameters, isNative, body })
   ).thru(makeNode('Method')),
@@ -202,7 +205,7 @@ export default createLanguage<Parsers>({
     Expression,
     (reference, operator, value) => ({
       reference,
-      value: operator === '=' ? value : node('Send')({ receiver: reference, message: operator.slice(1), args: [value] }),
+      value: operator === '=' ? value : node('Send')({ receiver: reference, message: operator.slice(0, -1), args: [value] }),
     })
   ).thru(makeNode('Assignment')),
 
@@ -229,7 +232,7 @@ export default createLanguage<Parsers>({
   Self: () => key('self').result({}).thru(makeNode('Self')),
 
 
-  Reference: ({ Name }) => Name.sepBy1(key('.')).tieWith('.').map(name => ({ name })).thru(makeNode('Reference')),
+  Reference: ({ Name }) => Name.map(name => ({ name })).thru(makeNode('Reference')),
 
 
   Super: ({ Arguments }) => key('super').then(Arguments).map(args => ({ args })).thru(makeNode('Super')),
@@ -244,8 +247,8 @@ export default createLanguage<Parsers>({
 
   If: ({ Expression, Block, Sentence }) => seqMap(
     key('if').then(Expression.wrap(key('('), key(')'))),
-    alt(Sentence.times(1), Block).trim(_),
-    key('else').then(alt(Sentence.times(1), Block)).or(of<Sentence[]>([])),
+    alt(Block, Sentence.times(1)).trim(_),
+    key('else').then(alt(Block, Sentence.times(1))).or(of<Sentence[]>([])),
     (condition, thenBody, elseBody) => ({ condition, thenBody, elseBody })
   ).thru(makeNode('If')),
 
@@ -254,14 +257,14 @@ export default createLanguage<Parsers>({
 
 
   Try: ({ Sentence, Block, Parameter, Reference }) => seqMap(
-    key('try').then(alt(Sentence.times(1), Block)),
+    key('try').then(alt(Block, Sentence.times(1))),
     seqMap(
       key('catch').then(Parameter),
       optional(key(':').then(Reference)),
-      alt(Sentence.times(1), Block),
+      alt(Block, Sentence.trim(_).times(1)),
       (parameter, parameterType, body) => ({ parameter, parameterType, body })
     ).many(),
-    key('then always').then(alt(Sentence.times(1), Block)).or(of([])),
+    key('then always').then(alt(Block, Sentence.times(1))).or(of([])),
     (body, catches, always) => ({ body, catches, always })
   ).thru(makeNode('Try')),
 
@@ -269,7 +272,11 @@ export default createLanguage<Parsers>({
   Send: ({ Name, PrimaryExpression, Arguments, Closure }) => seqMap(
     index,
     PrimaryExpression,
-    key('.').then(seq(Name, alt(Arguments, Closure.times(1)), index)).atLeast(1),
+    seq(
+      key('.').then(Name),
+      alt(Arguments, Closure.map(value => ({ value })).thru(makeNode('Literal')).times(1)),
+      index
+    ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
       node('Send')({ receiver, message, args, source: { start, end } })
       , initial) as Send
@@ -336,7 +343,7 @@ export default createLanguage<Parsers>({
 
   Closure: ({ Parameter, Sentence }) => seqMap(
     Parameter.sepBy(key(',')).skip(key('=>')).or(of([])),
-    Sentence.skip(key(';').atMost(1)).many(),
+    Sentence.skip(optional(key(';'))).many(),
     makeClosure
   ).wrap(key('{'), key('}')),
 

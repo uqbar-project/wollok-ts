@@ -11,6 +11,65 @@ should()
 describe('Wollok parser', () => {
 
 
+  describe('Comments', () => {
+    const parser = Parse.Import
+
+    it('multiline comments should be ignored in between tokens', () => {
+      `/*some comment*/import /* some
+      comment */ p/*some comment*/`.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+        ).and.be.tracedTo(0, 65)
+    })
+
+    it('line comments should be ignored at the end of line', () => {
+      `import //some comment
+      p`.should.be.parsedBy(parser).into(
+        Import(Reference('p'))
+        ).and.be.tracedTo(0, 29)
+    })
+
+    it('should not parse elements inside line comment', () => {
+      '// import p'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse elements inside multiline comment', () => {
+      `/*
+        import p
+      */`.should.not.parsedBy(parser)
+    })
+
+    it('should not parse elements with an unclosed multiline comment', () => {
+      'import p /* non closed comment'.should.not.parsedBy(parser)
+    })
+
+  })
+
+
+  describe('Names', () => {
+
+    const parser = Parse.Name
+
+    it('should parse names that begin with _', () => {
+      '_foo123'.should.be.be.parsedBy(parser).into(
+        '_foo123'
+      )
+    })
+
+    it('should not parse names with spaces', () => {
+      'foo bar'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse names that begin with numbers', () => {
+      '4foo'.should.not.parsedBy(parser)
+    })
+
+    it('should not parse operators as names', () => {
+      '=='.should.not.parsedBy(parser)
+    })
+
+  })
+
+
   describe('Literals', () => {
     const parser = Parse.Literal
 
@@ -274,58 +333,6 @@ describe('Wollok parser', () => {
 
   })
 
-  describe('Comments', () => {
-    const parser = Parse.Import
-
-    it('should parse imports with some large comment at the right', () => {
-      'import /* some comment */ p'.should.be.parsedBy(parser).into(
-        Import(Reference('p'))
-      ).and.be.tracedTo(0, 26)
-    })
-
-    it('should parse import  with some one line comment at the right', () => {
-      'import //some comment \n p'.should.be.parsedBy(parser).into(
-        Import(Reference('p'))
-      ).and.be.tracedTo(0, 27)
-    })
-
-    it('should not parse one line commented imports', () => {
-      '// import p \n //import p'.should.not.parsedBy(parser)
-    })
-
-    it('should not parse large commented imports', () => {
-      '/* import p */'.should.not.parsedBy(parser)
-    })
-
-    it('should not parse imports with a non closed commet at the right', () => {
-      'import p/* non closed comment'.should.not.parsedBy(parser)
-    })
-
-  })
-
-  describe('Names', () => {
-
-    const parser = Parse.Name
-
-    it('should parse names that begin with _', () => {
-      '_foo123'.should.be.be.parsedBy(parser).into(
-        '_foo123'
-      ).and.be.tracedTo(0, 7)
-    })
-
-    it('should not parse names with spaces', () => {
-      'foo bar'.should.not.parsedBy(parser)
-    })
-
-    it('should not parse names that begin with numbers', () => {
-      '4foo'.should.not.parsedBy(parser)
-    })
-
-    it('should not parse operators as names', () => {
-      '=='.should.not.parsedBy(parser)
-    })
-
-  })
 
   describe('Local references', () => {
 
@@ -359,12 +366,6 @@ describe('Wollok parser', () => {
       'C'.should.be.be.parsedBy(parser).into(
         Reference('C')
       ).and.be.tracedTo(0, 1)
-    })
-
-    it('should parse fully qualified references', () => {
-      'p.q.C'.should.be.be.parsedBy(parser).into(
-        Reference('p.q.C')
-      ).and.be.tracedTo(0, 5)
     })
 
     it('should not parse references that end with wrong characters', () => {
@@ -415,7 +416,7 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 8)
     })
 
-    it('should parse all imported packages that are inside other package', () => {
+    it('should parse generic imports', () => {
       'import p.q.*'.should.be.parsedBy(parser).into(
         Import(Reference('p.q'), {
           reference: Reference('p.q'),
@@ -628,13 +629,13 @@ describe('Wollok parser', () => {
     it('should parse empty objects', () => {
       'object O {}'.should.be.parsedBy(parser).into(
         Singleton('O')()
-      ).and.be.tracedTo(7, 11)
+      ).and.be.tracedTo(0, 11)
     })
 
     it('should parse non-empty objects', () => {
       'object O  { var v; method m(){} }'.should.be.parsedBy(parser).into(
         Singleton('O')(Field('v'), Method('m')())
-      ).and.be.tracedTo(7, 33)
+      ).and.be.tracedTo(0, 33)
     })
 
     it('should parse objects that inherits from a class', () => {
@@ -642,7 +643,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           superCall: { superclass: Reference('D'), args: [] },
         })()
-      ).and.be.tracedTo(7, 22)
+      ).and.be.tracedTo(0, 22)
     })
 
     it('should parse objects that inherit from a class with explicit builders', () => {
@@ -650,7 +651,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           superCall: { superclass: Reference('D'), args: [Literal(5)] },
         })()
-      ).and.be.tracedTo(7, 25)
+      ).and.be.tracedTo(0, 25)
     })
 
     it('should parse objects that inherit from a class and have a mixin', () => {
@@ -659,7 +660,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [] },
           mixins: [Reference('M')],
         })()
-      ).and.be.tracedTo(7, 35)
+      ).and.be.tracedTo(0, 35)
     })
 
     it('should parse objects that inherit from a class and have multiple mixins', () => {
@@ -668,7 +669,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [] },
           mixins: [Reference('M'), Reference('N')],
         })()
-      ).and.be.tracedTo(7, 41)
+      ).and.be.tracedTo(0, 41)
     })
 
     it('should parse objects thats have multiple mixins ', () => {
@@ -676,7 +677,7 @@ describe('Wollok parser', () => {
         Singleton('O', {
           mixins: [Reference('M'), Reference('N')],
         })()
-      ).and.be.tracedTo(7, 30)
+      ).and.be.tracedTo(0, 30)
     })
 
     it('should not parse objects with a constructor', () => {
@@ -685,10 +686,6 @@ describe('Wollok parser', () => {
 
     it('should not parse the "object" keyword without a body', () => {
       'object'.should.not.be.parsedBy(parser)
-    })
-
-    it('should not parse objects without name', () => {
-      'object {}'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse objects without body', () => {
@@ -777,13 +774,13 @@ describe('Wollok parser', () => {
 
     it('should parse method declarations', () => {
       'method m()'.should.be.parsedBy(parser).into(
-        Method('m')()
+        Method('m', { body: undefined })()
       ).and.be.tracedTo(0, 10)
     })
 
     it('should parse methods with operator characters as names ', () => {
       'method ==()'.should.be.parsedBy(parser).into(
-        Method('==')()
+        Method('==', { body: undefined })()
       ).and.be.tracedTo(0, 11)
     })
 
@@ -835,11 +832,12 @@ describe('Wollok parser', () => {
       'method m() native'.should.be.parsedBy(parser).into(
         Method('m', {
           isNative: true,
+          body: undefined,
         })()
       ).and.be.tracedTo(0, 17)
     })
 
-    it('should parse methods that have closures', () => {
+    it('should parse methods that have a closure as body', () => {
       'method m() = { 5 }'.should.be.parsedBy(parser).into(
         Method('m')(Literal(Closure()(Literal(5))))
       ).and.be.tracedTo(0, 18)
@@ -862,12 +860,6 @@ describe('Wollok parser', () => {
   describe('Constructors', () => {
 
     const parser = Parse.Constructor
-
-    it('should parse constructor declarations', () => {
-      'constructor()'.should.be.parsedBy(parser).into(
-        Constructor()()
-      ).and.be.tracedTo(0, 13)
-    })
 
     it('should parse empty constructors', () => {
       'constructor () { }'.should.be.parsedBy(parser).into(
@@ -910,17 +902,6 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 26)
     })
 
-    it('should parse constructor delegations to another constructor in the same class, without a body', () => {
-      'constructor() = self(5)'.should.be.parsedBy(parser).into(
-        Constructor({
-          baseCall: {
-            callsSuper: false,
-            args: [Literal(5)],
-          },
-        })()
-      ).and.be.tracedTo(0, 10)
-    })
-
     it('should parse constructor delegations to a superclass and a body', () => {
       'constructor() = super(5) {}'.should.be.parsedBy(parser).into(
         Constructor({
@@ -930,17 +911,6 @@ describe('Wollok parser', () => {
           },
         })()
       ).and.be.tracedTo(0, 27)
-    })
-
-    it('should parse constructor delegations to a superclass without a body', () => {
-      'constructor() = super(5)'.should.be.parsedBy(parser).into(
-        Constructor({
-          baseCall: {
-            callsSuper: true,
-            args: [Literal(5)],
-          },
-        })()
-      ).and.be.tracedTo(0, 10)
     })
 
     it('should not parse "constructor" keyword without a body', () => {
@@ -1050,7 +1020,7 @@ describe('Wollok parser', () => {
 
     it('should parse *= operation', () => {
       'a *= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
+        Assignment(Reference('a'), Send(Reference('a'), '*', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
     })
 
@@ -1066,22 +1036,16 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 6)
     })
 
-    it('should parse <<= operation ', () => {
-      'a <<= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '<<', [Reference('b')]))
-      ).and.be.tracedTo(0, 6)
+    it('should parse ||= operation ', () => {
+      'a ||= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '||', [Reference('b')]))
+      ).and.be.tracedTo(0, 7)
     })
 
-    it('should parse >>= operation', () => {
-      'a >>= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '>>', [Reference('b')]))
-      ).and.be.tracedTo(0, 6)
-    })
-
-    it('should parse >>>= operation ', () => {
-      'a >>>= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '>>>', [Reference('b')]))
-      ).and.be.tracedTo(0, 6)
+    it('should parse &&= operation', () => {
+      'a &&= b'.should.be.parsedBy(parser).into(
+        Assignment(Reference('a'), Send(Reference('a'), '&&', [Reference('b')]))
+      ).and.be.tracedTo(0, 7)
     })
 
     it('should not parse assignments that have other assignment at the right', () => {
@@ -1149,13 +1113,10 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 2)
     })
 
-    it('should parse negation with "not" and "!" operator ', () => {
-      'not!!a'.should.be.parsedBy(parser).into(
-        Send(
-          Send(Send(Reference('a'), '!', []), '!', []),
-          'not',
-          [])
-      ).and.be.tracedTo(0, 6)
+    it('should parse negation with chained "!" operators', () => {
+      '!!!a'.should.be.parsedBy(parser).into(
+        Send(Send(Send(Reference('a'), '!', []), '!', []), '!', [])
+      ).and.be.tracedTo(0, 4)
     })
 
     it('should parse arithmetic operators in prefix operations', () => {
@@ -1167,28 +1128,28 @@ describe('Wollok parser', () => {
 
   })
 
-  describe('Sends', () => {
+  describe('Send', () => {
     const parser = Parse.Send
 
-    it('should parse sending messages to a method without parameters', () => {
+    it('should parse sending messages without parameters', () => {
       'a.m()'.should.be.parsedBy(parser).into(
         Send(Reference('a'), 'm', [])
       ).and.be.tracedTo(0, 5)
     })
 
-    it('should parse sending messages to a method with a parameter', () => {
+    it('should parse sending messages with a single parameter', () => {
       'a.m(5)'.should.be.parsedBy(parser).into(
         Send(Reference('a'), 'm', [Literal(5)])
       ).and.be.tracedTo(0, 6)
     })
 
-    it('should parse sending messages to a method with multiple parameters', () => {
+    it('should parse sending messages with multiple arguments', () => {
       'a.m(5,7)'.should.be.parsedBy(parser).into(
         Send(Reference('a'), 'm', [Literal(5), Literal(7)])
       ).and.be.tracedTo(0, 8)
     })
 
-    it('should parse sending messages to a method with a closure as parameter', () => {
+    it('should parse sending messages with a closure instead of arguments', () => {
       'a.m{p => p}'.should.be.parsedBy(parser).into(
         Send(Reference('a'), 'm', [Literal(Closure(Parameter('p'))(Reference('p')))])
       ).and.be.tracedTo(0, 11)
@@ -1304,15 +1265,15 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 7)
     })
 
-    it('should parse "if" with "then" body with a closure', () => {
+    it('should parse "if" with "then" curly-braced body', () => {
       'if(a){x}'.should.be.parsedBy(parser).into(
-        If(Reference('a'), [Literal(Closure()(Reference('x')))])
+        If(Reference('a'), [Reference('x')])
       ).and.be.tracedTo(0, 8)
     })
 
-    it('should parse "if" with "then" with a closure with more than one sentence', () => {
+    it('should parse "if" with "then" with a multi-sentence curly-braced body', () => {
       'if(a){x;y}'.should.be.parsedBy(parser).into(
-        If(Reference('a'), [Literal(Closure()(Reference('x'), Reference('y')))])
+        If(Reference('a'), [Reference('x'), Reference('y')])
       ).and.be.tracedTo(0, 10)
     })
 
@@ -1322,9 +1283,9 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 14)
     })
 
-    it('should parse "if" with "then" and "else" body with a closure ', () => {
+    it('should parse "if" with "then" and "else" curly-braced body', () => {
       'if(a){x}else{y}'.should.be.parsedBy(parser).into(
-        If(Reference('a'), [Literal(Closure()(Reference('x')))], [Literal(Closure()(Reference('y')))])
+        If(Reference('a'), [Reference('x')], [Reference('y')])
       ).and.be.tracedTo(0, 15)
     })
 
@@ -1368,9 +1329,9 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 5)
     })
 
-    it('should parse try expressions with a body with a closure', () => {
+    it('should parse try expressions with a curly-braced body', () => {
       'try{x}'.should.be.parsedBy(parser).into(
-        Try([Literal(Closure()(Reference('x')))])
+        Try([Reference('x')])
       ).and.be.tracedTo(0, 6)
     })
 
@@ -1386,12 +1347,12 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 15)
     })
 
-    it('should parse try expressions with a catch with a closure body', () => {
+    it('should parse try expressions with a curly-braced body', () => {
       'try x catch e{h}'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
           catches: [{
             parameter: Parameter('e'),
-            body: [Literal(Closure()(Reference('h')))],
+            body: [Reference('h')],
           }],
 
         })
@@ -1404,7 +1365,7 @@ describe('Wollok parser', () => {
           catches: [{
             parameter: Parameter('e'),
             parameterType: Reference('E'),
-            body: [Literal(Closure()(Reference('h')))],
+            body: [Reference('h')],
           }],
 
         })
@@ -1419,10 +1380,10 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 19)
     })
 
-    it('should parse try expressions with a "then always" body with a closure', () => {
+    it('should parse try expressions with a "then always" curly-braced body', () => {
       'try x then always{a}'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          always: [Literal(Closure()(Reference('a')))],
+          always: [Reference('a')],
         })
       ).and.be.tracedTo(0, 20)
     })
