@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Assignment, Class, Closure, Constructor, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
+import { Assignment, Catch, Class, Closure, Constructor, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
 
 const { raw } = String
 
@@ -447,7 +447,7 @@ describe('Wollok parser', () => {
       'program name { var x }'.should.be.parsedBy(parser).into(
         Program('name')(Variable('x'))
       ).and.be.tracedTo(0, 22)
-        .and.have.nested.property('body.0').tracedTo(15, 20)
+        .and.have.nested.property('body.sentences.0').tracedTo(15, 20)
     })
 
 
@@ -1326,24 +1326,22 @@ describe('Wollok parser', () => {
 
     it('should parse try expressions', () => {
       'try x'.should.be.parsedBy(parser).into(
-        Try([Reference('x')])
+        Try([Reference('x')], {})
       ).and.be.tracedTo(0, 5)
     })
 
     it('should parse try expressions with a curly-braced body', () => {
       'try{x}'.should.be.parsedBy(parser).into(
-        Try([Reference('x')])
+        Try([Reference('x')], {})
       ).and.be.tracedTo(0, 6)
     })
 
     it('should parse try expressions with a catch', () => {
       'try x catch e h'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          catches: [{
-            parameter: Parameter('e'),
-            body: [Reference('h')],
-          }],
-
+          catches: [
+            Catch(Parameter('e'))(Reference('h')),
+          ],
         })
       ).and.be.tracedTo(0, 15)
     })
@@ -1351,11 +1349,9 @@ describe('Wollok parser', () => {
     it('should parse try expressions with a curly-braced body', () => {
       'try x catch e{h}'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          catches: [{
-            parameter: Parameter('e'),
-            body: [Reference('h')],
-          }],
-
+          catches: [
+            Catch(Parameter('e'))(Reference('h')),
+          ],
         })
       ).and.be.tracedTo(0, 16)
     })
@@ -1363,11 +1359,9 @@ describe('Wollok parser', () => {
     it('should parse try expressions with a catch with the parameter type', () => {
       'try x catch e:E h'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          catches: [{
-            parameter: Parameter('e'),
-            parameterType: Reference('E'),
-            body: [Reference('h')],
-          }],
+          catches: [
+            Catch(Parameter('e'), { parameterType: Reference('E') })(Reference('h')),
+          ],
 
         })
       ).and.be.tracedTo(0, 17)
@@ -1392,10 +1386,9 @@ describe('Wollok parser', () => {
     it('should parse try expressions with a catch and a "then always" body', () => {
       'try x catch e h then always a'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          catches: [{
-            parameter: Parameter('e'),
-            body: [Reference('h')],
-          }],
+          catches: [
+            Catch(Parameter('e'))(Reference('h')),
+          ],
           always: [Reference('a')],
         })
       ).and.be.tracedTo(0, 29)
@@ -1404,13 +1397,9 @@ describe('Wollok parser', () => {
     it('should parse try expressions with more than one catch', () => {
       'try x catch e h catch e i then always a'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {
-          catches: [{
-            parameter: Parameter('e'),
-            body: [Reference('h')],
-          }, {
-            parameter: Parameter('e'),
-            body: [Reference('i')],
-          },
+          catches: [
+            Catch(Parameter('e'))(Reference('h')),
+            Catch(Parameter('e'))(Reference('i')),
           ],
           always: [Reference('a')],
         })

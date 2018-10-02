@@ -1,4 +1,4 @@
-import { Class as ClassNode, Constructor as ConstructorNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, makeNode, Method as MethodNode, Mixin as MixinNode, Name, NodePayload, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Try as TryNode, Variable as VariableNode } from '../src/model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, makeNode, Method as MethodNode, Mixin as MixinNode, Name, NodePayload, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
 
 const { keys } = Object
 
@@ -34,7 +34,7 @@ export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode>>)
 
 
 export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
-  (...members: (FieldNode | MethodNode | ConstructorNode)[]) =>
+  (...members: ClassMember[]) =>
     makeNode('Class')({
       name,
       members,
@@ -43,7 +43,7 @@ export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
     })
 
 export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
-  (...members: (FieldNode | MethodNode)[]) =>
+  (...members: ObjectMember[]) =>
     makeNode('Singleton')({
       members,
       mixins: [],
@@ -52,7 +52,7 @@ export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNo
     })
 
 export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) =>
-  (...members: (FieldNode | MethodNode)[]) =>
+  (...members: ObjectMember[]) =>
     makeNode('Mixin')({
       name,
       members,
@@ -61,18 +61,18 @@ export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) =>
     })
 
 export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode>>) =>
-  (...body: Sentence[]) =>
+  (...sentences: Sentence[]) =>
     makeNode('Program')({
       name,
-      body,
+      body: makeNode('Body')({ sentences }),
       ...payload,
     })
 
-export const Test = (description: string, payload?: Partial<NodePayload<TestNode>>) =>
-  (...body: Sentence[]) =>
+export const Test = (name: string, payload?: Partial<NodePayload<TestNode>>) =>
+  (...sentences: Sentence[]) =>
     makeNode('Test')({
-      description,
-      body,
+      name,
+      body: makeNode('Body')({ sentences }),
       ...payload,
     })
 
@@ -87,22 +87,24 @@ export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode>>) => 
 })
 
 export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode>>) =>
-  (...body: Sentence[]) => {
-    const { body: payloadBody, ...otherPayload } = payload || { body: undefined }
+  (...sentences: Sentence[]) => {
+    const { body, ...otherPayload } = payload || { body: undefined }
 
     return makeNode('Method')({
       name,
       isOverride: false,
       isNative: false,
       parameters: [],
-      ...payload && keys(payload).includes('body') && payloadBody === undefined ? {} : { body },
+      ...payload && keys(payload).includes('body') && body === undefined ? {} : {
+        body: makeNode('Body')({ sentences }),
+      },
       ...otherPayload,
     })
   }
 
 export const Constructor = (payload?: Partial<NodePayload<ConstructorNode>>) =>
-  (...body: Sentence[]) => makeNode('Constructor')({
-    body,
+  (...sentences: Sentence[]) => makeNode('Constructor')({
+    body: makeNode('Body')({ sentences }),
     parameters: [],
     ...payload,
   })
@@ -141,18 +143,25 @@ export const New = (className: ReferenceNode, args: ReadonlyArray<Expression>) =
 
 export const If = (condition: Expression, thenBody: ReadonlyArray<Sentence>, elseBody: ReadonlyArray<Sentence> = []) => makeNode('If')({
   condition,
-  thenBody,
-  elseBody,
+  thenBody: makeNode('Body')({ sentences: thenBody }),
+  elseBody: makeNode('Body')({ sentences: elseBody }),
 })
 
 export const Throw = (arg: Expression) => makeNode('Throw')({ arg })
 
-export const Try = (body: ReadonlyArray<Sentence>, payload?: Partial<NodePayload<TryNode>>) => makeNode('Try')({
-  body,
-  catches: [],
-  always: [],
-  ...payload,
-})
+export const Try = (sentences: ReadonlyArray<Sentence>, payload: { catches?: CatchNode[], always?: Sentence[] }) =>
+  makeNode('Try')({
+    body: makeNode('Body')({ sentences }),
+    catches: payload.catches || [],
+    always: makeNode('Body')({ sentences: payload.always || [] }),
+  })
+
+export const Catch = (parameter: ParameterNode, payload?: Partial<NodePayload<CatchNode>>) => (...sentences: Sentence[]) =>
+  makeNode('Catch')({
+    body: makeNode('Body')({ sentences }),
+    parameter,
+    ...payload,
+  })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
