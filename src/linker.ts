@@ -1,3 +1,4 @@
+// import { chain as flatMap, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Entity, Environment, Package, transform } from './model'
 
@@ -40,51 +41,149 @@ export default (newPackages: Package[], baseEnvironment: Environment = { members
 
   const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) }
 
+  // TODO: Environment should be a node to avoid all this mapping and reducing
   const linkedEnvironment: Environment = {
     ...mergedEnvironment,
     members: mergedEnvironment.members.map(transform(node => ({ ...node, id: uuid() }))),
   }
 
   return linkedEnvironment
+
+  // const scopes = new ScopeBuilder(linkedEnvironment).build()
+
+  // const scopedEnvironment = {
+  //   ...linkedEnvironment,
+  //   members: linkedEnvironment.members.map(transform(node => ({ ...node, scope: scopes[node.id] }))),
+  // }
+
+  // return scopedEnvironment
 }
 
-// export const scope = (node: Linked<Node>) => {
+// type LazyScope = Scope | (() => Scope)
+// class ScopeBuilder {
+//   private environment: Environment
+//   private innerContributions: { [id: string]: LazyScope } = {}
+//   private outerContributions: { [id: string]: LazyScope } = {}
+//   private scopes: { [id: string]: LazyScope } = {}
 
-//   const contributions = (contributor: Linked<Node>): { [name: string]: Id } => {
+//   constructor(environment: Environment) {
+//     this.environment = environment
+
+//     environment.members.reduce<ScopeBuilder>(
+//       reduce((sb, node) => {
+//         sb.innerContributions[node.id] = sb.innerContributionFrom(node)
+//         sb.outerContributions[node.id] = sb.outerContributionFrom(node)
+//         return sb
+//       })
+//       , this)
+//   }
+
+//   private innerContribution(id: Id): Scope {
+//     const lazyContribution = this.innerContributions[id]
+//     if (lazyContribution instanceof Function) {
+//       const contribution = lazyContribution()
+//       this.innerContributions[id] = contribution
+//       return contribution
+//     }
+//     return lazyContribution
+//   }
+
+//   private outerContribution(id: Id): Scope {
+//     const lazyContribution = this.outerContributions[id]
+//     if (lazyContribution instanceof Function) {
+//       const contribution = lazyContribution()
+//       this.outerContributions[id] = contribution
+//       return contribution
+//     }
+//     return lazyContribution
+//   }
+
+//   private innerContributionFrom(contributor: Linked<Node>): LazyScope {
+//     return () => [
+//       ...isModule(contributor)
+//         ? flatMap(ancestor =>
+//           this.innerContribution(ancestor.id)
+//           , this.ancestors(contributor))
+//         : [],
+//       ...[contributor, ...children(contributor)].map(c => this.outerContribution(c.id)),
+//     ].reduce(merge)
+//   }
+
+//   private outerContributionFrom(contributor: Linked<Node>): LazyScope {
 //     switch (contributor.kind) {
+//       // TODO: Resolve fully qualified names
+//       case 'Import':
+//         return () => {
+//           const referencedId = this.scopeFor(contributor)[contributor.reference.name]
+//           const referenced = getNodeById(this.environment, referencedId)
+//           return contributor.isGeneric
+//             ? children(referenced)
+//               .map(child => ({ [(child as Entity).name]: child.id }))
+//               .reduce(merge)
+//             : { [(referenced as Entity).name]: referenced.id }
+//         }
 //       case 'Package':
-//         return contributor.name === 'wollok'
-//           ? children(contributor).map(contributions).reduce(merge, { [contributor.name]: contributor.id })
-//           : { [contributor.name]: contributor.id }
+//         return () => {
+//           const globalContributions: Scope = contributor.name === 'wollok'
+//             ? children(contributor).map(c => this.outerContribution(c.id)).reduce(merge)
+//             : {}
+//           return {
+//             [contributor.name]: contributor.id,
+//             ...globalContributions,
+//           }
+//         }
 //       case 'Singleton':
 //       case 'Class':
 //       case 'Mixin':
-//         return ancestors(contributor).map(contributions).reduce(merge, contributor.name ? { [contributor.name]: contributor.id } : {})
+//       case 'Program':
+//         // TODO: rename Test.description to Test.name
+//         // case 'Test':
+//         return contributor.name ? { [contributor.name]: contributor.id } : {}
 //       case 'Variable':
 //       case 'Field':
 //       case 'Parameter':
 //         return { [contributor.name]: contributor.id }
-//       default: return {}
+//       default:
+//         return {}
 //     }
 //   }
 
-//   const entries = (source: Linked<Node>): { [name: string]: Id } => {
-//     const parent = parentOf(source)
-//     const entriesFromParent = scope(parent)
-//     const entriesFromSiblings = children(parent).map(contributions).reduce(merge, {}) // TODO: What about If?
-//     const entriesFromAncestors = isModule(parent) ? contributions(parent) : {}
+//   private ancestors(module: Linked<Module>): ReadonlyArray<Linked<Module>> {
+//     switch (module.kind) {
+//       case 'Class': return [
+//         ...module.superclass ? [module.superclass.id] : [],
+//         ...module.mixins.map(m => this.scopeFor(module)[m.name]),
+//         ...this.ancestors(getNodeById<Linked<Module>>(this.environment, module.superclass
+// ? module.superclass.id : this.scopeFor(module).Object)),
+//       ]
 
-//     return { ...entriesFromParent, ...entriesFromSiblings, ...entriesFromAncestors }
+//       case 'Singleton': return [
+//         ...module.superCall ? [module.superCall.superclass.id] : [],
+//         ...module.mixins.map(m => m.id),
+//         ...this.ancestors(getNodeById(this.environment, module.superCall
+// ? module.superCall.superclass.id : this.scopeFor(module).Object)),
+//       ]
+
+//       case 'Mixin': return [
+//         ...module.mixins.map(m => m.id),
+//       ]
+//     }
 //   }
 
-//   return entries(node)
+//   private scopeFor(node: Linked<Node>): Scope {
+//     const parent = parentOf(this.environment)(node)
+//     if (!this.scopes[parent.id]) {
+//       this.scopes[parent.id] = this.scopeFor(parent)
+//     }
+
+//     return merge(this.scopes[parent.id], this.innerContribution(parent.id))
+//   }
+
+//   build(): { [id: string]: Scope } {
+//     return this.environment.members.reduce<{ [id: string]: Scope }>(
+//       reduce((scope, node) => merge(scope, { [node.id]: this.scopeFor(node) }))
+//       , {})
+//   }
 // }
 
-// ---------------------------------------------------------------------------------------------------------------
-
-
-// case class Environment(members: Seq[Member[Package]] = Nil) extends Node {
-//   implicit val self: Environment = this
-
-// TODO: get node from id / reference?
-// TODO: parenthood
+  // TODO: get node from id / reference?

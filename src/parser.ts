@@ -2,7 +2,7 @@
 // tslint:disable:variable-name
 import { alt, createLanguage, index, notFollowedBy, of, Parser, regex, seq, seqMap, string, whitespace } from 'parsimmon'
 import { concat } from 'ramda'
-import { Entity, Expression, LiteralValue, makeNode as node, Name, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Reference, Send, Sentence, Singleton } from './model'
+import { Body, Entity, Expression, LiteralValue, makeNode as node, Name, NodeKind, NodeOfKind, NodePayload, Package, Parameter, Reference, Send, Sentence, Singleton } from './model'
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -22,7 +22,6 @@ type Parsers = { [K in NodeKind]: NodeOfKind<K> } & {
   File: Package
 
   Name: Name
-  Block: Sentence[]
   Arguments: Expression[]
   Parameters: Parameter[]
   Expression: Expression
@@ -60,7 +59,10 @@ export default createLanguage<Parsers>({
 
   Arguments: ({ Expression }) => Expression.sepBy(key(',')).wrap(key('('), key(')')),
 
-  Block: ({ Sentence }) => Sentence.skip(optional(key(';'))).many().wrap(key('{'), key('}')),
+  Body: ({ Sentence }) =>
+    Sentence.skip(optional(key(';'))).many().wrap(key('{'), key('}'))
+      .map(sentences => ({ sentences }))
+      .thru(makeNode('Body')),
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // ENTITIES
@@ -88,17 +90,17 @@ export default createLanguage<Parsers>({
   ).thru(makeNode('Package')),
 
 
-  Program: ({ Name, Sentence }) => seqMap(
+  Program: ({ Name, Body }) => seqMap(
     key('program').then(Name),
-    Sentence.many().wrap(key('{'), key('}')),
+    Body,
     (name, body) => ({ name, body })
   ).thru(makeNode('Program')),
 
 
-  Test: ({ String, Sentence }) => seqMap(
+  Test: ({ String, Body }) => seqMap(
     key('test').then(String),
-    Sentence.many().wrap(key('{'), key('}')),
-    (description, body) => ({ description, body })
+    Body,
+    (name, body) => ({ name, body })
   ).thru(makeNode('Test')),
 
 
@@ -156,28 +158,28 @@ export default createLanguage<Parsers>({
   ).thru(makeNode('Field')),
 
 
-  Method: ({ Name, Parameters, Expression, Block }) => seqMap(
+  Method: ({ Name, Parameters, Expression, Body }) => seqMap(
     key('override').result(true).or(of(false)),
     key('method').then(alt(Name, ...OPERATORS.map(key))),
     Parameters,
-    alt(
+    alt<{ isNative: boolean, body?: Body }>(
       key('native').result({ isNative: true, body: undefined }),
-      key('=').then(Expression.times(1)).map(body => ({ isNative: false, body })),
-      Block.map(body => ({ isNative: false, body })),
+      key('=').then(Expression.times(1)).map(sentences => ({ sentences })).thru(makeNode('Body')).map(body => ({ isNative: false, body })),
+      Body.map(body => ({ isNative: false, body })),
       of({ isNative: false, body: undefined })
     ),
     (isOverride, name, parameters, { isNative, body }) => ({ isOverride, name, parameters, isNative, body })
   ).thru(makeNode('Method')),
 
 
-  Constructor: ({ Parameters, Arguments, Block }) => seqMap(
+  Constructor: ({ Parameters, Arguments, Body }) => seqMap(
     key('constructor').then(Parameters),
     optional(key('=').then(seqMap(
       alt(key('self').result(false), key('super').result(true)),
       Arguments,
       (callsSuper, args) => ({ callsSuper, args }))
     )),
-    Block,
+    Body,
     (parameters, baseCall, body) => ({ parameters, baseCall, body })
   ).thru(makeNode('Constructor')),
 
@@ -245,10 +247,16 @@ export default createLanguage<Parsers>({
   ).thru(makeNode('New')),
 
 
-  If: ({ Expression, Block, Sentence }) => seqMap(
+  If: ({ Expression, Body, Sentence }) => seqMap(
     key('if').then(Expression.wrap(key('('), key(')'))),
-    alt(Block, Sentence.times(1)).trim(_),
-    key('else').then(alt(Block, Sentence.times(1))).or(of<Sentence[]>([])),
+    alt<Body>(
+      Body,
+      Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
+    ).trim(_),
+    key('else').then(alt<Body>(
+      Body,
+      Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
+    )).or(of<Sentence[]>([]).map(sentences => ({ sentences })).thru(makeNode('Body'))),
     (condition, thenBody, elseBody) => ({ condition, thenBody, elseBody })
   ).thru(makeNode('If')),
 
@@ -256,18 +264,32 @@ export default createLanguage<Parsers>({
   Throw: ({ Expression }) => key('throw').then(Expression).map(arg => ({ arg })).thru(makeNode('Throw')),
 
 
-  Try: ({ Sentence, Block, Parameter, Reference }) => seqMap(
-    key('try').then(alt(Block, Sentence.times(1))),
-    seqMap(
-      key('catch').then(Parameter),
-      optional(key(':').then(Reference)),
-      alt(Block, Sentence.trim(_).times(1)),
-      (parameter, parameterType, body) => ({ parameter, parameterType, body })
-    ).many(),
-    key('then always').then(alt(Block, Sentence.times(1))).or(of([])),
+  Try: ({ Sentence, Body, Catch }) => seqMap(
+    key('try').then(
+      alt<Body>(
+        Body,
+        Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
+      ).trim(_)
+    ),
+    Catch.many(),
+    key('then always').then(
+      alt<Body>(
+        Body,
+        Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
+      ).trim(_)
+    ).or(of<Sentence[]>([]).map(sentences => ({ sentences })).thru(makeNode('Body'))),
     (body, catches, always) => ({ body, catches, always })
   ).thru(makeNode('Try')),
 
+  Catch: ({ Parameter, Reference, Body, Sentence }) => seqMap(
+    key('catch').then(Parameter),
+    optional(key(':').then(Reference)),
+    alt<Body>(
+      Body,
+      Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
+    ).trim(_),
+    (parameter, parameterType, body) => ({ parameter, parameterType, body })
+  ).thru(makeNode('Catch')),
 
   Send: ({ Name, PrimaryExpression, Arguments, Closure }) => seqMap(
     index,
@@ -360,11 +382,11 @@ const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (pars
   (start, payload, end) => node<K, N>(kind)({ ...payload as any, source: { start, end } })
 )
 
-const makeClosure = (parameters: Parameter[], body: Sentence[]) => node('Singleton')({
+const makeClosure = (parameters: Parameter[], sentences: Sentence[]) => node('Singleton')({
   superCall: { superclass: node('Reference')({ name: 'wollok.Closure' }), args: [] },
   mixins: [],
   members: [
-    node('Method')({ name: 'apply', isOverride: false, isNative: false, parameters, body }),
+    node('Method')({ name: 'apply', isOverride: false, isNative: false, parameters, body: node('Body')({ sentences }) }),
   ],
 })
 
