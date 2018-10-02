@@ -319,10 +319,6 @@ export const children = (node: Linked<Node>): ReadonlyArray<Linked<Node>> => {
     case 'Reference':
     case 'Self':
       return []
-    default:
-      // TODO: use either a function like https://github.com/dividab/ts-exhaustive-check or modeling node types as enums.
-      const exhaustiveCheck: never = node
-      return exhaustiveCheck
   }
 }
 
