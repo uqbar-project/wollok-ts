@@ -468,12 +468,14 @@ describe('Wollok parser', () => {
       'test "name" { }'.should.be.parsedBy(parser).into(
         Test('name')()
       ).and.be.tracedTo(0, 15)
+
     })
 
     it('should parse non-empty test', () => {
       'test "name" { var x }'.should.be.parsedBy(parser).into(
         Test('name')(Variable('x'))
       ).and.be.tracedTo(0, 21)
+        .and.have.nested.property('body.0').tracedTo(14, 19)
     })
 
     it('should not parse tests with names that aren\'t a string', () => {
@@ -503,12 +505,16 @@ describe('Wollok parser', () => {
       'package p { class C {} }'.should.be.parsedBy(parser).into(
         Package('p')(Class('C')())
       ).and.be.tracedTo(0, 24)
+        .and.have.nested.property('members.0').tracedTo(12, 23)
     })
 
-    it('should parse non-empty packages', () => {
+    it('should parse non-empty packages with more than one class', () => {
       'package p { class C {} class D {} }'.should.be.parsedBy(parser).into(
         Package('p')(Class('C')(), Class('D')())
       ).and.be.tracedTo(0, 35)
+        .and.have.nested.property('members.0').tracedTo(12, 23)
+        .and.also.have.nested.property('members.1').tracedTo(23, 34)
+
     })
 
     it('should not parse packages without a body', () => {
@@ -529,12 +535,15 @@ describe('Wollok parser', () => {
       'class C { constructor() {} }'.should.be.parsedBy(parser).into(
         Class('C')(Constructor()())
       ).and.be.tracedTo(0, 28)
+        .and.have.nested.property('members.0').tracedTo(10, 27)
     })
 
     it('should parse classes with sentences', () => {
       'class C { var v; method m(){} }'.should.be.parsedBy(parser).into(
         Class('C')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 31)
+        .and.have.nested.property('members.0').tracedTo(10, 15)
+        .and.also.have.nested.property('members.1').tracedTo(17, 30)
     })
 
     it('should parse classes that inherit from other class', () => {
@@ -543,6 +552,7 @@ describe('Wollok parser', () => {
           { superclass: Reference('D') }
         )()
       ).and.be.tracedTo(0, 21)
+        .and.have.nested.property('superclass').tracedTo(17, 18)
     })
 
     it('should parse classes that inherit from other class and have a mixin', () => {
@@ -554,6 +564,8 @@ describe('Wollok parser', () => {
           }
         )()
       ).and.be.tracedTo(0, 34)
+        .and.have.nested.property('superclass').tracedTo(17, 18)
+        .and.also.have.nested.property('mixins.0').tracedTo(30, 31)
     })
 
     it('should not parse "class" keyword without a body', () => {
@@ -603,6 +615,8 @@ describe('Wollok parser', () => {
       'mixin M { var v; method m(){} }'.should.be.parsedBy(parser).into(
         Mixin('M')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 31)
+        .and.have.nested.property('members.0').tracedTo(10, 15)
+        .and.also.have.nested.property('members.1').tracedTo(17, 30)
     })
 
     it('should not parse mixins with constructor', () => {
@@ -637,6 +651,8 @@ describe('Wollok parser', () => {
       'object O  { var v; method m(){} }'.should.be.parsedBy(parser).into(
         Singleton('O')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 33)
+        .and.have.nested.property('members.0').tracedTo(12, 17)
+        .and.also.have.nested.property('members.1').tracedTo(19, 32)
     })
 
     it('should parse objects that inherits from a class', () => {
@@ -645,6 +661,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [] },
         })()
       ).and.be.tracedTo(0, 22)
+      // TO DO
     })
 
     it('should parse objects that inherit from a class with explicit builders', () => {
@@ -653,6 +670,7 @@ describe('Wollok parser', () => {
           superCall: { superclass: Reference('D'), args: [Literal(5)] },
         })()
       ).and.be.tracedTo(0, 25)
+      // TO DO
     })
 
     it('should parse objects that inherit from a class and have a mixin', () => {
@@ -662,6 +680,7 @@ describe('Wollok parser', () => {
           mixins: [Reference('M')],
         })()
       ).and.be.tracedTo(0, 35)
+      // TO DO
     })
 
     it('should parse objects that inherit from a class and have multiple mixins', () => {
@@ -726,12 +745,14 @@ describe('Wollok parser', () => {
     })
 
 
-    it('should parse var asignation', () => {
+    it('should parse var declaration and asignation', () => {
       'var v = 5'.should.be.parsedBy(parser).into(
         Field('v', {
           value: Literal(5),
         })
       ).and.be.tracedTo(0, 9)
+        .and.have.nested.property('value').tracedTo(8, 9)
+
     })
 
     it('should parse const declaration', () => {
@@ -742,13 +763,14 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 7)
     })
 
-    it('should parse const asignation', () => {
+    it('should parse const declaration and asignation', () => {
       'const v = 5'.should.be.parsedBy(parser).into(
         Field('v', {
           isReadOnly: true,
           value: Literal(5),
         })
       ).and.be.tracedTo(0, 11)
+        .and.have.nested.property('value').tracedTo(10, 11)
     })
 
     it('should not parse vars without name', () => {
@@ -797,6 +819,8 @@ describe('Wollok parser', () => {
           parameters: [Parameter('p'), Parameter('q')],
         })()
       ).and.be.tracedTo(0, 17)
+        .and.have.nested.property('parameters.0').tracedTo(9, 10)
+        .and.also.have.nested.property('parameters.1').tracedTo(12, 13)
     })
 
     it('should parse methods that have vararg parameters', () => {
@@ -1302,7 +1326,9 @@ describe('Wollok parser', () => {
 
     it('should parse "if" inside other "if" that have an else', () => {
       'if(a) if(b) x else y else z'.should.be.parsedBy(parser).into(
-        If(Reference('a'), [If(Reference('b'), [Reference('x')], [Reference('y')])], [Reference('z')])
+        If(Reference('a'),
+          [If(Reference('b'), [Reference('x')], [Reference('y')])],
+          [Reference('z')])
 
       ).and.be.tracedTo(0, 27)
     })
