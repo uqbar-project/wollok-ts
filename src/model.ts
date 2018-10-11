@@ -3,32 +3,38 @@ import { chain as flatMap, mapObjIndexed } from 'ramda'
 
 const { isArray } = Array
 
-// TODO: Add Maybe monads to optional fields. https://github.com/cbowdon/tsmonad (?)
+type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
 
 export type Node = Parameter | Import | Body | Catch | Entity | ClassMember | Sentence
 export type NodeKind = Node['kind']
 export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
-export type NodePayload<N extends Node> = Pick<N, Exclude<keyof N, 'kind'>>
+export type NodePayload<N extends Node> = Drop<Unlinked<N>, 'kind'>
 
 export type Id = string
 export interface Scope { [name: string]: Id }
-export type Linked<T extends {}> = { [K in keyof T]: LinkedField<T[K]> } & {
-  id: Id,
-  scope: Scope,
-}
-type LinkedField<T> =
-  T extends string | number | boolean ? T :
-  T extends ReadonlyArray<infer U> ? U extends {} ? ReadonlyArray<Linked<U>> : ReadonlyArray<U> :
-  T extends {} | undefined ? T extends {} ? Linked<T> : Linked<Exclude<T, undefined>> | undefined :
+
+
+export type Unlinked<T> =
+  T extends string | number | boolean | null | undefined | never ? T :
+  T extends ReadonlyArray<infer U> ? UnlinkedArray<U> :
+  T extends {} ? (
+    Drop<{ [K in keyof T]: Unlinked<T[K]> }, 'id' | 'scope' | 'source'> & {
+      source?: Source
+    }):
   T
 
+export interface UnlinkedArray<T> extends ReadonlyArray<Unlinked<T>> { }
 
-interface Traceable {
-  source?: {
-    file?: string
-    start: Index
-    end: Index
-  }
+export interface Source {
+  file?: string
+  start: Index
+  end: Index
+}
+
+export interface BasicNode {
+  id: Id,
+  scope: Scope,
+  source?: Source,
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -37,24 +43,24 @@ interface Traceable {
 
 export type Name = string
 
-export interface Reference extends Traceable {
+export interface Reference extends BasicNode {
   readonly kind: 'Reference'
   readonly name: Name
 }
 
-export interface Parameter extends Traceable {
+export interface Parameter extends BasicNode {
   readonly kind: 'Parameter'
   readonly name: Name
   readonly isVarArg: boolean
 }
 
-export interface Import extends Traceable {
+export interface Import extends BasicNode {
   readonly kind: 'Import'
   readonly reference: Reference
   readonly isGeneric: boolean
 }
 
-export interface Body extends Traceable {
+export interface Body extends BasicNode {
   readonly kind: 'Body'
   readonly sentences: ReadonlyArray<Sentence>
 }
@@ -66,26 +72,26 @@ export interface Body extends Traceable {
 export type Entity = Package | Program | Test | Module
 export type Module = Class | Singleton | Mixin
 
-export interface Package extends Traceable {
+export interface Package extends BasicNode {
   readonly kind: 'Package'
   readonly name: Name
   readonly imports: ReadonlyArray<Import>
   readonly members: ReadonlyArray<Entity>
 }
 
-export interface Program extends Traceable {
+export interface Program extends BasicNode {
   readonly kind: 'Program'
   readonly name: Name
   readonly body: Body
 }
 
-export interface Test extends Traceable {
+export interface Test extends BasicNode {
   readonly kind: 'Test'
   readonly name: string
   readonly body: Body
 }
 
-export interface Class extends Traceable {
+export interface Class extends BasicNode {
   readonly kind: 'Class'
   readonly name: Name
   readonly superclass?: Reference
@@ -93,7 +99,7 @@ export interface Class extends Traceable {
   readonly members: ReadonlyArray<ClassMember>
 }
 
-export interface Singleton extends Traceable {
+export interface Singleton extends BasicNode {
   readonly kind: 'Singleton'
   readonly name?: Name
   readonly superCall?: { superclass: Reference, args: ReadonlyArray<Expression> }
@@ -101,7 +107,7 @@ export interface Singleton extends Traceable {
   readonly members: ReadonlyArray<ObjectMember>
 }
 
-export interface Mixin extends Traceable {
+export interface Mixin extends BasicNode {
   readonly kind: 'Mixin'
   readonly name: Name
   readonly mixins: ReadonlyArray<Reference>
@@ -116,14 +122,14 @@ export interface Mixin extends Traceable {
 export type ObjectMember = Field | Method
 export type ClassMember = Constructor | ObjectMember
 
-export interface Field extends Traceable {
+export interface Field extends BasicNode {
   readonly kind: 'Field'
   readonly name: Name
   readonly isReadOnly: boolean
   readonly value?: Expression
 }
 
-export interface Method extends Traceable {
+export interface Method extends BasicNode {
   readonly kind: 'Method'
   readonly name: Name
   readonly isOverride: boolean
@@ -132,7 +138,7 @@ export interface Method extends Traceable {
   readonly body?: Body
 }
 
-export interface Constructor extends Traceable {
+export interface Constructor extends BasicNode {
   readonly kind: 'Constructor'
   readonly parameters: ReadonlyArray<Parameter>
   readonly baseCall?: { callsSuper: boolean, args: ReadonlyArray<Expression> }
@@ -145,19 +151,19 @@ export interface Constructor extends Traceable {
 
 export type Sentence = Variable | Return | Assignment | Expression
 
-export interface Variable extends Traceable {
+export interface Variable extends BasicNode {
   readonly kind: 'Variable'
   readonly name: Name
   readonly isReadOnly: boolean
   readonly value?: Expression
 }
 
-export interface Return extends Traceable {
+export interface Return extends BasicNode {
   readonly kind: 'Return'
   readonly value: Expression
 }
 
-export interface Assignment extends Traceable {
+export interface Assignment extends BasicNode {
   readonly kind: 'Assignment'
   readonly reference: Reference
   readonly value: Expression
@@ -169,54 +175,54 @@ export interface Assignment extends Traceable {
 
 export type Expression = Reference | Self | Literal<LiteralValue> | Send | Super | New | If | Throw | Try
 
-export interface Self extends Traceable {
+export interface Self extends BasicNode {
   readonly kind: 'Self'
 }
 
 export type LiteralValue = number | string | boolean | null | New | Singleton
-export interface Literal<T extends LiteralValue> extends Traceable {
+export interface Literal<T extends LiteralValue> extends BasicNode {
   readonly kind: 'Literal'
   readonly value: T
 }
 
-export interface Send extends Traceable {
+export interface Send extends BasicNode {
   readonly kind: 'Send'
   readonly receiver: Expression
   readonly message: Name
   readonly args: ReadonlyArray<Expression>
 }
 
-export interface Super extends Traceable {
+export interface Super extends BasicNode {
   readonly kind: 'Super'
   readonly args: ReadonlyArray<Expression>
 }
 
-export interface New extends Traceable {
+export interface New extends BasicNode {
   readonly kind: 'New'
   readonly className: Reference
   readonly args: ReadonlyArray<Expression>
 }
 
-export interface If extends Traceable {
+export interface If extends BasicNode {
   readonly kind: 'If'
   readonly condition: Expression
   readonly thenBody: Body
   readonly elseBody: Body
 }
 
-export interface Throw extends Traceable {
+export interface Throw extends BasicNode {
   readonly kind: 'Throw'
   readonly arg: Expression
 }
 
-export interface Try extends Traceable {
+export interface Try extends BasicNode {
   readonly kind: 'Try'
   readonly body: Body
   readonly catches: ReadonlyArray<Catch>
   readonly always: Body
 }
 
-export interface Catch extends Traceable {
+export interface Catch extends BasicNode {
   readonly kind: 'Catch'
   parameter: Parameter
   parameterType?: Reference
@@ -228,16 +234,8 @@ export interface Catch extends Traceable {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface Environment {
-  readonly members: ReadonlyArray<Linked<Package>>
+  readonly members: ReadonlyArray<Package>
 }
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// NODE BUILDER
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (payload: NodePayload<N>): N => (
-  { ...payload as {}, kind }
-) as N
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // TYPE GUARDS
@@ -269,7 +267,7 @@ export const isSentence = (obj: any): obj is Sentence => isNode(obj) &&
 
 // TODO: Define by comprehension?
 // TODO: Test
-export const children = (node: Linked<Node>): ReadonlyArray<Linked<Node>> => {
+export const children = (node: Node): ReadonlyArray<Node> => {
   switch (node.kind) {
     case 'Body':
       return node.sentences
@@ -330,18 +328,18 @@ export const transform = <T extends Node, U extends T>(tx: (node: Node) => Node)
       isArray(obj) ? obj.map(applyTransform) :
         obj
 
-  return mapObjIndexed(applyTransform, tx(node) as any) as U
+  return mapObjIndexed(applyTransform, tx(node) as any) as unknown as U
 }
 
-export const reduce = <T>(tx: (acum: T, node: Linked<Node>) => T) => (initial: T, node: Linked<Node>): T =>
+export const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
   children(node).reduce(reduce(tx), tx(initial, node))
 
-export const descendants = (node: Linked<Node>): ReadonlyArray<Linked<Node>> => {
+export const descendants = (node: Node): ReadonlyArray<Node> => {
   const directChildren = children(node)
   return [...directChildren, ...flatMap(child => descendants(child), directChildren)]
 }
 
-export const parentOf = (environment: Environment) => (node: Linked<Node>): Linked<Node> => {
+export const parentOf = (environment: Environment) => (node: Node): Node => {
   const parent = [...environment.members, ...flatMap(descendants, environment.members)].find(descendant =>
     children(descendant).includes(node)
   )
@@ -349,8 +347,8 @@ export const parentOf = (environment: Environment) => (node: Linked<Node>): Link
   return parent
 }
 
-export const getNodeById = <T extends Linked<Node>>(environment: Environment, id: Id): T => {
-  const response = environment.members.reduce<Linked<Node> | null>(
+export const getNodeById = <T extends Node>(environment: Environment, id: Id): T => {
+  const response = environment.members.reduce<Node | null>(
     reduce((found, node) => found || node.id === id ? node : null)
     , null)
 

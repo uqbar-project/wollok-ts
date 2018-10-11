@@ -1,10 +1,11 @@
 // import { chain as flatMap, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Entity, Environment, Package, transform } from './model'
+import { Entity, Environment, Package, transform, Unlinked } from './model'
 
-export default (newPackages: Package[], baseEnvironment: Environment = { members: [] }): Environment => {
+export default (newPackages: Unlinked<Package>[], baseEnvironment: Environment = { members: [] }): Environment => {
 
-  const mergePackage = (members: ReadonlyArray<Entity>, isolated: Entity): ReadonlyArray<Entity> => {
+  const mergePackage = (members: ReadonlyArray<Entity | Unlinked<Entity>>,
+                        isolated: Unlinked<Entity>): ReadonlyArray<Entity | Unlinked<Entity>> => {
     if (isolated.kind !== 'Package') return [...members, isolated]
 
     const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
@@ -44,7 +45,7 @@ export default (newPackages: Package[], baseEnvironment: Environment = { members
   // TODO: Environment should be a node to avoid all this mapping and reducing
   const linkedEnvironment: Environment = {
     ...mergedEnvironment,
-    members: mergedEnvironment.members.map(transform(node => ({ ...node, id: uuid() }))),
+    members: mergedEnvironment.members.map(member => transform(node => ({ ...node, id: uuid() }))(member as any) as Package),
   }
 
   return linkedEnvironment
