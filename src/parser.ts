@@ -4,7 +4,6 @@ import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, string
 import { concat } from 'ramda'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, NodeKind, NodeOfKind, NodePayload, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Unlinked, Variable as VariableNode } from './model'
 
-
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
 const INFIX_OPERATORS = [
@@ -274,7 +273,6 @@ export const If: Parser<Unlinked<IfNode>> = lazy(() =>
 export const Throw: Parser<Unlinked<ThrowNode>> = lazy(() =>
   key('throw').then(Expression).map(arg => ({ arg })).thru(makeNode('Throw'))
 )
-
 
 export const Try: Parser<Unlinked<TryNode>> = lazy(() =>
   key('try').then(seqMap(
