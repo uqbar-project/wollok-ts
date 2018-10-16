@@ -37,8 +37,8 @@ export const Parameter: Parser<Unlinked<ParameterNode>> = lazy(() => seqMap(
     Name,
     string('...').atMost(1).map(([s]) => !!s),
     (name, isVarArg) => ({ name, isVarArg }),
-  ).trim(_).thru(makeNode('Parameter')
-))
+  ).trim(_).thru(makeNode('Parameter'))
+)
 
 export const Parameters: Parser<Unlinked<ParameterNode>[]> = lazy(() =>
   Parameter.sepBy(key(',')).wrap(key('('), key(')'))

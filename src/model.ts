@@ -5,7 +5,7 @@ const { isArray } = Array
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
 
-export type Node = Parameter | Import | Body | Catch | Entity | ClassMember | Sentence
+export type Node = Parameter | Import | Body | Catch | Entity | ClassMember | Sentence | Environment
 export type NodeKind = Node['kind']
 export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
 export type NodePayload<N extends Node> = Drop<Unlinked<N>, 'kind'>
@@ -18,7 +18,7 @@ export type Unlinked<T> =
   T extends string | number | boolean | null | undefined | never ? T :
   T extends ReadonlyArray<infer U> ? UnlinkedArray<U> :
   T extends {} ? (
-    Drop<{ [K in keyof T]: Unlinked<T[K]> }, 'id' | 'scope' | 'source'> & {
+    Drop<{ [K in keyof T]: Unlinked<T[K]> }, keyof BasicNode> & {
       source?: Source
     }):
   T
@@ -224,16 +224,17 @@ export interface Try extends BasicNode {
 
 export interface Catch extends BasicNode {
   readonly kind: 'Catch'
-  parameter: Parameter
-  parameterType?: Reference
-  body: Body
+  readonly parameter: Parameter
+  readonly parameterType?: Reference
+  readonly body: Body
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface Environment {
+export interface Environment extends BasicNode {
+  readonly kind: 'Environment'
   readonly members: ReadonlyArray<Package>
 }
 
@@ -313,6 +314,8 @@ export const children = (node: Node): ReadonlyArray<Node> => {
       return [node.body, ...node.catches, node.always]
     case 'Catch':
       return [node.parameter, node.body, ...node.parameterType ? [node.parameterType] : []]
+    case 'Environment':
+      return node.members
     case 'Parameter':
     case 'Reference':
     case 'Self':

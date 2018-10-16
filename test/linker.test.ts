@@ -1,9 +1,14 @@
-import { should } from 'chai'
+import { should, use } from 'chai'
 import link from '../src/linker'
 import { Environment } from '../src/model'
-import { Class, Field, Package } from './builders'
+import { also } from './assertions'
 
+import { Class, Field, Mixin, Package } from './builders'
+
+use(also)
 should()
+
+const WRE = Package('wollok')(Class('Object')())
 
 describe('Wollok linker', () => {
 
@@ -94,6 +99,28 @@ describe('Wollok linker', () => {
     )
 
   })
+
+  it('should link each node with the proper scope', () => {
+    const environment = link([
+      WRE,
+      Package('p')(
+        Class('C')(),
+        Package('q')(
+          Mixin('M')()
+        )
+      ),
+    ])
+
+    environment
+      .should.have.nested.property('members.0').with.property('name', 'p').and.also.property('scope', {})
+
+//     p.scope should be (Map("wollok" -> wre, "Object" -> objectClass, "p" -> p))
+//     c.scope should be (Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
+//     q.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
+//     m.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q, "M" -> m))
+
+  })
+
 })
 
 
@@ -116,18 +143,6 @@ describe('Wollok linker', () => {
 
 // "scope" - {
 
-//   "each node should be linked with it's scope" in {
-//     val m = Mixin("M")
-//     val q = Package("q", members = m :: Nil)
-//     val c = Class("C")
-//     val p = Package("p", members = c :: q :: Nil)
-//     implicit val environment = Linker(wre, p)
-
-//     p.scope should be (Map("wollok" -> wre, "Object" -> objectClass, "p" -> p))
-//     c.scope should be (Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
-//     q.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
-//     m.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q, "M" -> m))
-//   }
 
 //   "non-visible definitions should not be included on scope" in {
 //     val m = Mixin("M")
