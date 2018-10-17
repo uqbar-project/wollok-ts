@@ -327,35 +327,32 @@ export const children = (node: Node): ReadonlyArray<Node> => {
 // TODO: I don't think this will work for non-node objects like base-calls
 export const transform = <T extends Node, U extends T>(tx: (node: Node) => Node) => (node: T): U => {
   const applyTransform = (obj: any): any =>
-    isNode(obj) ? tx(obj) :
+    isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
       isArray(obj) ? obj.map(applyTransform) :
         obj
 
-  return mapObjIndexed(applyTransform, tx(node) as any) as unknown as U
+  return applyTransform(node) as U
 }
 
 export const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
   children(node).reduce(reduce(tx), tx(initial, node))
 
+// TODO: memoize this?
 export const descendants = (node: Node): ReadonlyArray<Node> => {
   const directChildren = children(node)
   return [...directChildren, ...flatMap(child => descendants(child), directChildren)]
 }
 
+// TODO: memoize this?
 export const parentOf = (environment: Environment) => (node: Node): Node => {
-  const parent = [...environment.members, ...flatMap(descendants, environment.members)].find(descendant =>
-    children(descendant).includes(node)
-  )
-  if (!parent) throw new Error(`Node ${node.id} is not on the environment`)
+  const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).includes(node))
+  if (!parent) throw new Error(`Node ${JSON.stringify(node)} has not part of the environment`)
   return parent
 }
 
+// TODO: memoize this?
 export const getNodeById = <T extends Node>(environment: Environment, id: Id): T => {
-  const response = environment.members.reduce<Node | null>(
-    reduce((found, node) => found || node.id === id ? node : null)
-    , null)
-
+  const response = [environment, ...descendants(environment)].find(node => node.id === id)
   if (!response) throw new Error(`Missing node ${id}`)
-
   return response as T
 }

@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import link from '../src/linker'
-import { Environment } from '../src/model'
+import { Class as ClassNode, descendants, Environment, Mixin as MixinNode, Package as PackageNode, Scope } from '../src/model'
 import { also } from './assertions'
 
 import { Class, Field, Mixin, Package } from './builders'
@@ -9,12 +9,18 @@ use(also)
 should()
 
 const WRE = Package('wollok')(Class('Object')())
+const WREScope = (environment: Environment): Scope => {
+  const wollokPackage = environment.members.filter(m => m.name === 'wollok')[0]
+  return wollokPackage.members.reduce((scope, entity) => ({...scope, [entity.name || '']: entity.id }), {wollok: wollokPackage.id})
+}
 
 describe('Wollok linker', () => {
 
-  const dropIds = (env: Environment) => JSON.parse(JSON.stringify(env, (k, v) => k === 'id' ? undefined : v))
+  const dropLinkedFields = (env: Environment) => JSON.parse(JSON.stringify(env, (k, v) => ['scope', 'id'].includes(k) ? undefined : v))
+
   it('should merge independent packages into a single environment', () => {
-    dropIds(link([
+    dropLinkedFields(link([
+      WRE,
       Package('A')(
         Package('B')(),
       ),
@@ -24,7 +30,9 @@ describe('Wollok linker', () => {
       ),
     ])).should.deep.equal(
       {
+        kind: 'Environment',
         members: [
+          WRE,
           Package('A')(
             Package('B')(),
           ),
@@ -39,7 +47,8 @@ describe('Wollok linker', () => {
 
   it('should merge same name packages into a single package', () => {
 
-    dropIds(link([
+    dropLinkedFields(link([
+      WRE,
       Package('A')(
         Class('X')()
       ),
@@ -51,7 +60,9 @@ describe('Wollok linker', () => {
       ),
     ])).should.deep.equal(
       {
+        kind: 'Environment',
         members: [
+          WRE,
           Package('A')(
             Class('X')(),
             Class('Y')(),
@@ -66,7 +77,8 @@ describe('Wollok linker', () => {
 
   it('should recursively merge same name packages into a single package', () => {
 
-    dropIds(link([
+    dropLinkedFields(link([
+      WRE,
       Package('A')(
         Package('B')(
           Class('X')(
@@ -83,7 +95,9 @@ describe('Wollok linker', () => {
       ),
     ])).should.deep.equal(
       {
+        kind: 'Environment',
         members: [
+          WRE,
           Package('A')(
             Package('B')(
               Class('X')(
@@ -100,6 +114,23 @@ describe('Wollok linker', () => {
 
   })
 
+  it('should assign an id to all nodes', () => {
+    const environment = link([
+      WRE,
+      Package('p')(
+        Class('C')(),
+        Package('q')(
+          Mixin('M')()
+        ),
+      ),
+    ])
+
+    const nodes = [environment, ...descendants(environment)]
+    nodes.forEach(node => {
+      node.should.have.property('id')
+    })
+  })
+
   it('should link each node with the proper scope', () => {
     const environment = link([
       WRE,
@@ -111,14 +142,15 @@ describe('Wollok linker', () => {
       ),
     ])
 
-    environment
-      .should.have.nested.property('members.0').with.property('name', 'p').and.also.property('scope', {})
+    const p = environment.members[1] as PackageNode
+    const C = p.members[0] as ClassNode
+    const q = p.members[1] as PackageNode
+    const M = q.members[0] as MixinNode
 
-//     p.scope should be (Map("wollok" -> wre, "Object" -> objectClass, "p" -> p))
-//     c.scope should be (Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
-//     q.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q))
-//     m.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "C" -> c, "q" -> q, "M" -> m))
-
+    p.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id})
+    C.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id})
+    q.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id})
+    M.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id, M: M.id})
   })
 
 })

@@ -23,7 +23,6 @@ export default (
   baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: uuid() }
   ): Environment => {
 
-
   const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) }
 
   const linkedEnvironment: Environment = {
@@ -41,74 +40,44 @@ export default (
   return scopedEnvironment
 }
 
-type LazyScope = Scope | (() => Scope)
 class ScopeBuilder {
   private environment: Environment
-  private innerContributions: { [id: string]: LazyScope } = {}
-  private outerContributions: { [id: string]: LazyScope } = {}
-  private scopes: { [id: string]: LazyScope } = {}
+  private scopes: Map<Id, Scope | (() => Scope)> = new Map([])
 
   constructor(environment: Environment) {
     this.environment = environment
+    this.scopes.set(environment.id, () => ({}))
 
-    descendants(environment).reduce((sb, node) => {
-      sb.innerContributions[node.id] = sb.innerContributionFrom(node)
-      sb.outerContributions[node.id] = sb.outerContributionFrom(node)
-      return sb
-    }, this)
+    descendants(environment).forEach(node =>
+      this.scopes.set(node.id, this.scopeFor(node))
+    )
   }
 
-  private innerContribution(id: Id): Scope {
-    const lazyContribution = this.innerContributions[id]
-    if (lazyContribution instanceof Function) {
-      const contribution = lazyContribution()
-      this.innerContributions[id] = contribution
-      return contribution
-    }
-    return lazyContribution
-  }
-
-  private outerContribution(id: Id): Scope {
-    const lazyContribution = this.outerContributions[id]
-    if (lazyContribution instanceof Function) {
-      const contribution = lazyContribution()
-      this.outerContributions[id] = contribution
-      return contribution
-    }
-    return lazyContribution
-  }
-
-  private innerContributionFrom(contributor: Node): LazyScope {
-    return () => [
-      ...isModule(contributor)
-        ? this.ancestors(contributor).map(ancestor => this.innerContribution(ancestor.id))
-        : [],
-      ...[contributor, ...children(contributor)].map(c => this.outerContribution(c.id)),
+  private innerContributionFrom(contributor: Node): Scope {
+    return [
+      ...isModule(contributor) ? this.ancestors(contributor).map(ancestor => this.innerContributionFrom(ancestor)) : [],
+      ...[contributor, ...children(contributor)].map(c => this.outerContributionFrom(c)),
     ].reduce(merge)
   }
 
-  private outerContributionFrom(contributor: Node): LazyScope {
+  private outerContributionFrom(contributor: Node): Scope {
     switch (contributor.kind) {
       // TODO: Resolve fully qualified names
       case 'Import':
-        return () => {
-          const referencedId = this.scopeFor(contributor)[contributor.reference.name]
-          const referenced = getNodeById(this.environment, referencedId)
-          return contributor.isGeneric
-            ? children(referenced)
-              .map(child => ({ [(child as Entity).name || '']: child.id }))
-              .reduce(merge)
-            : { [(referenced as Entity).name || '']: referenced.id }
-        }
+        const referencedId = this.getScope(contributor.id)[contributor.reference.name]
+        const referenced = getNodeById(this.environment, referencedId)
+        return contributor.isGeneric
+          ? children(referenced)
+            .map(child => ({ [(child as Entity).name || '']: child.id }))
+            .reduce(merge)
+          : { [(referenced as Entity).name || '']: referenced.id }
       case 'Package':
-        return () => {
-          const globalContributions: Scope = contributor.name === 'wollok'
-            ? children(contributor).map(c => this.outerContribution(c.id)).reduce(merge)
-            : {}
-          return {
-            [contributor.name]: contributor.id,
-            ...globalContributions,
-          }
+        const globalContributions: Scope = contributor.name === 'wollok'
+          ? children(contributor).map(c => this.outerContributionFrom(c)).reduce(merge)
+          : {}
+        return {
+          [contributor.name]: contributor.id,
+          ...globalContributions,
         }
       case 'Singleton':
       case 'Class':
@@ -126,8 +95,11 @@ class ScopeBuilder {
   }
 
   private ancestors(module: Module): ReadonlyArray<Module> {
-    const scope = this.scopeFor(module)
-    const ObjectClass = getNodeById<Class>(this.environment, scope['wollok.Object'])
+    const scope = this.getScope(module.id)
+
+    // TODO: change this to 'wollok.Object' and make getNodeById resolve composed references
+    const ObjectClass = getNodeById<Class>(this.environment, scope.Object)
+
     let superclass
 
     switch (module.kind) {
@@ -156,21 +128,27 @@ class ScopeBuilder {
     }
   }
 
-  private scopeFor(node: Node): Scope {
-    if (node === this.environment) return this.environment.scope
-    const parent = parentOf(this.environment)(node)
-    if (!this.scopes[parent.id]) {
-      this.scopes[parent.id] = this.scopeFor(parent)
+  private getScope(id: Id): Scope {
+    const scope = this.scopes.get(id)
+    if (!scope) throw new Error(`Missing scope for node ${id}`)
+    if (scope instanceof Function) {
+      const resolvedScope = scope()
+      this.scopes.set(id, resolvedScope)
+      return resolvedScope
     }
+    return scope
+  }
 
-    return merge(this.scopes[parent.id], this.innerContribution(parent.id))
+  private scopeFor(node: Node): () => Scope {
+    return () => {
+      const parent = parentOf(this.environment)(node)
+      return merge(this.getScope(parent.id), this.innerContributionFrom(parent))
+    }
   }
 
 build(): { [id: string]: Scope } {
     return descendants(this.environment).reduce((scope, node) =>
-      merge(scope, { [node.id]: this.scopeFor(node) })
+      merge(scope, { [node.id]: this.scopeFor(node)() })
       , {})
   }
 }
-
-  // TODO: get node from id / reference?
