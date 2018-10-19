@@ -6,36 +6,37 @@ import { children, Class, descendants, Entity, Environment, getNodeById, Id, isM
 const mergePackage = (
   members: ReadonlyArray<Entity | Unlinked<Entity>>,
   isolated: Unlinked<Entity>
-  ): ReadonlyArray<Entity | Unlinked<Entity>> => {
+): ReadonlyArray<Entity | Unlinked<Entity>> => {
 
-    if (isolated.kind !== 'Package') return [...members, isolated]
+  if (isolated.kind !== 'Package') return [...members, isolated]
 
-    const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
+  const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
 
-    return existent ? [
-      ...members.filter(member => member !== existent),
-      { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
-    ] : [...members, isolated]
+  return existent ? [
+    ...members.filter(member => member !== existent),
+    { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
+  ] : [...members, isolated]
 }
 
 export default (
   newPackages: Unlinked<Package>[],
   baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: uuid() }
-  ): Environment => {
+): Environment => {
 
-  const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) }
+  const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) } as Environment
 
-  const linkedEnvironment: Environment = {
-    ...mergedEnvironment,
-    members: mergedEnvironment.members.map(member => transform(node => ({ ...node, id: uuid() }))(member as any) as Package),
-  }
+  const identifiedEnvironment = transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
 
-  const scopes = new ScopeBuilder(linkedEnvironment).build()
+  const scopes = new ScopeBuilder(identifiedEnvironment).build()
 
+  // TODO: const scopedEnvironment = transform(node => ({ ...node, scope: scopes[node.id] }))(linkedEnvironment)
   const scopedEnvironment = {
-    ...linkedEnvironment,
-    members: linkedEnvironment.members.map(transform(node => ({ ...node, scope: scopes[node.id] }))),
+    ...identifiedEnvironment,
+    members: identifiedEnvironment.members.map(transform(node => ({ ...node, scope: scopes[node.id] }))),
   }
+
+  // TODO: assign parent
+  // TODO: assign target
 
   return scopedEnvironment
 }
@@ -104,24 +105,24 @@ class ScopeBuilder {
 
     switch (module.kind) {
       case 'Class':
-      superclass = module.superclass
-        ? getNodeById<Module>(this.environment, scope[module.superclass.name])
-        : ObjectClass
+        superclass = module.superclass
+          ? getNodeById<Module>(this.environment, scope[module.superclass.name])
+          : ObjectClass
 
-      return [
-        ...superclass === module ? [] : [superclass, ...this.ancestors(superclass)],
-        ...module.mixins.map(m => getNodeById<Module>(this.environment, scope[m.name])),
-      ]
+        return [
+          ...superclass === module ? [] : [superclass, ...this.ancestors(superclass)],
+          ...module.mixins.map(m => getNodeById<Module>(this.environment, scope[m.name])),
+        ]
 
       case 'Singleton':
-      superclass = module.superCall
-        ? getNodeById<Module>(this.environment, scope[module.superCall.superclass.name])
-        : ObjectClass
+        superclass = module.superCall
+          ? getNodeById<Module>(this.environment, scope[module.superCall.superclass.name])
+          : ObjectClass
 
-      return [
-        ...[superclass, ...this.ancestors(superclass)],
-        ...module.mixins.map(m => getNodeById<Module>(this.environment, scope[m.name])),
-      ]
+        return [
+          ...[superclass, ...this.ancestors(superclass)],
+          ...module.mixins.map(m => getNodeById<Module>(this.environment, scope[m.name])),
+        ]
 
       case 'Mixin':
         return module.mixins.map(m => getNodeById<Module>(this.environment, scope[m.name]))
@@ -146,7 +147,7 @@ class ScopeBuilder {
     }
   }
 
-build(): { [id: string]: Scope } {
+  build(): { [id: string]: Scope } {
     return descendants(this.environment).reduce((scope, node) =>
       merge(scope, { [node.id]: this.scopeFor(node)() })
       , {})

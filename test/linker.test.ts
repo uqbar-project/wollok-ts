@@ -1,17 +1,20 @@
 import { should, use } from 'chai'
 import link from '../src/linker'
-import { Class as ClassNode, descendants, Environment, Mixin as MixinNode, Package as PackageNode, Scope } from '../src/model'
+import { Class as ClassNode, descendants, Environment, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Package as PackageNode, Reference as ReferenceNode, Scope, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import { also } from './assertions'
 
-import { Class, Field, Mixin, Package } from './builders'
+import { Class, Closure, Field, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
 
 use(also)
 should()
 
-const WRE = Package('wollok')(Class('Object')())
+const WRE = Package('wollok')(
+  Class('Object')(),
+  Class('Closure')()
+)
 const WREScope = (environment: Environment): Scope => {
   const wollokPackage = environment.members.filter(m => m.name === 'wollok')[0]
-  return wollokPackage.members.reduce((scope, entity) => ({...scope, [entity.name || '']: entity.id }), {wollok: wollokPackage.id})
+  return wollokPackage.members.reduce((scope, entity) => ({ ...scope, [entity.name || '']: entity.id }), { wollok: wollokPackage.id })
 }
 
 describe('Wollok linker', () => {
@@ -131,92 +134,122 @@ describe('Wollok linker', () => {
     })
   })
 
-  it('should link each node with the proper scope', () => {
-    const environment = link([
-      WRE,
-      Package('p')(
-        Class('C')(),
-        Package('q')(
-          Mixin('M')()
-        )
-      ),
-    ])
+  describe('scopes', () => {
 
-    const p = environment.members[1] as PackageNode
-    const C = p.members[0] as ClassNode
-    const q = p.members[1] as PackageNode
-    const M = q.members[0] as MixinNode
+    it('should reference accesible references', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(),
+          Package('q')(
+            Mixin('M')()
+          )
+        ),
+      ])
 
-    p.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id})
-    C.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id})
-    q.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id})
-    M.should.have.property('scope').deep.equal({... WREScope(environment), p: p.id, C: C.id, q: q.id, M: M.id})
+      const p = environment.members[1] as PackageNode
+      const C = p.members[0] as ClassNode
+      const q = p.members[1] as PackageNode
+      const M = q.members[0] as MixinNode
+
+      p.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id })
+      C.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, C: C.id, q: q.id })
+      q.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, C: C.id, q: q.id })
+      M.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, C: C.id, q: q.id, M: M.id })
+
+    })
+
+    it('should not include non-visible definitions', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Package('q')(
+            Class('C')(),
+          ),
+          Package('r')(
+            Mixin('M')()
+          )
+        ),
+      ])
+
+      const p = environment.members[1] as PackageNode
+      const q = p.members[0] as PackageNode
+      const r = p.members[1] as PackageNode
+      const C = q.members[0] as ClassNode
+      const M = r.members[0] as MixinNode
+
+      p.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id })
+      q.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, q: q.id, r: r.id })
+      r.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, q: q.id, r: r.id })
+      C.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, q: q.id, r: r.id, C: C.id })
+      M.should.have.property('scope').deep.equal({ ...WREScope(environment), p: p.id, q: q.id, r: r.id, M: M.id })
+
+    })
+
+    it('should override outer references with inner ones', () => {
+      const environment = link([
+        WRE,
+        Package('x')(
+          Singleton('x')(
+            Field('x'),
+            Method('m1', { parameters: [Parameter('x')] })(
+              Closure(Parameter('x'))(Reference('x'))
+            ),
+            Method('m2')(
+              Variable('x'),
+              Reference('x')
+            )
+          ),
+        ),
+      ])
+
+      const p = environment.members[1] as PackageNode
+      const S = p.members[0] as SingletonNode
+      const f = S.members[0] as FieldNode
+      const m1 = S.members[1] as MethodNode
+      const m1p = m1.parameters[0]
+      const m1c = m1.body!.sentences[0] as LiteralNode<SingletonNode>
+      const m1cm = m1c.value.members[0] as MethodNode
+      const m1cmp = m1cm.parameters[0]
+      const m1cmr = m1cm.body!.sentences[0] as ReferenceNode
+      const m2 = S.members[2] as MethodNode
+      const m2v = m2.body!.sentences[0] as VariableNode
+      const m2r = m2.body!.sentences[1] as ReferenceNode
+
+      p.should.have.property('scope').deep.equal({ ...WREScope(environment), x: p.id })
+      S.should.have.property('scope').deep.equal({ ...WREScope(environment), x: S.id })
+      f.should.have.property('scope').deep.equal({ ...WREScope(environment), x: f.id })
+      m1.should.have.property('scope').deep.equal({ ...WREScope(environment), x: f.id })
+      m1p.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m1p.id })
+      m1c.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m1p.id })
+      m1cm.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m1p.id })
+      m1cmp.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m1cmp.id })
+      m1cmr.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m1cmp.id })
+      m2.should.have.property('scope').deep.equal({ ...WREScope(environment), x: f.id })
+      m2v.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m2v.id })
+      m2r.should.have.property('scope').deep.equal({ ...WREScope(environment), x: m2v.id })
+    })
+
   })
 
 })
 
+      // "parent" in {
+        //   val m = Method("m")
+        //   val c = Class("C", members = m :: Nil)
+        //   val q = Package("q", members = c :: Nil)
+        //   val p = Package("p", members = q :: Nil)
+        //   implicit val environment = Linker(p)
 
-// "parent" in {
-//   val m = Method("m")
-//   val c = Class("C", members = m :: Nil)
-//   val q = Package("q", members = c :: Nil)
-//   val p = Package("p", members = q :: Nil)
-//   implicit val environment = Linker(p)
+        //   environment.parent should be(None)
+        //   p.parent should be(Some(environment))
+        //   q.parent should be(Some(p))
+        //   c.parent should be(Some(q))
+        //   m.parent should be(Some(c))
+        // }
 
-//   environment.parent should be(None)
-//   p.parent should be(Some(environment))
-//   q.parent should be(Some(p))
-//   c.parent should be(Some(q))
-//   m.parent should be(Some(c))
-// }
-
-// val objectClass = Class("Object")
-// val wre = Package("wollok", members= Seq(objectClass))
-
-// "scope" - {
-
-
-//   "non-visible definitions should not be included on scope" in {
-//     val m = Mixin("M")
-//     val c = Class("C")
-//     val r = Package("r", members = m :: Nil)
-//     val q = Package("q", members = c :: Nil)
-//     val p = Package("p", members = q :: r :: Nil)
-//     implicit val environment = Linker(wre, p)
-
-//     p.scope should equal (Map("wollok" -> wre, "Object" -> objectClass,"p" -> p))
-//     q.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "q" -> q, "r" -> r))
-//     r.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "q" -> q, "r" -> r))
-//     c.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "q" -> q, "r" -> r, "C" -> c))
-//     m.scope should be(Map("wollok" -> wre, "Object" -> objectClass,"p" -> p, "q" -> q, "r" -> r, "M" -> m))
-//   }
-
-//   "outer scope entries should be overrided by inner ones" in {
-//     val m1cr = LocalReference("x")
-//     val m1cp = Parameter("x")
-//     val m1c = Closure(m1cp :: Nil, m1cr :: Nil)
-//     val m1p = Parameter("x")
-//     val m1 = Method("m1", parameters = m1p :: Nil, body = Some(m1c :: Nil))
-//     val m2r = LocalReference("x")
-//     val m2v = Variable("x", false)
-//     val m2 = Method("m2", body = Some(m2v :: m2r :: Nil))
-//     val f = Field("x", false)
-//     val s = Singleton("x", members = f :: m1 :: m2 :: Nil)
-//     val p = Package("x", members = s :: Nil)
-//     implicit val environment = Linker(wre, p)
-
-//     p.scope.apply("x") should be (p)
-//     s.scope.apply("x") should be (s)
-//     f.scope.apply("x") should be (f)
-//     m1.scope.apply("x") should be (f)
-//     m1p.scope.apply("x") should be (m1p)
-//     m1c.scope.apply("x") should be (m1p)
-//     m1cp.scope.apply("x") should be (m1cp)
-//     m1cr.scope.apply("x") should be (m1cp)
-//     m2.scope.apply("x") should be (f)
-//     m2v.scope.apply("x") should be (m2v)
-//     m2r.scope.apply("x") should be (m2v)
-//   }
+        // val objectClass = Class("Object")
+        // val wre = Package("wollok", members= Seq(objectClass))
 
 // }
 
@@ -272,3 +305,5 @@ describe('Wollok linker', () => {
 // }
 
 // }
+
+// TODO: test contributions

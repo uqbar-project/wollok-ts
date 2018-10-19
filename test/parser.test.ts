@@ -279,49 +279,49 @@ describe('Wollok parser', () => {
 
       it('should parse empty closures', () => {
         '{}'.should.be.parsedBy(parser).into(
-          Literal(Closure()())
+          Closure()()
         ).and.be.tracedTo(0, 2)
       })
 
       it('should parse closures that do not receive parameters and returns nothing', () => {
         '{ => }'.should.be.parsedBy(parser).into(
-          Literal(Closure()())
+          Closure()()
         ).and.be.tracedTo(0, 6)
       })
 
       it('should parse closures without parameters', () => {
         '{ a }'.should.be.parsedBy(parser).into(
-          Literal(Closure()(Reference('a')))
+          Closure()(Reference('a'))
         ).and.be.tracedTo(0, 5)
       })
 
       it('should parse closure with parameters and no body', () => {
         '{ a => }'.should.be.parsedBy(parser).into(
-          Literal(Closure(Parameter('a'))())
+          Closure(Parameter('a'))()
         ).and.be.tracedTo(0, 8)
       })
 
       it('should parse closures with parameters and body', () => {
         '{ a => a }'.should.be.parsedBy(parser).into(
-          Literal(Closure(Parameter('a'))(Reference('a')))
+          Closure(Parameter('a'))(Reference('a'))
         ).and.be.tracedTo(0, 10)
       })
 
       it('should parse closures with multiple sentence separated by ";"', () => {
         '{ a => a; b }'.should.be.parsedBy(parser).into(
-          Literal(Closure(Parameter('a'))(Reference('a'), Reference('b')))
+          Closure(Parameter('a'))(Reference('a'), Reference('b'))
         ).and.be.tracedTo(0, 13)
       })
 
       it('should parse closures that receive two parameters and return the first one', () => {
         '{ a,b => a }'.should.be.parsedBy(parser).into(
-          Literal(Closure(Parameter('a'), Parameter('b'))(Reference('a')))
+          Closure(Parameter('a'), Parameter('b'))(Reference('a'))
         ).and.be.tracedTo(0, 12)
       })
 
       it('should parse closures with vararg parameters', () => {
         '{ a,b... => a }'.should.be.parsedBy(parser).into(
-          Literal(Closure(Parameter('a'), Parameter('b', { isVarArg: true }))(Reference('a')))
+          Closure(Parameter('a'), Parameter('b', { isVarArg: true }))(Reference('a'))
         ).and.be.tracedTo(0, 15)
       })
 
@@ -840,7 +840,7 @@ describe('Wollok parser', () => {
 
     it('should parse methods that have a closure as body', () => {
       'method m() = { 5 }'.should.be.parsedBy(parser).into(
-        Method('m')(Literal(Closure()(Literal(5))))
+        Method('m')(Closure()(Literal(5)))
       ).and.be.tracedTo(0, 18)
     })
 
@@ -1152,7 +1152,7 @@ describe('Wollok parser', () => {
 
     it('should parse sending messages with a closure instead of arguments', () => {
       'a.m{p => p}'.should.be.parsedBy(parser).into(
-        Send(Reference('a'), 'm', [Literal(Closure(Parameter('p'))(Reference('p')))])
+        Send(Reference('a'), 'm', [Closure(Parameter('p'))(Reference('p'))])
       ).and.be.tracedTo(0, 11)
     })
 

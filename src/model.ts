@@ -20,7 +20,7 @@ export type Unlinked<T> =
   T extends {} ? (
     Drop<{ [K in keyof T]: Unlinked<T[K]> }, keyof BasicNode> & {
       source?: Source
-    }):
+    }) :
   T
 
 export interface UnlinkedArray<T> extends ReadonlyArray<Unlinked<T>> { }
@@ -325,11 +325,12 @@ export const children = (node: Node): ReadonlyArray<Node> => {
 
 // TODO: Test
 // TODO: I don't think this will work for non-node objects like base-calls
-export const transform = <T extends Node, U extends T>(tx: (node: Node) => Node) => (node: T): U => {
+export const transform = (tx: (node: Node) => Node) => <T extends Node, U extends T>(node: T): U => {
   const applyTransform = (obj: any): any =>
     isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
       isArray(obj) ? obj.map(applyTransform) :
-        obj
+        obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
+          obj
 
   return applyTransform(node) as U
 }

@@ -1,4 +1,4 @@
-import {merge } from 'ramda'
+import { merge } from 'ramda'
 import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeKind, NodeOfKind, NodePayload, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Unlinked, Variable as VariableNode } from '../src/model'
 
 const { keys } = Object
@@ -51,7 +51,7 @@ export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNo
     makeNode('Singleton')({
       members,
       mixins: [],
-      ...name ? {name} : {},
+      ...name ? { name } : {},
       ...payload,
     })
 
@@ -148,16 +148,18 @@ export const New = (className: Unlinked<ReferenceNode>, args: ReadonlyArray<Unli
 export const If = (condition: Unlinked<Expression>,
                    thenBody: ReadonlyArray<Unlinked<Sentence>>,
                    elseBody: ReadonlyArray<Unlinked<Sentence>> = []) => makeNode('If')({
-  condition,
-  thenBody: makeNode('Body')({ sentences: thenBody }),
-  elseBody: makeNode('Body')({ sentences: elseBody }),
-})
+    condition,
+    thenBody: makeNode('Body')({ sentences: thenBody }),
+    elseBody: makeNode('Body')({ sentences: elseBody }),
+  })
 
 export const Throw = (arg: Unlinked<Expression>) => makeNode('Throw')({ arg })
 
 export const Try = (sentences: ReadonlyArray<Unlinked<Sentence>>,
-                    payload: { catches?: Unlinked<CatchNode>[],
-                    always?: Unlinked<Sentence>[] }) =>
+                    payload: {
+    catches?: Unlinked<CatchNode>[],
+    always?: Unlinked<Sentence>[]
+  }) =>
   makeNode('Try')({
     body: makeNode('Body')({ sentences }),
     catches: payload.catches || [],
@@ -165,20 +167,21 @@ export const Try = (sentences: ReadonlyArray<Unlinked<Sentence>>,
   })
 
 export const Catch = (parameter: Unlinked<ParameterNode>, payload?: Partial<NodePayload<CatchNode>>) =>
-(...sentences: Unlinked<Sentence>[]) =>
-  makeNode('Catch')({
-    body: makeNode('Body')({ sentences }),
-    parameter,
-    ...payload,
-  })
+  (...sentences: Unlinked<Sentence>[]) =>
+    makeNode('Catch')({
+      body: makeNode('Body')({ sentences }),
+      parameter,
+      ...payload,
+    })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const Closure = (...parameters: Unlinked<ParameterNode>[]) => (...body: Unlinked<Sentence>[]) =>
-  Singleton(undefined, { superCall: { superclass: Reference('wollok.Closure'), args: [] } })(
+  // TODO: change this to 'wollok.Closure' and make getNodeById resolve composed references
+  Literal(Singleton(undefined, { superCall: { superclass: Reference('Closure'), args: [] } })(
     Method('apply', { parameters })(
       ...body
     )
-  )
+  ))
