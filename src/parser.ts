@@ -98,6 +98,7 @@ export const Test: Parser<Unlinked<TestNode>> = lazy(() =>
   )).thru(makeNode('Test'))
 )
 
+// TODO: extract seqMap('NodeType')({ k: p })
 export const Class: Parser<Unlinked<ClassNode>> = lazy(() =>
   key('class').then(seqMap(
     Name,

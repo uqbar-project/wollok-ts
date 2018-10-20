@@ -1,5 +1,5 @@
 import { Index } from 'parsimmon'
-import { chain as flatMap, mapObjIndexed } from 'ramda'
+import { chain as flatMap, mapObjIndexed, values } from 'ramda'
 
 const { isArray } = Array
 
@@ -11,6 +11,8 @@ export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
 export type NodePayload<N extends Node> = Drop<Unlinked<N>, 'kind'>
 
 export type Id = string
+
+export type Name = string
 export interface Scope { [name: string]: Id }
 
 
@@ -24,6 +26,7 @@ export type Unlinked<T> =
   T
 
 export interface UnlinkedArray<T> extends ReadonlyArray<Unlinked<T>> { }
+
 
 export interface Source {
   file?: string
@@ -40,8 +43,6 @@ export interface BasicNode {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-export type Name = string
 
 export interface Reference extends BasicNode {
   readonly kind: 'Reference'
@@ -242,7 +243,7 @@ export interface Environment extends BasicNode {
 // TYPE GUARDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = (obj: any): obj is Node => !!obj.kind
+export const isNode = (obj: any): obj is Node => obj && obj.kind
 
 export const isEntity = (obj: any): obj is Entity => isNode(obj) &&
   ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
@@ -266,65 +267,18 @@ export const isSentence = (obj: any): obj is Sentence => isNode(obj) &&
 // TRANSFORMATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// TODO: Define by comprehension?
 // TODO: Test
 export const children = (node: Node): ReadonlyArray<Node> => {
-  switch (node.kind) {
-    case 'Body':
-      return node.sentences
-    case 'Import':
-      return [node.reference]
-    case 'Package':
-      return [...node.imports, ...node.members]
-    case 'Class':
-      return [...node.superclass ? [node.superclass] : [], ...node.mixins, ...node.members]
-    case 'Singleton':
-      return [...node.superCall ? [node.superCall.superclass, ...node.superCall.args] : [], ...node.mixins, ...node.members]
-    case 'Mixin':
-      return [...node.mixins, ...node.members]
-    case 'Program':
-      return [node.body]
-    case 'Test':
-      return [node.body]
-    case 'Field':
-      return node.value ? [node.value] : []
-    case 'Method':
-      return [...node.parameters, ...node.body ? [node.body] : []]
-    case 'Constructor':
-      return [...node.baseCall ? node.baseCall.args : [], ...node.parameters, node.body]
-    case 'Variable':
-      return node.value ? [node.value] : []
-    case 'Return':
-      return [node.value]
-    case 'Assignment':
-      return [node.reference, node.value]
-    case 'Literal':
-      return isNode(node.value) ? [node.value] : []
-    case 'Send':
-      return [node.receiver, ...node.args]
-    case 'Super':
-      return node.args
-    case 'New':
-      return [node.className, ...node.args]
-    case 'If':
-      return [node.condition, node.thenBody, node.elseBody]
-    case 'Throw':
-      return [node.arg]
-    case 'Try':
-      return [node.body, ...node.catches, node.always]
-    case 'Catch':
-      return [node.parameter, node.body, ...node.parameterType ? [node.parameterType] : []]
-    case 'Environment':
-      return node.members
-    case 'Parameter':
-    case 'Reference':
-    case 'Self':
-      return []
-  }
+  const extractChildren = (obj: any): ReadonlyArray<Node> =>
+    isNode(obj) ? [obj] :
+      isArray(obj) ? flatMap(extractChildren)(obj) :
+        obj instanceof Object ? flatMap(extractChildren)(values(obj)) :
+          []
+
+  return flatMap(extractChildren)(values(node))
 }
 
 // TODO: Test
-// TODO: I don't think this will work for non-node objects like base-calls
 export const transform = (tx: (node: Node) => Node) => <T extends Node, U extends T>(node: T): U => {
   const applyTransform = (obj: any): any =>
     isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
@@ -347,7 +301,7 @@ export const descendants = (node: Node): ReadonlyArray<Node> => {
 // TODO: memoize this?
 export const parentOf = (environment: Environment) => (node: Node): Node => {
   const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).includes(node))
-  if (!parent) throw new Error(`Node ${JSON.stringify(node)} has not part of the environment`)
+  if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
   return parent
 }
 
@@ -357,3 +311,7 @@ export const getNodeById = <T extends Node>(environment: Environment, id: Id): T
   if (!response) throw new Error(`Missing node ${id}`)
   return response as T
 }
+
+// TODO: Test
+export const target = (environment: Environment) => <T extends Node>(reference: Reference) =>
+  getNodeById(environment, reference.scope[reference.name]) as T
