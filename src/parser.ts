@@ -37,7 +37,7 @@ export const Parameter: Parser<Unlinked<ParameterNode>> = lazy(() => seqMap(
   Name,
   string('...').atMost(1).map(([s]) => !!s),
   (name, isVarArg) => ({ name, isVarArg }),
-).trim(_).thru(makeNode('Parameter'))
+).thru(makeNode('Parameter'))
 )
 
 export const Parameters: Parser<Unlinked<ParameterNode>[]> = lazy(() =>
@@ -49,7 +49,7 @@ export const Arguments: Parser<Unlinked<ExpressionNode>[]> = lazy(() =>
 )
 
 export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
-  Sentence.skip(optional(key(';'))).many().wrap(key('{'), key('}'))
+  Sentence.skip(optional(alt(key(';'), _))).many().wrap(key('{'), string('}'))
     .map(sentences => ({ sentences }))
     .thru(makeNode('Body'))
 )
@@ -60,10 +60,10 @@ export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
 
 export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
   key('import').then(seqMap(
-    Name.sepBy1(key('.')).tieWith('.').trim(_).map(name => ({ name })).thru(makeNode('Reference')),
-    key('.*').or(of(false)).skip(optional(key(';'))),
+    Name.sepBy1(key('.')).tieWith('.').map(name => ({ name })).thru(makeNode('Reference')),
+    key('.*').or(of(false)),
     (reference, isGeneric) => ({ reference, isGeneric: !!isGeneric })
-  )).thru(makeNode('Import'))
+  )).thru(makeNode('Import')).skip(optional(key(';')))
 )
 
 export const File: Parser<Unlinked<PackageNode>> = lazy(() => seqMap(
@@ -152,8 +152,7 @@ export const Field: Parser<Unlinked<FieldNode>> = lazy(() => seqMap(
   Name,
   optional(key('=').then(Expression)),
   (isReadOnly, name, value) => ({ isReadOnly, name, value })
-).thru(makeNode('Field'))
-)
+).thru(makeNode('Field')))
 
 export const Method: Parser<Unlinked<MethodNode>> = lazy(() => seqMap(
   key('override').result(true).or(of(false)),
@@ -161,16 +160,17 @@ export const Method: Parser<Unlinked<MethodNode>> = lazy(() => seqMap(
   Parameters,
   alt(
     key('native').result({ isNative: true, body: undefined }),
-    key('=').then(Expression.times(1))
-      .map(sentences => ({ sentences }))
-      .thru(makeNode('Body'))
-      .map(body => ({ isNative: false, body })),
+    key('=').then(
+      Expression.times(1)
+        .map(sentences => ({ sentences }))
+        .thru(makeNode('Body'))
+        .map(body => ({ isNative: false, body }))
+    ),
     Body.map(body => ({ isNative: false, body })),
     of({ isNative: false, body: undefined })
   ),
   (isOverride, name, parameters, { isNative, body }) => ({ isOverride, name, parameters, isNative, body })
-).thru(makeNode('Method'))
-)
+).thru(makeNode('Method')))
 
 export const Constructor: Parser<Unlinked<ConstructorNode>> = lazy(() =>
   key('constructor').then(seqMap(
@@ -182,8 +182,7 @@ export const Constructor: Parser<Unlinked<ConstructorNode>> = lazy(() =>
     )),
     Body,
     (parameters, baseCall, body) => ({ parameters, baseCall, body })
-  )).thru(makeNode('Constructor'))
-)
+  )).thru(makeNode('Constructor')))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
@@ -299,7 +298,7 @@ export const Catch: Parser<Unlinked<CatchNode>> = lazy(() =>
     alt(
       Body,
       Sentence.times(1).map(sentences => ({ sentences })).thru(makeNode('Body'))
-    ).trim(_),
+    ),
     (parameter, parameterType, body) => ({ parameter, parameterType, body })
   )).thru(makeNode('Catch'))
 )
@@ -389,7 +388,7 @@ const Closure: Parser<Unlinked<SingletonNode>> = lazy(() => seqMap(
 
 const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) =>
   (parser: Parser<NodePayload<N>>): Parser<Unlinked<N>> => seqMap(
-    index,
+    optional(_).then(index),
     parser,
     index,
     (start, payload, end) => ({ kind, ...payload as any, source: { start, end } })

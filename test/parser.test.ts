@@ -16,9 +16,9 @@ describe('Wollok parser', () => {
 
     it('multiline comments should be ignored in between tokens', () => {
       `/*some comment*/import /* some
-      comment */ p/*some comment*/`.should.be.parsedBy(parser).into(
+      comment */ p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-        ).and.be.tracedTo(0, 65)
+        ).and.be.tracedTo(16, 49)
         .and.have.nested.property('reference').tracedTo(48, 49)
     })
 
@@ -31,17 +31,17 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse elements inside line comment', () => {
-      '// import p'.should.not.parsedBy(parser)
+      '// import p'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse elements inside multiline comment', () => {
       `/*
         import p
-      */`.should.not.parsedBy(parser)
+      */`.should.not.be.parsedBy(parser)
     })
 
     it('should not parse elements with an unclosed multiline comment', () => {
-      'import p /* non closed comment'.should.not.parsedBy(parser)
+      'import p /* non closed comment'.should.not.be.parsedBy(parser)
     })
 
   })
@@ -58,15 +58,15 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse names with spaces', () => {
-      'foo bar'.should.not.parsedBy(parser)
+      'foo bar'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse names that begin with numbers', () => {
-      '4foo'.should.not.parsedBy(parser)
+      '4foo'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse operators as names', () => {
-      '=='.should.not.parsedBy(parser)
+      '=='.should.not.be.parsedBy(parser)
     })
 
   })
@@ -160,8 +160,8 @@ describe('Wollok parser', () => {
           Literal(New(Reference('wollok.List'), [Literal(1), Literal(2), Literal(3)]))
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('value.args.0').tracedTo(1, 2)
-          .and.have.also.nested.property('value.args.1').tracedTo(3, 4)
-          .and.have.also.nested.property('value.args.2').tracedTo(5, 6)
+          .and.also.have.nested.property('value.args.1').tracedTo(3, 4)
+          .and.also.have.nested.property('value.args.2').tracedTo(5, 6)
       })
 
       it('should parse empty sets', () => {
@@ -177,8 +177,8 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 8)
           .and.have.nested.property('value.args.0').tracedTo(2, 3)
-          .and.have.also.nested.property('value.args.1').tracedTo(4, 5)
-          .and.have.also.nested.property('value.args.2').tracedTo(6, 7)
+          .and.also.have.nested.property('value.args.1').tracedTo(4, 5)
+          .and.also.have.nested.property('value.args.2').tracedTo(6, 7)
       })
 
     })
@@ -201,7 +201,7 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 30)
           .and.have.nested.property('value.members.0').tracedTo(9, 14)
-          .and.have.also.nested.property('value.members.1').tracedTo(16, 28)
+          .and.also.have.nested.property('value.members.1').tracedTo(16, 28)
       })
 
       it('should parse literal objects that inherit from a class', () => {
@@ -224,7 +224,7 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 23)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
-          .and.have.also.nested.property('value.superCall.args.0').tracedTo(18, 19)
+          .and.also.have.nested.property('value.superCall.args.0').tracedTo(18, 19)
       })
 
       it('should parse literal objects that inherit from a class and have a mixin', () => {
@@ -237,7 +237,7 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 33)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
-          .and.have.also.nested.property('value.mixins.0').tracedTo(29, 30)
+          .and.also.have.nested.property('value.mixins.0').tracedTo(29, 30)
       })
 
       it('should parse literal objects that inherit from a class and have multiple mixins', () => {
@@ -250,8 +250,8 @@ describe('Wollok parser', () => {
           )
         ).and.be.tracedTo(0, 39)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
-          .and.have.also.nested.property('value.mixins.0').tracedTo(29, 30)
-          .and.have.also.nested.property('value.mixins.1').tracedTo(35, 36)
+          .and.also.have.nested.property('value.mixins.0').tracedTo(29, 30)
+          .and.also.have.nested.property('value.mixins.1').tracedTo(35, 36)
       })
 
       it('should parse literal objects that have multiple mixins', () => {
@@ -262,8 +262,8 @@ describe('Wollok parser', () => {
             })()
           )
         ).and.be.tracedTo(0, 28)
-          .and.have.also.nested.property('value.mixins.0').tracedTo(18, 19)
-          .and.have.also.nested.property('value.mixins.1').tracedTo(24, 25)
+          .and.have.nested.property('value.mixins.0').tracedTo(18, 19)
+          .and.also.have.nested.property('value.mixins.1').tracedTo(24, 25)
       })
 
       it('should not parse literal objects with a constructor', () => {
@@ -328,7 +328,7 @@ describe('Wollok parser', () => {
           Closure(Parameter('a'))(Reference('a'))
         ).and.be.tracedTo(0, 10)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
-          .and.have.also.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
+          .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
 
       })
 
@@ -337,8 +337,8 @@ describe('Wollok parser', () => {
           Closure(Parameter('a'))(Reference('a'), Reference('b'))
         ).and.be.tracedTo(0, 13)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
-          .and.have.also.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
-          .and.have.also.nested.property('value.members.1.body.sentences.0').tracedTo(10, 11)
+          .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
+          .and.also.have.nested.property('value.members.0.body.sentences.1').tracedTo(10, 11)
       })
 
       it('should parse closures that receive two parameters and return the first one', () => {
@@ -346,8 +346,8 @@ describe('Wollok parser', () => {
           Closure(Parameter('a'), Parameter('b'))(Reference('a'))
         ).and.be.tracedTo(0, 12)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
-          .and.have.also.nested.property('value.members.0.parameters.1').tracedTo(4, 5)
-          .and.have.also.nested.property('value.members.0.body.sentences.0').tracedTo(9, 10)
+          .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 5)
+          .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(9, 10)
       })
 
       it('should parse closures with vararg parameters', () => {
@@ -355,8 +355,8 @@ describe('Wollok parser', () => {
           Closure(Parameter('a'), Parameter('b', { isVarArg: true }))(Reference('a'))
         ).and.be.tracedTo(0, 15)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
-          .and.have.also.nested.property('value.members.0.parameters.1').tracedTo(4, 8)
-          .and.have.also.nested.property('value.members.0.body.sentences.0').tracedTo(12, 13)
+          .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 8)
+          .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(12, 13)
       })
 
       it('should not parse malformed closures', () => {
@@ -379,15 +379,15 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse references with spaces', () => {
-      'foo bar'.should.not.parsedBy(parser)
+      'foo bar'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse references that begin with numbers', () => {
-      '4foo'.should.not.parsedBy(parser)
+      '4foo'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse operators as references', () => {
-      '=='.should.not.parsedBy(parser)
+      '=='.should.not.be.parsedBy(parser)
     })
 
   })
@@ -403,19 +403,19 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse references that end with wrong characters', () => {
-      'p.q.'.should.not.parsedBy(parser)
+      'p.q.'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse references that begin with wrong characters', () => {
-      '.q.C'.should.not.parsedBy(parser)
+      '.q.C'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse references with wrong characters', () => {
-      '.'.should.not.parsedBy(parser)
+      '.'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse fully qualified references with wrong characters', () => {
-      'p.*'.should.not.parsedBy(parser)
+      'p.*'.should.not.be.parsedBy(parser)
     })
 
   })
@@ -436,9 +436,9 @@ describe('Wollok parser', () => {
           imports: [Import(Reference('p')), Import(Reference('q'))],
         })(Class('C')())
       ).and.be.tracedTo(0, 28)
-        .and.have.nested.property('imports.0').tracedTo(7, 8)
-        .and.have.also.nested.property('imports.1').tracedTo(16, 17)
-        .and.have.also.nested.property('members.0').tracedTo(18, 28)
+        .and.have.nested.property('imports.0').tracedTo(0, 8)
+        .and.also.have.nested.property('imports.1').tracedTo(9, 17)
+        .and.also.have.nested.property('members.0').tracedTo(18, 28)
     })
 
   })
@@ -465,11 +465,11 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse malformed imports', () => {
-      'import p.*.q'.should.not.parsedBy(parser)
+      'import p.*.q'.should.not.be.parsedBy(parser)
     })
 
     it('should not parse "import" keyword without a package', () => {
-      'import *'.should.not.parsedBy(parser)
+      'import *'.should.not.be.parsedBy(parser)
     })
 
   })
@@ -507,14 +507,13 @@ describe('Wollok parser', () => {
       'test "name" { }'.should.be.parsedBy(parser).into(
         Test('name')()
       ).and.be.tracedTo(0, 15)
-
     })
 
     it('should parse non-empty test', () => {
       'test "name" { var x }'.should.be.parsedBy(parser).into(
         Test('name')(Variable('x'))
       ).and.be.tracedTo(0, 21)
-        .and.have.nested.property('body').tracedTo(14, 19)
+        .and.have.nested.property('body').tracedTo(12, 21)
     })
 
     it('should not parse tests with names that aren\'t a string', () => {
@@ -574,7 +573,7 @@ describe('Wollok parser', () => {
       'class C { constructor() {} }'.should.be.parsedBy(parser).into(
         Class('C')(Constructor()())
       ).and.be.tracedTo(0, 28)
-        .and.have.nested.property('members.0').tracedTo(10, 27)
+        .and.have.nested.property('members.0').tracedTo(10, 26)
     })
 
     it('should parse classes with sentences', () => {
@@ -582,7 +581,7 @@ describe('Wollok parser', () => {
         Class('C')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 31)
         .and.have.nested.property('members.0').tracedTo(10, 15)
-        .and.also.have.nested.property('members.1').tracedTo(17, 30)
+        .and.also.have.nested.property('members.1').tracedTo(17, 29)
     })
 
     it('should parse classes that inherit from other class', () => {
@@ -655,7 +654,7 @@ describe('Wollok parser', () => {
         Mixin('M')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 31)
         .and.have.nested.property('members.0').tracedTo(10, 15)
-        .and.also.have.nested.property('members.1').tracedTo(17, 30)
+        .and.also.have.nested.property('members.1').tracedTo(17, 29)
     })
 
     it('should not parse mixins with constructor', () => {
@@ -691,7 +690,7 @@ describe('Wollok parser', () => {
         Singleton('O')(Field('v'), Method('m')())
       ).and.be.tracedTo(0, 33)
         .and.have.nested.property('members.0').tracedTo(12, 17)
-        .and.also.have.nested.property('members.1').tracedTo(19, 32)
+        .and.also.have.nested.property('members.1').tracedTo(19, 31)
     })
 
     it('should parse objects that inherits from a class', () => {
@@ -721,7 +720,7 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 35)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
-        .and.have.also.nested.property('mixins.0').tracedTo(31, 32)
+        .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
     })
 
     it('should parse objects that inherit from a class and have multiple mixins', () => {
@@ -732,8 +731,8 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 41)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
-        .and.have.also.nested.property('mixins.0').tracedTo(31, 32)
-        .and.have.also.nested.property('mixins.1').tracedTo(37, 38)
+        .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
+        .and.also.have.nested.property('mixins.1').tracedTo(37, 38)
     })
 
     it('should parse objects thats have multiple mixins ', () => {
@@ -743,7 +742,7 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 30)
         .and.have.nested.property('mixins.0').tracedTo(20, 21)
-        .and.have.also.nested.property('mixins.1').tracedTo(26, 27)
+        .and.also.have.nested.property('mixins.1').tracedTo(26, 27)
     })
 
     it('should not parse objects with a constructor', () => {
@@ -885,8 +884,8 @@ describe('Wollok parser', () => {
       'method m() {var x}'.should.be.parsedBy(parser).into(
         Method('m')(Variable('x'))
       ).and.be.tracedTo(0, 18)
-        .and.have.nested.property('body').tracedTo(12, 17)
-        .and.have.nested.property('body.sentences.0').tracedTo(12, 17)
+        .and.have.nested.property('body').tracedTo(11, 18)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(12, 17)
     })
 
     it('should parse simple return method', () => {
@@ -894,7 +893,7 @@ describe('Wollok parser', () => {
         Method('m')(Literal(5))
       ).and.be.tracedTo(0, 14)
         .and.have.nested.property('body').tracedTo(13, 14)
-        .and.have.nested.property('body.sentences.0').tracedTo(13, 14)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(13, 14)
     })
 
     it('should parse override methods', () => {
@@ -918,8 +917,8 @@ describe('Wollok parser', () => {
       'method m() = { 5 }'.should.be.parsedBy(parser).into(
         Method('m')(Closure()(Literal(5)))
       ).and.be.tracedTo(0, 18)
-        .and.have.nested.property('body').tracedTo(15, 16)
-        .and.have.nested.property('body.sentences.0').tracedTo(15, 16)
+        .and.have.nested.property('body').tracedTo(13, 18)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(13, 18)
     })
 
     it('should not parse incomplete methods', () => {
@@ -953,7 +952,7 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('parameters.0').tracedTo(12, 13)
-        .and.have.also.nested.property('parameters.1').tracedTo(14, 16)
+        .and.also.have.nested.property('parameters.1').tracedTo(15, 16)
     })
 
     it('should parse constructors with explicit builder with vararg parameters', () => {
@@ -965,15 +964,15 @@ describe('Wollok parser', () => {
         })()
       ).and.be.tracedTo(0, 23)
         .and.have.nested.property('parameters.0').tracedTo(12, 13)
-        .and.have.also.nested.property('parameters.1').tracedTo(15, 19)
+        .and.also.have.nested.property('parameters.1').tracedTo(15, 19)
     })
 
     it('should parse non-empty constructors', () => {
       'constructor() {var x}'.should.be.parsedBy(parser).into(
         Constructor()(Variable('x'))
       ).and.be.tracedTo(0, 21)
-        .and.have.nested.property('body').tracedTo(15, 20)
-        .and.have.nested.property('body.sentences.0').tracedTo(15, 20)
+        .and.have.nested.property('body').tracedTo(14, 21)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(15, 20)
     })
 
     it('should parse should parse constructor delegations to another constructor in the same class, with a body', () => {
@@ -1095,7 +1094,7 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Reference('b'))
       ).and.be.tracedTo(0, 5)
         .and.have.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value').tracedTo(4, 5)
+        .and.also.have.nested.property('value').tracedTo(4, 5)
     })
 
     it('should parse += operation ', () => {
@@ -1103,8 +1102,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '+', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
     })
 
     it('should parse -= operation', () => {
@@ -1112,8 +1111,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
     })
 
@@ -1122,8 +1121,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '*', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
     })
 
@@ -1132,8 +1131,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '/', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
     })
 
@@ -1142,8 +1141,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '%', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
     })
 
@@ -1152,8 +1151,8 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '||', [Reference('b')]))
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
 
     })
 
@@ -1162,7 +1161,7 @@ describe('Wollok parser', () => {
         Assignment(Reference('a'), Send(Reference('a'), '&&', [Reference('b')]))
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.have.also.nested.property('value.args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
     })
 
     it('should not parse assignments that have other assignment at the right', () => {
@@ -1188,9 +1187,9 @@ describe('Wollok parser', () => {
           [Reference('b')]), '+', [Reference('c')])
       ).and.be.tracedTo(0, 9)
         .and.have.nested.property('receiver').tracedTo(0, 5)
-        .and.have.also.nested.property('receiver.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('receiver.args.0').tracedTo(4, 5)
-        .and.have.also.nested.property('args.0').tracedTo(8, 9)
+        .and.also.have.nested.property('receiver.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('receiver.args.0').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0').tracedTo(8, 9)
     })
 
     it('should parse operations with parentheses to separate members', () => {
@@ -1199,9 +1198,9 @@ describe('Wollok parser', () => {
           [Send(Reference('b'), '+', [Reference('c')])])
       ).and.be.tracedTo(0, 11)
         .and.have.nested.property('receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('args.0').tracedTo(5, 10)
-        .and.have.also.nested.property('args.0.receiver').tracedTo(5, 6)
-        .and.have.also.nested.property('args.0.args.0').tracedTo(9, 10)
+        .and.also.have.nested.property('args.0').tracedTo(5, 10)
+        .and.also.have.nested.property('args.0.receiver').tracedTo(5, 6)
+        .and.also.have.nested.property('args.0.args.0').tracedTo(9, 10)
     })
 
     it('should parse infix operations with logical operators', () => {
@@ -1225,15 +1224,15 @@ describe('Wollok parser', () => {
         )
       ).and.be.tracedTo(0, 24)
         .and.have.nested.property('receiver').tracedTo(0, 5)
-        .and.have.also.nested.property('receiver.receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('receiver.args.0').tracedTo(4, 5)
-        .and.have.also.nested.property('args.0').tracedTo(9, 24)
-        .and.have.also.nested.property('args.0.receiver').tracedTo(9, 10)
-        .and.have.also.nested.property('args.0.args.0').tracedTo(14, 24)
-        .and.have.also.nested.property('args.0.args.0.receiver').tracedTo(14, 19)
-        .and.have.also.nested.property('args.0.args.0.receiver.receiver').tracedTo(14, 15)
-        .and.have.also.nested.property('args.0.args.0.receiver.args.0').tracedTo(18, 19)
-        .and.have.also.nested.property('args.0.args.0.args.0').tracedTo(23, 24)
+        .and.also.have.nested.property('receiver.receiver').tracedTo(0, 1)
+        .and.also.have.nested.property('receiver.args.0').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0').tracedTo(9, 24)
+        .and.also.have.nested.property('args.0.receiver').tracedTo(9, 10)
+        .and.also.have.nested.property('args.0.args.0').tracedTo(14, 24)
+        .and.also.have.nested.property('args.0.args.0.receiver').tracedTo(14, 19)
+        .and.also.have.nested.property('args.0.args.0.receiver.receiver').tracedTo(14, 15)
+        .and.also.have.nested.property('args.0.args.0.receiver.args.0').tracedTo(18, 19)
+        .and.also.have.nested.property('args.0.args.0.args.0').tracedTo(23, 24)
     })
 
 
@@ -1254,8 +1253,8 @@ describe('Wollok parser', () => {
         Send(Send(Send(Reference('a'), '!', []), '!', []), '!', [])
       ).and.be.tracedTo(0, 4)
         .and.have.nested.property('receiver').tracedTo(1, 4)
-        .and.have.also.nested.property('receiver.receiver').tracedTo(2, 4)
-        .and.have.also.nested.property('receiver.receiver.receiver').tracedTo(3, 4)
+        .and.also.have.nested.property('receiver.receiver').tracedTo(2, 4)
+        .and.also.have.nested.property('receiver.receiver.receiver').tracedTo(3, 4)
     })
 
     it('should parse arithmetic operators in prefix operations', () => {
@@ -1283,7 +1282,7 @@ describe('Wollok parser', () => {
         Send(Reference('a'), 'm', [Literal(5)])
       ).and.be.tracedTo(0, 6)
         .and.have.nested.property('receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('args.0').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0').tracedTo(4, 5)
     })
 
     it('should parse sending messages with multiple arguments', () => {
@@ -1291,8 +1290,8 @@ describe('Wollok parser', () => {
         Send(Reference('a'), 'm', [Literal(5), Literal(7)])
       ).and.be.tracedTo(0, 8)
         .and.have.nested.property('receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('args.0').tracedTo(4, 5)
-        .and.have.also.nested.property('args.1').tracedTo(6, 7)
+        .and.also.have.nested.property('args.0').tracedTo(4, 5)
+        .and.also.have.nested.property('args.1').tracedTo(6, 7)
     })
 
     it('should parse sending messages with a closure as an argument', () => {
@@ -1300,10 +1299,9 @@ describe('Wollok parser', () => {
         Send(Reference('a'), 'm', [Closure(Parameter('p'))(Reference('p'))])
       ).and.be.tracedTo(0, 11)
         .and.have.nested.property('receiver').tracedTo(0, 1)
-        .and.have.also.nested.property('args.0').tracedTo(3, 11)
-        .and.have.nested.property('members.0.parameters.0').tracedTo(4, 5)
-        .and.have.also.nested.property('members.0.body.sentences.0').tracedTo(9, 10)
-      // preguntar
+        .and.also.have.nested.property('args.0').tracedTo(3, 11)
+        .and.also.have.nested.property('args.0.value.members.0.parameters.0').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0.value.members.0.body.sentences.0').tracedTo(9, 10)
     })
 
     it('should parse compound sending messages', () => {
@@ -1313,8 +1311,9 @@ describe('Wollok parser', () => {
           'o',
           [])
       ).and.be.tracedTo(0, 13)
-        .and.have.nested.property('receiver').tracedTo(0, 7)
-        .and.have.nested.property('receiver.receiver').tracedTo(0, 1)
+        .and.have.nested.property('receiver').tracedTo(0, 9)
+        .and.also.have.nested.property('receiver.receiver').tracedTo(0, 5)
+        .and.also.have.nested.property('receiver.receiver.receiver').tracedTo(0, 1)
     })
 
     it('should parse compound sending messages using methods with parameters', () => {
@@ -1325,9 +1324,9 @@ describe('Wollok parser', () => {
           [Literal(5)])
       ).and.be.tracedTo(0, 12)
         .and.have.nested.property('receiver').tracedTo(1, 6)
-        .and.have.also.nested.property('receiver.receiver').tracedTo(1, 2)
-        .and.have.also.nested.property('receiver.args.0').tracedTo(5, 6)
-        .and.have.also.nested.property('args.0').tracedTo(10, 11)
+        .and.also.have.nested.property('receiver.receiver').tracedTo(1, 2)
+        .and.also.have.nested.property('receiver.args.0').tracedTo(5, 6)
+        .and.also.have.nested.property('args.0').tracedTo(10, 11)
     })
 
     it('should parse sending messages to numeric objects', () => {
@@ -1379,8 +1378,8 @@ describe('Wollok parser', () => {
         New(Reference('C'), [Literal(1), Literal(2)])
       ).and.be.tracedTo(0, 10)
         .and.have.nested.property('className').tracedTo(4, 5)
-        .and.have.also.nested.property('args.0').tracedTo(6, 7)
-        .and.have.also.nested.property('args.1').tracedTo(8, 9)
+        .and.also.have.nested.property('args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('args.1').tracedTo(8, 9)
     })
 
     it('should not parse "new" keyword without a builder', () => {
@@ -1407,7 +1406,7 @@ describe('Wollok parser', () => {
         Super([Literal(1), Literal(2)])
       ).and.be.tracedTo(0, 10)
         .and.have.nested.property('args.0').tracedTo(6, 7)
-        .and.have.also.nested.property('args.1').tracedTo(8, 9)
+        .and.also.have.nested.property('args.1').tracedTo(8, 9)
     })
 
     it('should not parse "super" keyword without parentheses', () => {
@@ -1428,8 +1427,8 @@ describe('Wollok parser', () => {
         If(Reference('a'), [Reference('x')])
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 7)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+        .and.also.have.nested.property('thenBody').tracedTo(6, 7)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
     })
 
     it('should parse "if" with "then" curly-braced body', () => {
@@ -1437,8 +1436,8 @@ describe('Wollok parser', () => {
         If(Reference('a'), [Reference('x')])
       ).and.be.tracedTo(0, 8)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 7)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+        .and.also.have.nested.property('thenBody').tracedTo(5, 8)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
     })
 
     it('should parse "if" with "then" with a multi-sentence curly-braced body', () => {
@@ -1446,9 +1445,9 @@ describe('Wollok parser', () => {
         If(Reference('a'), [Reference('x'), Reference('y')])
       ).and.be.tracedTo(0, 10)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 9)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-        .and.have.also.nested.property('thenBody.sentences.1').tracedTo(8, 9)
+        .and.also.have.nested.property('thenBody').tracedTo(5, 10)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+        .and.also.have.nested.property('thenBody.sentences.1').tracedTo(8, 9)
     })
 
     it('should parse "if" with "then" and "else" body', () => {
@@ -1456,21 +1455,21 @@ describe('Wollok parser', () => {
         If(Reference('a'), [Reference('x')], [Reference('y')])
       ).and.be.tracedTo(0, 14)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 7)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-        .and.have.also.nested.property('elseBody').tracedTo(13, 14)
-        .and.have.also.nested.property('elseBody.sentences.0').tracedTo(13, 14)
+        .and.also.have.nested.property('thenBody').tracedTo(6, 7)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+        .and.also.have.nested.property('elseBody').tracedTo(13, 14)
+        .and.also.have.nested.property('elseBody.sentences.0').tracedTo(13, 14)
     })
 
     it('should parse "if" with "then" and "else" curly-braced body', () => {
-      'if(a){x}else{y}'.should.be.parsedBy(parser).into(
+      'if(a){x} else {y}'.should.be.parsedBy(parser).into(
         If(Reference('a'), [Reference('x')], [Reference('y')])
-      ).and.be.tracedTo(0, 15)
+      ).and.be.tracedTo(0, 17)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 7)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-        .and.have.also.nested.property('elseBody').tracedTo(13, 14)
-        .and.have.also.nested.property('elseBody.sentences.0').tracedTo(13, 14)
+        .and.also.have.nested.property('thenBody').tracedTo(5, 8)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+        .and.also.have.nested.property('elseBody').tracedTo(14, 17)
+        .and.also.have.nested.property('elseBody.sentences.0').tracedTo(15, 16)
     })
 
     it('should parse if inside other if', () => {
@@ -1482,13 +1481,13 @@ describe('Wollok parser', () => {
 
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 20)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 20)
-        .and.have.also.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
-        .and.have.also.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
-        .and.have.also.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
-        .and.have.also.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
-        .and.have.also.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
+        .and.also.have.nested.property('thenBody').tracedTo(6, 20)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 20)
+        .and.also.have.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
+        .and.also.have.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
+        .and.also.have.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
+        .and.also.have.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
+        .and.also.have.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
     })
 
     it('should parse "if" inside other "if" that have an else', () => {
@@ -1499,15 +1498,15 @@ describe('Wollok parser', () => {
 
       ).and.be.tracedTo(0, 27)
         .and.have.nested.property('condition').tracedTo(3, 4)
-        .and.have.also.nested.property('thenBody').tracedTo(6, 20)
-        .and.have.also.nested.property('thenBody.sentences.0').tracedTo(6, 20)
-        .and.have.also.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
-        .and.have.also.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
-        .and.have.also.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
-        .and.have.also.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
-        .and.have.also.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
-        .and.have.also.nested.property('elseBody').tracedTo(26, 27)
-        .and.have.also.nested.property('elseBody.sentences.0').tracedTo(26, 27)
+        .and.also.have.nested.property('thenBody').tracedTo(6, 20)
+        .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 20)
+        .and.also.have.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
+        .and.also.have.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
+        .and.also.have.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
+        .and.also.have.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
+        .and.also.have.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
+        .and.also.have.nested.property('elseBody').tracedTo(26, 27)
+        .and.also.have.nested.property('elseBody.sentences.0').tracedTo(26, 27)
     })
 
     it('should not parse "if" that doesn\'t have the condition inside parentheses', () => {
@@ -1532,15 +1531,15 @@ describe('Wollok parser', () => {
         Try([Reference('x')], {})
       ).and.be.tracedTo(0, 5)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
     })
 
     it('should parse try expressions with a curly-braced body', () => {
       'try{x}'.should.be.parsedBy(parser).into(
         Try([Reference('x')], {})
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.have.nested.property('body').tracedTo(3, 6)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
     })
 
     it('should parse try expressions with a catch', () => {
@@ -1552,10 +1551,11 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 15)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('catches.0').tracedTo(12, 15)
-        .and.have.also.nested.property('catches.0.parameter').tracedTo(12, 13)
-        .and.have.also.nested.property('catches.0.sentences.0').tracedTo(14, 15)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('catches.0').tracedTo(6, 15)
+        .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+        .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
+        .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
     })
 
     it('should parse try expressions with a curly-braced body', () => {
@@ -1567,10 +1567,11 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 16)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('catches.0').tracedTo(12, 15)
-        .and.have.also.nested.property('catches.0.parameter').tracedTo(12, 13)
-        .and.have.also.nested.property('catches.0.sentences.0').tracedTo(14, 15)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('catches.0').tracedTo(6, 16)
+        .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+        .and.also.have.nested.property('catches.0.body').tracedTo(13, 16)
+        .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
     })
 
     it('should parse try expressions with a catch with the parameter type', () => {
@@ -1583,11 +1584,12 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 17)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('catches.0').tracedTo(12, 17)
-        .and.have.also.nested.property('catches.0.parameter').tracedTo(12, 13)
-        .and.have.also.nested.property('catches.0.parameterType').tracedTo(14, 15)
-        .and.have.also.nested.property('catches.0.sentences.0').tracedTo(16, 17)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('catches.0').tracedTo(6, 17)
+        .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+        .and.also.have.nested.property('catches.0.parameterType').tracedTo(14, 15)
+        .and.also.have.nested.property('catches.0.body').tracedTo(16, 17)
+        .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(16, 17)
     })
 
     it('should parse try expressions with a "then always" body', () => {
@@ -1597,9 +1599,10 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 19)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('always').tracedTo(18, 19)
-        .and.have.also.nested.property('always.sentences.0').tracedTo(18, 19)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('always').tracedTo(18, 19)
+        .and.also.have.nested.property('always').tracedTo(18, 19)
+        .and.also.have.nested.property('always.sentences.0').tracedTo(18, 19)
     })
 
     it('should parse try expressions with a "then always" curly-braced body', () => {
@@ -1609,9 +1612,9 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('always').tracedTo(18, 19)
-        .and.have.also.nested.property('always.sentences.0').tracedTo(18, 19)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('always').tracedTo(17, 20)
+        .and.also.have.nested.property('always.sentences.0').tracedTo(18, 19)
     })
 
     it('should parse try expressions with a catch and a "then always" body', () => {
@@ -1624,11 +1627,13 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 29)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('catches.0').tracedTo(12, 15)
-        .and.have.also.nested.property('catches.0.parameter').tracedTo(12, 13)
-        .and.have.also.nested.property('catches.0.sentences.0').tracedTo(14, 15)
-        .and.have.also.nested.property('always').tracedTo(38, 39)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('catches.0').tracedTo(6, 15)
+        .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+        .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
+        .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
+        .and.also.have.nested.property('always').tracedTo(28, 29)
+        .and.also.have.nested.property('always.sentences.0').tracedTo(28, 29)
     })
 
     it('should parse try expressions with more than one catch', () => {
@@ -1642,14 +1647,14 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 39)
         .and.have.nested.property('body').tracedTo(4, 5)
-        .and.have.also.nested.property('body.sentences.0').tracedTo(4, 5)
-        .and.have.also.nested.property('catches.0').tracedTo(12, 15)
-        .and.have.also.nested.property('catches.0.parameter').tracedTo(12, 13)
-        .and.have.also.nested.property('catches.0.sentences.0').tracedTo(14, 15)
-        .and.have.also.nested.property('catches.1').tracedTo(22, 25)
-        .and.have.also.nested.property('catches.1.parameter').tracedTo(22, 23)
-        .and.have.also.nested.property('catches.1.sentences.0').tracedTo(24, 25)
-        .and.have.also.nested.property('always').tracedTo(38, 39)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+        .and.also.have.nested.property('catches.0').tracedTo(6, 15)
+        .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+        .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
+        .and.also.have.nested.property('catches.1').tracedTo(16, 25)
+        .and.also.have.nested.property('catches.1.parameter').tracedTo(22, 23)
+        .and.also.have.nested.property('catches.1.body').tracedTo(24, 25)
+        .and.also.have.nested.property('always').tracedTo(38, 39)
     })
 
     it('should not parse try expressions with an incomplete "then always" body', () => {
