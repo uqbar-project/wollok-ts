@@ -23,9 +23,10 @@ const OPERATORS = INFIX_OPERATORS.reduce(concat, PREFIX_OPERATORS.map(op => `${o
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
-const optional = <T>(parser: Parser<T>) => parser.or(of(undefined))
 const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
+const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.or(of(undefined))
+const maybeString = (s: string) => string(s).atMost(1).map(([s]) => !!s)
 
 const node = <
   K extends NodeKind,
@@ -37,13 +38,11 @@ const node = <
     return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
   }
 
-const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> =>
-  seqMap(
-    optional(_).then(index),
-    parser,
-    index,
-    (start, payload, end) => ({ ...payload as any, source: { start, end } })
-  )
+const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
+  optional(_).then(index),
+  parser,
+  index
+).map(([start, payload, end]) => ({ ...payload as any, source: { start, end } }))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -54,8 +53,7 @@ export const Name: Parser<NameType> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 export const Parameter: Parser<Unlinked<ParameterNode>> = lazy(() =>
   node('Parameter')({
     name: Name,
-    // TODO: Extract
-    isVarArg: string('...').atMost(1).map(([s]) => !!s),
+    isVarArg: maybeString('...'),
   }).thru(sourced)
 )
 
@@ -77,21 +75,19 @@ export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Entity: Parser<Unlinked<EntityNode>> = lazy(() =>
-  alt(Package, Class, Singleton, Mixin, Program, Test)
-)
+export const Entity: Parser<Unlinked<EntityNode>> = lazy(() => alt(Package, Class, Singleton, Mixin, Program, Test))
 
 export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
   key('import').then(node('Import')({
     reference: node('Reference')({ name: Name.sepBy1(key('.')).tieWith('.') }).thru(sourced),
-    isGeneric: key('.*').atMost(1).map(([s]) => !!s),
-  })).thru(sourced)
+    isGeneric: maybeString('.*'),
+  })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
 
 export const File: Parser<Unlinked<PackageNode>> = lazy(() =>
   node('Package')({
     name: of(''),
-    imports: Import.skip(optional(alt(key(';'), _))).many(),
+    imports: Import.many(),
     members: Entity.many(),
   }).thru(sourced)
 )
@@ -99,7 +95,7 @@ export const File: Parser<Unlinked<PackageNode>> = lazy(() =>
 export const Package: Parser<Unlinked<PackageNode>> = lazy(() =>
   key('package').then(node('Package')({
     name: Name,
-    imports: Import.skip(optional(alt(key(';'), _))).many(),
+    imports: Import.many(),
     members: Entity.many().wrap(key('{'), key('}')),
   })).thru(sourced)
 )
@@ -118,33 +114,36 @@ export const Test: Parser<Unlinked<TestNode>> = lazy(() =>
   })).thru(sourced)
 )
 
+const MixinLinearization = lazy(() =>
+  key('mixed with').then(Reference.sepBy1(key('and')))
+)
+
 export const Class: Parser<Unlinked<ClassNode>> = lazy(() =>
   key('class').then(node('Class')({
     name: Name,
     superclass: optional(key('inherits').then(Reference)),
-    mixins: key('mixed with').then(Reference.sepBy1(key('and'))).or(of([])),
+    mixins: MixinLinearization.or(of([])),
     members: ClassMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
 
 export const Singleton: Parser<Unlinked<SingletonNode>> = lazy(() => {
   const SuperCall = key('inherits').then(seqMap(Reference, Arguments.or(of([])), (superclass, args) => ({ superclass, args })))
-  const Mixins = key('mixed with').then(Reference.sepBy1(key('and')))
 
   return key('object').then(seqMap(
     alt(
-      Mixins.map(mixins => ({ mixins, name: undefined })),
+      MixinLinearization.map(mixins => ({ mixins, name: undefined })),
 
       seqMap(
         SuperCall,
-        Mixins.or(of([])),
+        MixinLinearization.or(of([])),
         (superCall, mixins) => ({ superCall, mixins })
       ),
 
       seqMap(
         notFollowedBy(key('inherits').or(key('mixed with'))).then(Name),
         optional(SuperCall),
-        Mixins.or(of([])),
+        MixinLinearization.or(of([])),
         (name, superCall, mixins) => ({ name, superCall, mixins })
       ),
 
@@ -158,7 +157,7 @@ export const Singleton: Parser<Unlinked<SingletonNode>> = lazy(() => {
 export const Mixin: Parser<Unlinked<MixinNode>> = lazy(() =>
   key('mixin').then(node('Mixin')({
     name: Name,
-    mixins: key('mixed with').then(Reference.sepBy1(key('and'))).or(of([])),
+    mixins: MixinLinearization.or(of([])),
     members: alt(Method, Field).sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
