@@ -193,15 +193,15 @@ describe('Wollok parser', () => {
       })
 
       it('should parse non empty literal objects', () => {
-        'object { var v; method m(){} }'.should.be.parsedBy(parser).into(
+        'object { var v method m(){} }'.should.be.parsedBy(parser).into(
           Literal(
             Singleton()(
               Field('v'), Method('m')()
             )
           )
-        ).and.be.tracedTo(0, 30)
+        ).and.be.tracedTo(0, 29)
           .and.have.nested.property('value.members.0').tracedTo(9, 14)
-          .and.also.have.nested.property('value.members.1').tracedTo(16, 28)
+          .and.also.have.nested.property('value.members.1').tracedTo(15, 27)
       })
 
       it('should parse literal objects that inherit from a class', () => {
@@ -577,11 +577,11 @@ describe('Wollok parser', () => {
     })
 
     it('should parse classes with sentences', () => {
-      'class C { var v; method m(){} }'.should.be.parsedBy(parser).into(
+      'class C { var v method m(){} }'.should.be.parsedBy(parser).into(
         Class('C')(Field('v'), Method('m')())
-      ).and.be.tracedTo(0, 31)
+      ).and.be.tracedTo(0, 30)
         .and.have.nested.property('members.0').tracedTo(10, 15)
-        .and.also.have.nested.property('members.1').tracedTo(17, 29)
+        .and.also.have.nested.property('members.1').tracedTo(16, 28)
     })
 
     it('should parse classes that inherit from other class', () => {
@@ -650,11 +650,11 @@ describe('Wollok parser', () => {
     })
 
     it('should parse non-empty programs', () => {
-      'mixin M { var v; method m(){} }'.should.be.parsedBy(parser).into(
+      'mixin M { var v method m(){} }'.should.be.parsedBy(parser).into(
         Mixin('M')(Field('v'), Method('m')())
-      ).and.be.tracedTo(0, 31)
+      ).and.be.tracedTo(0, 30)
         .and.have.nested.property('members.0').tracedTo(10, 15)
-        .and.also.have.nested.property('members.1').tracedTo(17, 29)
+        .and.also.have.nested.property('members.1').tracedTo(16, 28)
     })
 
     it('should not parse mixins with constructor', () => {
@@ -686,11 +686,11 @@ describe('Wollok parser', () => {
     })
 
     it('should parse non-empty objects', () => {
-      'object O  { var v; method m(){} }'.should.be.parsedBy(parser).into(
+      'object O  { var v method m(){} }'.should.be.parsedBy(parser).into(
         Singleton('O')(Field('v'), Method('m')())
-      ).and.be.tracedTo(0, 33)
+      ).and.be.tracedTo(0, 32)
         .and.have.nested.property('members.0').tracedTo(12, 17)
-        .and.also.have.nested.property('members.1').tracedTo(19, 31)
+        .and.also.have.nested.property('members.1').tracedTo(18, 30)
     })
 
     it('should parse objects that inherits from a class', () => {

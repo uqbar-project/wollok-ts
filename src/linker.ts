@@ -137,6 +137,7 @@ export default (
   const scopedEnvironment = transform(node => ({ ...node, scope: scopes[node.id] }))(identifiedEnvironment)
 
   // TODO: assign parent
+  // TODO: Check that all references have a target
 
   return scopedEnvironment
 }

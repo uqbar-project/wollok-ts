@@ -234,6 +234,7 @@ export interface Catch extends BasicNode {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+// TODO: Can't we just use a package node here?
 export interface Environment extends BasicNode {
   readonly kind: 'Environment'
   readonly members: ReadonlyArray<Package>

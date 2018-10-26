@@ -1,4 +1,4 @@
-// No unnamed singleton at top level
+// No unnamed singleton outside Literals
 // Name capitalization
 // Only one (the last) parameter can be vararg
 // No members with the same selector
