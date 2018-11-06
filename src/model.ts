@@ -13,7 +13,7 @@ export type NodePayload<N extends Node> = Drop<Unlinked<N>, 'kind'>
 export type Id = string
 
 export type Name = string
-export interface Scope { [name: string]: Id }
+export interface Scope { readonly [name: string]: Id }
 
 
 export type Unlinked<T> =
@@ -268,6 +268,9 @@ export const isSentence = (obj: any): obj is Sentence => isNode(obj) &&
 // TRANSFORMATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+// TODO: Maybe we could group all functions dependent of an environment like:
+// {f1, f2, f3} = utils(environment)
+
 // TODO: Test
 export const children = (node: Node): ReadonlyArray<Node> => {
   const extractChildren = (obj: any): ReadonlyArray<Node> =>
@@ -293,20 +296,17 @@ export const transform = (tx: (node: Node) => Node) => <T extends Node, U extend
 export const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
   children(node).reduce(reduce(tx), tx(initial, node))
 
-// TODO: memoize this?
-export const descendants = (node: Node): ReadonlyArray<Node> => {
+export const descendants = ((node: Node): ReadonlyArray<Node> => {
   const directChildren = children(node)
   return [...directChildren, ...flatMap(child => descendants(child), directChildren)]
-}
+})
 
-// TODO: memoize this?
 export const parentOf = (environment: Environment) => (node: Node): Node => {
   const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).includes(node))
   if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
   return parent
 }
 
-// TODO: memoize this?
 export const getNodeById = <T extends Node>(environment: Environment, id: Id): T => {
   const response = [environment, ...descendants(environment)].find(node => node.id === id)
   if (!response) throw new Error(`Missing node ${id}`)

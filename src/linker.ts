@@ -24,8 +24,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
     [environment.id, environment.scope],
   ])
 
-  // TODO: Memoize?
-  function getScope(id: Id): Scope {
+  const getScope = (id: Id): Scope => {
     const scope = scopes.get(id)
     if (!scope) throw new Error(`Missing scope for node id ${id}`)
     if (scope instanceof Function) {

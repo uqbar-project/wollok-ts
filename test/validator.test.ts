@@ -1,6 +1,6 @@
 import { should } from 'chai'
 import { Class as ClassNode, Package as PackageNode } from '../src/model'
-import validate, { level } from '../src/validator'
+import validate from '../src/validator'
 import { Class, Method, Mixin, Package, Parameter } from './builders'
 
 import link from '../src/linker'
@@ -42,14 +42,16 @@ describe('Validator', () => {
   // const M = q.members[0] as MixinNode
 
   describe('Classes', () => {
+    // TODO: Test only "positive" cases and add one extra case with a valid node for each node kind and test it returns empty list
+
     it('Class with first uppercase letter returns empty list of error', () => {
       validate(C).should.deep.equal([])
     })
 
     it('Class with non first uppercase letter returns empty list of error returns notUppercase', () => {
       validate(C2).should.deep.equal([{
-        code: 'notUppercase',
-        level: level.warning,
+        code: 'camelcaseName',
+        level: 'Warning',
         node: C2,
       }])
     })
@@ -101,8 +103,8 @@ describe('Validator', () => {
 
     it('Non Last parameter as vararg returns error', () => {
       validate(m).should.deep.equal([{
-        code: 'notVarargAsLastParameter',
-        level: level.error,
+        code: 'onlyLastParameterIsVarArg',
+        level: 'Error',
         node: m,
       }])
     })
