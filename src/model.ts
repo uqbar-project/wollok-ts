@@ -95,6 +95,7 @@ export interface Test extends BasicNode {
 export interface Class extends BasicNode {
   readonly kind: 'Class'
   readonly name: Name
+  // TODO: Wouldn't it be better to autocomplete this?
   readonly superclass?: Reference
   readonly mixins: ReadonlyArray<Reference>
   readonly members: ReadonlyArray<ClassMember>
@@ -103,6 +104,7 @@ export interface Class extends BasicNode {
 export interface Singleton extends BasicNode {
   readonly kind: 'Singleton'
   readonly name?: Name
+  // TODO: Wouldn't it be better to autocomplete this?
   readonly superCall?: { superclass: Reference, args: ReadonlyArray<Expression> }
   readonly mixins: ReadonlyArray<Reference>
   readonly members: ReadonlyArray<ObjectMember>
@@ -316,3 +318,25 @@ export const getNodeById = <T extends Node>(environment: Environment, id: Id): T
 // TODO: Test
 export const target = (environment: Environment) => <T extends Node>(reference: Reference) =>
   getNodeById(environment, reference.scope[reference.name]) as T
+
+export const superclass = (environment: Environment) => (module: Class | Singleton): Module => {
+  // TODO: use 'wollok.Object'
+  const ObjectClass = getNodeById<Class>(environment, module.scope.Object)
+  switch (module.kind) {
+    case 'Class': return module.superclass ? target(environment)(module.superclass) : ObjectClass
+    case 'Singleton': return module.superCall ? target(environment)(module.superCall.superclass) : ObjectClass
+  }
+}
+
+export const hierarchy = (environment: Environment) => (module: Module, exclude: ReadonlyArray<Module> = []): ReadonlyArray<Module> =>
+  [
+    module,
+    ...module.mixins.map(m => target(environment)<Module>(m)),
+    ...module.kind === 'Mixin' ? [] : [superclass(environment)(module)],
+  ].reduce((ancestors, node) => exclude.includes(node)
+    ? ancestors
+    : [node, ...hierarchy(environment)(node, [node, ...exclude, ...ancestors]), ...ancestors]
+    , [] as ReadonlyArray<Module>)
+
+export const inherits = (environment: Environment) => (child: Module, parent: Module) =>
+  hierarchy(environment)(child).includes(parent)

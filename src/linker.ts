@@ -1,4 +1,5 @@
-// import { chain as flatMap, merge } from 'ramda'
+// TODO: Maybe we should map all references to fully qualyfied ones ?
+
 import { merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { children, Class, descendants, Entity, Environment, getNodeById, Id, isModule, Module, Node, Package, parentOf, Scope, transform, Unlinked } from './model'
@@ -35,9 +36,45 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
     return scope
   }
 
+  function ancestors(module: Module): ReadonlyArray<Module> {
+    const scope = getScope(module.id)
+    // TODO: change this to 'wollok.Object' and make getNodeById resolve composed references
+    const ObjectClass = getNodeById<Class>(environment, scope.Object)
+
+    let superclass
+
+    switch (module.kind) {
+      case 'Class':
+        superclass = module.superclass
+          ? getNodeById<Module>(environment, scope[module.superclass.name])
+          : ObjectClass
+
+        return [
+          ...superclass === module ? [] : [superclass, ...ancestors(superclass)],
+          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
+        ]
+
+      case 'Singleton':
+        superclass = module.superCall
+          ? getNodeById<Module>(environment, scope[module.superCall.superclass.name])
+          : ObjectClass
+
+        return [
+          ...[superclass, ...ancestors(superclass)],
+          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
+        ]
+
+      case 'Mixin':
+        return module.mixins.map(m => getNodeById<Module>(environment, scope[m.name]))
+    }
+  }
+
   function innerContributionFrom(contributor: Node): Scope {
     return [
-      ...isModule(contributor) ? ancestors(contributor).map(ancestor => innerContributionFrom(ancestor)) : [],
+      ...isModule(contributor)
+        // TODO: refactor this to call getScope on every recursive call
+        ? ancestors(contributor).map(ancestor => innerContributionFrom(ancestor))
+        : [],
       ...[contributor, ...children(contributor)].map(c => outerContributionFrom(c)),
     ].reduce(merge)
   }
@@ -73,40 +110,6 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
         return { [contributor.name]: contributor.id }
       default:
         return {}
-    }
-  }
-
-  function ancestors(module: Module): ReadonlyArray<Module> {
-    const scope = getScope(module.id)
-
-    // TODO: change this to 'wollok.Object' and make getNodeById resolve composed references
-    const ObjectClass = getNodeById<Class>(environment, scope.Object)
-
-    let superclass
-
-    switch (module.kind) {
-      case 'Class':
-        superclass = module.superclass
-          ? getNodeById<Module>(environment, scope[module.superclass.name])
-          : ObjectClass
-
-        return [
-          ...superclass === module ? [] : [superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
-        ]
-
-      case 'Singleton':
-        superclass = module.superCall
-          ? getNodeById<Module>(environment, scope[module.superCall.superclass.name])
-          : ObjectClass
-
-        return [
-          ...[superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
-        ]
-
-      case 'Mixin':
-        return module.mixins.map(m => getNodeById<Module>(environment, scope[m.name]))
     }
   }
 
