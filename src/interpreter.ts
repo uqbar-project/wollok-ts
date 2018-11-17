@@ -61,6 +61,7 @@ const load = (name: Name): Transformation => evaluation =>
     ...references,
   ])(evaluation)
 
+
 const set = (name: Name): Transformation => evaluation => {
   const [self, value, ...references] = view(CURRENT_REFERENCE_STACK, evaluation)
   return pipe(
@@ -268,12 +269,16 @@ export const step = (evaluation: Evaluation): Evaluation => {
       // TODO:
       const method = methodLookup(environment, currentSentence.message, currentSentence.args.length, receiver.module)
       // TODO: throw error if no method
-      return [
-        pushFrame(method.body!.sentences),
-        // TODO: Handle varargs
-        ...reverse(method.parameters).map(parameter => store(parameter.name)),
-        store('self'),
-      ].reduce(pipe)(evaluation)
+      return (method
+        ? [
+          pushFrame(method.body!.sentences),
+          // TODO: Handle varargs
+          ...reverse(method.parameters).map(parameter => store(parameter.name)),
+          store('self'),
+        ]
+        : [
+          pushPending({ kind: 'Throw', arg: { kind: 'New' } }, id: ''),
+        ]).reduce(pipe)(evaluation)
 
     case 'Super':
       if (pc < currentSentence.args.length) return pipe(
@@ -298,7 +303,8 @@ export const step = (evaluation: Evaluation): Evaluation => {
         pushPending(currentSentence.args[pc]),
       )(evaluation)
 
-      const constructor: Constructor = methodLookup(currentSentence)
+      const constructor: Constructor = 
+      // TODO: Call super constructor
       return [
         pushFrame(constructor.body.sentences),
         // TODO: Handle varargs
