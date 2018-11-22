@@ -44,6 +44,7 @@ const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c:
   Catch: {},
   Package: {},
   Program: {},
+  Describe: {},
   Test: {},
   Class: { camelcaseName },
   Singleton: {},
