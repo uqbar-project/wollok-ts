@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Assignment, Catch, Class, Closure, Constructor, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
 
 const { raw } = String
 
@@ -126,8 +126,12 @@ describe('Wollok parser', () => {
 
     describe('Strings', () => {
 
-      it('should parse valid strings', () => {
+      it('should parse valid strings with double quote', () => {
         '"foo"'.should.be.parsedBy(parser).into(Literal('foo')).and.be.tracedTo(0, 5)
+      })
+
+      it('should parse valid strings with single quote', () => {
+        '\'foo\''.should.be.parsedBy(parser).into(Literal('foo')).and.be.tracedTo(0, 5)
       })
 
       it('should parse empty strings', () => {
@@ -421,7 +425,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Files', () => {
-    const parser = Parse.File
+    const parser = Parse.File('')
 
     it('should parse empty packages', () => {
       ''.should.be.parsedBy(parser).into(
@@ -528,6 +532,37 @@ describe('Wollok parser', () => {
       'test'.should.not.be.parsedBy(parser)
     })
 
+  })
+
+
+  describe('Describe', () => {
+    const parser = Parse.Describe
+
+    it('should parse empty describe', () => {
+      'describe "name" { }'.should.be.parsedBy(parser).into(
+        Describe('name')()
+      ).and.be.tracedTo(0, 19)
+    })
+
+    it('should parse non-empty describe', () => {
+      'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(
+        Describe('name')(Test('foo')(), Test('bar')())
+      ).and.be.tracedTo(0, 47)
+        .and.have.nested.property('members.0').tracedTo(18, 31)
+        .and.also.have.nested.property('members.1').tracedTo(32, 45)
+    })
+
+    it('should not parse describes with names that aren\'t a string', () => {
+      'describe name { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse describe without name', () => {
+      'describe { }'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse describe without name and body', () => {
+      'describe'.should.not.be.parsedBy(parser)
+    })
   })
 
   describe('Packages', () => {

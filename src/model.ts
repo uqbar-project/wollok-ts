@@ -1,7 +1,4 @@
 import { Index } from 'parsimmon'
-import { chain as flatMap, mapObjIndexed, values } from 'ramda'
-
-const { isArray } = Array
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
 
@@ -70,7 +67,7 @@ export interface Body extends BasicNode {
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Entity = Package | Program | Test | Module
+export type Entity = Package | Program | Test | Describe | Module
 export type Module = Class | Singleton | Mixin
 
 export interface Package extends BasicNode {
@@ -90,6 +87,12 @@ export interface Test extends BasicNode {
   readonly kind: 'Test'
   readonly name: string
   readonly body: Body
+}
+
+export interface Describe extends BasicNode {
+  readonly kind: 'Describe'
+  readonly name: string
+  readonly members: ReadonlyArray<Test>
 }
 
 export interface Class extends BasicNode {
@@ -265,78 +268,3 @@ export const isExpression = (obj: any): obj is Expression => isNode(obj) &&
 
 export const isSentence = (obj: any): obj is Sentence => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// TRANSFORMATIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-// TODO: Maybe we could group all functions dependent of an environment like:
-// {f1, f2, f3} = utils(environment)
-
-// TODO: Test
-export const children = (node: Node): ReadonlyArray<Node> => {
-  const extractChildren = (obj: any): ReadonlyArray<Node> =>
-    isNode(obj) ? [obj] :
-      isArray(obj) ? flatMap(extractChildren)(obj) :
-        obj instanceof Object ? flatMap(extractChildren)(values(obj)) :
-          []
-
-  return flatMap(extractChildren)(values(node))
-}
-
-// TODO: Test
-export const transform = (tx: (node: Node) => Node) => <T extends Node, U extends T>(node: T): U => {
-  const applyTransform = (obj: any): any =>
-    isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
-      isArray(obj) ? obj.map(applyTransform) :
-        obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
-          obj
-
-  return applyTransform(node) as U
-}
-
-export const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
-  children(node).reduce(reduce(tx), tx(initial, node))
-
-export const descendants = ((node: Node): ReadonlyArray<Node> => {
-  const directChildren = children(node)
-  return [...directChildren, ...flatMap(child => descendants(child), directChildren)]
-})
-
-export const parentOf = (environment: Environment) => (node: Node): Node => {
-  const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).includes(node))
-  if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-  return parent
-}
-
-export const getNodeById = <T extends Node>(environment: Environment, id: Id): T => {
-  const response = [environment, ...descendants(environment)].find(node => node.id === id)
-  if (!response) throw new Error(`Missing node ${id}`)
-  return response as T
-}
-
-// TODO: Test
-export const target = (environment: Environment) => <T extends Node>(reference: Reference) =>
-  getNodeById(environment, reference.scope[reference.name]) as T
-
-export const superclass = (environment: Environment) => (module: Class | Singleton): Module => {
-  // TODO: use 'wollok.Object'
-  const ObjectClass = getNodeById<Class>(environment, module.scope.Object)
-  switch (module.kind) {
-    case 'Class': return module.superclass ? target(environment)(module.superclass) : ObjectClass
-    case 'Singleton': return module.superCall ? target(environment)(module.superCall.superclass) : ObjectClass
-  }
-}
-
-export const hierarchy = (environment: Environment) => (module: Module, exclude: ReadonlyArray<Module> = []): ReadonlyArray<Module> =>
-  [
-    module,
-    ...module.mixins.map(m => target(environment)<Module>(m)),
-    ...module.kind === 'Mixin' ? [] : [superclass(environment)(module)],
-  ].reduce((ancestors, node) => exclude.includes(node)
-    ? ancestors
-    : [node, ...hierarchy(environment)(node, [node, ...exclude, ...ancestors]), ...ancestors]
-    , [] as ReadonlyArray<Module>)
-
-export const inherits = (environment: Environment) => (child: Module, parent: Module) =>
-  hierarchy(environment)(child).includes(parent)

@@ -7,7 +7,8 @@
 // No references named as keywords
 // No try without catch or always
 import { isNil, keys, reject } from 'ramda'
-import { Class, Method, Mixin, Node, NodeKind, NodeOfKind, reduce } from './model'
+import { Class, Method, Mixin, Node, NodeKind, NodeOfKind } from './model'
+import { reduce } from './utils'
 
 type Code = string
 type Level = 'Warning' | 'Error'
