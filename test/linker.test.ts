@@ -4,7 +4,15 @@ import { Class as ClassNode, descendants, Environment, Field as FieldNode, Liter
 import { also } from './assertions'
 
 import { Class, Closure, Field, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
-
+/*
+TODO:
+const enviroment2 = link([
+    WRE,
+    Package('p', {
+      imports: [Import(Reference('p'))],
+    })(Class('P')()),
+  ])
+  infinite loop*/
 use(also)
 should()
 
