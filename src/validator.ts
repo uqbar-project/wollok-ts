@@ -73,6 +73,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
       Throw: {},
       Try: { hasCatchOrAlways },
       Environment: {},
+      Describe: {},
     }
 
     const checks = problemsByKind[node.kind]
