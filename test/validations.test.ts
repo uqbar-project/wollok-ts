@@ -2,7 +2,6 @@ import { assert, should } from 'chai'
 import link from '../src/linker'
 import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Try as TryNode } from '../src/model'
 import validations from '../src/validations'
-import { Problem } from '../src/validator'
 import { Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
@@ -17,14 +16,13 @@ describe('Package', () => {
     const environment = link([
       WRE,
       Package('p')(
-        Singleton()()
+        Singleton()(),
       ),
     ])
     const { singletonIsNotUnnamed } = validations(environment)
     const packageExample = environment.members[1] as PackageNode
 
-    const t = singletonIsNotUnnamed(packageExample, 'unnamedSingleton') as Problem
-    assert.ok(!!t)
+    assert.ok(!!singletonIsNotUnnamed(packageExample, 'unnamedSingleton')!)
   })
 
   /*
@@ -64,8 +62,7 @@ describe('References', () => {
     const classExample = packageExample.members[0] as ClassNode
     const referenceExample = classExample.superclass!
 
-    const t = nameIsNotKeyword(referenceExample, 'isKeyWord') as Problem
-    assert.ok(!!t)
+    assert.ok(!!nameIsNotKeyword(referenceExample, 'isKeyWord')!)
   })
 })
 
@@ -76,15 +73,18 @@ describe('Classes', () => {
       WRE,
       Package('p')(
         Class('c')(),
+        Class('C')(),
       ),
     ])
 
     const packageExample = environment.members[1] as PackageNode
     const classExample = packageExample.members[0] as ClassNode
+    const classExample2 = packageExample.members[1] as ClassNode
     const { nameIsPascalCase } = validations(environment)
 
-    const t = nameIsPascalCase(classExample, 'camelcaseName') as Problem
-    assert.ok(!!t)
+    assert.ok(!!nameIsPascalCase(classExample, 'camelcaseName')!)
+    assert.ok(!nameIsPascalCase(classExample2, 'camelcaseName')!)
+
   })
 
 })
@@ -107,8 +107,7 @@ describe('Methods', () => {
     const classExample = packageExample.members[0] as ClassNode
     const methodExample = classExample.members[0] as MethodNode
 
-    const t = onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg') as Problem
-    assert.ok(!!t)
+    assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg')!)
   })
 })
 
@@ -134,8 +133,7 @@ describe('Try', () => {
     const bodyExample = methodExample.body as BodyNode
     const tryExample = bodyExample.sentences[0] as TryNode
 
-    const t = hasCatchOrAlways(tryExample, 'tryWithoutCatchOrAlways') as Problem
-    assert.ok(!!t)
+    assert.ok(!!hasCatchOrAlways(tryExample, 'tryWithoutCatchOrAlways')!)
   })
 
 })
