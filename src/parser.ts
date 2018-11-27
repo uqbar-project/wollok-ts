@@ -2,7 +2,7 @@
 // tslint:disable:variable-name
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { concat, toPairs } from 'ramda'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, NodeKind, NodeOfKind, NodePayload, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Unlinked, Variable as VariableNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, NodeKind, NodeOfKind, NodePayload, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Unlinked, Variable as VariableNode } from './model'
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -75,7 +75,7 @@ export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Entity: Parser<Unlinked<EntityNode>> = lazy(() => alt(Package, Class, Singleton, Mixin, Program, Test))
+export const Entity: Parser<Unlinked<EntityNode>> = lazy(() => alt(Package, Class, Singleton, Mixin, Program, Describe, Test))
 
 export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
   key('import').then(node('Import')({
@@ -84,19 +84,19 @@ export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
   })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
 
-export const File: Parser<Unlinked<PackageNode>> = lazy(() =>
+export const File = (fileName: string): Parser<Unlinked<PackageNode>> => lazy(() =>
   node('Package')({
-    name: of(''),
-    imports: Import.many(),
-    members: Entity.many(),
-  }).thru(sourced)
+    name: of(fileName),
+    imports: Import.sepBy(optional(_)).skip(optional(_)),
+    members: Entity.sepBy(optional(_)),
+  }).thru(sourced).skip(optional(_))
 )
 
 export const Package: Parser<Unlinked<PackageNode>> = lazy(() =>
   key('package').then(node('Package')({
-    name: Name,
-    imports: Import.many(),
-    members: Entity.many().wrap(key('{'), key('}')),
+    name: Name.skip(key('{')),
+    imports: Import.sepBy(optional(_)).skip(optional(_)),
+    members: Entity.sepBy(optional(_)).skip(key('}')),
   })).thru(sourced)
 )
 
@@ -104,6 +104,13 @@ export const Program: Parser<Unlinked<ProgramNode>> = lazy(() =>
   key('program').then(node('Program')({
     name: Name,
     body: Body,
+  })).thru(sourced)
+)
+
+export const Describe: Parser<Unlinked<DescribeNode>> = lazy(() =>
+  key('describe').then(node('Describe')({
+    name: String,
+    members: Test.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
 
@@ -202,7 +209,7 @@ export const Constructor: Parser<Unlinked<ConstructorNode>> = lazy(() =>
       Arguments,
       (callsSuper, args) => ({ callsSuper, args }))
     )),
-    body: Body,
+    body: Body.or(node('Body')({ sentences: of([]) })),
   })).thru(sourced)
 )
 
@@ -397,16 +404,28 @@ export const Literal: Parser<Unlinked<LiteralNode<LiteralValue>>> = lazy(() =>
   }).thru(sourced)
 )
 
-const String: Parser<string> = alt(
+const EscapedChar = alt(
   regex(/\\\\/).result('\\'),
   regex(/\\b/).result('\b'),
   regex(/\\t/).result('\t'),
   regex(/\\n/).result('\n'),
   regex(/\\f/).result('\f'),
   regex(/\\r/).result('\r'),
+)
+
+const SingleQuoteString: Parser<string> = alt(
+  EscapedChar,
+  regex(/\\'/).result('\''),
+  regex(/[^\\']/)
+).many().tie().wrap(string('\''), string('\''))
+
+const DoubleQuoteString: Parser<string> = alt(
+  EscapedChar,
   regex(/\\"/).result('"'),
   regex(/[^\\"]/)
 ).many().tie().wrap(string('"'), string('"'))
+
+const String: Parser<string> = alt(SingleQuoteString, DoubleQuoteString)
 
 const Closure: Parser<Unlinked<SingletonNode>> = lazy(() =>
   seqMap(

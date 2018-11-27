@@ -15,8 +15,10 @@
 // No unnamed singleton outside Literals
 
 import { isNil, keys, reject } from 'ramda'
-import { Environment, Node, NodeKind, NodeOfKind, reduce } from './model'
-import validations from './validations'
+import validations from '../src/validations'
+import { Environment, Node, NodeKind, NodeOfKind } from './model'
+import { reduce } from './utils'
+
 
 type Code = string
 type Level = 'Warning' | 'Error'

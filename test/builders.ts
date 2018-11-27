@@ -1,5 +1,5 @@
 import { merge } from 'ramda'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeKind, NodeOfKind, NodePayload, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Unlinked, Variable as VariableNode } from '../src/model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeKind, NodeOfKind, NodePayload, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Unlinked, Variable as VariableNode } from '../src/model'
 
 const { keys } = Object
 
@@ -77,6 +77,14 @@ export const Test = (name: string, payload?: Partial<NodePayload<TestNode>>) =>
     makeNode('Test')({
       name,
       body: makeNode('Body')({ sentences }),
+      ...payload,
+    })
+
+export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNode>>) =>
+  (...members: Unlinked<TestNode>[]) =>
+    makeNode('Describe')({
+      name,
+      members,
       ...payload,
     })
 

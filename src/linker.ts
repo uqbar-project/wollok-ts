@@ -1,7 +1,9 @@
-// import { chain as flatMap, merge } from 'ramda'
-import { merge } from 'ramda'
+// TODO: Maybe we should map all references to fully qualyfied ones ?
+
+import { memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { children, Class, descendants, Entity, Environment, getNodeById, Id, isModule, Module, Node, Package, parentOf, Scope, transform, Unlinked } from './model'
+import { Class, Entity, Environment, Id, isModule, Module, Node, Package, Scope, Unlinked } from './model'
+import utils, { transform } from './utils'
 
 const mergePackage = (
   members: ReadonlyArray<Entity | Unlinked<Entity>>,
@@ -20,6 +22,8 @@ const mergePackage = (
 
 const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
+  const { children, descendants, getNodeById, parentOf } = utils(environment)
+
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, environment.scope],
   ])
@@ -35,91 +39,98 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
     return scope
   }
 
-  function innerContributionFrom(contributor: Node): Scope {
-    return [
-      ...isModule(contributor) ? ancestors(contributor).map(ancestor => innerContributionFrom(ancestor)) : [],
-      ...[contributor, ...children(contributor)].map(c => outerContributionFrom(c)),
-    ].reduce(merge)
-  }
-
-  function outerContributionFrom(contributor: Node): Scope {
-    switch (contributor.kind) {
-      // TODO: Resolve fully qualified names
-      case 'Import':
-        const referencedId = getScope(contributor.id)[contributor.reference.name]
-        const referenced = getNodeById(environment, referencedId)
-        return contributor.isGeneric
-          ? children(referenced)
-            .map(child => ({ [(child as Entity).name || '']: child.id }))
-            .reduce(merge)
-          : { [(referenced as Entity).name || '']: referenced.id }
-      case 'Package':
-        const globalContributions: Scope = contributor.name === 'wollok'
-          ? children(contributor).map(c => outerContributionFrom(c)).reduce(merge)
-          : {}
-        return {
-          [contributor.name]: contributor.id,
-          ...globalContributions,
-        }
-      case 'Singleton':
-      case 'Class':
-      case 'Mixin':
-      case 'Program':
-      case 'Test':
-        return contributor.name ? { [contributor.name]: contributor.id } : {}
-      case 'Variable':
-      case 'Field':
-      case 'Parameter':
-        return { [contributor.name]: contributor.id }
-      default:
-        return {}
-    }
-  }
-
   function ancestors(module: Module): ReadonlyArray<Module> {
     const scope = getScope(module.id)
-
     // TODO: change this to 'wollok.Object' and make getNodeById resolve composed references
-    const ObjectClass = getNodeById<Class>(environment, scope.Object)
+    const ObjectClass = getNodeById<Class>(scope.Object)
 
     let superclass
 
     switch (module.kind) {
       case 'Class':
         superclass = module.superclass
-          ? getNodeById<Module>(environment, scope[module.superclass.name])
+          ? getNodeById<Module>(scope[module.superclass.name])
           : ObjectClass
 
         return [
           ...superclass === module ? [] : [superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
+          ...module.mixins.map(m => getNodeById<Module>(scope[m.name])),
         ]
 
       case 'Singleton':
         superclass = module.superCall
-          ? getNodeById<Module>(environment, scope[module.superCall.superclass.name])
+          ? getNodeById<Module>(scope[module.superCall.superclass.name])
           : ObjectClass
 
         return [
           ...[superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(environment, scope[m.name])),
+          ...module.mixins.map(m => getNodeById<Module>(scope[m.name])),
         ]
 
       case 'Mixin':
-        return module.mixins.map(m => getNodeById<Module>(environment, scope[m.name]))
+        return module.mixins.map(m => getNodeById<Module>(scope[m.name]))
     }
   }
 
+  const innerContributionFrom = memoizeWith(({ id }) => id)(
+    (contributor: Node): Scope => {
+      return [
+        ...isModule(contributor)
+          ? ancestors(contributor).map(ancestor => innerContributionFrom(ancestor))
+          : [],
+        ...[contributor, ...children(contributor)].map(c => outerContributionFrom(c)),
+      ].reduce(merge)
+    }
+  )
+
+  const outerContributionFrom = memoizeWith(({ id }) => id)(
+    (contributor: Node): Scope => {
+      switch (contributor.kind) {
+        // TODO: Resolve fully qualified names
+        case 'Import':
+          const referencedId = getScope(contributor.id)[contributor.reference.name]
+          const referenced = getNodeById(referencedId)
+          return contributor.isGeneric
+            ? children(referenced)
+              .map(child => ({ [(child as Entity).name || '']: child.id }))
+              .reduce(merge)
+            : { [(referenced as Entity).name || '']: referenced.id }
+        case 'Package':
+          const globalContributions: Scope = contributor.name === 'wollok'
+            ? children(contributor).map(c => outerContributionFrom(c)).reduce(merge)
+            : {}
+          return {
+            [contributor.name]: contributor.id,
+            ...globalContributions,
+          }
+        case 'Singleton':
+        case 'Class':
+        case 'Mixin':
+        case 'Program':
+        case 'Test':
+          return contributor.name ? { [contributor.name]: contributor.id } : {}
+        case 'Variable':
+        case 'Field':
+        case 'Parameter':
+          return { [contributor.name]: contributor.id }
+        default:
+          return {}
+      }
+    }
+  )
+
   function scopeFor(node: Node): (() => Scope) {
     return () => {
-      const parent = parentOf(environment)(node)
+      const parent = parentOf(node)
       return merge(getScope(parent.id), innerContributionFrom(parent))
     }
   }
 
-  descendants(environment).forEach(node => scopes.set(node.id, scopeFor(node)))
+  const allNodes = descendants(environment)
 
-  return descendants(environment).reduce((scope, node) => merge(scope, { [node.id]: scopeFor(node)() }), {})
+  allNodes.forEach(node => scopes.set(node.id, scopeFor(node)))
+
+  return allNodes.reduce((scope, node) => merge(scope, { [node.id]: getScope(node.id) }), {})
 }
 
 export default (
@@ -135,8 +146,7 @@ export default (
 
   const scopedEnvironment = transform(node => ({ ...node, scope: scopes[node.id] }))(identifiedEnvironment)
 
-  // TODO: assign parent
-  // TODO: Check that all references have a target
+  // TODO: Validate that all references have a target
 
   return scopedEnvironment
 }

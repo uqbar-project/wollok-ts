@@ -1,8 +1,8 @@
 
-import { Class, Environment, Import, Method, Mixin, Package, parentOf, Reference, Try, Variable } from './model'
-// import { Package } from './parser'
+import { Class, Environment, Import, Method, Mixin, Package, Reference, Try, Variable } from './model'
 import { error, warning } from './validator'
 
+import { parentOf } from '../src/utils'
 
 export default (environment: Environment) => ({
 
@@ -27,6 +27,7 @@ export default (environment: Environment) => ({
   )),
 
   importHasNotLocalReference:
+
     error<Import>(node => (parentOf(environment)(node) as Package).members.every(({ name }) => name !== node.reference.name)),
 
 

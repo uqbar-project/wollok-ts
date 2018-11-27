@@ -1,8 +1,8 @@
 import { should, use } from 'chai'
 import link from '../src/linker'
-import { Class as ClassNode, descendants, Environment, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Package as PackageNode, Reference as ReferenceNode, Scope, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Environment, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Package as PackageNode, Reference as ReferenceNode, Scope, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { descendants } from '../src/utils'
 import { also } from './assertions'
-
 import { Class, Closure, Field, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
 /*
 TODO:
