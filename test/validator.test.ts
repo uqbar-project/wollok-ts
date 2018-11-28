@@ -10,8 +10,10 @@ should()
 describe('Validator', () => {
 
   const WRE = Package('wollok')(
-    Class('Object')(),
-    Class('Closure')()
+    Package('lang')(
+      Class('Object')(),
+      Class('Closure')(),
+    )
   )
 
   // TODO: Test only "positive" cases and add one extra case with a valid node for each node kind and test it returns empty list

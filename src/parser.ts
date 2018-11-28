@@ -18,6 +18,9 @@ const INFIX_OPERATORS = [
 ]
 const OPERATORS = INFIX_OPERATORS.reduce(concat, PREFIX_OPERATORS.map(op => `${op}_`))
 
+// TODO: Resolve this without effect
+let SOURCE_FILE: string | undefined
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PARSERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -42,7 +45,7 @@ const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
   optional(_).then(index),
   parser,
   index
-).map(([start, payload, end]) => ({ ...payload as any, source: { start, end } }))
+).map(([start, payload, end]) => ({ ...payload as any, source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -71,6 +74,12 @@ export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
   }).wrap(key('{'), string('}')).thru(sourced)
 )
 
+export const SingleExpressionBody: Parser<Unlinked<BodyNode>> = lazy(() =>
+  node('Body')({
+    sentences: Sentence.times(1),
+  }).thru(sourced)
+)
+
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -84,13 +93,16 @@ export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
   })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
 
-export const File = (fileName: string): Parser<Unlinked<PackageNode>> => lazy(() =>
-  node('Package')({
-    name: of(fileName),
-    imports: Import.sepBy(optional(_)).skip(optional(_)),
-    members: Entity.sepBy(optional(_)),
-  }).thru(sourced).skip(optional(_))
-)
+export const File = (fileName: string): Parser<Unlinked<PackageNode>> => {
+  SOURCE_FILE = fileName
+  return lazy(() =>
+    node('Package')({
+      name: of(fileName.split('.')[0]),
+      imports: Import.sepBy(optional(_)).skip(optional(_)),
+      members: Entity.sepBy(optional(_)),
+    }).thru(sourced).skip(optional(_))
+  )
+}
 
 export const Package: Parser<Unlinked<PackageNode>> = lazy(() =>
   key('package').then(node('Package')({
@@ -192,8 +204,7 @@ export const Method: Parser<Unlinked<MethodNode>> = lazy(() => seqMap(
   alt(
     key('native').result({ isNative: true, body: undefined }),
     key('=').then(
-      // TODO: Extract?
-      node('Body')({ sentences: Sentence.times(1) }).thru(sourced).map(body => ({ isNative: false, body }))
+      SingleExpressionBody.map(body => ({ isNative: false, body }))
     ),
     Body.map(body => ({ isNative: false, body })),
     of({ isNative: false, body: undefined })
@@ -295,14 +306,10 @@ export const If: Parser<Unlinked<IfNode>> = lazy(() =>
   key('if').then(
     node('If')({
       condition: Expression.wrap(key('('), key(')')),
-      thenBody: alt(
-        Body,
-        node('Body')({ sentences: Sentence.times(1) }).thru(sourced)
-      ),
-      elseBody: key('else').then(alt(
-        Body,
-        node('Body')({ sentences: Sentence.times(1) }).thru(sourced)
-      )).or(node('Body')({ sentences: of([]) }).thru(sourced)),
+      thenBody: alt(Body, SingleExpressionBody),
+      elseBody: key('else')
+        .then(alt(Body, SingleExpressionBody))
+        .or(node('Body')({ sentences: of([]) }).thru(sourced)),
     })
   ).thru(sourced)
 )
@@ -315,16 +322,10 @@ export const Throw: Parser<Unlinked<ThrowNode>> = lazy(() =>
 
 export const Try: Parser<Unlinked<TryNode>> = lazy(() =>
   key('try').then(node('Try')({
-    body: alt(
-      Body,
-      node('Body')({ sentences: Sentence.times(1) }).thru(sourced)
-    ),
+    body: alt(Body, SingleExpressionBody),
     catches: Catch.many(),
     always: key('then always').then(
-      alt(
-        Body,
-        node('Body')({ sentences: Sentence.times(1) }).thru(sourced)
-      )
+      alt(Body, SingleExpressionBody)
     ).or(node('Body')({ sentences: of([]) }).thru(sourced)),
   })).thru(sourced)
 )
@@ -333,10 +334,7 @@ export const Catch: Parser<Unlinked<CatchNode>> = lazy(() =>
   key('catch').then(node('Catch')({
     parameter: Parameter,
     parameterType: optional(key(':').then(Reference)),
-    body: alt(
-      Body,
-      node('Body')({ sentences: Sentence.times(1) }).thru(sourced),
-    ),
+    body: alt(Body, SingleExpressionBody),
   })).thru(sourced)
 )
 
@@ -442,8 +440,8 @@ const Closure: Parser<Unlinked<SingletonNode>> = lazy(() =>
 const makeClosure = (parameters: Unlinked<ParameterNode>[], sentences: Unlinked<SentenceNode>[]): Unlinked<SingletonNode> =>
   ({
     kind: 'Singleton',
-    // TODO: change this to 'wollok.Closure' and make getNodeById resolve composed references
     superCall: { superclass: { kind: 'Reference', name: 'Closure' }, args: [] },
+    // TODO: change this to 'wollok.Closure' and make getNodeById resolve composed references
     mixins: [],
     name: undefined,
     members: [

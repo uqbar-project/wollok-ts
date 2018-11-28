@@ -3,6 +3,7 @@ import { basename, join } from 'path'
 import * as simplegit from 'simple-git/promise'
 import interpreter from '../src/interpreter'
 import link from '../src/linker'
+import { Package, Unlinked } from '../src/model'
 import { File } from '../src/parser'
 
 const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
@@ -57,23 +58,23 @@ const updateTests = async () => {
   }
 }
 
-// tslint:disable:no-console
 const runAll = async () => {
 
   const wreSource = readFileSync(WRE_PATH, 'utf8')
-  const wre = File('lang').tryParse(wreSource)
+  const wre: Unlinked<Package> = {
+    kind: 'Package',
+    name: 'wollok',
+    imports: [],
+    members: [File('lang').tryParse(wreSource)],
+  }
 
-  await updateTests()
+  if (!process.argv.includes('--skip-update')) updateTests()
 
-  console.time('Tests parse')
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
-  console.timeEnd('Tests parse')
 
-  console.time('Tests link')
-  const environment = link([wre, ...testNodes])
-  console.timeEnd('Tests link')
+  const environment = link([wre, ...testNodes.slice(4, 5)])
 
   const { runTests } = interpreter(environment)
 

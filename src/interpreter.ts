@@ -176,6 +176,7 @@ export default (environment: Environment) => ({
     const { descendants } = utils(environment)
 
     const tests = descendants(environment).filter<Test>((node): node is Test => node.kind === 'Test')
+
     return tests.map(test => {
       let evaluation = createEvaluationFor(environment)(test)
       while (evaluation.frameStack.length) {

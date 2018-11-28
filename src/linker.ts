@@ -22,7 +22,7 @@ const mergePackage = (
 
 const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
-  const { children, descendants, getNodeById, parentOf } = utils(environment)
+  const { children, descendants, getNodeById, parentOf, resolve } = utils(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, environment.scope],
@@ -41,8 +41,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
   function ancestors(module: Module): ReadonlyArray<Module> {
     const scope = getScope(module.id)
-    // TODO: change this to 'wollok.Object' and make getNodeById resolve composed references
-    const ObjectClass = getNodeById<Class>(scope.Object)
+    const ObjectClass = resolve<Class>('wollok.lang.Object')
 
     let superclass
 
@@ -73,12 +72,12 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
   }
 
   const innerContributionFrom = memoizeWith(({ id }) => id)(
-    (contributor: Node): Scope => {
+    (node: Node): Scope => {
       return [
-        ...isModule(contributor)
-          ? ancestors(contributor).map(ancestor => innerContributionFrom(ancestor))
+        ...isModule(node)
+          ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
           : [],
-        ...[contributor, ...children(contributor)].map(c => outerContributionFrom(c)),
+        ...[node, ...children(node)].map(c => outerContributionFrom(c)),
       ].reduce(merge)
     }
   )
@@ -96,8 +95,9 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
               .reduce(merge)
             : { [(referenced as Entity).name || '']: referenced.id }
         case 'Package':
+          const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')
           const globalContributions: Scope = contributor.name === 'wollok'
-            ? children(contributor).map(c => outerContributionFrom(c)).reduce(merge)
+            ? children(langPackage!).map(outerContributionFrom).reduce(merge)
             : {}
           return {
             [contributor.name]: contributor.id,
@@ -108,27 +108,42 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
         case 'Mixin':
         case 'Program':
         case 'Test':
+        case 'Describe':
           return contributor.name ? { [contributor.name]: contributor.id } : {}
         case 'Variable':
         case 'Field':
         case 'Parameter':
           return { [contributor.name]: contributor.id }
-        default:
+        case 'Assignment':
+        case 'Reference':
+        case 'Body':
+        case 'Method':
+        case 'Constructor':
+        case 'Return':
+        case 'Reference':
+        case 'Self':
+        case 'Literal':
+        case 'Send':
+        case 'Super':
+        case 'New':
+        case 'If':
+        case 'Throw':
+        case 'Try':
+        case 'Catch':
+        case 'Environment':
           return {}
       }
     }
   )
 
-  function scopeFor(node: Node): (() => Scope) {
-    return () => {
-      const parent = parentOf(node)
-      return merge(getScope(parent.id), innerContributionFrom(parent))
-    }
-  }
-
   const allNodes = descendants(environment)
 
-  allNodes.forEach(node => scopes.set(node.id, scopeFor(node)))
+  allNodes.forEach(node =>
+    scopes.set(node.id, () => {
+      const parent = parentOf(node)
+      return merge(getScope(parent.id), innerContributionFrom(parent))
+    })
+  )
 
   return allNodes.reduce((scope, node) => merge(scope, { [node.id]: getScope(node.id) }), {})
 }

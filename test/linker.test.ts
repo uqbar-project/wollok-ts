@@ -1,7 +1,8 @@
 import { should, use } from 'chai'
+import { assoc } from 'ramda'
 import link from '../src/linker'
 import { Class as ClassNode, Environment, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Package as PackageNode, Reference as ReferenceNode, Scope, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
-import { descendants } from '../src/utils'
+import utils, { descendants } from '../src/utils'
 import { also } from './assertions'
 import { Class, Closure, Field, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
 /*
@@ -17,12 +18,16 @@ use(also)
 should()
 
 const WRE = Package('wollok')(
-  Class('Object')(),
-  Class('Closure')()
+  Package('lang')(
+    Class('Object')(),
+    Class('Closure')()
+  )
 )
 const WREScope = (environment: Environment): Scope => {
-  const wollokPackage = environment.members.filter(m => m.name === 'wollok')[0]
-  return wollokPackage.members.reduce((scope, entity) => ({ ...scope, [entity.name || '']: entity.id }), { wollok: wollokPackage.id })
+  const { resolve } = utils(environment)
+  return resolve<PackageNode>('wollok.lang').members.reduce((scope, entity) =>
+    assoc(entity.name || '', entity.id, scope)
+    , { wollok: environment.members.find(m => m.name === 'wollok')!.id })
 }
 
 describe('Wollok linker', () => {
@@ -241,77 +246,5 @@ describe('Wollok linker', () => {
   })
 
 })
-
-      // "parent" in {
-        //   val m = Method("m")
-        //   val c = Class("C", members = m :: Nil)
-        //   val q = Package("q", members = c :: Nil)
-        //   val p = Package("p", members = q :: Nil)
-        //   implicit val environment = Linker(p)
-
-        //   environment.parent should be(None)
-        //   p.parent should be(Some(environment))
-        //   q.parent should be(Some(p))
-        //   c.parent should be(Some(q))
-        //   m.parent should be(Some(c))
-        // }
-
-        // val objectClass = Class("Object")
-        // val wre = Package("wollok", members= Seq(objectClass))
-
-// }
-
-// "target" - {
-
-//   "local references should target the scope element they reference" in {
-//     val r = LocalReference("a")
-//     val p = Parameter("a")
-//     val m = Method("m", parameters = p :: Nil, body = Some(r :: Nil))
-//     val c = Class("C", members = m :: Nil)
-//     val q = Package("q", members = c :: Nil)
-//     implicit val environment = Linker(wre, q)
-
-//     r.target should be(p)
-//   }
-
-//   "fully qualified references should target the global element they reference" in {
-//     val r = FullyQualifiedReference("q" :: "S" :: Nil)
-//     val m = Method("m", body = Some(r :: Nil))
-//     val s = Singleton("S", members = m :: Nil)
-//     val q = Package("q", members = s :: Nil)
-//     implicit val environment = Linker(wre, q)
-
-//     r.scope.get("q") should be(Some(q))
-//     //r.target should be(s)
-//   }
-
-//   "fully qualified references should target the relative element they reference" in {
-//     val r = FullyQualifiedReference("S" :: Nil)
-//     val m = Method("m", body = Some(r :: Nil))
-//     val s = Singleton("S", members = m :: Nil)
-//     val q = Package("q", members = s :: Nil)
-//     implicit val environment = Linker(wre, q)
-
-//     r.target should be(s)
-//   }
-
-// }
-
-// "ancestors" - {
-
-//   "singleton literals should have ancestors" in {
-//     val singletonLiteral = Singleton("")
-//     implicit val environment = Linker(wre, Package("p", members = Seq(
-//       Singleton("S", members=Seq(
-//         Field("f", isReadOnly = false, Some(Literal(singletonLiteral)))
-//       ))
-//     )))
-
-//     singletonLiteral.ancestors should be(singletonLiteral :: environment[Class]("wollok.Object") :: Nil)
-//   }
-
-// }
-
-// }
 
 // TODO: test contributions
