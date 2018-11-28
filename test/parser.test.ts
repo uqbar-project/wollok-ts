@@ -401,7 +401,7 @@ describe('Wollok parser', () => {
     const parser = Parse.Reference
 
     it('should parse uppercase references', () => {
-      'C'.should.be.be.parsedBy(parser).into(
+      'C'.should.be.parsedBy(parser).into(
         Reference('C')
       ).and.be.tracedTo(0, 1)
     })
@@ -425,18 +425,17 @@ describe('Wollok parser', () => {
   })
 
   describe('Files', () => {
-    const parser = Parse.File('')
+    const parser = Parse.File('foo')
 
     it('should parse empty packages', () => {
       ''.should.be.parsedBy(parser).into(
-        Package('')()
+        Package('foo')()
       ).and.be.tracedTo(0, 0)
     })
 
     it('should parse non empty packages', () => {
       'import p import q class C {}'.should.be.parsedBy(parser).into(
-        Package('', {
-          name: '',
+        Package('foo', {
           imports: [Import(Reference('p')), Import(Reference('q'))],
         })(Class('C')())
       ).and.be.tracedTo(0, 28)

@@ -1,5 +1,5 @@
 import { chain as flatMap, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Environment, Id, isNode, Module, Node, NodeKind, NodeOfKind, Reference, Singleton } from './model'
+import { Class, Entity, Environment, Id, isEntity, isNode, Module, Node, NodeKind, NodeOfKind, Reference, Singleton } from './model'
 
 const { isArray } = Array
 
@@ -64,24 +64,26 @@ export const getNodeById = (environment: Environment) => memoizeWith(id => id)(
   }
 )
 
-export const target = (environment: Environment) => <T extends Node>(reference: Reference) =>
-  getNodeById(environment)(reference.scope[reference.name]) as T
+export const target = (environment: Environment) => <T extends Node>(reference: Reference) => {
+  try {
+    return getNodeById(environment)(reference.scope[reference.name]) as T
+  } catch (e) {
+    throw new Error(`Could not find reference to ${reference.name} in scope of ${JSON.stringify(reference.scope)}`)
+  }
+}
 
 export const resolve = (environment: Environment) => memoizeWith(({ id }) => id)(
-  <T extends Node>(fullyQualifiedName: string) =>
-    fullyQualifiedName.split('.').reduce((current, step) => {
-      const next = children(current).find(child => (child as any).name === step)!
+  <T extends Entity>(fullyQualifiedName: string) =>
+    fullyQualifiedName.split('.').reduce((current: Entity | Environment, step) => {
+      const next = children(current).find((child): child is Entity => isEntity(child) && child.name === step)!
       if (!next) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
       return next
-    }
-      , environment as Node
-    ) as T
+    }, environment) as T
 )
 
 export const superclass = (environment: Environment) => memoizeWith(({ id }) => id)(
   (module: Class | Singleton): Class | null => {
-    // TODO: use 'wollok.Object'
-    const ObjectClass = getNodeById(environment)<Class>(module.scope.Object)
+    const ObjectClass = resolve(environment)<Class>('wollok.lang.Object')
     if (module === ObjectClass) return null
     switch (module.kind) {
       case 'Class': return module.superclass ? target(environment)<Class>(module.superclass) : ObjectClass

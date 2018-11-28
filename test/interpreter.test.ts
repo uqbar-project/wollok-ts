@@ -7,8 +7,10 @@ import { Class, Package, Self } from './builders'
 should()
 
 const WRE = Package('wollok')(
-  Class('Object')(),
-  Class('Closure')()
+  Package('lang')(
+    Class('Object')(),
+    Class('Closure')()
+  )
 )
 
 describe('Wollok interpreter', () => {

@@ -10,8 +10,10 @@ should()
 describe('Validator', () => {
 
   const WRE = Package('wollok')(
-    Class('Object')(),
-    Class('Closure')()
+    Package('lang')(
+      Class('Object')(),
+      Class('Closure')(),
+    )
   )
 
   const environment = link([
