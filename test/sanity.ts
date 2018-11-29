@@ -68,17 +68,19 @@ const runAll = async () => {
     members: [File('lang').tryParse(wreSource)],
   }
 
-  if (!process.argv.includes('--skip-update')) updateTests()
+  if (!process.argv.includes('--skip-update')) await updateTests()
 
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
 
+  const x = testNodes[0]
 
   // tslint:disable:no-console
-  console.time('Linking')
-  const environment = link([wre, ...testNodes.slice(4, 5)])
-  console.timeEnd('Linking')
+  console.time(`Linking ${x.name}`)
+  const environment = link([wre, x])
+  console.timeEnd(`Linking ${x.name}`)
+
 
   const { runTests } = interpreter(environment)
 

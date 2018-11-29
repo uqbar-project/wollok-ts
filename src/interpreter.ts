@@ -179,9 +179,19 @@ export default (environment: Environment) => ({
 
     return tests.map(test => {
       let evaluation = createEvaluationFor(environment)(test)
-      while (evaluation.frameStack.length) {
+      const steps: Evaluation[] = []
+      while (evaluation.frameStack.length && steps.length <= 1000) {
+        const next = evaluation.frameStack[0].pending[0]
+        console.log(`Taking step ${steps.length}: [${next && next[0].kind}:${next && next[1]}]`)
+        steps.push(evaluation)
         evaluation = step(evaluation)
       }
+
+      // if (steps.length >= 1000) {
+      //   console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      //   console.log(JSON.stringify(steps.slice(990, 1000)))
+      //   console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      // }
     })
   },
 })
@@ -286,7 +296,8 @@ export const step = (evaluation: Evaluation): Evaluation => {
       LOAD('self'),
     )(evaluation)
 
-    case 'Reference': return (
+    case 'Reference': return pipe(
+      POP_PENDING,
       target(currentSentence).kind === 'Field'
         ? PUSH_REFERENCE(instances[instances[scope.self].attributes[currentSentence.name]].id)
         : LOAD(currentSentence.name)
@@ -338,7 +349,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
         PUSH_PENDING(currentSentence.args[pc - 1]),
       )(evaluation)
 
-      const receiver = instances[currentFrame.referenceStack[0]]
+      const receiver = instances[currentFrame.referenceStack[currentSentence.args.length]]
       // TODO: Maybe a single bytecode for this? invoke? May avoid repetition with super.
       // TODO: What about SELF AND SCOPE?
       const method = methodLookup(environment)(currentSentence.message, currentSentence.args.length, receiver.module)
@@ -350,6 +361,8 @@ export const step = (evaluation: Evaluation): Evaluation => {
           STORE('self'),
         ]
         : [
+          // TODO: We should not create unlinked nodes
+          // TODO: We might replace this with a call to messageNotUnderstood, defined in wre
           PUSH_PENDING({
             kind: 'Throw',
             arg: {
@@ -357,10 +370,13 @@ export const step = (evaluation: Evaluation): Evaluation => {
               className: {
                 kind: 'Reference',
                 // TODO: Use proper path wollok...
-                name: 'MessageNotUnderstood',
+                name: 'MessageNotUnderstoodException',
+                scope: currentSentence.scope,
               },
               args: [],
+              scope: currentSentence.scope,
             },
+            scope: currentSentence.scope,
           } as unknown as Throw),
         ]).reduce(pipe)(evaluation)
 
@@ -384,6 +400,8 @@ export const step = (evaluation: Evaluation): Evaluation => {
           ...reverse(superMethod.parameters).map(parameter => STORE(parameter.name)),
         ]
         : [
+          // TODO: We should not create unlinked nodes
+          // TODO: We might replace this with a call to messageNotUnderstood, defined in wre
           PUSH_PENDING({
             kind: 'Throw',
             arg: {
@@ -391,10 +409,13 @@ export const step = (evaluation: Evaluation): Evaluation => {
               className: {
                 kind: 'Reference',
                 // TODO: Use proper path wollok...
-                name: 'MessageNotUnderstood',
+                name: 'MessageNotUnderstoodException',
+                scope: currentSentence.scope,
               },
               args: [],
+              scope: currentSentence.scope,
             },
+            scope: currentSentence.scope,
           } as unknown as Throw),
         ]).reduce(pipe)(evaluation)
 
@@ -414,10 +435,12 @@ export const step = (evaluation: Evaluation): Evaluation => {
       if (pc === currentSentence.args.length) return pipe(
         INC_PC,
         PUSH_FRAME([
+          // TODO: We shouldn't create unlinked nodes like this...
           ...initializableFields.map(field => ({
             kind: 'Assignment',
-            reference: { kind: 'Reference', name: field.name },
+            reference: { kind: 'Reference', name: field.name, scope: field.scope },
             value: field.value!,
+            scope: field.scope,
           }) as Assignment),
           { kind: 'Self' } as Self,
         ]),
@@ -426,6 +449,10 @@ export const step = (evaluation: Evaluation): Evaluation => {
       )(evaluation)
 
       const chain = constructorCallChain(environment)(instantiatedClass, currentSentence.args)
+
+      if (!chain.length) return pipe(
+        POP_PENDING,
+      )(evaluation)
 
       // TODO: Call base constructor
       const [constructor] = chain[0]
@@ -467,7 +494,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
             )
           })
 
-          if (!tryIndex) return { ...evaluation, status: 'error' }
+          if (tryIndex < 0) return { ...evaluation, status: 'error' }
 
           const tryNode: Try = evaluation.frameStack[tryIndex].pending[0][0] as Try
           const catchNode: Catch = tryNode.catches.find(({ parameterType }) =>

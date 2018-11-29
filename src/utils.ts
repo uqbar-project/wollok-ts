@@ -70,7 +70,7 @@ const target = (environment: Environment) => <T extends Node>(reference: Referen
   try {
     return getNodeById(environment)(reference.scope[reference.name]) as T
   } catch (e) {
-    throw new Error(`Could not find reference to ${reference.name} in scope of ${JSON.stringify(reference.scope)}`)
+    throw new Error(`Could not find reference to ${reference.name} in scope of node ${JSON.stringify(reference)}`)
   }
 }
 
