@@ -61,7 +61,7 @@ export const validations = (environment: Environment) => {
       'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
       'null', 'false', 'true', '=>'].includes(node.name)),
 
-    hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
+    hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 || t.always.sentences.length !== 0 && t.body.sentences.length !== 0),
 
     singletonIsNotUnnamed: error<Singleton>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
