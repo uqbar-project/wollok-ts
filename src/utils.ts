@@ -5,7 +5,7 @@ const { isArray } = Array
 
 // TODO: Test all this
 
-export const transform = (tx: (node: Node) => Node) => <T extends Node, U extends T>(node: T): U => {
+const transform = (tx: (node: Node) => Node) => <T extends Node, U extends T>(node: T): U => {
   const applyTransform = (obj: any): any =>
     isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
       isArray(obj) ? obj.map(applyTransform) :
@@ -15,7 +15,7 @@ export const transform = (tx: (node: Node) => Node) => <T extends Node, U extend
   return applyTransform(node) as U
 }
 
-export const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
+const reduce = <T>(tx: (acum: T, node: Node) => T) => (initial: T, node: Node): T =>
   children(node).reduce(reduce(tx), tx(initial, node))
 
 
@@ -32,7 +32,7 @@ const children = memoizeWith(({ id }) => id)(
   }
 )
 
-export const descendants = memoizeWith(({ id }) => id)(
+const descendants = memoizeWith(({ id }) => id)(
   ((node: Node): ReadonlyArray<Node> => {
     const directDescendants = children(node)
     const indirectDescendants = flatMap(child => descendants(child), directDescendants)
@@ -40,7 +40,7 @@ export const descendants = memoizeWith(({ id }) => id)(
   })
 )
 
-export const parentOf = (environment: Environment) => memoizeWith(({ id }) => id)(
+const parentOf = (environment: Environment) => memoizeWith(({ id }) => id)(
   <N extends Node>(node: Node): N => {
     const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).includes(node))
     if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
@@ -48,7 +48,7 @@ export const parentOf = (environment: Environment) => memoizeWith(({ id }) => id
   }
 )
 
-export const firstAncestorOfKind = (environment: Environment) => memoizeWith((kind, { id }) => kind + id)(
+const firstAncestorOfKind = (environment: Environment) => memoizeWith((kind, { id }) => kind + id)(
   <K extends NodeKind>(kind: K, node: Node): NodeOfKind<K> => {
     const parent = parentOf(environment)(node)
     if (parent.kind === kind) return parent as NodeOfKind<K>
@@ -56,7 +56,7 @@ export const firstAncestorOfKind = (environment: Environment) => memoizeWith((ki
   }
 )
 
-export const getNodeById = (environment: Environment) => memoizeWith(id => id)(
+const getNodeById = (environment: Environment) => memoizeWith(id => id)(
   <T extends Node>(id: Id): T => {
     const response = [environment, ...descendants(environment)].find(node => node.id === id)
     if (!response) throw new Error(`Missing node ${id}`)
@@ -64,7 +64,7 @@ export const getNodeById = (environment: Environment) => memoizeWith(id => id)(
   }
 )
 
-export const target = (environment: Environment) => <T extends Node>(reference: Reference) => {
+const target = (environment: Environment) => <T extends Node>(reference: Reference) => {
   try {
     return getNodeById(environment)(reference.scope[reference.name]) as T
   } catch (e) {
@@ -72,7 +72,7 @@ export const target = (environment: Environment) => <T extends Node>(reference: 
   }
 }
 
-export const resolve = (environment: Environment) => memoizeWith(({ id }) => id)(
+const resolve = (environment: Environment) => memoizeWith(({ id }) => id)(
   <T extends Entity>(fullyQualifiedName: string) =>
     fullyQualifiedName.split('.').reduce((current: Entity | Environment, step) => {
       const next = children(current).find((child): child is Entity => isEntity(child) && child.name === step)!
@@ -81,7 +81,7 @@ export const resolve = (environment: Environment) => memoizeWith(({ id }) => id)
     }, environment) as T
 )
 
-export const superclass = (environment: Environment) => memoizeWith(({ id }) => id)(
+const superclass = (environment: Environment) => memoizeWith(({ id }) => id)(
   (module: Class | Singleton): Class | null => {
     const ObjectClass = resolve(environment)<Class>('wollok.lang.Object')
     if (module === ObjectClass) return null
@@ -92,7 +92,7 @@ export const superclass = (environment: Environment) => memoizeWith(({ id }) => 
   }
 )
 
-export const hierarchy = (environment: Environment) => memoizeWith(({ id }) => id)(
+const hierarchy = (environment: Environment) => memoizeWith(({ id }) => id)(
   (m: Module): ReadonlyArray<Module> => {
     const hierarchyExcluding = (module: Module, exclude: ReadonlyArray<Module> = []): ReadonlyArray<Module> =>
       [
@@ -108,7 +108,7 @@ export const hierarchy = (environment: Environment) => memoizeWith(({ id }) => i
   }
 )
 
-export const inherits = (environment: Environment) => (child: Module, parent: Module) =>
+const inherits = (environment: Environment) => (child: Module, parent: Module) =>
   hierarchy(environment)(child).includes(parent)
 
 

@@ -74,7 +74,11 @@ const runAll = async () => {
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
 
+
+  // tslint:disable:no-console
+  console.time('Linking')
   const environment = link([wre, ...testNodes.slice(4, 5)])
+  console.timeEnd('Linking')
 
   const { runTests } = interpreter(environment)
 

@@ -7,8 +7,8 @@
 // No references named as keywords
 // No try without catch or always
 import { isNil, keys, reject } from 'ramda'
-import { Class, Method, Mixin, Node, NodeKind, NodeOfKind } from './model'
-import { reduce } from './utils'
+import { Class, Environment, Method, Mixin, Node, NodeKind, NodeOfKind } from './model'
+import utils from './utils'
 
 type Code = string
 type Level = 'Warning' | 'Error'
@@ -67,8 +67,9 @@ const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c:
   Environment: {},
 }
 
-export default (target: Node): ReadonlyArray<Problem> =>
-  reduce<Problem[]>((found, node) => {
+export default (environment: Environment, target: Node = environment): ReadonlyArray<Problem> => {
+  const { reduce } = utils(environment)
+  return reduce<Problem[]>((found, node) => {
     const checks = problemsByKind[node.kind]
     return [
       ...found,
@@ -77,3 +78,4 @@ export default (target: Node): ReadonlyArray<Problem> =>
       ),
     ]
   })([], target)
+}

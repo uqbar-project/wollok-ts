@@ -2,7 +2,7 @@ import { should, use } from 'chai'
 import { assoc } from 'ramda'
 import link from '../src/linker'
 import { Class as ClassNode, Environment, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Package as PackageNode, Reference as ReferenceNode, Scope, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
-import utils, { descendants } from '../src/utils'
+import utils from '../src/utils'
 import { also } from './assertions'
 import { Class, Closure, Field, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
 
@@ -132,6 +132,8 @@ describe('Wollok linker', () => {
         ),
       ),
     ])
+
+    const { descendants } = utils(environment)
 
     const nodes = [environment, ...descendants(environment)]
     nodes.forEach(node => {

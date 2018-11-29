@@ -3,7 +3,7 @@
 import { memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Class, Entity, Environment, Id, isModule, Module, Node, Package, Scope, Unlinked } from './model'
-import utils, { transform } from './utils'
+import utils from './utils'
 
 const mergePackage = (
   members: ReadonlyArray<Entity | Unlinked<Entity>>,
@@ -155,11 +155,11 @@ export default (
 
   const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) } as Environment
 
-  const identifiedEnvironment = transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
+  const identifiedEnvironment = utils(mergedEnvironment).transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const scopedEnvironment = transform(node => ({ ...node, scope: scopes[node.id] }))(identifiedEnvironment)
+  const scopedEnvironment = utils(identifiedEnvironment).transform(node => ({ ...node, scope: scopes[node.id] }))(identifiedEnvironment)
 
   // TODO: Validate that all references have a target
 
