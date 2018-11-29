@@ -1,13 +1,22 @@
-// No unnamed singleton outside Literals
-// Name capitalization
-// Only one (the last) parameter can be vararg
-// No members with the same selector
+// TODO:
+
+// No members with the same selector las clases no puede tener
+// fields que se llamen como sus metodos una clase no puede tener
+// dos metodos con el mismo nombre y aridades que matcheen
 // No imports of local references
 // No asignation of fully qualified references
+
+
+// DONE
+// Name capitalization
+// Only one (the last) parameter can be vararg
 // No references named as keywords
 // No try without catch or always
+// No unnamed singleton outside Literals
+
 import { isNil, keys, reject } from 'ramda'
-import { Class, Environment, Method, Mixin, Node, NodeKind, NodeOfKind } from './model'
+import validations from '../src/validations'
+import { Environment, Node, NodeKind, NodeOfKind } from './model'
 import utils from './utils'
 
 type Code = string
@@ -25,57 +34,57 @@ const problem = (level: Level) => <N extends Node>(condition: (node: N) => boole
     code,
     node,
   } : null
-const warning = problem('Warning')
-const error = problem('Error')
+export const warning = problem('Warning')
+export const error = problem('Error')
 
 
-const camelcaseName = warning<Mixin | Class>(node =>
-  /^[A-Z]$/.test(node.name[0])
-)
-
-const onlyLastParameterIsVarArg = error<Method>(node =>
-  node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
-)
-
-const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
-  Parameter: {},
-  Import: {},
-  Body: {},
-  Catch: {},
-  Package: {},
-  Program: {},
-  Describe: {},
-  Test: {},
-  Class: { camelcaseName },
-  Singleton: {},
-  Mixin: { camelcaseName },
-  Constructor: {},
-  Field: {},
-  Method: { onlyLastParameterIsVarArg },
-  Variable: {},
-  Return: {},
-  Assignment: {},
-  Reference: {},
-  Self: {},
-  New: {},
-  Literal: {},
-  Send: {},
-  Super: {},
-  If: {},
-  Throw: {},
-  Try: {},
-  Environment: {},
-}
-
-export default (environment: Environment, target: Node = environment): ReadonlyArray<Problem> => {
+export default (target: Node, environment: Environment): ReadonlyArray<Problem> => {
   const { reduce } = utils(environment)
+
+  const {
+    nameIsPascalCase,
+    nameIsNotKeyword,
+    onlyLastParameterIsVarArg,
+    hasCatchOrAlways,
+    singletonIsNotUnnamed,
+    importHasNotLocalReference,
+  } = validations(environment)
+
+  const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
+    Parameter: {},
+    Import: { importHasNotLocalReference },
+    Body: {},
+    Catch: {},
+    Package: { singletonIsNotUnnamed },
+    Program: {},
+    Test: {},
+    Class: { nameIsPascalCase },
+    Singleton: {},
+    Mixin: { nameIsPascalCase },
+    Constructor: {},
+    Field: {},
+    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
+    Variable: { nameIsNotKeyword },
+    Return: {},
+    Assignment: {},
+    Reference: { nameIsNotKeyword },
+    Self: {},
+    New: {},
+    Literal: {},
+    Send: {},
+    Super: {},
+    If: {},
+    Throw: {},
+    Try: { hasCatchOrAlways },
+    Environment: {},
+    Describe: {},
+  }
+
   return reduce<Problem[]>((found, node) => {
-    const checks = problemsByKind[node.kind]
+    const checks = problemsByKind[node.kind] as { [code: string]: (n: Node, c: Code) => Problem | null }
     return [
       ...found,
-      ...reject(isNil)(keys(checks).map(code =>
-        (checks[code] as (n: Node, c: Code) => Problem | null)(node, code))
-      ),
+      ...reject(isNil)(keys(checks).map(code => checks[code](node, code))),
     ]
   })([], target)
 }
