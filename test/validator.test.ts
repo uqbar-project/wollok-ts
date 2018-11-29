@@ -1,47 +1,147 @@
-/*
-import { should } from 'chai'
+import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Class as ClassNode, Package as PackageNode } from '../src/model'
-import validate from '../src/validator'
-import { Class, Method, Package, Parameter } from './builders'
+import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Try as TryNode } from '../src/model'
+import { validations } from '../src/validator'
+import { Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
 
-describe('Validator', () => {
-
-  const WRE = Package('wollok')(
-    Package('lang')(
-      Class('Object')(),
-      Class('Closure')(),
-    )
+const WRE = Package('wollok')(
+  Package('lang')(
+    Class('Object')(),
+    Class('Closure')()
   )
+)
 
-  // TODO: Test only "positive" cases and add one extra case with a valid node for each node kind and test it returns empty list
+describe('Wollok Validations', () => {
 
-  describe('Valid node', () => {
+  describe('Package', () => {
 
-    const environment3 = link([
-      WRE,
-      Package('p')(
-        Class('C')(
-          Method('m', {
-            parameters: [Parameter('p'), Parameter('q', {
-              isVarArg: true,
-            })],
-          })()),
+    it('Unnamed singleton', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Singleton()(),
+        ),
+      ])
+      const { singletonIsNotUnnamed } = validations(environment)
+      const packageExample = environment.members[1] as PackageNode
 
-      ),
-    ])
-
-    const packageExample3 = environment3.members[1] as PackageNode
-    const cl = packageExample3.members[0] as ClassNode
-
-
-    it('Empty list of error', () => {
-      validate(cl, environment3).should.deep.equal([])
+      assert.ok(!!singletonIsNotUnnamed(packageExample, 'unnamedSingleton')!)
     })
 
+    /*
+    it('localReferenceImported', () => {
+      const enviroment = link([
+        WRE,
+        Package('p', {
+          imports: [Import(Reference('c'))],
+        })(Package('c')()),
+      ])
+
+      const packageExample = enviroment.members[1] as PackageNode
+      const importExample = packageExample.imports[0]
+      const { importHasNotLocalReference } = validations(enviroment)
+
+      const t = importHasNotLocalReference(importExample, 'referenceIsNotlocalReferenceImported') as Problem
+      assert.ok(!!t)
+    })*/
+  })
+
+  describe('References', () => {
+    it('References named as key word return error', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C',
+            {
+              superclass: Reference('program'),
+            }
+          )(),
+          Class('program')(),
+        ),
+      ])
+
+      const { nameIsNotKeyword } = validations(environment)
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const referenceExample = classExample.superclass!
+
+      assert.ok(!!nameIsNotKeyword(referenceExample, 'isKeyWord')!)
+    })
+  })
+
+  describe('Classes', () => {
+
+    it('Name is pascal case', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(),
+          Class('C')(),
+        ),
+      ])
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const classExample2 = packageExample.members[1] as ClassNode
+      const { nameIsPascalCase } = validations(environment)
+
+      assert.ok(!!nameIsPascalCase(classExample, 'camelcaseName')!)
+      assert.ok(!nameIsPascalCase(classExample2, 'camelcaseName')!)
+
+    })
 
   })
+
+  describe('Methods', () => {
+
+    it('onlyLastParameterIsVarArg', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m', {
+              parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')],
+            })()),
+        ),
+      ])
+
+      const { onlyLastParameterIsVarArg } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+
+      assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg')!)
+    })
+  })
+
+
+  describe('Try', () => {
+
+    it('Try has catch or always', () => {
+
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m')(Try([Reference('x')], {})),
+          ),
+        ),
+      ])
+
+      const { hasCatchOrAlways } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const tryExample = bodyExample.sentences[0] as TryNode
+
+      assert.ok(!!hasCatchOrAlways(tryExample, 'tryWithoutCatchOrAlways')!)
+    })
+
+  })
+
 })
-*/

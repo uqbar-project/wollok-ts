@@ -15,8 +15,7 @@
 // No unnamed singleton outside Literals
 
 import { isNil, keys, reject } from 'ramda'
-import validations from '../src/validations'
-import { Environment, Node, NodeKind, NodeOfKind } from './model'
+import { Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Reference, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -34,9 +33,50 @@ const problem = (level: Level) => <N extends Node>(condition: (node: N) => boole
     code,
     node,
   } : null
-export const warning = problem('Warning')
-export const error = problem('Error')
 
+const warning = problem('Warning')
+
+const error = problem('Error')
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// VALIDATIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const validations = (environment: Environment) => {
+  const { parentOf } = utils(environment)
+
+  return {
+
+    nameIsPascalCase: warning<Mixin | Class>(node =>
+      /^[A-Z]$/.test(node.name[0])
+    ),
+
+    onlyLastParameterIsVarArg: error<Method>(node =>
+      node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
+    ),
+
+    nameIsNotKeyword: error<Reference | Method | Variable>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
+      'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
+      'var', 'const', '=', 'override', 'method', 'native', 'constructor',
+      'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
+      'null', 'false', 'true', '=>'].includes(node.name)),
+
+    hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
+
+    singletonIsNotUnnamed: error<Package>(node => node.members.some(
+      element => element.kind === 'Singleton' && element.name !== undefined
+    )),
+
+    importHasNotLocalReference: error<Import>(node =>
+      (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
+    ),
+
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PROBLEMS BY KIND
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export default (target: Node, environment: Environment): ReadonlyArray<Problem> => {
   const { reduce } = utils(environment)

@@ -1,6 +1,6 @@
 // TODO: Maybe we should map all references to fully qualyfied ones ?
 
-import { memoizeWith, merge } from 'ramda'
+import { merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Class, Entity, Environment, Id, isModule, Module, Node, Package, Scope, Unlinked } from './model'
 import utils from './utils'
@@ -71,7 +71,8 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
     }
   }
 
-  const innerContributionFrom = memoizeWith(({ id }) => id)(
+  // TODO: Memoize?
+  const innerContributionFrom = // memoizeWith(({ id }) => id)(
     (node: Node): Scope => {
       return [
         ...isModule(node)
@@ -80,9 +81,10 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
         ...[node, ...children(node)].map(c => outerContributionFrom(c)),
       ].reduce(merge)
     }
-  )
+  // )
 
-  const outerContributionFrom = memoizeWith(({ id }) => id)(
+  // TODO: Memoize?
+  const outerContributionFrom = // memoizeWith(({ id }) => id)(
     (contributor: Node): Scope => {
       switch (contributor.kind) {
         // TODO: Resolve fully qualified names
@@ -134,7 +136,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
           return {}
       }
     }
-  )
+  // )
 
   const allNodes = descendants(environment)
 
