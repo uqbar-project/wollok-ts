@@ -15,7 +15,7 @@
 // No unnamed singleton outside Literals
 
 import { isNil, keys, reject } from 'ramda'
-import { Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Reference, Try, Variable } from './model'
+import { Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Reference, Singleton, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -63,9 +63,7 @@ export const validations = (environment: Environment) => {
 
     hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
 
-    singletonIsNotUnnamed: error<Package>(node => node.members.some(
-      element => element.kind === 'Singleton' && element.name !== undefined
-    )),
+    singletonIsNotUnnamed: error<Singleton>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
     importHasNotLocalReference: error<Import>(node =>
       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
@@ -95,11 +93,11 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Import: { importHasNotLocalReference },
     Body: {},
     Catch: {},
-    Package: { singletonIsNotUnnamed },
+    Package: {},
     Program: {},
     Test: {},
     Class: { nameIsPascalCase },
-    Singleton: {},
+    Singleton: { singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
     Constructor: {},
     Field: {},

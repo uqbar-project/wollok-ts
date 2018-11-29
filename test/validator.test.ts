@@ -1,6 +1,6 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Try as TryNode } from '../src/model'
+import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
 import { Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
@@ -15,19 +15,24 @@ const WRE = Package('wollok')(
 
 describe('Wollok Validations', () => {
 
-  describe('Package', () => {
+  describe('Singleton', () => {
 
     it('Unnamed singleton', () => {
       const environment = link([
         WRE,
         Package('p')(
           Singleton()(),
+          Singleton('s')(),
         ),
       ])
+
       const { singletonIsNotUnnamed } = validations(environment)
       const packageExample = environment.members[1] as PackageNode
+      const singletonExample = packageExample.members[0] as SingletonNode
+      const singletonExample2 = packageExample.members[1] as SingletonNode
 
-      assert.ok(!!singletonIsNotUnnamed(packageExample, 'unnamedSingleton')!)
+      assert.ok(!!singletonIsNotUnnamed(singletonExample, 'singletonIsNotUnnamed')!)
+      assert.ok(!singletonIsNotUnnamed(singletonExample2, 'singletonIsNotUnnamed')!)
     })
 
     /*
