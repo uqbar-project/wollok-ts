@@ -2,7 +2,7 @@ import { assert, should } from 'chai'
 import link from '../src/linker'
 import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
+import { Catch, Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
 
@@ -63,6 +63,11 @@ describe('Wollok Validations', () => {
               superclass: Reference('program'),
             }
           )(),
+          Class('C2',
+            {
+              superclass: Reference('C'),
+            }
+          )(),
           Class('program')(),
         ),
       ])
@@ -72,7 +77,11 @@ describe('Wollok Validations', () => {
       const classExample = packageExample.members[0] as ClassNode
       const referenceExample = classExample.superclass!
 
-      assert.ok(!!nameIsNotKeyword(referenceExample, 'isKeyWord')!)
+      const classExample2 = packageExample.members[1] as ClassNode
+      const referenceExample2 = classExample2.superclass!
+
+      assert.ok(!!nameIsNotKeyword(referenceExample, 'nameIsNotKeyword')!)
+      assert.ok(!nameIsNotKeyword(referenceExample2, 'nameIsNotKeyword')!)
     })
   })
 
@@ -92,8 +101,8 @@ describe('Wollok Validations', () => {
       const classExample2 = packageExample.members[1] as ClassNode
       const { nameIsPascalCase } = validations(environment)
 
-      assert.ok(!!nameIsPascalCase(classExample, 'camelcaseName')!)
-      assert.ok(!nameIsPascalCase(classExample2, 'camelcaseName')!)
+      assert.ok(!!nameIsPascalCase(classExample, 'nameIsPascalCase')!)
+      assert.ok(!nameIsPascalCase(classExample2, 'nameIsPascalCase')!)
 
     })
 
@@ -108,6 +117,9 @@ describe('Wollok Validations', () => {
           Class('C')(
             Method('m', {
               parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')],
+            })(),
+            Method('m2', {
+              parameters: [Parameter('c'), Parameter('q', { isVarArg: true })],
             })()),
         ),
       ])
@@ -117,8 +129,11 @@ describe('Wollok Validations', () => {
       const packageExample = environment.members[1] as PackageNode
       const classExample = packageExample.members[0] as ClassNode
       const methodExample = classExample.members[0] as MethodNode
+      const methodExample2 = classExample.members[1] as MethodNode
 
       assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg')!)
+      assert.ok(!onlyLastParameterIsVarArg(methodExample2, 'onlyLastParameterIsVarArg')!)
+
     })
   })
 
@@ -132,6 +147,18 @@ describe('Wollok Validations', () => {
         Package('p')(
           Class('C')(
             Method('m')(Try([Reference('x')], {})),
+            Method('m2')(
+              Try([Reference('x')], {
+                catches: [
+                  Catch(Parameter('e'))(Reference('h')),
+                ],
+              })
+            ),
+            Method('m3')(
+              Try([Reference('x')], {
+                always: [Reference('a')],
+              })
+            )
           ),
         ),
       ])
@@ -144,7 +171,18 @@ describe('Wollok Validations', () => {
       const bodyExample = methodExample.body as BodyNode
       const tryExample = bodyExample.sentences[0] as TryNode
 
-      assert.ok(!!hasCatchOrAlways(tryExample, 'tryWithoutCatchOrAlways')!)
+      const methodExample2 = classExample.members[1] as MethodNode
+      const bodyExample2 = methodExample2.body as BodyNode
+      const tryExample2 = bodyExample2.sentences[0] as TryNode
+
+      const methodExample3 = classExample.members[2] as MethodNode
+      const bodyExample3 = methodExample3.body as BodyNode
+      const tryExample3 = bodyExample3.sentences[0] as TryNode
+
+      assert.ok(!!hasCatchOrAlways(tryExample, 'hasCatchOrAlways')!)
+      assert.ok(!hasCatchOrAlways(tryExample2, 'hasCatchOrAlways')!)
+      assert.ok(!hasCatchOrAlways(tryExample3, 'hasCatchOrAlways')!)
+
     })
 
   })
