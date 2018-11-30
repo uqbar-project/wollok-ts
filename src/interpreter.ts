@@ -181,17 +181,9 @@ export default (environment: Environment) => ({
       let evaluation = createEvaluationFor(environment)(test)
       const steps: Evaluation[] = []
       while (evaluation.frameStack.length && steps.length <= 1000) {
-        const next = evaluation.frameStack[0].pending[0]
-        console.log(`Taking step ${steps.length}: [${next && next[0].kind}:${next && next[1]}]`)
         steps.push(evaluation)
         evaluation = step(evaluation)
       }
-
-      // if (steps.length >= 1000) {
-      //   console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      //   console.log(JSON.stringify(steps.slice(990, 1000)))
-      //   console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      // }
     })
   },
 })

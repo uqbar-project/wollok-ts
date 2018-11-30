@@ -152,7 +152,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
 export default (
   newPackages: Unlinked<Package>[],
-  baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: uuid() }
+  baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: '' }
 ): Environment => {
 
   const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) } as Environment
@@ -165,5 +165,5 @@ export default (
 
   // TODO: Validate that all references have a target
 
-  return scopedEnvironment
+  return { ...scopedEnvironment, id: uuid() }
 }
