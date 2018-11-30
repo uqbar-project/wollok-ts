@@ -106,30 +106,7 @@ describe('Wollok Validations', () => {
 
     })
 
-    it('fieldNameDifferentFromTheMethods', () => {
-      const environment = link([
-        WRE,
-        Package('p')(
-          Class('c')(
-            Field('m'),
-            Field('a'),
-            Method('m')(),
-          ),
 
-        ),
-      ])
-
-      const { fieldNameDifferentFromTheMethods } = validations(environment)
-
-      const packageExample = environment.members[1] as PackageNode
-      const classExample = packageExample.members[0] as ClassNode
-      const fieldExample = classExample.members[0] as FieldMethod
-      const fieldExample2 = classExample.members[1] as FieldMethod
-
-      assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'nameIsPascalCase')!)
-      assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'nameIsPascalCase')!)
-
-    })
   })
 
   describe('Methods', () => {
@@ -265,6 +242,33 @@ describe('Wollok Validations', () => {
 
       assert.ok(!!nameIsCamelCase(parameterExample, 'nameIsCamelCase')!)
       assert.ok(!nameIsCamelCase(parameterExample2, 'nameIsCamelCase')!)
+    })
+  })
+
+  describe('Fields', () => {
+    it('fieldNameDifferentFromTheMethods', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Field('m'),
+            Field('a'),
+            Method('m')(),
+          ),
+
+        ),
+      ])
+
+      const { fieldNameDifferentFromTheMethods } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const fieldExample = classExample.members[0] as FieldMethod
+      const fieldExample2 = classExample.members[1] as FieldMethod
+
+      assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'fieldNameDifferentFromTheMethods')!)
+      assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'fieldNameDifferentFromTheMethods')!)
+
     })
   })
 
