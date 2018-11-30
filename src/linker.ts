@@ -1,6 +1,6 @@
 // TODO: Maybe we should map all references to fully qualyfied ones ?
 
-import { merge } from 'ramda'
+import { memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Class, Entity, Environment, Id, isModule, Module, Node, Package, Scope, Unlinked } from './model'
 import utils from './utils'
@@ -72,7 +72,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
   }
 
   // TODO: Memoize?
-  const innerContributionFrom = // memoizeWith(({ id }) => id)(
+  const innerContributionFrom = memoizeWith(({ id }) => id)(
     (node: Node): Scope => {
       return [
         ...isModule(node)
@@ -81,10 +81,10 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
         ...[node, ...children(node)].map(c => outerContributionFrom(c)),
       ].reduce(merge)
     }
-  // )
+  )
 
   // TODO: Memoize?
-  const outerContributionFrom = // memoizeWith(({ id }) => id)(
+  const outerContributionFrom = memoizeWith(({ id }) => id)(
     (contributor: Node): Scope => {
       switch (contributor.kind) {
         // TODO: Resolve fully qualified names
@@ -136,7 +136,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
           return {}
       }
     }
-  // )
+  )
 
   const allNodes = descendants(environment)
 
@@ -152,7 +152,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
 export default (
   newPackages: Unlinked<Package>[],
-  baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: uuid() }
+  baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: '' }
 ): Environment => {
 
   const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) } as Environment
@@ -165,5 +165,5 @@ export default (
 
   // TODO: Validate that all references have a target
 
-  return scopedEnvironment
+  return { ...scopedEnvironment, id: uuid() }
 }
