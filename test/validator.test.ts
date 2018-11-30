@@ -1,6 +1,6 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
 import { Assignment, Catch, Class, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
@@ -54,7 +54,7 @@ describe('Wollok Validations', () => {
   })
 
   describe('References', () => {
-    it('References named as key word return error', () => {
+    it('nameIsNotKeyword', () => {
       const environment = link([
         WRE,
         Package('p')(
@@ -168,7 +168,6 @@ describe('Wollok Validations', () => {
 
   })
 
-
   describe('Try', () => {
 
     it('Try has catch or always', () => {
@@ -217,5 +216,33 @@ describe('Wollok Validations', () => {
     })
 
   })
+
+
+  describe('Parameters', () => {
+    it('nameIsCamelCase', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m', {
+              parameters: [Parameter('C'), Parameter('k')],
+            })()
+          ),
+        ),
+      ])
+
+      const { nameIsCamelCase } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+      const parameterExample = methodExample.parameters[0] as ParameterNode
+      const parameterExample2 = methodExample.parameters[1] as ParameterNode
+
+      assert.ok(!!nameIsCamelCase(parameterExample, 'nameIsCamelCase')!)
+      assert.ok(!nameIsCamelCase(parameterExample2, 'nameIsCamelCase')!)
+    })
+  })
+
 
 })

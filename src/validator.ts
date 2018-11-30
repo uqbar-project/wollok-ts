@@ -51,7 +51,8 @@ export const validations = (environment: Environment) => {
       /^[A-Z]$/.test(node.name[0])
     ),
 
-    nameIsCamelCase: warning<Parameter | Reference>(node =>
+    // TODO: Y las referencias cuando no son a superclases o mixines
+    nameIsCamelCase: warning<Parameter>(node =>
       /^[a-z]$/.test(node.name[0])
     ),
 
@@ -113,7 +114,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Variable: { nameIsNotKeyword },
     Return: {},
     Assignment: { nonAsignationOfFullyQualifiedReferences },
-    Reference: { nameIsNotKeyword, nameIsCamelCase },
+    Reference: { nameIsNotKeyword },
     Self: {},
     New: {},
     Literal: {},
