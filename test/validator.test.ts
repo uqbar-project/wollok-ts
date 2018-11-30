@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Catch, Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
+import { Assignment, Catch, Class, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
 
@@ -135,6 +135,37 @@ describe('Wollok Validations', () => {
       assert.ok(!onlyLastParameterIsVarArg(methodExample2, 'onlyLastParameterIsVarArg')!)
 
     })
+  })
+
+  describe('Assignments', () => {
+
+    it('nonAsignationOfFullyQualifiedReferences', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Field('a'),
+            Field('b'),
+            Method('m')(Assignment(Reference('p.C'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
+          )
+        ),
+      ])
+
+
+      const { nonAsignationOfFullyQualifiedReferences } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[2] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const assingnmentExample = bodyExample.sentences[0] as AssignmentNode
+      const assingnmentExample2 = bodyExample.sentences[1] as AssignmentNode
+
+      assert.ok(!!nonAsignationOfFullyQualifiedReferences(assingnmentExample, 'nonAsignationOfFullyQualifiedReferences')!)
+      assert.ok(!nonAsignationOfFullyQualifiedReferences(assingnmentExample2, 'nonAsignationOfFullyQualifiedReferences')!)
+
+    })
+
   })
 
 

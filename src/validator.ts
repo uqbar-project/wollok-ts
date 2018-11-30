@@ -4,7 +4,6 @@
 // fields que se llamen como sus metodos una clase no puede tener
 // dos metodos con el mismo nombre y aridades que matcheen
 // No imports of local references
-// No asignation of fully qualified references
 
 
 // DONE
@@ -13,9 +12,10 @@
 // No references named as keywords
 // No try without catch or always
 // No unnamed singleton outside Literals
+// No asignation of fully qualified references
 
 import { isNil, keys, reject } from 'ramda'
-import { Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Reference, Singleton, Try, Variable } from './model'
+import { Assignment, Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -51,6 +51,10 @@ export const validations = (environment: Environment) => {
       /^[A-Z]$/.test(node.name[0])
     ),
 
+    nameIsCamelCase: warning<Parameter | Reference>(node =>
+      /^[a-z]$/.test(node.name[0])
+    ),
+
     onlyLastParameterIsVarArg: error<Method>(node =>
       node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
     ),
@@ -69,6 +73,8 @@ export const validations = (environment: Environment) => {
       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
     ),
 
+    nonAsignationOfFullyQualifiedReferences: error<Assignment>(node => !node.reference.name.includes('.')),
+
   }
 }
 
@@ -81,15 +87,17 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
 
   const {
     nameIsPascalCase,
+    nameIsCamelCase,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
     hasCatchOrAlways,
     singletonIsNotUnnamed,
     importHasNotLocalReference,
+    nonAsignationOfFullyQualifiedReferences,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
-    Parameter: {},
+    Parameter: { nameIsCamelCase, },
     Import: { importHasNotLocalReference },
     Body: {},
     Catch: {},
@@ -104,8 +112,8 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
     Variable: { nameIsNotKeyword },
     Return: {},
-    Assignment: {},
-    Reference: { nameIsNotKeyword },
+    Assignment: { nonAsignationOfFullyQualifiedReferences },
+    Reference: { nameIsNotKeyword, nameIsCamelCase },
     Self: {},
     New: {},
     Literal: {},
