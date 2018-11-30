@@ -97,6 +97,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     singletonIsNotUnnamed,
     importHasNotLocalReference,
     nonAsignationOfFullyQualifiedReferences,
+    fieldNameDifferentFromTheMethods,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -111,7 +112,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Singleton: { singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
     Constructor: {},
-    Field: {},
+    Field: { fieldNameDifferentFromTheMethods },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
     Variable: { nameIsNotKeyword },
     Return: {},
