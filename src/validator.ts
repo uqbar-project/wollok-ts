@@ -15,7 +15,7 @@
 // No asignation of fully qualified references
 
 import { isNil, keys, reject } from 'ramda'
-import { Assignment, Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
+import { Assignment, Class, Environment, Field, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -76,6 +76,8 @@ export const validations = (environment: Environment) => {
 
     nonAsignationOfFullyQualifiedReferences: error<Assignment>(node => !node.reference.name.includes('.')),
 
+    fieldNameDifferentFromTheMethods: error<Field>(node => (parentOf(node) as Class).members.
+      filter((member): member is Method => member.kind === 'Method').every(({ name }) => name !== node.name)),
   }
 }
 

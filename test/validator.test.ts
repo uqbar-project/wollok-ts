@@ -1,6 +1,6 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
 import { Assignment, Catch, Class, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
@@ -87,7 +87,7 @@ describe('Wollok Validations', () => {
 
   describe('Classes', () => {
 
-    it('Name is pascal case', () => {
+    it('nameIsPascalCase', () => {
       const environment = link([
         WRE,
         Package('p')(
@@ -106,6 +106,30 @@ describe('Wollok Validations', () => {
 
     })
 
+    it('fieldNameDifferentFromTheMethods', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Field('m'),
+            Field('a'),
+            Method('m')(),
+          ),
+
+        ),
+      ])
+
+      const { fieldNameDifferentFromTheMethods } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const fieldExample = classExample.members[0] as FieldMethod
+      const fieldExample2 = classExample.members[1] as FieldMethod
+
+      assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'nameIsPascalCase')!)
+      assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'nameIsPascalCase')!)
+
+    })
   })
 
   describe('Methods', () => {
