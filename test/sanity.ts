@@ -3,7 +3,7 @@ import { basename, join } from 'path'
 import * as simplegit from 'simple-git/promise'
 import interpreter from '../src/interpreter'
 import link from '../src/linker'
-import { Package, Unlinked } from '../src/model'
+import { Package } from '../src/model'
 import { File } from '../src/parser'
 
 const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
@@ -61,11 +61,12 @@ const updateTests = async () => {
 const runAll = async () => {
 
   const wreSource = readFileSync(WRE_PATH, 'utf8')
-  const wre: Unlinked<Package> = {
+  const wre: Package<'Complete'> = {
     kind: 'Package',
+    id: undefined,
     name: 'wollok',
     imports: [],
-    members: [File('lang').tryParse(wreSource)],
+    members: [File('lang').tryParse(wreSource) as unknown as Package<'Complete'>],
   }
 
   if (!process.argv.includes('--skip-update')) await updateTests()
@@ -74,7 +75,7 @@ const runAll = async () => {
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
 
-  const x = testNodes[0]
+  const x = testNodes[0] as unknown as Package<'Complete'>
 
   // tslint:disable:no-console
   console.time(`Linking ${x.name}`)

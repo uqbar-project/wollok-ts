@@ -1,7 +1,7 @@
 import { should } from 'chai'
 import { Evaluation, step } from '../src/interpreter'
 import link from '../src/linker'
-import { Self as SelfNode } from '../src/model'
+import { Package as PackageNode, Self as SelfNode } from '../src/model'
 import { Class, Package, Self } from './builders'
 
 should()
@@ -11,7 +11,7 @@ const WRE = Package('wollok')(
     Class('Object')(),
     Class('Closure')()
   )
-)
+) as unknown as PackageNode<'Complete'>
 
 describe('Wollok interpreter', () => {
 
@@ -30,7 +30,7 @@ describe('Wollok interpreter', () => {
         status: 'running',
         environment,
         frameStack: [
-          { scope: { self: '1' }, pending: [[Self as SelfNode, 0]], referenceStack: [] },
+          { scope: { self: '1' }, pending: [[Self as unknown as SelfNode<'Linked'>, 0]], referenceStack: [] },
         ],
         instances: {},
       }

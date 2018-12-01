@@ -15,7 +15,7 @@
 // No unnamed singleton outside Literals
 
 import { isNil, keys, reject } from 'ramda'
-import { Class, Environment, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Reference, Try, Variable } from './model'
+import { Class, Environment, Import, Kind, Method, Mixin, Node, NodeOfKind, Package, Reference, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -24,10 +24,10 @@ type Level = 'Warning' | 'Error'
 export interface Problem {
   readonly code: Code
   readonly level: Level
-  readonly node: Node
+  readonly node: Node<'Linked'>
 }
 
-const problem = (level: Level) => <N extends Node>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
+const problem = (level: Level) => <N extends Node<'Linked'>>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
   !condition(node) ? {
     level,
     code,
@@ -42,33 +42,33 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const validations = (environment: Environment) => {
+export const validations = (environment: Environment<'Linked'>) => {
   const { parentOf } = utils(environment)
 
   return {
 
-    nameIsPascalCase: warning<Mixin | Class>(node =>
+    nameIsPascalCase: warning<Mixin<'Linked'> | Class<'Linked'>>(node =>
       /^[A-Z]$/.test(node.name[0])
     ),
 
-    onlyLastParameterIsVarArg: error<Method>(node =>
+    onlyLastParameterIsVarArg: error<Method<'Linked'>>(node =>
       node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
     ),
 
-    nameIsNotKeyword: error<Reference | Method | Variable>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
+    nameIsNotKeyword: error<Reference<'Linked'> | Method<'Linked'> | Variable<'Linked'>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
       'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
       'var', 'const', '=', 'override', 'method', 'native', 'constructor',
       'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
       'null', 'false', 'true', '=>'].includes(node.name)),
 
-    hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
+    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
 
-    singletonIsNotUnnamed: error<Package>(node => node.members.some(
+    singletonIsNotUnnamed: error<Package<'Linked'>>(node => node.members.some(
       element => element.kind === 'Singleton' && element.name !== undefined
     )),
 
-    importHasNotLocalReference: error<Import>(node =>
-      (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
+    importHasNotLocalReference: error<Import<'Linked'>>(node =>
+      (parentOf(node) as Package<'Linked'>).members.every(({ name }) => name !== node.reference.name)
     ),
 
   }
@@ -78,7 +78,7 @@ export const validations = (environment: Environment) => {
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node, environment: Environment): ReadonlyArray<Problem> => {
+export default (target: Node<'Linked'>, environment: Environment<'Linked'>): ReadonlyArray<Problem> => {
   const { reduce } = utils(environment)
 
   const {
@@ -90,7 +90,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     importHasNotLocalReference,
   } = validations(environment)
 
-  const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
+  const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
     Parameter: {},
     Import: { importHasNotLocalReference },
     Body: {},
@@ -121,7 +121,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
   }
 
   return reduce<Problem[]>((found, node) => {
-    const checks = problemsByKind[node.kind] as { [code: string]: (n: Node, c: Code) => Problem | null }
+    const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<'Linked'>, c: Code) => Problem | null }
     return [
       ...found,
       ...reject(isNil)(keys(checks).map(code => checks[code](node, code))),

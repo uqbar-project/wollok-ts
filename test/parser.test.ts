@@ -155,13 +155,13 @@ describe('Wollok parser', () => {
 
       it('should parse empty lists', () => {
         '[]'.should.be.parsedBy(parser).into(
-          Literal(New(Reference('wollok.List'), []))
+          Literal(New(Reference('wollok.lang.List'), []))
         ).and.be.tracedTo(0, 2)
       })
 
       it('should parse non-empty lists', () => {
         '[1,2,3]'.should.be.parsedBy(parser).into(
-          Literal(New(Reference('wollok.List'), [Literal(1), Literal(2), Literal(3)]))
+          Literal(New(Reference('wollok.lang.List'), [Literal(1), Literal(2), Literal(3)]))
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('value.args.0').tracedTo(1, 2)
           .and.also.have.nested.property('value.args.1').tracedTo(3, 4)
@@ -170,14 +170,14 @@ describe('Wollok parser', () => {
 
       it('should parse empty sets', () => {
         '#{}'.should.be.parsedBy(parser).into(
-          Literal(New(Reference('wollok.Set'), []))
+          Literal(New(Reference('wollok.lang.Set'), []))
         ).and.be.tracedTo(0, 3)
       })
 
       it('should parse non-empty sets', () => {
         '#{1,2,3}'.should.be.parsedBy(parser).into(
           Literal(
-            New(Reference('wollok.Set'), [Literal(1), Literal(2), Literal(3)])
+            New(Reference('wollok.lang.Set'), [Literal(1), Literal(2), Literal(3)])
           )
         ).and.be.tracedTo(0, 8)
           .and.have.nested.property('value.args.0').tracedTo(2, 3)

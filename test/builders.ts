@@ -1,24 +1,25 @@
 import { merge } from 'ramda'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Expression, Field as FieldNode, Import as ImportNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeKind, NodeOfKind, NodePayload, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Unlinked, Variable as VariableNode } from '../src/model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Expression, Field as FieldNode, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
+import { NodePayload } from '../src/parser'
 
 const { keys } = Object
 
-const makeNode = <K extends NodeKind, N extends NodeOfKind<K>>(kind: K) => (payload: NodePayload<N>): Unlinked<N> =>
+const makeNode = <K extends Kind, N extends NodeOfKind<K, 'Raw'>>(kind: K) => (payload: NodePayload<N>): N =>
   merge(payload, { kind }) as any
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Reference = (name: Name) => makeNode('Reference')({ name })
+export const Reference = (name: Name) => makeNode('Reference')({ name, target: undefined })
 
-export const Parameter = (name: Name, payload?: Partial<NodePayload<ParameterNode>>) => makeNode('Parameter')({
+export const Parameter = (name: Name, payload?: Partial<NodePayload<ParameterNode<'Raw'>>>) => makeNode('Parameter')({
   name,
   isVarArg: false,
   ...payload,
 })
 
-export const Import = (reference: Unlinked<ReferenceNode>, payload?: Partial<NodePayload<ImportNode>>) => makeNode('Import')({
+export const Import = (reference: ReferenceNode<'Raw'>, payload?: Partial<NodePayload<ImportNode<'Raw'>>>) => makeNode('Import')({
   reference,
   isGeneric: false,
   ...payload,
@@ -28,8 +29,8 @@ export const Import = (reference: Unlinked<ReferenceNode>, payload?: Partial<Nod
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode>>) =>
-  (...members: Unlinked<Entity>[]) => makeNode('Package')({
+export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode<'Raw'>>>) =>
+  (...members: Entity<'Raw'>[]) => makeNode('Package')({
     name,
     members,
     imports: [],
@@ -37,26 +38,28 @@ export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode>>)
   })
 
 
-export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode>>) =>
-  (...members: Unlinked<ClassMember>[]) =>
+export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode<'Raw'>>>) =>
+  (...members: ClassMember<'Raw'>[]) =>
     makeNode('Class')({
       name,
       members,
       mixins: [],
+      superclass: undefined,
       ...payload,
     })
 
-export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode>>) =>
-  (...members: Unlinked<ObjectMember>[]) =>
+export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode<'Raw'>>>) =>
+  (...members: ObjectMember<'Raw'>[]) =>
     makeNode('Singleton')({
       members,
       mixins: [],
       ...name ? { name } : {},
+      superCall: undefined,
       ...payload,
     })
 
-export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) =>
-  (...members: Unlinked<ObjectMember>[]) =>
+export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode<'Raw'>>>) =>
+  (...members: ObjectMember<'Raw'>[]) =>
     makeNode('Mixin')({
       name,
       members,
@@ -64,24 +67,24 @@ export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode>>) =>
       ...payload,
     })
 
-export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode>>) =>
-  (...sentences: Unlinked<Sentence>[]) =>
+export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Program')({
       name,
       body: makeNode('Body')({ sentences }),
       ...payload,
     })
 
-export const Test = (name: string, payload?: Partial<NodePayload<TestNode>>) =>
-  (...sentences: Unlinked<Sentence>[]) =>
+export const Test = (name: string, payload?: Partial<NodePayload<TestNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Test')({
       name,
       body: makeNode('Body')({ sentences }),
       ...payload,
     })
 
-export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNode>>) =>
-  (...members: Unlinked<TestNode>[]) =>
+export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNode<'Raw'>>>) =>
+  (...members: TestNode<'Raw'>[]) =>
     makeNode('Describe')({
       name,
       members,
@@ -92,14 +95,15 @@ export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNod
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode>>) => makeNode('Field')({
+export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode<'Raw'>>>) => makeNode('Field')({
   name,
   isReadOnly: false,
+  value: undefined,
   ...payload,
 })
 
-export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode>>) =>
-  (...sentences: Unlinked<Sentence>[]) => {
+export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) => {
     const { body, ...otherPayload } = payload || { body: undefined }
 
     return makeNode('Method')({
@@ -114,8 +118,8 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode>>) =
     })
   }
 
-export const Constructor = (payload?: Partial<NodePayload<ConstructorNode>>) =>
-  (...sentences: Unlinked<Sentence>[]) => makeNode('Constructor')({
+export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) => makeNode('Constructor')({
     body: makeNode('Body')({ sentences }),
     parameters: [],
     ...payload,
@@ -125,15 +129,16 @@ export const Constructor = (payload?: Partial<NodePayload<ConstructorNode>>) =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode>>) => makeNode('Variable')({
+export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode<'Raw'>>>) => makeNode('Variable')({
   name,
   isReadOnly: false,
+  value: undefined,
   ...payload,
 })
 
-export const Return = (value: Unlinked<Expression>) => makeNode('Return')({ value })
+export const Return = (value: Expression<'Raw'>) => makeNode('Return')({ value })
 
-export const Assignment = (reference: Unlinked<ReferenceNode>, value: Unlinked<Expression>) => makeNode('Assignment')({ reference, value })
+export const Assignment = (reference: ReferenceNode<'Raw'>, value: Expression<'Raw'>) => makeNode('Assignment')({ reference, value })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EXPRESSIONS
@@ -141,44 +146,44 @@ export const Assignment = (reference: Unlinked<ReferenceNode>, value: Unlinked<E
 
 export const Self = makeNode('Self')({})
 
-export const Literal = (value: Unlinked<LiteralValue>) => makeNode('Literal')({ value })
+export const Literal = (value: LiteralValue<'Raw'>) => makeNode('Literal')({ value })
 
-export const Send = (receiver: Unlinked<Expression>, message: Name, args: ReadonlyArray<Unlinked<Expression>> = []) => makeNode('Send')({
+export const Send = (receiver: Expression<'Raw'>, message: Name, args: ReadonlyArray<Expression<'Raw'>> = []) => makeNode('Send')({
   receiver,
   message,
   args,
 })
 
-export const Super = (args: ReadonlyArray<Unlinked<Expression>> = []) => makeNode('Super')({ args })
+export const Super = (args: List<Expression<'Raw'>> = []) => makeNode('Super')({ args })
 
-export const New = (className: Unlinked<ReferenceNode>, args: ReadonlyArray<Unlinked<Expression>>) => makeNode('New')({ className, args })
+export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'>>) => makeNode('New')({ className, args })
 
-export const If = (condition: Unlinked<Expression>,
-                   thenBody: ReadonlyArray<Unlinked<Sentence>>,
-                   elseBody: ReadonlyArray<Unlinked<Sentence>> = []) => makeNode('If')({
+export const If = (condition: Expression<'Raw'>,
+                   thenBody: List<Sentence<'Raw'>>,
+                   elseBody: List<Sentence<'Raw'>> = []) => makeNode('If')({
     condition,
     thenBody: makeNode('Body')({ sentences: thenBody }),
     elseBody: makeNode('Body')({ sentences: elseBody }),
   })
 
-export const Throw = (arg: Unlinked<Expression>) => makeNode('Throw')({ arg })
+export const Throw = (arg: Expression<'Raw'>) => makeNode('Throw')({ arg })
 
-export const Try = (sentences: ReadonlyArray<Unlinked<Sentence>>,
-                    payload: {
-    catches?: Unlinked<CatchNode>[],
-    always?: Unlinked<Sentence>[]
-  }) =>
+export const Try = (sentences: List<Sentence<'Raw'>>, payload: {
+  catches?: List<CatchNode<'Raw'>>,
+  always?: List<Sentence<'Raw'>>
+}) =>
   makeNode('Try')({
     body: makeNode('Body')({ sentences }),
     catches: payload.catches || [],
     always: makeNode('Body')({ sentences: payload.always || [] }),
   })
 
-export const Catch = (parameter: Unlinked<ParameterNode>, payload?: Partial<NodePayload<CatchNode>>) =>
-  (...sentences: Unlinked<Sentence>[]) =>
+export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePayload<CatchNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Catch')({
       body: makeNode('Body')({ sentences }),
       parameter,
+      parameterType: undefined,
       ...payload,
     })
 
@@ -186,8 +191,8 @@ export const Catch = (parameter: Unlinked<ParameterNode>, payload?: Partial<Node
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Closure = (...parameters: Unlinked<ParameterNode>[]) => (...body: Unlinked<Sentence>[]) =>
-  // TODO: change this to 'wollok.Closure' and make getNodeById resolve composed references
+export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sentence<'Raw'>[]) =>
+  // TODO: replace with wollok.lang.Closure
   Literal(Singleton(undefined, { superCall: { superclass: Reference('Closure'), args: [] } })(
     Method('apply', { parameters })(
       ...body

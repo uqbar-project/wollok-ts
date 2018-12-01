@@ -1,123 +1,112 @@
 import { Index } from 'parsimmon'
 
-type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
+export type Stage = 'Raw' | 'Complete' | 'Linked'
 
-export type Node = Parameter | Import | Body | Catch | Entity | ClassMember | Sentence | Environment
-export type NodeKind = Node['kind']
-export type NodeOfKind<K extends NodeKind> = Extract<Node, { kind: K }>
-export type NodePayload<N extends Node> = Drop<Unlinked<N>, 'kind'>
+export type Kind = Node<Stage>['kind']
+export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
-export type Id = string
 
 export type Name = string
-export interface Scope { readonly [name: string]: Id }
 
+export type Id<S extends Stage> = S extends 'Linked' ? string : undefined
 
-export type Unlinked<T> =
-  T extends string | number | boolean | null | undefined | never ? T :
-  T extends ReadonlyArray<infer U> ? UnlinkedArray<U> :
-  T extends {} ? (
-    Drop<{ [K in keyof T]: Unlinked<T[K]> }, keyof BasicNode> & {
-      source?: Source
-    }) :
-  T
+export type Fillable<T, S extends Stage> = S extends 'Complete' | 'Linked' ? T : T | undefined
 
-export interface UnlinkedArray<T> extends ReadonlyArray<Unlinked<T>> { }
+export type List<T> = ReadonlyArray<T>
 
+// TODO: Move this to Linker
+export interface Scope { readonly [name: string]: string /*id*/ }
 
 export interface Source {
-  file?: string
-  start: Index
-  end: Index
+  readonly file?: string
+  readonly start: Index
+  readonly end: Index
 }
 
-export interface BasicNode {
-  id: Id,
-  scope: Scope,
-  source?: Source,
+
+export type Node<S extends Stage>
+  = Parameter<S>
+  | Import<S>
+  | Body<S>
+  | Catch<S>
+  | Entity<S>
+  | ClassMember<S>
+  | Sentence<S>
+  | Environment<S>
+
+
+export interface BaseNode<K extends Kind, S extends Stage> {
+  readonly kind: K
+  readonly id: Id<S>
+  readonly source?: Source
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface Reference extends BasicNode {
-  readonly kind: 'Reference'
-  readonly name: Name
-}
-
-export interface Parameter extends BasicNode {
-  readonly kind: 'Parameter'
+export interface Parameter<S extends Stage> extends BaseNode<'Parameter', S> {
   readonly name: Name
   readonly isVarArg: boolean
 }
 
-export interface Import extends BasicNode {
-  readonly kind: 'Import'
-  readonly reference: Reference
+export interface Import<S extends Stage> extends BaseNode<'Import', S> {
+  readonly reference: Reference<S>
   readonly isGeneric: boolean
 }
 
-export interface Body extends BasicNode {
-  readonly kind: 'Body'
-  readonly sentences: ReadonlyArray<Sentence>
+export interface Body<S extends Stage> extends BaseNode<'Body', S> {
+  readonly sentences: List<Sentence<S>>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Entity = Package | Program | Test | Describe | Module
-export type Module = Class | Singleton | Mixin
+export type Entity<S extends Stage> = Package<S> | Program<S> | Test<S> | Describe<S> | Module<S>
+export type Module<S extends Stage> = Class<S> | Singleton<S> | Mixin<S>
 
-export interface Package extends BasicNode {
-  readonly kind: 'Package'
+export interface Package<S extends Stage> extends BaseNode<'Package', S> {
   readonly name: Name
-  readonly imports: ReadonlyArray<Import>
-  readonly members: ReadonlyArray<Entity>
+  readonly imports: List<Import<S>>
+  readonly members: List<Entity<S>>
 }
 
-export interface Program extends BasicNode {
-  readonly kind: 'Program'
+export interface Program<S extends Stage> extends BaseNode<'Program', S> {
   readonly name: Name
-  readonly body: Body
+  readonly body: Body<S>
 }
 
-export interface Test extends BasicNode {
-  readonly kind: 'Test'
+export interface Test<S extends Stage> extends BaseNode<'Test', S> {
   readonly name: string
-  readonly body: Body
+  readonly body: Body<S>
 }
 
-export interface Describe extends BasicNode {
-  readonly kind: 'Describe'
+export interface Describe<S extends Stage> extends BaseNode<'Describe', S> {
   readonly name: string
-  readonly members: ReadonlyArray<Test>
+  readonly members: List<Test<S>>
 }
 
-export interface Class extends BasicNode {
-  readonly kind: 'Class'
+export interface Class<S extends Stage> extends BaseNode<'Class', S> {
   readonly name: Name
-  // TODO: Wouldn't it be better to autocomplete this?
-  readonly superclass?: Reference
-  readonly mixins: ReadonlyArray<Reference>
-  readonly members: ReadonlyArray<ClassMember>
+  readonly superclass: Fillable<Reference<S>, S>
+  readonly mixins: List<Reference<S>>
+  readonly members: List<ClassMember<S>>
 }
 
-export interface Singleton extends BasicNode {
-  readonly kind: 'Singleton'
+// TODO: Inline this in Singleton?
+interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> }
+export interface Singleton<S extends Stage> extends BaseNode<'Singleton', S> {
   readonly name?: Name
-  // TODO: Wouldn't it be better to autocomplete this?
-  readonly superCall?: { superclass: Reference, args: ReadonlyArray<Expression> }
-  readonly mixins: ReadonlyArray<Reference>
-  readonly members: ReadonlyArray<ObjectMember>
+  readonly superCall: Fillable<SuperCall<S>, S>
+  readonly mixins: List<Reference<S>>
+  readonly members: List<ObjectMember<S>>
 }
 
-export interface Mixin extends BasicNode {
-  readonly kind: 'Mixin'
+export interface Mixin<S extends Stage> extends BaseNode<'Mixin', S> {
   readonly name: Name
-  readonly mixins: ReadonlyArray<Reference>
-  readonly members: ReadonlyArray<ObjectMember>
+  readonly mixins: List<Reference<S>>
+  readonly members: List<ObjectMember<S>>
 }
 
 
@@ -125,114 +114,114 @@ export interface Mixin extends BasicNode {
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ObjectMember = Field | Method
-export type ClassMember = Constructor | ObjectMember
+export type ObjectMember<S extends Stage> = Field<S> | Method<S>
+export type ClassMember<S extends Stage> = Constructor<S> | ObjectMember<S>
 
-export interface Field extends BasicNode {
-  readonly kind: 'Field'
+export interface Field<S extends Stage> extends BaseNode<'Field', S> {
   readonly name: Name
   readonly isReadOnly: boolean
-  readonly value?: Expression
+  readonly value: Fillable<Expression<S>, S>
 }
 
-export interface Method extends BasicNode {
-  readonly kind: 'Method'
+export interface Method<S extends Stage> extends BaseNode<'Method', S> {
   readonly name: Name
   readonly isOverride: boolean
   readonly isNative: boolean
-  readonly parameters: ReadonlyArray<Parameter>
-  readonly body?: Body
+  readonly parameters: List<Parameter<S>>
+  readonly body?: Body<S>
 }
 
-export interface Constructor extends BasicNode {
-  readonly kind: 'Constructor'
-  readonly parameters: ReadonlyArray<Parameter>
-  readonly baseCall?: { callsSuper: boolean, args: ReadonlyArray<Expression> }
-  readonly body: Body
+// TODO: Inline this in Constructor?
+interface BaseCall<S extends Stage> { callsSuper: boolean, args: List<Expression<S>> }
+export interface Constructor<S extends Stage> extends BaseNode<'Constructor', S> {
+  readonly parameters: List<Parameter<S>>
+  readonly baseCall?: Fillable<BaseCall<S>, S>
+  readonly body: Body<S>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Sentence = Variable | Return | Assignment | Expression
+export type Sentence<S extends Stage> = Variable<S> | Return<S> | Assignment<S> | Expression<S>
 
-export interface Variable extends BasicNode {
-  readonly kind: 'Variable'
+export interface Variable<S extends Stage> extends BaseNode<'Variable', S> {
   readonly name: Name
   readonly isReadOnly: boolean
-  readonly value?: Expression
+  readonly value: Fillable<Expression<S>, S>
 }
 
-export interface Return extends BasicNode {
-  readonly kind: 'Return'
-  readonly value: Expression
+export interface Return<S extends Stage> extends BaseNode<'Return', S> {
+  readonly value: Expression<S> | null
 }
 
-export interface Assignment extends BasicNode {
-  readonly kind: 'Assignment'
-  readonly reference: Reference
-  readonly value: Expression
+export interface Assignment<S extends Stage> extends BaseNode<'Assignment', S> {
+  readonly reference: Reference<S>
+  readonly value: Expression<S>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Expression = Reference | Self | Literal<LiteralValue> | Send | Super | New | If | Throw | Try
+export type Expression<S extends Stage>
+  = Reference<S>
+  | Self<S>
+  | Literal<S, LiteralValue<S>>
+  | Send<S>
+  | Super<S>
+  | New<S>
+  | If<S>
+  | Throw<S>
+  | Try<S>
 
-export interface Self extends BasicNode {
-  readonly kind: 'Self'
+export interface Reference<S extends Stage> extends BaseNode<'Reference', S> {
+  readonly name: Name
+  readonly target: Id<S>
 }
 
-export type LiteralValue = number | string | boolean | null | New | Singleton
-export interface Literal<T extends LiteralValue> extends BasicNode {
-  readonly kind: 'Literal'
+export interface Self<S extends Stage> extends BaseNode<'Self', S> { }
+
+export type LiteralValue<S extends Stage> = number | string | boolean | null | New<S> | Singleton<S>
+export interface Literal<S extends Stage, T extends LiteralValue<S> = LiteralValue<S>> extends BaseNode<'Literal', S> {
   readonly value: T
 }
 
-export interface Send extends BasicNode {
-  readonly kind: 'Send'
-  readonly receiver: Expression
+export interface Send<S extends Stage> extends BaseNode<'Send', S> {
+  readonly receiver: Expression<S>
   readonly message: Name
-  readonly args: ReadonlyArray<Expression>
+  readonly args: List<Expression<S>>
 }
 
-export interface Super extends BasicNode {
-  readonly kind: 'Super'
-  readonly args: ReadonlyArray<Expression>
+export interface Super<S extends Stage> extends BaseNode<'Super', S> {
+  readonly args: List<Expression<S>>
 }
 
-export interface New extends BasicNode {
-  readonly kind: 'New'
-  readonly className: Reference
-  readonly args: ReadonlyArray<Expression>
+export interface New<S extends Stage> extends BaseNode<'New', S> {
+  readonly className: Reference<S>
+  readonly args: List<Expression<S>>
 }
 
-export interface If extends BasicNode {
-  readonly kind: 'If'
-  readonly condition: Expression
-  readonly thenBody: Body
-  readonly elseBody: Body
+export interface If<S extends Stage> extends BaseNode<'If', S> {
+  readonly condition: Expression<S>
+  readonly thenBody: Body<S>
+  readonly elseBody: Fillable<Body<S>, S>
 }
 
-export interface Throw extends BasicNode {
-  readonly kind: 'Throw'
-  readonly arg: Expression
+export interface Throw<S extends Stage> extends BaseNode<'Throw', S> {
+  readonly arg: Expression<S>
 }
 
-export interface Try extends BasicNode {
-  readonly kind: 'Try'
-  readonly body: Body
-  readonly catches: ReadonlyArray<Catch>
-  readonly always: Body
+export interface Try<S extends Stage> extends BaseNode<'Try', S> {
+  readonly body: Body<S>
+  readonly catches: List<Catch<S>>
+  readonly always: Fillable<Body<S>, S>
 }
 
-export interface Catch extends BasicNode {
-  readonly kind: 'Catch'
-  readonly parameter: Parameter
-  readonly parameterType?: Reference
-  readonly body: Body
+export interface Catch<S extends Stage> extends BaseNode<'Catch', S> {
+  readonly parameter: Parameter<S>
+  readonly parameterType: Fillable<Reference<S>, S>
+  readonly body: Body<S>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -240,31 +229,32 @@ export interface Catch extends BasicNode {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 // TODO: Can't we just use a package node here?
-export interface Environment extends BasicNode {
-  readonly kind: 'Environment'
-  readonly members: ReadonlyArray<Package>
+export interface Environment<S extends Stage> extends BaseNode<'Environment', S> {
+  readonly members: List<Package<S>>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // TYPE GUARDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = (obj: any): obj is Node => obj && obj.kind
+export const isNode = (obj: any): obj is Node<Stage> => obj && obj.kind
 
-export const isEntity = (obj: any): obj is Entity => isNode(obj) &&
+export const isEntity = (obj: any): obj is Entity<Stage> => isNode(obj) &&
   ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
 
-export const isModule = (obj: any): obj is Module => isNode(obj) &&
+export const isModule = (obj: any): obj is Module<Stage> => isNode(obj) &&
   ['Singleton', 'Mixin', 'Class'].includes(obj.kind)
 
-export const isObjectMember = (obj: any): obj is ObjectMember => isNode(obj) &&
+export const isObjectMember = (obj: any): obj is ObjectMember<Stage> => isNode(obj) &&
   ['Field', 'Method'].includes(obj.kind)
 
-export const isClassMember = (obj: any): obj is ClassMember => isNode(obj) &&
+export const isClassMember = (obj: any): obj is ClassMember<Stage> => isNode(obj) &&
   (['Constructor'].includes(obj.kind) || isObjectMember(obj))
 
-export const isExpression = (obj: any): obj is Expression => isNode(obj) &&
+export const isExpression = (obj: any): obj is Expression<Stage> => isNode(obj) &&
   ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(obj.kind)
 
-export const isSentence = (obj: any): obj is Sentence => isNode(obj) &&
+export const isSentence = (obj: any): obj is Sentence<Stage> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
+
+// TODO: Export pre-set node types for every stage? Like RawIf, CompleteIf, etc?

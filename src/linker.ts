@@ -2,17 +2,19 @@
 
 import { memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Class, Entity, Environment, Id, isModule, Module, Node, Package, Scope, Unlinked } from './model'
+import { Class, Entity, Environment, Id, isModule, List, Module, Node, Package, Scope } from './model'
 import utils from './utils'
 
 const mergePackage = (
-  members: ReadonlyArray<Entity | Unlinked<Entity>>,
-  isolated: Unlinked<Entity>
-): ReadonlyArray<Entity | Unlinked<Entity>> => {
+  members: List<Entity<'Complete' | 'Linked'>>,
+  isolated: Entity<'Complete'>
+): List<Entity<'Complete' | 'Linked'>> => {
 
   if (isolated.kind !== 'Package') return [...members, isolated]
 
-  const existent = members.find(member => member.kind === isolated.kind && member.name === isolated.name) as Package
+  const existent = members.find((member): member is Package<'Complete' | 'Linked'> =>
+    member.kind === 'Package' && member.name === isolated.name
+  )
 
   return existent ? [
     ...members.filter(member => member !== existent),
@@ -20,15 +22,15 @@ const mergePackage = (
   ] : [...members, isolated]
 }
 
-const buildScopes = (environment: Environment): { [id: string]: Scope } => {
+const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope } => {
 
   const { children, descendants, getNodeById, parentOf, resolve } = utils(environment)
 
-  const scopes: Map<Id, Scope | (() => Scope)> = new Map([
-    [environment.id, environment.scope],
+  const scopes: Map<Id<'Linked'>, Scope | (() => Scope)> = new Map([
+    [environment.id, {}],
   ])
 
-  const getScope = (id: Id): Scope => {
+  const getScope = (id: Id<'Linked'>): Scope => {
     const scope = scopes.get(id)
     if (!scope) throw new Error(`Missing scope for node id ${id}`)
     if (scope instanceof Function) {
@@ -39,41 +41,41 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
     return scope
   }
 
-  function ancestors(module: Module): ReadonlyArray<Module> {
+  function ancestors(module: Module<'Linked'>): List<Module<'Linked'>> {
     const scope = getScope(module.id)
-    const ObjectClass = resolve<Class>('wollok.lang.Object')
+    const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
 
     let superclass
 
     switch (module.kind) {
       case 'Class':
         superclass = module.superclass
-          ? getNodeById<Module>(scope[module.superclass.name])
+          ? getNodeById<Module<'Linked'>>(scope[module.superclass.name])
           : ObjectClass
 
         return [
           ...superclass === module ? [] : [superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(scope[m.name])),
+          ...module.mixins.map(m => getNodeById<Module<'Linked'>>(scope[m.name])),
         ]
 
       case 'Singleton':
         superclass = module.superCall
-          ? getNodeById<Module>(scope[module.superCall.superclass.name])
+          ? getNodeById<Module<'Linked'>>(scope[module.superCall.superclass.name])
           : ObjectClass
 
         return [
           ...[superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module>(scope[m.name])),
+          ...module.mixins.map(m => getNodeById<Module<'Linked'>>(scope[m.name])),
         ]
 
       case 'Mixin':
-        return module.mixins.map(m => getNodeById<Module>(scope[m.name]))
+        return module.mixins.map(m => getNodeById<Module<'Linked'>>(scope[m.name]))
     }
   }
 
   // TODO: Memoize?
   const innerContributionFrom = memoizeWith(({ id }) => id)(
-    (node: Node): Scope => {
+    (node: Node<'Linked'>): Scope => {
       return [
         ...isModule(node)
           ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
@@ -85,7 +87,7 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 
   // TODO: Memoize?
   const outerContributionFrom = memoizeWith(({ id }) => id)(
-    (contributor: Node): Scope => {
+    (contributor: Node<'Linked'>): Scope => {
       switch (contributor.kind) {
         // TODO: Resolve fully qualified names
         case 'Import':
@@ -93,9 +95,9 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
           const referenced = getNodeById(referencedId)
           return contributor.isGeneric
             ? children(referenced)
-              .map(child => ({ [(child as Entity).name || '']: child.id }))
+              .map(child => ({ [(child as Entity<'Linked'>).name || '']: child.id }))
               .reduce(merge)
-            : { [(referenced as Entity).name || '']: referenced.id }
+            : { [(referenced as Entity<'Linked'>).name || '']: referenced.id }
         case 'Package':
           const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')
           const globalContributions: Scope = contributor.name === 'wollok'
@@ -151,17 +153,23 @@ const buildScopes = (environment: Environment): { [id: string]: Scope } => {
 }
 
 export default (
-  newPackages: Unlinked<Package>[],
-  baseEnvironment: Environment = { kind: 'Environment', members: [], scope: {}, id: '' }
-): Environment => {
+  newPackages: List<Package<'Complete'>>,
+  baseEnvironment: Environment<'Linked'> = { kind: 'Environment', members: [], id: '' }
+): Environment<'Linked'> => {
 
-  const mergedEnvironment = { ...baseEnvironment, members: newPackages.reduce(mergePackage, baseEnvironment.members) } as Environment
+  const mergedEnvironment = {
+    ...baseEnvironment,
+    members: newPackages.reduce(mergePackage, baseEnvironment.members),
+  } as Environment<'Linked'>
 
   const identifiedEnvironment = utils(mergedEnvironment).transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const scopedEnvironment = utils(identifiedEnvironment).transform(node => ({ ...node, scope: scopes[node.id] }))(identifiedEnvironment)
+  // TODO: Don't assign scopes, just the Reference targets
+  const scopedEnvironment = utils(identifiedEnvironment).transform((node: Node<'Linked'>) =>
+    ({ ...node, scope: scopes[node.id] })
+  )(identifiedEnvironment)
 
   // TODO: Validate that all references have a target
 

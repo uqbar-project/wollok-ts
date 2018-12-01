@@ -1,28 +1,29 @@
 import { append, assoc, drop, lensPath as lens, over as change, path, pipe, prepend, reverse, set, view } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Assignment, Catch, Class, Constructor, Environment, Expression, Field, Id, Method, Module, Name, ObjectMember, Self, Sentence, Singleton, Test, Throw, Try } from './model'
+import { Assignment, Catch, Class, Constructor, Environment, Expression, Field, Id, List, Method, Module, Name, ObjectMember, Self, Sentence, Singleton, Test, Throw, Try } from './model'
 import utils from './utils'
 
 
-interface RuntimeScope { readonly [name: string]: Id }
+interface RuntimeScope { readonly [name: string]: Id<'Linked'> }
 
 interface RuntimeObject {
-  readonly id: Id
-  readonly module: Singleton | Class
+  readonly id: Id<'Linked'>
+  readonly module: Singleton<'Linked'> | Class<'Linked'>
   readonly attributes: RuntimeScope
   readonly innerValue?: any
 }
 
 interface Frame {
   readonly scope: RuntimeScope
-  readonly pending: ReadonlyArray<[Sentence, number]>
-  readonly referenceStack: ReadonlyArray<Id>
+  // TODO: Don't save the whole sentence, just the id?
+  readonly pending: List<[Sentence<'Linked'>, number]>
+  readonly referenceStack: List<Id<'Linked'>>
 }
 
 export interface Evaluation {
   readonly status: 'error' | 'running' | 'success'
-  readonly environment: Environment
-  readonly frameStack: ReadonlyArray<Frame>
+  readonly environment: Environment<'Linked'>
+  readonly frameStack: List<Frame>
   readonly instances: { readonly [id: string]: RuntimeObject }
 }
 
@@ -34,27 +35,29 @@ const FALSE_ID = 'false'
 // LOOKUP
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const methodLookup = (environment: Environment) => (name: Name, argumentCount: number, start: Module): Method | undefined => {
-  const { hierarchy } = utils(environment)
-  for (const module of hierarchy(start)) {
-    const found = (module.members as ReadonlyArray<ObjectMember>).find(member =>
-      // TODO: Varargs
-      member.kind === 'Method' && (!!member.body || member.isNative) && member.name === name && member.parameters.length === argumentCount
-    )
-    if (found) return found as Method
+const methodLookup = (environment: Environment<'Linked'>) =>
+  (name: Name, argumentCount: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
+    const { hierarchy } = utils(environment)
+    for (const module of hierarchy(start)) {
+      const found = (module.members as List<ObjectMember<'Linked'>>).find(member =>
+        // TODO: Varargs
+        member.kind === 'Method' && (!!member.body || member.isNative) && member.name === name && member.parameters.length === argumentCount
+      )
+      if (found) return found as Method<'Linked'>
+    }
+    return undefined
   }
-  return undefined
-}
 
-const constructorLookup = (argumentCount: number, owner: Class): Constructor | undefined => {
+const constructorLookup = (argumentCount: number, owner: Class<'Linked'>): Constructor<'Linked'> | undefined => {
   // TODO: Varargs
   const found = owner.members.find(member => member.kind === 'Constructor' && member.parameters.length === argumentCount)
-  return found ? found as Constructor : undefined
+  return found ? found as Constructor<'Linked'> : undefined
 }
 
 // TODO: On validator, check that all the chain is there
-const constructorCallChain = (environment: Environment) =>
-  (startingClass: Class, startingArguments: ReadonlyArray<Expression>): ReadonlyArray<[Constructor, ReadonlyArray<Expression>]> => {
+const constructorCallChain = (environment: Environment<'Linked'>) =>
+  (startingClass: Class<'Linked'>, startingArguments: List<Expression<'Linked'>>)
+    : List<[Constructor<'Linked'>, List<Expression<'Linked'>>]> => {
 
     const { superclass } = utils(environment)
 
@@ -85,11 +88,11 @@ type Instruction = (evaluation: Evaluation) => Evaluation
 
 
 const INSTANCES = lens<{ readonly [id: string]: RuntimeObject }, Evaluation>(['instances'])
-const FRAME_STACK = lens<ReadonlyArray<Frame>, Evaluation>(['frameStack'])
+const FRAME_STACK = lens<List<Frame>, Evaluation>(['frameStack'])
 const CURRENT_SCOPE = lens<RuntimeScope, Evaluation>(['frameStack', 0, 'scope'])
-const CURRENT_PENDING = lens<ReadonlyArray<[Sentence, number]>, Evaluation>(['frameStack', 0, 'pending'])
-const CURRENT_REFERENCE_STACK = lens<ReadonlyArray<Id>, Evaluation>(['frameStack', 0, 'referenceStack'])
-const CURRENT_TOP_REFERENCE = lens<Id, Evaluation>(['frameStack', 0, 'referenceStack', 0])
+const CURRENT_PENDING = lens<List<[Sentence<'Linked'>, number]>, Evaluation>(['frameStack', 0, 'pending'])
+const CURRENT_REFERENCE_STACK = lens<List<Id<'Linked'>>, Evaluation>(['frameStack', 0, 'referenceStack'])
+const CURRENT_TOP_REFERENCE = lens<Id<'Linked'>, Evaluation>(['frameStack', 0, 'referenceStack', 0])
 
 
 const STORE = (name: Name): Instruction => pipe(
@@ -111,18 +114,19 @@ const SET = (name: Name): Instruction => evaluation => {
 
 const POP_PENDING: Instruction = change(CURRENT_PENDING, pending => pending.slice(1))
 
-const PUSH_PENDING = (next: Sentence): Instruction => change(CURRENT_PENDING, pending => [[next, 0] as [Sentence, number], ...pending])
+const PUSH_PENDING = (next: Sentence<'Linked'>): Instruction =>
+  change(CURRENT_PENDING, pending => [[next, 0] as [Sentence<'Linked'>, number], ...pending])
 
 const INC_PC: Instruction =
-  change(CURRENT_PENDING, ([[sentence, pc], ...others]) => [[sentence, pc + 1] as [Sentence, number], ...others])
+  change(CURRENT_PENDING, ([[sentence, pc], ...others]) => [[sentence, pc + 1] as [Sentence<'Linked'>, number], ...others])
 
-const PUSH_REFERENCE = (next: Id): Instruction => change(CURRENT_REFERENCE_STACK, prepend(next))
+const PUSH_REFERENCE = (next: Id<'Linked'>): Instruction => change(CURRENT_REFERENCE_STACK, prepend(next))
 
 const POP_REFERENCE: Instruction = change(CURRENT_REFERENCE_STACK, drop(1))
 
-const PUSH_FRAME = (pending: ReadonlyArray<Sentence>): Instruction => evaluation => change(FRAME_STACK, prepend({
+const PUSH_FRAME = (pending: List<Sentence<'Linked'>>): Instruction => evaluation => change(FRAME_STACK, prepend({
   scope: view(CURRENT_SCOPE, evaluation),
-  pending: pending.map(sentence => [sentence, 0] as [Sentence, number]),
+  pending: pending.map(sentence => [sentence, 0] as [Sentence<'Linked'>, number]),
   referenceStack: [],
 }))(evaluation)
 
@@ -131,7 +135,7 @@ const POP_FRAME: Instruction = evaluation => pipe(
   change(CURRENT_REFERENCE_STACK, prepend(view(CURRENT_TOP_REFERENCE, evaluation)))
 )(evaluation)
 
-const INSTANTIATE = (module: Class, innerValue: any = undefined): Instruction => {
+const INSTANTIATE = (module: Class<'Linked'>, innerValue: any = undefined): Instruction => {
   const instance: RuntimeObject = { id: uuid(), module, attributes: {}, innerValue }
   return pipe(
     change(CURRENT_REFERENCE_STACK, prepend(instance.id)),
@@ -143,21 +147,21 @@ const INSTANTIATE = (module: Class, innerValue: any = undefined): Instruction =>
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const initialInstances = (environment: Environment): ReadonlyArray<RuntimeObject> => {
+const initialInstances = (environment: Environment<'Linked'>): List<RuntimeObject> => {
   const { descendants, resolve } = utils(environment)
 
   return [
-    { id: NULL_ID, module: resolve<Class>('wollok.lang.Object'), attributes: {} },
-    { id: TRUE_ID, module: resolve<Class>('wollok.lang.Boolean'), attributes: {} },
-    { id: FALSE_ID, module: resolve<Class>('wollok.lang.Boolean'), attributes: {} },
+    { id: NULL_ID, module: resolve<Class<'Linked'>>('wollok.lang.Object'), attributes: {} },
+    { id: TRUE_ID, module: resolve<Class<'Linked'>>('wollok.lang.Boolean'), attributes: {} },
+    { id: FALSE_ID, module: resolve<Class<'Linked'>>('wollok.lang.Boolean'), attributes: {} },
     ...descendants(environment)
-      .filter<Singleton>((node): node is Singleton => node.kind === 'Singleton')
+      .filter<Singleton<'Linked'>>((node): node is Singleton<'Linked'> => node.kind === 'Singleton')
       .map(module => ({ id: module.id, module, attributes: {} })), // TODO: Initialize attributes
   ]
 }
 
 
-const createEvaluationFor = (environment: Environment) => (node: Test): Evaluation => {
+const createEvaluationFor = (environment: Environment<'Linked'>) => (node: Test<'Linked'>): Evaluation => {
   const instances = initialInstances(environment).reduce((all, instance) => assoc(instance.id, instance, all), {})
   return {
     environment,
@@ -165,17 +169,17 @@ const createEvaluationFor = (environment: Environment) => (node: Test): Evaluati
     status: 'running',
     frameStack: [{
       scope: instances,
-      pending: node.body.sentences.map(sentence => [sentence, 0] as [Sentence, number]),
+      pending: node.body.sentences.map(sentence => [sentence, 0] as [Sentence<'Linked'>, number]),
       referenceStack: [],
     }],
   }
 }
 
-export default (environment: Environment) => ({
+export default (environment: Environment<'Linked'>) => ({
   runTests: () => {
     const { descendants } = utils(environment)
 
-    const tests = descendants(environment).filter<Test>((node): node is Test => node.kind === 'Test')
+    const tests = descendants(environment).filter<Test<'Linked'>>((node): node is Test<'Linked'> => node.kind === 'Test')
 
     return tests.map(test => {
       let evaluation = createEvaluationFor(environment)(test)
@@ -214,7 +218,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
     parentOf,
     hierarchy,
     inherits,
-    getNodeById,
+    resolve,
   } = utils(environment)
 
   if (status !== 'running') return evaluation
@@ -247,6 +251,13 @@ export const step = (evaluation: Evaluation): Evaluation => {
       }
 
     case 'Return':
+      if (!currentSentence.value) {
+        return pipe(
+          PUSH_REFERENCE(NULL_ID),
+          POP_FRAME,
+        )(evaluation)
+      }
+
       switch (pc) {
         case 0: return pipe(
           INC_PC,
@@ -310,14 +321,14 @@ export const step = (evaluation: Evaluation): Evaluation => {
       if (typeof currentSentence.value === 'number') return pipe(
         POP_PENDING,
         // TODO: Make this 'wollok.Number'
-        INSTANTIATE(getNodeById(currentSentence.scope.Number), currentSentence.value),
+        INSTANTIATE(resolve('wollok.lang.Number'), currentSentence.value),
       )(evaluation)
 
       // TODO: Add to instances
       if (typeof currentSentence.value === 'string') return pipe(
         POP_PENDING,
         // TODO: Make this 'wollok.String'
-        INSTANTIATE(getNodeById(currentSentence.scope.String), currentSentence.value),
+        INSTANTIATE(resolve('wollok.lang.String'), currentSentence.value),
       )(evaluation)
 
       if (currentSentence.value.kind === 'New') return pipe(
@@ -361,15 +372,12 @@ export const step = (evaluation: Evaluation): Evaluation => {
               kind: 'New',
               className: {
                 kind: 'Reference',
-                // TODO: Use proper path wollok...
                 name: 'MessageNotUnderstoodException',
-                scope: currentSentence.scope,
+                target: resolve('wollok.lang.MessageNotUnderstoodException').id,
               },
               args: [],
-              scope: currentSentence.scope,
             },
-            scope: currentSentence.scope,
-          } as unknown as Throw),
+          } as unknown as Throw<'Linked'>),
         ]).reduce(pipe)(evaluation)
 
     case 'Super':
@@ -382,7 +390,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
       const superMethod = methodLookup(environment)(
         currentMethod.name,
         currentSentence.args.length,
-        parentOf<Module>(currentMethod)
+        parentOf<Module<'Linked'>>(currentMethod)
       )
 
       return (superMethod
@@ -400,15 +408,12 @@ export const step = (evaluation: Evaluation): Evaluation => {
               kind: 'New',
               className: {
                 kind: 'Reference',
-                // TODO: Use proper path wollok...
                 name: 'MessageNotUnderstoodException',
-                scope: currentSentence.scope,
+                target: resolve('wollok.lang.MessageNotUnderstoodException').id,
               },
               args: [],
-              scope: currentSentence.scope,
             },
-            scope: currentSentence.scope,
-          } as unknown as Throw),
+          } as unknown as Throw<'Linked'>),
         ]).reduce(pipe)(evaluation)
 
     case 'New':
@@ -417,12 +422,12 @@ export const step = (evaluation: Evaluation): Evaluation => {
         PUSH_PENDING(currentSentence.args[pc]),
       )(evaluation)
 
-      const instantiatedClass = target<Class>(currentSentence.className)
+      const instantiatedClass = target<Class<'Linked'>>(currentSentence.className)
       const instantiatedClassHierarchy = hierarchy(instantiatedClass)
       const initializableFields = instantiatedClassHierarchy.reduce((fields, module) => [
-        ...(module.members as ObjectMember[]).filter(member => member.kind === 'Field' && !!member.value) as ReadonlyArray<Field>,
+        ...(module.members as ObjectMember<'Linked'>[]).filter(member => member.kind === 'Field' && !!member.value) as Field<'Linked'>[],
         ...fields,
-      ], [] as ReadonlyArray<Field>)
+      ], [] as Field<'Linked'>[])
 
       if (pc === currentSentence.args.length) return pipe(
         INC_PC,
@@ -430,11 +435,14 @@ export const step = (evaluation: Evaluation): Evaluation => {
           // TODO: We shouldn't create unlinked nodes like this...
           ...initializableFields.map(field => ({
             kind: 'Assignment',
-            reference: { kind: 'Reference', name: field.name, scope: field.scope },
+            reference: {
+              kind: 'Reference',
+              name: field.name,
+              target: field.id,
+            },
             value: field.value!,
-            scope: field.scope,
-          }) as Assignment),
-          { kind: 'Self' } as Self,
+          }) as Assignment<'Linked'>),
+          { kind: 'Self' } as Self<'Linked'>,
         ]),
         INSTANTIATE(instantiatedClass),
         STORE('self'),
@@ -480,7 +488,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
         case 1:
           const error = instances[referenceStack[0]]
           const tryIndex = evaluation.frameStack.findIndex(stack => {
-            const sentence = path<Sentence>(['pending', '0', '0'], stack)
+            const sentence = path<Sentence<'Linked'>>(['pending', '0', '0'], stack)
             return !!sentence && sentence.kind === 'Try' && sentence.catches.some(({ parameterType }) =>
               !parameterType || inherits(error.module, target(parameterType))
             )
@@ -488,8 +496,8 @@ export const step = (evaluation: Evaluation): Evaluation => {
 
           if (tryIndex < 0) return { ...evaluation, status: 'error' }
 
-          const tryNode: Try = evaluation.frameStack[tryIndex].pending[0][0] as Try
-          const catchNode: Catch = tryNode.catches.find(({ parameterType }) =>
+          const tryNode: Try<'Linked'> = evaluation.frameStack[tryIndex].pending[0][0] as Try<'Linked'>
+          const catchNode: Catch<'Linked'> = tryNode.catches.find(({ parameterType }) =>
             !parameterType || inherits(error.module, target(parameterType))
           )!
 

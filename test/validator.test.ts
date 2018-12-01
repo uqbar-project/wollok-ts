@@ -23,9 +23,9 @@ describe('Wollok Validations', () => {
         Package('p')(
           Singleton()(),
         ),
-      ])
+      ] as unknown as PackageNode<'Complete'>[])
       const { singletonIsNotUnnamed } = validations(environment)
-      const packageExample = environment.members[1] as PackageNode
+      const packageExample = environment.members[1] as PackageNode<'Linked'>
 
       assert.ok(!!singletonIsNotUnnamed(packageExample, 'unnamedSingleton')!)
     })
@@ -60,11 +60,11 @@ describe('Wollok Validations', () => {
           )(),
           Class('program')(),
         ),
-      ])
+      ] as unknown as PackageNode<'Complete'>[])
 
       const { nameIsNotKeyword } = validations(environment)
-      const packageExample = environment.members[1] as PackageNode
-      const classExample = packageExample.members[0] as ClassNode
+      const packageExample = environment.members[1] as PackageNode<'Linked'>
+      const classExample = packageExample.members[0] as ClassNode<'Linked'>
       const referenceExample = classExample.superclass!
 
       assert.ok(!!nameIsNotKeyword(referenceExample, 'isKeyWord')!)
@@ -80,11 +80,11 @@ describe('Wollok Validations', () => {
           Class('c')(),
           Class('C')(),
         ),
-      ])
+      ] as unknown as PackageNode<'Complete'>[])
 
-      const packageExample = environment.members[1] as PackageNode
-      const classExample = packageExample.members[0] as ClassNode
-      const classExample2 = packageExample.members[1] as ClassNode
+      const packageExample = environment.members[1] as PackageNode<'Linked'>
+      const classExample = packageExample.members[0] as ClassNode<'Linked'>
+      const classExample2 = packageExample.members[1] as ClassNode<'Linked'>
       const { nameIsPascalCase } = validations(environment)
 
       assert.ok(!!nameIsPascalCase(classExample, 'camelcaseName')!)
@@ -105,13 +105,13 @@ describe('Wollok Validations', () => {
               parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')],
             })()),
         ),
-      ])
+      ] as unknown as PackageNode<'Complete'>[])
 
       const { onlyLastParameterIsVarArg } = validations(environment)
 
-      const packageExample = environment.members[1] as PackageNode
-      const classExample = packageExample.members[0] as ClassNode
-      const methodExample = classExample.members[0] as MethodNode
+      const packageExample = environment.members[1] as PackageNode<'Linked'>
+      const classExample = packageExample.members[0] as ClassNode<'Linked'>
+      const methodExample = classExample.members[0] as MethodNode<'Linked'>
 
       assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg')!)
     })
@@ -129,15 +129,15 @@ describe('Wollok Validations', () => {
             Method('m')(Try([Reference('x')], {})),
           ),
         ),
-      ])
+      ] as unknown as PackageNode<'Complete'>[])
 
       const { hasCatchOrAlways } = validations(environment)
 
-      const packageExample = environment.members[1] as PackageNode
-      const classExample = packageExample.members[0] as ClassNode
-      const methodExample = classExample.members[0] as MethodNode
-      const bodyExample = methodExample.body as BodyNode
-      const tryExample = bodyExample.sentences[0] as TryNode
+      const packageExample = environment.members[1] as PackageNode<'Linked'>
+      const classExample = packageExample.members[0] as ClassNode<'Linked'>
+      const methodExample = classExample.members[0] as MethodNode<'Linked'>
+      const bodyExample = methodExample.body as BodyNode<'Linked'>
+      const tryExample = bodyExample.sentences[0] as TryNode<'Linked'>
 
       assert.ok(!!hasCatchOrAlways(tryExample, 'tryWithoutCatchOrAlways')!)
     })

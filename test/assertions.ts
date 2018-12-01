@@ -45,7 +45,7 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
   Assertion.addMethod('into', function(this: any, expected: any) {
     // TODO: Improve this, maybe with rambda?
     const unsourced = JSON.parse(JSON.stringify(this._obj, (k, v) => k === 'source' ? undefined : v))
-    new Assertion(unsourced).to.deep.equal(expected)
+    new Assertion(unsourced).to.deep.equal(JSON.parse(JSON.stringify(expected)))
   })
 
   Assertion.addMethod('tracedTo', function(this: any, start: number, end: number) {
