@@ -228,13 +228,6 @@ export const step = (evaluation: Evaluation): Evaluation => {
 
   switch (currentSentence.kind) {
     case 'Variable':
-      if (!currentSentence.value)
-        return pipe(
-          POP_PENDING,
-          PUSH_REFERENCE(NULL_ID),
-          STORE(currentSentence.name),
-        )(evaluation)
-
       switch (pc) {
         case 0: return pipe(
           INC_PC,
