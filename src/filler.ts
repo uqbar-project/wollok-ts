@@ -1,10 +1,32 @@
 import { BaseCall, Body, Catch, ClassMember, Constructor, Expression, List, Literal, Node, ObjectMember, Parameter, Reference, SuperCall } from './model'
 import { transform } from './utils'
 
-const OBJECT_CLASS: Reference<'Complete'> = { kind: 'Reference', id: undefined, target: undefined, name: 'wollok.lang.Object' }
-const EXCEPTION_CLASS: Reference<'Complete'> = { kind: 'Reference', id: undefined, target: undefined, name: 'wollok.lang.Exception' }
-const NULL: Literal<'Complete'> = { kind: 'Literal', id: undefined, value: null }
-const EMPTY_BODY: Body<'Complete'> = { kind: 'Body', id: undefined, sentences: [] }
+const OBJECT_CLASS: Reference<'Complete'> = {
+  kind: 'Reference',
+  id: undefined,
+  name: 'wollok.lang.Object',
+  target: undefined,
+}
+
+const EXCEPTION_CLASS: Reference<'Complete'> = {
+  kind: 'Reference',
+  id: undefined,
+  name: 'wollok.lang.Exception',
+  target: undefined,
+}
+
+const NULL: Literal<'Complete'> = {
+  kind: 'Literal',
+  id: undefined,
+  value: null,
+}
+
+const EMPTY_BODY: Body<'Complete'> = {
+  kind: 'Body',
+  id: undefined,
+  sentences: [],
+}
+
 const DEFAULT_CONSTRUCTOR: Constructor<'Complete'> = {
   kind: 'Constructor',
   id: undefined,
