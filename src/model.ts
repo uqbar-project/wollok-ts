@@ -35,7 +35,9 @@ export type Node<S extends Stage>
   | Environment<S>
 
 
-export interface BaseNode<K extends Kind, S extends Stage> {
+// TODO:
+// tslint:disable-next-line:interface-over-type-literal
+type BaseNode<K extends Kind, S extends Stage> = {
   readonly kind: K
   readonly id: Id<S>
   readonly source?: Source
@@ -45,17 +47,17 @@ export interface BaseNode<K extends Kind, S extends Stage> {
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export interface Parameter<S extends Stage> extends BaseNode<'Parameter', S> {
+export type Parameter<S extends Stage> = BaseNode<'Parameter', S> & {
   readonly name: Name
   readonly isVarArg: boolean
 }
 
-export interface Import<S extends Stage> extends BaseNode<'Import', S> {
+export type Import<S extends Stage> = BaseNode<'Import', S> & {
   readonly reference: Reference<S>
   readonly isGeneric: boolean
 }
 
-export interface Body<S extends Stage> extends BaseNode<'Body', S> {
+export type Body<S extends Stage> = BaseNode<'Body', S> & {
   readonly sentences: List<Sentence<S>>
 }
 
@@ -66,28 +68,28 @@ export interface Body<S extends Stage> extends BaseNode<'Body', S> {
 export type Entity<S extends Stage> = Package<S> | Program<S> | Test<S> | Describe<S> | Module<S>
 export type Module<S extends Stage> = Class<S> | Singleton<S> | Mixin<S>
 
-export interface Package<S extends Stage> extends BaseNode<'Package', S> {
+export type Package<S extends Stage> = BaseNode<'Package', S> & {
   readonly name: Name
   readonly imports: List<Import<S>>
   readonly members: List<Entity<S>>
 }
 
-export interface Program<S extends Stage> extends BaseNode<'Program', S> {
+export type Program<S extends Stage> = BaseNode<'Program', S> & {
   readonly name: Name
   readonly body: Body<S>
 }
 
-export interface Test<S extends Stage> extends BaseNode<'Test', S> {
+export type Test<S extends Stage> = BaseNode<'Test', S> & {
   readonly name: string
   readonly body: Body<S>
 }
 
-export interface Describe<S extends Stage> extends BaseNode<'Describe', S> {
+export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
   readonly name: string
   readonly members: List<Test<S>>
 }
 
-export interface Class<S extends Stage> extends BaseNode<'Class', S> {
+export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly name: Name
   readonly superclass: Fillable<Reference<S>, S>
   readonly mixins: List<Reference<S>>
@@ -95,15 +97,15 @@ export interface Class<S extends Stage> extends BaseNode<'Class', S> {
 }
 
 // TODO: Inline this in Singleton?
-interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> }
-export interface Singleton<S extends Stage> extends BaseNode<'Singleton', S> {
+export interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> }
+export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
   readonly name?: Name
   readonly superCall: Fillable<SuperCall<S>, S>
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
 }
 
-export interface Mixin<S extends Stage> extends BaseNode<'Mixin', S> {
+export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
   readonly name: Name
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
@@ -117,13 +119,13 @@ export interface Mixin<S extends Stage> extends BaseNode<'Mixin', S> {
 export type ObjectMember<S extends Stage> = Field<S> | Method<S>
 export type ClassMember<S extends Stage> = Constructor<S> | ObjectMember<S>
 
-export interface Field<S extends Stage> extends BaseNode<'Field', S> {
+export type Field<S extends Stage> = BaseNode<'Field', S> & {
   readonly name: Name
   readonly isReadOnly: boolean
   readonly value: Fillable<Expression<S>, S>
 }
 
-export interface Method<S extends Stage> extends BaseNode<'Method', S> {
+export type Method<S extends Stage> = BaseNode<'Method', S> & {
   readonly name: Name
   readonly isOverride: boolean
   readonly isNative: boolean
@@ -132,10 +134,10 @@ export interface Method<S extends Stage> extends BaseNode<'Method', S> {
 }
 
 // TODO: Inline this in Constructor?
-interface BaseCall<S extends Stage> { callsSuper: boolean, args: List<Expression<S>> }
-export interface Constructor<S extends Stage> extends BaseNode<'Constructor', S> {
+export interface BaseCall<S extends Stage> { callsSuper: boolean, args: List<Expression<S>> }
+export type Constructor<S extends Stage> = BaseNode<'Constructor', S> & {
   readonly parameters: List<Parameter<S>>
-  readonly baseCall?: Fillable<BaseCall<S>, S>
+  readonly baseCall: Fillable<BaseCall<S>, S>
   readonly body: Body<S>
 }
 
@@ -145,17 +147,17 @@ export interface Constructor<S extends Stage> extends BaseNode<'Constructor', S>
 
 export type Sentence<S extends Stage> = Variable<S> | Return<S> | Assignment<S> | Expression<S>
 
-export interface Variable<S extends Stage> extends BaseNode<'Variable', S> {
+export type Variable<S extends Stage> = BaseNode<'Variable', S> & {
   readonly name: Name
   readonly isReadOnly: boolean
   readonly value: Fillable<Expression<S>, S>
 }
 
-export interface Return<S extends Stage> extends BaseNode<'Return', S> {
+export type Return<S extends Stage> = BaseNode<'Return', S> & {
   readonly value: Expression<S> | null
 }
 
-export interface Assignment<S extends Stage> extends BaseNode<'Assignment', S> {
+export type Assignment<S extends Stage> = BaseNode<'Assignment', S> & {
   readonly reference: Reference<S>
   readonly value: Expression<S>
 }
@@ -175,55 +177,50 @@ export type Expression<S extends Stage>
   | Throw<S>
   | Try<S>
 
-export interface Reference<S extends Stage> extends BaseNode<'Reference', S> {
+export type Reference<S extends Stage> = BaseNode<'Reference', S> & {
   readonly name: Name
-  // readonly target: Id<S>
+  readonly target: Id<S>
 }
 
-type RR<S extends Stage> = BaseNode<'Reference', S> & {
-  name: Name
-  x?: RR<S>
-}
-
-export interface Self<S extends Stage> extends BaseNode<'Self', S> { }
+export type Self<S extends Stage> = BaseNode<'Self', S> & {}
 
 export type LiteralValue<S extends Stage> = number | string | boolean | null | New<S> | Singleton<S>
-export interface Literal<S extends Stage, T extends LiteralValue<S> = LiteralValue<S>> extends BaseNode<'Literal', S> {
+export type Literal<S extends Stage, T extends LiteralValue<S> = LiteralValue<S>> = BaseNode<'Literal', S> & {
   readonly value: T
 }
 
-export interface Send<S extends Stage> extends BaseNode<'Send', S> {
+export type Send<S extends Stage> = BaseNode<'Send', S> & {
   readonly receiver: Expression<S>
   readonly message: Name
   readonly args: List<Expression<S>>
 }
 
-export interface Super<S extends Stage> extends BaseNode<'Super', S> {
+export type Super<S extends Stage> = BaseNode<'Super', S> & {
   readonly args: List<Expression<S>>
 }
 
-export interface New<S extends Stage> extends BaseNode<'New', S> {
+export type New<S extends Stage> = BaseNode<'New', S> & {
   readonly className: Reference<S>
   readonly args: List<Expression<S>>
 }
 
-export interface If<S extends Stage> extends BaseNode<'If', S> {
+export type If<S extends Stage> = BaseNode<'If', S> & {
   readonly condition: Expression<S>
   readonly thenBody: Body<S>
   readonly elseBody: Fillable<Body<S>, S>
 }
 
-export interface Throw<S extends Stage> extends BaseNode<'Throw', S> {
+export type Throw<S extends Stage> = BaseNode<'Throw', S> & {
   readonly arg: Expression<S>
 }
 
-export interface Try<S extends Stage> extends BaseNode<'Try', S> {
+export type Try<S extends Stage> = BaseNode<'Try', S> & {
   readonly body: Body<S>
   readonly catches: List<Catch<S>>
   readonly always: Fillable<Body<S>, S>
 }
 
-export interface Catch<S extends Stage> extends BaseNode<'Catch', S> {
+export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
   readonly parameter: Parameter<S>
   readonly parameterType: Fillable<Reference<S>, S>
   readonly body: Body<S>
@@ -234,7 +231,7 @@ export interface Catch<S extends Stage> extends BaseNode<'Catch', S> {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 // TODO: Can't we just use a package node here?
-export interface Environment<S extends Stage> extends BaseNode<'Environment', S> {
+export type Environment<S extends Stage> = BaseNode<'Environment', S> & {
   readonly members: List<Package<S>>
 }
 
@@ -242,7 +239,7 @@ export interface Environment<S extends Stage> extends BaseNode<'Environment', S>
 // TYPE GUARDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = (obj: any): obj is Node<Stage> => obj && obj.kind
+export const isNode = <S extends Stage>(obj: any): obj is Node<S> => obj && obj.kind
 
 export const isEntity = (obj: any): obj is Entity<Stage> => isNode(obj) &&
   ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)

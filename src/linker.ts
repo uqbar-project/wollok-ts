@@ -163,14 +163,14 @@ export default (
   } as Environment<'Linked'>
 
   const identifiedEnvironment = utils(mergedEnvironment)
-    .transform(node => ({ ...node, id: node.id || uuid() }))<'Environment'>(mergedEnvironment)
+    .transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
   // TODO: Don't assign scopes, just the Reference targets
   const scopedEnvironment = utils(identifiedEnvironment).transform((node: Node<'Linked'>) =>
     ({ ...node, scope: scopes[node.id] })
-  )<'Environment'>(identifiedEnvironment)
+  )(identifiedEnvironment)
 
   // TODO: Validate that all references have a target
 

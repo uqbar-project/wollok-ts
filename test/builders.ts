@@ -121,6 +121,7 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<'Raw
 export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<'Raw'>>>) =>
   (...sentences: Sentence<'Raw'>[]) => makeNode('Constructor')({
     body: makeNode('Body')({ sentences }),
+    baseCall: undefined,
     parameters: [],
     ...payload,
   })

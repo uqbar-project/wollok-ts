@@ -6,14 +6,10 @@ const { isArray } = Array
 // TODO: Test all this
 // TODO: Review types (particulary regarding Stages)
 
-export const transform = <S extends Stage = Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
-  <
-    K extends Kind,
-    N extends NodeOfKind<Kind, S> = NodeOfKind<K, S>,
-    U extends NodeOfKind<K, R> = NodeOfKind<K, R>
-  >(node: N): U => {
+export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
+  <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
     const applyTransform = (obj: any): any =>
-      isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
+      isNode<S>(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
         isArray(obj) ? obj.map(applyTransform) :
           obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
             obj
@@ -23,14 +19,14 @@ export const transform = <S extends Stage = Stage, R extends Stage = S>(tx: (nod
 
 export default <S extends Stage>(environment: Environment<S>) => {
   // TODO: Take this out of utils object?
-  const reduce = <T>(tx: (acum: T, node: Node<Stage>) => T) => (initial: T, node: Node<Stage>): T =>
+  const reduce = <T>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
     children(node).reduce(reduce(tx), tx(initial, node))
 
 
   const children = memoizeWith(({ id }) => environment.id + id)(
-    <NS extends Stage>(node: Node<NS>): List<Node<NS>> => {
-      const extractChildren = (obj: any): List<Node<NS>> => {
-        if (isNode(obj)) return [obj]
+    (node: Node<S>): List<Node<S>> => {
+      const extractChildren = (obj: any): List<Node<S>> => {
+        if (isNode<S>(obj)) return [obj]
         if (isArray(obj)) return flatMap(extractChildren)(obj)
         if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
         return []
@@ -91,7 +87,8 @@ export default <S extends Stage>(environment: Environment<S>) => {
   const resolve = memoizeWith(({ id }) => environment.id + id)(
     <T extends Entity<'Linked'>>(fullyQualifiedName: string): S extends 'Linked' ? T : never =>
       fullyQualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
-        const next = children(current).find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)!
+        const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
+        const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)!
         if (!next) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
         return next
       }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
