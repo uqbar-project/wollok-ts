@@ -5,19 +5,24 @@ const { isArray } = Array
 
 // TODO: Test all this
 // TODO: Review types (particulary regarding Stages)
-export default <S extends Stage>(environment: Environment<S>) => {
 
-  const transform = (tx: (node: Node<Stage>) => Node<Stage>) => <T extends Node<Stage>, U extends T>(node: T): U => {
+export const transform = <S extends Stage = Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
+  <
+    K extends Kind,
+    N extends NodeOfKind<Kind, S> = NodeOfKind<K, S>,
+    U extends NodeOfKind<K, R> = NodeOfKind<K, R>
+  >(node: N): U => {
     const applyTransform = (obj: any): any =>
       isNode(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
         isArray(obj) ? obj.map(applyTransform) :
           obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
             obj
 
-    return applyTransform(node) as U
+    return applyTransform(node)
   }
 
-
+export default <S extends Stage>(environment: Environment<S>) => {
+  // TODO: Take this out of utils object?
   const reduce = <T>(tx: (acum: T, node: Node<Stage>) => T) => (initial: T, node: Node<Stage>): T =>
     children(node).reduce(reduce(tx), tx(initial, node))
 

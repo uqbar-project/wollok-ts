@@ -162,14 +162,15 @@ export default (
     members: newPackages.reduce(mergePackage, baseEnvironment.members),
   } as Environment<'Linked'>
 
-  const identifiedEnvironment = utils(mergedEnvironment).transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
+  const identifiedEnvironment = utils(mergedEnvironment)
+    .transform(node => ({ ...node, id: node.id || uuid() }))<'Environment'>(mergedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
   // TODO: Don't assign scopes, just the Reference targets
   const scopedEnvironment = utils(identifiedEnvironment).transform((node: Node<'Linked'>) =>
     ({ ...node, scope: scopes[node.id] })
-  )(identifiedEnvironment)
+  )<'Environment'>(identifiedEnvironment)
 
   // TODO: Validate that all references have a target
 
