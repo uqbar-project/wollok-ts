@@ -1,4 +1,4 @@
-import { BaseCall, Body, Catch, ClassMember, Constructor, Expression, List, Literal, Node, ObjectMember, Parameter, Reference, SuperCall } from './model'
+import { Body, Catch, Class, Constructor, Expression, If, Literal, Node, Reference, Singleton, Try } from './model'
 import { transform } from './utils'
 
 const OBJECT_CLASS: Reference<'Complete'> = {
@@ -39,62 +39,63 @@ export default transform((node: Node<'Raw'>): Node<'Complete'> => {
 
   switch (node.kind) {
 
-    case 'Class': return {
-      ...node,
-      superclass: node.superclass || OBJECT_CLASS,
-      members: node.members.some(member => member.kind === 'Constructor')
-        ? node.members as List<ClassMember<'Complete'>>
-        : [DEFAULT_CONSTRUCTOR, ...node.members as List<ClassMember<'Complete'>>],
-    }
+    case 'Class':
+      const transformedClass = node as Class<'Complete'>
+      return {
+        ...transformedClass,
+        superclass: node.superclass || OBJECT_CLASS,
+        members: node.members.some(member => member.kind === 'Constructor')
+          ? transformedClass.members
+          : [DEFAULT_CONSTRUCTOR, ...transformedClass.members],
+      }
 
-    case 'Singleton': return {
-      ...node,
-      superCall: node.superCall as unknown as SuperCall<'Complete'> || {
-        superclass: OBJECT_CLASS,
-        args: [],
-      },
-      members: node.members as List<ObjectMember<'Complete'>>,
-    }
+    case 'Singleton':
+      const transformedSingleton = node as unknown as Singleton<'Complete'>
+      return {
+        ...transformedSingleton,
+        superCall: node.superCall ? transformedSingleton.superCall : {
+          superclass: OBJECT_CLASS,
+          args: [],
+        },
+      }
 
     case 'Field': return {
       ...node,
       value: node.value as Expression<'Complete'> || NULL,
     }
 
-    case 'Constructor': return {
-      ...node,
-      baseCall: node.baseCall as unknown as BaseCall<'Complete'> || DEFAULT_CONSTRUCTOR.baseCall,
-      parameters: node.parameters as List<Parameter<'Complete'>>,
-      body: node.body as Body<'Complete'>,
-    }
+    case 'Constructor':
+      const transformedConstructor = node as unknown as Constructor<'Complete'>
+      return {
+        ...transformedConstructor,
+        baseCall: node.baseCall ? transformedConstructor.baseCall : DEFAULT_CONSTRUCTOR.baseCall,
+      }
 
     case 'Variable': return {
       ...node,
       value: node.value as unknown as Expression<'Complete'> || NULL,
     }
 
-    case 'If': return {
-      ...node,
-      elseBody: node.elseBody as Body<'Complete'> || EMPTY_BODY,
-      condition: node.condition as Expression<'Complete'>,
-      thenBody: node.thenBody as Body<'Complete'>,
-    }
+    case 'If':
+      const transformedIf = node as unknown as If<'Complete'>
+      return {
+        ...transformedIf,
+        elseBody: node.elseBody as Body<'Complete'> || EMPTY_BODY,
+      }
 
-    case 'Try': return {
-      ...node,
-      body: node.body as Body<'Complete'>,
-      catches: node.catches as List<Catch<'Complete'>>,
-      always: node.always as Body<'Complete'> || EMPTY_BODY,
-    }
+    case 'Try':
+      const transformedTry = node as unknown as Try<'Complete'>
+      return {
+        ...transformedTry,
+        always: node.always as Body<'Complete'> || EMPTY_BODY,
+      }
 
-    case 'Catch': return {
-      ...node,
-      parameterType: EXCEPTION_CLASS,
-      body: node.body as Body<'Complete'>,
-      parameter: node.parameter as Parameter<'Complete'>,
-    }
-
-    case 'Self': return node
+    case 'Catch':
+      const transformedCatch = node as unknown as Catch<'Complete'>
+      return {
+        ...transformedCatch,
+        parameterType: node.parameterType ? transformedCatch.parameterType : EXCEPTION_CLASS,
+      }
 
     default: return node as Node<'Complete'>
   }
