@@ -3,6 +3,7 @@ import { Index } from 'parsimmon'
 export type Stage = 'Raw' | 'Complete' | 'Linked'
 
 export type Kind = Node<Stage>['kind']
+export type KindOf<N extends Node<Stage>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
 

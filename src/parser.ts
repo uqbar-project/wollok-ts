@@ -317,9 +317,7 @@ export const If: Parser<IfNode<'Raw'>> = lazy(() =>
     node('If')({
       condition: Expression.wrap(key('('), key(')')),
       thenBody: alt(Body, SingleExpressionBody),
-      elseBody: key('else')
-        .then(alt(Body, SingleExpressionBody))
-        .or(node('Body')({ sentences: of([]) }).thru(sourced)),
+      elseBody: optional(key('else').then(alt(Body, SingleExpressionBody))),
     })
   ).thru(sourced)
 )
@@ -334,9 +332,9 @@ export const Try: Parser<TryNode<'Raw'>> = lazy(() =>
   key('try').then(node('Try')({
     body: alt(Body, SingleExpressionBody),
     catches: Catch.many(),
-    always: key('then always').then(
+    always: optional(key('then always').then(
       alt(Body, SingleExpressionBody)
-    ).or(node('Body')({ sentences: of([]) }).thru(sourced)),
+    )),
   })).thru(sourced)
 )
 

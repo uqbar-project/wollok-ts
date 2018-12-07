@@ -5,7 +5,7 @@ import { NodePayload } from '../src/parser'
 const { keys } = Object
 
 const makeNode = <K extends Kind, N extends NodeOfKind<K, 'Raw'>>(kind: K) => (payload: NodePayload<N>): N =>
-  merge(payload, { kind }) as any
+  merge(payload, { kind, id: undefined }) as any
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -161,10 +161,10 @@ export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'
 
 export const If = (condition: Expression<'Raw'>,
                    thenBody: List<Sentence<'Raw'>>,
-                   elseBody: List<Sentence<'Raw'>> = []) => makeNode('If')({
+                   elseBody?: List<Sentence<'Raw'>>) => makeNode('If')({
     condition,
     thenBody: makeNode('Body')({ sentences: thenBody }),
-    elseBody: makeNode('Body')({ sentences: elseBody }),
+    elseBody: elseBody && makeNode('Body')({ sentences: elseBody }),
   })
 
 export const Throw = (arg: Expression<'Raw'>) => makeNode('Throw')({ arg })
@@ -176,7 +176,7 @@ export const Try = (sentences: List<Sentence<'Raw'>>, payload: {
   makeNode('Try')({
     body: makeNode('Body')({ sentences }),
     catches: payload.catches || [],
-    always: makeNode('Body')({ sentences: payload.always || [] }),
+    always: payload.always && makeNode('Body')({ sentences: payload.always }),
   })
 
 export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePayload<CatchNode<'Raw'>>>) =>

@@ -1,5 +1,5 @@
-import { chain as flatMap, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Entity, Environment, Id, isEntity, isNode, Kind, List, Module, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
+import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
+import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 
@@ -10,6 +10,20 @@ export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<
   <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
     const applyTransform = (obj: any): any =>
       isNode<S>(obj) ? mapObjIndexed(applyTransform, tx(obj) as any) :
+        isArray(obj) ? obj.map(applyTransform) :
+          obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
+            obj
+
+    return applyTransform(node)
+  }
+
+export const transformByKind = <S extends Stage, R extends Stage = S>(
+  tx: { [K in Kind]?: (after: NodeOfKind<K, R>, before: NodeOfKind<K, S>) => NodeOfKind<K, R> },
+  defaultTx: (transformed: Node<R>, node: Node<S>) => Node<R> = identity,
+) =>
+  <N extends Node<S>, K extends KindOf<N> = KindOf<N>>(node: N): NodeOfKind<K, R> => {
+    const applyTransform = (obj: any): any =>
+      isNode<S>(obj) ? (tx[obj.kind] || defaultTx as any)(obj, mapObjIndexed(applyTransform, obj as any)) :
         isArray(obj) ? obj.map(applyTransform) :
           obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
             obj
