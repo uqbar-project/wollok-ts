@@ -23,7 +23,7 @@ describe('Wollok Validations', () => {
         Package('p')(
           Singleton()(),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
       const { singletonIsNotUnnamed } = validations(environment)
       const packageExample = environment.members[1] as PackageNode<'Linked'>
 
@@ -60,7 +60,7 @@ describe('Wollok Validations', () => {
           )(),
           Class('program')(),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const { nameIsNotKeyword } = validations(environment)
       const packageExample = environment.members[1] as PackageNode<'Linked'>
@@ -80,7 +80,7 @@ describe('Wollok Validations', () => {
           Class('c')(),
           Class('C')(),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const packageExample = environment.members[1] as PackageNode<'Linked'>
       const classExample = packageExample.members[0] as ClassNode<'Linked'>
@@ -105,7 +105,7 @@ describe('Wollok Validations', () => {
               parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')],
             })()),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const { onlyLastParameterIsVarArg } = validations(environment)
 
@@ -129,7 +129,7 @@ describe('Wollok Validations', () => {
             Method('m')(Try([Reference('x')], {})),
           ),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const { hasCatchOrAlways } = validations(environment)
 

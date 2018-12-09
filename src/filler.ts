@@ -1,33 +1,33 @@
 import { Body, Constructor, Literal, Reference } from './model'
 import { transformByKind } from './utils'
 
-const OBJECT_CLASS: Reference<'Complete'> = {
+const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
   name: 'wollok.lang.Object',
   target: undefined,
 }
 
-const EXCEPTION_CLASS: Reference<'Complete'> = {
+const EXCEPTION_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
   name: 'wollok.lang.Exception',
   target: undefined,
 }
 
-const NULL: Literal<'Complete'> = {
+const NULL: Literal<'Filled'> = {
   kind: 'Literal',
   id: undefined,
   value: null,
 }
 
-const EMPTY_BODY: Body<'Complete'> = {
+const EMPTY_BODY: Body<'Filled'> = {
   kind: 'Body',
   id: undefined,
   sentences: [],
 }
 
-const DEFAULT_CONSTRUCTOR: Constructor<'Complete'> = {
+const DEFAULT_CONSTRUCTOR: Constructor<'Filled'> = {
   kind: 'Constructor',
   id: undefined,
   parameters: [],
@@ -35,7 +35,7 @@ const DEFAULT_CONSTRUCTOR: Constructor<'Complete'> = {
   body: EMPTY_BODY,
 }
 
-export default transformByKind<'Raw', 'Complete'>({
+export default transformByKind<'Raw', 'Filled'>({
   Class: (transformed, node) => ({
     ...transformed,
     superclass: node.superclass ? transformed.superclass : OBJECT_CLASS,

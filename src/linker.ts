@@ -6,13 +6,13 @@ import { Class, Entity, Environment, Id, isModule, List, Module, Node, Package, 
 import utils from './utils'
 
 const mergePackage = (
-  members: List<Entity<'Complete' | 'Linked'>>,
-  isolated: Entity<'Complete'>
-): List<Entity<'Complete' | 'Linked'>> => {
+  members: List<Entity<'Filled' | 'Linked'>>,
+  isolated: Entity<'Filled'>
+): List<Entity<'Filled' | 'Linked'>> => {
 
   if (isolated.kind !== 'Package') return [...members, isolated]
 
-  const existent = members.find((member): member is Package<'Complete' | 'Linked'> =>
+  const existent = members.find((member): member is Package<'Filled' | 'Linked'> =>
     member.kind === 'Package' && member.name === isolated.name
   )
 
@@ -153,7 +153,7 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
 }
 
 export default (
-  newPackages: List<Package<'Complete'>>,
+  newPackages: List<Package<'Filled'>>,
   baseEnvironment: Environment<'Linked'> = { kind: 'Environment', members: [], id: '' }
 ): Environment<'Linked'> => {
 

@@ -11,7 +11,7 @@ const WRE = Package('wollok')(
     Class('Object')(),
     Class('Closure')()
   )
-) as unknown as PackageNode<'Complete'>
+) as unknown as PackageNode<'Filled'>
 
 describe('Wollok interpreter', () => {
 

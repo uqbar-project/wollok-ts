@@ -174,7 +174,9 @@ export const Singleton: Parser<SingletonNode<'Raw'>> = lazy(() => {
 
       of({ mixins: [] }),
     ),
+
     ObjectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
+
     ({ name, superCall, mixins }, members) => ({ kind: 'Singleton' as 'Singleton', id: undefined, name, superCall, mixins, members })
   )).thru(sourced)
 })
@@ -332,9 +334,7 @@ export const Try: Parser<TryNode<'Raw'>> = lazy(() =>
   key('try').then(node('Try')({
     body: alt(Body, SingleExpressionBody),
     catches: Catch.many(),
-    always: optional(key('then always').then(
-      alt(Body, SingleExpressionBody)
-    )),
+    always: optional(key('then always').then(alt(Body, SingleExpressionBody))),
   })).thru(sourced)
 )
 

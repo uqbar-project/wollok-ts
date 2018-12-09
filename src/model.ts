@@ -1,6 +1,6 @@
 import { Index } from 'parsimmon'
 
-export type Stage = 'Raw' | 'Complete' | 'Linked'
+export type Stage = 'Raw' | 'Filled' | 'Linked'
 
 export type Kind = Node<Stage>['kind']
 export type KindOf<N extends Node<Stage>> = N['kind']
@@ -11,7 +11,7 @@ export type Name = string
 
 export type Id<S extends Stage> = S extends 'Linked' ? string : string | undefined
 
-export type Fillable<T, S extends Stage> = S extends 'Complete' | 'Linked' ? T : T | undefined
+export type Fillable<T, S extends Stage> = S extends 'Filled' | 'Linked' ? T : T | undefined
 
 export type List<T> = ReadonlyArray<T>
 

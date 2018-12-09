@@ -61,12 +61,12 @@ const updateTests = async () => {
 const runAll = async () => {
 
   const wreSource = readFileSync(WRE_PATH, 'utf8')
-  const wre: Package<'Complete'> = {
+  const wre: Package<'Filled'> = {
     kind: 'Package',
     id: undefined,
     name: 'wollok',
     imports: [],
-    members: [File('lang').tryParse(wreSource) as unknown as Package<'Complete'>],
+    members: [File('lang').tryParse(wreSource) as unknown as Package<'Filled'>],
   }
 
   if (!process.argv.includes('--skip-update')) await updateTests()
@@ -75,7 +75,7 @@ const runAll = async () => {
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
 
-  const x = testNodes[0] as unknown as Package<'Complete'>
+  const x = testNodes[0] as unknown as Package<'Filled'>
 
   // tslint:disable:no-console
   console.time(`Linking ${x.name}`)

@@ -22,7 +22,7 @@ const WRE = Package('wollok')(
     Class('Object')(),
     Class('Closure')()
   )
-) as unknown as PackageNode<'Complete'>
+) as unknown as PackageNode<'Filled'>
 
 const WREScope = (environment: Environment<'Linked'>): Scope => {
   const { resolve } = utils(environment)
@@ -47,7 +47,7 @@ describe('Wollok linker', () => {
       Package('C')(
         Class('B')(),
       ),
-    ] as unknown as PackageNode<'Complete'>[])).should.deep.equal(dropLinkedFields(
+    ] as unknown as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
       {
         kind: 'Environment',
         id: undefined,
@@ -78,7 +78,7 @@ describe('Wollok linker', () => {
       Package('B')(
         Class('X')()
       ),
-    ] as unknown as PackageNode<'Complete'>[])).should.deep.equal(dropLinkedFields(
+    ] as unknown as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
       {
         kind: 'Environment',
         id: undefined,
@@ -114,7 +114,7 @@ describe('Wollok linker', () => {
           ),
         ),
       ),
-    ] as unknown as PackageNode<'Complete'>[])).should.deep.equal(dropLinkedFields(
+    ] as unknown as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
       {
         kind: 'Environment',
         id: undefined,
@@ -145,7 +145,7 @@ describe('Wollok linker', () => {
           Mixin('M')()
         ),
       ),
-    ] as unknown as PackageNode<'Complete'>[])
+    ] as unknown as PackageNode<'Filled'>[])
 
     const { descendants } = utils(environment)
 
@@ -166,7 +166,7 @@ describe('Wollok linker', () => {
             Mixin('M')()
           )
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const p = environment.members[1] as PackageNode<'Linked'>
       const C = p.members[0] as ClassNode<'Linked'>
@@ -191,7 +191,7 @@ describe('Wollok linker', () => {
             Mixin('M')()
           )
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const p = environment.members[1] as PackageNode<'Linked'>
       const q = p.members[0] as PackageNode<'Linked'>
@@ -222,7 +222,7 @@ describe('Wollok linker', () => {
             )
           ),
         ),
-      ] as unknown as PackageNode<'Complete'>[])
+      ] as unknown as PackageNode<'Filled'>[])
 
       const p = environment.members[1] as PackageNode<'Linked'>
       const S = p.members[0] as SingletonNode<'Linked'>
