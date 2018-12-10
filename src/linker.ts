@@ -5,10 +5,7 @@ import utils, { transform, transformByKind } from './utils'
 
 export interface Scope { readonly [name: string]: string }
 
-const mergePackage = (
-  members: List<Entity<'Filled' | 'Linked'>>,
-  isolated: Entity<'Filled'>
-): List<Entity<'Filled' | 'Linked'>> => {
+const mergePackage = (members: List<Entity<'Filled' | 'Linked'>>, isolated: Entity<'Filled'>): List<Entity<'Filled' | 'Linked'>> => {
 
   if (isolated.kind !== 'Package') return [...members, isolated]
 
@@ -16,10 +13,12 @@ const mergePackage = (
     member.kind === 'Package' && member.name === isolated.name
   )
 
-  return existent ? [
-    ...members.filter(member => member !== existent),
-    { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
-  ] : [...members, isolated]
+  return existent
+    ? [
+      ...members.filter(member => member !== existent),
+      { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
+    ]
+    : [...members, isolated]
 }
 
 const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope } => {
@@ -182,13 +181,14 @@ export default (
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const scopedEnvironment = transformByKind<'Linked'>({
+  const linkedEnvironment = transformByKind<'Linked'>({
     Reference: node => {
       const target = scopes[node.id][node.name]
+      // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
       return { ...node, target }
     },
   })(identifiedEnvironment)
 
-  return { ...scopedEnvironment, id: uuid() }
+  return { ...linkedEnvironment, id: uuid() }
 }

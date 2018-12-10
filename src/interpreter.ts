@@ -8,7 +8,7 @@ interface RuntimeScope { readonly [name: string]: Id<'Linked'> }
 
 interface RuntimeObject {
   readonly id: Id<'Linked'>
-  readonly module: Singleton<'Linked'> | Class<'Linked'>
+  readonly module: Module<'Linked'>
   readonly attributes: RuntimeScope
   readonly innerValue?: any
 }
