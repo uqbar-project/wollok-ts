@@ -7,12 +7,12 @@ should()
 describe('Wollok filler', () => {
 
   it('fills in wollok.lang.Object as default superclass for Classes', () => {
-    fill(Class('C')()).superclass.should.deep.equal(
+    fill(Class('C')()).superclass!.should.deep.equal(
       Reference('wollok.lang.Object')
     )
 
     const superclass = Reference('foo')
-    fill(Class('C', { superclass })()).superclass.should.deep.equal(superclass)
+    fill(Class('C', { superclass })()).superclass!.should.deep.equal(superclass)
   })
 
   it('fills in default constructor for classes with no constructor', () => {
