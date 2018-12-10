@@ -1,9 +1,11 @@
 // TODO: Maybe we should map all references to fully qualyfied ones ?
 
-import { memoizeWith, merge } from 'ramda'
+import { assoc, memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Class, Entity, Environment, Id, isModule, List, Module, Node, Package, Scope } from './model'
-import utils from './utils'
+import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'
+import utils, { transform, transformByKind } from './utils'
+
+export interface Scope { readonly [name: string]: string }
 
 const mergePackage = (
   members: List<Entity<'Filled' | 'Linked'>>,
@@ -43,25 +45,36 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
 
   function ancestors(module: Module<'Linked'>): List<Module<'Linked'>> {
     const scope = getScope(module.id)
-    const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
 
+    // TODO: avoid let
+    let superclassId
     let superclass
 
     switch (module.kind) {
       case 'Class':
-        superclass = module.superclass
-          ? getNodeById<Module<'Linked'>>(scope[module.superclass.name])
-          : ObjectClass
+        if (!module.superclass) return [...module.mixins.map(m => getNodeById<Module<'Linked'>>(scope[m.name]))]
+
+        superclassId = scope[module.superclass.name]
+        if (!superclassId) throw new Error(
+          `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
+        )
+        // TODO: receive error message on getNodeById?
+        superclass = getNodeById<Module<'Linked'>>(superclassId)
 
         return [
-          ...superclass === module ? [] : [superclass, ...ancestors(superclass)],
+          superclass,
+          ...ancestors(superclass),
           ...module.mixins.map(m => getNodeById<Module<'Linked'>>(scope[m.name])),
         ]
 
       case 'Singleton':
-        superclass = module.superCall
-          ? getNodeById<Module<'Linked'>>(scope[module.superCall.superclass.name])
-          : ObjectClass
+        superclassId = scope[module.superCall.superclass.name]
+        if (!superclassId)
+          throw new Error(
+            `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
+          )
+        // TODO: receive error message on getNodeById?
+        superclass = getNodeById<Module<'Linked'>>(superclassId)
 
         return [
           ...[superclass, ...ancestors(superclass)],
@@ -73,40 +86,38 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
     }
   }
 
-  // TODO: Memoize?
   const innerContributionFrom = memoizeWith(({ id }) => id)(
-    (node: Node<'Linked'>): Scope => {
-      return [
-        ...isModule(node)
-          ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
-          : [],
-        ...[node, ...children(node)].map(c => outerContributionFrom(c)),
-      ].reduce(merge)
-    }
+    (node: Node<'Linked'>): Scope => [
+      ...isModule(node)
+        ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
+        : [],
+      ...[node, ...children(node)].map(c => outerContributionFrom(c)),
+    ].reduce(merge)
   )
 
-  // TODO: Memoize?
   const outerContributionFrom = memoizeWith(({ id }) => id)(
     (contributor: Node<'Linked'>): Scope => {
       switch (contributor.kind) {
-        // TODO: Resolve fully qualified names
         case 'Import':
-          const referencedId = getScope(contributor.id)[contributor.reference.name]
-          const referenced = getNodeById(referencedId)
-          return contributor.isGeneric
-            ? children(referenced)
-              .map(child => ({ [(child as Entity<'Linked'>).name || '']: child.id }))
-              .reduce(merge)
-            : { [(referenced as Entity<'Linked'>).name || '']: referenced.id }
-        case 'Package':
-          const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')
-          const globalContributions: Scope = contributor.name === 'wollok'
-            ? children(langPackage!).map(outerContributionFrom).reduce(merge)
-            : {}
+          const referenced = resolve(contributor.reference.name)
           return {
-            [contributor.name]: contributor.id,
-            ...globalContributions,
+            [contributor.reference.name]: referenced.id,
+            ...contributor.isGeneric
+              ? children<Entity<'Linked'>>(referenced).reduce((scope, child) => assoc(child.name || '', child.id, scope), {})
+              : { [referenced.name!]: referenced.id },
           }
+
+        case 'Package':
+          if (contributor.name === 'wollok') {
+            const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')!
+            const globalContributions = children(langPackage).map(outerContributionFrom).reduce(merge)
+            return {
+              [contributor.name]: contributor.id,
+              ...globalContributions,
+            }
+          }
+          return { [contributor.name]: contributor.id }
+
         case 'Singleton':
         case 'Class':
         case 'Mixin':
@@ -114,10 +125,12 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
         case 'Test':
         case 'Describe':
           return contributor.name ? { [contributor.name]: contributor.id } : {}
+
         case 'Variable':
         case 'Field':
         case 'Parameter':
           return { [contributor.name]: contributor.id }
+
         case 'Assignment':
         case 'Reference':
         case 'Body':
@@ -149,7 +162,7 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
     })
   )
 
-  return allNodes.reduce((scope, node) => merge(scope, { [node.id]: getScope(node.id) }), {})
+  return allNodes.reduce((scope, node) => assoc(node.id, getScope(node.id), scope), {})
 }
 
 export default (
@@ -162,17 +175,17 @@ export default (
     members: newPackages.reduce(mergePackage, baseEnvironment.members),
   } as Environment<'Linked'>
 
-  const identifiedEnvironment = utils(mergedEnvironment)
-    .transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
+  const identifiedEnvironment: Environment<'Linked'> = transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  // TODO: Don't assign scopes, just the Reference targets
-  const scopedEnvironment = utils(identifiedEnvironment).transform((node: Node<'Linked'>) =>
-    ({ ...node, scope: scopes[node.id] })
-  )(identifiedEnvironment)
-
-  // TODO: Validate that all references have a target
+  const scopedEnvironment = transformByKind<'Linked'>({
+    Reference: node => {
+      const target = scopes[node.id][node.name]
+      if (!target) throw new Error(`Missing reference to ${node.name}`)
+      return { ...node, target }
+    },
+  })(identifiedEnvironment)
 
   return { ...scopedEnvironment, id: uuid() }
 }

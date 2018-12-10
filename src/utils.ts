@@ -1,5 +1,5 @@
 import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
+import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Node, NodeOfKind, Singleton, Stage } from './model'
 
 const { isArray } = Array
 
@@ -23,7 +23,7 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 ) =>
   <N extends Node<S>, K extends KindOf<N> = KindOf<N>>(node: N): NodeOfKind<K, R> => {
     const applyTransform = (obj: any): any =>
-      isNode<S>(obj) ? (tx[obj.kind] || defaultTx as any)(obj, mapObjIndexed(applyTransform, obj as any)) :
+      isNode<S>(obj) ? (tx[obj.kind] || defaultTx as any)(mapObjIndexed(applyTransform, obj as any), obj) :
         isArray(obj) ? obj.map(applyTransform) :
           obj instanceof Object ? mapObjIndexed(applyTransform, obj) :
             obj
@@ -38,7 +38,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
 
   const children = memoizeWith(({ id }) => environment.id + id)(
-    (node: Node<S>): List<Node<S>> => {
+    <C extends Node<S>>(node: Node<S>): List<C> => {
       const extractChildren = (obj: any): List<Node<S>> => {
         if (isNode<S>(obj)) return [obj]
         if (isArray(obj)) return flatMap(extractChildren)(obj)
@@ -46,7 +46,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
         return []
       }
 
-      return flatMap(extractChildren)(values(node))
+      return flatMap(extractChildren)(values(node)) as unknown as List<C>
     }
   )
 
@@ -87,22 +87,11 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  const target = memoizeWith(({ id }) => environment.id + id)(
-    <T extends Node<'Linked'>>(reference: Reference<'Linked'>): S extends 'Linked' ? T : never => {
-      try {
-        return getNodeById(reference.target) as S extends 'Linked' ? T : never
-      } catch (e) {
-        throw new Error(`Could not find reference to ${reference.name} in scope of node ${JSON.stringify(reference)}`)
-      }
-    }
-  )
-
-
-  const resolve = memoizeWith(({ id }) => environment.id + id)(
+  const resolve = memoizeWith(fullyQualifiedName => environment.id + fullyQualifiedName)(
     <T extends Entity<'Linked'>>(fullyQualifiedName: string): S extends 'Linked' ? T : never =>
       fullyQualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
         const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
-        const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)!
+        const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
         if (!next) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
         return next
       }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
@@ -114,8 +103,8 @@ export default <S extends Stage>(environment: Environment<S>) => {
       const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
       if (module === ObjectClass) return null
       switch (module.kind) {
-        case 'Class': return module.superclass ? target<Class<'Linked'>>(module.superclass) : ObjectClass
-        case 'Singleton': return module.superCall ? target<Class<'Linked'>>(module.superCall.superclass) : ObjectClass
+        case 'Class': return module.superclass ? getNodeById<Class<'Linked'>>(module.superclass.target) : null
+        case 'Singleton': return getNodeById<Class<'Linked'>>(module.superCall.superclass.target)
       }
     }
   )
@@ -126,7 +115,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
       const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Module<'Linked'>> = []): List<Module<'Linked'>> =>
         [
           module,
-          ...module.mixins.map(mixin => target<Module<'Linked'>>(mixin)),
+          ...module.mixins.map(({ target }) => getNodeById<Module<'Linked'>>(target)),
           ...module.kind === 'Mixin' ? [] : superclass(module) ? [superclass(module)!] : [],
         ].reduce((ancestors, node) => exclude.includes(node)
           ? ancestors
@@ -151,7 +140,6 @@ export default <S extends Stage>(environment: Environment<S>) => {
     parentOf,
     firstAncestorOfKind,
     getNodeById,
-    target,
     resolve,
     superclass,
     hierarchy,

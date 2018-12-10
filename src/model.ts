@@ -15,9 +15,6 @@ export type Fillable<T, S extends Stage> = S extends 'Filled' | 'Linked' ? T : T
 
 export type List<T> = ReadonlyArray<T>
 
-// TODO: Move this to Linker
-export interface Scope { readonly [name: string]: string /*id*/ }
-
 export interface Source {
   readonly file?: string
   readonly start: Index
@@ -92,7 +89,7 @@ export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
 
 export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly name: Name
-  readonly superclass: Fillable<Reference<S>, S>
+  readonly superclass?: Fillable<Reference<S>, S>
   readonly mixins: List<Reference<S>>
   readonly members: List<ClassMember<S>>
 }
@@ -233,6 +230,7 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 
 // TODO: Can't we just use a package node here?
 export type Environment<S extends Stage> = BaseNode<'Environment', S> & {
+  readonly source?: undefined
   readonly members: List<Package<S>>
 }
 

@@ -2,7 +2,7 @@ import { assert, should } from 'chai'
 import link from '../src/linker'
 import { Body as BodyNode, Class as ClassNode, Method as MethodNode, Package as PackageNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Class, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
+import { Class, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
 
@@ -126,6 +126,7 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('C')(
+            Field('x'),
             Method('m')(Try([Reference('x')], {})),
           ),
         ),
@@ -135,7 +136,7 @@ describe('Wollok Validations', () => {
 
       const packageExample = environment.members[1] as PackageNode<'Linked'>
       const classExample = packageExample.members[0] as ClassNode<'Linked'>
-      const methodExample = classExample.members[0] as MethodNode<'Linked'>
+      const methodExample = classExample.members[1] as MethodNode<'Linked'>
       const bodyExample = methodExample.body as BodyNode<'Linked'>
       const tryExample = bodyExample.sentences[0] as TryNode<'Linked'>
 
