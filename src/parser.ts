@@ -1,5 +1,3 @@
-// tslint:disable:no-shadowed-variable
-// tslint:disable:variable-name
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { concat, toPairs } from 'ramda'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
@@ -33,13 +31,13 @@ const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
 const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
 const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.or(of(undefined))
-const maybeString = (s: string) => string(s).atMost(1).map(([s]) => !!s)
+const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!head)
 
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, 'Raw'> = NodeOfKind<K, 'Raw'>,
   P extends NodePayload<N> = NodePayload<N>,
-  C extends { [K in keyof P]: Parser<P[K]> } = { [K in keyof P]: Parser<P[K]> },
+  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers: [keyof P, Parser<P[keyof P]>][] = toPairs(fieldParserSeq) as unknown as [keyof P, Parser<P[keyof P]>][]
     return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
@@ -450,8 +448,15 @@ const makeClosure = (parameters: List<ParameterNode<'Raw'>>, sentences: List<Sen
   ({
     kind: 'Singleton',
     id: undefined,
-    // TODO: Use wollok.lang.Closure
-    superCall: { superclass: { kind: 'Reference', id: undefined, target: undefined, name: 'Closure' }, args: [] },
+    superCall: {
+      superclass: {
+        kind: 'Reference',
+        id: undefined,
+        target: undefined,
+        name: 'wollok.lang.Closure',
+      },
+      args: [],
+    },
     mixins: [],
     name: undefined,
     members: [
@@ -467,13 +472,23 @@ const makeClosure = (parameters: List<ParameterNode<'Raw'>>, sentences: List<Sen
 const makeList = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
   kind: 'New',
   id: undefined,
-  className: { kind: 'Reference', id: undefined, target: undefined, name: 'wollok.lang.List' },
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.List',
+    target: undefined,
+  },
   args,
 })
 
 const makeSet = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
   kind: 'New',
   id: undefined,
-  className: { kind: 'Reference', id: undefined, target: undefined, name: 'wollok.lang.Set' },
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.Set',
+    target: undefined,
+  },
   args,
 })

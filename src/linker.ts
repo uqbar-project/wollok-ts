@@ -1,5 +1,3 @@
-// TODO: Maybe we should map all references to fully qualyfied ones ?
-
 import { assoc, memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'

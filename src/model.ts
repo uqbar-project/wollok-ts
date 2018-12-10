@@ -33,8 +33,6 @@ export type Node<S extends Stage>
   | Environment<S>
 
 
-// TODO:
-// tslint:disable-next-line:interface-over-type-literal
 type BaseNode<K extends Kind, S extends Stage> = {
   readonly kind: K
   readonly id: Id<S>
@@ -228,7 +226,6 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// TODO: Can't we just use a package node here?
 export type Environment<S extends Stage> = BaseNode<'Environment', S> & {
   readonly source?: undefined
   readonly members: List<Package<S>>
@@ -258,4 +255,4 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
-// TODO: Export pre-set node types for every stage? Like RawIf, CompleteIf, etc?
+// TODO: Export pre-set node types for every stage? Like RawIf, FilledIf, etc?

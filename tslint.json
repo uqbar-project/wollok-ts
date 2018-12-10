@@ -43,6 +43,11 @@
       true,
       "array"
     ],
+    "variable-name": [
+      true,
+      "check-format",
+      "allow-pascal-case"
+    ],
     "curly": false,
     "member-access": false,
     "object-literal-sort-keys": false,
@@ -51,6 +56,7 @@
     "arrow-parens": false,
     "eofline": false,
     "max-classes-per-file": false,
-    "ban-types": false
+    "ban-types": false,
+    "interface-over-type-literal": false
   }
 }

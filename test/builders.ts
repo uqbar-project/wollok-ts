@@ -159,13 +159,11 @@ export const Super = (args: List<Expression<'Raw'>> = []) => makeNode('Super')({
 
 export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'>>) => makeNode('New')({ className, args })
 
-export const If = (condition: Expression<'Raw'>,
-                   thenBody: List<Sentence<'Raw'>>,
-                   elseBody?: List<Sentence<'Raw'>>) => makeNode('If')({
-    condition,
-    thenBody: makeNode('Body')({ sentences: thenBody }),
-    elseBody: elseBody && makeNode('Body')({ sentences: elseBody }),
-  })
+export const If = (condition: Expression<'Raw'>, thenBody: List<Sentence<'Raw'>>, elseBody?: List<Sentence<'Raw'>>) => makeNode('If')({
+  condition,
+  thenBody: makeNode('Body')({ sentences: thenBody }),
+  elseBody: elseBody && makeNode('Body')({ sentences: elseBody }),
+})
 
 export const Throw = (arg: Expression<'Raw'>) => makeNode('Throw')({ arg })
 
@@ -193,8 +191,7 @@ export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePay
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sentence<'Raw'>[]) =>
-  // TODO: replace with wollok.lang.Closure
-  Literal(Singleton(undefined, { superCall: { superclass: Reference('Closure'), args: [] } })(
+  Literal(Singleton(undefined, { superCall: { superclass: Reference('wollok.lang.Closure'), args: [] } })(
     Method('apply', { parameters })(
       ...body
     )
