@@ -1,5 +1,5 @@
 import { merge } from 'ramda'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Expression, Field as FieldNode, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
 import { NodePayload } from '../src/parser'
 
 const { keys } = Object
@@ -199,3 +199,7 @@ export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sent
       ...body
     )
   ))
+
+export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode<'Raw'> => makeNode('Environment')({
+  members,
+})

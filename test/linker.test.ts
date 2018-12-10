@@ -1,123 +1,101 @@
 import { expect, should, use } from 'chai'
 import link from '../src/linker'
-import { Class as ClassNode, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Node, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Stage, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import utils from '../src/utils'
-import { also } from './assertions'
+import { linkerAssertions } from './assertions'
 import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from './builders'
 
-use(also)
 should()
+use(linkerAssertions)
 
 const WRE = Package('wollok')(
   Package('lang')(
     Class('Object')(),
-    // TODO: use fully qualified name for this
-    Class('Closure', { superclass: Reference('Object') })()
+    Class('Closure', { superclass: Reference('wollok.lang.Object') })()
   )
-) as PackageNode<'Filled'>
+)
 
 describe('Wollok linker', () => {
 
-  const dropLinkedFields = <S extends Stage, N extends Node<S>>(env: N): N =>
-    JSON.parse(JSON.stringify(env, (k, v) => ['id', 'target'].includes(k) ? undefined : v)
-    )
+  describe('merge', () => {
 
-  it('should merge independent packages into a single environment', () => {
-    dropLinkedFields(link([
-      WRE,
-      Package('A')(
-        Package('B')(),
-      ),
-      Package('B')(),
-      Package('C')(
-        Class('B', { superclass: Reference('Object') })(),
-      ),
-    ] as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
-      {
-        kind: 'Environment',
-        id: undefined,
-        members: [
-          WRE,
-          Package('A')(
-            Package('B')(),
-          ),
+    it('should merge independent packages into a single environment', () => {
+      [
+        WRE,
+        Package('A')(
           Package('B')(),
-          Package('C')(
-            Class('B', { superclass: Reference('Object') })(),
-          ),
-        ],
-      }
-    ))
-  })
+        ),
+        Package('B')(),
+        Package('C')(
+          Class('B', { superclass: Reference('Object') })(),
+        ),
+      ].should.be.linkedInto([
+        WRE,
+        Package('A')(
+          Package('B')(),
+        ),
+        Package('B')(),
+        Package('C')(
+          Class('B', { superclass: Reference('Object') })(),
+        ),
+      ])
+    })
 
-  it('should merge same name packages into a single package', () => {
+    it('should merge same name packages into a single package', () => {
+      [
+        WRE,
+        Package('A')(
+          Class('X', { superclass: Reference('Object') })()
+        ),
+        Package('A')(
+          Class('Y', { superclass: Reference('Object') })()
+        ),
+        Package('B')(
+          Class('X', { superclass: Reference('Object') })()
+        ),
+      ].should.be.linkedInto([
+        WRE,
+        Package('A')(
+          Class('X', { superclass: Reference('Object') })(),
+          Class('Y', { superclass: Reference('Object') })(),
+        ),
+        Package('B')(
+          Class('X', { superclass: Reference('Object') })(),
+        ),
+      ])
+    })
 
-    dropLinkedFields(link([
-      WRE,
-      Package('A')(
-        Class('X', { superclass: Reference('Object') })()
-      ),
-      Package('A')(
-        Class('Y', { superclass: Reference('Object') })()
-      ),
-      Package('B')(
-        Class('X', { superclass: Reference('Object') })()
-      ),
-    ] as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
-      {
-        kind: 'Environment',
-        id: undefined,
-        members: [
-          WRE,
-          Package('A')(
-            Class('X', { superclass: Reference('Object') })(),
-            Class('Y', { superclass: Reference('Object') })(),
-          ),
+    it('should recursively merge same name packages into a single package', () => {
+      [
+        WRE,
+        Package('A')(
           Package('B')(
-            Class('X', { superclass: Reference('Object') })(),
-          ),
-        ],
-      }
-    ))
-  })
-
-  it('should recursively merge same name packages into a single package', () => {
-    dropLinkedFields(link([
-      WRE,
-      Package('A')(
-        Package('B')(
-          Class('X', { superclass: Reference('Object') })(
-            Field('u')
-          ),
-        ),
-      ),
-      Package('A')(
-        Package('B')(
-          Class('Y', { superclass: Reference('Object') })(
-            Field('v')
-          ),
-        ),
-      ),
-    ] as PackageNode<'Filled'>[])).should.deep.equal(dropLinkedFields(
-      {
-        kind: 'Environment',
-        id: undefined,
-        members: [
-          WRE,
-          Package('A')(
-            Package('B')(
-              Class('X', { superclass: Reference('Object') })(
-                Field('u')
-              ),
-              Class('Y', { superclass: Reference('Object') })(
-                Field('v')
-              ),
+            Class('X', { superclass: Reference('Object') })(
+              Field('u')
             ),
           ),
-        ],
-      }
-    ))
-
+        ),
+        Package('A')(
+          Package('B')(
+            Class('Y', { superclass: Reference('Object') })(
+              Field('v')
+            ),
+          ),
+        ),
+      ].should.be.linkedInto([
+        WRE,
+        Package('A')(
+          Package('B')(
+            Class('X', { superclass: Reference('Object') })(
+              Field('u')
+            ),
+            Class('Y', { superclass: Reference('Object') })(
+              Field('v')
+            ),
+          ),
+        ),
+      ])
+    })
   })
 
   it('should assign an id to all nodes', () => {
@@ -132,11 +110,9 @@ describe('Wollok linker', () => {
     ] as PackageNode<'Filled'>[])
 
     const { descendants } = utils(environment)
-
     const nodes = [environment, ...descendants(environment)]
-    nodes.forEach(node => {
-      node.should.have.property('id')
-    })
+
+    nodes.forEach(node => node.should.have.property('id'))
   })
 
   describe('references', () => {
@@ -160,12 +136,10 @@ describe('Wollok linker', () => {
       const g = C.members[1] as FieldNode<'Linked'>
       const h = C.members[2] as FieldNode<'Linked'>
 
-      // TODO: create custom assertion target()
-      C.superclass!.target.should.equal(Object.id);
-      (f.value as ReferenceNode<'Linked'>).target.should.equal(C.id);
-      (g.value as ReferenceNode<'Linked'>).target.should.equal(p.id);
-      (h.value as ReferenceNode<'Linked'>).target.should.equal(f.id)
-
+      C.superclass!.should.target(Object)
+      f.value.should.target(C)
+      g.value.should.target(p)
+      h.value.should.target(f)
     })
 
     it('should override targets according to scope level', () => {
@@ -207,15 +181,16 @@ describe('Wollok linker', () => {
       const m3r = m3.body!.sentences[0] as ReferenceNode<'Linked'>
       // const C = p.members[1] as ClassNode<'Linked'>
 
-      (S.superCall.args[0] as ReferenceNode<'Linked'>).target.should.equal(f.id);
-      (f.value as ReferenceNode<'Linked'>).target.should.equal(f.id)
-      m1r.target.should.equal(m1p.id)
-      m1cmr.target.should.equal(m1cmp.id);
-      (m2v.value as ReferenceNode<'Linked'>).target.should.equal(m2v.id)
-      m2r.target.should.equal(m2v.id)
-      m3r.target.should.equal(f.id)
+      S.superCall.args[0].should.target(f)
+      f.value.should.target(f)
+      m1r.should.target(m1p)
+      m1cmr.should.target(m1cmp)
+      m2v.value.should.target(m2v)
+      m2r.should.target(m2v)
+      m3r.should.target(f)
+
       // TODO: points to field because inner contributions of parent precede parent itself.
-      // C.superclass!.target.should.equal(S.id)
+      // C.superclass!.should.target(S)
     })
 
     it('should target imported references', () => {
@@ -246,8 +221,8 @@ describe('Wollok linker', () => {
       const r = environment.members[3]
       const T = r.members[0] as ClassNode<'Linked'>
 
-      C.superclass!.target.should.equal(S.id)
-      D.superclass!.target.should.equal(T.id)
+      C.superclass!.should.target(S)
+      D.superclass!.should.target(T)
     })
 
     it('should not be linkable if target is missing', () => {
@@ -264,5 +239,3 @@ describe('Wollok linker', () => {
   })
 
 })
-
-        // TODO: test contributions

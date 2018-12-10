@@ -5,6 +5,7 @@ import { concat, toPairs } from 'ramda'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
+
 export type NodePayload<N extends Node<'Raw'>> = Drop<N, 'kind' | 'id'>
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
