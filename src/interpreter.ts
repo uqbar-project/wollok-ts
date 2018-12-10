@@ -213,12 +213,12 @@ export const step = (evaluation: Evaluation): Evaluation => {
   } = currentFrame
 
   const {
-    target,
     firstAncestorOfKind,
     parentOf,
     hierarchy,
     inherits,
     resolve,
+    getNodeById,
   } = utils(environment)
 
   if (status !== 'running') return evaluation
@@ -273,7 +273,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
         )(evaluation)
 
         case 1:
-          return target(currentSentence.reference).kind === 'Field'
+          return getNodeById(currentSentence.reference.target).kind === 'Field'
             ? pipe(
               POP_PENDING,
               LOAD('self'),
@@ -294,7 +294,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
 
     case 'Reference': return pipe(
       POP_PENDING,
-      target(currentSentence).kind === 'Field'
+      getNodeById(currentSentence.target).kind === 'Field'
         ? PUSH_REFERENCE(instances[instances[scope.self].attributes[currentSentence.name]].id)
         : LOAD(currentSentence.name)
     )(evaluation)
@@ -415,7 +415,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
         PUSH_PENDING(currentSentence.args[pc]),
       )(evaluation)
 
-      const instantiatedClass = target<Class<'Linked'>>(currentSentence.className)
+      const instantiatedClass = getNodeById<Class<'Linked'>>(currentSentence.className.target)
       const instantiatedClassHierarchy = hierarchy(instantiatedClass)
       const initializableFields = instantiatedClassHierarchy.reduce((fields, module) => [
         ...(module.members as ObjectMember<'Linked'>[]).filter(member => member.kind === 'Field' && !!member.value) as Field<'Linked'>[],
@@ -483,7 +483,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
           const tryIndex = evaluation.frameStack.findIndex(stack => {
             const sentence = path<Sentence<'Linked'>>(['pending', '0', '0'], stack)
             return !!sentence && sentence.kind === 'Try' && sentence.catches.some(({ parameterType }) =>
-              !parameterType || inherits(error.module, target(parameterType))
+              !parameterType || inherits(error.module, getNodeById(parameterType.target))
             )
           })
 
@@ -491,7 +491,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
 
           const tryNode: Try<'Linked'> = evaluation.frameStack[tryIndex].pending[0][0] as Try<'Linked'>
           const catchNode: Catch<'Linked'> = tryNode.catches.find(({ parameterType }) =>
-            !parameterType || inherits(error.module, target(parameterType))
+            !parameterType || inherits(error.module, getNodeById(parameterType.target))
           )!
 
           // TODO: Evaluate intermediate always clauses
