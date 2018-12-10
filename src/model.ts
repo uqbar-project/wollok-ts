@@ -240,22 +240,22 @@ export type Environment<S extends Stage> = BaseNode<'Environment', S> & {
 
 export const isNode = <S extends Stage>(obj: any): obj is Node<S> => obj && obj.kind
 
-export const isEntity = (obj: any): obj is Entity<Stage> => isNode(obj) &&
+export const isEntity = <S extends Stage>(obj: any): obj is Entity<S> => isNode(obj) &&
   ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
 
-export const isModule = (obj: any): obj is Module<Stage> => isNode(obj) &&
+export const isModule = <S extends Stage>(obj: any): obj is Module<S> => isNode(obj) &&
   ['Singleton', 'Mixin', 'Class'].includes(obj.kind)
 
-export const isObjectMember = (obj: any): obj is ObjectMember<Stage> => isNode(obj) &&
+export const isObjectMember = <S extends Stage>(obj: any): obj is ObjectMember<S> => isNode(obj) &&
   ['Field', 'Method'].includes(obj.kind)
 
-export const isClassMember = (obj: any): obj is ClassMember<Stage> => isNode(obj) &&
+export const isClassMember = <S extends Stage>(obj: any): obj is ClassMember<S> => isNode(obj) &&
   (['Constructor'].includes(obj.kind) || isObjectMember(obj))
 
-export const isExpression = (obj: any): obj is Expression<Stage> => isNode(obj) &&
+export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> => isNode(obj) &&
   ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(obj.kind)
 
-export const isSentence = (obj: any): obj is Sentence<Stage> => isNode(obj) &&
+export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
 // TODO: Export pre-set node types for every stage? Like RawIf, CompleteIf, etc?

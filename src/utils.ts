@@ -1,5 +1,5 @@
 import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Node, NodeOfKind, Singleton, Stage } from './model'
+import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Name, Node, NodeOfKind, Singleton, Stage } from './model'
 
 const { isArray } = Array
 
@@ -60,6 +60,16 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
+  const fullyQualifiedName = memoizeWith(({ id }) => environment.id + id)(
+    (node: Entity<'Linked'>): S extends 'Linked' ? Name : never => {
+      const parent = parentOf(node)
+      return (isEntity<'Linked'>(parent)
+        ? `${fullyQualifiedName(parent)}.${node.name}`
+        : node.name!) as S extends 'Linked' ? Name : never
+    }
+  )
+
+
   const parentOf = memoizeWith(({ id }) => environment.id + id)(
     <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
       const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).some(({ id }) => id === node.id))
@@ -87,12 +97,12 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  const resolve = memoizeWith(fullyQualifiedName => environment.id + fullyQualifiedName)(
-    <T extends Entity<'Linked'>>(fullyQualifiedName: string): S extends 'Linked' ? T : never =>
-      fullyQualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
+  const resolve = memoizeWith(qualifiedName => environment.id + qualifiedName)(
+    <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never =>
+      qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
         const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
         const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
-        if (!next) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+        if (!next) throw new Error(`Could not resolve reference to ${qualifiedName}`)
         return next
       }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
   )
@@ -144,5 +154,6 @@ export default <S extends Stage>(environment: Environment<S>) => {
     superclass,
     hierarchy,
     inherits,
+    fullyQualifiedName,
   }
 }

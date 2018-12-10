@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, join } from 'path'
 import * as simplegit from 'simple-git/promise'
+import fill from '../src/filler'
 import interpreter from '../src/interpreter'
 import link from '../src/linker'
 import { Package } from '../src/model'
@@ -66,16 +67,16 @@ const runAll = async () => {
     id: undefined,
     name: 'wollok',
     imports: [],
-    members: [File('lang').tryParse(wreSource) as unknown as Package<'Filled'>],
+    members: [fill(File('lang').tryParse(wreSource))],
   }
 
   if (!process.argv.includes('--skip-update')) await updateTests()
 
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
-  const testNodes = nonSkipedTestFiles.map(testFile => File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8')))
+  const testNodes = nonSkipedTestFiles.map(testFile => fill(File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8'))))
 
-  const x = testNodes[0] as unknown as Package<'Filled'>
+  const x = testNodes[0]
 
   // tslint:disable:no-console
   console.time(`Linking ${x.name}`)

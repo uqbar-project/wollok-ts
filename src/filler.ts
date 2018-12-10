@@ -4,14 +4,16 @@ import { transformByKind } from './utils'
 const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
-  name: 'wollok.lang.Object',
+  // TODO: use wollok.lang.Object ?
+  name: 'Object',
   target: undefined,
 }
 
 const EXCEPTION_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
-  name: 'wollok.lang.Exception',
+  // TODO: use wollok.lang.Exception ?
+  name: 'Exception',
   target: undefined,
 }
 
@@ -38,7 +40,7 @@ const DEFAULT_CONSTRUCTOR: Constructor<'Filled'> = {
 export default transformByKind<'Raw', 'Filled'>({
   Class: (transformed, node) => ({
     ...transformed,
-    superclass: node.superclass ? transformed.superclass : OBJECT_CLASS,
+    superclass: node.name === 'Object' ? node.superclass : node.superclass ? transformed.superclass : OBJECT_CLASS,
     members: transformed.members.some(member => member.kind === 'Constructor')
       ? transformed.members
       : [DEFAULT_CONSTRUCTOR, ...transformed.members],

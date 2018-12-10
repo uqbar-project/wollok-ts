@@ -26,7 +26,7 @@ const mergePackage = (
 
 const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope } => {
 
-  const { children, descendants, getNodeById, parentOf, resolve } = utils(environment)
+  const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = utils(environment)
 
   const scopes: Map<Id<'Linked'>, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -124,7 +124,12 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
         case 'Program':
         case 'Test':
         case 'Describe':
-          return contributor.name ? { [contributor.name]: contributor.id } : {}
+          return contributor.name
+            ? {
+              [contributor.name]: contributor.id,
+              [fullyQualifiedName(contributor)]: contributor.id,
+            }
+            : {}
 
         case 'Variable':
         case 'Field':

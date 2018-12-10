@@ -633,7 +633,7 @@ class Set inherits Collection {
 	 * @returns a Set
 	 */
 	 method difference(another) =
-	 	self.filter({it => not another.contains(it)})
+	 	self.filter({it => !another.contains(it)})
 	
 	// REFACTORME: DUP METHODS
 	/** 
@@ -1952,4 +1952,35 @@ class StringPrinter {
 		buffer += obj.toString() + console.newline()
 	}
 	method getBuffer() = buffer
+}
+
+/**
+ * Exception to handle difference between current and expected values
+ * in assert.throwsException... methods
+ */
+class AssertionException inherits Exception {
+
+	const expected = null
+	const actual = null
+
+	constructor(message) = super(message)
+	
+	constructor(message, cause) = super(message, cause)
+	
+	constructor(message, _expected, _actual) = self(message) {
+		expected = _expected
+		actual = _actual
+	}
+
+	method expected() = expected
+	method actual() = actual
+	
+}
+
+/**
+ * Exception to handle other values expected in assert.throwsException... methods
+ */
+class OtherValueExpectedException inherits Exception {
+	constructor(_message) = super(_message)	
+	constructor(_message,_cause) = super(_message,_cause)
 }
