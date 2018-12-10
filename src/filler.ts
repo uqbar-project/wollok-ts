@@ -4,16 +4,14 @@ import { transformByKind } from './utils'
 const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
-  // TODO: use wollok.lang.Object ?
-  name: 'Object',
+  name: 'wollok.lang.Object',
   target: undefined,
 }
 
 const EXCEPTION_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
   id: undefined,
-  // TODO: use wollok.lang.Exception ?
-  name: 'Exception',
+  name: 'wollok.lang.Exception',
   target: undefined,
 }
 
