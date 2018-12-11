@@ -113,7 +113,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
       const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
       if (module === ObjectClass) return null
       switch (module.kind) {
-        case 'Class': return module.superclass ? getNodeById<Class<'Linked'>>(module.superclass.target) : null
+        case 'Class': return getNodeById<Class<'Linked'>>(module.superclass!.target)
         case 'Singleton': return getNodeById<Class<'Linked'>>(module.superCall.superclass.target)
       }
     }

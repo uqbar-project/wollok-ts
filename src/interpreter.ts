@@ -1,20 +1,20 @@
-import { append, assoc, drop, lensPath as lens, over as change, path, pipe, prepend, reverse, set, view } from 'ramda'
+import { append, assoc, compose, drop, lens, lensIndex, lensProp, ManualLens, over as change, path, pipe, prepend, reverse, set, view as get } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Assignment, Catch, Class, Constructor, Environment, Expression, Field, Id, List, Method, Module, Name, ObjectMember, Self, Sentence, Singleton, Test, Throw, Try } from './model'
 import utils from './utils'
 
 
-interface RuntimeScope { readonly [name: string]: Id<'Linked'> }
+export interface Locals { readonly [name: string]: Id<'Linked'> }
 
-interface RuntimeObject {
+export interface RuntimeObject {
   readonly id: Id<'Linked'>
   readonly module: Module<'Linked'>
-  readonly attributes: RuntimeScope
+  readonly attributes: Locals
   readonly innerValue?: any
 }
 
-interface Frame {
-  readonly scope: RuntimeScope
+export interface Frame {
+  readonly locals: Locals
   // TODO: Don't save the whole sentence, just the id?
   readonly pending: List<[Sentence<'Linked'>, number]>
   readonly referenceStack: List<Id<'Linked'>>
@@ -54,7 +54,6 @@ const constructorLookup = (argumentCount: number, owner: Class<'Linked'>): Const
   return found ? found as Constructor<'Linked'> : undefined
 }
 
-// TODO: On validator, check that all the chain is there
 const constructorCallChain = (environment: Environment<'Linked'>) =>
   (startingClass: Class<'Linked'>, startingArguments: List<Expression<'Linked'>>)
     : List<[Constructor<'Linked'>, List<Expression<'Linked'>>]> => {
@@ -67,17 +66,64 @@ const constructorCallChain = (environment: Environment<'Linked'>) =>
     return currentConstructor
       ? [
         [currentConstructor, startingArguments],
-        ...currentConstructor.baseCall
-          ? constructorCallChain(environment)(
-            currentConstructor.baseCall.callsSuper ? superClass! : startingClass,
-            currentConstructor.baseCall.args
-          )
-          : superClass
-            ? constructorCallChain(environment)(superClass, [])
-            : [],
+        ...constructorCallChain(environment)(
+          currentConstructor.baseCall.callsSuper ? superClass! : startingClass,
+          currentConstructor.baseCall.args
+        ),
       ]
       : superClass ? constructorCallChain(environment)(superClass, []) : []
   }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LENSES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function seq<A, R>(l1: ManualLens<R, A>): ManualLens<R, A>
+function seq<A, B, R>(l1: ManualLens<B, A>, l2: ManualLens<R, B>): ManualLens<R, A>
+function seq<A, B, C, R>(l1: ManualLens<B, A>, l2: ManualLens<C, B>, l3: ManualLens<R, C>): ManualLens<R, A>
+function seq(...lenses: ManualLens<any, any>[]) { return (compose as any)(...lenses) }
+
+
+const $top = <A, T>(arrayLens: ManualLens<ReadonlyArray<T>, A>) => seq(arrayLens, lensIndex(0) as any as ManualLens<T, ReadonlyArray<T>>)
+
+const $locals = lens(
+  ({ locals }: Frame) => locals,
+  (locals, frame) => ({ ...frame, locals })
+)
+
+const $pending = lens(
+  ({ pending }: Frame) => pending,
+  (pending, frame) => ({ ...frame, pending })
+)
+
+const $referenceStack = lens(
+  ({ referenceStack }: Frame) => referenceStack,
+  (referenceStack, frame) => ({ ...frame, referenceStack })
+)
+
+
+const $instances = lens(
+  ({ instances }: Evaluation) => instances,
+  (instances, evaluation) => ({ ...evaluation, instances }),
+)
+
+const $frameStack = lens(
+  ({ frameStack }: Evaluation) => frameStack,
+  (frameStack, evaluation) => ({ ...evaluation, frameStack }),
+)
+
+
+const $currentFrame = $top($frameStack)
+
+const $currentLocals = seq($currentFrame, $locals)
+
+const $currentLocal = <T>(key: string) => seq($currentLocals, lensProp(key) as any as ManualLens<T, Locals>)
+
+const $currentPending = seq($currentFrame, $pending)
+
+const $currentReferenceStack = seq($currentFrame, $referenceStack)
+
+const $currentTopReference = $top($currentReferenceStack)
 
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -86,60 +132,51 @@ const constructorCallChain = (environment: Environment<'Linked'>) =>
 
 type Instruction = (evaluation: Evaluation) => Evaluation
 
+export const STORE = (name: Name): Instruction => evaluation => pipe(
+  set($currentLocal(name), get($currentTopReference, evaluation)),
+  change($currentReferenceStack, drop(1))
+)(evaluation)
 
-const INSTANCES = lens<{ readonly [id: string]: RuntimeObject }, Evaluation>(['instances'])
-const FRAME_STACK = lens<List<Frame>, Evaluation>(['frameStack'])
-const CURRENT_SCOPE = lens<RuntimeScope, Evaluation>(['frameStack', 0, 'scope'])
-const CURRENT_PENDING = lens<List<[Sentence<'Linked'>, number]>, Evaluation>(['frameStack', 0, 'pending'])
-const CURRENT_REFERENCE_STACK = lens<List<Id<'Linked'>>, Evaluation>(['frameStack', 0, 'referenceStack'])
-const CURRENT_TOP_REFERENCE = lens<Id<'Linked'>, Evaluation>(['frameStack', 0, 'referenceStack', 0])
+export const LOAD = (name: Name): Instruction => evaluation =>
+  change($currentReferenceStack, append(get($currentLocals, evaluation)[name] || NULL_ID))(evaluation)
 
-
-const STORE = (name: Name): Instruction => pipe(
-  change(CURRENT_SCOPE, assoc(name, view(CURRENT_TOP_REFERENCE))),
-  change(CURRENT_REFERENCE_STACK, drop(1))
-)
-
-const LOAD = (name: Name): Instruction => evaluation =>
-  change(CURRENT_REFERENCE_STACK, append(view(CURRENT_SCOPE, evaluation)[name] || NULL_ID))(evaluation)
-
-const SET = (name: Name): Instruction => evaluation => {
-  const [self, value, ...references] = view(CURRENT_REFERENCE_STACK, evaluation)
-  const current = view(INSTANCES, evaluation)[self]
+export const SET = (name: Name): Instruction => evaluation => {
+  const [self, value, ...references] = get($currentReferenceStack, evaluation)
+  const current = get($instances, evaluation)[self]
   return pipe(
-    change(INSTANCES, assoc(self, { ...current, attributes: assoc(name, value, current.attributes) })),
-    set(CURRENT_REFERENCE_STACK, references),
+    change($instances, assoc(self, { ...current, attributes: assoc(name, value, current.attributes) })),
+    set($currentReferenceStack, references),
   )(evaluation)
 }
 
-const POP_PENDING: Instruction = change(CURRENT_PENDING, pending => pending.slice(1))
+export const POP_PENDING: Instruction = change($currentPending, pending => pending.slice(1))
 
-const PUSH_PENDING = (next: Sentence<'Linked'>): Instruction =>
-  change(CURRENT_PENDING, pending => [[next, 0] as [Sentence<'Linked'>, number], ...pending])
+export const PUSH_PENDING = (next: Sentence<'Linked'>): Instruction =>
+  change($currentPending, pending => [[next, 0] as [Sentence<'Linked'>, number], ...pending])
 
-const INC_PC: Instruction =
-  change(CURRENT_PENDING, ([[sentence, pc], ...others]) => [[sentence, pc + 1] as [Sentence<'Linked'>, number], ...others])
+export const INC_PC: Instruction =
+  change($currentPending, ([[sentence, pc], ...others]) => [[sentence, pc + 1] as [Sentence<'Linked'>, number], ...others])
 
-const PUSH_REFERENCE = (next: Id<'Linked'>): Instruction => change(CURRENT_REFERENCE_STACK, prepend(next))
+export const PUSH_REFERENCE = (next: Id<'Linked'>): Instruction => change($currentReferenceStack, prepend(next))
 
-const POP_REFERENCE: Instruction = change(CURRENT_REFERENCE_STACK, drop(1))
+export const POP_REFERENCE: Instruction = change($currentReferenceStack, drop(1))
 
-const PUSH_FRAME = (pending: List<Sentence<'Linked'>>): Instruction => evaluation => change(FRAME_STACK, prepend({
-  scope: view(CURRENT_SCOPE, evaluation),
+export const PUSH_FRAME = (pending: List<Sentence<'Linked'>>): Instruction => evaluation => change($frameStack, prepend({
+  locals: get($currentLocals, evaluation),
   pending: pending.map(sentence => [sentence, 0] as [Sentence<'Linked'>, number]),
   referenceStack: [],
 }))(evaluation)
 
-const POP_FRAME: Instruction = evaluation => pipe(
-  change(FRAME_STACK, drop(1)),
-  change(CURRENT_REFERENCE_STACK, prepend(view(CURRENT_TOP_REFERENCE, evaluation)))
+export const POP_FRAME: Instruction = evaluation => pipe(
+  change($frameStack, drop(1)),
+  change($currentReferenceStack, prepend(get($currentTopReference, evaluation)))
 )(evaluation)
 
-const INSTANTIATE = (module: Class<'Linked'>, innerValue: any = undefined): Instruction => {
+export const INSTANTIATE = (module: Class<'Linked'>, innerValue: any = undefined): Instruction => {
   const instance: RuntimeObject = { id: uuid(), module, attributes: {}, innerValue }
   return pipe(
-    change(CURRENT_REFERENCE_STACK, prepend(instance.id)),
-    change(INSTANCES, assoc(instance.id, instance)),
+    change($currentReferenceStack, prepend(instance.id)),
+    change($instances, assoc(instance.id, instance)),
   )
 }
 
@@ -168,7 +205,7 @@ const createEvaluationFor = (environment: Environment<'Linked'>) => (node: Test<
     instances,
     status: 'running',
     frameStack: [{
-      scope: instances,
+      locals: instances,
       pending: node.body.sentences.map(sentence => [sentence, 0] as [Sentence<'Linked'>, number]),
       referenceStack: [],
     }],
@@ -209,7 +246,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
   const {
     pending,
     referenceStack,
-    scope,
+    locals: locals,
   } = currentFrame
 
   const {
@@ -295,7 +332,7 @@ export const step = (evaluation: Evaluation): Evaluation => {
     case 'Reference': return pipe(
       POP_PENDING,
       getNodeById(currentSentence.target).kind === 'Field'
-        ? PUSH_REFERENCE(instances[instances[scope.self].attributes[currentSentence.name]].id)
+        ? PUSH_REFERENCE(instances[instances[locals.self].attributes[currentSentence.name]].id)
         : LOAD(currentSentence.name)
     )(evaluation)
 

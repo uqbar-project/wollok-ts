@@ -1,8 +1,14 @@
 import { merge } from 'ramda'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
+import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from '../src/interpreter'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Id, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Module, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
 import { NodePayload } from '../src/parser'
+import utils from '../src/utils'
 
 const { keys } = Object
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// NODES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const makeNode = <K extends Kind, N extends NodeOfKind<K, 'Raw'>>(kind: K) => (payload: NodePayload<N>): N =>
   merge(payload, { kind, id: undefined }) as any
@@ -200,3 +206,40 @@ export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sent
 export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode<'Raw'> => makeNode('Environment')({
   members,
 })
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// EVALUATION
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
+
+  const { resolve } = utils(environment)
+
+  const RuntimeObject = (id: Id<'Linked'>, moduleName: Name, innerValue: any = undefined, attributes: Locals = {}): RuntimeObjectType => ({
+    id,
+    module: resolve<Module<'Linked'>>(moduleName),
+    attributes,
+    innerValue,
+  })
+
+  const Frame = (payload: Partial<FrameType>): FrameType => ({
+    locals: {},
+    pending: [],
+    referenceStack: [],
+    ...payload,
+  })
+
+  const Evaluation = (instances: { [id: string]: RuntimeObjectType } = {}, status: 'running' | 'error' | 'success' = 'running') =>
+    (...frameStack: FrameType[]): EvaluationType => ({
+      environment,
+      status,
+      instances,
+      frameStack,
+    })
+
+  return {
+    RuntimeObject,
+    Frame,
+    Evaluation,
+  }
+}
