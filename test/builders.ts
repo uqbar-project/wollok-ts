@@ -215,7 +215,7 @@ export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
 
   const { resolve } = utils(environment)
 
-  const RuntimeObject = (id: Id<'Linked'>, moduleName: Name, innerValue: any = undefined, attributes: Locals = {}): RuntimeObjectType => ({
+  const RuntimeObject = (id: Id<'Linked'>, moduleName: Name, attributes: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
     id,
     module: resolve<Module<'Linked'>>(moduleName),
     attributes,

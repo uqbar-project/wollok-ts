@@ -1,4 +1,4 @@
-import { append, assoc, compose, drop, lens, lensIndex, lensProp, ManualLens, over as change, path, pipe, prepend, reverse, set, view as get } from 'ramda'
+import { assoc, compose, drop, lens, lensIndex, lensProp, ManualLens, over as change, path, pipe, prepend, reverse, set, view as get } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Assignment, Catch, Class, Constructor, Environment, Expression, Field, Id, List, Method, Module, Name, ObjectMember, Self, Sentence, Singleton, Test, Throw, Try } from './model'
 import utils from './utils'
@@ -138,7 +138,7 @@ export const STORE = (name: Name): Instruction => evaluation => pipe(
 )(evaluation)
 
 export const LOAD = (name: Name): Instruction => evaluation =>
-  change($currentReferenceStack, append(get($currentLocals, evaluation)[name] || NULL_ID))(evaluation)
+  change($currentReferenceStack, prepend(get($currentLocals, evaluation)[name] || NULL_ID))(evaluation)
 
 export const SET = (name: Name): Instruction => evaluation => {
   const [self, value, ...references] = get($currentReferenceStack, evaluation)
@@ -172,8 +172,8 @@ export const POP_FRAME: Instruction = evaluation => pipe(
   change($currentReferenceStack, prepend(get($currentTopReference, evaluation)))
 )(evaluation)
 
-export const INSTANTIATE = (module: Class<'Linked'>, innerValue: any = undefined): Instruction => {
-  const instance: RuntimeObject = { id: uuid(), module, attributes: {}, innerValue }
+export const INSTANTIATE = (module: Class<'Linked'>, innerValue: any = undefined, id: Id<'Linked'> = uuid()): Instruction => {
+  const instance: RuntimeObject = { id, module, attributes: {}, innerValue }
   return pipe(
     change($currentReferenceStack, prepend(instance.id)),
     change($instances, assoc(instance.id, instance)),
