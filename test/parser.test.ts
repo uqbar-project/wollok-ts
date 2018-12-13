@@ -18,7 +18,7 @@ describe('Wollok parser', () => {
       `/*some comment*/import /* some
       comment */ p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-        ).and.be.tracedTo(16, 49)
+      ).and.be.tracedTo(16, 49)
         .and.have.nested.property('reference').tracedTo(48, 49)
     })
 
@@ -26,7 +26,7 @@ describe('Wollok parser', () => {
       `import //some comment
       p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-        ).and.be.tracedTo(0, 29)
+      ).and.be.tracedTo(0, 29)
         .and.have.nested.property('reference').tracedTo(28, 29)
     })
 
@@ -1114,8 +1114,10 @@ describe('Wollok parser', () => {
         .and.have.nested.property('value').tracedTo(7, 8)
     })
 
-    it('should not parse "return" keyword without a value', () => {
-      'return'.should.not.be.parsedBy(parser)
+    it('parse empty return', () => {
+      'return'.should.be.parsedBy(parser).into(
+        Return()
+      ).and.be.tracedTo(0, 6)
     })
 
   })

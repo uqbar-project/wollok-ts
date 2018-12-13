@@ -143,7 +143,7 @@ export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode<
   ...payload,
 })
 
-export const Return = (value: Expression<'Raw'>) => makeNode('Return')({ value })
+export const Return = (value: Expression<'Raw'> | undefined = undefined) => makeNode('Return')({ value })
 
 export const Assignment = (reference: ReferenceNode<'Raw'>, value: Expression<'Raw'>) => makeNode('Assignment')({ reference, value })
 

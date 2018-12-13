@@ -248,7 +248,9 @@ export const Variable: Parser<VariableNode<'Raw'>> = lazy(() =>
 )
 
 export const Return: Parser<ReturnNode<'Raw'>> = lazy(() =>
-  key('return').then(node('Return')({ value: Expression })).thru(sourced)
+  key('return').then(node('Return')({
+    value: optional(Expression),
+  })).thru(sourced)
 )
 
 export const Assignment: Parser<AssignmentNode<'Raw'>> = lazy(() =>

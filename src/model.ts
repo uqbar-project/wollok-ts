@@ -150,7 +150,7 @@ export type Variable<S extends Stage> = BaseNode<'Variable', S> & {
 }
 
 export type Return<S extends Stage> = BaseNode<'Return', S> & {
-  readonly value: Expression<S> | null
+  readonly value: Fillable<Expression<S>, S>
 }
 
 export type Assignment<S extends Stage> = BaseNode<'Assignment', S> & {

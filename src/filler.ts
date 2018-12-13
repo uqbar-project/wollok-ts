@@ -67,6 +67,11 @@ export default transformByKind<'Raw', 'Filled'>({
     value: node.value ? transformed.value : NULL,
   }),
 
+  Return: (transformed, node) => ({
+    ...transformed,
+    value: node.value ? transformed.value : NULL,
+  }),
+
   If: (transformed, node) => ({
     ...transformed,
     elseBody: node.elseBody ? transformed.elseBody : EMPTY_BODY,
