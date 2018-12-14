@@ -106,6 +106,64 @@ describe('Wollok Validations', () => {
 
     })
 
+    it('methodsHaveDistinctSignatures', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Method('m', {
+              parameters: [Parameter('a'), Parameter('b')],
+            })(),
+            Method('m', {
+              parameters: [Parameter('c'), Parameter('d')],
+            })(),
+          ),
+
+          Class('c2')(
+            Method('m', {
+              parameters: [Parameter('a')],
+            })(),
+            Method('m', {
+              parameters: [Parameter('c'), Parameter('d')],
+            })(),
+          ),
+
+          Class('c3')(
+            Method('m', {
+              parameters: [Parameter('a'), Parameter('b')],
+            })(),
+            Method('m', {
+              parameters: [Parameter('q', { isVarArg: true })],
+            })(),
+          ),
+
+          Class('c4')(
+            Method('m', {
+              parameters: [Parameter('a'), Parameter('b')],
+            })(),
+            Method('m2', {
+              parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
+            })(),
+          ),
+
+        ),
+      ])
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const classExample2 = packageExample.members[1] as ClassNode
+      const classExample3 = packageExample.members[2] as ClassNode
+      const classExample4 = packageExample.members[3] as ClassNode
+
+      const { methodsHaveDistinctSignatures } = validations(environment)
+
+      assert.ok(!!methodsHaveDistinctSignatures(classExample, 'methodsHaveDistinctSignatures')!)
+      assert.ok(!!methodsHaveDistinctSignatures(classExample3, 'methodsHaveDistinctSignatures')!)
+      assert.ok(!methodsHaveDistinctSignatures(classExample4, 'methodsHaveDistinctSignaturesy')!)
+      assert.ok(!methodsHaveDistinctSignatures(classExample2, 'methodsHaveDistinctSignatures')!)
+
+    })
+
 
   })
 
@@ -217,7 +275,6 @@ describe('Wollok Validations', () => {
     })
 
   })
-
 
   describe('Parameters', () => {
     it('nameIsCamelCase', () => {

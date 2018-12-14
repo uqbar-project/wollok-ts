@@ -15,7 +15,7 @@
 // No asignation of fully qualified references
 
 import { isNil, keys, reject } from 'ramda'
-import { Assignment, Class, Environment, Field, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
+import { Assignment, Class, ClassMember, Environment, Field, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
 import utils from './utils'
 
 type Code = string
@@ -41,6 +41,20 @@ const error = problem('Error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+/*
+const matchingSignatures =
+  (list: ReadonlyArray<ClassMember>, member: Method) =>
+    list.filter(m => m.kind === 'Method' && m.name === member.name && (m.parameters.length === member.parameters.length
+      || (m.parameters.some(parameter => parameter.isVarArg) && m.parameters.length <= member.parameters.length)))
+*/
+const matchingSignatures =
+  (list: ReadonlyArray<ClassMember>, member: Method) =>
+    list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m.parameters.length, member) && m !== member)
+
+
+const canBeCalledWithArgs = (parametersOfOtherMethod: number, member: Method) =>
+  (member.parameters[member.parameters.length - 1].isVarArg || member.parameters.length === parametersOfOtherMethod)
+
 
 export const validations = (environment: Environment) => {
   const { parentOf } = utils(environment)
@@ -78,6 +92,11 @@ export const validations = (environment: Environment) => {
 
     fieldNameDifferentFromTheMethods: error<Field>(node => (parentOf(node) as Class).members.
       filter((member): member is Method => member.kind === 'Method').every(({ name }) => name !== node.name)),
+
+    methodsHaveDistinctSignatures: error<Class>(node => node.members
+      .every(member => member.kind === 'Method'
+        && matchingSignatures(node.members, member).length === 0
+      )),
   }
 }
 
@@ -98,6 +117,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     importHasNotLocalReference,
     nonAsignationOfFullyQualifiedReferences,
     fieldNameDifferentFromTheMethods,
+    methodsHaveDistinctSignatures,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -108,7 +128,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Package: {},
     Program: {},
     Test: {},
-    Class: { nameIsPascalCase },
+    Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
     Singleton: { singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
     Constructor: {},
