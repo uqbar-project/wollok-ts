@@ -41,12 +41,7 @@ const error = problem('Error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-/*
-const matchingSignatures =
-  (list: ReadonlyArray<ClassMember>, member: Method) =>
-    list.filter(m => m.kind === 'Method' && m.name === member.name && (m.parameters.length === member.parameters.length
-      || (m.parameters.some(parameter => parameter.isVarArg) && m.parameters.length <= member.parameters.length)))
-*/
+
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
     list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m.parameters.length, member) && m !== member)
