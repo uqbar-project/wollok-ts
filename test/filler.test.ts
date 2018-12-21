@@ -1,6 +1,6 @@
 import { should } from 'chai'
 import fill from '../src/filler'
-import { Catch, Class, Constructor, Field, If, Literal, Parameter, Reference, Return, Singleton, Try, Variable } from './builders'
+import { Catch, Class, Constructor, Field, If, Literal, Parameter, Reference, Singleton, Try, Variable } from './builders'
 
 should()
 
@@ -54,13 +54,6 @@ describe('Wollok filler', () => {
 
     const value = Literal(5)
     fill(Variable('f', { value })).value.should.deep.equal(value)
-  })
-
-  it('fills in null as default initial value for Returns', () => {
-    fill(Return()).value.should.deep.equal(Literal(null))
-
-    const value = Literal(5)
-    fill(Return(value)).value.should.deep.equal(value)
   })
 
   it('fills in missing else clause for Ifs', () => {

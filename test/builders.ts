@@ -31,6 +31,8 @@ export const Import = (reference: ReferenceNode<'Raw'>, payload?: Partial<NodePa
   ...payload,
 })
 
+export const Body = (...sentences: Sentence<'Raw'>[]) => makeNode('Body')({ sentences })
+
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -77,7 +79,7 @@ export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode<'R
   (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Program')({
       name,
-      body: makeNode('Body')({ sentences }),
+      body: Body(...sentences),
       ...payload,
     })
 
@@ -85,7 +87,7 @@ export const Test = (name: string, payload?: Partial<NodePayload<TestNode<'Raw'>
   (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Test')({
       name,
-      body: makeNode('Body')({ sentences }),
+      body: Body(...sentences),
       ...payload,
     })
 
@@ -118,7 +120,7 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<'Raw
       isNative: false,
       parameters: [],
       ...payload && keys(payload).includes('body') && body === undefined ? {} : {
-        body: makeNode('Body')({ sentences }),
+        body: Body(...sentences),
       },
       ...otherPayload,
     })
@@ -126,7 +128,7 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<'Raw
 
 export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<'Raw'>>>) =>
   (...sentences: Sentence<'Raw'>[]) => makeNode('Constructor')({
-    body: makeNode('Body')({ sentences }),
+    body: Body(...sentences),
     baseCall: undefined,
     parameters: [],
     ...payload,
@@ -167,8 +169,8 @@ export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'
 
 export const If = (condition: Expression<'Raw'>, thenBody: List<Sentence<'Raw'>>, elseBody?: List<Sentence<'Raw'>>) => makeNode('If')({
   condition,
-  thenBody: makeNode('Body')({ sentences: thenBody }),
-  elseBody: elseBody && makeNode('Body')({ sentences: elseBody }),
+  thenBody: Body(...thenBody),
+  elseBody: elseBody && Body(...elseBody),
 })
 
 export const Throw = (arg: Expression<'Raw'>) => makeNode('Throw')({ arg })
@@ -178,15 +180,15 @@ export const Try = (sentences: List<Sentence<'Raw'>>, payload: {
   always?: List<Sentence<'Raw'>>
 }) =>
   makeNode('Try')({
-    body: makeNode('Body')({ sentences }),
+    body: Body(...sentences),
     catches: payload.catches || [],
-    always: payload.always && makeNode('Body')({ sentences: payload.always }),
+    always: payload.always && Body(...payload.always),
   })
 
 export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePayload<CatchNode<'Raw'>>>) =>
   (...sentences: Sentence<'Raw'>[]) =>
     makeNode('Catch')({
-      body: makeNode('Body')({ sentences }),
+      body: Body(...sentences),
       parameter,
       parameterType: undefined,
       ...payload,
@@ -215,24 +217,24 @@ export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
 
   const { resolve } = utils(environment)
 
-  const RuntimeObject = (id: Id<'Linked'>, moduleName: Name, attributes: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
+  const RuntimeObject = (id: Id<'Linked'>, moduleName: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
     id,
     module: resolve<Module<'Linked'>>(moduleName),
-    attributes,
+    fields,
     innerValue,
   })
 
   const Frame = (payload: Partial<FrameType>): FrameType => ({
     locals: {},
     pending: [],
-    referenceStack: [],
+    resume: [],
+    operandStack: [],
     ...payload,
   })
 
-  const Evaluation = (instances: { [id: string]: RuntimeObjectType } = {}, status: 'running' | 'error' | 'success' = 'running') =>
+  const Evaluation = (instances: { [id: string]: RuntimeObjectType } = {}) =>
     (...frameStack: FrameType[]): EvaluationType => ({
       environment,
-      status,
       instances,
       frameStack,
     })

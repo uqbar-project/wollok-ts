@@ -922,12 +922,12 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('body.sentences.0').tracedTo(12, 17)
     })
 
-    it('should parse simple return method', () => {
+    it('should parse methods defined as expressions', () => {
       'method m() = 5'.should.be.parsedBy(parser).into(
-        Method('m')(Literal(5))
+        Method('m')(Return(Literal(5)))
       ).and.be.tracedTo(0, 14)
         .and.have.nested.property('body').tracedTo(13, 14)
-        .and.also.have.nested.property('body.sentences.0').tracedTo(13, 14)
+        .and.also.have.nested.property('body.sentences.0.value').tracedTo(13, 14)
     })
 
     it('should parse override methods', () => {
@@ -949,10 +949,10 @@ describe('Wollok parser', () => {
 
     it('should parse methods that have a closure as body', () => {
       'method m() = { 5 }'.should.be.parsedBy(parser).into(
-        Method('m')(Closure()(Literal(5)))
+        Method('m')(Return(Closure()(Literal(5))))
       ).and.be.tracedTo(0, 18)
         .and.have.nested.property('body').tracedTo(13, 18)
-        .and.also.have.nested.property('body.sentences.0').tracedTo(13, 18)
+        .and.also.have.nested.property('body.sentences.0.value').tracedTo(13, 18)
     })
 
     it('should not parse incomplete methods', () => {

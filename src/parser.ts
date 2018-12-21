@@ -211,7 +211,11 @@ export const Method: Parser<MethodNode<'Raw'>> = lazy(() => seqMap(
   alt(
     key('native').result({ isNative: true, body: undefined }),
     key('=').then(
-      SingleExpressionBody.map(body => ({ isNative: false, body }))
+      Expression.map(value => ({
+        isNative: false, body: {
+          kind: 'Body', id: undefined, sentences: [{ kind: 'Return', value }], source: value.source,
+        },
+      }))
     ),
     Body.map(body => ({ isNative: false, body })),
     of({ isNative: false, body: undefined })

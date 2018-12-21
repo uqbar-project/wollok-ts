@@ -150,7 +150,7 @@ export type Variable<S extends Stage> = BaseNode<'Variable', S> & {
 }
 
 export type Return<S extends Stage> = BaseNode<'Return', S> & {
-  readonly value: Fillable<Expression<S>, S>
+  readonly value?: Expression<S>
 }
 
 export type Assignment<S extends Stage> = BaseNode<'Assignment', S> & {
@@ -196,6 +196,7 @@ export type Super<S extends Stage> = BaseNode<'Super', S> & {
 }
 
 export type New<S extends Stage> = BaseNode<'New', S> & {
+  // TODO: Rename to instantiatedClass ?
   readonly className: Reference<S>
   readonly args: List<Expression<S>>
 }
@@ -207,6 +208,7 @@ export type If<S extends Stage> = BaseNode<'If', S> & {
 }
 
 export type Throw<S extends Stage> = BaseNode<'Throw', S> & {
+  // TODO: Rename to exception ?
   readonly arg: Expression<S>
 }
 
@@ -254,5 +256,7 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
+
+export const is = <K extends Kind>(k: K) => <S extends Stage>(node: Node<S>): node is NodeOfKind<K, S> => node.kind === k
 
 // TODO: Export pre-set node types for every stage? Like RawIf, FilledIf, etc?

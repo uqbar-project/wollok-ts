@@ -1,5 +1,5 @@
 import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Name, Node, NodeOfKind, Singleton, Stage } from './model'
+import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 
@@ -108,6 +108,11 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
+  const resolveTarget = memoizeWith(({ id }) => environment.id + id)(
+    <T extends Node<'Linked'>>(reference: Reference<'Linked'>): S extends 'Linked' ? T : never => getNodeById<T>(reference.target)
+  )
+
+
   const superclass = memoizeWith(({ id }) => environment.id + id)(
     (module: Class<'Linked'> | Singleton<'Linked'>): Class<'Linked'> | null => {
       const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
@@ -151,6 +156,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
     firstAncestorOfKind,
     getNodeById,
     resolve,
+    resolveTarget,
     superclass,
     hierarchy,
     inherits,

@@ -1,11 +1,22 @@
 import { should } from 'chai'
-import { INC_PC, INSTANTIATE, LOAD, POP_FRAME, POP_PENDING, POP_REFERENCE, PUSH_FRAME, PUSH_PENDING, PUSH_REFERENCE, SET, STORE } from '../src/interpreter'
+import rewiremock from 'rewiremock'
 import link from '../src/linker'
 import { Package as PackageNode, Sentence } from '../src/model'
 import utils from '../src/utils'
-import { Class, evaluationBuilders, Package, Reference, Self } from './builders'
+import { Assignment, Class, evaluationBuilders, Field, Package, Reference, Variable } from './builders'
 
 should()
+
+const mockTargets = async (targets: { [name: string]: any }) => rewiremock.around(
+  () => import('../src/interpreter'),
+  mock => {
+    mock(() => import('../src/utils'))
+      .withDefault(env => ({
+        ...utils(env),
+        resolveTarget: reference => targets[reference.name],
+      }))
+  }
+)
 
 const WRE = Package('wollok')(
   Package('lang')(
@@ -15,249 +26,168 @@ const WRE = Package('wollok')(
 ) as unknown as PackageNode<'Filled'>
 
 const environment = link([WRE])
-const { resolve } = utils(environment)
 
 const { Evaluation, Frame, RuntimeObject } = evaluationBuilders(environment)
 
 describe('Wollok Interpreter', () => {
 
-  describe('Instructions', () => {
-
-    it('STORE', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1', b: '1' }, pending: [[Self as any, 0]], referenceStack: [] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      STORE('b')(before).should.deep.equal(after)
-    })
-
-    it('LOAD', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '2' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '2' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '2' }, pending: [[Self as any, 0]], referenceStack: ['2', '1'] }),
-        Frame({ locals: { a: '2' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      LOAD('a')(before).should.deep.equal(after)
-    })
-
-    it('SET', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object', { a: '1', b: '1' }),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1', '2', '1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object', { a: '2', b: '1' }),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      SET('a')(before).should.deep.equal(after)
-    })
-
-    it('POP_PENDING', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Reference('a') as any, 0], [Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      POP_PENDING(before).should.deep.equal(after)
-    })
-
-    it('PUSH_PENDING', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Reference('a') as any, 0], [Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      PUSH_PENDING(Reference('a') as Sentence<'Linked'>)(before).should.deep.equal(after)
-    })
-
-    it('INC_PC', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 1]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      INC_PC(before).should.deep.equal(after)
-    })
-
-    it('PUSH_REFERENCE', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['2', '1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      PUSH_REFERENCE('2')(before).should.deep.equal(after)
-    })
-
-    it('POP_REFERENCE', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1', '2'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['2'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      POP_REFERENCE(before).should.deep.equal(after)
-    })
-
-    it('PUSH_FRAME', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Reference('a') as any, 0], [Self as any, 0]], referenceStack: [] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      PUSH_FRAME([Reference('a'), Self as any])(before).should.deep.equal(after)
-    })
-
-    it('POP_FRAME', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['2'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1', '2'] }),
-      )
-
-      POP_FRAME(before).should.deep.equal(after)
-    })
-
-    it('INSTANTIATE', () => {
-      const before = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      const after = Evaluation({
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      })(
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['2', '1'] }),
-        Frame({ locals: { a: '1' }, pending: [[Self as any, 0]], referenceStack: ['1'] }),
-      )
-
-      INSTANTIATE(resolve('wollok.lang.Object'), undefined, '2')(before).should.deep.equal(after)
-    })
-
-  })
-
-
   describe('step evaluation', () => {
 
-    it('should evaluate Variable nodes')
+    describe('Variable', () => {
 
-    it('should evaluate Return nodes')
+      const sentence = Variable('v', { value: Reference('x') }) as Sentence<'Linked'>
 
-    it('should evaluate Assignment nodes')
+      it('should be initialized and saved to the current frame locals', async () => {
+        const { compile, run } = await mockTargets({
+          x: Variable('x'),
+        })
 
-    it('should evaluate Self nodes')
+        run(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { x: '1' }, pending: compile(environment)(sentence) }),
+            Frame({ locals: { v: '2' } }),
+          )
+        ).should.deep.equal(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { v: '1', x: '1' } }),
+            Frame({ locals: { v: '2' } }),
+          )
+        )
+      })
 
-    it('should evaluate Reference nodes')
+      it('should be initializable with values from a lower frame', async () => {
+        const { compile, run } = await mockTargets({
+          x: Variable('x'),
+        })
 
-    it('should evaluate Literal nodes')
+        run(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: {}, pending: compile(environment)(sentence) }),
+            Frame({ locals: { x: '1' } }),
+          )
+        ).should.deep.equal(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { v: '1' } }),
+            Frame({ locals: { x: '1' } }),
+          )
+        )
+      })
 
-    it('should evaluate Send nodes')
+    })
 
-    it('should evaluate Super nodes')
 
-    it('should evaluate New nodes')
+    describe('Assignment', () => {
 
-    it('should evaluate If nodes')
+      const sentence = Assignment(Reference('x'), Reference('y')) as Sentence<'Linked'>
 
-    it('should evaluate Throw nodes')
+      it('should reasing current frame locals', async () => {
+        const { compile, run } = await mockTargets({
+          x: Variable('x'),
+          y: Variable('y'),
+        })
 
-    it('should evaluate Try nodes')
+        run(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { x: '1' }, pending: compile(environment)(sentence) }),
+            Frame({ locals: { x: '1', y: '2' } }),
+          )
+        ).should.deep.equal(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { x: '2' } }),
+            Frame({ locals: { x: '1', y: '2' } }),
+          )
+        )
+      })
+
+      it('should reasing lower frame locals', async () => {
+        const { compile, run } = await mockTargets({
+          x: Variable('x'),
+          y: Variable('y'),
+        })
+
+        run(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { y: '2' }, pending: compile(environment)(sentence) }),
+            Frame({ locals: { x: '1' } }),
+          )
+        ).should.deep.equal(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', {}),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { y: '2' } }),
+            Frame({ locals: { x: '2' } }),
+          )
+        )
+      })
+
+      it('should reasing object fields', async () => {
+        const { compile, run } = await mockTargets({
+          x: Field('x'),
+          y: Variable('y'),
+        })
+
+        run(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', { x: '1' }),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { self: '1', y: '2' }, pending: compile(environment)(sentence) }),
+            Frame({ locals: {} }),
+          )
+        ).should.deep.equal(
+          Evaluation({
+            1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
+            2: RuntimeObject('2', 'wollok.lang.Object', {}),
+          })(
+            Frame({ locals: { self: '1', y: '2' }, pending: [] }),
+            Frame({ locals: {} }),
+          )
+        )
+      })
+
+    })
+
+    // describe('Return')
+
+    // describe('Self')
+
+    // describe('Reference')
+
+    // describe('Literal')
+
+    // describe('Send')
+
+    // describe('Super')
+
+    // describe('New')
+
+    // describe('If')
+
+    // describe('Throw')
+
+    // describe('Try')
 
   })
 
