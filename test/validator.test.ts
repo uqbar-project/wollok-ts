@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
 
 should()
 
@@ -112,7 +112,7 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Class('c')(
+          Class('classExample')(
             Method('m', {
               parameters: [Parameter('a'), Parameter('b')],
             })(),
@@ -121,7 +121,7 @@ describe('Wollok Validations', () => {
             })(),
           ),
 
-          Class('c2')(
+          Class('classExample2')(
             Method('m', {
               parameters: [Parameter('a')],
             })(),
@@ -130,7 +130,7 @@ describe('Wollok Validations', () => {
             })(),
           ),
 
-          Class('c3')(
+          Class('classExample3')(
             Method('m', {
               parameters: [Parameter('a'), Parameter('b')],
             })(),
@@ -139,7 +139,7 @@ describe('Wollok Validations', () => {
             })(),
           ),
 
-          Class('c4')(
+          Class('classExample4')(
             Method('m', {
               parameters: [Parameter('a'), Parameter('b')],
             })(),
@@ -170,56 +170,54 @@ describe('Wollok Validations', () => {
   })
 
   describe('Constructors', () => {
-    /*
-        it('constructorsHaveDistinctArity', () => {
-          const environment = link([
-            WRE,
-            Package('p')(
-              Class('c')(
-                Constructor({
-                  parameters: [Parameter('p'), Parameter('q')],
-                })(),
-                Constructor({
-                  parameters: [Parameter('k'), Parameter('l')],
-                })()
-              ),
-              Class('c2')(
-                Constructor({
-                  parameters: [Parameter('p'), Parameter('q')],
-                })(),
-                Constructor({
-                  parameters: [Parameter('q', {
-                    isVarArg: true,
-                  })],
-                })()
-              ),
-              Class('c3')(
-                Constructor({
-                  parameters: [Parameter('p'), Parameter('q')],
-                })(),
-                Constructor({
-                  parameters: [Parameter('p'), Parameter('k'), Parameter('q', {
-                    isVarArg: true,
-                  })],
-                })()
-              ),
-            ),
-          ])
 
-          const packageExample = environment.members[1] as PackageNode
-          const classExample = packageExample.members[0] as ClassNode
-          const constructorExample = classExample.members[0] as ConstructorNode
-          const classExample2 = packageExample.members[1] as ClassNode
-          const constructorExample2 = classExample2.members[0] as ConstructorNode
-          const classExample3 = packageExample.members[2] as ClassNode
-          const constructorExample3 = classExample3.members[0] as ConstructorNode
+    it('constructorsHaveDistinctArity', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Constructor({
+              parameters: [Parameter('p'), Parameter('q')],
+            })(),
+            Constructor({
+              parameters: [Parameter('k'), Parameter('l')],
+            })()
+          ),
+          Class('c2')(
+            Constructor({
+              parameters: [Parameter('p'), Parameter('q')],
+            })(),
+            Constructor({
+              parameters: [Parameter('q', {
+                isVarArg: true,
+              })],
+            })()
+          ),
+          Class('c3')(
+            Constructor({
+              parameters: [Parameter('a'), Parameter('b')],
+            })(),
+            Constructor({
+              parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
+            })()
+          ),
+        ),
+      ])
 
-          const { constructorsHaveDistinctArity } = validations(environment)
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const constructorExample = classExample.members[0] as ConstructorNode
+      const classExample2 = packageExample.members[1] as ClassNode
+      const constructorExample2 = classExample2.members[0] as ConstructorNode
+      const classExample3 = packageExample.members[2] as ClassNode
+      const constructorExample3 = classExample3.members[0] as ConstructorNode
 
-          assert.ok(!!constructorsHaveDistinctArity(constructorExample, 'constructorsHaveDistinctArity'))
-          assert.ok(!!constructorsHaveDistinctArity(constructorExample2, 'constructorsHaveDistinctArity'))
-          assert.ok(!constructorsHaveDistinctArity(constructorExample3, 'constructorsHaveDistinctArity'))
-        })*/
+      const { constructorsHaveDistinctArity } = validations(environment)
+
+      assert.ok(!!constructorsHaveDistinctArity(constructorExample, 'constructorsHaveDistinctArity'))
+      assert.ok(!!constructorsHaveDistinctArity(constructorExample2, 'constructorsHaveDistinctArity'))
+      assert.ok(!constructorsHaveDistinctArity(constructorExample3, 'constructorsHaveDistinctArity'))
+    })
 
 
   })

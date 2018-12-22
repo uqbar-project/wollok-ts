@@ -49,15 +49,19 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+const matchingConstructors =
+  (list: ReadonlyArray<ClassMember>, member: Constructor) =>
+    list.filter(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member) && m !== member)
+
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
     list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member) && m !== member)
-
 
 // definingAMethodThatOnlyCallsToSuper
 // cannotUseSelfInConstructorDelegation
 
 type HaveArgs = Method | Constructor
+
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
@@ -104,9 +108,12 @@ export const validations = (environment: Environment) => {
         && matchingSignatures(node.members, member).length === 0
       )),
 
-    constructorsHaveDistinctArity: error<Constructor>(node => !(parentOf(node) as Class).members.
-      filter((member): member is Constructor => member.kind === 'Constructor').
-      some(constructor => canBeCalledWithArgs(constructor, node))),
+    constructorsHaveDistinctArity: error<Constructor>(node => (parentOf(node) as Class).members
+      .every(member => member.kind === 'Constructor'
+        && matchingConstructors((parentOf(node) as Class).members, member).length === 0
+
+      )),
+
   }
 }
 
