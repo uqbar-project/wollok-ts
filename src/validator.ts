@@ -6,7 +6,7 @@
 // checkUnexistentNamedParametersInConstructor
 // checkUnexistentNamedParametersInheritingConstructor
 // checkUnexistentNamedParametersInheritingConstructor
-// definingAMethodThatOnlyCallsToSuper
+
 // cannotUseSelfInConstructorDelegation
 
 // DONE
@@ -111,6 +111,7 @@ export const validations = (environment: Environment) => {
         && !matchingConstructors((parentOf(node) as Class).members, member)
       )),
 
+    methodNotOnlyCallToSuper: warning<Method>(node => !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
   }
 }
 
@@ -132,6 +133,8 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     nonAsignationOfFullyQualifiedReferences,
     fieldNameDifferentFromTheMethods,
     methodsHaveDistinctSignatures,
+    constructorsHaveDistinctArity,
+    methodNotOnlyCallToSuper,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -145,9 +148,9 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
     Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
-    Constructor: {},
+    Constructor: { constructorsHaveDistinctArity },
     Field: { fieldNameDifferentFromTheMethods },
-    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
+    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
     Variable: { nameIsCamelCase, nameIsNotKeyword },
     Return: {},
     Assignment: { nonAsignationOfFullyQualifiedReferences },

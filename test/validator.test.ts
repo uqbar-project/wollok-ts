@@ -2,7 +2,7 @@ import { assert, should } from 'chai'
 import link from '../src/linker'
 import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Super, Try } from './builders'
 
 should()
 
@@ -247,6 +247,30 @@ describe('Wollok Validations', () => {
 
       assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg'))
       assert.ok(!onlyLastParameterIsVarArg(methodExample2, 'onlyLastParameterIsVarArg'))
+
+    })
+
+    it('notOnlyCallToSuper', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m')(),
+          ),
+          Class('C2',
+            { superclass: Reference('C') }
+          )(Method('m')(Super())),
+
+        ),
+      ])
+
+      const { methodNotOnlyCallToSuper } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[1] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+
+      assert.ok(!!methodNotOnlyCallToSuper(methodExample, 'onlyLastParameterIsVarArg'))
 
     })
   })
