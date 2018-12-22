@@ -31,12 +31,15 @@ describe('Wollok Validations', () => {
       const singletonExample = packageExample.members[0] as SingletonNode
       const singletonExample2 = packageExample.members[1] as SingletonNode
 
-      assert.ok(!!singletonIsNotUnnamed(singletonExample, 'singletonIsNotUnnamed')!)
-      assert.ok(!singletonIsNotUnnamed(singletonExample2, 'singletonIsNotUnnamed')!)
+      assert.ok(!!singletonIsNotUnnamed(singletonExample, 'singletonIsNotUnnamed'))
+      assert.ok(!singletonIsNotUnnamed(singletonExample2, 'singletonIsNotUnnamed'))
     })
+  })
 
-    /*
-    it('localReferenceImported', () => {
+  /*
+  describe('Imports', () => {
+
+    it('importHasNotLocalReference', () => {
       const enviroment = link([
         WRE,
         Package('p', {
@@ -48,10 +51,9 @@ describe('Wollok Validations', () => {
       const importExample = packageExample.imports[0]
       const { importHasNotLocalReference } = validations(enviroment)
 
-      const t = importHasNotLocalReference(importExample, 'referenceIsNotlocalReferenceImported') as Problem
-      assert.ok(!!t)
-    })*/
-  })
+      assert.ok(!!importHasNotLocalReference(importExample, 'importHasNotLocalReference'))
+    })
+  })*/
 
   describe('References', () => {
     it('nameIsNotKeyword', () => {
@@ -141,7 +143,7 @@ describe('Wollok Validations', () => {
             Method('m', {
               parameters: [Parameter('a'), Parameter('b')],
             })(),
-            Method('m2', {
+            Method('m', {
               parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
             })(),
           ),
@@ -157,12 +159,67 @@ describe('Wollok Validations', () => {
 
       const { methodsHaveDistinctSignatures } = validations(environment)
 
-      assert.ok(!!methodsHaveDistinctSignatures(classExample, 'methodsHaveDistinctSignatures')!)
-      assert.ok(!!methodsHaveDistinctSignatures(classExample3, 'methodsHaveDistinctSignatures')!)
-      assert.ok(!methodsHaveDistinctSignatures(classExample4, 'methodsHaveDistinctSignaturesy')!)
-      assert.ok(!methodsHaveDistinctSignatures(classExample2, 'methodsHaveDistinctSignatures')!)
+      assert.ok(!!methodsHaveDistinctSignatures(classExample, 'methodsHaveDistinctSignatures'))
+      assert.ok(!!methodsHaveDistinctSignatures(classExample3, 'methodsHaveDistinctSignatures'))
+      assert.ok(!methodsHaveDistinctSignatures(classExample4, 'methodsHaveDistinctSignatures'))
+      assert.ok(!methodsHaveDistinctSignatures(classExample2, 'methodsHaveDistinctSignatures'))
 
     })
+
+
+  })
+
+  describe('Constructors', () => {
+    /*
+        it('constructorsHaveDistinctArity', () => {
+          const environment = link([
+            WRE,
+            Package('p')(
+              Class('c')(
+                Constructor({
+                  parameters: [Parameter('p'), Parameter('q')],
+                })(),
+                Constructor({
+                  parameters: [Parameter('k'), Parameter('l')],
+                })()
+              ),
+              Class('c2')(
+                Constructor({
+                  parameters: [Parameter('p'), Parameter('q')],
+                })(),
+                Constructor({
+                  parameters: [Parameter('q', {
+                    isVarArg: true,
+                  })],
+                })()
+              ),
+              Class('c3')(
+                Constructor({
+                  parameters: [Parameter('p'), Parameter('q')],
+                })(),
+                Constructor({
+                  parameters: [Parameter('p'), Parameter('k'), Parameter('q', {
+                    isVarArg: true,
+                  })],
+                })()
+              ),
+            ),
+          ])
+
+          const packageExample = environment.members[1] as PackageNode
+          const classExample = packageExample.members[0] as ClassNode
+          const constructorExample = classExample.members[0] as ConstructorNode
+          const classExample2 = packageExample.members[1] as ClassNode
+          const constructorExample2 = classExample2.members[0] as ConstructorNode
+          const classExample3 = packageExample.members[2] as ClassNode
+          const constructorExample3 = classExample3.members[0] as ConstructorNode
+
+          const { constructorsHaveDistinctArity } = validations(environment)
+
+          assert.ok(!!constructorsHaveDistinctArity(constructorExample, 'constructorsHaveDistinctArity'))
+          assert.ok(!!constructorsHaveDistinctArity(constructorExample2, 'constructorsHaveDistinctArity'))
+          assert.ok(!constructorsHaveDistinctArity(constructorExample3, 'constructorsHaveDistinctArity'))
+        })*/
 
 
   })
@@ -190,8 +247,8 @@ describe('Wollok Validations', () => {
       const methodExample = classExample.members[0] as MethodNode
       const methodExample2 = classExample.members[1] as MethodNode
 
-      assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg')!)
-      assert.ok(!onlyLastParameterIsVarArg(methodExample2, 'onlyLastParameterIsVarArg')!)
+      assert.ok(!!onlyLastParameterIsVarArg(methodExample, 'onlyLastParameterIsVarArg'))
+      assert.ok(!onlyLastParameterIsVarArg(methodExample2, 'onlyLastParameterIsVarArg'))
 
     })
   })
@@ -220,8 +277,8 @@ describe('Wollok Validations', () => {
       const assingnmentExample = bodyExample.sentences[0] as AssignmentNode
       const assingnmentExample2 = bodyExample.sentences[1] as AssignmentNode
 
-      assert.ok(!!nonAsignationOfFullyQualifiedReferences(assingnmentExample, 'nonAsignationOfFullyQualifiedReferences')!)
-      assert.ok(!nonAsignationOfFullyQualifiedReferences(assingnmentExample2, 'nonAsignationOfFullyQualifiedReferences')!)
+      assert.ok(!!nonAsignationOfFullyQualifiedReferences(assingnmentExample, 'nonAsignationOfFullyQualifiedReferences'))
+      assert.ok(!nonAsignationOfFullyQualifiedReferences(assingnmentExample2, 'nonAsignationOfFullyQualifiedReferences'))
 
     })
 
@@ -268,9 +325,9 @@ describe('Wollok Validations', () => {
       const bodyExample3 = methodExample3.body as BodyNode
       const tryExample3 = bodyExample3.sentences[0] as TryNode
 
-      assert.ok(!!hasCatchOrAlways(tryExample, 'hasCatchOrAlways')!)
-      assert.ok(!hasCatchOrAlways(tryExample2, 'hasCatchOrAlways')!)
-      assert.ok(!hasCatchOrAlways(tryExample3, 'hasCatchOrAlways')!)
+      assert.ok(!!hasCatchOrAlways(tryExample, 'hasCatchOrAlways'))
+      assert.ok(!hasCatchOrAlways(tryExample2, 'hasCatchOrAlways'))
+      assert.ok(!hasCatchOrAlways(tryExample3, 'hasCatchOrAlways'))
 
     })
 
@@ -297,8 +354,8 @@ describe('Wollok Validations', () => {
       const parameterExample = methodExample.parameters[0] as ParameterNode
       const parameterExample2 = methodExample.parameters[1] as ParameterNode
 
-      assert.ok(!!nameIsCamelCase(parameterExample, 'nameIsCamelCase')!)
-      assert.ok(!nameIsCamelCase(parameterExample2, 'nameIsCamelCase')!)
+      assert.ok(!!nameIsCamelCase(parameterExample, 'nameIsCamelCase'))
+      assert.ok(!nameIsCamelCase(parameterExample2, 'nameIsCamelCase'))
     })
   })
 
@@ -323,8 +380,8 @@ describe('Wollok Validations', () => {
       const fieldExample = classExample.members[0] as FieldMethod
       const fieldExample2 = classExample.members[1] as FieldMethod
 
-      assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'fieldNameDifferentFromTheMethods')!)
-      assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'fieldNameDifferentFromTheMethods')!)
+      assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'fieldNameDifferentFromTheMethods'))
+      assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'fieldNameDifferentFromTheMethods'))
 
     })
   })

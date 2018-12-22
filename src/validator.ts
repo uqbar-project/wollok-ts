@@ -1,10 +1,11 @@
 // TODO:
 
-// No members with the same selector las clases no puede tener
-// fields que se llamen como sus metodos una clase no puede tener
-// dos metodos con el mismo nombre y aridades que matcheen
 // No imports of local references
-
+// propertyOnlyAllowedInMethodContainer no entiendo que es, preguntar
+// cannotInstantiateAbstractClasses
+// checkUnexistentNamedParametersInConstructor
+// checkUnexistentNamedParametersInheritingConstructor
+// checkUnexistentNamedParametersInheritingConstructor
 
 // DONE
 // Name capitalization
@@ -13,9 +14,15 @@
 // No try without catch or always
 // No unnamed singleton outside Literals
 // No asignation of fully qualified references
+// No members with the same selector las clases no puede tener
+// fields que se llamen como sus metodos una clase no puede tener
+// dos metodos con el mismo nombre y aridades que matcheen
 
 import { isNil, keys, reject } from 'ramda'
-import { Assignment, Class, ClassMember, Environment, Field, Import, Method, Mixin, Node, NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable } from './model'
+import {
+  Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin, Node,
+  NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable
+} from './model'
 import utils from './utils'
 
 type Code = string
@@ -44,12 +51,17 @@ const error = problem('Error')
 
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
-    list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m.parameters.length, member) && m !== member)
+    list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member) && m !== member)
 
 
-const canBeCalledWithArgs = (parametersOfOtherMethod: number, member: Method) =>
-  (member.parameters[member.parameters.length - 1].isVarArg || member.parameters.length === parametersOfOtherMethod)
+// definingAMethodThatOnlyCallsToSuper
+// cannotUseSelfInConstructorDelegation
 
+type HaveArgs = Method | Constructor
+
+const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
+  ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
+    || member2.parameters.length === member1.parameters.length)
 
 export const validations = (environment: Environment) => {
   const { parentOf } = utils(environment)
@@ -60,8 +72,7 @@ export const validations = (environment: Environment) => {
       /^[A-Z]$/.test(node.name[0])
     ),
 
-    // TODO: Y las referencias cuando no son a superclases o mixines
-    nameIsCamelCase: warning<Parameter>(node =>
+    nameIsCamelCase: warning<Parameter | Singleton | Variable>(node => node.name !== undefined &&
       /^[a-z]$/.test(node.name[0])
     ),
 
@@ -92,6 +103,10 @@ export const validations = (environment: Environment) => {
       .every(member => member.kind === 'Method'
         && matchingSignatures(node.members, member).length === 0
       )),
+
+    constructorsHaveDistinctArity: error<Constructor>(node => !(parentOf(node) as Class).members.
+      filter((member): member is Constructor => member.kind === 'Constructor').
+      some(constructor => canBeCalledWithArgs(constructor, node))),
   }
 }
 
@@ -124,12 +139,12 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Program: {},
     Test: {},
     Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
-    Singleton: { singletonIsNotUnnamed },
+    Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
     Constructor: {},
     Field: { fieldNameDifferentFromTheMethods },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
-    Variable: { nameIsNotKeyword },
+    Variable: { nameIsCamelCase, nameIsNotKeyword },
     Return: {},
     Assignment: { nonAsignationOfFullyQualifiedReferences },
     Reference: { nameIsNotKeyword },
