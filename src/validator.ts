@@ -6,6 +6,8 @@
 // checkUnexistentNamedParametersInConstructor
 // checkUnexistentNamedParametersInheritingConstructor
 // checkUnexistentNamedParametersInheritingConstructor
+// definingAMethodThatOnlyCallsToSuper
+// cannotUseSelfInConstructorDelegation
 
 // DONE
 // Name capitalization
@@ -49,23 +51,22 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const matchingConstructors =
-  (list: ReadonlyArray<ClassMember>, member: Constructor) =>
-    list.filter(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member) && m !== member)
-
-const matchingSignatures =
-  (list: ReadonlyArray<ClassMember>, member: Method) =>
-    list.filter(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member) && m !== member)
-
-// definingAMethodThatOnlyCallsToSuper
-// cannotUseSelfInConstructorDelegation
-
 type HaveArgs = Method | Constructor
-
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
     || member2.parameters.length === member1.parameters.length)
+
+const matchingArity = (member1: HaveArgs, member2: HaveArgs) =>
+  canBeCalledWithArgs(member1, member2) && member1 !== member2
+
+const matchingConstructors =
+  (list: ReadonlyArray<ClassMember>, member: Constructor) =>
+    list.some(m => m.kind === 'Constructor' && matchingArity(m, member))
+
+const matchingSignatures =
+  (list: ReadonlyArray<ClassMember>, member: Method) =>
+    list.some(m => m.kind === 'Method' && m.name === member.name && matchingArity(m, member))
 
 export const validations = (environment: Environment) => {
   const { parentOf } = utils(environment)
@@ -105,13 +106,12 @@ export const validations = (environment: Environment) => {
 
     methodsHaveDistinctSignatures: error<Class>(node => node.members
       .every(member => member.kind === 'Method'
-        && matchingSignatures(node.members, member).length === 0
+        && !matchingSignatures(node.members, member)
       )),
 
     constructorsHaveDistinctArity: error<Constructor>(node => (parentOf(node) as Class).members
       .every(member => member.kind === 'Constructor'
-        && matchingConstructors((parentOf(node) as Class).members, member).length === 0
-
+        && !matchingConstructors((parentOf(node) as Class).members, member)
       )),
 
   }
