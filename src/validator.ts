@@ -55,18 +55,15 @@ type HaveArgs = Method | Constructor
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
-    || member2.parameters.length === member1.parameters.length)
-
-const matchingArity = (member1: HaveArgs, member2: HaveArgs) =>
-  canBeCalledWithArgs(member1, member2) && member1 !== member2
+    || member2.parameters.length === member1.parameters.length) && member1 !== member2
 
 const matchingConstructors =
   (list: ReadonlyArray<ClassMember>, member: Constructor) =>
-    list.some(m => m.kind === 'Constructor' && matchingArity(m, member))
+    list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
 
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
-    list.some(m => m.kind === 'Method' && m.name === member.name && matchingArity(m, member))
+    list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
 
 export const validations = (environment: Environment) => {
   const { parentOf } = utils(environment)
