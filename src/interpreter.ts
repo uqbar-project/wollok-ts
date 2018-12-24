@@ -1,17 +1,15 @@
-import { assoc, chain as flatMap, compose, drop, lens, lensIndex, ManualLens, max, over as change, pipe, prepend, PseudoLens, reverse, set, without, zipObj } from 'ramda'
+import { assoc, chain as flatMap, compose, drop, last, lens, lensIndex, ManualLens, max, over as change, pipe, prepend, PseudoLens, reverse, set, without, zipObj } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Body, Class, ClassMember, Constructor, Environment, Expression, Field, Id, If, is, List, Method, Module, Name, ObjectMember, Sentence, Try } from './model'
+import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, List, Name, Sentence } from './model'
 import utils from './utils'
 
 // TODO: Remove the parameter type from Id
-// TODO: Closure need to be a node, so return will exit the current frame
-
 
 export interface Locals { readonly [name: string]: Id<'Linked'> }
 
 export interface RuntimeObject {
   readonly id: Id<'Linked'>
-  readonly module: Module<'Linked'> // TODO: Use id or FQN instead
+  readonly module: Name
   readonly fields: Locals
   readonly innerValue?: any
 }
@@ -32,10 +30,10 @@ export interface Evaluation {
   readonly instances: { readonly [id: string]: RuntimeObject }
 }
 
-const NULL_ID = 'null'
-const VOID_ID = 'void'
-const TRUE_ID = 'true'
-const FALSE_ID = 'false'
+export const NULL_ID = 'null'
+export const VOID_ID = 'void'
+export const TRUE_ID = 'true'
+export const FALSE_ID = 'false'
 
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -88,54 +86,11 @@ const $currentOperandStack = seq($currentFrame, $operandStack)
 
 const $nthFrame = (index: number) => seq($frameStack, lensIndex(index))
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// LOOKUP
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const methodLookup = (environment: Environment<'Linked'>) =>
-  (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
-    const { hierarchy } = utils(environment)
-    for (const module of hierarchy(start)) {
-      const found = (module.members as List<ObjectMember<'Linked'>>).find(member =>
-        // TODO: Varargs
-        member.kind === 'Method' && (!!member.body || member.isNative) && member.name === name && member.parameters.length === arity
-      )
-      if (found) return found as Method<'Linked'>
-    }
-    return undefined
-  }
-
-const constructorLookup = (arity: number, owner: Class<'Linked'>): Constructor<'Linked'> | undefined => {
-  // TODO: Varargs
-  const found = owner.members.find(member => member.kind === 'Constructor' && member.parameters.length === arity)
-  return found ? found as Constructor<'Linked'> : undefined
-}
-
-const constructorCallChain = (environment: Environment<'Linked'>) =>
-  (startingClass: Class<'Linked'>, startingArguments: List<Expression<'Linked'>>)
-    : List<[Constructor<'Linked'>, List<Expression<'Linked'>>]> => {
-
-    const { superclass } = utils(environment)
-
-    const currentConstructor = constructorLookup(startingArguments.length, startingClass)
-    const superClass = superclass(startingClass)
-
-    return currentConstructor
-      ? [
-        [currentConstructor, startingArguments],
-        ...constructorCallChain(environment)(
-          currentConstructor.baseCall.callsSuper ? superClass! : startingClass,
-          currentConstructor.baseCall.args
-        ),
-      ]
-      : superClass ? constructorCallChain(environment)(superClass, []) : []
-  }
-
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
+// TODO: Factory functions
 export type Instruction = LOAD
   | STORE
   | PUSH
@@ -146,7 +101,7 @@ export type Instruction = LOAD
   | CONDITIONAL_JUMP
   | CALL
   | INIT
-  | IF_ELSE
+  | IF_THEN_ELSE
   | TRY_CATCH_ALWAYS
   | INTERRUPT
   | RESUME_INTERRUPTION
@@ -157,19 +112,22 @@ export type PUSH = { kind: 'PUSH', id: Id<'Linked'> }
 export type GET = { kind: 'GET', name: Name }
 export type SET = { kind: 'SET', name: Name }
 export type INSTANTIATE = { kind: 'INSTANTIATE', module: Name, innerValue?: any }
-export type INHERITS = { kind: 'INHERITS', name: Name }
+export type INHERITS = { kind: 'INHERITS', module: Name }
 export type CONDITIONAL_JUMP = { kind: 'CONDITIONAL_JUMP', count: number }
 export type CALL = { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
-export type INIT = { kind: 'INIT', arity: number, lookupStart: Name }
-export type IF_ELSE = { kind: 'IF_ELSE', node: If<'Linked'> }
-export type TRY_CATCH_ALWAYS = { kind: 'TRY_CATCH_ALWAYS', node: Try<'Linked'> }
+export type INIT = { kind: 'INIT', arity: number, lookupStart: Name, initFields: boolean }
+export type IF_THEN_ELSE = { kind: 'IF_THEN_ELSE', then: List<Instruction>, else: List<Instruction> }
+export type TRY_CATCH_ALWAYS = { kind: 'TRY_CATCH_ALWAYS', try: List<Instruction>, catch: List<Instruction>, always: List<Instruction> }
 export type INTERRUPT = { kind: 'INTERRUPT', interruption: Interruption }
 export type RESUME_INTERRUPTION = { kind: 'RESUME_INTERRUPTION' }
 
-export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'Linked'>): List<Instruction> => {
+export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
   // TODO: rename utils to "tools"
   const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
   switch (node.kind) {
+
+    case 'Body': return flatMap(compile(environment), node.sentences)
+
     case 'Variable':
       return [
         ...compile(environment)(node.value),
@@ -222,11 +180,11 @@ export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'
       ]
       if (typeof node.value === 'number') return [
         { kind: 'INSTANTIATE', module: 'wollok.lang.Number', innerValue: node.value },
-        { kind: 'INIT', lookupStart: 'wollok.lang.Number', arity: 0 },
+        { kind: 'INIT', lookupStart: 'wollok.lang.Number', arity: 0, initFields: true },
       ]
       if (typeof node.value === 'string') return [
         { kind: 'INSTANTIATE', module: 'wollok.lang.String', innerValue: node.value },
-        { kind: 'INIT', lookupStart: 'wollok.lang.String', arity: 0 },
+        { kind: 'INIT', lookupStart: 'wollok.lang.String', arity: 0, initFields: true },
       ]
       if (node.value.kind === 'Singleton') return [
         { kind: 'PUSH', id: node.value.id },
@@ -255,14 +213,14 @@ export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'
       return [
         ...flatMap(compile(environment), node.args),
         { kind: 'INSTANTIATE', module: node.className.name },
-        { kind: 'INIT', lookupStart: fullyQualifiedName(resolveTarget(node.className)), arity: node.args.length },
+        { kind: 'INIT', lookupStart: fullyQualifiedName(resolveTarget(node.className)), arity: node.args.length, initFields: true },
       ]
 
 
     case 'If':
       return [
         ...compile(environment)(node.condition),
-        { kind: 'IF_ELSE', node },
+        { kind: 'IF_THEN_ELSE', then: compile(environment)(node.elseBody), else: compile(environment)(node.elseBody) },
       ]
 
 
@@ -275,7 +233,26 @@ export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'
 
     case 'Try':
       return [
-        { kind: 'TRY_CATCH_ALWAYS', node },
+        {
+          kind: 'TRY_CATCH_ALWAYS',
+          try: compile(environment)(node.body),
+          catch: flatMap<Catch<'Linked'>, Instruction>(({ parameter, parameterType, body }) => {
+            const compiledCatch: List<Instruction> = [
+              { kind: 'PUSH', id: VOID_ID } as Instruction,
+              { kind: 'LOAD', name: '<exception>' } as Instruction,
+              { kind: 'STORE', name: parameter.name } as Instruction,
+              ...compile(environment)(body),
+              { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
+            ]
+            return [
+              { kind: 'LOAD', name: '<exception>' } as Instruction,
+              { kind: 'INHERITS', module: fullyQualifiedName(resolveTarget(parameterType)) } as Instruction,
+              { kind: 'CONDITIONAL_JUMP', count: compiledCatch.length } as Instruction,
+              ...compiledCatch,
+            ]
+          }, node.catches),
+          always: compile(environment)(node.always),
+        },
       ]
   }
 }
@@ -299,17 +276,28 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
   if (!instruction) throw new Error('Reached end of pending instructions')
 
   const evaluation = change($currentPending, drop(1))(previousEvaluation)
-  const { hierarchy, superclass, resolve, fullyQualifiedName, resolveTarget, inherits } = utils(environment)
+  const {
+    hierarchy,
+    superclass,
+    resolve,
+    fullyQualifiedName,
+    inherits,
+    constructorLookup,
+    methodLookup,
+  } = utils(environment)
 
   switch (instruction.kind) {
 
     case 'LOAD': return (() => {
       const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
-      return change($currentOperandStack, prepend(value || VOID_ID))(evaluation)
+      if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
+      return change($currentOperandStack, prepend(value))(evaluation)
     })()
 
 
     case 'STORE': return (() => {
+      if (!currentTopOperand) throw new Error('Popped empty operand stack')
+
       const frameIndex = instruction.lookup
         ? max(0, frameStack.findIndex(({ locals }) => instruction.name in locals))
         : 0
@@ -328,6 +316,8 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
     case 'GET': return (() => { // TODO: don't use switch... I want variables.
       const [self, ...operandStack] = currentOperandStack
       const current = instances[self]
+      if (!self) throw new Error('Popped empty operand stack')
+      if (!current) throw new Error(`Access to undefined instance "${self}"`)
       return set($currentOperandStack, prepend(current.fields[instruction.name])(operandStack))(evaluation)
     })()
 
@@ -335,6 +325,8 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
     case 'SET': return (() => {
       const [value, self, ...operandStack] = currentOperandStack
       const current = instances[self]
+      if (!value || !self) throw new Error('Popped empty operand stack')
+      if (!current) throw new Error(`Access to undefined instance "${self}"`)
       return pipe(
         change($instances, assoc(self, { ...current, fields: assoc(instruction.name, value, current.fields) })),
         set($currentOperandStack, operandStack),
@@ -342,100 +334,220 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
     })()
 
     case 'INSTANTIATE': return (() => {
-      const instantiatedClass = resolve<Class<'Linked'>>(instruction.module)
-      const instance: RuntimeObject = { id: uuid(), module: instantiatedClass, fields: {}, innerValue: instruction.innerValue }
-      // TODO: Add to Filler method for doing this and just call it.
-      const allFields = hierarchy(instantiatedClass).reduce((fields, module) => [
-        ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
-        ...fields,
-      ], [] as Field<'Linked'>[])
-
+      const instance: RuntimeObject = { id: uuid(), module: instruction.module, fields: {}, innerValue: instruction.innerValue }
 
       return pipe(
         change($instances, assoc(instance.id, instance)),
         change($currentOperandStack, prepend(instance.id)),
-        change($frameStack, prepend({
-          pending: [
-            ...flatMap<Field<'Linked'>, Instruction>(({ value, name }) => [
-              { kind: 'LOAD', name: 'self' },
-              ...compile(environment)(value),
-              { kind: 'SET', name },
-            ], allFields),
-          ],
-          locals: { self: instance.id },
-          operandStack: [],
-          resume: [],
-        }))
       )(evaluation)
     })()
 
-    case 'INHERITS':
+    case 'INHERITS': return (() => {
+      const current = instances[currentTopOperand]
+      if (!currentTopOperand) throw new Error('Popped empty operand stack')
+      if (!current) throw new Error(`Access to undefined instance "${currentTopOperand}"`)
+
       return pipe(
         change($currentOperandStack, drop(1)),
         change($currentOperandStack, prepend(
-          inherits(instances[currentTopOperand].module, resolve(instruction.name)) ? TRUE_ID : FALSE_ID
+          inherits(resolve(current.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID
         )),
       )(evaluation)
+    })()
 
+
+    // TODO: can't we just use IF_ELSE instead?
     case 'CONDITIONAL_JUMP':
-      return change($currentPending, drop(currentTopOperand === FALSE_ID ? instruction.count : 0))(evaluation)
+      if (!currentTopOperand) throw new Error('Popped empty operand stack')
+      if (currentTopOperand !== TRUE_ID && currentTopOperand !== FALSE_ID) throw new Error(`Non boolean condition "${currentTopOperand}"`)
+      if (instruction.count > currentPending.length || instruction.count < 0) throw new Error(`Invalid jump count ${instruction.count}`)
+
+      return pipe(
+        change($currentOperandStack, drop(1)),
+        change($currentPending, drop(currentTopOperand === FALSE_ID ? instruction.count : 0)),
+      )(evaluation)
 
 
     case 'CALL': return (() => {
       const [self, ...args] = reverse(currentOperandStack.slice(0, instruction.arity + 1))
-      const method = methodLookup(environment)(
+      const current = instances[self]
+
+      if (currentOperandStack.length < instruction.arity + 1) throw new Error('Popped empty operand stack')
+      if (!current) throw new Error(`Access to undefined instance "${self}"`)
+
+      const method = methodLookup(
         instruction.message,
         instruction.arity,
-        instruction.lookupStart ? resolve(instruction.lookupStart) : instances[self].module
+        resolve(instruction.lookupStart || current.module)
       )
 
-      // TODO: call messageNotUnderstood(message, parameters), defined in wre
-      if (!method) return change($currentOperandStack, drop(instruction.arity + 1))(evaluation)
+      if (!method) {
+        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(current.module))!
+        const nameObject: RuntimeObject = {
+          id: uuid(),
+          module: 'wollok.lang.String',
+          fields: {},
+          innerValue: messageNotUnderstood.name,
+        }
+        const argsObject: RuntimeObject = {
+          id: uuid(),
+          module: 'wollok.lang.List',
+          fields: {},
+          innerValue: args,
+        }
 
-      // TODO: primitives
-      // TODO: varargs
+        return pipe(
+          change($currentOperandStack, drop(instruction.arity + 1)),
+          change($currentResume, prepend('return' as Interruption)),
+          change($instances, assoc(nameObject.id, nameObject)),
+          change($instances, assoc(argsObject.id, argsObject)),
+          change($frameStack, prepend({
+            pending: compile(environment)(messageNotUnderstood.body!),
+            locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameObject.id, argsObject.id]), self },
+            operandStack: [],
+            resume: [],
+          }))
+        )(evaluation)
+      }
+
+      // TODO: refactor this
+
+      if (method.parameters.some(({ isVarArg }) => isVarArg)) {
+        const restObject: RuntimeObject = {
+          id: uuid(),
+          module: 'wollok.lang.List',
+          fields: {},
+          innerValue: args.slice(method.parameters.length - 1),
+        }
+
+        // TODO: natives
+        return pipe(
+          change($currentOperandStack, drop(instruction.arity + 1)),
+          change($currentResume, prepend('return' as Interruption)),
+          change($instances, assoc(restObject.id, restObject)),
+          change($frameStack, prepend({
+            pending: compile(environment)(method.body!),
+            locals: {
+              ...zipObj(method.parameters.slice(0, -1).map(({ name }) => name), args),
+              [last(method.parameters)!.name]: restObject.id,
+              self,
+            },
+            operandStack: [],
+            resume: [],
+          }))
+        )(evaluation)
+      }
+
+      // TODO: natives
       return pipe(
         change($currentOperandStack, drop(instruction.arity + 1)),
-        change($currentResume, resume => [...resume, 'return' as Interruption]),
+        change($currentResume, prepend('return' as Interruption)),
         change($frameStack, prepend({
-          pending: flatMap(compile(environment), method.body!.sentences),
+          pending: compile(environment)(method.body!),
           locals: { ...zipObj(method.parameters.map(({ name }) => name), args), self },
           operandStack: [],
           resume: [],
         }))
       )(evaluation)
-      // TODO: Shouldn't we leave something here for the return to find? The current CALL was already removed.
     })()
 
 
     case 'INIT': return (() => {
-      const [self, ...args] = currentOperandStack.slice(0, instruction.arity + 1)
+      if (currentOperandStack.length < instruction.arity + 1) throw new Error('Popped empty operand stack')
+
+      const [self, ...reverseArgs] = currentOperandStack.slice(0, instruction.arity + 1)
+      const args = reverse(reverseArgs)
       const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
+
+      // TODO: Add to Filler method for doing this and just call it ?
+      const allFields = hierarchy(resolve(instances[self].module)).reduce((fields, module) => [
+        ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
+        ...fields,
+      ], [] as Field<'Linked'>[])
+
+
       const constructor = constructorLookup(instruction.arity, lookupStart)
       const ownSuperclass = superclass(lookupStart)
 
-      // TODO: throw error? Shouldn't this be ensured by the validator?
-      if (!constructor) return change($currentOperandStack, drop(instruction.arity + 1))(evaluation)
+      if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart}`)
 
-      // TODO: varargs
+      // TODO: refactor this
+
+      if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
+        const restObject: RuntimeObject = {
+          id: uuid(),
+          module: 'wollok.lang.List',
+          fields: {},
+          innerValue: args.slice(constructor.parameters.length - 1),
+        }
+
+        // TODO: natives
+        return pipe(
+          change($currentOperandStack, drop(instruction.arity + 1)),
+          change($currentResume, prepend('return' as Interruption)),
+          change($instances, assoc(restObject.id, restObject)),
+          change($frameStack, prepend<Frame>({
+            pending: new Array<Instruction>(
+              ...instruction.initFields ? [
+                ...flatMap<Field<'Linked'>, Instruction>(({ value, name }) => [
+                  { kind: 'LOAD', name: 'self' },
+                  ...compile(environment)(value),
+                  { kind: 'SET', name },
+                ], allFields),
+              ] : [],
+              ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
+                ...flatMap(compile(environment), constructor.baseCall.args),
+                { kind: 'LOAD', name: 'self' },
+                {
+                  kind: 'INIT',
+                  lookupStart: constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+                  arity: constructor.baseCall.args.length,
+                  initFields: false,
+                },
+              ) : [],
+              ...compile(environment)(constructor.body),
+              { kind: 'INTERRUPT', interruption: 'return' as Interruption },
+            ),
+            locals: {
+              ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), args),
+              [last(constructor.parameters)!.name]: restObject.id,
+              self,
+            },
+            operandStack: [],
+            resume: [],
+          }))
+
+
+        )(evaluation)
+      }
+
+      // TODO: natives
       return pipe(
         change($currentOperandStack, drop(instruction.arity + 1)),
-        change($currentOperandStack, prepend(self)),
-        change($currentResume, resume => [...resume, 'return' as Interruption]),
-        change($frameStack, prepend({
-          pending: [
-            ...ownSuperclass || !constructor.baseCall.callsSuper ? [
+        change($currentResume, prepend('return' as Interruption)),
+        change($frameStack, prepend<Frame>({
+          pending: new Array<Instruction>(
+            ...instruction.initFields ? [
+              ...flatMap<Field<'Linked'>, Instruction>(({ value, name }) => [
+                { kind: 'LOAD', name: 'self' },
+                ...compile(environment)(value),
+                { kind: 'SET', name },
+              ], allFields),
+            ] : [],
+            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
               ...flatMap(compile(environment), constructor.baseCall.args),
               { kind: 'LOAD', name: 'self' },
               {
                 kind: 'INIT',
-                lookupStart: constructor.baseCall.callsSuper ? ownSuperclass : instruction.lookupStart,
+                lookupStart: constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
                 arity: constructor.baseCall.args.length,
+                initFields: false,
               },
-            ] : [],
-            ...flatMap(compile(environment), constructor.body.sentences), // TODO: compile body?
-          ] as Instruction[],
-          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), reverse(args)), self },
+            ) : [],
+            ...compile(environment)(constructor.body),
+            { kind: 'INTERRUPT', interruption: 'return' as Interruption },
+          ),
+          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), args), self },
           operandStack: [],
           resume: [],
         }))
@@ -443,28 +555,21 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
     })()
 
 
-    case 'IF_ELSE': return (() => {
-      const compiledThen: Instruction[] = [
-        { kind: 'PUSH', id: VOID_ID },
-        ...flatMap(compile(environment), instruction.node.thenBody.sentences),
-        { kind: 'INTERRUPT', interruption: 'result' },
-      ]
-      const compiledElse: Instruction[] = [
-        { kind: 'PUSH', id: VOID_ID },
-        ...flatMap(compile(environment), instruction.node.elseBody.sentences),
-        { kind: 'INTERRUPT', interruption: 'result' },
-      ]
+    case 'IF_THEN_ELSE': return (() => {
+      if (!currentTopOperand) throw new Error('Popped empty operand stack')
+      if (currentTopOperand !== TRUE_ID && currentTopOperand !== FALSE_ID) throw new Error(`Non boolean condition "${currentTopOperand}"`)
+
       return pipe(
         change($currentOperandStack, drop(1)),
-        change($currentResume, resume => [...resume, 'result' as Interruption]),
+        change($currentResume, prepend('result' as Interruption)),
         change($frameStack, prepend({
           pending: [
-            { kind: 'CONDITIONAL_JUMP', count: compiledThen.length } as Instruction,
-            ...compiledThen,
-            ...compiledElse,
+            { kind: 'PUSH', id: VOID_ID } as Instruction,
+            ...currentTopOperand === TRUE_ID ? instruction.then : instruction.else,
+            { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
           ],
           locals: {},
-          operandStack: [currentTopOperand],
+          operandStack: [],
           resume: [],
         }))
       )(evaluation)
@@ -473,12 +578,13 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
 
     case 'TRY_CATCH_ALWAYS':
       return pipe(
+        change($currentResume, prepend('result' as Interruption)),
         change($frameStack, prepend({
           pending: [
-            ({ kind: 'STORE', name: '<previous_interruption>' }),
-            ...flatMap(compile(environment), instruction.node.always.sentences),
-            ({ kind: 'LOAD', name: '<previous_interruption>' }),
-            ({ kind: 'RESUME_INTERRUPTION' }),
+            { kind: 'STORE', name: '<previous_interruption>' },
+            ...instruction.always,
+            { kind: 'LOAD', name: '<previous_interruption>' },
+            { kind: 'RESUME_INTERRUPTION' },
           ] as Instruction[],
           locals: {},
           operandStack: [],
@@ -487,32 +593,18 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
         change($frameStack, prepend({
           pending: [
             { kind: 'STORE', name: '<exception>' } as Instruction,
-            ...flatMap(({ parameter, parameterType, body }) => {
-              const compiledCatch: List<Instruction> = [
-                { kind: 'PUSH', id: VOID_ID } as Instruction,
-                { kind: 'LOAD', name: '<exception>' } as Instruction,
-                { kind: 'STORE', name: parameter.name } as Instruction,
-                ...flatMap(compile(environment), body.sentences),
-                { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
-              ]
-              return [
-                { kind: 'LOAD', name: '<exception>' } as Instruction,
-                { kind: 'INHERITS', name: fullyQualifiedName(resolveTarget(parameterType)) } as Instruction,
-                { kind: 'CONDITIONAL_JUMP', count: compiledCatch.length } as Instruction,
-                ...compiledCatch,
-              ]
-            }, instruction.node.catches),
+            ...instruction.catch,
             { kind: 'LOAD', name: '<exception>' } as Instruction,
             { kind: 'INTERRUPT', interruption: 'exception' } as Instruction,
           ],
-          locals: instruction.node.catches.reduce((locals, { parameter }) => ({ ...locals, [parameter.name]: VOID_ID }), {}),
+          locals: {},
           operandStack: [],
           resume: ['exception'] as Interruption[],
         })),
         change($frameStack, prepend({
           pending: [
             { kind: 'PUSH', id: VOID_ID } as Instruction,
-            ...flatMap(compile(environment), instruction.node.body.sentences),
+            ...instruction.try,
             { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
           ],
           locals: {},
@@ -523,7 +615,8 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
 
 
     case 'INTERRUPT':
-      const [interruptionValue] = currentOperandStack
+      if (!currentTopOperand) throw new Error('Popped empty operand stack')
+
       const framesToDrop = frameStack.findIndex(({ resume }) => resume.includes(instruction.interruption))
 
       if (framesToDrop < 0) throw new Error('Unhandled interruption')
@@ -531,14 +624,14 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
       return pipe(
         change($frameStack, drop(framesToDrop)),
         change($currentResume, without([instruction.interruption])),
-        change($currentOperandStack, prepend(interruptionValue)),
+        change($currentOperandStack, prepend(currentTopOperand)),
       )(evaluation)
 
 
     case 'RESUME_INTERRUPTION':
-      const lastInterruption = new Array<Interruption>('exception', 'return', 'result').find(interruption =>
-        currentFrame.resume.includes(interruption)
-      )
+      const allInterruptions: Interruption[] = ['exception', 'return', 'result']
+      if (currentFrame.resume.length !== allInterruptions.length - 1) throw new Error('Interruption to resume cannot be inferred')
+      const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))
       return step(
         change($currentPending, prepend({ kind: 'INTERRUPT', interruption: lastInterruption } as Instruction))(evaluation)
       )
@@ -549,14 +642,14 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const initialInstances = (environment: Environment<'Linked'>): List<RuntimeObject> => {
-  const { descendants, resolve } = utils(environment)
+  const { descendants, fullyQualifiedName } = utils(environment)
   return [
-    { id: NULL_ID, module: resolve('wollok.lang.Object'), fields: {} },
-    { id: TRUE_ID, module: resolve('wollok.lang.Boolean'), fields: {} },
-    { id: FALSE_ID, module: resolve('wollok.lang.Boolean'), fields: {} },
+    { id: NULL_ID, module: 'wollok.lang.Object', fields: {} },
+    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {} },
+    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {} },
     ...descendants(environment)
       .filter(is('Singleton'))
-      .map(module => ({ id: module.id, module, fields: {} })), // TODO: Initialize attributes
+      .map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })), // TODO: Initialize attributes
   ]
 }
 
@@ -567,7 +660,7 @@ const createEvaluationFor = (environment: Environment<'Linked'>) => (body: Body<
     environment,
     instances,
     frameStack: [{
-      pending: flatMap(compile(environment), body.sentences),
+      pending: compile(environment)(body),
       locals: instances,
       operandStack: [],
       resume: [],

@@ -1,5 +1,5 @@
 import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
-import { Class, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, List, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 
@@ -118,8 +118,8 @@ export default <S extends Stage>(environment: Environment<S>) => {
       const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
       if (module === ObjectClass) return null
       switch (module.kind) {
-        case 'Class': return getNodeById<Class<'Linked'>>(module.superclass!.target)
-        case 'Singleton': return getNodeById<Class<'Linked'>>(module.superCall.superclass.target)
+        case 'Class': return resolveTarget<Class<'Linked'>>(module.superclass!)
+        case 'Singleton': return resolveTarget<Class<'Linked'>>(module.superCall.superclass)
       }
     }
   )
@@ -130,7 +130,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
       const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Module<'Linked'>> = []): List<Module<'Linked'>> =>
         [
           module,
-          ...module.mixins.map(({ target }) => getNodeById<Module<'Linked'>>(target)),
+          ...module.mixins.map(mixin => resolveTarget<Module<'Linked'>>(mixin)),
           ...module.kind === 'Mixin' ? [] : superclass(module) ? [superclass(module)!] : [],
         ].reduce((ancestors, node) => exclude.includes(node)
           ? ancestors
@@ -147,6 +147,30 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
+  const methodLookup = memoizeWith((name, arity, start) => environment.id + name + arity + start.id)(
+    (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
+      for (const module of hierarchy(start)) {
+        const methods = module.members.filter(is<'Method'>('Method')) as Method<'Linked'>[]
+        const found = methods.find(member =>
+          (!!member.body || member.isNative) && member.name === name && (
+            member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+            member.parameters.length === arity
+          )
+        )
+        if (found) return found
+      }
+      return undefined
+    })
+
+
+  const constructorLookup = (arity: number, owner: Class<'Linked'>): Constructor<'Linked'> | undefined => {
+    return owner.members.filter(is('Constructor')).find(member =>
+      member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+      member.parameters.length === arity
+    )
+  }
+
+
   return {
     children,
     transform,
@@ -161,5 +185,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
     hierarchy,
     inherits,
     fullyQualifiedName,
+    methodLookup,
+    constructorLookup,
   }
 }
