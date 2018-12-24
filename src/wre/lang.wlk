@@ -1480,13 +1480,9 @@ class String {
 class Boolean {
 
 	/** Answers the result of applying the logical AND operator to the specified boolean operands self and other */
-	method and(other) native
-	/** A synonym for and operation */
 	method &&(other) native
 	
 	/** Answers the result of applying the logical OR operator to the specified boolean operands self and other */
-	method or(other) native
-	/** A synonym for or operation */
 	method ||(other) native
 	
 	/** Answers a String object representing this Boolean's value. */
