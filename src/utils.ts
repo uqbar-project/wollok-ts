@@ -1,4 +1,5 @@
-import { chain as flatMap, identity, mapObjIndexed, memoizeWith, values } from 'ramda'
+import { chain as flatMap, identity, mapObjIndexed, memoizeWith, path, values } from 'ramda'
+import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -163,11 +164,20 @@ export default <S extends Stage>(environment: Environment<S>) => {
     })
 
 
+  // TODO: memoize
   const constructorLookup = (arity: number, owner: Class<'Linked'>): Constructor<'Linked'> | undefined => {
     return owner.members.filter(is('Constructor')).find(member =>
       member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
       member.parameters.length === arity
     )
+  }
+
+  // TODO: memoize
+  const nativeLookup = (natives: {}, method: Method<'Linked'>): Native => {
+    const fqn = `${fullyQualifiedName(parentOf<Module<'Linked'>>(method))}.${method.name}`
+    const native = path(fqn.split('.'))(natives)
+    if (!native) throw new Error(`Native not found: ${fqn}`)
+    return native as Native
   }
 
 
@@ -187,5 +197,6 @@ export default <S extends Stage>(environment: Environment<S>) => {
     fullyQualifiedName,
     methodLookup,
     constructorLookup,
+    nativeLookup,
   }
 }

@@ -30,6 +30,8 @@ export interface Evaluation {
   readonly instances: { readonly [id: string]: RuntimeObject }
 }
 
+export type Native = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => Promise<Evaluation>
+
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
@@ -121,6 +123,7 @@ export type TRY_CATCH_ALWAYS = { kind: 'TRY_CATCH_ALWAYS', try: List<Instruction
 export type INTERRUPT = { kind: 'INTERRUPT', interruption: Interruption }
 export type RESUME_INTERRUPTION = { kind: 'RESUME_INTERRUPTION' }
 
+// TODO: Memoize
 export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
   // TODO: rename utils to "tools"
   const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
@@ -261,7 +264,7 @@ export const compile = (environment: Environment<'Linked'>) => (node: Sentence<'
 // STEPS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const step = (previousEvaluation: Evaluation): Evaluation => {
+export const step = (natives: {}) => async (previousEvaluation: Evaluation): Promise<Evaluation> => {
 
   const { environment, frameStack, instances } = previousEvaluation
   const [currentFrame] = frameStack
@@ -284,6 +287,7 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
     inherits,
     constructorLookup,
     methodLookup,
+    nativeLookup,
   } = utils(environment)
 
   switch (instruction.kind) {
@@ -410,6 +414,14 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
         )(evaluation)
       }
 
+      if (method.isNative) {
+        const native = nativeLookup(natives, method)
+
+        return native(current, ...args.map(arg => instances[arg]))(pipe(
+          change($currentOperandStack, drop(instruction.arity + 1))
+        )(evaluation))
+      }
+
       // TODO: refactor this
 
       if (method.parameters.some(({ isVarArg }) => isVarArg)) {
@@ -420,11 +432,10 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
           innerValue: args.slice(method.parameters.length - 1),
         }
 
-        // TODO: natives
         return pipe(
           change($currentOperandStack, drop(instruction.arity + 1)),
-          change($currentResume, prepend('return' as Interruption)),
           change($instances, assoc(restObject.id, restObject)),
+          change($currentResume, prepend('return' as Interruption)),
           change($frameStack, prepend({
             pending: compile(environment)(method.body!),
             locals: {
@@ -438,7 +449,6 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
         )(evaluation)
       }
 
-      // TODO: natives
       return pipe(
         change($currentOperandStack, drop(instruction.arity + 1)),
         change($currentResume, prepend('return' as Interruption)),
@@ -632,7 +642,7 @@ export const step = (previousEvaluation: Evaluation): Evaluation => {
       const allInterruptions: Interruption[] = ['exception', 'return', 'result']
       if (currentFrame.resume.length !== allInterruptions.length - 1) throw new Error('Interruption to resume cannot be inferred')
       const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))
-      return step(
+      return step(natives)(
         change($currentPending, prepend({ kind: 'INTERRUPT', interruption: lastInterruption } as Instruction))(evaluation)
       )
   }
@@ -669,20 +679,19 @@ const createEvaluationFor = (environment: Environment<'Linked'>) => (body: Body<
 }
 
 // TODO: This feels so much like a generator... Can we make it so?
-export const run = (evaluation: Evaluation): Evaluation => {
-  while (evaluation.frameStack[0].pending.length) evaluation = step(evaluation)
+export const run = async (natives: {}, evaluation: Evaluation): Promise<Evaluation> => {
+  while (evaluation.frameStack[0].pending.length) evaluation = await step(natives)(evaluation)
   return evaluation
 }
 
-export default (environment: Environment<'Linked'>) => ({
+export default (environment: Environment<'Linked'>, natives: {}) => ({
 
-  runTests: () => {
+  runTests: async () => {
     const { descendants } = utils(environment)
 
     const tests = descendants(environment).filter(is('Test'))
 
-    return tests.map(test => run(createEvaluationFor(environment)(test.body)))
+    return Promise.all(tests.map(test => run(natives, createEvaluationFor(environment)(test.body))))
   },
 
 })
-
