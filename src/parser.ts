@@ -372,7 +372,7 @@ export const Operation: Parser<ExpressionNode<'Raw'>> = lazy(() => {
     alt(Send, PrimaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<ExpressionNode<'Raw'>>((receiver, [start, message]) =>
-      ({ kind: 'Send', id: undefined, receiver, message, args: [], source: { start, end } })
+      ({ kind: 'Send', id: undefined, receiver, message: `${message}_`, args: [], source: { start, end } })
       , initial)
   )
 

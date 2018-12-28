@@ -144,20 +144,16 @@ class Object {
 	 * The default behavior compares them in terms of identity (===)
 	 */
 	method ==(other) {
-		return other != null && self === other 
+		return self === other 
 	}
 	
 	/** Tells whether self object is not equal to the given one */
-	method !=(other) = ! (self == other)
+	method !=(other) = !(self == other)
 	
 	/**
 	 * Tells whether self object is identical (the same) to the given one.
-	 * It does it by comparing their identities.
-	 * So self basically relies on the wollok.lang.Integer equality (which is native)
 	 */
-	method ===(other) {
-		return self.identity() == other.identity()
-	}
+	method ===(other) native
 
 	/**
 	 * Tells whether self object is not identical (the same) to the given one.
@@ -195,7 +191,7 @@ class Object {
 
 	/** @private */
 	method toSmartString(alreadyShown) {
-		if (alreadyShown.any { e => e.identity() == self.identity() } ) { 
+		if (alreadyShown.any { e => e === self } ) { 
 			return self.simplifiedToSmartString() 
 		}
 		else {
@@ -1497,7 +1493,7 @@ class Boolean {
 	override method ==(other) native
 	
 	/** NOT logical operation */
-	method negate() native
+	method !_() native
 }
 
 /**

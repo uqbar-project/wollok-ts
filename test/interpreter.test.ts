@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import * as ChaiAsPromised from 'chai-as-promised'
 import rewiremock from 'rewiremock'
-import { FALSE_ID, Instruction, Native, TRUE_ID, VOID_ID } from '../src/interpreter'
+import { Evaluation, FALSE_ID, Frame, Instruction, Native, TRUE_ID, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
 import utils from '../src/utils'
@@ -63,6 +63,152 @@ describe('Wollok Interpreter', () => {
   describe('evaluation of Instructions', () => {
 
     describe('LOAD', () => {
+
+      it('is fast enough ?', async () => {
+        const REPETITIONS = 1000000
+        const instruction: Instruction = { kind: 'LOAD', name: 'x' }
+        const baseEvaluation = Evaluation({})(
+          Frame({ locals: { x: '1' }, operandStack: ['2'], pending: [instruction] }),
+        )
+        const nextEvaluation = Evaluation({})(
+          Frame({ locals: { x: '1' }, operandStack: ['1', '2'], pending: [] }),
+        )
+        const { step: currentStep } = await mockInterpreterDependencies({})
+
+        const alternativeStep = (ev: Evaluation): Evaluation => {
+          const { frameStack } = ev
+          const [currentFrame, ...otherFrames] = frameStack
+          const { pending: [, ...pending], operandStack } = currentFrame
+          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
+          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
+          return {
+            ...ev,
+            frameStack: [
+              {
+                ...currentFrame,
+                operandStack: [value, ...operandStack],
+                pending,
+              },
+              ...otherFrames,
+            ],
+          }
+        }
+
+
+        const $currentFrame = (v: Frame) => (e: Evaluation): Evaluation => ({
+          ...e, frameStack: [
+            v,
+            ...e.frameStack.slice(1),
+          ],
+        })
+
+        const $currentOperandStack = (operandStack: List<Id<'Linked'>>) => (e: Evaluation): Evaluation =>
+          $currentFrame({ ...e.frameStack[0], operandStack })(e)
+
+        const $currentPending = (pending: List<Instruction>) => (e: Evaluation): Evaluation =>
+          $currentFrame({ ...e.frameStack[0], pending })(e)
+
+        const change = (...changes: ((e: Evaluation) => Evaluation)[]) => (e: Evaluation): Evaluation =>
+          changes.reduce((ev, tx) => tx(ev), e)
+
+        const alternative2Step = (ev: Evaluation): Evaluation => {
+          const { frameStack } = ev
+          const [currentFrame] = frameStack
+          const { operandStack: currentOperandStack, pending: [, ...pending] } = currentFrame
+          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
+          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
+          return change(
+            $currentOperandStack([value, ...currentOperandStack]),
+            $currentPending(pending)
+          )(ev)
+
+        }
+
+        function cloneObject(obj: Evaluation): any {
+          const clone: Evaluation = {
+            frameStack: obj.frameStack.map(frame => ({
+              locals: Object.assign({}, frame.locals),
+              operandStack: [...frame.operandStack],
+              pending: frame.pending, // USING a PC this doesn't need to change
+              resume: [...frame.resume],
+            })),
+            environment: obj.environment, // DOESN'T change
+            instances: Object.assign({}, obj.instances),
+          }
+          return clone
+        }
+
+        const alternative3Step = (ev: Evaluation): Evaluation => {
+          const { frameStack } = ev
+          const [currentFrame] = frameStack
+          const { operandStack: currentOperandStack, pending: currentPending } = currentFrame
+          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
+          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
+          const r: any = ev
+          r.frameStack[0].operandStack = [value, ...currentOperandStack]
+          r.frameStack[0].pending = currentPending.slice(1)
+          return r
+        }
+
+        let currentTotal = 0
+        for (let i = 0; i < REPETITIONS; i++) {
+          const before = new Date().getTime()
+          const n = await currentStep(instruction)(baseEvaluation)
+          const after = new Date().getTime()
+          n.should.deep.equal(nextEvaluation)
+          currentTotal += after - before
+        }
+
+        let alternativeTotal = 0
+        for (let i = 0; i < REPETITIONS; i++) {
+          const before = new Date().getTime()
+          const n = await alternativeStep(baseEvaluation)
+          const after = new Date().getTime()
+          n.should.deep.equal(nextEvaluation)
+          alternativeTotal += after - before
+        }
+
+        let alternative2Total = 0
+        for (let i = 0; i < REPETITIONS; i++) {
+          const before = new Date().getTime()
+          const n = await alternative2Step(baseEvaluation)
+          const after = new Date().getTime()
+          n.should.deep.equal(nextEvaluation)
+          alternative2Total += after - before
+        }
+
+        let alternative3ATotal = 0
+        for (let i = 0; i < REPETITIONS; i++) {
+          const before = new Date().getTime()
+          const clonedEv = cloneObject(baseEvaluation)
+          await alternative3Step(clonedEv)
+          const after = new Date().getTime()
+          clonedEv.should.deep.equal(nextEvaluation)
+          alternative3ATotal += after - before
+        }
+
+        let alternative3BTotal = 0
+        for (let i = 0; i < REPETITIONS; i++) {
+          const clonedEv = cloneObject(baseEvaluation)
+          const before = new Date().getTime()
+          await alternative3Step(clonedEv)
+          const after = new Date().getTime()
+          clonedEv.should.deep.equal(nextEvaluation)
+          alternative3BTotal += after - before
+        }
+
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        // tslint:disable-next-line:max-line-length
+        console.log(`RAMDA:              ${Math.round(1000 / (currentTotal / REPETITIONS) / 1000)}K/s`)
+        console.log(`MANUAL SPREAD:     ${Math.round(1000 / (alternativeTotal / REPETITIONS) / 1000)}K/s`)
+        console.log(`CUSTOM LENSES:     ${Math.round(1000 / (alternative2Total / REPETITIONS) / 1000)}K/s`)
+        console.log(`MUTABLE CLONES:    ${Math.round(1000 / (alternative3ATotal / REPETITIONS) / 1000)}K/s`)
+        console.log(`FULL DESTRUCTIVE: ${Math.round(1000 / (alternative3BTotal / REPETITIONS) / 1000)}K/s`)
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      })
+
 
       it('should push the local with the given name from the current locals into the current operand stack', async () => {
         const { step } = await mockInterpreterDependencies({})
@@ -814,6 +960,7 @@ describe('Wollok Interpreter', () => {
               locals: { self: '3', p1: '1', p2: '2' },
               pending: [
                 ...compile(environment)(constructor.body),
+                { kind: 'LOAD', name: 'self' },
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
@@ -863,6 +1010,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'LOAD', name: 'self' },
                 { arity: 0, initFields: false, kind: 'INIT', lookupStart: 'wollok.lang.Object' },
                 ...compile(environment)(constructor.body),
+                { kind: 'LOAD', name: 'self' },
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
@@ -908,6 +1056,7 @@ describe('Wollok Interpreter', () => {
             Frame({
               locals: { self: '1', p1: '4', p2: '6' },
               pending: [
+                { kind: 'LOAD', name: 'self' },
                 ...compile(environment)(constructor.body),
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],

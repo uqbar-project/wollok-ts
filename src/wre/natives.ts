@@ -1,435 +1,723 @@
-import { Evaluation, RuntimeObject } from '../interpreter'
+import uuid = require('uuid')
+import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID } from '../interpreter'
 
-// TODO: Must be async
 
+// TODO:
+// tslint:disable:variable-name
 export default {
   wollok: {
     lang: {
 
       Exception: {
-        getFullStackTrace: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        getFullStackTrace: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        getStackTrace: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        getStackTrace: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Object: {
-        identity: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        '===': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.id === other.id ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        'identity': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
+          /* TODO:*/ throw new ReferenceError('To be implemented')
+        },
+
+        'instanceVariables': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        instanceVariables: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'instanceVariableFor': (_self: RuntimeObject, _name: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        instanceVariableFor: (self: RuntimeObject, name: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'resolve': (_self: RuntimeObject, _name: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        resolve: (self: RuntimeObject, name: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'kindName': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        kindName: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        className: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'className': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Collection: {
-        findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) =>
-          (evaluation: Evaluation): Evaluation => {
+        findOrElse: (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
           },
       },
 
       Set: {
-        'anyOne': (self: RuntimeObject, ) => (evaluation: Evaluation): Evaluation => {
+        'anyOne': (_self: RuntimeObject, ) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'fold': (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO:*/
-          throw new ReferenceError('To be implemented')
-        },
-        'findOrElse': (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) =>
-          (evaluation: Evaluation): Evaluation => {
+        'fold': (_self: RuntimeObject, _initialValue: RuntimeObject, _closure: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
             /* TODO:*/
             throw new ReferenceError('To be implemented')
           },
-        'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'findOrElse': (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
+            /* TODO:*/
+            throw new ReferenceError('To be implemented')
+          },
+        'add': (_self: RuntimeObject, _element: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'remove': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'remove': (_self: RuntimeObject, _element: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'size': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'size': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'clear': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'clear': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'join': (self: RuntimeObject, separator: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'join': (_self: RuntimeObject, _separator: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
           /* TODO:*/
           if (arguments.length === 0 || arguments.length === 1) throw new ReferenceError('To be implemented')
           throw new ReferenceError('To be implemented')
         },
-        'equals': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'equals': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '==': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       List: {
-        'get': (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'get': (_self: RuntimeObject, _index: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
           /*TODO: */ throw new ReferenceError('To be implemented')
         },
-        'sortBy': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'sortBy': (_self: RuntimeObject, _closure: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'fold': (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'findOrElse': (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) =>
-          (evaluation: Evaluation): Evaluation => {
+        'fold': (_self: RuntimeObject, _initialValue: RuntimeObject, _closure: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
           },
-        'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'findOrElse': (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
+          /* TODO:*/ throw new ReferenceError('To be implemented')
+          },
+        'add': (_self: RuntimeObject, _element: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'remove': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'remove': (_self: RuntimeObject, _element: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'size': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'size': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
           /*TODO: */ throw new ReferenceError('To be implemented')
         },
-        'clear': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'clear': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'join': (self: RuntimeObject, separator: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'join': (_self: RuntimeObject, _separator: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
           /* TODO:*/
           if (arguments.length === 0 || arguments.length === 1) throw new ReferenceError('To be implemented')
           throw new ReferenceError('To be implemented')
         },
-        'equals': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'equals': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '==': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Dictionary: {
-        put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        put: (_self: RuntimeObject, _key: RuntimeObject, _value: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        basicGet: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        basicGet: (_self: RuntimeObject, _key: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        remove: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        remove: (_self: RuntimeObject, _key: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        keys: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        keys: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        values: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        values: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        forEach: (_self: RuntimeObject, _closure: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        clear: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        clear: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Integer: {
-        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '===': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '+': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue + other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        '-': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue - other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        '*': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue * other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        '/': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue / other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        '**': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue ** other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        '%': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue % other.innerValue },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
+        },
+
+        'div': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO: */ throw new ReferenceError('To be implemented')
+
+        'toString': (self: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          const id = uuid()
+          return {
+            ...evaluation,
+            instances: {
+              id: { id, module: 'wollok.lang.String', fields: {}, innerValue: self.innerValue.toString() },
+              ...evaluation.instances,
+            },
+            frameStack: [
+              {
+                ...evaluation.frameStack[0],
+                operandStack: [
+                  id,
+                  ...evaluation.frameStack[0].operandStack,
+                ],
+              },
+              ...evaluation.frameStack.slice(1),
+            ],
+          }
         },
-        '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'stringValue': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO */ throw new ReferenceError('To be implemented')
+
+        '>': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '>=': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '<': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '<=': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        'abs': (self: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => {
+          if (self.innerValue > 0) {
+            return {
+              ...evaluation,
+              frameStack: [
+                {
+                  ...evaluation.frameStack[0],
+                  operandStack: [
+                    self.id,
+                    ...evaluation.frameStack[0].operandStack,
+                  ],
+                },
+                ...evaluation.frameStack.slice(1),
+              ],
+            }
+          } else {
+            const id = uuid()
+            return {
+              ...evaluation,
+              instances: {
+                id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: -self.innerValue },
+                ...evaluation.instances,
+              },
+              frameStack: [
+                {
+                  ...evaluation.frameStack[0],
+                  operandStack: [
+                    id,
+                    ...evaluation.frameStack[0].operandStack,
+                  ],
+                },
+                ...evaluation.frameStack.slice(1),
+              ],
+            }
+          }
         },
-        '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        'invert': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'gcd': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'div': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'toString': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'stringValue': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'abs': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'invert': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'gcd': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'randomUpTo': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'randomUpTo': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Double: {
-        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '===': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '+': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '-': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '*': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '/': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '**': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '%': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'div': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'div': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'stringValue': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'stringValue': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '>': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '>=': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '<': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '<=': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'abs': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'abs': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'invert': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'invert': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'gcd': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'gcd': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'randomUpTo': (self: RuntimeObject, max: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'randomUpTo': (_self: RuntimeObject, _max: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'roundUp': (_self: RuntimeObject, _decimals: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'truncate': (_self: RuntimeObject, _decimals: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       String: {
-        'length': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'length': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'charAt': (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'charAt': (_self: RuntimeObject, _index: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '+': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'startsWith': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'endsWith': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'indexOf': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'lastIndexOf': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'toLowerCase': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'toUpperCase': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'trim': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'trim': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '<': (self: RuntimeObject, aString: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '<': (_self: RuntimeObject, _aString: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '>': (self: RuntimeObject, aString: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '>': (_self: RuntimeObject, _aString: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'contains': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'substring': (self: RuntimeObject, startIndex: RuntimeObject, length: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO:*/
-          if (arguments.length === 1 || arguments.length === 2) throw new ReferenceError('To be implemented')
-          throw new ReferenceError('To be implemented')
-        },
-        'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-          /* TODO:*/
-          throw new ReferenceError('To be implemented')
-        },
-        'toString': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'substring': (_self: RuntimeObject, _startIndex: RuntimeObject, _length: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
+            /* TODO:*/
+            if (arguments.length === 1 || arguments.length === 2) throw new ReferenceError('To be implemented')
+            throw new ReferenceError('To be implemented')
+          },
+        'replace': (_self: RuntimeObject, _expression: RuntimeObject, _replacement: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
+            /* TODO:*/
+            throw new ReferenceError('To be implemented')
+          },
+        'toString': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'toSmartString': (self: RuntimeObject, alreadyShown: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'toSmartString': (_self: RuntimeObject, _alreadyShown: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '==': (_self: RuntimeObject, _other: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Boolean: {
-        '&&': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+
+        '&&': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue && other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '||': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue || other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        'toString': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '||': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'toSmartString': (_self: RuntimeObject, _alreadyShown: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'toString': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'toSmartString': (self: RuntimeObject, alreadyShown: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'negate': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
+
+        '==': (self: RuntimeObject, other: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
+
+        '!_': (self: RuntimeObject) => async (evaluation: Evaluation): Promise<Evaluation> => ({
+          ...evaluation,
+          frameStack: [
+            {
+              ...evaluation.frameStack[0],
+              operandStack: [
+                self.id === TRUE_ID ? FALSE_ID : TRUE_ID,
+                ...evaluation.frameStack[0].operandStack,
+              ],
+            },
+            ...evaluation.frameStack.slice(1),
+          ],
+        }),
       },
 
       Range: {
-        validate: (self: RuntimeObject, limit: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        validate: (_self: RuntimeObject, _limit: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        forEach: (_self: RuntimeObject, _closure: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        anyOne: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        anyOne: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Closure: {
-        apply: (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation): Evaluation => {
+        apply: (_self: RuntimeObject, ..._args: RuntimeObject[]) => async (_evaluation: Evaluation): Promise<Evaluation> => {
           /*TODO: */ throw new ReferenceError('To be implemented')
         },
-        toString: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        toString: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       Date: {
-        'toString': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'toString': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '==': (self: RuntimeObject, aDate: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '==': (_self: RuntimeObject, _aDate: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'plusDays': (_self: RuntimeObject, _days: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'plusMonths': (_self: RuntimeObject, _months: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'plusYears': (_self: RuntimeObject, _years: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'isLeapYear': (self: RuntimeObject, ) => (evaluation: Evaluation): Evaluation => {
+        'isLeapYear': (_self: RuntimeObject, ) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'initialize': (self: RuntimeObject, day: RuntimeObject, month: RuntimeObject, year: RuntimeObject) =>
-          (evaluation: Evaluation): Evaluation => {
+        'initialize': (_self: RuntimeObject, _day: RuntimeObject, _month: RuntimeObject, _year: RuntimeObject) =>
+          async (_evaluation: Evaluation): Promise<Evaluation> => {
             /* TODO:*/
             throw new ReferenceError('To be implemented')
           },
-        'day': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'day': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'dayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'dayOfWeek': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'month': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'month': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'year': (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'year': (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '-': (self: RuntimeObject, aDate: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '-': (_self: RuntimeObject, _aDate: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'minusDays': (_self: RuntimeObject, _days: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'minusMonths': (_self: RuntimeObject, _months: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        'minusYears': (_self: RuntimeObject, _years: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '<': (self: RuntimeObject, aDate: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '<': (_self: RuntimeObject, _aDate: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        '>': (self: RuntimeObject, aDate: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        '>': (_self: RuntimeObject, _aDate: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       console: {
-        println: (self: RuntimeObject, obj: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        println: (_self: RuntimeObject, _obj: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        readLine: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        readLine: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        readInt: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        readInt: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
-        newline: (self: RuntimeObject) => (evaluation: Evaluation): Evaluation => {
+        newline: (_self: RuntimeObject) => async (_evaluation: Evaluation): Promise<Evaluation> => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },

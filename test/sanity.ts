@@ -6,6 +6,7 @@ import interpreter from '../src/interpreter'
 import link from '../src/linker'
 import { Package } from '../src/model'
 import { File } from '../src/parser'
+import natives from '../src/wre/natives'
 
 const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = 'test/sanity'
@@ -38,6 +39,10 @@ const SKIP = [
   'test/sanity/src/propertiesTestCase/setterForPropertyConstInClass.wtest',
   'test/sanity/src/propertiesTestCase/setterForPropertyConstInObject.wtest',
   'test/sanity/src/recursiveToStringTestCase.wtest',
+  'test/sanity/src/mixins/mixingAtInstantiation.wtest',
+  'test/sanity/src/mixins/multipleMixinAtInstantiationTime.wtest',
+  'test/sanity/src/mixins/singleMixinAtInstantiationTime.wtest',
+  'test/sanity/src/mixins/toStringFixture.wtest',
 ]
 
 const git = simplegit()
@@ -47,10 +52,10 @@ const getTestsInDir = (path: string): string[] =>
     const filePath = join(path, file)
     return statSync(filePath).isDirectory()
       ? [...tests, ...getTestsInDir(filePath)]
-      : filePath.endsWith('.wtest') ? [...tests, filePath] : tests
+      : filePath.endsWith('.wtest') || filePath.endsWith('.wlk') ? [...tests, filePath] : tests
   }, [] as string[])
 
-const updateTests = async () => {
+const fetchTests = async () => {
   if (existsSync(SANITY_TESTS_FOLDER)) {
     await git.pull()
   } else {
@@ -70,23 +75,29 @@ const runAll = async () => {
     members: [fill(File('lang').tryParse(wreSource))],
   }
 
-  if (!process.argv.includes('--skip-update')) await updateTests()
+  if (existsSync(SANITY_TESTS_FOLDER) && !process.argv.includes('--skip-update')) {
+    console.log('Fetching tests')
+    await fetchTests()
+  } else {
+    console.log('Using local version of tests')
+  }
 
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
-  const testNodes = nonSkipedTestFiles.map(testFile => fill(File(basename(testFile)).tryParse(readFileSync(testFile, 'utf8'))))
+  const testNodes = nonSkipedTestFiles.map(testFile =>
+    fill(File(basename(testFile).split('.')[0]).tryParse(readFileSync(testFile, 'utf8')))
+  )
 
-  const x = testNodes[0]
-
-  // tslint:disable:no-console
-  console.time(`Linking ${x.name}`)
-  const environment = link([wre, x])
-  console.timeEnd(`Linking ${x.name}`)
+  console.time(`Linked`)
+  const environment = link([wre, ...testNodes])
+  console.timeEnd(`Linked`)
 
 
-  const { runTests } = interpreter(environment)
+  const { runTests } = interpreter(environment, natives)
 
-  runTests()
+  console.time(`Runned ${testFiles.length} test files`)
+  await runTests()
+  console.timeEnd(`Runned ${testFiles.length} test files`)
 }
 
 runAll()
