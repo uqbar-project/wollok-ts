@@ -224,6 +224,7 @@ export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
 
   const Frame = (payload: Partial<FrameType>): FrameType => ({
     locals: {},
+    pc: 0,
     pending: [],
     resume: [],
     operandStack: [],

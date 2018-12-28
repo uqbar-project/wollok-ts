@@ -1,11 +1,11 @@
-import { assoc, chain as flatMap, compose, drop, last, lens, lensIndex, ManualLens, max, memoizeWith, over as change, pipe, prepend, PseudoLens, reverse, set, without, zipObj } from 'ramda'
+import { assoc, chain as flatMap, last, max, memoizeWith, zipObj } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence } from './model'
 import utils from './utils'
 
 // TODO: Remove the parameter type from Id
 
-export interface Locals { readonly [name: string]: Id<'Linked'> }
+export interface Locals { [name: string]: Id<'Linked'> }
 
 export interface RuntimeObject {
   readonly id: Id<'Linked'>
@@ -14,20 +14,20 @@ export interface RuntimeObject {
   readonly innerValue?: any
 }
 
-
 export interface Frame {
   readonly pending: List<Instruction>
-  readonly locals: Locals
-  readonly operandStack: List<Id<'Linked'>>
-  readonly resume: List<Interruption>
+  pc: number
+  locals: Locals
+  operandStack: Id<'Linked'>[]
+  resume: Interruption[]
 }
 
 export type Interruption = 'return' | 'exception' | 'result'
 
 export interface Evaluation {
   readonly environment: Environment<'Linked'>
-  readonly frameStack: List<Frame>
-  readonly instances: { readonly [id: string]: RuntimeObject }
+  frameStack: Frame[]
+  instances: { [id: string]: RuntimeObject }
 }
 
 export type Native = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => Promise<Evaluation>
@@ -37,61 +37,10 @@ export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
 
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// LENSES
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const seq = <A, B, R>(l1: ManualLens<B, A>, l2: ManualLens<R, B> | PseudoLens<number>): ManualLens<R, A> => (compose as any)(l1, l2)
-
-const $top = <A, T>(arrayLens: ManualLens<ReadonlyArray<T>, A>) => seq(arrayLens, lensIndex(0) as any as ManualLens<T, ReadonlyArray<T>>)
-
-const $locals = lens(
-  ({ locals }: Frame) => locals,
-  (locals, frame) => ({ ...frame, locals })
-)
-
-const $pending = lens(
-  ({ pending }: Frame) => pending,
-  (pending, frame) => ({ ...frame, pending })
-)
-
-const $resume = lens(
-  ({ resume }: Frame) => resume,
-  (resume, frame) => ({ ...frame, resume })
-)
-
-const $operandStack = lens(
-  ({ operandStack }: Frame) => operandStack,
-  (operandStack, frame) => ({ ...frame, operandStack })
-)
-
-
-const $instances = lens(
-  ({ instances }: Evaluation) => instances,
-  (instances, evaluation) => ({ ...evaluation, instances }),
-)
-
-const $frameStack = lens(
-  ({ frameStack }: Evaluation) => frameStack,
-  (frameStack, evaluation) => ({ ...evaluation, frameStack }),
-)
-
-
-const $currentFrame = $top($frameStack)
-
-const $currentPending = seq($currentFrame, $pending)
-
-const $currentResume = seq($currentFrame, $resume)
-
-const $currentOperandStack = seq($currentFrame, $operandStack)
-
-const $nthFrame = (index: number) => seq($frameStack, lensIndex(index))
-
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 // TODO: Factory functions
 export type Instruction = LOAD
   | STORE
@@ -271,24 +220,34 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
 // STEPS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const step = (natives: {}) => async (previousEvaluation: Evaluation): Promise<Evaluation> => {
+export const stepLoad = (instruction: LOAD, evaluation: Evaluation) => {
+  const { frameStack } = evaluation
+  const currentFrame = frameStack[frameStack.length - 1]
+  const EvaluationError = (message: string) =>
+    new Error(`${message}: ${JSON.stringify(evaluation, (key, v) => key === 'environment' ? undefined : v)}`)
 
-  const { environment, frameStack, instances } = previousEvaluation
-  const [currentFrame] = frameStack
+  const value = frameStack.map(({ locals }) => locals[instruction.name]).find(it => !!it)
+  if (!value) throw EvaluationError(`LOAD of missing local "${instruction.name}"`)
+  currentFrame.operandStack.push(value)
+}
+
+
+export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Evaluation> => {
+
+  const { environment, frameStack, instances } = evaluation
+  const currentFrame = last(frameStack)
 
   const EvaluationError = (message: string) =>
-    new Error(`${message}: ${JSON.stringify(previousEvaluation, (key, value) => key === 'environment' ? undefined : value)}`)
+    new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
 
   if (!currentFrame) throw EvaluationError('Reached end of frame stack')
 
-  const { operandStack: currentOperandStack, pending: currentPending } = currentFrame
+  const { operandStack: currentOperandStack, pending: currentPending, pc: currentPC } = currentFrame
 
-  const [instruction] = currentPending
-  const [currentTopOperand] = currentOperandStack
+  const instruction = currentPending[currentPC]
 
   if (!instruction) throw EvaluationError('Reached end of pending instructions')
 
-  const evaluation = change($currentPending, drop(1))(previousEvaluation)
   const {
     hierarchy,
     superclass,
@@ -302,186 +261,183 @@ export const step = (natives: {}) => async (previousEvaluation: Evaluation): Pro
 
   switch (instruction.kind) {
 
-    case 'LOAD': return (() => {
-      const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
-      if (!value) throw EvaluationError(`LOAD of missing local "${instruction.name}"`)
-      return change($currentOperandStack, prepend(value))(evaluation)
-    })()
+    case 'LOAD':
+      await stepLoad(instruction, evaluation)
+      break
 
 
-    case 'STORE': return (() => {
-      if (!currentTopOperand) throw EvaluationError('Popped empty operand stack')
+    case 'STORE':
+      const valueId = currentOperandStack.pop()
+      if (!valueId) throw EvaluationError('Popped empty operand stack')
 
       const frameIndex = instruction.lookup
         ? max(0, frameStack.findIndex(({ locals }) => instruction.name in locals))
         : 0
 
-      return pipe(
-        change($nthFrame(frameIndex), change($locals, assoc(instruction.name, currentTopOperand))),
-        change($currentOperandStack, drop(1))
-      )(evaluation)
-    })()
+      frameStack[frameIndex].locals[instruction.name] = valueId
+      break
 
 
     case 'PUSH':
-      return change($currentOperandStack, prepend(instruction.id))(evaluation)
+      currentOperandStack.push(instruction.id)
+      break
 
 
-    case 'GET': return (() => { // TODO: don't use switch... I want variables.
-      const [self, ...operandStack] = currentOperandStack
-      const current = instances[self]
-      if (!self) throw EvaluationError('Popped empty operand stack')
-      if (!current) throw EvaluationError(`Access to undefined instance "${self}"`)
-      return set($currentOperandStack, prepend(current.fields[instruction.name])(operandStack))(evaluation)
-    })()
+    case 'GET':
+      // TODO: don't use switch... I want variables.
+      // TODO: extract: popOperandStack function?
+      const selfId = currentOperandStack.pop()
+      if (!selfId) throw EvaluationError('Popped empty operand stack')
+
+      const self = instances[selfId]
+      if (!self) throw EvaluationError(`Access to undefined instance "${selfId}"`)
+
+      currentOperandStack.push(self.fields[instruction.name])
+      break
 
 
-    case 'SET': return (() => {
-      const [value, self, ...operandStack] = currentOperandStack
-      const current = instances[self]
-      if (!value || !self) throw EvaluationError('Popped empty operand stack')
-      if (!current) throw EvaluationError(`Access to undefined instance "${self}"`)
-      return pipe(
-        change($instances, assoc(self, { ...current, fields: assoc(instruction.name, value, current.fields) })),
-        set($currentOperandStack, operandStack),
-      )(evaluation)
-    })()
+    case 'SET':
+      const setValueId = currentOperandStack.pop()
+      const setSelfId = currentOperandStack.pop()
+      if (!setValueId || !setSelfId) throw EvaluationError('Popped empty operand stack')
 
-    case 'INSTANTIATE': return (() => {
+      const setSelf = instances[setSelfId]
+      if (!setSelf) throw EvaluationError(`Access to undefined instance "${setSelfId}"`)
+
+      setSelf.fields[instruction.name] = setValueId
+      break
+
+
+    case 'INSTANTIATE':
       const instance: RuntimeObject = { id: uuid(), module: instruction.module, fields: {}, innerValue: instruction.innerValue }
 
-      return pipe(
-        change($instances, assoc(instance.id, instance)),
-        change($currentOperandStack, prepend(instance.id)),
-      )(evaluation)
-    })()
+      instances[instance.id] = instance
+      currentOperandStack.push(instance.id)
+      break
 
-    case 'INHERITS': return (() => {
-      const current = instances[currentTopOperand]
-      if (!currentTopOperand) throw EvaluationError('Popped empty operand stack')
-      if (!current) throw EvaluationError(`Access to undefined instance "${currentTopOperand}"`)
 
-      return pipe(
-        change($currentOperandStack, drop(1)),
-        change($currentOperandStack, prepend(
-          inherits(resolve(current.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID
-        )),
-      )(evaluation)
-    })()
+    case 'INHERITS':
+      const inhselfId = currentOperandStack.pop()
+      if (!inhselfId) throw EvaluationError('Popped empty operand stack')
+      const inhself = instances[inhselfId]
+      if (!inhself) throw EvaluationError(`Access to undefined instance "${inhselfId}"`)
 
+      currentOperandStack.push(
+        inherits(resolve(inhself.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID
+      )
+      break
 
     // TODO: can't we just use IF_ELSE instead?
     case 'CONDITIONAL_JUMP':
-      if (!currentTopOperand) throw EvaluationError('Popped empty operand stack')
-      if (currentTopOperand !== TRUE_ID && currentTopOperand !== FALSE_ID)
-        throw EvaluationError(`Non boolean condition "${currentTopOperand}"`)
-      if (instruction.count > currentPending.length || instruction.count < 0)
+      const check = currentOperandStack.pop()
+      if (!check) throw EvaluationError('Popped empty operand stack')
+
+      if (check !== TRUE_ID && check !== FALSE_ID)
+        throw EvaluationError(`Non boolean condition "${check}"`)
+
+      if (currentPC + instruction.count >= currentPending.length || instruction.count < 0)
         throw EvaluationError(`Invalid jump count ${instruction.count}`)
 
-      return pipe(
-        change($currentOperandStack, drop(1)),
-        change($currentPending, drop(currentTopOperand === FALSE_ID ? instruction.count : 0)),
-      )(evaluation)
+      currentFrame.pc += check === FALSE_ID ? instruction.count : 0
+      break
 
 
     // TODO: refactor this
-    case 'CALL': return (() => {
-      const [self, ...args] = reverse(currentOperandStack.slice(0, instruction.arity + 1))
-      const current = instances[self]
-
+    case 'CALL':
       if (currentOperandStack.length < instruction.arity + 1) throw EvaluationError('Popped empty operand stack')
-      if (!current) throw EvaluationError(`Access to undefined instance "${self}"`)
+      const argIds = Array.from({ length: instruction.arity }, () => currentOperandStack.pop()!).reverse()
+      const callselfId = currentOperandStack.pop()!
+
+      const callself = instances[callselfId]
+      if (!callself) throw EvaluationError(`Access to undefined instance "${callselfId}"`)
 
       const method = methodLookup(
         instruction.message,
         instruction.arity,
-        resolve(instruction.lookupStart || current.module)
+        resolve(instruction.lookupStart || callself.module)
       )
 
       if (!method) {
-        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(current.module))!
+        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(callself.module))!
         const nameObject: RuntimeObject = {
           id: uuid(),
           module: 'wollok.lang.String',
           fields: {},
           innerValue: messageNotUnderstood.name,
         }
+        instances[nameObject.id] = nameObject
+
         const argsObject: RuntimeObject = {
           id: uuid(),
           module: 'wollok.lang.List',
           fields: {},
-          innerValue: args,
+          innerValue: argIds,
         }
+        instances[argsObject.id] = argsObject
 
-        return pipe(
-          change($currentOperandStack, drop(instruction.arity + 1)),
-          change($currentResume, prepend('return' as Interruption)),
-          change($instances, assoc(nameObject.id, nameObject)),
-          change($instances, assoc(argsObject.id, argsObject)),
-          change($frameStack, prepend({
-            pending: compile(environment)(messageNotUnderstood.body!),
-            locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameObject.id, argsObject.id]), self },
-            operandStack: [],
-            resume: [],
-          }))
-        )(evaluation)
-      }
-
-      if (method.isNative) {
-        const native = nativeLookup(natives, method)
-
-        return native(current, ...args.map(arg => instances[arg]))(pipe(
-          change($currentOperandStack, drop(instruction.arity + 1))
-        )(evaluation))
-      }
-
-      if (method.parameters.some(({ isVarArg }) => isVarArg)) {
-        const restObject: RuntimeObject = {
-          id: uuid(),
-          module: 'wollok.lang.List',
-          fields: {},
-          innerValue: args.slice(method.parameters.length - 1),
-        }
-
-        return pipe(
-          change($currentOperandStack, drop(instruction.arity + 1)),
-          change($instances, assoc(restObject.id, restObject)),
-          change($currentResume, prepend('return' as Interruption)),
-          change($frameStack, prepend({
-            pending: compile(environment)(method.body!),
-            locals: {
-              ...zipObj(method.parameters.slice(0, -1).map(({ name }) => name), args),
-              [last(method.parameters)!.name]: restObject.id,
-              self,
-            },
-            operandStack: [],
-            resume: [],
-          }))
-        )(evaluation)
-      }
-
-      return pipe(
-        change($currentOperandStack, drop(instruction.arity + 1)),
-        change($currentResume, prepend('return' as Interruption)),
-        change($frameStack, prepend({
-          pending: compile(environment)(method.body!),
-          locals: { ...zipObj(method.parameters.map(({ name }) => name), args), self },
+        currentFrame.resume.push('return')
+        frameStack.push({
+          pending: compile(environment)(messageNotUnderstood.body!),
+          pc: 0,
+          locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameObject.id, argsObject.id]), self: callselfId },
           operandStack: [],
           resume: [],
-        }))
-      )(evaluation)
-    })()
+        })
+      } else {
+        if (method.isNative) {
+          const native = nativeLookup(natives, method)
+          native(callself, ...argIds.map(arg => instances[arg]))(evaluation)
+        } else {
+          if (method.parameters.some(({ isVarArg }) => isVarArg)) {
+            const restObject: RuntimeObject = {
+              id: uuid(),
+              module: 'wollok.lang.List',
+              fields: {},
+              innerValue: argIds.slice(method.parameters.length - 1),
+            }
+            instances[restObject.id] = restObject
+
+            currentFrame.resume.push('return')
+            frameStack.push({
+              pending: compile(environment)(method.body!),
+              pc: 0,
+              locals: {
+                ...zipObj(method.parameters.slice(0, -1).map(({ name }) => name), argIds),
+                [last(method.parameters)!.name]: restObject.id,
+                self: callselfId,
+              },
+              operandStack: [],
+              resume: [],
+            })
+
+          } else {
+            currentFrame.resume.push('return')
+            frameStack.push({
+              pending: compile(environment)(method.body!),
+              pc: 0,
+              locals: { ...zipObj(method.parameters.map(({ name }) => name), argIds), self: callselfId },
+              operandStack: [],
+              resume: [],
+            })
+          }
+        }
+      }
+      break
 
 
-    case 'INIT': return (() => {
+    // TODO: refactor this
+    case 'INIT':
       if (currentOperandStack.length < instruction.arity + 1) throw EvaluationError('Popped empty operand stack')
+      const initselfId = currentOperandStack.pop()!
+      const initargIds = Array.from({ length: instruction.arity }, () => currentOperandStack.pop()!).reverse()
 
-      const [self, ...reverseArgs] = currentOperandStack.slice(0, instruction.arity + 1)
-      const args = reverse(reverseArgs)
+      const initself = instances[initselfId]
+      if (!initself) throw EvaluationError(`Access to undefined instance "${initselfId}"`)
+
       const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
 
       // TODO: Add to Filler method for doing this and just call it ?
-      const allFields = hierarchy(resolve(instances[self].module)).reduce((fields, module) => [
+      const allFields = hierarchy(resolve(initself.module)).reduce((fields, module) => [
         ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
         ...fields,
       ], [] as Field<'Linked'>[])
@@ -492,67 +448,56 @@ export const step = (natives: {}) => async (previousEvaluation: Evaluation): Pro
 
       if (!constructor) throw EvaluationError(`Missing constructor/${instruction.arity} on ${lookupStart}`)
 
-      // TODO: refactor this
+      currentFrame.resume.push('return')
 
       if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
         const restObject: RuntimeObject = {
           id: uuid(),
           module: 'wollok.lang.List',
           fields: {},
-          innerValue: args.slice(constructor.parameters.length - 1),
+          innerValue: initargIds.slice(constructor.parameters.length - 1),
         }
+        instances[restObject.id] = restObject
 
-        // TODO: natives
-        return pipe(
-          change($currentOperandStack, drop(instruction.arity + 1)),
-          change($currentResume, prepend('return' as Interruption)),
-          change($instances, assoc(restObject.id, restObject)),
-          change($frameStack, prepend<Frame>({
-            pending: new Array<Instruction>(
-              { kind: 'LOAD', name: 'self' },
-              ...instruction.initFields ? [
-                ...flatMap<Field<'Linked'>, Instruction>(({ value, name }) => [
-                  { kind: 'LOAD', name: 'self' },
-                  ...compile(environment)(value),
-                  { kind: 'SET', name },
-                ], allFields),
-              ] : [],
-              ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-                ...flatMap(compile(environment), constructor.baseCall.args),
+        frameStack.push({
+          pending: new Array<Instruction>(
+            { kind: 'LOAD', name: 'self' },
+            ...instruction.initFields ? [
+              ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
                 { kind: 'LOAD', name: 'self' },
-                {
-                  kind: 'INIT',
-                  lookupStart: constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
-                  arity: constructor.baseCall.args.length,
-                  initFields: false,
-                },
-              ) : [],
-              ...compile(environment)(constructor.body),
-              { kind: 'INTERRUPT', interruption: 'return' as Interruption },
-            ),
-            locals: {
-              ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), args),
-              [last(constructor.parameters)!.name]: restObject.id,
-              self,
-            },
-            operandStack: [],
-            resume: [],
-          }))
-
-
-        )(evaluation)
-      }
-
-      // TODO: natives
-      return pipe(
-        change($currentOperandStack, drop(instruction.arity + 1)),
-        change($currentResume, prepend('return' as Interruption)),
-        change($frameStack, prepend<Frame>({
+                ...compile(environment)(v),
+                { kind: 'SET', name },
+              ], allFields),
+            ] : [],
+            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
+              ...flatMap(compile(environment), constructor.baseCall.args),
+              { kind: 'LOAD', name: 'self' },
+              {
+                kind: 'INIT',
+                lookupStart: constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+                arity: constructor.baseCall.args.length,
+                initFields: false,
+              },
+            ) : [],
+            ...compile(environment)(constructor.body),
+            { kind: 'INTERRUPT', interruption: 'return' as Interruption },
+          ),
+          locals: {
+            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), initargIds),
+            [last(constructor.parameters)!.name]: restObject.id,
+            self: initselfId,
+          },
+          pc: 0,
+          operandStack: [],
+          resume: [],
+        })
+      } else {
+        frameStack.push({
           pending: new Array<Instruction>(
             ...instruction.initFields ? [
-              ...flatMap<Field<'Linked'>, Instruction>(({ value, name }) => [
+              ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
                 { kind: 'LOAD', name: 'self' },
-                ...compile(environment)(value),
+                ...compile(environment)(v),
                 { kind: 'SET', name },
               ], allFields),
             ] : [],
@@ -570,96 +515,120 @@ export const step = (natives: {}) => async (previousEvaluation: Evaluation): Pro
             { kind: 'LOAD', name: 'self' },
             { kind: 'INTERRUPT', interruption: 'return' as Interruption },
           ),
-          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), args), self },
+          pc: 0,
+          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), initargIds), selfId: initselfId },
           operandStack: [],
           resume: [],
-        }))
-      )(evaluation)
-    })()
+        })
+      }
+      break
 
 
-    case 'IF_THEN_ELSE': return (() => {
-      if (!currentTopOperand) throw EvaluationError('Popped empty operand stack')
-      if (currentTopOperand !== TRUE_ID && currentTopOperand !== FALSE_ID)
-        throw EvaluationError(`Non boolean condition "${currentTopOperand}"`)
+    case 'IF_THEN_ELSE':
+      const ifcheck = currentOperandStack.pop()
+      if (!ifcheck) throw EvaluationError('Popped empty operand stack')
 
-      return pipe(
-        change($currentOperandStack, drop(1)),
-        change($currentResume, prepend('result' as Interruption)),
-        change($frameStack, prepend({
-          pending: [
-            { kind: 'PUSH', id: VOID_ID } as Instruction,
-            ...currentTopOperand === TRUE_ID ? instruction.then : instruction.else,
-            { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
-          ],
-          locals: {},
-          operandStack: [],
-          resume: [],
-        }))
-      )(evaluation)
-    })()
+      if (ifcheck !== TRUE_ID && ifcheck !== FALSE_ID)
+        throw EvaluationError(`Non boolean condition "${ifcheck}"`)
+
+      currentFrame.resume.push('result')
+      frameStack.push({
+        pending: [
+          { kind: 'PUSH', id: VOID_ID } as Instruction,
+          ...ifcheck === TRUE_ID ? instruction.then : instruction.else,
+          { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
+        ],
+        pc: 0,
+        locals: {},
+        operandStack: [],
+        resume: [],
+      })
+      break
 
 
     case 'TRY_CATCH_ALWAYS':
-      return pipe(
-        change($currentResume, prepend('result' as Interruption)),
-        change($frameStack, prepend({
-          pending: [
-            { kind: 'STORE', name: '<previous_interruption>' },
-            ...instruction.always,
-            { kind: 'LOAD', name: '<previous_interruption>' },
-            { kind: 'RESUME_INTERRUPTION' },
-          ] as Instruction[],
-          locals: {},
-          operandStack: [],
-          resume: ['result', 'return', 'exception'] as Interruption[],
-        })),
-        change($frameStack, prepend({
-          pending: [
-            { kind: 'STORE', name: '<exception>' } as Instruction,
-            ...instruction.catch,
-            { kind: 'LOAD', name: '<exception>' } as Instruction,
-            { kind: 'INTERRUPT', interruption: 'exception' } as Instruction,
-          ],
-          locals: {},
-          operandStack: [],
-          resume: ['exception'] as Interruption[],
-        })),
-        change($frameStack, prepend({
-          pending: [
-            { kind: 'PUSH', id: VOID_ID } as Instruction,
-            ...instruction.try,
-            { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
-          ],
-          locals: {},
-          operandStack: [],
-          resume: [],
-        })),
-      )(evaluation)
+      currentFrame.resume.push('result')
+
+      frameStack.push({
+        pending: [
+          { kind: 'STORE', name: '<previous_interruption>' },
+          ...instruction.always,
+          { kind: 'LOAD', name: '<previous_interruption>' },
+          { kind: 'RESUME_INTERRUPTION' },
+        ] as Instruction[],
+        pc: 0,
+        locals: {},
+        operandStack: [],
+        resume: ['result', 'return', 'exception'] as Interruption[],
+      })
+
+      frameStack.push({
+        pending: [
+          { kind: 'STORE', name: '<exception>' } as Instruction,
+          ...instruction.catch,
+          { kind: 'LOAD', name: '<exception>' } as Instruction,
+          { kind: 'INTERRUPT', interruption: 'exception' } as Instruction,
+        ],
+        pc: 0,
+        locals: {},
+        operandStack: [],
+        resume: ['exception'] as Interruption[],
+      })
+
+      frameStack.push({
+        pending: [
+          { kind: 'PUSH', id: VOID_ID } as Instruction,
+          ...instruction.try,
+          { kind: 'INTERRUPT', interruption: 'result' } as Instruction,
+        ],
+        pc: 0,
+        locals: {},
+        operandStack: [],
+        resume: [],
+      })
+      break
 
 
     case 'INTERRUPT':
-      if (!currentTopOperand) throw EvaluationError('Popped empty operand stack')
+      const intvalue = currentOperandStack.pop()
+      if (!intvalue) throw EvaluationError('Popped empty operand stack')
 
-      const framesToDrop = frameStack.findIndex(({ resume }) => resume.includes(instruction.interruption))
+      let nextFrame
+      do {
+        frameStack.pop()
+        nextFrame = last(frameStack)
+      } while (nextFrame && !nextFrame.resume.includes(instruction.interruption))
 
-      if (framesToDrop < 0) throw EvaluationError('Unhandled interruption')
+      if (!nextFrame) throw EvaluationError('Unhandled interruption')
 
-      return pipe(
-        change($frameStack, drop(framesToDrop)),
-        change($currentResume, without([instruction.interruption])),
-        change($currentOperandStack, prepend(currentTopOperand)),
-      )(evaluation)
+      nextFrame.resume = nextFrame.resume.filter(elem => elem !== instruction.interruption)
+      nextFrame.operandStack.push(intvalue)
+      break
 
 
     case 'RESUME_INTERRUPTION':
       const allInterruptions: Interruption[] = ['exception', 'return', 'result']
       if (currentFrame.resume.length !== allInterruptions.length - 1) throw EvaluationError('Interruption to resume cannot be inferred')
-      const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))
-      return step(natives)(
-        change($currentPending, prepend({ kind: 'INTERRUPT', interruption: lastInterruption } as Instruction))(evaluation)
-      )
+      const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
+
+      const resumevalue = currentOperandStack.pop()
+      if (!resumevalue) throw EvaluationError('Popped empty operand stack')
+
+      let resumenextFrame
+      do {
+        frameStack.pop()
+        resumenextFrame = last(frameStack)
+      } while (resumenextFrame && !resumenextFrame.resume.includes(lastInterruption))
+
+      if (!resumenextFrame) throw EvaluationError('Unhandled interruption')
+
+      resumenextFrame.resume = resumenextFrame.resume.filter(elem => elem !== lastInterruption)
+      resumenextFrame.operandStack.push(resumevalue)
+      break
   }
+
+  currentFrame.pc++
+  return evaluation
 }
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION
@@ -689,6 +658,7 @@ const createEvaluation = (environment: Environment<'Linked'>): Evaluation => {
     instances,
     frameStack: [{
       pending: [],
+      pc: 0,
       locals,
       operandStack: [],
       resume: [],

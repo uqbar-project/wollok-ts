@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import * as ChaiAsPromised from 'chai-as-promised'
 import rewiremock from 'rewiremock'
-import { Evaluation, FALSE_ID, Frame, Instruction, Native, TRUE_ID, VOID_ID } from '../src/interpreter'
+import { Evaluation, FALSE_ID, Frame, Instruction, Native, stepLoad, TRUE_ID, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
 import utils from '../src/utils'
@@ -71,14 +71,13 @@ describe('Wollok Interpreter', () => {
           Frame({ locals: { x: '1' }, operandStack: ['2'], pending: [instruction] }),
         )
         const nextEvaluation = Evaluation({})(
-          Frame({ locals: { x: '1' }, operandStack: ['1', '2'], pending: [] }),
+          Frame({ locals: { x: '1' }, pc: 1, operandStack: ['2', '1'], pending: [instruction] }),
         )
-        const { step: currentStep } = await mockInterpreterDependencies({})
 
         const alternativeStep = (ev: Evaluation): Evaluation => {
           const { frameStack } = ev
           const [currentFrame, ...otherFrames] = frameStack
-          const { pending: [, ...pending], operandStack } = currentFrame
+          const { pending, operandStack } = currentFrame
           const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
           if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
           return {
@@ -86,14 +85,14 @@ describe('Wollok Interpreter', () => {
             frameStack: [
               {
                 ...currentFrame,
-                operandStack: [value, ...operandStack],
+                operandStack: [...operandStack, value],
                 pending,
+                pc: 1,
               },
               ...otherFrames,
             ],
           }
         }
-
 
         const $currentFrame = (v: Frame) => (e: Evaluation): Evaluation => ({
           ...e, frameStack: [
@@ -102,11 +101,14 @@ describe('Wollok Interpreter', () => {
           ],
         })
 
-        const $currentOperandStack = (operandStack: List<Id<'Linked'>>) => (e: Evaluation): Evaluation =>
+        const $currentOperandStack = (operandStack: Id<'Linked'>[]) => (e: Evaluation): Evaluation =>
           $currentFrame({ ...e.frameStack[0], operandStack })(e)
 
         const $currentPending = (pending: List<Instruction>) => (e: Evaluation): Evaluation =>
           $currentFrame({ ...e.frameStack[0], pending })(e)
+
+        const $currentPC = (pc: number) => (e: Evaluation): Evaluation =>
+          $currentFrame({ ...e.frameStack[0], pc })(e)
 
         const change = (...changes: ((e: Evaluation) => Evaluation)[]) => (e: Evaluation): Evaluation =>
           changes.reduce((ev, tx) => tx(ev), e)
@@ -114,12 +116,13 @@ describe('Wollok Interpreter', () => {
         const alternative2Step = (ev: Evaluation): Evaluation => {
           const { frameStack } = ev
           const [currentFrame] = frameStack
-          const { operandStack: currentOperandStack, pending: [, ...pending] } = currentFrame
+          const { operandStack: currentOperandStack, pending } = currentFrame
           const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
           if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
           return change(
-            $currentOperandStack([value, ...currentOperandStack]),
-            $currentPending(pending)
+            $currentOperandStack([...currentOperandStack, value]),
+            $currentPending(pending),
+            $currentPC(1)
           )(ev)
 
         }
@@ -127,6 +130,7 @@ describe('Wollok Interpreter', () => {
         function cloneObject(obj: Evaluation): any {
           const clone: Evaluation = {
             frameStack: obj.frameStack.map(frame => ({
+              pc: frame.pc,
               locals: Object.assign({}, frame.locals),
               operandStack: [...frame.operandStack],
               pending: frame.pending, // USING a PC this doesn't need to change
@@ -138,24 +142,25 @@ describe('Wollok Interpreter', () => {
           return clone
         }
 
-        const alternative3Step = (ev: Evaluation): Evaluation => {
+        const alternative3Step = (ev: Evaluation) => {
           const { frameStack } = ev
-          const [currentFrame] = frameStack
-          const { operandStack: currentOperandStack, pending: currentPending } = currentFrame
+          const currentFrame = frameStack[frameStack.length - 1]
+          const { operandStack } = currentFrame
           const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
           if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
-          const r: any = ev
-          r.frameStack[0].operandStack = [value, ...currentOperandStack]
-          r.frameStack[0].pending = currentPending.slice(1)
-          return r
+          operandStack.push(value)
+          ev.frameStack[0].pc++
+          return ev
         }
 
         let currentTotal = 0
         for (let i = 0; i < REPETITIONS; i++) {
+          const clonedEv = cloneObject(baseEvaluation)
           const before = new Date().getTime()
-          const n = await currentStep(instruction)(baseEvaluation)
+          await stepLoad(instruction, clonedEv)
+          clonedEv.frameStack[0].pc++
           const after = new Date().getTime()
-          n.should.deep.equal(nextEvaluation)
+          clonedEv.should.deep.equal(nextEvaluation)
           currentTotal += after - before
         }
 
@@ -200,7 +205,7 @@ describe('Wollok Interpreter', () => {
         console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         // tslint:disable-next-line:max-line-length
-        console.log(`RAMDA:              ${Math.round(1000 / (currentTotal / REPETITIONS) / 1000)}K/s`)
+        console.log(`CURRENT:          ${Math.round(1000 / (currentTotal / REPETITIONS) / 1000)}K/s`)
         console.log(`MANUAL SPREAD:     ${Math.round(1000 / (alternativeTotal / REPETITIONS) / 1000)}K/s`)
         console.log(`CUSTOM LENSES:     ${Math.round(1000 / (alternative2Total / REPETITIONS) / 1000)}K/s`)
         console.log(`MUTABLE CLONES:    ${Math.round(1000 / (alternative3ATotal / REPETITIONS) / 1000)}K/s`)
@@ -221,7 +226,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, operandStack: ['1', '2'] }),
+            Frame({ locals: { x: '1' }, operandStack: ['2', '1'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -240,7 +245,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ operandStack: ['1'] }),
+            Frame({ operandStack: ['1'], pending: [instruction], pc: 1 }),
             Frame({}),
             Frame({ locals: { x: '1' } }),
             Frame({ locals: { x: '2' } }),
@@ -276,7 +281,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' } }),
+            Frame({ locals: { x: '1' }, pending: [instruction] }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -293,7 +298,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' } }),
+            Frame({ locals: { x: '1' }, pending: [instruction] }),
           )
         )
       })
@@ -309,7 +314,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' } }),
+            Frame({ locals: { x: '1' }, pending: [instruction] }),
           )
         )
       })
@@ -327,7 +332,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({}),
+            Frame({ pending: [instruction] }),
             Frame({ locals: { x: '1' } }),
             Frame({ locals: { x: '2' } }),
           )
@@ -346,7 +351,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' } }),
+            Frame({ locals: { x: '1' }, pending: [instruction] }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -363,7 +368,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' } }),
+            Frame({ locals: { x: '1' }, pending: [instruction] }),
           )
         )
       })
@@ -394,7 +399,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ operandStack: ['1', '2'] }),
+            Frame({ operandStack: ['1', '2'], pending: [instruction] }),
           )
         )
       })
@@ -419,7 +424,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ operandStack: ['2', '3'] }),
+            Frame({ operandStack: ['2', '3'], pending: [instruction] }),
           )
         )
       })
@@ -468,7 +473,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({}),
+            Frame({ pending: [instruction] }),
           )
         )
       })
@@ -488,7 +493,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({}),
+            Frame({ pending: [instruction] }),
           )
         )
       })
@@ -537,7 +542,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1'] }),
+            Frame({ operandStack: ['1'], pending: [instruction] }),
           )
         )
       })
@@ -562,7 +567,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Closure'),
           })(
-            Frame({ operandStack: [TRUE_ID] }),
+            Frame({ operandStack: [TRUE_ID], pending: [instruction] }),
           )
         )
       })
@@ -582,7 +587,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: [FALSE_ID] }),
+            Frame({ operandStack: [FALSE_ID], pending: [instruction] }),
           )
         )
       })
@@ -630,7 +635,10 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ pending: [{ kind: 'LOAD', name: 'c' }] }),
+            Frame({
+              pc: 2,
+              pending: [instruction, { kind: 'LOAD', name: 'a' }, { kind: 'LOAD', name: 'b' }, { kind: 'LOAD', name: 'c' }],
+            }),
           )
         )
       })
@@ -650,7 +658,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({
-              pending: [{ kind: 'LOAD', name: 'a' }, { kind: 'LOAD', name: 'b' }, { kind: 'LOAD', name: 'c' }],
+              pending: [instruction, { kind: 'LOAD', name: 'a' }, { kind: 'LOAD', name: 'b' }, { kind: 'LOAD', name: 'c' }],
             }),
           )
         )
@@ -717,7 +725,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
             Frame({ locals: { self: '3', p1: '2', p2: '1' }, pending: compile(environment)(method.body!) }),
-            Frame({ resume: ['return'] }),
+            Frame({ resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -753,7 +761,7 @@ describe('Wollok Interpreter', () => {
             6: RuntimeObject('6', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '4', p1: '3', p2: '6' }, pending: compile(environment)(method.body!) }),
-            Frame({ operandStack: ['5'], resume: ['return'] }),
+            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -789,7 +797,7 @@ describe('Wollok Interpreter', () => {
             5: RuntimeObject('5', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '3', name: '4', parameters: '5' }, pending: compile(environment)(messageNotUnderstood.body!) }),
-            Frame({ resume: ['return'] }),
+            Frame({ resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -832,7 +840,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['321', '4'] }),
+            Frame({ operandStack: ['321', '4'], pending: [instruction] }),
           )
         )
       })
@@ -877,7 +885,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['4321', '5'] }),
+            Frame({ operandStack: ['4321', '5'], pending: [instruction] }),
           )
         )
       })
@@ -964,7 +972,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ resume: ['return'] }),
+            Frame({ resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -1014,7 +1022,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ resume: ['return'] }),
+            Frame({ resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -1061,7 +1069,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'] }),
+            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction] }),
           )
         )
       })
@@ -1124,7 +1132,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({ pending: [{ kind: 'PUSH', id: VOID_ID }, ...instruction.then, { kind: 'INTERRUPT', interruption: 'result' }] }),
-            Frame({ resume: ['result'] }),
+            Frame({ resume: ['result'], pending: [instruction] }),
           )
         )
       })
@@ -1141,7 +1149,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({ pending: [{ kind: 'PUSH', id: VOID_ID }, ...instruction.else, { kind: 'INTERRUPT', interruption: 'result' }] }),
-            Frame({ resume: ['result'] }),
+            Frame({ resume: ['result'], pending: [instruction] }),
           )
         )
       })
@@ -1215,7 +1223,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'RESUME_INTERRUPTION' },
               ],
             }),
-            Frame({ resume: ['result'] }),
+            Frame({ resume: ['result'], pending: [instruction] }),
           )
         )
       })
@@ -1244,7 +1252,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '2'] }),
-            Frame({ resume: ['return', 'exception'] }),
+            Frame({ resume: ['return', 'exception'], pending: [instruction] }),
           )
         )
       })
@@ -1300,7 +1308,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '2'] }),
-            Frame({ resume: ['return', 'exception'] }),
+            Frame({ resume: ['return', 'exception'], pending: [instruction] }),
           )
         )
       })
