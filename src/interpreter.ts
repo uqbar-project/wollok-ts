@@ -1,4 +1,4 @@
-import { assoc, chain as flatMap, last, max, memoizeWith, zipObj } from 'ramda'
+import { assoc, chain as flatMap, last, memoizeWith, zipObj } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence } from './model'
 import utils from './utils'
@@ -30,7 +30,7 @@ export interface Evaluation {
   instances: { [id: string]: RuntimeObject }
 }
 
-export type Native = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => Promise<Evaluation>
+export type Native = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
 
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
@@ -139,11 +139,11 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
         ]
         if (typeof node.value === 'number') return [
           { kind: 'INSTANTIATE', module: 'wollok.lang.Number', innerValue: node.value },
-          { kind: 'INIT', lookupStart: 'wollok.lang.Number', arity: 0, initFields: false },
+          { kind: 'INIT', lookupStart: 'wollok.lang.Number', arity: 0, initFields: false }, // TODO: is this necesary?
         ]
         if (typeof node.value === 'string') return [
           { kind: 'INSTANTIATE', module: 'wollok.lang.String', innerValue: node.value },
-          { kind: 'INIT', lookupStart: 'wollok.lang.String', arity: 0, initFields: false },
+          { kind: 'INIT', lookupStart: 'wollok.lang.String', arity: 0, initFields: false }, // TODO: is this necesary?
         ]
         if (node.value.kind === 'Singleton') return [
           { kind: 'PUSH', id: node.value.id },
@@ -220,19 +220,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
 // STEPS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const stepLoad = (instruction: LOAD, evaluation: Evaluation) => {
-  const { frameStack } = evaluation
-  const currentFrame = frameStack[frameStack.length - 1]
-  const EvaluationError = (message: string) =>
-    new Error(`${message}: ${JSON.stringify(evaluation, (key, v) => key === 'environment' ? undefined : v)}`)
-
-  const value = frameStack.map(({ locals }) => locals[instruction.name]).find(it => !!it)
-  if (!value) throw EvaluationError(`LOAD of missing local "${instruction.name}"`)
-  currentFrame.operandStack.push(value)
-}
-
-
-export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Evaluation> => {
+export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
 
   const { environment, frameStack, instances } = evaluation
   const currentFrame = last(frameStack)
@@ -246,7 +234,7 @@ export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Eva
 
   const instruction = currentPending[currentPC]
 
-  if (!instruction) throw EvaluationError('Reached end of pending instructions')
+  if (!instruction) throw EvaluationError(`Reached end of pending instructions {${JSON.stringify(currentFrame)}}[${currentPC}]`)
 
   const {
     hierarchy,
@@ -262,7 +250,9 @@ export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Eva
   switch (instruction.kind) {
 
     case 'LOAD':
-      await stepLoad(instruction, evaluation)
+      const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
+      if (!value) throw EvaluationError(`LOAD of missing local "${instruction.name}"`)
+      currentOperandStack.push(value)
       break
 
 
@@ -270,11 +260,9 @@ export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Eva
       const valueId = currentOperandStack.pop()
       if (!valueId) throw EvaluationError('Popped empty operand stack')
 
-      const frameIndex = instruction.lookup
-        ? max(0, frameStack.findIndex(({ locals }) => instruction.name in locals))
-        : 0
+      const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
 
-      frameStack[frameIndex].locals[instruction.name] = valueId
+      frame.locals[instruction.name] = valueId
       break
 
 
@@ -516,7 +504,7 @@ export const step = (natives: {}) => async (evaluation: Evaluation): Promise<Eva
             { kind: 'INTERRUPT', interruption: 'return' as Interruption },
           ),
           pc: 0,
-          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), initargIds), selfId: initselfId },
+          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), initargIds), self: initselfId },
           operandStack: [],
           resume: [],
         })
@@ -667,50 +655,40 @@ const createEvaluation = (environment: Environment<'Linked'>): Evaluation => {
 }
 
 // TODO: This feels so much like a generator... Can we make it so?
-export const run = async (natives: {}, evaluation: Evaluation): Promise<Evaluation> => {
+export const run = (natives: {}, evaluation: Evaluation): Evaluation => {
   while (evaluation.frameStack[0].pending.length) {
-    evaluation = await step(natives)(evaluation)
+    evaluation = step(natives)(evaluation)
   }
   return evaluation
 }
 
 export default (environment: Environment<'Linked'>, natives: {}) => ({
 
-  runTests: async () => {
+  runTests: () => {
     const { descendants } = utils(environment)
 
     const tests = descendants(environment).filter(is('Test'))
-    const baseEvaluation = createEvaluation(environment)
 
-
+    // TODO:
+    // tslint:disable:no-console
     let count = 0
     let success = 0
     for (const test of tests) {
       count += 1
-      console.time('Total')
       try {
-        console.time('Compilation')
+        const baseEvaluation = createEvaluation(environment)
         const evaluation: Evaluation = {
           ...baseEvaluation,
           frameStack: [{ ...baseEvaluation.frameStack[0], pending: compile(environment)(test.body) }],
         }
-        console.timeEnd('Compilation')
-        console.time('Run')
-        await run(natives, evaluation)
-        console.timeEnd('Run')
+        run(natives, evaluation)
         success += 1
         console.log(`${count}/${tests.length} PASSED: ${test.name}`)
       } catch (e) {
-        console.timeEnd('Run')
         console.log(`${count}/${tests.length} FAILED: ${test.name}`)
       }
-      console.timeEnd('Total')
     }
     console.log(`TOTAL PASSED: ${success}/${tests.length}`)
-
-    // for (const test of tests) {
-    //   await run(natives, createEvaluationFor(environment)(test.body))
-    // }
   },
 
 })

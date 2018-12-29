@@ -75,6 +75,8 @@ const runAll = async () => {
     members: [fill(File('lang').tryParse(wreSource))],
   }
 
+  // TODO:
+  // tslint:disable:no-console
   if (existsSync(SANITY_TESTS_FOLDER) && !process.argv.includes('--skip-update')) {
     console.log('Fetching tests')
     await fetchTests()

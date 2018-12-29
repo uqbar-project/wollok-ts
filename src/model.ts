@@ -249,7 +249,7 @@ export const isObjectMember = <S extends Stage>(obj: any): obj is ObjectMember<S
   ['Field', 'Method'].includes(obj.kind)
 
 export const isClassMember = <S extends Stage>(obj: any): obj is ClassMember<S> => isNode(obj) &&
-  (['Constructor'].includes(obj.kind) || isObjectMember(obj))
+  ('Constructor' === obj.kind || isObjectMember(obj))
 
 export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> => isNode(obj) &&
   ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(obj.kind)

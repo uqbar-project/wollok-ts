@@ -1,4 +1,4 @@
-import { merge } from 'ramda'
+import { merge, reverse } from 'ramda'
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from '../src/interpreter'
 import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Id, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
 import { NodePayload } from '../src/parser'
@@ -235,7 +235,7 @@ export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
     (...frameStack: FrameType[]): EvaluationType => ({
       environment,
       instances,
-      frameStack,
+      frameStack: reverse(frameStack),
     })
 
   return {

@@ -1,13 +1,11 @@
-import { should, use } from 'chai'
-import * as ChaiAsPromised from 'chai-as-promised'
+import { expect, should } from 'chai'
 import rewiremock from 'rewiremock'
-import { Evaluation, FALSE_ID, Frame, Instruction, Native, stepLoad, TRUE_ID, VOID_ID } from '../src/interpreter'
+import { Evaluation, FALSE_ID, Frame, Instruction, Native, TRUE_ID, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
 import utils from '../src/utils'
 import { Class, Constructor, evaluationBuilders, Field, Literal, Method, Package, Parameter, Reference, Return } from './builders'
 
-use(ChaiAsPromised)
 should()
 
 const mockInterpreterDependencies = async (mocked: {
@@ -64,162 +62,11 @@ describe('Wollok Interpreter', () => {
 
     describe('LOAD', () => {
 
-      it('is fast enough ?', async () => {
-        const REPETITIONS = 1000000
-        const instruction: Instruction = { kind: 'LOAD', name: 'x' }
-        const baseEvaluation = Evaluation({})(
-          Frame({ locals: { x: '1' }, operandStack: ['2'], pending: [instruction] }),
-        )
-        const nextEvaluation = Evaluation({})(
-          Frame({ locals: { x: '1' }, pc: 1, operandStack: ['2', '1'], pending: [instruction] }),
-        )
-
-        const alternativeStep = (ev: Evaluation): Evaluation => {
-          const { frameStack } = ev
-          const [currentFrame, ...otherFrames] = frameStack
-          const { pending, operandStack } = currentFrame
-          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
-          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
-          return {
-            ...ev,
-            frameStack: [
-              {
-                ...currentFrame,
-                operandStack: [...operandStack, value],
-                pending,
-                pc: 1,
-              },
-              ...otherFrames,
-            ],
-          }
-        }
-
-        const $currentFrame = (v: Frame) => (e: Evaluation): Evaluation => ({
-          ...e, frameStack: [
-            v,
-            ...e.frameStack.slice(1),
-          ],
-        })
-
-        const $currentOperandStack = (operandStack: Id<'Linked'>[]) => (e: Evaluation): Evaluation =>
-          $currentFrame({ ...e.frameStack[0], operandStack })(e)
-
-        const $currentPending = (pending: List<Instruction>) => (e: Evaluation): Evaluation =>
-          $currentFrame({ ...e.frameStack[0], pending })(e)
-
-        const $currentPC = (pc: number) => (e: Evaluation): Evaluation =>
-          $currentFrame({ ...e.frameStack[0], pc })(e)
-
-        const change = (...changes: ((e: Evaluation) => Evaluation)[]) => (e: Evaluation): Evaluation =>
-          changes.reduce((ev, tx) => tx(ev), e)
-
-        const alternative2Step = (ev: Evaluation): Evaluation => {
-          const { frameStack } = ev
-          const [currentFrame] = frameStack
-          const { operandStack: currentOperandStack, pending } = currentFrame
-          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
-          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
-          return change(
-            $currentOperandStack([...currentOperandStack, value]),
-            $currentPending(pending),
-            $currentPC(1)
-          )(ev)
-
-        }
-
-        function cloneObject(obj: Evaluation): any {
-          const clone: Evaluation = {
-            frameStack: obj.frameStack.map(frame => ({
-              pc: frame.pc,
-              locals: Object.assign({}, frame.locals),
-              operandStack: [...frame.operandStack],
-              pending: frame.pending, // USING a PC this doesn't need to change
-              resume: [...frame.resume],
-            })),
-            environment: obj.environment, // DOESN'T change
-            instances: Object.assign({}, obj.instances),
-          }
-          return clone
-        }
-
-        const alternative3Step = (ev: Evaluation) => {
-          const { frameStack } = ev
-          const currentFrame = frameStack[frameStack.length - 1]
-          const { operandStack } = currentFrame
-          const value = frameStack.map(({ locals }) => locals[instruction.name]).find(id => !!id)
-          if (!value) throw Error(`LOAD of missing local "${instruction.name}"`)
-          operandStack.push(value)
-          ev.frameStack[0].pc++
-          return ev
-        }
-
-        let currentTotal = 0
-        for (let i = 0; i < REPETITIONS; i++) {
-          const clonedEv = cloneObject(baseEvaluation)
-          const before = new Date().getTime()
-          await stepLoad(instruction, clonedEv)
-          clonedEv.frameStack[0].pc++
-          const after = new Date().getTime()
-          clonedEv.should.deep.equal(nextEvaluation)
-          currentTotal += after - before
-        }
-
-        let alternativeTotal = 0
-        for (let i = 0; i < REPETITIONS; i++) {
-          const before = new Date().getTime()
-          const n = await alternativeStep(baseEvaluation)
-          const after = new Date().getTime()
-          n.should.deep.equal(nextEvaluation)
-          alternativeTotal += after - before
-        }
-
-        let alternative2Total = 0
-        for (let i = 0; i < REPETITIONS; i++) {
-          const before = new Date().getTime()
-          const n = await alternative2Step(baseEvaluation)
-          const after = new Date().getTime()
-          n.should.deep.equal(nextEvaluation)
-          alternative2Total += after - before
-        }
-
-        let alternative3ATotal = 0
-        for (let i = 0; i < REPETITIONS; i++) {
-          const before = new Date().getTime()
-          const clonedEv = cloneObject(baseEvaluation)
-          await alternative3Step(clonedEv)
-          const after = new Date().getTime()
-          clonedEv.should.deep.equal(nextEvaluation)
-          alternative3ATotal += after - before
-        }
-
-        let alternative3BTotal = 0
-        for (let i = 0; i < REPETITIONS; i++) {
-          const clonedEv = cloneObject(baseEvaluation)
-          const before = new Date().getTime()
-          await alternative3Step(clonedEv)
-          const after = new Date().getTime()
-          clonedEv.should.deep.equal(nextEvaluation)
-          alternative3BTotal += after - before
-        }
-
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        // tslint:disable-next-line:max-line-length
-        console.log(`CURRENT:          ${Math.round(1000 / (currentTotal / REPETITIONS) / 1000)}K/s`)
-        console.log(`MANUAL SPREAD:     ${Math.round(1000 / (alternativeTotal / REPETITIONS) / 1000)}K/s`)
-        console.log(`CUSTOM LENSES:     ${Math.round(1000 / (alternative2Total / REPETITIONS) / 1000)}K/s`)
-        console.log(`MUTABLE CLONES:    ${Math.round(1000 / (alternative3ATotal / REPETITIONS) / 1000)}K/s`)
-        console.log(`FULL DESTRUCTIVE: ${Math.round(1000 / (alternative3BTotal / REPETITIONS) / 1000)}K/s`)
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      })
-
-
       it('should push the local with the given name from the current locals into the current operand stack', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'LOAD', name: 'x' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ locals: { x: '1' }, operandStack: ['2'], pending: [instruction] }),
           )
@@ -235,7 +82,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'LOAD', name: 'x' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
             Frame({}),
@@ -257,11 +104,11 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'LOAD', name: 'x' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -273,7 +120,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: ['1'], pending: [instruction] }),
             Frame({ locals: { x: '2' } }),
@@ -281,7 +128,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, pending: [instruction] }),
+            Frame({ locals: { x: '1' }, pending: [instruction], pc: 1 }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -291,14 +138,14 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ locals: { x: '2' }, operandStack: ['1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, pending: [instruction] }),
+            Frame({ locals: { x: '1' }, pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -307,14 +154,14 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ locals: { x: '2' }, operandStack: ['1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, pending: [instruction] }),
+            Frame({ locals: { x: '1' }, pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -323,7 +170,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: true }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: ['1'], pending: [instruction] }),
             Frame({ locals: { x: '2' } }),
@@ -332,7 +179,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ pending: [instruction] }),
+            Frame({ pending: [instruction], pc: 1 }),
             Frame({ locals: { x: '1' } }),
             Frame({ locals: { x: '2' } }),
           )
@@ -343,7 +190,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: ['1'], pending: [instruction] }),
             Frame({ locals: { x: '2' } }),
@@ -351,7 +198,7 @@ describe('Wollok Interpreter', () => {
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, pending: [instruction] }),
+            Frame({ locals: { x: '1' }, pending: [instruction], pc: 1 }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -361,14 +208,14 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: true }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: ['1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, pending: [instruction] }),
+            Frame({ locals: { x: '1' }, pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -377,11 +224,11 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'STORE', name: 'x', lookup: true }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
     })
 
@@ -392,14 +239,14 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'PUSH', id: '1' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: ['2'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({})(
-            Frame({ operandStack: ['1', '2'], pending: [instruction] }),
+            Frame({ operandStack: ['2', '1'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -413,18 +260,18 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'GET', name: 'x' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ operandStack: ['1', '3'], pending: [instruction] }),
+            Frame({ operandStack: ['3', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ operandStack: ['2', '3'], pending: [instruction] }),
+            Frame({ operandStack: ['3', '2'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -433,24 +280,24 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'GET', name: 'x' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'GET', name: 'x' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['2'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -462,18 +309,18 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'SET', name: 'x' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['2', '1'], pending: [instruction] }),
+            Frame({ operandStack: ['1', '2'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ pending: [instruction] }),
+            Frame({ pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -482,18 +329,18 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'SET', name: 'x' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '4' }),
           })(
-            Frame({ operandStack: ['2', '1'], pending: [instruction] }),
+            Frame({ operandStack: ['1', '2'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ pending: [instruction] }),
+            Frame({ pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -502,26 +349,26 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'SET', name: 'x' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'SET', name: 'x' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['2', '2'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
     })
 
@@ -532,7 +379,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ ids: ['1'] })
         const instruction: Instruction = { kind: 'INSTANTIATE', module: 'wollok.lang.Object' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
           })(
             Frame({ pending: [instruction] }),
@@ -542,7 +389,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1'], pending: [instruction] }),
+            Frame({ operandStack: ['1'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -556,7 +403,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ ids: ['1'] })
         const instruction: Instruction = { kind: 'INHERITS', module: 'wollok.lang.Object' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Closure'),
           })(
@@ -567,7 +414,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Closure'),
           })(
-            Frame({ operandStack: [TRUE_ID], pending: [instruction] }),
+            Frame({ operandStack: [TRUE_ID], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -576,7 +423,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ ids: ['1'] })
         const instruction: Instruction = { kind: 'INHERITS', module: 'wollok.lang.Closure' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
@@ -587,7 +434,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: [FALSE_ID], pending: [instruction] }),
+            Frame({ operandStack: [FALSE_ID], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -596,24 +443,24 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'INHERITS', module: 'wollok.lang.Object' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'INHERITS', module: 'wollok.lang.Object' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['2'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -621,11 +468,11 @@ describe('Wollok Interpreter', () => {
 
     describe('CONDITIONAL_JUMP', () => {
 
-      it('should pop a boolean from the operand stack and drop the given ammount of pending operations if it is false', async () => {
+      it('should pop a boolean from the operand stack and increment the PC the given ammount if it is false', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'CONDITIONAL_JUMP', count: 2 }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({
               operandStack: [FALSE_ID],
@@ -636,7 +483,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({
-              pc: 2,
+              pc: 3,
               pending: [instruction, { kind: 'LOAD', name: 'a' }, { kind: 'LOAD', name: 'b' }, { kind: 'LOAD', name: 'c' }],
             }),
           )
@@ -647,7 +494,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'CONDITIONAL_JUMP', count: 2 }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({
               operandStack: [TRUE_ID],
@@ -659,6 +506,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({})(
             Frame({
               pending: [instruction, { kind: 'LOAD', name: 'a' }, { kind: 'LOAD', name: 'b' }, { kind: 'LOAD', name: 'c' }],
+              pc: 1,
             }),
           )
         )
@@ -668,35 +516,35 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'CONDITIONAL_JUMP', count: 1 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction, instruction, instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the given id does not belong to a boolean', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'CONDITIONAL_JUMP', count: 1 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1'], pending: [instruction, instruction, instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the given count overflows the pendings', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'CONDITIONAL_JUMP', count: 3 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ operandStack: [TRUE_ID], pending: [instruction, instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -709,13 +557,13 @@ describe('Wollok Interpreter', () => {
         const { step, compile } = await mockInterpreterDependencies({ methodLookup: () => method })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 2 }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3'], pending: [instruction] }),
+            Frame({ operandStack: ['3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -725,7 +573,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
             Frame({ locals: { self: '3', p1: '2', p2: '1' }, pending: compile(environment)(method.body!) }),
-            Frame({ resume: ['return'], pending: [instruction] }),
+            Frame({ resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -740,7 +588,7 @@ describe('Wollok Interpreter', () => {
         const { step, compile } = await mockInterpreterDependencies({ methodLookup: () => method, ids: ['6'] })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 3 }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -748,7 +596,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3', '4', '5'], pending: [instruction] }),
+            Frame({ operandStack: ['5', '4', '3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -761,7 +609,7 @@ describe('Wollok Interpreter', () => {
             6: RuntimeObject('6', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '4', p1: '3', p2: '6' }, pending: compile(environment)(method.body!) }),
-            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction] }),
+            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -779,13 +627,13 @@ describe('Wollok Interpreter', () => {
         })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 2 }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3'], pending: [instruction] }),
+            Frame({ operandStack: ['3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -797,7 +645,7 @@ describe('Wollok Interpreter', () => {
             5: RuntimeObject('5', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '3', name: '4', parameters: '5' }, pending: compile(environment)(messageNotUnderstood.body!) }),
-            Frame({ resume: ['return'], pending: [instruction] }),
+            Frame({ resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -808,29 +656,22 @@ describe('Wollok Interpreter', () => {
             Parameter('p1'), Parameter('p2'),
           ],
         })() as MethodNode<'Linked'>
-        const native: Native = (self, p1, p2) => async (evaluation) => {
-          return {
-            ...evaluation,
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [self.id + p1.id + p2.id, ...evaluation.frameStack[0].operandStack],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+
+        const native: Native = (self, p1, p2) => evaluation => {
+          evaluation.frameStack[0].operandStack.push(self.id + p1.id + p2.id)
         }
+
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 2 }
 
-        const next = await step({ wollok: { lang: { Object: { m: native } } } })(
+        const next = step({ wollok: { lang: { Object: { m: native } } } })(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3', '4'], pending: [instruction] }),
+            Frame({ operandStack: ['4', '3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -840,7 +681,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['321', '4'], pending: [instruction] }),
+            Frame({ operandStack: ['4', '321'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -851,22 +692,15 @@ describe('Wollok Interpreter', () => {
             Parameter('p1'), Parameter('p2', { isVarArg: true }),
           ],
         })() as MethodNode<'Linked'>
-        const native: Native = (self, p1, p2, p3) => async (evaluation) => {
-          return {
-            ...evaluation,
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [self.id + p1.id + p2.id + p3.id, ...evaluation.frameStack[0].operandStack],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+
+        const native: Native = (self, p1, p2) => evaluation => {
+          evaluation.frameStack[0].operandStack.push(self.id + p1.id + p2.id)
         }
+
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 3 }
 
-        const next = await step({ wollok: { lang: { Object: { m: native } } } })(
+        const next = step({ wollok: { lang: { Object: { m: native } } } })(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -874,7 +708,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3', '4', '5'], pending: [instruction] }),
+            Frame({ operandStack: ['5', '4', '3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -885,7 +719,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['4321', '5'], pending: [instruction] }),
+            Frame({ operandStack: ['5', '432'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -896,13 +730,13 @@ describe('Wollok Interpreter', () => {
 
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 2 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '1'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
@@ -910,13 +744,13 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 2 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '1', '2'], pending: [instruction] }),
+            Frame({ operandStack: ['2', '2', '2'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the method is native but the native is missing', async () => {
@@ -924,13 +758,13 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => { throw new Error('') } })
         const instruction: Instruction = { kind: 'CALL', message: 'm', arity: 0 }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -949,7 +783,7 @@ describe('Wollok Interpreter', () => {
         const { step, compile } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction: Instruction = { kind: 'INIT', arity: 2, lookupStart: 'wollok.lang.Object', initFields: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -965,14 +799,14 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
             Frame({
-              locals: { self: '3', p1: '1', p2: '2' },
+              locals: { self: '1', p1: '3', p2: '2' },
               pending: [
                 ...compile(environment)(constructor.body),
                 { kind: 'LOAD', name: 'self' },
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ resume: ['return'], pending: [instruction] }),
+            Frame({ resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -995,7 +829,7 @@ describe('Wollok Interpreter', () => {
 
         const instruction: Instruction = { kind: 'INIT', arity: 0, lookupStart: 'X', initFields: true }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'X'),
           })(
@@ -1022,7 +856,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ resume: ['return'], pending: [instruction] }),
+            Frame({ resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -1041,7 +875,7 @@ describe('Wollok Interpreter', () => {
         })
         const instruction: Instruction = { kind: 'INIT', arity: 3, lookupStart: 'wollok.lang.Object', initFields: false }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -1049,7 +883,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2', '3', '4', '5'], pending: [instruction] }),
+            Frame({ operandStack: ['5', '4', '3', '2', '1'], pending: [instruction] }),
           )
         )
         next.should.deep.equal(
@@ -1069,7 +903,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'INTERRUPT', interruption: 'return' },
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction] }),
+            Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -1078,13 +912,13 @@ describe('Wollok Interpreter', () => {
         const instruction: Instruction = { kind: 'INIT', arity: 2, lookupStart: 'wollok.lang.Object', initFields: true }
         const { step } = await mockInterpreterDependencies({ constructorLookup: () => undefined })
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '1', '1'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the current operand stack length is < arity + 1', async () => {
@@ -1092,13 +926,13 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction: Instruction = { kind: 'INIT', arity: 2, lookupStart: 'wollok.lang.Object', initFields: true }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '1'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
@@ -1106,13 +940,13 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction: Instruction = { kind: 'INIT', arity: 2, lookupStart: 'wollok.lang.Object', initFields: true }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1', '1', '2'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -1124,7 +958,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'IF_THEN_ELSE', then: [{ kind: 'PUSH', id: '5' }], else: [{ kind: 'PUSH', id: '7' }] }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: [TRUE_ID], pending: [instruction] }),
           )
@@ -1132,7 +966,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({ pending: [{ kind: 'PUSH', id: VOID_ID }, ...instruction.then, { kind: 'INTERRUPT', interruption: 'result' }] }),
-            Frame({ resume: ['result'], pending: [instruction] }),
+            Frame({ resume: ['result'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -1141,7 +975,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'IF_THEN_ELSE', then: [{ kind: 'PUSH', id: '5' }], else: [{ kind: 'PUSH', id: '7' }] }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ operandStack: [FALSE_ID], pending: [instruction] }),
           )
@@ -1149,7 +983,7 @@ describe('Wollok Interpreter', () => {
         next.should.deep.equal(
           Evaluation({})(
             Frame({ pending: [{ kind: 'PUSH', id: VOID_ID }, ...instruction.else, { kind: 'INTERRUPT', interruption: 'result' }] }),
-            Frame({ resume: ['result'], pending: [instruction] }),
+            Frame({ resume: ['result'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -1158,24 +992,24 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'IF_THEN_ELSE', then: [], else: [] }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1'], pending: [instruction, instruction, instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the current operand stack is empty', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'IF_THEN_ELSE', then: [], else: [] }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ pending: [instruction, instruction, instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -1191,7 +1025,7 @@ describe('Wollok Interpreter', () => {
           always: [{ kind: 'PUSH', id: '9' }],
         }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({})(
             Frame({ pending: [instruction] }),
           )
@@ -1223,7 +1057,7 @@ describe('Wollok Interpreter', () => {
                 { kind: 'RESUME_INTERRUPTION' },
               ],
             }),
-            Frame({ resume: ['result'], pending: [instruction] }),
+            Frame({ resume: ['result'], pending: [instruction], pc: 1 }),
           )
         )
       })
@@ -1236,7 +1070,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'INTERRUPT', interruption: 'return' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
@@ -1251,8 +1085,8 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2'] }),
-            Frame({ resume: ['return', 'exception'], pending: [instruction] }),
+            Frame({ operandStack: ['2', '1'] }),
+            Frame({ resume: ['return', 'exception'] }),
           )
         )
       })
@@ -1261,26 +1095,26 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'INTERRUPT', interruption: 'result' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({}),
             Frame({ resume: ['result'], pending: [instruction] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if no frame resumes the interruption', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'INTERRUPT', interruption: 'result' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['1'], pending: [instruction] }),
             Frame({ resume: ['exception'] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
@@ -1292,7 +1126,7 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'RESUME_INTERRUPTION' }
 
-        const next = await step({})(
+        const next = step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
@@ -1307,8 +1141,8 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1', '2'] }),
-            Frame({ resume: ['return', 'exception'], pending: [instruction] }),
+            Frame({ operandStack: ['2', '1'] }),
+            Frame({ resume: ['return', 'exception'] }),
           )
         )
       })
@@ -1317,40 +1151,40 @@ describe('Wollok Interpreter', () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'RESUME_INTERRUPTION' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ resume: ['result'], operandStack: ['1'], pending: [instruction] }),
             Frame({ resume: ['return'] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if the current operand stack is empty', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'RESUME_INTERRUPTION' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({})(
             Frame({ resume: ['return', 'exception'], pending: [instruction] }),
             Frame({ resume: ['result'] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
       it('should raise an error if no frame resumes the interruption', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction: Instruction = { kind: 'RESUME_INTERRUPTION' }
 
-        await step({})(
+        expect(() => step({})(
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ resume: ['return', 'exception'], operandStack: ['1'], pending: [instruction] }),
             Frame({ resume: ['return'] }),
           )
-        ).should.be.rejectedWith(Error)
+        )).to.throw()
       })
 
     })
