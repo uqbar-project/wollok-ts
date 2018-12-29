@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Super, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Super, Test, Try } from './builders'
 
 should()
 
@@ -405,6 +405,23 @@ describe('Wollok Validations', () => {
       assert.ok(!!fieldNameDifferentFromTheMethods(fieldExample, 'fieldNameDifferentFromTheMethods'))
       assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'fieldNameDifferentFromTheMethods'))
 
+    })
+  })
+
+  describe('Tests', () => {
+    it('testIsNotEmpty', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Test('t')()
+        ),
+      ])
+
+      const { testIsNotEmpty } = validations(environment)
+      const packageExample = environment.members[1] as PackageNode
+      const testExample = packageExample.members[0] as TestNode
+
+      assert.ok(!!testIsNotEmpty(testExample, 'testIsNotEmpty'))
     })
   })
 

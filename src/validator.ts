@@ -1,29 +1,11 @@
 // TODO:
 
 // No imports of local references
-// propertyOnlyAllowedInMethodContainer no entiendo que es, preguntar
-// cannotInstantiateAbstractClasses
-// checkUnexistentNamedParametersInConstructor
-// checkUnexistentNamedParametersInheritingConstructor
-// checkUnexistentNamedParametersInheritingConstructor
-
-// cannotUseSelfInConstructorDelegation
-
-// DONE
-// Name capitalization
-// Only one (the last) parameter can be vararg
-// No references named as keywords
-// No try without catch or always
-// No unnamed singleton outside Literals
-// No asignation of fully qualified references
-// No members with the same selector las clases no puede tener
-// fields que se llamen como sus metodos una clase no puede tener
-// dos metodos con el mismo nombre y aridades que matcheen
 
 import { isNil, keys, reject } from 'ramda'
 import {
-  Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin, Node,
-  NodeKind, NodeOfKind, Package, Parameter, Reference, Singleton, Try, Variable
+  Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin,
+  Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Singleton, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -52,6 +34,7 @@ const error = problem('Error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 type HaveArgs = Method | Constructor
+type notEmpty = Program | Test
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
@@ -64,6 +47,8 @@ const matchingConstructors =
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
     list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
+
+const bodyIsNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 
 export const validations = (environment: Environment) => {
   const { parentOf } = utils(environment)
@@ -112,6 +97,10 @@ export const validations = (environment: Environment) => {
       )),
 
     methodNotOnlyCallToSuper: warning<Method>(node => !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+
+    testIsNotEmpty: warning<Test>(node => bodyIsNotEmpty(node)),
+
+    programIsNotEmpty: warning<Program>(node => bodyIsNotEmpty(node)),
   }
 }
 
@@ -135,6 +124,8 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     methodsHaveDistinctSignatures,
     constructorsHaveDistinctArity,
     methodNotOnlyCallToSuper,
+    programIsNotEmpty,
+    testIsNotEmpty,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -143,8 +134,8 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Body: {},
     Catch: {},
     Package: {},
-    Program: {},
-    Test: {},
+    Program: { programIsNotEmpty },
+    Test: { testIsNotEmpty },
     Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
     Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
