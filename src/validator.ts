@@ -5,7 +5,7 @@
 import { isNil, keys, reject } from 'ramda'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin,
-  Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Singleton, Test, Try, Variable
+  New, Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Singleton, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -34,7 +34,8 @@ const error = problem('Error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 type HaveArgs = Method | Constructor
-type notEmpty = Program | Test
+
+type notEmpty = Program | Test | Method
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
@@ -48,10 +49,13 @@ const matchingSignatures =
   (list: ReadonlyArray<ClassMember>, member: Method) =>
     list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
 
-const bodyIsNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
+const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
+
+const isNotAbstractClass = (node: Class) =>
+  node.members.some((member): member is Method => member.kind === 'Method' && isNotEmpty(member))
 
 export const validations = (environment: Environment) => {
-  const { parentOf } = utils(environment)
+  const { parentOf, firstAncestorOfKind } = utils(environment)
 
   return {
 
@@ -98,9 +102,16 @@ export const validations = (environment: Environment) => {
 
     methodNotOnlyCallToSuper: warning<Method>(node => !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
 
-    testIsNotEmpty: warning<Test>(node => bodyIsNotEmpty(node)),
+    testIsNotEmpty: warning<Test>(node => isNotEmpty(node)),
 
-    programIsNotEmpty: warning<Program>(node => bodyIsNotEmpty(node)),
+    programIsNotEmpty: warning<Program>(node => isNotEmpty(node)),
+
+    // TODO: not only first ancestor, maybe is in another package?
+    instantiationIsNotAbstractClass: error<New>(node =>
+      isNotAbstractClass((firstAncestorOfKind('Package', node).members.
+        find(m => m.kind === 'Class' && m.name === node.className.name) as Class))),
+
+
   }
 }
 
@@ -126,6 +137,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     methodNotOnlyCallToSuper,
     programIsNotEmpty,
     testIsNotEmpty,
+    instantiationIsNotAbstractClass,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -147,7 +159,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Assignment: { nonAsignationOfFullyQualifiedReferences },
     Reference: { nameIsNotKeyword },
     Self: {},
-    New: {},
+    New: { instantiationIsNotAbstractClass },
     Literal: {},
     Send: {},
     Super: {},

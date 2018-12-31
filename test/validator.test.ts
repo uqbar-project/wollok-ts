@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Constructor, Field, Method, Package, Parameter, Reference, Singleton, Super, Test, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Reference, Singleton, Super, Test, Try } from './builders'
 
 should()
 
@@ -103,8 +103,8 @@ describe('Wollok Validations', () => {
       const classExample2 = packageExample.members[1] as ClassNode
       const { nameIsPascalCase } = validations(environment)
 
-      assert.ok(!!nameIsPascalCase(classExample, 'nameIsPascalCase')!)
-      assert.ok(!nameIsPascalCase(classExample2, 'nameIsPascalCase')!)
+      assert.ok(!!nameIsPascalCase(classExample, 'nameIsPascalCase'))
+      assert.ok(!nameIsPascalCase(classExample2, 'nameIsPascalCase'))
 
     })
 
@@ -166,6 +166,32 @@ describe('Wollok Validations', () => {
 
     })
 
+
+  })
+
+  describe('New', () => {
+
+    it('cannotInstantiateAbstractClasses', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(Method('m')()),
+          Class('C2')(Method('m')(Literal(5))),
+          Test('t')(New(Reference('C'), [])),
+          Test('t')(New(Reference('C2'), [])),
+        ),
+      ])
+
+      const packageExample = environment.members[1] as PackageNode
+      const newExample = (packageExample.members[2] as TestNode).body.sentences[0] as NewNode
+      const newExample2 = (packageExample.members[3] as TestNode).body.sentences[0] as NewNode
+
+      const { instantiationIsNotAbstractClass } = validations(environment)
+
+      assert.ok(!!instantiationIsNotAbstractClass(newExample, 'instantiationIsNotAbstractClass'))
+      assert.ok(!instantiationIsNotAbstractClass(newExample2, 'instantiationIsNotAbstractClass'))
+
+    })
 
   })
 
