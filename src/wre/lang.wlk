@@ -234,9 +234,6 @@ class Object {
 	}
 }
 
-/** Representation for methods that only have side effects */
-object void { }
-
 /** 
  * Representation of a Key/Value Association.
  * It is also useful if you want to model a Point. 
@@ -1066,15 +1063,8 @@ class Number {
 	 */
 	method truncate(_decimals)
 
-	method plus() = self
-}
+	method +_() = self
 
-/**
- * @author jfernandes
- * @since 1.3
- * @noInstantiate
- */
-class Integer inherits Number {
 	/**
 	 * The whole wollok identity implementation is based on self method
 	 */
@@ -1202,81 +1192,6 @@ class Integer inherits Number {
 	
 }
 
-/**
- * @author jfernandes
- * @since 1.3
- * @noInstantiate
- */
-class Double inherits Number {
-	/** the whole wollok identity impl is based on self method */
-	override method ===(other) native
-
-	method +(other) native
-	method -(other) native
-	method *(other) native
-	method /(other) native
-	
-	/** Integer division between self and other
-	 *
-	 * Example:
-	 *		8.2.div(3.3)  ==> Answers 2
-	 * 		15.0.div(5) ==> Answers 3
-	 */
-	method div(other) native
-	
-	/**
-	 * raisedTo
-	 * 3.2 ** 2 ==> Answers 10.24
-	 */
-	method **(other) native
-	
-	/**
-	 * Answers remainder of division between self and other
-	 */
-	method %(other) native		
-
-	/** String representation of a self number */
-	override method toString() = self.stringValue()
-	
-	/** Self as a String value. Equivalent: toString() */
-	override method stringValue() native	
-	
-	method >(other) native
-	method >=(other) native
-	method <(other) native
-	method <=(other) native
-	
-	/** 
-	 * Answers absolute value of self 
-	 *
-	 * Example:
-	 * 		2.7.abs() ==> Answers 2.7
-	 *		(-3.2).abs() ==> Answers 3.2 (be careful with parentheses)
-	 */		
-	method abs() native
-	
-	/**
-	 * 3.2.invert() ==> -3.2
-	 * (-2.4).invert() ==> 2.4 (be careful with parentheses)
-	 */
-	method invert() native
-	
-	/**
-	 * Answers a random between self and max
-	 */
-	method randomUpTo(max) native
-	
-	/**
-	 * Answers the next integer greater than self
-	 * 13.224.roundUp() ==> 14
-	 * -13.224.roundUp() ==> -14
-	 * 15.942.roundUp() ==> 16
-	 */
-	method roundUp() = self.roundUp(0)
-	
-	override method roundUp(_decimals) native
-	override method truncate(_decimals) native
-}
 
 /**
  * Strings are constant; their values cannot be changed after they are created.

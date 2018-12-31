@@ -14,7 +14,8 @@
     "test": "npm run test:lint && npm run test:unit",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
     "test:lint": "tslint --project .",
-    "test:sanity": "node -r ts-node/register ./test/sanity.ts"
+    "test:sanity": "node -r ts-node/register ./test/sanity.ts",
+    "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js"
   },
   "dependencies": {
     "parsimmon": "^1.12.0",

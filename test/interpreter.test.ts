@@ -572,7 +572,13 @@ describe('Wollok Interpreter', () => {
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
           })(
-            Frame({ locals: { self: '3', p1: '2', p2: '1' }, pending: compile(environment)(method.body!) }),
+            Frame({
+              locals: { self: '3', p1: '2', p2: '1' }, pending: [
+                ...compile(environment)(method.body!),
+                { kind: 'PUSH', id: VOID_ID },
+                { kind: 'INTERRUPT', interruption: 'return' },
+              ],
+            }),
             Frame({ resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )
@@ -608,7 +614,13 @@ describe('Wollok Interpreter', () => {
             5: RuntimeObject('5', 'wollok.lang.Object'),
             6: RuntimeObject('6', 'wollok.lang.List', {}, ['2', '1']),
           })(
-            Frame({ locals: { self: '4', p1: '3', p2: '6' }, pending: compile(environment)(method.body!) }),
+            Frame({
+              locals: { self: '4', p1: '3', p2: '6' }, pending: [
+                ...compile(environment)(method.body!),
+                { kind: 'PUSH', id: VOID_ID },
+                { kind: 'INTERRUPT', interruption: 'return' },
+              ],
+            }),
             Frame({ operandStack: ['5'], resume: ['return'], pending: [instruction], pc: 1 }),
           )
         )

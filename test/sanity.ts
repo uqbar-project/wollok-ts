@@ -1,3 +1,7 @@
+
+// TODO:
+// tslint:disable:no-console
+
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, join } from 'path'
 import * as simplegit from 'simple-git/promise'
@@ -66,6 +70,8 @@ const fetchTests = async () => {
 
 const runAll = async () => {
 
+  console.log('Parsing WRE...')
+  console.time('Done')
   const wreSource = readFileSync(WRE_PATH, 'utf8')
   const wre: Package<'Filled'> = {
     kind: 'Package',
@@ -74,30 +80,34 @@ const runAll = async () => {
     imports: [],
     members: [fill(File('lang').tryParse(wreSource))],
   }
+  console.timeEnd('Done')
 
-  // TODO:
-  // tslint:disable:no-console
-  if (existsSync(SANITY_TESTS_FOLDER) && !process.argv.includes('--skip-update')) {
-    console.log('Fetching tests')
+  if (existsSync(SANITY_TESTS_FOLDER) && !process.argv.includes('--skip-fetch')) {
+    console.log('Fetching tests...')
+    console.time('Done')
     await fetchTests()
+    console.timeEnd('Done')
   } else {
-    console.log('Using local version of tests')
+    console.log('Will use local version of tests')
   }
 
+  console.log('Parsing tests...')
+  console.time('Done')
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
   const testNodes = nonSkipedTestFiles.map(testFile =>
     fill(File(basename(testFile).split('.')[0]).tryParse(readFileSync(testFile, 'utf8')))
   )
+  console.timeEnd('Done')
 
-  console.time(`Linked`)
+  console.log('Linking...')
+  console.time(`Done`)
   const environment = link([wre, ...testNodes])
-  console.timeEnd(`Linked`)
+  console.timeEnd(`Done`)
 
-
-  const { runTests } = interpreter(environment, natives)
-
+  console.log('Running tests')
   console.time(`Runned ${testFiles.length} test files`)
+  const { runTests } = interpreter(environment, natives)
   await runTests()
   console.timeEnd(`Runned ${testFiles.length} test files`)
 }

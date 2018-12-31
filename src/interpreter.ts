@@ -15,7 +15,7 @@ export interface RuntimeObject {
 }
 
 export interface Frame {
-  readonly pending: List<Instruction>
+  readonly pending: List<Instruction> // TODO: rename to instructions
   pc: number
   locals: Locals
   operandStack: Id<'Linked'>[]
@@ -139,11 +139,9 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
         ]
         if (typeof node.value === 'number') return [
           { kind: 'INSTANTIATE', module: 'wollok.lang.Number', innerValue: node.value },
-          { kind: 'INIT', lookupStart: 'wollok.lang.Number', arity: 0, initFields: false }, // TODO: is this necesary?
         ]
         if (typeof node.value === 'string') return [
           { kind: 'INSTANTIATE', module: 'wollok.lang.String', innerValue: node.value },
-          { kind: 'INIT', lookupStart: 'wollok.lang.String', arity: 0, initFields: false }, // TODO: is this necesary?
         ]
         if (node.value.kind === 'Singleton') return [
           { kind: 'PUSH', id: node.value.id },
@@ -179,7 +177,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
       case 'If':
         return [
           ...compile(environment)(node.condition),
-          { kind: 'IF_THEN_ELSE', then: compile(environment)(node.elseBody), else: compile(environment)(node.elseBody) },
+          { kind: 'IF_THEN_ELSE', then: compile(environment)(node.thenBody), else: compile(environment)(node.elseBody) },
         ]
 
 
@@ -234,7 +232,7 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
 
   const instruction = currentPending[currentPC]
 
-  if (!instruction) throw EvaluationError(`Reached end of pending instructions {${JSON.stringify(currentFrame)}}[${currentPC}]`)
+  if (!instruction) throw EvaluationError(`Reached end of pending instructions`)
 
   const {
     hierarchy,
@@ -339,11 +337,13 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
       const callself = instances[callselfId]
       if (!callself) throw EvaluationError(`Access to undefined instance "${callselfId}"`)
 
+      console.time(`method_lookup: ${instruction.message}`)
       const method = methodLookup(
         instruction.message,
         instruction.arity,
         resolve(instruction.lookupStart || callself.module)
       )
+      console.timeEnd(`method_lookup: ${instruction.message}`)
 
       if (!method) {
         const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(callself.module))!
@@ -373,6 +373,7 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
         })
       } else {
         if (method.isNative) {
+          console.log('NATIVE!')
           const native = nativeLookup(natives, method)
           native(callself, ...argIds.map(arg => instances[arg]))(evaluation)
         } else {
@@ -387,7 +388,11 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
 
             currentFrame.resume.push('return')
             frameStack.push({
-              pending: compile(environment)(method.body!),
+              pending: [
+                ...compile(environment)(method.body!),
+                { kind: 'PUSH', id: VOID_ID },
+                { kind: 'INTERRUPT', interruption: 'return' },
+              ],
               pc: 0,
               locals: {
                 ...zipObj(method.parameters.slice(0, -1).map(({ name }) => name), argIds),
@@ -401,7 +406,11 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
           } else {
             currentFrame.resume.push('return')
             frameStack.push({
-              pending: compile(environment)(method.body!),
+              pending: [
+                ...compile(environment)(method.body!),
+                { kind: 'PUSH', id: VOID_ID },
+                { kind: 'INTERRUPT', interruption: 'return' },
+              ],
               pc: 0,
               locals: { ...zipObj(method.parameters.map(({ name }) => name), argIds), self: callselfId },
               operandStack: [],
@@ -622,11 +631,14 @@ export const step = (natives: {}) => (evaluation: Evaluation): Evaluation => {
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const createEvaluation = (environment: Environment<'Linked'>): Evaluation => {
+// TODO: type for natives
+function run(environment: Environment<'Linked'>, natives: {}, body: Body<'Linked'>) {
 
+  console.time('initializing')
   const { descendants, fullyQualifiedName } = utils(environment)
 
   const singletons = descendants(environment).filter(is('Singleton'))
+
   const instances = [
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {} },
     { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {} },
@@ -634,6 +646,7 @@ const createEvaluation = (environment: Environment<'Linked'>): Evaluation => {
     // TODO: Initialize attributes
     ...singletons.map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })),
   ].reduce((all, instance) => assoc(instance.id, instance, all), {})
+
   const locals = {
     null: NULL_ID,
     true: TRUE_ID,
@@ -641,25 +654,37 @@ const createEvaluation = (environment: Environment<'Linked'>): Evaluation => {
     ...singletons.reduce((all, singleton) => assoc(fullyQualifiedName(singleton), singleton.id, all), {}),
   }
 
-  return {
+  console.timeEnd('initializing')
+  console.time('compiling')
+  const pending = compile(environment)(body)
+  console.timeEnd('compiling')
+
+  const evaluation = {
     environment,
     instances,
     frameStack: [{
-      pending: [],
+      pending,
       pc: 0,
       locals,
       operandStack: [],
       resume: [],
     }],
   }
-}
 
-// TODO: This feels so much like a generator... Can we make it so?
-export const run = (natives: {}, evaluation: Evaluation): Evaluation => {
-  while (evaluation.frameStack[0].pending.length) {
-    evaluation = step(natives)(evaluation)
+  console.time('evaluating')
+  let steps = 0
+  while (last(evaluation.frameStack)!.pc < last(evaluation.frameStack)!.pending.length) {
+    console.log('step ', steps, ': ', last(evaluation.frameStack)!.pending[last(evaluation.frameStack)!.pc].kind)
+    console.time('took')
+    // yield step(natives)(evaluation)
+    step(natives)(evaluation)
+    console.timeEnd('took')
+    steps++
   }
-  return evaluation
+  console.timeEnd('evaluating')
+  console.log('steps: ', steps)
+
+  return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
 }
 
 export default (environment: Environment<'Linked'>, natives: {}) => ({
@@ -672,21 +697,18 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     // TODO:
     // tslint:disable:no-console
     let count = 0
-    let success = 0
+    const success = 0
     for (const test of tests) {
+
       count += 1
-      try {
-        const baseEvaluation = createEvaluation(environment)
-        const evaluation: Evaluation = {
-          ...baseEvaluation,
-          frameStack: [{ ...baseEvaluation.frameStack[0], pending: compile(environment)(test.body) }],
-        }
-        run(natives, evaluation)
-        success += 1
-        console.log(`${count}/${tests.length} PASSED: ${test.name}`)
-      } catch (e) {
-        console.log(`${count}/${tests.length} FAILED: ${test.name}`)
-      }
+      // try {
+      run(environment, natives, test.body)
+      // success += 1
+      console.log(`${count}/${tests.length} PASSED: ${test.name}`)
+      // } catch (e) {
+      // console.log(`${count}/${tests.length} FAILED: ${test.name}`)
+      // console.log(e.message)
+      // }
     }
     console.log(`TOTAL PASSED: ${success}/${tests.length}`)
   },

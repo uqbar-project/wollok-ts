@@ -1,3 +1,4 @@
+import { last } from 'ramda'
 import uuid = require('uuid')
 import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID } from '../interpreter'
 
@@ -19,19 +20,11 @@ export default {
 
       Object: {
 
-        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.id === other.id ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(
+            self.id === other.id ? TRUE_ID : FALSE_ID
+          )
+        },
 
         'identity': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
@@ -168,145 +161,47 @@ export default {
         },
       },
 
-      Integer: {
-        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+      Number: {
+        '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(
+            self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID
+          )
+        },
 
         '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue + other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue + other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue - other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue - other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue * other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue * other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue / other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue / other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue ** other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue ** other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue % other.innerValue },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: self.innerValue % other.innerValue }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         'div': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -315,119 +210,37 @@ export default {
 
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const id = uuid()
-          return {
-            ...evaluation,
-            instances: {
-              id: { id, module: 'wollok.lang.String', fields: {}, innerValue: self.innerValue.toString() },
-              ...evaluation.instances,
-            },
-            frameStack: [
-              {
-                ...evaluation.frameStack[0],
-                operandStack: [
-                  id,
-                  ...evaluation.frameStack[0].operandStack,
-                ],
-              },
-              ...evaluation.frameStack.slice(1),
-            ],
-          }
+          evaluation.instances[id] = { id, module: 'wollok.lang.String', fields: {}, innerValue: self.innerValue.toString() }
+          last(evaluation.frameStack)!.operandStack.push(id)
         },
 
         'stringValue': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
-        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
+        },
 
-        '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID)
+        },
 
-        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
+        },
 
-        '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID)
+        },
 
         'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
           if (self.innerValue > 0) {
-            return {
-              ...evaluation,
-              frameStack: [
-                {
-                  ...evaluation.frameStack[0],
-                  operandStack: [
-                    self.id,
-                    ...evaluation.frameStack[0].operandStack,
-                  ],
-                },
-                ...evaluation.frameStack.slice(1),
-              ],
-            }
+            last(evaluation.frameStack)!.operandStack.push(self.id)
           } else {
             const id = uuid()
-            return {
-              ...evaluation,
-              instances: {
-                id: { id, module: 'wollok.lang.Number', fields: {}, innerValue: -self.innerValue },
-                ...evaluation.instances,
-              },
-              frameStack: [
-                {
-                  ...evaluation.frameStack[0],
-                  operandStack: [
-                    id,
-                    ...evaluation.frameStack[0].operandStack,
-                  ],
-                },
-                ...evaluation.frameStack.slice(1),
-              ],
-            }
+            evaluation.instances[id] = { id, module: 'wollok.lang.Number', fields: {}, innerValue: -self.innerValue }
+            last(evaluation.frameStack)!.operandStack.push(id)
           }
         },
 
@@ -442,65 +255,6 @@ export default {
         },
       },
 
-      Double: {
-        '===': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '+': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '-': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '*': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '/': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '**': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '%': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'div': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'stringValue': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '>': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '>=': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '<': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '<=': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'abs': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'invert': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'gcd': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'randomUpTo': (_self: RuntimeObject, _max: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'roundUp': (_self: RuntimeObject, _decimals: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'truncate': (_self: RuntimeObject, _decimals: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-      },
 
       String: {
         'length': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -566,68 +320,35 @@ export default {
 
       Boolean: {
 
-        '&&': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue && other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
-
-        '||': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue || other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
-
-        'toString': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-/* TODO:*/ throw new ReferenceError('To be implemented')
+        '&&': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue && other.innerValue ? TRUE_ID : FALSE_ID)
         },
+
+        '||': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(self.innerValue || other.innerValue ? TRUE_ID : FALSE_ID)
+        },
+
+        'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const id = uuid()
+          evaluation.instances[id] = { id, module: 'wollok.lang.String', fields: {}, innerValue: self.innerValue.toString() }
+          last(evaluation.frameStack)!.operandStack.push(id)
+        },
+
         'toSmartString': (_self: RuntimeObject, _alreadyShown: RuntimeObject) => (_evaluation: Evaluation) => {
 /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
-        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(
+            self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID
+          )
+        },
 
-        '!_': (self: RuntimeObject) => (evaluation: Evaluation) => ({
-          ...evaluation,
-          frameStack: [
-            {
-              ...evaluation.frameStack[0],
-              operandStack: [
-                self.id === TRUE_ID ? FALSE_ID : TRUE_ID,
-                ...evaluation.frameStack[0].operandStack,
-              ],
-            },
-            ...evaluation.frameStack.slice(1),
-          ],
-        }),
+        '!_': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          last(evaluation.frameStack)!.operandStack.push(
+            self.innerValue === FALSE_ID ? TRUE_ID : FALSE_ID
+          )
+        },
       },
 
       Range: {

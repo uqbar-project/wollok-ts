@@ -2,6 +2,12 @@ import { chain as flatMap, identity, mapObjIndexed, memoizeWith, path, values } 
 import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
+// const parenthoodCache: Map<Id<'Linked'>, Id<'Linked'>> = new Map()
+// const idCache: Map<Id<'Linked'>, {}> = new Map()
+
+// export const assertParenthood = (parent: Node<'Linked'>) => (child: Node<'Linked'>) => parenthoodCache.set(child.id, parent.id)
+// export const assertId = (obj: {}, id: Id<'Linked'>) => idCache.set(id, obj)
+
 const { isArray } = Array
 
 // TODO: Test all this
@@ -64,9 +70,11 @@ export default <S extends Stage>(environment: Environment<S>) => {
   const fullyQualifiedName = memoizeWith(({ id }) => environment.id + id)(
     (node: Entity<'Linked'>): S extends 'Linked' ? Name : never => {
       const parent = parentOf(node)
-      return (isEntity<'Linked'>(parent)
-        ? `${fullyQualifiedName(parent)}.${node.name}`
-        : node.name!) as S extends 'Linked' ? Name : never
+      return (
+        isEntity<'Linked'>(parent)
+          ? `${fullyQualifiedName(parent)}.${node.name}`
+          : node.name!
+      ) as S extends 'Linked' ? Name : never
     }
   )
 
@@ -78,6 +86,12 @@ export default <S extends Stage>(environment: Environment<S>) => {
       return parent as S extends 'Linked' ? N : never
     }
   )
+
+  // const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
+  //   const parentId = parenthoodCache.get(node.id)
+  //   if (!parentId) throw new Error(`Unknown parent for node ${JSON.stringify(node)}`)
+  //   return getNodeById<S extends 'Linked' ? N : never>(parentId)
+  // }
 
 
   const firstAncestorOfKind = memoizeWith((kind, { id }) => environment.id + kind + id)(
@@ -96,6 +110,12 @@ export default <S extends Stage>(environment: Environment<S>) => {
       return response as S extends 'Linked' ? T : never
     }
   )
+  // const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>, errorMessage: string = `Missing node ${id}`):
+  //   S extends 'Linked' ? T : never => {
+  //   const node = idCache.get(id)
+  //   if (!node) throw new Error(errorMessage)
+  //   return node as S extends 'Linked' ? T : never
+  // }
 
 
   const resolve = memoizeWith(qualifiedName => environment.id + qualifiedName)(
@@ -110,16 +130,15 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
 
   const resolveTarget = memoizeWith(({ id }) => environment.id + id)(
-    <T extends Node<'Linked'>>(reference: Reference<'Linked'>): S extends 'Linked' ? T : never => getNodeById<T>(reference.target)
+    <T extends Node<'Linked'>>(reference: Reference<'Linked'>): S extends 'Linked' ? T : never =>
+      getNodeById<T>(reference.target)
   )
 
 
   const superclass = memoizeWith(({ id }) => environment.id + id)(
     (module: Class<'Linked'> | Singleton<'Linked'>): Class<'Linked'> | null => {
-      const ObjectClass = resolve<Class<'Linked'>>('wollok.lang.Object')
-      if (module === ObjectClass) return null
       switch (module.kind) {
-        case 'Class': return resolveTarget<Class<'Linked'>>(module.superclass!)
+        case 'Class': return module.superclass ? resolveTarget<Class<'Linked'>>(module.superclass!) : null
         case 'Singleton': return resolveTarget<Class<'Linked'>>(module.superCall.superclass)
       }
     }
@@ -144,7 +163,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
 
   const inherits = memoizeWith(({ id: childId }, { id: parentId }) => environment.id + childId + parentId)(
-    (child: Module<'Linked'>, parent: Module<'Linked'>) => hierarchy(child).includes(parent)
+    (child: Module<'Linked'>, parent: Module<'Linked'>) => hierarchy(child).some(({ id }) => parent.id === id)
   )
 
 
@@ -152,6 +171,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
     (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
       for (const module of hierarchy(start)) {
         const methods = module.members.filter(is<'Method'>('Method')) as Method<'Linked'>[]
+        if (methods.some(m => !m.id)) throw new Error('$$$$$$$$$$$$$$$$$$$$$$$$$$')
         const found = methods.find(member =>
           (!!member.body || member.isNative) && member.name === name && (
             member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
@@ -161,7 +181,8 @@ export default <S extends Stage>(environment: Environment<S>) => {
         if (found) return found
       }
       return undefined
-    })
+    }
+  )
 
 
   // TODO: memoize

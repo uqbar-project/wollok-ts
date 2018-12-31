@@ -21,7 +21,7 @@ const mergePackage = (members: List<Entity<'Filled' | 'Linked'>>, isolated: Enti
     : [...members, isolated]
 }
 
-const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope } => {
+const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope => {
 
   const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = utils(environment)
 
@@ -164,7 +164,7 @@ const buildScopes = (environment: Environment<'Linked'>): { [id: string]: Scope 
     })
   )
 
-  return allNodes.reduce((scope, node) => assoc(node.id, getScope(node.id), scope), {})
+  return getScope
 }
 
 export default (
@@ -177,18 +177,33 @@ export default (
     members: newPackages.reduce(mergePackage, baseEnvironment.members),
   } as Environment<'Linked'>
 
-  const identifiedEnvironment: Environment<'Linked'> = transform(node => ({ ...node, id: node.id || uuid() }))(mergedEnvironment)
+  const identifiedEnvironment: Environment<'Linked'> = transform(node => {
+    if (node.id) return node
+    const next = { ...node, id: uuid() }
+    // assertId(next, next.id)
+    return next
+  })(mergedEnvironment)
+
+  // transform<'Linked'>(node => {
+  //   utils(identifiedEnvironment).children(node).forEach(assertParenthood(node))
+  //   return node
+  // })(identifiedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const linkedEnvironment = transformByKind<'Linked'>({
+  const targetedEnvironment = transformByKind<'Linked'>({
     Reference: node => {
-      const target = scopes[node.id][node.name]
+      const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
-      return { ...node, target }
+      const next = { ...node, target }
+      // assertId(next, next.id)
+      return next
     },
   })(identifiedEnvironment)
 
-  return { ...linkedEnvironment, id: uuid() }
+  const linkedEnvironment = { ...targetedEnvironment, id: uuid() }
+  // assertId(linkedEnvironment, linkedEnvironment.id)
+
+  return linkedEnvironment
 }
