@@ -2,6 +2,7 @@ import { assoc, memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
 import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'
 import utils, { transform, transformByKind } from './utils'
+import { assertParenthood } from './utils'
 
 export interface Scope { readonly [name: string]: string }
 
@@ -184,10 +185,10 @@ export default (
     return next
   })(mergedEnvironment)
 
-  // transform<'Linked'>(node => {
-  //   utils(identifiedEnvironment).children(node).forEach(assertParenthood(node))
-  //   return node
-  // })(identifiedEnvironment)
+  transform<'Linked'>(node => {
+    utils(identifiedEnvironment).children(node).forEach(assertParenthood(node))
+    return node
+  })(identifiedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
 
@@ -197,13 +198,12 @@ export default (
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
       const next = { ...node, target }
-      // assertId(next, next.id)
       return next
     },
   })(identifiedEnvironment)
 
   const linkedEnvironment = { ...targetedEnvironment, id: uuid() }
-  // assertId(linkedEnvironment, linkedEnvironment.id)
+  utils(linkedEnvironment).children(linkedEnvironment).forEach(assertParenthood(linkedEnvironment))
 
   return linkedEnvironment
 }

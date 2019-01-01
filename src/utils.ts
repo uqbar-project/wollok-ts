@@ -2,10 +2,10 @@ import { chain as flatMap, identity, mapObjIndexed, memoizeWith, path, values } 
 import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
-// const parenthoodCache: Map<Id<'Linked'>, Id<'Linked'>> = new Map()
+const parenthoodCache: Map<Id<'Linked'>, Id<'Linked'>> = new Map()
 // const idCache: Map<Id<'Linked'>, {}> = new Map()
 
-// export const assertParenthood = (parent: Node<'Linked'>) => (child: Node<'Linked'>) => parenthoodCache.set(child.id, parent.id)
+export const assertParenthood = (parent: Node<'Linked'>) => (child: Node<'Linked'>) => parenthoodCache.set(child.id, parent.id)
 // export const assertId = (obj: {}, id: Id<'Linked'>) => idCache.set(id, obj)
 
 const { isArray } = Array
@@ -79,20 +79,24 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  const parentOf = memoizeWith(({ id }) => environment.id + id)(
-    <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
-      const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).some(({ id }) => id === node.id))
-      if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-      return parent as S extends 'Linked' ? N : never
-    }
-  )
+  // const parentOf = memoizeWith(({ id }) => environment.id + id)(
+  //   <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
+  //     const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).some(({ id }) => id === node.id))
+  //     if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
+  //     return parent as S extends 'Linked' ? N : never
+  //   }
+  // )
 
-  // const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
-  //   const parentId = parenthoodCache.get(node.id)
-  //   if (!parentId) throw new Error(`Unknown parent for node ${JSON.stringify(node)}`)
-  //   return getNodeById<S extends 'Linked' ? N : never>(parentId)
-  // }
-
+  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
+    const cachedParent = parenthoodCache.get(node.id)
+    if (cachedParent) return getNodeById(cachedParent)
+    const parent = [environment, ...descendants(environment)].find(descendant =>
+      children(descendant).some(({ id }) => id === node.id)
+    )
+    if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
+    assertParenthood(parent as Node<'Linked'>)(node)
+    return parent as S extends 'Linked' ? N : never
+  }
 
   const firstAncestorOfKind = memoizeWith((kind, { id }) => environment.id + kind + id)(
     <K extends Kind>(kind: K, node: Node<'Linked'>): S extends 'Linked' ? NodeOfKind<K, 'Linked'> : never => {
