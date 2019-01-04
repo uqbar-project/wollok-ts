@@ -121,7 +121,7 @@ class StackTraceElement {
  * since 1.0
  */
 class Object {
-	/** Answers object identity of a Wollok object, represented by a unique number in Wollok environment */
+	/** Answers object identity of a Wollok object, represented by a unique uuid in Wollok environment */
 	method identity() native
 	/** Answers a list of instance variables for this Wollok object */
 	method instanceVariables() native
@@ -351,7 +351,7 @@ class Collection {
 	 * Example:
 	 *      plants.forEach { plant => plant.takeSomeWater() }
 	 */
-	method forEach(closure) { self.fold(null, { acc, e => closure.apply(e) }) }
+	method forEach(closure) { self.fold(null, { acc, elemi => closure.apply(elemi) }) }
 	
 	/**
 	 * Answers whether all the elements of self collection satisfy a given condition
@@ -1064,6 +1064,7 @@ class Number {
 	method truncate(_decimals)
 
 	method +_() = self
+	method -_() native
 
 	/**
 	 * The whole wollok identity implementation is based on self method
@@ -1129,7 +1130,7 @@ class Number {
 	 * 		3.invert() ==> Answers -3
 	 * 		(-2).invert() ==> Answers 2 (be careful with parentheses)
 	 */
-	method invert() native
+  method invert() = -self
 	
 	/**
 	 * greater common divisor
@@ -1425,8 +1426,6 @@ class Range {
 	var step
 	
 	constructor(_start, _end) {
-		self.validate(_start)
-		self.validate(_end)
 		start = _start 
 		end = _end
 		if (_start > _end) { 
@@ -1438,9 +1437,6 @@ class Range {
 	
 	method step(_step) { step = _step }
 
-	/** @private */		
-	method validate(_limit) native
-	
 	/** 
 	 * Iterates over a Range from start to end, based on step
 	 */
@@ -1543,13 +1539,13 @@ class Range {
  */
 class Closure {
 
-	/** Evaluates this closure passing its parameters
-	 *
-	 * Example: 
-	 * 		{ number => number + 1 }.apply(8) ==> Answers 9 // 1 parameter
-	 *		{ "screw" + "driver" }.apply() ==> Answers "screwdriver" // no parameter 
-	 */
-	method apply(parameters...) native
+  constructor() {
+    self.saveContext()
+  }
+
+  method saveContext() native
+
+  method apply(args...) native
 	
 	/** Answers a string representation of this closure object */
 	override method toString() native

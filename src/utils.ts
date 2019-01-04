@@ -51,8 +51,8 @@ export default <S extends Stage>(environment: Environment<S>) => {
         if (isArray(obj)) return flatMap(extractChildren)(obj)
         if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
         return []
-      }
 
+      }
       return flatMap(extractChildren)(values(node)) as unknown as List<C>
     }
   )
@@ -73,7 +73,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
       return (
         isEntity<'Linked'>(parent)
           ? `${fullyQualifiedName(parent)}.${node.name}`
-          : node.name!
+          : node.name ? node.name : `#${node.id}`
       ) as S extends 'Linked' ? Name : never
     }
   )
@@ -122,15 +122,21 @@ export default <S extends Stage>(environment: Environment<S>) => {
   // }
 
 
-  const resolve = memoizeWith(qualifiedName => environment.id + qualifiedName)(
-    <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never =>
-      qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
-        const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
-        const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
-        if (!next) throw new Error(`Could not resolve reference to ${qualifiedName}`)
-        return next
-      }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
-  )
+  const resolve = // memoizeWith(qualifiedName => environment.id + qualifiedName)(
+    <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never => {
+      console.log(`@@RESOLVE: ${qualifiedName}`)
+      return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
+        ? getNodeById(qualifiedName.slice(1))
+        : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
+          const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
+          const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
+          if (!next) throw new Error(
+            `Could not resolve reference to ${qualifiedName}: Missing child ${step} among ${allChildren.map((c: any) => c.name)}`
+          )
+          return next
+        }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
+    }
+  // )
 
 
   const resolveTarget = memoizeWith(({ id }) => environment.id + id)(
@@ -151,15 +157,15 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
   const hierarchy = memoizeWith(({ id }) => environment.id + id)(
     (m: Module<'Linked'>): List<Module<'Linked'>> => {
-      const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Module<'Linked'>> = []): List<Module<'Linked'>> =>
-        [
-          module,
+      const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Id<'Linked'>> = []): List<Module<'Linked'>> => {
+        if (exclude.includes(module.id)) return []
+        return [
           ...module.mixins.map(mixin => resolveTarget<Module<'Linked'>>(mixin)),
           ...module.kind === 'Mixin' ? [] : superclass(module) ? [superclass(module)!] : [],
-        ].reduce((ancestors, node) => exclude.includes(node)
-          ? ancestors
-          : [node, ...hierarchyExcluding(node, [node, ...exclude, ...ancestors]), ...ancestors]
-          , [] as List<Module<'Linked'>>)
+        ].reduce(({ mods, exs }, mod) => (
+          { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
+        ), { mods: [module], exs: [module.id, ...exclude] }).mods
+      }
 
       return hierarchyExcluding(m)
     }
@@ -173,15 +179,20 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
   const methodLookup = memoizeWith((name, arity, start) => environment.id + name + arity + start.id)(
     (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
+      console.log(`...Gonna search in hierarchy of ${start.name || (
+        start.kind === 'Singleton' ? start.superCall.superclass.name : ''
+      ) + start.id}: ${hierarchy(start).map(m => m.name || m.id)}`)
       for (const module of hierarchy(start)) {
+        console.log(`...Searching method ${name}/${arity} in ${module.name || module.id}`)
         const methods = module.members.filter(is<'Method'>('Method')) as Method<'Linked'>[]
-        if (methods.some(m => !m.id)) throw new Error('$$$$$$$$$$$$$$$$$$$$$$$$$$')
-        const found = methods.find(member =>
-          (!!member.body || member.isNative) && member.name === name && (
+        const found = methods.find(member => {
+          const r = (!!member.body || member.isNative) && member.name === name && (
             member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
             member.parameters.length === arity
           )
-        )
+          if (r) console.log(`Found ${member.isNative ? 'NATIVE' : ''} on ${module.name || module.id}`)
+          return r
+        })
         if (found) return found
       }
       return undefined

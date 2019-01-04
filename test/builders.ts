@@ -199,7 +199,7 @@ export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePay
 
 export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sentence<'Raw'>[]) =>
   Literal(Singleton(undefined, { superCall: { superclass: Reference('wollok.lang.Closure'), args: [] } })(
-    Method('apply', { parameters })(
+    Method('<apply>', { parameters })(
       ...body
     )
   ))
@@ -225,7 +225,7 @@ export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
   const Frame = (payload: Partial<FrameType>): FrameType => ({
     locals: {},
     pc: 0,
-    pending: [],
+    instructions: [],
     resume: [],
     operandStack: [],
     ...payload,

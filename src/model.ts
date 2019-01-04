@@ -95,7 +95,7 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
 // TODO: Inline this in Singleton?
 export interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> }
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
-  readonly name?: Name
+  readonly name?: Name // TODO: assign name after linking. superclass.fqn#id
   readonly superCall: Fillable<SuperCall<S>, S>
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>

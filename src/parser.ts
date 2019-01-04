@@ -1,6 +1,6 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { concat, toPairs } from 'ramda'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { concat, last, toPairs } from 'ramda'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
 
@@ -450,8 +450,14 @@ const Closure: Parser<SingletonNode<'Raw'>> = lazy(() =>
 // BUILDERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeClosure = (parameters: List<ParameterNode<'Raw'>>, sentences: List<SentenceNode<'Raw'>>): SingletonNode<'Raw'> =>
-  ({
+const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<SentenceNode<'Raw'>>): SingletonNode<'Raw'> => {
+
+  const sentences: List<SentenceNode<'Raw'>> = rawSentences
+    .some(sentence => sentence.kind === 'Return') || !isExpression(last(rawSentences))
+    ? [...rawSentences, { kind: 'Return', id: undefined, value: undefined }]
+    : [...rawSentences.slice(0, -1), { kind: 'Return', id: undefined, value: last(rawSentences) as ExpressionNode<'Raw'> }]
+
+  return {
     kind: 'Singleton',
     id: undefined,
     superCall: {
@@ -469,11 +475,12 @@ const makeClosure = (parameters: List<ParameterNode<'Raw'>>, sentences: List<Sen
       {
         kind: 'Method',
         id: undefined,
-        name: 'apply', isOverride: false, isNative: false, parameters,
+        name: '<apply>', isOverride: false, isNative: false, parameters,
         body: { kind: 'Body', id: undefined, sentences },
       },
     ],
-  })
+  }
+}
 
 const makeList = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
   kind: 'New',
