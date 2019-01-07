@@ -642,7 +642,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
-            4: RuntimeObject('4', 'wollok.lang.String', {}, messageNotUnderstood.name),
+            4: RuntimeObject('4', 'wollok.lang.String', {}, 'm'),
             5: RuntimeObject('5', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '3', name: '4', parameters: '5' }, instructions: compile(environment)(messageNotUnderstood.body!) }),
@@ -658,7 +658,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<'Linked'>
 
-        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1.id + p2.id) }
+        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction = CALL('m', 2)
@@ -692,7 +692,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<'Linked'>
 
-        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1.id + p2.id) }
+        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction = CALL('m', 3)
@@ -891,8 +891,8 @@ describe('Wollok Interpreter', () => {
             Frame({
               locals: { self: '1', p1: '4', p2: '6' },
               instructions: [
-                LOAD('self'),
                 ...compile(environment)(constructor.body),
+                LOAD('self'),
                 INTERRUPT('return'),
               ],
             }),
