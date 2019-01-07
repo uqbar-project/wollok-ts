@@ -124,7 +124,6 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
   const resolve = // memoizeWith(qualifiedName => environment.id + qualifiedName)(
     <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never => {
-      console.log(`@@RESOLVE: ${qualifiedName}`)
       return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
         ? getNodeById(qualifiedName.slice(1))
         : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
@@ -179,20 +178,14 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
   const methodLookup = memoizeWith((name, arity, start) => environment.id + name + arity + start.id)(
     (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
-      console.log(`...Gonna search in hierarchy of ${start.name || (
-        start.kind === 'Singleton' ? start.superCall.superclass.name : ''
-      ) + start.id}: ${hierarchy(start).map(m => m.name || m.id)}`)
       for (const module of hierarchy(start)) {
-        console.log(`...Searching method ${name}/${arity} in ${module.name || module.id}`)
         const methods = module.members.filter(is<'Method'>('Method')) as Method<'Linked'>[]
-        const found = methods.find(member => {
-          const r = (!!member.body || member.isNative) && member.name === name && (
+        const found = methods.find(member =>
+          (!!member.body || member.isNative) && member.name === name && (
             member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
             member.parameters.length === arity
           )
-          if (r) console.log(`Found ${member.isNative ? 'NATIVE' : ''} on ${module.name || module.id}`)
-          return r
-        })
+        )
         if (found) return found
       }
       return undefined

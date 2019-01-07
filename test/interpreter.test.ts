@@ -73,7 +73,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, operandStack: ['2', '1'], instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -92,7 +92,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ operandStack: ['1'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['1'], instructions: [instruction], nextInstruction: 1 }),
             Frame({}),
             Frame({ locals: { x: '1' } }),
             Frame({ locals: { x: '2' } }),
@@ -127,7 +127,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -144,7 +144,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -160,7 +160,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -178,7 +178,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ instructions: [instruction], pc: 1 }),
+            Frame({ instructions: [instruction], nextInstruction: 1 }),
             Frame({ locals: { x: '1' } }),
             Frame({ locals: { x: '2' } }),
           )
@@ -197,7 +197,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
             Frame({ locals: { x: '2' } }),
           )
         )
@@ -214,7 +214,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], pc: 1 }),
+            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -244,7 +244,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({})(
-            Frame({ operandStack: ['2', '1'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -269,7 +269,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ operandStack: ['3', '2'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['3', '2'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -316,7 +316,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ instructions: [instruction], pc: 1 }),
+            Frame({ instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -336,7 +336,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
           })(
-            Frame({ instructions: [instruction], pc: 1 }),
+            Frame({ instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -382,7 +382,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['1'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['1'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -407,7 +407,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Closure'),
           })(
-            Frame({ operandStack: [TRUE_ID], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: [TRUE_ID], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -427,7 +427,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: [FALSE_ID], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: [FALSE_ID], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -459,7 +459,7 @@ describe('Wollok Interpreter', () => {
 
     describe('CONDITIONAL_JUMP', () => {
 
-      it('should pop a boolean from the operand stack and increment the PC the given ammount if it is false', async () => {
+      it('should pop a boolean from the operand stack and increment the Next Instruction the given ammount if it is false', async () => {
         const { step } = await mockInterpreterDependencies({})
         const instruction = CONDITIONAL_JUMP(2)
         const evaluation = Evaluation({})(
@@ -474,7 +474,7 @@ describe('Wollok Interpreter', () => {
         evaluation.should.deep.equal(
           Evaluation({})(
             Frame({
-              pc: 3,
+              nextInstruction: 3,
               instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
             }),
           )
@@ -498,7 +498,7 @@ describe('Wollok Interpreter', () => {
           Evaluation({})(
             Frame({
               instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
-              pc: 1,
+              nextInstruction: 1,
             }),
           )
         )
@@ -568,7 +568,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -610,7 +610,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -646,7 +646,7 @@ describe('Wollok Interpreter', () => {
             5: RuntimeObject('5', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({ locals: { self: '3', name: '4', parameters: '5' }, instructions: compile(environment)(messageNotUnderstood.body!) }),
-            Frame({ resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -680,7 +680,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['4', '321'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['4', '321'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -716,7 +716,7 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['5', '432'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['5', '432'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -799,7 +799,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -849,7 +849,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -896,7 +896,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], pc: 1 }),
+            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -956,7 +956,7 @@ describe('Wollok Interpreter', () => {
         evaluation.should.deep.equal(
           Evaluation({})(
             Frame({ instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
-            Frame({ resume: ['result'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -974,7 +974,7 @@ describe('Wollok Interpreter', () => {
         evaluation.should.deep.equal(
           Evaluation({})(
             Frame({ instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
-            Frame({ resume: ['result'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -1041,7 +1041,7 @@ describe('Wollok Interpreter', () => {
                 RESUME_INTERRUPTION,
               ],
             }),
-            Frame({ resume: ['result'], instructions: [instruction], pc: 1 }),
+            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })

@@ -1,10 +1,10 @@
 import { chain as flatMap, last, reverse, zipObj } from 'ramda'
-import uuid = require('uuid')
-import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Operations, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
-import { Id } from '../model'
-import { Operation } from '../parser'
+import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, Operations, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import log from '../log'
+import { Id, Method, Singleton } from '../model'
 import utils from '../utils'
 
+const { random, floor } = Math
 
 // TODO:
 // tslint:disable:variable-name
@@ -51,8 +51,9 @@ export default {
           pushOperand(addInstance('wollok.lang.String', self.module))
         },
 
-        'className': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        'className': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { addInstance, pushOperand } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.String', self.module))
         },
       },
 
@@ -89,28 +90,30 @@ export default {
         'clear': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
+
         'join': (_self: RuntimeObject, _separator: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/
           if (arguments.length === 0 || arguments.length === 1) throw new ReferenceError('To be implemented')
           throw new ReferenceError('To be implemented')
         },
-        'equals': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
+
         '==': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
 
       List: {
-        'get': (_self: RuntimeObject, _index: RuntimeObject) => (_evaluation: Evaluation) => {
-          /*TODO: */ throw new ReferenceError('To be implemented')
+        // TODO: Throw error if no element?
+        get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
+          pushOperand(self.innerValue[index.innerValue])
         },
-        'sortBy': (_self: RuntimeObject, _closure: RuntimeObject) => (_evaluation: Evaluation) => {
+
+        sortBy: (_self: RuntimeObject, _closure: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
-        'fold': (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
+        fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
           (evaluation: Evaluation) => {
             last(evaluation.frameStack)!.resume.push('return')
             evaluation.frameStack.push({
@@ -126,44 +129,41 @@ export default {
                 ], self.innerValue),
                 INTERRUPT('return'),
               ],
-              pc: 0,
+              nextInstruction: 0,
               locals: { self: closure.id },
               operandStack: [],
               resume: [],
             })
           },
 
-        'findOrElse': (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) => (_evaluation: Evaluation) => {
+        findOrElse: (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
-        'add': (self: RuntimeObject, element: RuntimeObject) => () => {
+        add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
           self.innerValue.push(element.id)
+          pushOperand(VOID_ID)
         },
 
-        'remove': (self: RuntimeObject, element: RuntimeObject) => () => {
-          (self as any).innerValue = self.innerValue.filter((id: string) => id !== element.id)
+        remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, getInstance } = Operations(evaluation)
+          const index = self.innerValue.findIndex((id: string) => getInstance(id).innerValue === element.innerValue)
+          if (index > -1) self.innerValue.splice(index, 1)
+          pushOperand(VOID_ID)
         },
 
-        'size': (self: RuntimeObject) => (evaluation: Evaluation) => {
+        size: (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
           pushOperand(addInstance('wollok.lang.Number', self.innerValue.length))
         },
 
-        'clear': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
+          self.innerValue.splice(0, self.innerValue.length)
+          pushOperand(VOID_ID)
         },
-        'join': (_self: RuntimeObject, _separator: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/
-          if (arguments.length === 0 || arguments.length === 1) throw new ReferenceError('To be implemented')
-          throw new ReferenceError('To be implemented')
-        },
-        'equals': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '==': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
+
       },
 
       Dictionary: {
@@ -198,47 +198,47 @@ export default {
 
         '-_': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', -self.innerValue))
+          pushOperand(addInstance(self.module, -self.innerValue))
         },
 
         '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue + other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
         },
 
         '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue - other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue - other.innerValue))
         },
 
         '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue * other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue * other.innerValue))
         },
 
         '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue / other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue / other.innerValue))
         },
 
         '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue ** other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue ** other.innerValue))
         },
 
         '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue % other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue % other.innerValue))
         },
 
         'div': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', Math.round(self.innerValue / other.innerValue)))
+          pushOperand(addInstance(self.module, Math.round(self.innerValue / other.innerValue)))
         },
 
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.Number', self.innerValue.toString()))
+          pushOperand(addInstance('wollok.lang.String', `${self.innerValue}`))
         },
 
         'stringValue': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -281,16 +281,18 @@ export default {
 
 
       String: {
-        'length': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        'length': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.Number', self.innerValue.length))
         },
+
         'charAt': (_self: RuntimeObject, _index: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
-        '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+        'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand, addInstance } = Operations(evaluation)
-          pushOperand(addInstance('wollok.lang.String', self.innerValue + other.innerValue))
+          pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
         },
 
         'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -389,55 +391,143 @@ export default {
 
         '!_': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
-          pushOperand(self.innerValue === FALSE_ID ? TRUE_ID : FALSE_ID)
+          pushOperand(self.innerValue ? FALSE_ID : TRUE_ID)
         },
       },
 
       Range: {
-        forEach: (_self: RuntimeObject, _closure: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+          const { getInstance, addInstance } = Operations(evaluation)
+          const start = getInstance(self.fields.start)
+          const end = getInstance(self.fields.end)
+          const step = getInstance(self.fields.step)
+
+          const values = []
+          if (
+            start.innerValue <= end.innerValue && step.innerValue > 0 ||
+            start.innerValue >= end.innerValue && step.innerValue < 0
+          ) {
+            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
+              values.unshift(i)
+          }
+
+          const valueIds = values.map(v => addInstance('wollok.lang.Number', v))
+
+          last(evaluation.frameStack)!.resume.push('return')
+          evaluation.frameStack.push({
+            instructions: [
+              ...flatMap((id: Id<'Linked'>) => [
+                PUSH(closure.id),
+                PUSH(id),
+                CALL('apply', 1, closure.module),
+              ], reverse(valueIds)),
+              PUSH(VOID_ID),
+              INTERRUPT('return'),
+            ],
+            nextInstruction: 0,
+            locals: { self: self.id },
+            operandStack: [],
+            resume: [],
+          })
         },
-        anyOne: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { getInstance, addInstance } = Operations(evaluation)
+          const start = getInstance(self.fields.start)
+          const end = getInstance(self.fields.end)
+          const step = getInstance(self.fields.step)
+
+          const values = []
+          if (
+            start.innerValue <= end.innerValue && step.innerValue > 0 ||
+            start.innerValue >= end.innerValue && step.innerValue < 0
+          ) {
+            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
+              values.unshift(i)
+          }
+
+          addInstance('wollok.lang.Number', values[floor(random() * values.length)])
         },
       },
 
       Closure: {
-        // TODO: delete this once Closure is a reified node
+        // TODO: maybe we can do this better once Closure is a reified node?
         saveContext: (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
           const context: Frame[] = evaluation.frameStack.slice(0, -1).map(frame => ({
             instructions: [],
-            pc: 0,
+            nextInstruction: 0,
             locals: frame.locals,
             operandStack: [],
             resume: [],
           }));
 
           (self as any).innerValue = context
+          pushOperand(VOID_ID)
         },
 
-        apply: (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => {
-          const { methodLookup, resolve } = utils(evaluation.environment)
+        apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
+          const { resolve, methodLookup } = utils(evaluation.environment)
+          const { addInstance } = Operations(evaluation)
 
-          const apply = methodLookup('<apply>', args.length, resolve(self.module))!
+          const apply = resolve<Singleton<'Linked'>>(self.module).members.find(({ name }) => name === '<apply>') as Method<'Linked'>
+          const argIds = args.map(arg => arg ? arg.id : VOID_ID)
+          const parameterNames = apply.parameters.map(({ name }) => name)
+          const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
+
+          if (
+            hasVarArg && args.length < apply.parameters.length - 1 ||
+            !hasVarArg && args.length !== apply.parameters.length
+          ) {
+            log.warn('Method not found:', self.module, '>> <apply> /', args.length)
+
+            const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
+            const nameId = addInstance('wollok.lang.String', 'apply')
+            const argsId = addInstance('wollok.lang.List', argIds)
+
+            last(evaluation.frameStack)!.resume.push('return')
+            evaluation.frameStack.push({
+              instructions: compile(evaluation.environment)(messageNotUnderstood.body!),
+              nextInstruction: 0,
+              locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: self.id },
+              operandStack: [],
+              resume: [],
+            })
+
+            return
+          }
+
+          let locals: Locals
+          if (hasVarArg) {
+            const restId = addInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1))
+            locals = {
+              ...zipObj(parameterNames.slice(0, -1), argIds),
+              [last(apply.parameters)!.name]: restId,
+            }
+          } else {
+            locals = { ...zipObj(parameterNames, argIds) }
+          }
 
           last(evaluation.frameStack)!.resume.push('return')
+
           self.innerValue.forEach((frame: Frame) => evaluation.frameStack.push(frame))
+
           evaluation.frameStack.push({
             instructions: [
               ...compile(evaluation.environment)(apply.body!),
               PUSH(VOID_ID),
               INTERRUPT('return'),
             ],
-            pc: 0,
-            locals: { ...zipObj(apply.parameters.map(({ name }) => name), args.map(arg => arg.id)) },
+            nextInstruction: 0,
+            locals,
             operandStack: [],
             resume: [],
           })
+
         },
 
-        toString: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.String', `Closure#${self.id}`))
         },
       },
 

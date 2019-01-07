@@ -1,5 +1,6 @@
 import { assoc, chain as flatMap, last, memoizeWith, zipObj } from 'ramda'
 import { v4 as uuid } from 'uuid'
+import log from './log'
 import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence } from './model'
 import utils from './utils'
 
@@ -16,7 +17,7 @@ export interface RuntimeObject {
 
 export interface Frame {
   readonly instructions: List<Instruction> // TODO: rename to instructions
-  pc: number
+  nextInstruction: number
   locals: Locals
   operandStack: Id<'Linked'>[]
   resume: Interruption[]
@@ -30,7 +31,7 @@ export interface Evaluation {
   instances: { [id: string]: RuntimeObject }
 }
 
-export type Native = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
+export type Native = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
 
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
@@ -244,8 +245,12 @@ export const Operations = (evaluation: Evaluation) => {
   const { instances, frameStack } = evaluation
   const { operandStack } = last(frameStack)!
 
-  const Failure = (message: string) =>
-    new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
+  const Failure = (message: string) => {
+    log.error(message)
+    log.evaluation(evaluation)
+    // return new Error(message)
+    return new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
+  }
 
   const popOperand = (): Id<'Linked'> => {
     const response = operandStack.pop()
@@ -263,9 +268,13 @@ export const Operations = (evaluation: Evaluation) => {
     return response
   }
 
+  // TODO: cache Numbers and Strings
   const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
     const id = uuid()
-    instances[id] = { id, module, fields: {}, innerValue }
+    const value = module === 'wollok.lang.Number'
+      ? Number(innerValue.toFixed(4))
+      : innerValue
+    instances[id] = { id, module, fields: {}, innerValue: value }
     return id
   }
 
@@ -307,11 +316,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const currentFrame = last(frameStack)!
   if (!currentFrame) throw Failure('Reached end of frame stack')
 
-  const instruction = currentFrame.instructions[currentFrame.pc]
+  const instruction = currentFrame.instructions[currentFrame.nextInstruction]
   if (!instruction) throw Failure(`Reached end of instructions`)
 
 
-  currentFrame.pc++
+  currentFrame.nextInstruction++
 
   switch (instruction.kind) {
 
@@ -376,86 +385,78 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       if (check !== TRUE_ID && check !== FALSE_ID)
         throw Failure(`Non boolean condition "${check}"`)
-      if (currentFrame.pc + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+      if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
         throw Failure(`Invalid jump count ${instruction.count}`)
 
-      currentFrame.pc += check === FALSE_ID ? instruction.count : 0
+      currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
     })()
 
 
-    // TODO: refactor this
     case 'CALL': return (() => {
       const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
       const selfId = popOperand()
       const self = getInstance(selfId)
 
-      console.log(`@${JSON.stringify(self)} >> ${instruction.message}/${instruction.arity}`)
-      const method = methodLookup(
-        instruction.message,
-        instruction.arity,
-        resolve(instruction.lookupStart || self.module)
-      )
+      const method = methodLookup(instruction.message, instruction.arity, resolve(instruction.lookupStart || self.module))
 
       if (!method) {
-        console.log(`################METHOD NOT FOUND: ${instruction.lookupStart || self.module}>>${instruction.message}`)
+        log.warn('Method not found:', instruction.lookupStart || self.module, '>>', instruction.message, '/', instruction.arity)
+
         const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
-        const nameId = addInstance('wollok.lang.String', messageNotUnderstood.name)
+        const nameId = addInstance('wollok.lang.String', instruction.message)
         const argsId = addInstance('wollok.lang.List', argIds)
 
         currentFrame.resume.push('return')
         frameStack.push({
           instructions: compile(environment)(messageNotUnderstood.body!),
-          pc: 0,
+          nextInstruction: 0,
           locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
           operandStack: [],
           resume: [],
         })
       } else {
+
         if (method.isNative) {
+          log.debug('Calling Native:', instruction.lookupStart || self.module, '>>', instruction.message, '/', instruction.arity)
           const native = nativeLookup(natives, method)
-          const args = argIds.map(getInstance)
+          const args = argIds.map(id => evaluation.instances[id])
           native(self, ...args)(evaluation)
         } else {
+
+          const parameterNames = method.parameters.map(({ name }) => name)
+          let locals: Locals
+
           if (method.parameters.some(({ isVarArg }) => isVarArg)) {
             const restId = addInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
-
-            currentFrame.resume.push('return')
-            frameStack.push({
-              instructions: [
-                ...compile(environment)(method.body!),
-                PUSH(VOID_ID),
-                INTERRUPT('return'),
-              ],
-              pc: 0,
-              locals: {
-                ...zipObj(method.parameters.slice(0, -1).map(({ name }) => name), argIds),
-                [last(method.parameters)!.name]: restId,
-                self: selfId,
-              },
-              operandStack: [],
-              resume: [],
-            })
-
+            locals = {
+              ...zipObj(parameterNames.slice(0, -1), argIds),
+              [last(method.parameters)!.name]: restId,
+              self: selfId,
+            }
           } else {
-            currentFrame.resume.push('return')
-            frameStack.push({
-              instructions: [
-                ...compile(environment)(method.body!),
-                PUSH(VOID_ID),
-                INTERRUPT('return'),
-              ],
-              pc: 0,
-              locals: { ...zipObj(method.parameters.map(({ name }) => name), argIds), self: selfId },
-              operandStack: [],
-              resume: [],
-            })
+            locals = {
+              ...zipObj(parameterNames, argIds),
+              self: selfId,
+            }
           }
+
+          currentFrame.resume.push('return')
+          frameStack.push({
+            instructions: [
+              ...compile(environment)(method.body!),
+              PUSH(VOID_ID),
+              INTERRUPT('return'),
+            ],
+            nextInstruction: 0,
+            locals,
+            operandStack: [],
+            resume: [],
+          })
         }
       }
     })()
 
 
-    // TODO: refactor this
     case 'INIT': return (() => {
       const selfId = popOperand()
       const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
@@ -463,101 +464,75 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
 
-      // TODO: Add to Filler method for doing this and just call it ?
+      // TODO: Add to Filler a method for doing this and just call it ?
       const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
         ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
         ...fields,
       ], [] as Field<'Linked'>[])
-
 
       const constructor = constructorLookup(instruction.arity, lookupStart)
       const ownSuperclass = superclass(lookupStart)
 
       if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${lookupStart}`)
 
-      currentFrame.resume.push('return')
-
+      let locals: Locals
       if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
         const restObject = addInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
-
-        frameStack.push({
-          instructions: new Array<Instruction>(
-            LOAD('self'),
-            ...instruction.initFields ? [
-              ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
-                LOAD('self'),
-                ...compile(environment)(v),
-                SET(name),
-              ], allFields),
-            ] : [],
-            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-              ...flatMap(compile(environment), constructor.baseCall.args),
-              LOAD('self'),
-              INIT(
-                constructor.baseCall.args.length,
-                constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
-                false,
-              ),
-            ) : [],
-            ...compile(environment)(constructor.body),
-            INTERRUPT('return'),
-          ),
-          locals: {
-            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
-            [last(constructor.parameters)!.name]: restObject,
-            self: selfId,
-          },
-          pc: 0,
-          operandStack: [],
-          resume: [],
-        })
+        locals = {
+          ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
+          [last(constructor.parameters)!.name]: restObject,
+          self: selfId,
+        }
       } else {
-        frameStack.push({
-          instructions: new Array<Instruction>(
-            ...instruction.initFields ? [
-              ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
-                LOAD('self'),
-                ...compile(environment)(v),
-                SET(name),
-              ], allFields),
-            ] : [],
-            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-              ...flatMap(compile(environment), constructor.baseCall.args),
-              LOAD('self'),
-              INIT(
-                constructor.baseCall.args.length,
-                constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
-                false
-              ),
-            ) : [],
-            ...compile(environment)(constructor.body),
-            LOAD('self'),
-            INTERRUPT('return')
-          ),
-          pc: 0,
-          locals: { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId },
-          operandStack: [],
-          resume: [],
-        })
+        locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
       }
+
+      currentFrame.resume.push('return')
+      frameStack.push({
+        instructions: new Array<Instruction>(
+          ...instruction.initFields ? [
+            ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
+              LOAD('self'),
+              ...compile(environment)(v),
+              SET(name),
+            ], allFields),
+          ] : [],
+          ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
+            ...flatMap(compile(environment), constructor.baseCall.args),
+            LOAD('self'),
+            INIT(
+              constructor.baseCall.args.length,
+              constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+              false
+            ),
+          ) : [],
+          ...compile(environment)(constructor.body),
+          LOAD('self'),
+          INTERRUPT('return')
+        ),
+        nextInstruction: 0,
+        locals,
+        operandStack: [],
+        resume: [],
+      })
     })()
 
 
     case 'IF_THEN_ELSE': return (() => {
-      const ifcheck = popOperand()
-      if (!ifcheck) throw Failure('Popped empty operand stack')
+      const check = popOperand()
+      if (!check) throw Failure('Popped empty operand stack')
 
-      if (ifcheck !== TRUE_ID && ifcheck !== FALSE_ID)
-        throw Failure(`Non boolean condition "${ifcheck}"`)
+      if (check !== TRUE_ID && check !== FALSE_ID)
+        throw Failure(`Non boolean condition "${check}"`)
 
       currentFrame.resume.push('result')
       frameStack.push({
         instructions: [
           PUSH(VOID_ID),
-          ...ifcheck === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
+          ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
           INTERRUPT('result'),
         ],
-        pc: 0,
+        nextInstruction: 0,
         locals: {},
         operandStack: [],
         resume: [],
@@ -575,7 +550,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('<previous_interruption>'),
           RESUME_INTERRUPTION,
         ] as Instruction[],
-        pc: 0,
+        nextInstruction: 0,
         locals: {},
         operandStack: [],
         resume: ['result', 'return', 'exception'] as Interruption[],
@@ -588,7 +563,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('<exception>'),
           INTERRUPT('exception'),
         ],
-        pc: 0,
+        nextInstruction: 0,
         locals: {},
         operandStack: [],
         resume: ['exception'] as Interruption[],
@@ -600,7 +575,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...instruction.body,
           INTERRUPT('result'),
         ],
-        pc: 0,
+        nextInstruction: 0,
         locals: {},
         operandStack: [],
         resume: [],
@@ -609,7 +584,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
     case 'INTERRUPT': return (() => {
-      const intvalue = popOperand()
+      const value = popOperand()
 
       let nextFrame
       do {
@@ -617,10 +592,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         nextFrame = last(frameStack)
       } while (nextFrame && !nextFrame.resume.includes(instruction.interruption))
 
-      if (!nextFrame) throw Failure('Unhandled interruption')
+      if (!nextFrame) throw Failure(`Unhandled "${instruction.interruption}" interruption: ${value}`)
 
       nextFrame.resume = nextFrame.resume.filter(elem => elem !== instruction.interruption)
-      nextFrame.operandStack.push(intvalue)
+      nextFrame.operandStack.push(value)
     })()
 
 
@@ -629,18 +604,18 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
       const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
 
-      const resumevalue = popOperand()
+      const value = popOperand()
 
-      let resumenextFrame
+      let nextFrame
       do {
         frameStack.pop()
-        resumenextFrame = last(frameStack)
-      } while (resumenextFrame && !resumenextFrame.resume.includes(lastInterruption))
+        nextFrame = last(frameStack)
+      } while (nextFrame && !nextFrame.resume.includes(lastInterruption))
 
-      if (!resumenextFrame) throw Failure('Unhandled interruption')
+      if (!nextFrame) throw Failure(`Unhandled "${lastInterruption}" interruption: ${value}`)
 
-      resumenextFrame.resume = resumenextFrame.resume.filter(elem => elem !== lastInterruption)
-      resumenextFrame.operandStack.push(resumevalue)
+      nextFrame.resume = nextFrame.resume.filter(elem => elem !== lastInterruption)
+      nextFrame.operandStack.push(value)
     })()
   }
 
@@ -666,20 +641,20 @@ const cloneEvaluation = (evaluation: Evaluation): Evaluation => ({
     locals: { ...frame.locals },
     operandStack: [...frame.operandStack],
     instructions: frame.instructions,
-    pc: frame.pc,
+    nextInstruction: frame.nextInstruction,
     resume: [...frame.resume],
   })),
 })
 
-const buildEvaluationFor = (environment: Environment<'Linked'>) => {
+const buildEvaluationFor = (environment: Environment<'Linked'>): Evaluation => {
   const { descendants, fullyQualifiedName, resolveTarget } = utils(environment)
 
   const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
 
   const instances = [
-    { id: NULL_ID, module: 'wollok.lang.Object', fields: {} },
-    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {} },
-    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {} },
+    { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
+    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
+    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
     ...globalSingletons.map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })),
   ].reduce((all, instance) => assoc(instance.id, instance, all), {})
 
@@ -701,7 +676,7 @@ const buildEvaluationFor = (environment: Environment<'Linked'>) => {
           INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
         ], globalSingletons),
       ],
-      pc: 0,
+      nextInstruction: 0,
       locals,
       operandStack: [],
       resume: [],
@@ -712,30 +687,23 @@ const buildEvaluationFor = (environment: Environment<'Linked'>) => {
 // TODO: type for natives
 function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 
-  console.time('compiling')
   const instructions = compile(evaluation.environment)(body)
-  console.timeEnd('compiling')
 
   evaluation.frameStack.push({
     instructions,
-    pc: 0,
+    nextInstruction: 0,
     locals: {},
     operandStack: [],
     resume: [],
   })
 
-  console.time('evaluating')
-  let steps = 0
-  while (last(evaluation.frameStack)!.pc < last(evaluation.frameStack)!.instructions.length) {
-    console.log('step ', steps, ': ', JSON.stringify(last(evaluation.frameStack)!.instructions[last(evaluation.frameStack)!.pc]))
+  while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
+    log.step(evaluation)
     // console.time('took')
     // yield step(natives)(evaluation)
     step(natives)(evaluation)
     // console.timeEnd('took')
-    steps++
   }
-  console.timeEnd('evaluating')
-  console.log('steps: ', steps)
 
   return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
 }
@@ -745,32 +713,29 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
   runTests: () => {
     const { descendants } = utils(environment)
 
+    // TODO:
+    const SKIP = 0
+    log.warn(`Skiping ${SKIP} tests!`)
+
     const tests = descendants(environment).filter(is('Test'))
 
+    log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluationFor(environment)
-    while (last(initializedEvaluation.frameStack)!.pc < last(initializedEvaluation.frameStack)!.instructions.length) {
+    while (last(initializedEvaluation.frameStack)!.nextInstruction < last(initializedEvaluation.frameStack)!.instructions.length) {
+      log.step(initializedEvaluation)
       step(natives)(initializedEvaluation)
     }
+    log.done('Initializing Evaluation')
 
-    let count = 0
-    const success = 0
-    for (const test of tests) {
-      const evaluation = cloneEvaluation(initializedEvaluation)
-
-      count += 1
-      // try {
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log(`${count}/${tests.length}: ${test.name}`)
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      run(evaluation, natives, test.body)
-      console.log('******************PASSED********************')
-      // success += 1
-      // } catch (e) {
-      // console.log(`${count}/${tests.length} FAILED: ${test.name}`)
-      // console.log(e.message)
-      // }
-    }
-    console.log(`TOTAL PASSED: ${success}/${tests.length}`)
+    tests.forEach((test, i) => {
+      if (i > SKIP) {
+        log.resetStep()
+        const evaluation = cloneEvaluation(initializedEvaluation)
+        log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+        run(evaluation, natives, test.body)
+        log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      }
+    })
   },
 
 })

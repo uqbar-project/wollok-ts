@@ -129,7 +129,7 @@ class Object {
 	method instanceVariableFor(name) native
 	/** Accesses a variable by name, in a reflexive way. */
 	method resolve(name) native
-	/** Object description in english/spanish/... (depending on i18n configuration)
+	/** Object description
 	 *
 	 * Examples:
 	 * 		"2".kindName()  => Answers "a String"
@@ -216,10 +216,7 @@ class Object {
 	
 	/** @private */
 	method messageNotUnderstood(name, parameters) {
-		var message = if (name != "toString") 
-					self.toString()
-				 else 
-				 	self.kindName()
+		var message = if (name != "toString") self.toString() else self.kindName()
 		message += " does not understand " + name
 		if (parameters.size() > 0)
 			message += "(" + (0..(parameters.size()-1)).map { i => "p" + i }.join(',') + ")"
@@ -273,7 +270,11 @@ class Collection {
 	  * Example:
 	  *       [11, 1, 4, 8, 3, 15, 6].max()    =>  Answers 15		 
 	  */
-	method max() = self.max({it => it})		
+	method max() = self.max({it => it})
+
+  method maxIfEmpty(continuation) = if (self.isEmpty()) continuation.apply() else self.max()
+
+  method maxIfEmpty(criteria, continuation) = if (self.isEmpty()) continuation.apply() else self.max(criteria)		
 	
 	/**
 	  * Answers the element that is considered to be/have the minimum value.
@@ -291,6 +292,10 @@ class Collection {
 	  *       [11, 1, 4, 8, 3, 15, 6].min()    =>  Answers 1 
 	  */
 	method min() = self.min({it => it})
+
+    method minIfEmpty(continuation) = if (self.isEmpty()) continuation.apply() else self.min()
+
+  method minIfEmpty(criteria, continuation) = if (self.isEmpty()) continuation.apply() else self.min(criteria)
 
 	/** @private */
 	method absolute(closure, criteria) {
@@ -676,13 +681,8 @@ class Set inherits Collection {
 	 * 		["you","will","love","wollok"].join(" ") => Answers "you will love wollok"
 	 * 		["you","will","love","wollok"].join()    => Answers "you,will,love,wollok"
 	 */
+	method join() = self.join(",")
 	method join(separator) native
-	method join() native
-	
-	/**
-	 * Two sets are equals if they have the same elements
-	 */
-	override method equals(other) native
 	
 	/**
 	 * @see Object#==
@@ -777,7 +777,7 @@ class List inherits Collection {
 	 *		[1, 5, 3, 2, 7, 9].subList(4, 6)		=> Answers [7, 9] 
 	 */
 	method subList(start,end) {
-		if(self.isEmpty())
+		if(self.isEmpty() || start >= self.size())
 			return self.newInstance()
 		const newList = self.newInstance()
 		const _start = start.limitBetween(0,self.size()-1)
@@ -871,16 +871,18 @@ class List inherits Collection {
 	 * 		["you","will","love","wollok"].join(" ") => Answers "you will love wollok"
 	 * 		["you","will","love","wollok"].join()    => Answers "you,will,love,wollok"
 	 */
-	method join(separator) native
-	method join() native
+	method join() = self.join(",")
+	method join(separator) =
+    if (self.isEmpty()) ""
+    else self.subList(1, self.size()).fold(self.head().toString(), {acc, e => acc + separator + e})
+  
 	
-	/**
-	 * @see == message
-	 */
-	override method equals(other) native
 	
 	/** A list is == another list if all elements are equal (defined by == message) */
-	override method ==(other) native
+	override method ==(other) =
+    if (self.size() != other.size()) false
+    else (0..self.size()).all{i => self.get(i) == other.get(i)}
+
 
 	/**
 	 * Answers the list without duplicate elements
@@ -1215,7 +1217,9 @@ class String {
 	 * Example:
 	 * 		"cares" + "s" => Answers "caress"
 	 */
-	method +(other) native
+	method +(other) = self.concat(other.toString())
+  
+  method concat(other) native
 	
 	/** 
 	 * Tests if this string starts with the specified prefix. It is case sensitive.

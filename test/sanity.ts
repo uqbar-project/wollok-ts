@@ -1,16 +1,15 @@
-
-// TODO:
-// tslint:disable:no-console
-
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, join } from 'path'
 import * as simplegit from 'simple-git/promise'
 import fill from '../src/filler'
 import interpreter from '../src/interpreter'
 import link from '../src/linker'
+import log, { enableLogs } from '../src/log'
 import { Package } from '../src/model'
 import { File } from '../src/parser'
 import natives from '../src/wre/natives'
+
+enableLogs()
 
 const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = 'test/sanity'
@@ -65,7 +64,7 @@ const getTestsInDir = (path: string): string[] =>
 
 const fetchTests = async () => {
   if (existsSync(SANITY_TESTS_FOLDER)) {
-    await git.pull()
+    await git.fetch()
   } else {
     mkdirSync(SANITY_TESTS_FOLDER)
     await git.clone(SANITY_TESTS_REPO, SANITY_TESTS_FOLDER)
@@ -73,9 +72,16 @@ const fetchTests = async () => {
 }
 
 const runAll = async () => {
+  log.clear()
+  log.separator('RUN ALL TESTS')
 
-  console.log('Parsing WRE...')
-  console.time('Done')
+  if (!process.argv.includes('--skip-fetch')) {
+    log.start('Fetching tests')
+    await fetchTests()
+    log.done('Fetching tests')
+  } else log.info('Will use local version of tests.')
+
+  log.start('Parsing WRE')
   const wreSource = readFileSync(WRE_PATH, 'utf8')
   const wre: Package<'Filled'> = {
     kind: 'Package',
@@ -84,38 +90,26 @@ const runAll = async () => {
     imports: [],
     members: [fill(File('lang').tryParse(wreSource))],
   }
-  console.timeEnd('Done')
+  log.done('Parsing WRE')
 
-  if (existsSync(SANITY_TESTS_FOLDER) && !process.argv.includes('--skip-fetch')) {
-    console.log('Fetching tests...')
-    console.time('Done')
-    await fetchTests()
-    console.timeEnd('Done')
-  } else {
-    console.log('Will use local version of tests')
-  }
-
-  console.log('Parsing tests...')
-  console.time('Done')
+  log.start('Parsing tests')
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
   const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
+  log.done('Parsing tests')
 
-  const testNodes = nonSkipedTestFiles.map(testFile => {
-    console.log(testFile)
-    return fill(File(basename(testFile).split('.')[0]).tryParse(readFileSync(testFile, 'utf8')))
-  })
-  console.timeEnd('Done')
+  const testNodes = nonSkipedTestFiles.map(testFile =>
+    fill(File(basename(testFile).split('.')[0]).tryParse(readFileSync(testFile, 'utf8')))
+  )
 
-  console.log('Linking...')
-  console.time(`Done`)
+  log.start('Linking')
   const environment = link([wre, ...testNodes])
-  console.timeEnd(`Done`)
+  log.done('Linking')
 
-  console.log('Running tests')
-  console.time(`Runned ${testFiles.length} test files`)
+  log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
   await runTests()
-  console.timeEnd(`Runned ${testFiles.length} test files`)
+  log.done('Running tests')
+  log.success('Runned', testFiles.length, 'test files')
 }
 
 runAll()
