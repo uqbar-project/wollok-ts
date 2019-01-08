@@ -3,9 +3,10 @@
 // No imports of local references
 
 import { isNil, keys, reject } from 'ramda'
+import { Literal } from '../test/builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Singleton, Test, Try, Variable
+  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -124,6 +125,10 @@ export const validations = (environment: Environment) => {
       return false
     }),
 
+    dontCompareAgainstTrueOrFalse: warning<Send>(
+      node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
+    ),
+
     /*
     // TODO: Packages inside packages
     notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
@@ -157,6 +162,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     selfIsNotInAProgram,
     notAssignToItself,
     notAssignToItselfInVariableDeclaration,
+    dontCompareAgainstTrueOrFalse,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -180,7 +186,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
     Literal: {},
-    Send: {},
+    Send: { dontCompareAgainstTrueOrFalse },
     Super: {},
     If: {},
     Throw: {},

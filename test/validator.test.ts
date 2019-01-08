@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Self as SelfNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Singleton, Super, Test, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try } from './builders'
 
 should()
 
@@ -473,7 +473,6 @@ describe('Wollok Validations', () => {
             }),
             Field('a'),
           ),
-
         ),
       ])
 
@@ -556,5 +555,28 @@ describe('Wollok Validations', () => {
       assert.ok(!selfIsNotInAProgram(selfExample2, 'selfIsNotInAProgram'))
     })
   })
+
+  describe('Send', () => {
+    it('dontCompareAgainstTrueOrFalse', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Field('d'),
+            Method('m')(Return(Send(Reference('d'), '==', [Literal(true)])))
+          )
+        ),
+      ])
+
+      const { dontCompareAgainstTrueOrFalse } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = (packageExample.members[0] as ClassNode)
+      const methodExample = classExample.members[1] as MethodNode
+      const sendExample = (methodExample.body!.sentences[0] as ReturnNode).value as SendNode
+      assert.ok(!!dontCompareAgainstTrueOrFalse(sendExample, 'dontCompareAgainstTrueOrFalse'))
+    })
+  })
+
 
 })
