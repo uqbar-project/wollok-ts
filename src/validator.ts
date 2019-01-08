@@ -6,7 +6,7 @@ import { isNil, keys, reject } from 'ramda'
 import { Literal } from '../test/builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable
+  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -128,6 +128,17 @@ export const validations = (environment: Environment) => {
     dontCompareAgainstTrueOrFalse: warning<Send>(
       node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
     ),
+
+
+    noSuperInConstructorBody: error<Super>(node => {
+      try {
+        firstAncestorOfKind('Constructor', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
 
     /*
     // TODO: Packages inside packages
