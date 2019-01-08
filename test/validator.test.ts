@@ -357,6 +357,7 @@ describe('Wollok Validations', () => {
 
     })
 
+
   })
 
   describe('Try', () => {
@@ -604,4 +605,29 @@ describe('Wollok Validations', () => {
     })
   })
 
+  describe('Return', () => {
+    it('noReturnStatementInConstructor', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Constructor()(Return(Literal('a'))),
+            Method('m')(Return(Literal('a'))),
+          )
+        ),
+      ])
+
+      const { noReturnStatementInConstructor } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = (packageExample.members[0] as ClassNode)
+      const constructorExample = classExample.members[0] as ConstructorNode
+      const returnExample = constructorExample.body.sentences[0] as ReturnNode
+      const method = classExample.members[1] as MethodNode
+      const returnExample2 = method.body!.sentences[0] as ReturnNode
+
+      assert.ok(!!noReturnStatementInConstructor(returnExample, 'noReturnStatementInConstructor'))
+      assert.ok(!noReturnStatementInConstructor(returnExample2, 'noReturnStatementInConstructor'))
+    })
+  })
 })

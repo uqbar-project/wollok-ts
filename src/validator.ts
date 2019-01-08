@@ -6,7 +6,7 @@ import { isNil, keys, reject } from 'ramda'
 import { Literal } from '../test/builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Super, Test, Try, Variable
+  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -116,6 +116,13 @@ export const validations = (environment: Environment) => {
       !(node.value!.kind === 'Reference' && (node.value! as Reference).name === node.name)
     ),
 
+
+    dontCompareAgainstTrueOrFalse: warning<Send>(
+      node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
+    ),
+
+
+    // codigo repetido, lo sé, horrible
     selfIsNotInAProgram: error<Self>(node => {
       try {
         firstAncestorOfKind('Program', node)
@@ -125,12 +132,16 @@ export const validations = (environment: Environment) => {
       return false
     }),
 
-    dontCompareAgainstTrueOrFalse: warning<Send>(
-      node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
-    ),
-
-
     noSuperInConstructorBody: error<Super>(node => {
+      try {
+        firstAncestorOfKind('Constructor', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
+    noReturnStatementInConstructor: error<Return>(node => {
       try {
         firstAncestorOfKind('Constructor', node)
       } catch (e) {
@@ -174,6 +185,8 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     notAssignToItself,
     notAssignToItselfInVariableDeclaration,
     dontCompareAgainstTrueOrFalse,
+    noSuperInConstructorBody,
+    noReturnStatementInConstructor,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -191,14 +204,14 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Field: { fieldNameDifferentFromTheMethods, notAssignToItselfInVariableDeclaration },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
     Variable: { nameIsCamelCase, nameIsNotKeyword },
-    Return: {},
+    Return: { noReturnStatementInConstructor },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
     Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
     Literal: {},
     Send: { dontCompareAgainstTrueOrFalse },
-    Super: {},
+    Super: { noSuperInConstructorBody },
     If: {},
     Throw: {},
     Try: { hasCatchOrAlways },
