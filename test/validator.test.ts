@@ -1,8 +1,8 @@
 import { assert, should } from 'chai'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldMethod, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Self as SelfNode, Singleton as SingletonNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
-import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Reference, Singleton, Super, Test, Try } from './builders'
+import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Singleton, Super, Test, Try } from './builders'
 
 should()
 
@@ -451,5 +451,53 @@ describe('Wollok Validations', () => {
     })
   })
 
+  describe('Packages', () => {
+
+    /*
+    it('duplicatedPackageName', () => {
+      const environment = link([
+        WRE,
+        Package('p')(),
+        Package('p')(),
+        Package('c')(),
+      ])
+
+      const { notDuplicatedPackageName } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const packageExample2 = environment.members[3] as PackageNode
+
+      assert.ok(!!notDuplicatedPackageName(packageExample, 'duplicatedPackageName'))
+      assert.ok(!notDuplicatedPackageName(packageExample2, 'duplicatedPackageName'))
+    })*/
+  })
+
+  describe('Self', () => {
+    it('selfIsNotInAProgram', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Program('pr')(
+            Return(Self)
+          ),
+          Class('C')(
+            Method('m')(Return(Self))
+          )
+        ),
+      ])
+
+      const { selfIsNotInAProgram } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const programExample = packageExample.members[0] as ProgramNode
+      const selfExample = (programExample.body.sentences[0] as ReturnNode).value as SelfNode
+      const classExample = (packageExample.members[1] as ClassNode)
+      const methodExample = classExample.members[0] as MethodNode
+      const selfExample2 = methodExample.body!.sentences[0] as SelfNode
+
+      assert.ok(!!selfIsNotInAProgram(selfExample, 'selfIsNotInAProgram'))
+      assert.ok(!selfIsNotInAProgram(selfExample2, 'selfIsNotInAProgram'))
+    })
+  })
 
 })

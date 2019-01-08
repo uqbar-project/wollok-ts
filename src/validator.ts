@@ -5,7 +5,7 @@
 import { isNil, keys, reject } from 'ramda'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Singleton, Test, Try, Variable
+  New, Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Self, Singleton, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -55,7 +55,7 @@ const isNotAbstractClass = (node: Class) =>
   node.members.some((member): member is Method => member.kind === 'Method' && isNotEmpty(member))
 
 export const validations = (environment: Environment) => {
-  const { parentOf, firstAncestorOfKind } = utils(environment)
+  const { parentOf, firstAncestorOfKind, target } = utils(environment)
 
   return {
 
@@ -106,11 +106,21 @@ export const validations = (environment: Environment) => {
 
     programIsNotEmpty: warning<Program>(node => isNotEmpty(node)),
 
-    // TODO: not only first ancestor, maybe is in another package?
     instantiationIsNotAbstractClass: error<New>(node =>
-      isNotAbstractClass((firstAncestorOfKind('Package', node).members.
-        find(m => m.kind === 'Class' && m.name === node.className.name) as Class))),
+      isNotAbstractClass(target(node.className))),
 
+    selfIsNotInAProgram: error<Self>(node => {
+      try {
+        firstAncestorOfKind('Program', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
+    // TODO: Packages inside packages
+    notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
+      .members.some(packages => packages.name === node.name)),
 
   }
 }
@@ -138,6 +148,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     programIsNotEmpty,
     testIsNotEmpty,
     instantiationIsNotAbstractClass,
+    selfIsNotInAProgram,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -158,7 +169,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Return: {},
     Assignment: { nonAsignationOfFullyQualifiedReferences },
     Reference: { nameIsNotKeyword },
-    Self: {},
+    Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
     Literal: {},
     Send: {},
