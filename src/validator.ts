@@ -111,6 +111,10 @@ export const validations = (environment: Environment) => {
 
     notAssignToItself: error<Assignment>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
 
+    notAssignToItselfInVariableDeclaration: error<Field>(node =>
+      !(node.value!.kind === 'Reference' && (node.value! as Reference).name === node.name)
+    ),
+
     selfIsNotInAProgram: error<Self>(node => {
       try {
         firstAncestorOfKind('Program', node)
@@ -152,6 +156,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     instantiationIsNotAbstractClass,
     selfIsNotInAProgram,
     notAssignToItself,
+    notAssignToItselfInVariableDeclaration,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
@@ -166,7 +171,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
     Constructor: { constructorsHaveDistinctArity },
-    Field: { fieldNameDifferentFromTheMethods },
+    Field: { fieldNameDifferentFromTheMethods, notAssignToItselfInVariableDeclaration },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
     Variable: { nameIsCamelCase, nameIsNotKeyword },
     Return: {},

@@ -459,6 +459,36 @@ describe('Wollok Validations', () => {
       assert.ok(!fieldNameDifferentFromTheMethods(fieldExample2, 'fieldNameDifferentFromTheMethods'))
 
     })
+
+    it('notAssignToItselfInVariableDeclaration', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('c')(
+            Field('v', {
+              value: Reference('v'),
+            }),
+            Field('b', {
+              value: Reference('a'),
+            }),
+            Field('a'),
+          ),
+
+        ),
+      ])
+
+      const { notAssignToItselfInVariableDeclaration } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const fieldExample = classExample.members[0] as FieldMethod
+      const fieldExample2 = classExample.members[1] as FieldMethod
+
+      assert.ok(!!notAssignToItselfInVariableDeclaration(fieldExample, 'notAssignToItselfInVariableDeclaration'))
+      assert.ok(!notAssignToItselfInVariableDeclaration(fieldExample2, 'notAssignToItselfInVariableDeclaration'))
+
+    })
+
   })
 
   describe('Tests', () => {
