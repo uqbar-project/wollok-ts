@@ -330,6 +330,33 @@ describe('Wollok Validations', () => {
 
     })
 
+    it('notAssignToItself', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Field('a'),
+            Field('b'),
+            Method('m')(Assignment(Reference('a'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
+          )
+        ),
+      ])
+
+
+      const { notAssignToItself } = validations(environment)
+
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[2] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const assingnmentExample = bodyExample.sentences[0] as AssignmentNode
+      const assingnmentExample2 = bodyExample.sentences[1] as AssignmentNode
+
+      assert.ok(!!notAssignToItself(assingnmentExample, 'notAssignToItself'))
+      assert.ok(!notAssignToItself(assingnmentExample2, 'notAssignToItself'))
+
+    })
+
   })
 
   describe('Try', () => {

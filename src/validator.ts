@@ -4,8 +4,8 @@
 
 import { isNil, keys, reject } from 'ramda'
 import {
-  Assignment, Class, ClassMember, Constructor, Environment, Field, Import, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Package, Parameter, Program, Reference, Self, Singleton, Test, Try, Variable
+  Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
+  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Self, Singleton, Test, Try, Variable
 } from './model'
 import utils from './utils'
 
@@ -81,9 +81,9 @@ export const validations = (environment: Environment) => {
 
     singletonIsNotUnnamed: error<Singleton>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
-    importHasNotLocalReference: error<Import>(node =>
-      (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
-    ),
+    /* importHasNotLocalReference: error<Import>(node =>
+       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
+     ),*/
 
     nonAsignationOfFullyQualifiedReferences: error<Assignment>(node => !node.reference.name.includes('.')),
 
@@ -109,6 +109,8 @@ export const validations = (environment: Environment) => {
     instantiationIsNotAbstractClass: error<New>(node =>
       isNotAbstractClass(target(node.className))),
 
+    notAssignToItself: error<Assignment>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
+
     selfIsNotInAProgram: error<Self>(node => {
       try {
         firstAncestorOfKind('Program', node)
@@ -118,9 +120,10 @@ export const validations = (environment: Environment) => {
       return false
     }),
 
+    /*
     // TODO: Packages inside packages
     notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
-      .members.some(packages => packages.name === node.name)),
+      .members.some(packages => packages.name === node.name)),*/
 
   }
 }
@@ -139,7 +142,6 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     onlyLastParameterIsVarArg,
     hasCatchOrAlways,
     singletonIsNotUnnamed,
-    importHasNotLocalReference,
     nonAsignationOfFullyQualifiedReferences,
     fieldNameDifferentFromTheMethods,
     methodsHaveDistinctSignatures,
@@ -149,11 +151,12 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     testIsNotEmpty,
     instantiationIsNotAbstractClass,
     selfIsNotInAProgram,
+    notAssignToItself,
   } = validations(environment)
 
   const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
     Parameter: { nameIsCamelCase, },
-    Import: { importHasNotLocalReference },
+    Import: {},
     Body: {},
     Catch: {},
     Package: {},
@@ -167,7 +170,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
     Variable: { nameIsCamelCase, nameIsNotKeyword },
     Return: {},
-    Assignment: { nonAsignationOfFullyQualifiedReferences },
+    Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
     Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
