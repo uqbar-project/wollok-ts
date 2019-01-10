@@ -4,10 +4,14 @@ import log from '../log'
 import { Id, Method, Singleton } from '../model'
 import utils from '../utils'
 
-const { random, floor } = Math
+const { random, floor, ceil } = Math
+const { keys } = Object
 
 // TODO:
 // tslint:disable:variable-name
+
+// TODO: tests
+
 export default {
   wollok: {
 
@@ -55,6 +59,14 @@ export default {
           const { addInstance, pushOperand } = Operations(evaluation)
           pushOperand(addInstance('wollok.lang.String', self.module))
         },
+
+        'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          // TODO: Improve?
+          const { addInstance, pushOperand } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.String', `${self.module}[${keys(self.fields).map(key =>
+            `${key} = ${self.fields[key]}`
+          ).join(', ')}]`))
+        },
       },
 
       Collection: {
@@ -65,6 +77,10 @@ export default {
       },
 
       Set: {
+        'initialize': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
+          /* TODO:*/ throw new ReferenceError('To be implemented')
+        },
+
         'anyOne': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
@@ -103,10 +119,17 @@ export default {
       },
 
       List: {
-        // TODO: Throw error if no element?
-        get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+        initialize: (self: RuntimeObject, ) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
-          pushOperand(self.innerValue[index.innerValue])
+          self.innerValue = self.innerValue || []
+          pushOperand(VOID_ID)
+        },
+
+        get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+          const valueId = self.innerValue[index.innerValue]
+          if (!valueId) return interrupt('exception', addInstance('wollok.lang.BadParameter'))
+          pushOperand(valueId)
         },
 
         sortBy: (_self: RuntimeObject, _closure: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -125,7 +148,7 @@ export default {
                 PUSH(initialValue.id),
                 ...flatMap(() => [
                   SWAP,
-                  CALL('apply', 2, closure.module),
+                  CALL('apply', 2),
                 ], self.innerValue),
                 INTERRUPT('return'),
               ],
@@ -217,7 +240,8 @@ export default {
         },
 
         '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (other.innerValue === 0) interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue / other.innerValue))
         },
 
@@ -239,10 +263,6 @@ export default {
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
           pushOperand(addInstance('wollok.lang.String', `${self.innerValue}`))
-        },
-
-        'stringValue': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
         '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -268,13 +288,33 @@ export default {
         'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand, addInstance } = Operations(evaluation)
           if (self.innerValue > 0) pushOperand(self.id)
-          else pushOperand(addInstance('wollok.lang.Number', -self.innerValue))
+          else pushOperand(addInstance(self.module, -self.innerValue))
+        },
+
+        'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (decimals.module !== self.module || decimals.innerValue < 0)
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(addInstance(self.module, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
+        },
+
+        'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (decimals.module !== self.module || decimals.innerValue < 0)
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          const num = self.innerValue.toString()
+          pushOperand(addInstance(self.module, Number(num.slice(0, (num.indexOf('.')) + decimals.innerValue + 1))))
+        },
+
+        'randomUpTo': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
+          /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
         'gcd': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'randomUpTo': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
       },
@@ -353,10 +393,6 @@ export default {
           pushOperand(self.id)
         },
 
-        'toSmartString': (_self: RuntimeObject, _alreadyShown: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
         '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
           pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
@@ -365,23 +401,47 @@ export default {
 
       Boolean: {
 
-        '&&': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+        '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
-          pushOperand(self.innerValue && other.innerValue ? TRUE_ID : FALSE_ID)
+
+          if (self.id === FALSE_ID) return pushOperand(self.id)
+
+          last(evaluation.frameStack)!.resume.push('return')
+          evaluation.frameStack.push({
+            instructions: [
+              PUSH(closure.id),
+              CALL('apply', 0),
+              INTERRUPT('return'),
+            ],
+            nextInstruction: 0,
+            locals: {},
+            operandStack: [],
+            resume: [],
+          })
         },
 
-        '||': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+        '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
-          pushOperand(self.innerValue || other.innerValue ? TRUE_ID : FALSE_ID)
+
+          if (self.id === TRUE_ID) return pushOperand(self.id)
+
+          last(evaluation.frameStack)!.resume.push('return')
+          evaluation.frameStack.push({
+            instructions: [
+              PUSH(closure.id),
+              CALL('apply', 0),
+              INTERRUPT('return'),
+            ],
+            nextInstruction: 0,
+            locals: {},
+            operandStack: [],
+            resume: [],
+          })
         },
 
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand, addInstance } = Operations(evaluation)
           pushOperand(addInstance('wollok.lang.String', self.innerValue.toString()))
-        },
-
-        'toSmartString': (_self: RuntimeObject, _alreadyShown: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
         },
 
         '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -403,13 +463,11 @@ export default {
           const step = getInstance(self.fields.step)
 
           const values = []
-          if (
-            start.innerValue <= end.innerValue && step.innerValue > 0 ||
-            start.innerValue >= end.innerValue && step.innerValue < 0
-          ) {
-            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
-              values.unshift(i)
-          }
+          if (start.innerValue <= end.innerValue && step.innerValue > 0)
+            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue) values.unshift(i)
+
+          if (start.innerValue >= end.innerValue && step.innerValue < 0)
+            for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
           const valueIds = values.map(v => addInstance('wollok.lang.Number', v))
 
@@ -419,7 +477,7 @@ export default {
               ...flatMap((id: Id<'Linked'>) => [
                 PUSH(closure.id),
                 PUSH(id),
-                CALL('apply', 1, closure.module),
+                CALL('apply', 1),
               ], reverse(valueIds)),
               PUSH(VOID_ID),
               INTERRUPT('return'),
@@ -459,9 +517,9 @@ export default {
             locals: frame.locals,
             operandStack: [],
             resume: [],
-          }));
+          }))
 
-          (self as any).innerValue = context
+          self.innerValue = context
           pushOperand(VOID_ID)
         },
 

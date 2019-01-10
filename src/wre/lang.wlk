@@ -121,6 +121,12 @@ class StackTraceElement {
  * since 1.0
  */
 class Object {
+  constructor() {
+    self.initialize()
+  }
+
+  method initialize() { }
+
 	/** Answers object identity of a Wollok object, represented by a unique uuid in Wollok environment */
 	method identity() native
 	/** Answers a list of instance variables for this Wollok object */
@@ -176,11 +182,7 @@ class Object {
 	/**
 	 * String representation of Wollok object
 	 */
-	method toString() {
-		// TODO: should be a set
-		// return self.toSmartString(#{})
-		return self.toSmartString([])
-	}
+	method toString() native
 	
 	/**
 	 * Provides a visual representation of Wollok Object
@@ -189,30 +191,6 @@ class Object {
 	 */
 	method printString() = self.toString()
 
-	/** @private */
-	method toSmartString(alreadyShown) {
-		if (alreadyShown.any { e => e === self } ) { 
-			return self.simplifiedToSmartString() 
-		}
-		else {
-			alreadyShown.add(self)
-			return self.internalToSmartString(alreadyShown)
-		}
-	} 
-	
-	/** @private */
-	method simplifiedToSmartString(){
-		return self.kindName()
-	}
-	
-	/** @private */
-	method internalToSmartString(alreadyShown) {
-		return self.kindName() + "[" 
-			+ self.instanceVariables().map { v => 
-				v.name() + "=" + v.valueToSmartString(alreadyShown)
-			}.join(', ') 
-		+ "]"
-	}
 	
 	/** @private */
 	method messageNotUnderstood(name, parameters) {
@@ -511,16 +489,18 @@ class Collection {
 	method flatten() = self.flatMap { e => e }
 	
 	/** @private */
-	override method internalToSmartString(alreadyShown) {
-		return self.toStringPrefix() + self.map{e=> e.toSmartString(alreadyShown) }.join(', ') + self.toStringSufix()
-	}
-	
-	/** @private */
 	method toStringPrefix()
 	
 	/** @private */
 	method toStringSufix()
+
+  override method toString() =
+    self.toStringPrefix() +
+    if (self.isEmpty()) ""
+    else self.subList(1, self.size() - 1).fold(self.head().toString(), {acc, e => acc + ', ' + e.toString()}) +
+    self.toStringSufix()
 	
+
 	/** Converts a collection to a list */
 	method asList()
 	
@@ -584,6 +564,8 @@ class Set inherits Collection {
 		self.addAll(elements)
 	}
 	
+  override method initialize() native
+
 	/** @private */
 	override method newInstance() = #{}
 	
@@ -704,6 +686,8 @@ class List inherits Collection {
 	constructor(elements...) {
 		self.addAll(elements)
 	}
+
+  override method initialize() native
 
 	/** Answers the element at the specified position in this list.
 	 * The first char value of the sequence is at index 0, the next at index 1, and so on, as for array indexing. 
@@ -880,8 +864,9 @@ class List inherits Collection {
 	
 	/** A list is == another list if all elements are equal (defined by == message) */
 	override method ==(other) =
-    if (self.size() != other.size()) false
-    else (0..self.size()).all{i => self.get(i) == other.get(i)}
+    other != null &&
+    self.size() == other.size() &&
+    (self.size() == 0 || (0..(self.size() - 1)).all{i => self.get(i) == other.get(i)})
 
 
 	/**
@@ -1012,12 +997,6 @@ class Number {
 										 else 
 										 	limitB.max(self).min(limitA)
 
-	/** @private */
-	override method simplifiedToSmartString(){ return self.stringValue() }
-	
-	/** @private */
-	override method internalToSmartString(alreadyShown) { return self.stringValue() }
-	
 	/** Answers whether self is between min and max */
 	method between(min, max) { return (self >= min) && (self <= max) }
 	
@@ -1043,8 +1022,6 @@ class Number {
 	 */
 	method rem(other) { return self % other }
 	
-	method stringValue() = throw new Exception("Should be implemented in the subclass")
-
 	/**
 	 * Rounds up self up to a certain amount of decimals.
 	 * Amount of decimals must be positive
@@ -1053,7 +1030,8 @@ class Number {
 	 * 14.6165.roundUp(3) ==> 14.617
 	 * 5.roundUp(3) ==> 5
 	 */
-	 method roundUp(_decimals)
+	 method roundUp(_decimals) native
+	 method roundUp() = self.roundUp(0)
 
 	/**
 	 * Truncates self up to a certain amount of decimals.
@@ -1063,7 +1041,7 @@ class Number {
 	 * -14.6165.truncate(3) ==> -14.616
 	 * 5.truncate(3) ==> 5
 	 */
-	method truncate(_decimals)
+	method truncate(_decimals) native
 
 	method +_() = self
 	method -_() native
@@ -1099,9 +1077,6 @@ class Number {
 	
 	/** String representation of self number */
 	override method toString() native
-	
-	/** Self as a String value. Equivalent: toString() */
-	override method stringValue() native	
 	
 	/** 
 	 * Builds a Range between self and end
@@ -1189,10 +1164,7 @@ class Number {
 	method times(action) { 
 		(1..self).forEach(action) 
 	}
-	
-	override method roundUp(_decimals) = self
-	override method truncate(_decimals) = self
-	
+
 }
 
 
@@ -1359,9 +1331,6 @@ class String {
 	 */
 	override method printString() = '"' + self.toString() + '"'
 	
-	/** @private */
-	override method toSmartString(alreadyShown) native
-	
 	/** Compares this string to the specified object. The result is true if and only if the
 	 * argument is not null and is a String object that represents the same sequence of characters as this object.
 	 */
@@ -1403,9 +1372,6 @@ class Boolean {
 	
 	/** Answers a String object representing this Boolean's value. */
 	override method toString() native
-	
-	/** @private */
-	override method toSmartString(alreadyShown) native
 	
 	/** Compares this string to the specified object. The result is true if and only if the
 	 * argument is not null and represents same value (true or false)
@@ -1528,8 +1494,6 @@ class Range {
 	/** @see List#sortBy */
 	method sortedBy(closure) { return self.asList().sortedBy(closure) }
 	
-	/** @private */
-	override method internalToSmartString(alreadyShown) = start.toString() + ".." + end.toString()
 }
 
 /**
@@ -1732,7 +1696,7 @@ object assert {
 		} catch e {
 			failed = true
 		}
-		if (!failed) throw new AssertionException("Block " + block + " should have failed")
+		if (!failed) throw new AssertionException("Block should have failed")
 	}
 	
 	/** 
@@ -1893,4 +1857,8 @@ class AssertionException inherits Exception {
 class OtherValueExpectedException inherits Exception {
 	constructor(_message) = super(_message)	
 	constructor(_message,_cause) = super(_message,_cause)
+}
+
+class BadParameterException inherits Exception {
+	constructor(_value) = super("Invalid argument: " + _value)	
 }

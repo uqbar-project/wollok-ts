@@ -249,25 +249,25 @@ describe('Wollok parser', () => {
           Literal(
             Singleton(undefined, {
               superCall: { superclass: Reference('D'), args: [] },
-              mixins: [Reference('M'), Reference('N')],
+              mixins: [Reference('N'), Reference('M')],
             })()
           )
         ).and.be.tracedTo(0, 39)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
-          .and.also.have.nested.property('value.mixins.0').tracedTo(29, 30)
-          .and.also.have.nested.property('value.mixins.1').tracedTo(35, 36)
+          .and.also.have.nested.property('value.mixins.0').tracedTo(35, 36)
+          .and.also.have.nested.property('value.mixins.1').tracedTo(29, 30)
       })
 
       it('should parse literal objects that have multiple mixins', () => {
         'object mixed with M and N {}'.should.be.parsedBy(parser).into(
           Literal(
             Singleton(undefined, {
-              mixins: [Reference('M'), Reference('N')],
+              mixins: [Reference('N'), Reference('M')],
             })()
           )
         ).and.be.tracedTo(0, 28)
-          .and.have.nested.property('value.mixins.0').tracedTo(18, 19)
-          .and.also.have.nested.property('value.mixins.1').tracedTo(24, 25)
+          .and.have.nested.property('value.mixins.0').tracedTo(24, 25)
+          .and.also.have.nested.property('value.mixins.1').tracedTo(18, 19)
       })
 
       it('should not parse literal objects with a constructor', () => {
@@ -769,22 +769,22 @@ describe('Wollok parser', () => {
       'object O inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(
         Singleton('O', {
           superCall: { superclass: Reference('D'), args: [] },
-          mixins: [Reference('M'), Reference('N')],
+          mixins: [Reference('N'), Reference('M')],
         })()
       ).and.be.tracedTo(0, 41)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
-        .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
-        .and.also.have.nested.property('mixins.1').tracedTo(37, 38)
+        .and.also.have.nested.property('mixins.0').tracedTo(37, 38)
+        .and.also.have.nested.property('mixins.1').tracedTo(31, 32)
     })
 
     it('should parse objects thats have multiple mixins ', () => {
       'object O mixed with M and N {}'.should.be.parsedBy(parser).into(
         Singleton('O', {
-          mixins: [Reference('M'), Reference('N')],
+          mixins: [Reference('N'), Reference('M')],
         })()
       ).and.be.tracedTo(0, 30)
-        .and.have.nested.property('mixins.0').tracedTo(20, 21)
-        .and.also.have.nested.property('mixins.1').tracedTo(26, 27)
+        .and.have.nested.property('mixins.0').tracedTo(26, 27)
+        .and.also.have.nested.property('mixins.1').tracedTo(20, 21)
     })
 
     it('should not parse objects with a constructor', () => {
@@ -1190,22 +1190,22 @@ describe('Wollok parser', () => {
 
     })
 
-    it('should parse ||= operation ', () => {
+    it('should parse ||= operation and wrap the argument in a closure', () => {
       'a ||= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '||', [Reference('b')]))
+        Assignment(Reference('a'), Send(Reference('a'), '||', [Closure()(Return(Reference('b')))]))
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('reference').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
-        .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
 
     })
 
     it('should parse &&= operation', () => {
       'a &&= b'.should.be.parsedBy(parser).into(
-        Assignment(Reference('a'), Send(Reference('a'), '&&', [Reference('b')]))
+        Assignment(Reference('a'), Send(Reference('a'), '&&', [Closure()(Return(Reference('b')))]))
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('reference').tracedTo(0, 1)
-        .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
     })
 
     it('should not parse assignments that have other assignment at the right', () => {
@@ -1247,22 +1247,30 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('args.0.args.0').tracedTo(9, 10)
     })
 
-    it('should parse infix operations with logical operators', () => {
+    it('should parse infix operations with logical operators, wrapping the arguments in closures', () => {
       'a > b || c && d + e == f'.should.be.parsedBy(parser).into(
         Send(
           Send(Reference('a'), '>', [Reference('b')]),
           '||',
           [
-            Send(
-              Reference('c'),
-              '&&',
-              [
+            Closure()(
+              Return(
                 Send(
-                  Send(Reference('d'), '+', [Reference('e')]),
-                  '==',
-                  [Reference('f')]
-                ),
-              ]
+                  Reference('c'),
+                  '&&',
+                  [
+                    Closure()(
+                      Return(
+                        Send(
+                          Send(Reference('d'), '+', [Reference('e')]),
+                          '==',
+                          [Reference('f')]
+                        )
+                      )
+                    ),
+                  ]
+                )
+              )
             ),
           ]
         )
@@ -1270,13 +1278,18 @@ describe('Wollok parser', () => {
         .and.have.nested.property('receiver').tracedTo(0, 5)
         .and.also.have.nested.property('receiver.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('receiver.args.0').tracedTo(4, 5)
-        .and.also.have.nested.property('args.0').tracedTo(9, 24)
-        .and.also.have.nested.property('args.0.receiver').tracedTo(9, 10)
-        .and.also.have.nested.property('args.0.args.0').tracedTo(14, 24)
-        .and.also.have.nested.property('args.0.args.0.receiver').tracedTo(14, 19)
-        .and.also.have.nested.property('args.0.args.0.receiver.receiver').tracedTo(14, 15)
-        .and.also.have.nested.property('args.0.args.0.receiver.args.0').tracedTo(18, 19)
-        .and.also.have.nested.property('args.0.args.0.args.0').tracedTo(23, 24)
+        .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value').tracedTo(9, 24)
+        .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.receiver').tracedTo(9, 10)
+        .and.also.have.nested.property(
+          'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value').tracedTo(14, 24)
+        .and.also.have.nested.property(
+          'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver').tracedTo(14, 19)
+        .and.also.have.nested.property(
+          'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver.receiver').tracedTo(14, 15)
+        .and.also.have.nested.property(
+          'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver.args.0').tracedTo(18, 19)
+        .and.also.have.nested.property(
+          'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.args.0').tracedTo(23, 24)
     })
 
 

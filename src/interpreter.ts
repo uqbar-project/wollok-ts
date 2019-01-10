@@ -12,7 +12,7 @@ export interface RuntimeObject {
   readonly id: Id<'Linked'>
   readonly module: Name
   readonly fields: Locals
-  readonly innerValue?: any
+  innerValue?: any
 }
 
 export interface Frame {
@@ -180,7 +180,6 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
 
       case 'Super': return (() => {
         const currentMethod = firstAncestorOfKind('Method', node)
-
         return [
           LOAD('self'),
           ...flatMap(compile(environment), node.args),
@@ -278,12 +277,32 @@ export const Operations = (evaluation: Evaluation) => {
     return id
   }
 
+  const interrupt = (interruption: Interruption, valueId: Id<'Linked'>) => {
+    let nextFrame
+    do {
+      frameStack.pop()
+      nextFrame = last(frameStack)
+    } while (nextFrame && !nextFrame.resume.includes(interruption))
+
+    if (!nextFrame) {
+      if (interruption === 'exception') {
+        const value = getInstance(valueId)
+        log.error(value.module, ':', value.fields.message && getInstance(value.fields.message).innerValue)
+      }
+      throw Failure(`Unhandled "${interruption}" interruption: ${valueId}`)
+    }
+
+    nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
+    nextFrame.operandStack.push(valueId)
+  }
+
   return {
     Failure,
     popOperand,
     pushOperand,
     getInstance,
     addInstance,
+    interrupt,
   }
 }
 
@@ -311,6 +330,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     pushOperand,
     getInstance,
     addInstance,
+    interrupt,
   } = Operations(evaluation)
 
   const currentFrame = last(frameStack)!
@@ -384,7 +404,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       const check = popOperand()
 
       if (check !== TRUE_ID && check !== FALSE_ID)
-        throw Failure(`Non boolean condition "${check}"`)
+        return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
       if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
         throw Failure(`Invalid jump count ${instruction.count}`)
 
@@ -396,11 +416,19 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
       const selfId = popOperand()
       const self = getInstance(selfId)
+      let lookupStart: Name
+      if (instruction.lookupStart) {
+        const ownHierarchy = hierarchy(resolve(self.module)).map(fullyQualifiedName)
+        const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
+        lookupStart = ownHierarchy[start + 1]
+      } else {
+        lookupStart = self.module
+      }
 
-      const method = methodLookup(instruction.message, instruction.arity, resolve(instruction.lookupStart || self.module))
+      const method = methodLookup(instruction.message, instruction.arity, resolve(lookupStart))
 
       if (!method) {
-        log.warn('Method not found:', instruction.lookupStart || self.module, '>>', instruction.message, '/', instruction.arity)
+        log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
         const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
         const nameId = addInstance('wollok.lang.String', instruction.message)
@@ -417,9 +445,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       } else {
 
         if (method.isNative) {
-          log.debug('Calling Native:', instruction.lookupStart || self.module, '>>', instruction.message, '/', instruction.arity)
           const native = nativeLookup(natives, method)
           const args = argIds.map(id => evaluation.instances[id])
+          log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
           native(self, ...args)(evaluation)
         } else {
 
@@ -473,7 +501,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       const constructor = constructorLookup(instruction.arity, lookupStart)
       const ownSuperclass = superclass(lookupStart)
 
-      if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${lookupStart}`)
+      if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
 
       let locals: Locals
       if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
@@ -523,7 +551,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       if (!check) throw Failure('Popped empty operand stack')
 
       if (check !== TRUE_ID && check !== FALSE_ID)
-        throw Failure(`Non boolean condition "${check}"`)
+        return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
 
       currentFrame.resume.push('result')
       frameStack.push({
@@ -584,18 +612,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
     case 'INTERRUPT': return (() => {
-      const value = popOperand()
-
-      let nextFrame
-      do {
-        frameStack.pop()
-        nextFrame = last(frameStack)
-      } while (nextFrame && !nextFrame.resume.includes(instruction.interruption))
-
-      if (!nextFrame) throw Failure(`Unhandled "${instruction.interruption}" interruption: ${value}`)
-
-      nextFrame.resume = nextFrame.resume.filter(elem => elem !== instruction.interruption)
-      nextFrame.operandStack.push(value)
+      const valueId = popOperand()
+      interrupt(instruction.interruption, valueId)
     })()
 
 
@@ -604,18 +622,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
       const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
 
-      const value = popOperand()
-
-      let nextFrame
-      do {
-        frameStack.pop()
-        nextFrame = last(frameStack)
-      } while (nextFrame && !nextFrame.resume.includes(lastInterruption))
-
-      if (!nextFrame) throw Failure(`Unhandled "${lastInterruption}" interruption: ${value}`)
-
-      nextFrame.resume = nextFrame.resume.filter(elem => elem !== lastInterruption)
-      nextFrame.operandStack.push(value)
+      const valueId = popOperand()
+      interrupt(lastInterruption, valueId)
     })()
   }
 
@@ -714,7 +722,7 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     const { descendants } = utils(environment)
 
     // TODO:
-    const SKIP = 0
+    const SKIP = 167
     log.warn(`Skiping ${SKIP} tests!`)
 
     const tests = descendants(environment).filter(is('Test'))

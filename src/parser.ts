@@ -1,5 +1,5 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { concat, last, toPairs } from 'ramda'
+import { concat, last, reverse, toPairs } from 'ramda'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
@@ -8,6 +8,7 @@ export type NodePayload<N extends Node<'Raw'>> = Drop<N, 'kind' | 'id'>
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
+const LAZY_OPERATORS = ['||', '&&']
 const INFIX_OPERATORS = [
   ['||'],
   ['&&'],
@@ -139,7 +140,7 @@ export const Test: Parser<TestNode<'Raw'>> = lazy(() =>
 )
 
 const MixinLinearization = lazy(() =>
-  key('mixed with').then(Reference.sepBy1(key('and')))
+  key('mixed with').then(Reference.sepBy1(key('and'))).map(mixins => reverse(mixins))
 )
 
 export const Class: Parser<ClassNode<'Raw'>> = lazy(() =>
@@ -268,7 +269,15 @@ export const Assignment: Parser<AssignmentNode<'Raw'>> = lazy(() =>
       reference,
       value: operator === '='
         ? value
-        : ({ kind: 'Send' as 'Send', id: undefined, receiver: reference, message: operator.slice(0, -1), args: [value] }),
+        : ({
+          kind: 'Send' as 'Send',
+          id: undefined,
+          receiver: reference,
+          message: operator.slice(0, -1),
+          args: LAZY_OPERATORS.includes(operator.slice(0, -1))
+            ? [makeClosure([], [value])]
+            : [value],
+        }),
     })
   ).thru(sourced)
 )
@@ -357,11 +366,11 @@ export const Send: Parser<SendNode<'Raw'>> = lazy(() =>
     PrimaryExpression,
     seq(
       key('.').then(Name),
-      alt(Arguments, node('Literal')({ value: Closure }).thru(sourced).times(1)),
+      alt(Arguments, Closure.thru(sourced).times(1)),
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      ({ kind: 'Send', receiver, message, args, source: { start, end } }) as SendNode<'Raw'>
+      ({ kind: 'Send' as 'Send', id: undefined, receiver, message, args, source: { start, end } })
       , initial) as SendNode<'Raw'>
   )
 )
@@ -385,8 +394,16 @@ export const Operation: Parser<ExpressionNode<'Raw'>> = lazy(() => {
       index,
       argument,
       seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
-      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-        ({ kind: 'Send', id: undefined, receiver, message, args, source: { start, end } }) as SendNode<'Raw'>
+      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) => ({
+        kind: 'Send' as 'Send',
+        id: undefined,
+        receiver,
+        message,
+        args: LAZY_OPERATORS.includes(message)
+          ? [makeClosure([], args)]
+          : args,
+        source: { start, end },
+      })
         , initial)
     )
   }
@@ -400,19 +417,21 @@ export const Operation: Parser<ExpressionNode<'Raw'>> = lazy(() => {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const Literal: Parser<LiteralNode<'Raw'>> = lazy(() =>
-  node('Literal')({
-    value: alt(
-      key('null').result(null),
-      key('true').result(true),
-      key('false').result(false),
-      regex(/-?\d+(\.\d+)?/).map(Number),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
-      String,
-      Closure,
-      Singleton,
-    ),
-  }).thru(sourced)
+  alt(
+    Closure,
+    node('Literal')({
+      value: alt(
+        key('null').result(null),
+        key('true').result(true),
+        key('false').result(false),
+        regex(/-?\d+(\.\d+)?/).map(Number),
+        Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
+        Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
+        String,
+        Singleton,
+      ),
+    })
+  ).thru(sourced)
 )
 
 const EscapedChar = alt(
@@ -438,7 +457,7 @@ const DoubleQuoteString: Parser<string> = alt(
 
 const String: Parser<string> = alt(SingleQuoteString, DoubleQuoteString)
 
-const Closure: Parser<SingletonNode<'Raw'>> = lazy(() =>
+const Closure: Parser<LiteralNode<'Raw', SingletonNode<'Raw'>>> = lazy(() =>
   seqMap(
     Parameter.sepBy(key(',')).skip(key('=>')).or(of([])),
     Sentence.skip(optional(alt(key(';'), _))).many(),
@@ -450,7 +469,8 @@ const Closure: Parser<SingletonNode<'Raw'>> = lazy(() =>
 // BUILDERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<SentenceNode<'Raw'>>): SingletonNode<'Raw'> => {
+const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<SentenceNode<'Raw'>>):
+  LiteralNode<'Raw', SingletonNode<'Raw'>> => {
 
   const sentences: List<SentenceNode<'Raw'>> = rawSentences
     .some(sentence => sentence.kind === 'Return') || !isExpression(last(rawSentences))
@@ -458,27 +478,31 @@ const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<
     : [...rawSentences.slice(0, -1), { kind: 'Return', id: undefined, value: last(rawSentences) as ExpressionNode<'Raw'> }]
 
   return {
-    kind: 'Singleton',
+    kind: 'Literal',
     id: undefined,
-    superCall: {
-      superclass: {
-        kind: 'Reference',
-        id: undefined,
-        target: undefined,
-        name: 'wollok.lang.Closure',
+    value: {
+      kind: 'Singleton',
+      id: undefined,
+      superCall: {
+        superclass: {
+          kind: 'Reference',
+          id: undefined,
+          target: undefined,
+          name: 'wollok.lang.Closure',
+        },
+        args: [],
       },
-      args: [],
+      mixins: [],
+      name: undefined,
+      members: [
+        {
+          kind: 'Method',
+          id: undefined,
+          name: '<apply>', isOverride: false, isNative: false, parameters,
+          body: { kind: 'Body', id: undefined, sentences },
+        },
+      ],
     },
-    mixins: [],
-    name: undefined,
-    members: [
-      {
-        kind: 'Method',
-        id: undefined,
-        name: '<apply>', isOverride: false, isNative: false, parameters,
-        body: { kind: 'Body', id: undefined, sentences },
-      },
-    ],
   }
 }
 
