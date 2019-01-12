@@ -389,7 +389,10 @@ class Collection {
 	 * Example:
 	 *      users.findOrElse({ user => user.name() == "Cosme Fulanito" }, { homer })
 	 */
-	method findOrElse(predicate, continuation) native
+	method findOrElse(predicate, continuation) {
+    const response = self.fold(null, {result, elem => if (result == null && predicate.apply(elem)) elem else result })
+    return if (response != null) response else continuation.apply()
+  }
 
 	/**
 	 * Counts all elements of self collection that satisfies a given condition
@@ -629,16 +632,6 @@ class Set inherits Collection {
 	override method fold(initialValue, closure) native
 	
 	/**
-	 * Tries to find an element in a collection (based on a closure) or
-	 * applies a continuation closure.
-	 *
-	 * Examples:
-	 * 		#{1, 9, 3, 8}.findOrElse({ n => n.even() }, { 100 })  => Answers  8
-	 * 		#{1, 5, 3, 7}.findOrElse({ n => n.even() }, { 100 })  => Answers  100
-	 */
-	override method findOrElse(predicate, continuation) native
-	
-	/**
 	 * Adds the specified element to this set if it is not already present
 	 */
 	override method add(element) native
@@ -773,7 +766,21 @@ class List inherits Collection {
 	/**
 	 * @see List#sortedBy
 	 */
-	method sortBy(closure) native
+	method sortBy(closure) {
+    if (self.isEmpty()) { return }
+
+    const head = self.head()
+    const tail = self.subList(1, self.size() - 1)
+    const greater = tail.filter{n => closure.apply(head, n)}
+    greater.sortBy(closure)
+    const lesser = tail.filter{n => !closure.apply(head, n)}
+    lesser.sortBy(closure)
+
+    self.clear()
+    lesser.forEach{n => self.add(n)}
+    self.add(head)
+    greater.forEach{n => self.add(n)}
+  }
 	
 	/**
 	 * Takes first n elements of a list
@@ -827,12 +834,6 @@ class List inherits Collection {
      *
 	 */
 	override method fold(initialValue, closure) native
-	
-	/**
-	 * Finds the first element matching the boolean closure, 
-	 * or evaluates the continuation block closure if no element is found
-	 */
-	override method findOrElse(predicate, continuation) native
 	
 	/** Adds the specified element as last one */
 	override method add(element) native
@@ -1014,7 +1015,7 @@ class Number {
 	method even() { return self % 2 == 0 }
 	
 	/** Answers whether self is an odd number (not divisible by 2, mathematically 2k + 1) */
-	method odd() { return self.even().negate() }
+	method odd() { return !self.even() }
 	
 	/** Answers remainder between self and other
 	 * Example:
@@ -1144,7 +1145,7 @@ class Number {
 	/** Answers whether self is a prime number, like 2, 3, 5, 7, 11... */
 	method isPrime() {
 		if (self == 1) return false
-		return (2..(self.div(2) + 1)).any({ i => self % i == 0 }).negate()
+		return !(2..(self.div(2) + 1)).any({ i => self % i == 0 })
 	}
 	
 	/**
@@ -1396,8 +1397,8 @@ class Range {
 	var step
 	
 	constructor(_start, _end) {
-		start = _start 
-		end = _end
+		start = _start.truncate(0) 
+		end = _end.truncate(0)
 		if (_start > _end) { 
 			step = -1 
 		} else {
@@ -1428,7 +1429,7 @@ class Range {
 	
 	/** @private */
 	method asList() {
-		return self.map({ elem => return elem })
+		return self.map({ elem => elem })
 	}
 	
 	/** Answers whether this range contains no elements */

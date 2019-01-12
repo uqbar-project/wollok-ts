@@ -69,13 +69,6 @@ export default {
         },
       },
 
-      Collection: {
-        findOrElse: (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-          },
-      },
-
       Set: {
         'initialize': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
           /* TODO:*/ throw new ReferenceError('To be implemented')
@@ -85,11 +78,6 @@ export default {
           /* TODO:*/ throw new ReferenceError('To be implemented')
         },
         'fold': (_self: RuntimeObject, _initialValue: RuntimeObject, _closure: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-            /* TODO:*/
-            throw new ReferenceError('To be implemented')
-          },
-        'findOrElse': (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) =>
           (_evaluation: Evaluation) => {
             /* TODO:*/
             throw new ReferenceError('To be implemented')
@@ -132,10 +120,6 @@ export default {
           pushOperand(valueId)
         },
 
-        sortBy: (_self: RuntimeObject, _closure: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
         fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
           (evaluation: Evaluation) => {
             last(evaluation.frameStack)!.resume.push('return')
@@ -158,10 +142,6 @@ export default {
               resume: [],
             })
           },
-
-        findOrElse: (_self: RuntimeObject, _predicate: RuntimeObject, _continuation: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
 
         add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
@@ -307,7 +287,12 @@ export default {
             return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
 
           const num = self.innerValue.toString()
-          pushOperand(addInstance(self.module, Number(num.slice(0, (num.indexOf('.')) + decimals.innerValue + 1))))
+          const decimalPosition = num.indexOf('.')
+
+          pushOperand(decimalPosition >= 0
+            ? addInstance(self.module, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
+            : self.id
+          )
         },
 
         'randomUpTo': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -488,22 +473,21 @@ export default {
             resume: [],
           })
         },
+
         anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
-          const { getInstance, addInstance } = Operations(evaluation)
+          const { getInstance, addInstance, pushOperand } = Operations(evaluation)
           const start = getInstance(self.fields.start)
           const end = getInstance(self.fields.end)
           const step = getInstance(self.fields.step)
 
           const values = []
-          if (
-            start.innerValue <= end.innerValue && step.innerValue > 0 ||
-            start.innerValue >= end.innerValue && step.innerValue < 0
-          ) {
-            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
-              values.unshift(i)
-          }
+          if (start.innerValue <= end.innerValue && step.innerValue > 0)
+            for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue) values.unshift(i)
 
-          addInstance('wollok.lang.Number', values[floor(random() * values.length)])
+          if (start.innerValue >= end.innerValue && step.innerValue < 0)
+            for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
+
+          pushOperand(addInstance('wollok.lang.Number', values[floor(random() * values.length)]))
         },
       },
 

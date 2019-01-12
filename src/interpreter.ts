@@ -722,7 +722,7 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     const { descendants } = utils(environment)
 
     // TODO:
-    const SKIP = 167
+    const SKIP = 0
     log.warn(`Skiping ${SKIP} tests!`)
 
     const tests = descendants(environment).filter(is('Test'))
@@ -736,11 +736,13 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     log.done('Initializing Evaluation')
 
     tests.forEach((test, i) => {
-      if (i > SKIP) {
+      if (i > SKIP && i < 10) {
         log.resetStep()
         const evaluation = cloneEvaluation(initializedEvaluation)
         log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+        log.start(test.name)
         run(evaluation, natives, test.body)
+        log.done(test.name)
         log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
       }
     })

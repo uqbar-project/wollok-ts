@@ -18,6 +18,7 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 // TODO: Don't skip tests
 const SKIP = [
   join('test', 'sanity', 'src', 'literals', 'sets.wtest'),
+  join('test', 'sanity', 'src', 'set.wtest'),
   join('test', 'sanity', 'src', 'collectionTestCase.wtest'),
   join('test', 'sanity', 'src', 'list.wtest'),
   join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),

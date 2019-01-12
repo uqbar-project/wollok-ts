@@ -170,7 +170,7 @@ const consoleLogger: Logger = {
 }
 
 export const enableLogs = () => {
-  assign(logger, consoleLogger)
+  assign(logger, consoleLogger, { debug: () => { }, step: () => { } })
 }
 
 export default logger
