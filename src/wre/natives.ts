@@ -1,4 +1,4 @@
-import { chain as flatMap, last, reverse, zipObj } from 'ramda'
+import { flatMap, last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, Operations, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
 import { Id, Method, Singleton } from '../model'
@@ -128,12 +128,12 @@ export default {
                 ...flatMap((id: Id<'Linked'>) => [
                   PUSH(closure.id),
                   PUSH(id),
-                ], reverse<string>(self.innerValue)),
+                ])([...self.innerValue].reverse()),
                 PUSH(initialValue.id),
                 ...flatMap(() => [
                   SWAP,
                   CALL('apply', 2),
-                ], self.innerValue),
+                ])(self.innerValue),
                 INTERRUPT('return'),
               ],
               nextInstruction: 0,
@@ -454,7 +454,7 @@ export default {
           if (start.innerValue >= end.innerValue && step.innerValue < 0)
             for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
-          const valueIds = values.map(v => addInstance('wollok.lang.Number', v))
+          const valueIds = values.map(v => addInstance('wollok.lang.Number', v)).reverse()
 
           last(evaluation.frameStack)!.resume.push('return')
           evaluation.frameStack.push({
@@ -463,7 +463,7 @@ export default {
                 PUSH(closure.id),
                 PUSH(id),
                 CALL('apply', 1),
-              ], reverse(valueIds)),
+              ])(valueIds),
               PUSH(VOID_ID),
               INTERRUPT('return'),
             ],

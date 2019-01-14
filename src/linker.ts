@@ -1,8 +1,8 @@
 import { assoc, memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
+import { CHILDREN_CACHE, flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'
 import utils, { transform, transformByKind } from './utils'
-import { assertParenthood } from './utils'
 
 export interface Scope { readonly [name: string]: string }
 
@@ -179,19 +179,17 @@ export default (
   } as Environment<'Linked'>
 
   const identifiedEnvironment: Environment<'Linked'> = transform(node => {
-    if (node.id) return node
-    const next = { ...node, id: uuid() }
-    // assertId(next, next.id)
-    return next
+    return node.id ? node : { ...node, id: uuid() }
   })(mergedEnvironment)
 
   transform<'Linked'>(node => {
-    utils(identifiedEnvironment).children(node).forEach(assertParenthood(node))
+    utils(identifiedEnvironment).children(node).forEach(child =>
+      update(PARENT_CACHE, identifiedEnvironment.id + child.id, node.id)
+    )
     return node
   })(identifiedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
-
   const targetedEnvironment = transformByKind<'Linked'>({
     Reference: node => {
       const target = scopes(node.id)[node.name]
@@ -202,8 +200,15 @@ export default (
     },
   })(identifiedEnvironment)
 
-  const linkedEnvironment = { ...targetedEnvironment, id: uuid() }
-  utils(linkedEnvironment).children(linkedEnvironment).forEach(assertParenthood(linkedEnvironment))
+  flushAll(NODE_CACHE)
+  flushAll(CHILDREN_CACHE)
 
-  return linkedEnvironment
+  return targetedEnvironment
+
+  // const linkedEnvironment = { ...targetedEnvironment, id: uuid() }
+  // utils(linkedEnvironment).children(linkedEnvironment).forEach(child => {
+  //   update(PARENT_CACHE, linkedEnvironment.id + child.id, linkedEnvironment.id)
+  // })
+
+  // return linkedEnvironment
 }

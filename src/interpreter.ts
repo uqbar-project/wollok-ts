@@ -1,7 +1,7 @@
-import { assoc, chain as flatMap, last, memoizeWith, zipObj } from 'ramda'
 import { v4 as uuid } from 'uuid'
+import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence } from './model'
+import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
 import utils from './utils'
 
 // TODO: Remove the parameter type from Id
@@ -81,14 +81,14 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 
 
 // TODO: Memoize
-export const compile = (environment: Environment<'Linked'>) => memoizeWith(node => environment.id + node.id)(
+export const compile = (environment: Environment<'Linked'>) =>
   (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
     // TODO: rename utils to "tools"
     const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
     switch (node.kind) {
 
       case 'Body': return (() =>
-        flatMap(compile(environment), node.sentences)
+        flatMap<Sentence<'Linked'>, Instruction>(compile(environment))(node.sentences)
       )()
 
       case 'Variable': return (() => [
@@ -164,7 +164,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
         ]
 
         return [
-          ...flatMap(compile(environment), node.value.args),
+          ...flatMap(compile(environment))(node.value.args),
           INSTANTIATE(node.value.className.name, []),
           INIT(node.value.args.length, node.value.className.name, false),
         ]
@@ -173,7 +173,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
 
       case 'Send': return (() => [
         ...compile(environment)(node.receiver),
-        ...flatMap(compile(environment), node.args),
+        ...flatMap(compile(environment))(node.args),
         CALL(node.message, node.args.length),
       ])()
 
@@ -182,7 +182,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
         const currentMethod = firstAncestorOfKind('Method', node)
         return [
           LOAD('self'),
-          ...flatMap(compile(environment), node.args),
+          ...flatMap(compile(environment))(node.args),
           CALL(currentMethod.name, node.args.length, fullyQualifiedName(parentOf(currentMethod))),
         ]
       })()
@@ -191,7 +191,7 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
       case 'New': return (() => {
         const fqn = fullyQualifiedName(resolveTarget(node.className))
         return [
-          ...flatMap(compile(environment), node.args),
+          ...flatMap(compile(environment))(node.args),
           INSTANTIATE(fqn),
           INIT(node.args.length, fqn, true),
         ]
@@ -228,13 +228,13 @@ export const compile = (environment: Environment<'Linked'>) => memoizeWith(node 
               CONDITIONAL_JUMP(compiledCatch.length),
               ...compiledCatch,
             ]
-          }, node.catches),
+          })(node.catches),
 
           compile(environment)(node.always)
         ),
       ])()
     }
-  })
+  }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // OPERATIONS
@@ -269,11 +269,19 @@ export const Operations = (evaluation: Evaluation) => {
 
   // TODO: cache Numbers and Strings
   const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
+    if (module === 'wollok.lang.Number') {
+      const stringValue = innerValue.toFixed(4)
+      const numberId = 'N!' + stringValue
+      let cached = instances[numberId]
+      if (!cached) {
+        cached = { id: numberId, module, fields: {}, innerValue: Number(stringValue) }
+        instances[numberId] = cached
+      }
+      return numberId
+    }
+
     const id = uuid()
-    const value = module === 'wollok.lang.Number'
-      ? Number(innerValue.toFixed(4))
-      : innerValue
-    instances[id] = { id, module, fields: {}, innerValue: value }
+    instances[id] = { id, module, fields: {}, innerValue }
     return id
   }
 
@@ -519,14 +527,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       frameStack.push({
         instructions: new Array<Instruction>(
           ...instruction.initFields ? [
-            ...flatMap<Field<'Linked'>, Instruction>(({ value: v, name }) => [
+            ...flatMap(({ value: v, name }: Field<'Linked'>) => [
               LOAD('self'),
               ...compile(environment)(v),
               SET(name),
-            ], allFields),
+            ])(allFields),
           ] : [],
           ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-            ...flatMap(compile(environment), constructor.baseCall.args),
+            ...flatMap(compile(environment))(constructor.baseCall.args),
             LOAD('self'),
             INIT(
               constructor.baseCall.args.length,
@@ -664,13 +672,13 @@ const buildEvaluationFor = (environment: Environment<'Linked'>): Evaluation => {
     { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
     { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
     ...globalSingletons.map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })),
-  ].reduce((all, instance) => assoc(instance.id, instance, all), {})
+  ].reduce((all, instance) => ({ ...all, [instance.id]: instance }), {})
 
   const locals = {
     null: NULL_ID,
     true: TRUE_ID,
     false: FALSE_ID,
-    ...globalSingletons.reduce((all, singleton) => assoc(fullyQualifiedName(singleton), singleton.id, all), {}),
+    ...globalSingletons.reduce((all, singleton) => ({ ...all, [fullyQualifiedName(singleton)]: singleton.id }), {}),
   }
 
   return {
@@ -678,11 +686,11 @@ const buildEvaluationFor = (environment: Environment<'Linked'>): Evaluation => {
     instances,
     frameStack: [{
       instructions: [
-        ...flatMap(({ id, superCall: { superclass, args } }) => [
+        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<'Linked'>) => [
           ...flatMap(compile(environment))(args),
           PUSH(id),
           INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
-        ], globalSingletons),
+        ])(globalSingletons),
       ],
       nextInstruction: 0,
       locals,

@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import { last } from 'ramda'
+import { last } from './extensions'
 import { Evaluation, Instruction } from './interpreter'
 import { Id, Name } from './model'
 

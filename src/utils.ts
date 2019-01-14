@@ -1,12 +1,8 @@
-import { chain as flatMap, identity, mapObjIndexed, memoizeWith, path, values } from 'ramda'
+import { identity, mapObjIndexed, memoizeWith, path, values } from 'ramda'
+import { CHILDREN_CACHE, getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
+import { flatMap } from './extensions'
 import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
-
-const parenthoodCache: Map<Id<'Linked'>, Id<'Linked'>> = new Map()
-// const idCache: Map<Id<'Linked'>, {}> = new Map()
-
-export const assertParenthood = (parent: Node<'Linked'>) => (child: Node<'Linked'>) => parenthoodCache.set(child.id, parent.id)
-// export const assertId = (obj: {}, id: Id<'Linked'>) => idCache.set(id, obj)
 
 const { isArray } = Array
 
@@ -38,30 +34,45 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
     return applyTransform(node)
   }
 
+
 export default <S extends Stage>(environment: Environment<S>) => {
   // TODO: Take this out of utils object?
   const reduce = <T>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
     children(node).reduce(reduce(tx), tx(initial, node))
 
 
-  const children = memoizeWith(({ id }) => environment.id + id)(
-    <C extends Node<S>>(node: Node<S>): List<C> => {
-      const extractChildren = (obj: any): List<Node<S>> => {
-        if (isNode<S>(obj)) return [obj]
+  // const children = <C extends Node<S>>(node: Node<S>): List<C> => {
+  //   const childrenIds = getOrUpdate(CHILDREN_CACHE, environment.id as string + node.id)(() => {
+  //     const extractChildren = (obj: any): List<Id<'Linked'>> => {
+  //       if (isNode<'Linked'>(obj)) return [obj.id]
+  //       if (isArray(obj)) return flatMap(extractChildren)(obj)
+  //       if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
+  //       return []
+  //     }
+  //     return flatMap(extractChildren)(values(node))
+  //   })
+
+  //   return childrenIds.map(childId => getNodeById(childId)) as unknown as List<C>
+  // }
+  const children = <C extends Node<S>>(node: Node<S>): List<C> => {
+    const childrenNodes = getOrUpdate(CHILDREN_CACHE, environment.id as string + node.id)(() => {
+      const extractChildren = (obj: any): List<Node<'Linked'>> => {
+        if (isNode<'Linked'>(obj)) return [obj]
         if (isArray(obj)) return flatMap(extractChildren)(obj)
         if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
         return []
-
       }
-      return flatMap(extractChildren)(values(node)) as unknown as List<C>
-    }
-  )
+      return flatMap(extractChildren)(values(node))
+    })
+
+    return childrenNodes as unknown as List<C>
+  }
 
 
   const descendants = memoizeWith(({ id }) => environment.id + id)(
     (node: Node<S>): List<Node<S>> => {
       const directDescendants = children(node)
-      const indirectDescendants = flatMap(child => descendants(child), directDescendants)
+      const indirectDescendants = flatMap(descendants)(directDescendants)
       return [...directDescendants, ...indirectDescendants]
     }
   )
@@ -79,24 +90,15 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  // const parentOf = memoizeWith(({ id }) => environment.id + id)(
-  //   <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
-  //     const parent = [environment, ...descendants(environment)].find(descendant => children(descendant).some(({ id }) => id === node.id))
-  //     if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-  //     return parent as S extends 'Linked' ? N : never
-  //   }
-  // )
+  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never =>
+    getNodeById(getOrUpdate(PARENT_CACHE, environment.id + node.id)(() => {
+      const parent = [environment, ...descendants(environment)].find(descendant =>
+        children(descendant).some(({ id }) => id === node.id)
+      )
+      if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
+      return parent.id as Id<'Linked'>
+    }))
 
-  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never => {
-    const cachedParent = parenthoodCache.get(node.id)
-    if (cachedParent) return getNodeById(cachedParent)
-    const parent = [environment, ...descendants(environment)].find(descendant =>
-      children(descendant).some(({ id }) => id === node.id)
-    )
-    if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-    assertParenthood(parent as Node<'Linked'>)(node)
-    return parent as S extends 'Linked' ? N : never
-  }
 
   const firstAncestorOfKind = memoizeWith((kind, { id }) => environment.id + kind + id)(
     <K extends Kind>(kind: K, node: Node<'Linked'>): S extends 'Linked' ? NodeOfKind<K, 'Linked'> : never => {
@@ -107,19 +109,32 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  const getNodeById = memoizeWith(id => environment.id + id)(
-    <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never => {
-      const response = [environment, ...descendants(environment)].find(node => node.id === id)
+  const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
+    getOrUpdate(NODE_CACHE, environment.id + id)(() => {
+      const response = [environment, ...descendants(environment)].find(node => node.id === id) as Node<'Linked'>
       if (!response) throw new Error(`Missing node ${id}`)
-      return response as S extends 'Linked' ? T : never
-    }
-  )
-  // const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>, errorMessage: string = `Missing node ${id}`):
-  //   S extends 'Linked' ? T : never => {
-  //   const node = idCache.get(id)
-  //   if (!node) throw new Error(errorMessage)
-  //   return node as S extends 'Linked' ? T : never
-  // }
+      return response
+    }) as S extends 'Linked' ? T : never
+
+  // const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
+  //   getOrUpdate(NODE_CACHE, environment.id + id)(() => {
+  //     const search = (obj: any): Node<'Linked'> | null => {
+  //       if (isArray(obj)) {
+  //         for (const value of obj) {
+  //           const found = search(value)
+  //           if (found) return found
+  //         }
+  //       } else if (obj instanceof Object) {
+  //         if (isNode<'Linked'>(obj) && obj.id === id) return obj
+  //         return search(values(obj))
+  //       }
+  //       return null
+  //     }
+
+  //     const response = search(environment)
+  //     if (!response) throw new Error(`Missing node ${id}`)
+  //     return response
+  //   }) as S extends 'Linked' ? T : never
 
 
   const resolve = // memoizeWith(qualifiedName => environment.id + qualifiedName)(
