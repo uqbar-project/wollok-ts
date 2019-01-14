@@ -1,10 +1,11 @@
-import { identity, mapObjIndexed, memoizeWith, path, values } from 'ramda'
+import { identity, mapObjIndexed, memoizeWith, path } from 'ramda'
 import { CHILDREN_CACHE, getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
 import { flatMap } from './extensions'
 import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
+const { values } = Object
 
 // TODO: Test all this
 // TODO: Review types (particulary regarding Stages)
@@ -109,32 +110,32 @@ export default <S extends Stage>(environment: Environment<S>) => {
   )
 
 
-  const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
-    getOrUpdate(NODE_CACHE, environment.id + id)(() => {
-      const response = [environment, ...descendants(environment)].find(node => node.id === id) as Node<'Linked'>
-      if (!response) throw new Error(`Missing node ${id}`)
-      return response
-    }) as S extends 'Linked' ? T : never
-
   // const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
   //   getOrUpdate(NODE_CACHE, environment.id + id)(() => {
-  //     const search = (obj: any): Node<'Linked'> | null => {
-  //       if (isArray(obj)) {
-  //         for (const value of obj) {
-  //           const found = search(value)
-  //           if (found) return found
-  //         }
-  //       } else if (obj instanceof Object) {
-  //         if (isNode<'Linked'>(obj) && obj.id === id) return obj
-  //         return search(values(obj))
-  //       }
-  //       return null
-  //     }
-
-  //     const response = search(environment)
+  //     const response = [environment, ...descendants(environment)].find(node => node.id === id) as Node<'Linked'>
   //     if (!response) throw new Error(`Missing node ${id}`)
   //     return response
   //   }) as S extends 'Linked' ? T : never
+
+  const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
+    getOrUpdate(NODE_CACHE, environment.id + id)(() => {
+      const search = (obj: any): Node<'Linked'> | undefined => {
+        if (isArray(obj)) {
+          for (const value of obj) {
+            const found = search(value)
+            if (found) return found
+          }
+        } else if (obj instanceof Object) {
+          if (isNode<'Linked'>(obj) && obj.id === id) return obj
+          return search(values(obj))
+        }
+        return undefined
+      }
+
+      const response = search(environment)
+      if (!response) throw new Error(`Missing node ${id}`)
+      return response
+    }) as S extends 'Linked' ? T : never
 
 
   const resolve = // memoizeWith(qualifiedName => environment.id + qualifiedName)(
