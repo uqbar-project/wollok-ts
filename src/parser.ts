@@ -1,7 +1,8 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { concat, toPairs } from 'ramda'
 import { last } from './extensions'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+
+const { keys } = Object
 
 type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
 
@@ -20,7 +21,7 @@ const INFIX_OPERATORS = [
   ['**', '%'],
   ['*', '/'],
 ]
-const OPERATORS = INFIX_OPERATORS.reduce(concat, PREFIX_OPERATORS.map(op => `${op}_`))
+const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS.map(op => `${op}_`))
 
 // TODO: Resolve this without effect
 let SOURCE_FILE: string | undefined
@@ -41,7 +42,8 @@ const node = <
   P extends NodePayload<N> = NodePayload<N>,
   C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
-    const subparsers: [keyof P, Parser<P[keyof P]>][] = toPairs(fieldParserSeq) as unknown as [keyof P, Parser<P[keyof P]>][]
+    const subparsers = keys(fieldParserSeq).map(fieldName =>
+      [fieldName, fieldParserSeq[fieldName as keyof C]] as [keyof P, Parser<P[keyof P]>])
     return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
   }
 

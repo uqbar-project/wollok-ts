@@ -2,7 +2,6 @@
 
 // No imports of local references
 
-import { isNil, keys, reject } from 'ramda'
 import { Literal } from '../test/builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
@@ -10,6 +9,8 @@ import {
 } from './model'
 import { is, Kind } from './model'
 import utils from './utils'
+
+const { keys } = Object
 
 type Code = string
 type Level = 'Warning' | 'Error'
@@ -79,7 +80,7 @@ export const validations = (environment: Environment<'Linked'>) => {
       'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
       'null', 'false', 'true', '=>'].includes(node.name)),
 
-    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length !== 0 || t.always.sentences.length !== 0 && t.body.sentences.length !== 0),
+    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
     singletonIsNotUnnamed: error<Singleton<'Linked'>>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
@@ -222,7 +223,7 @@ export default (target: Node<'Linked'>, environment: Environment<'Linked'>): Rea
     const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<'Linked'>, c: Code) => Problem | null }
     return [
       ...found,
-      ...reject(isNil)(keys(checks).map(code => checks[code](node, code))),
+      ...keys(checks).map(code => checks[code](node, code)!).filter(result => result !== null),
     ]
   })([], target)
 }

@@ -19,14 +19,12 @@
   },
   "dependencies": {
     "parsimmon": "^1.12.0",
-    "ramda": "^0.26.1",
     "uuid": "^3.3.2"
   },
   "devDependencies": {
     "@types/chai": "^4.1.7",
     "@types/mocha": "^5.2.5",
     "@types/parsimmon": "^1.10.0",
-    "@types/ramda": "github:types/npm-ramda#dist",
     "@types/uuid": "^3.4.4",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
