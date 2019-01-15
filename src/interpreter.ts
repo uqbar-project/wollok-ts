@@ -247,8 +247,8 @@ export const Operations = (evaluation: Evaluation) => {
   const Failure = (message: string) => {
     log.error(message)
     log.evaluation(evaluation)
-    // return new Error(message)
-    return new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
+    return new Error(message)
+    // return new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
   }
 
   const popOperand = (): Id<'Linked'> => {
@@ -347,292 +347,300 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const instruction = currentFrame.instructions[currentFrame.nextInstruction]
   if (!instruction) throw Failure(`Reached end of instructions`)
 
-
   currentFrame.nextInstruction++
 
-  switch (instruction.kind) {
+  try {
 
-    case 'LOAD': return (() => {
-      const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
-      if (!value) throw Failure(`LOAD of missing local "${instruction.name}"`)
-      pushOperand(value)
-    })()
+    switch (instruction.kind) {
 
-
-    case 'STORE': return (() => {
-      const valueId = popOperand()
-      const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
-      frame.locals[instruction.name] = valueId
-    })()
+      case 'LOAD': return (() => {
+        const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
+        if (!value) throw Failure(`LOAD of missing local "${instruction.name}"`)
+        pushOperand(value)
+      })()
 
 
-    case 'PUSH': return (() => {
-      pushOperand(instruction.id)
-    })()
+      case 'STORE': return (() => {
+        const valueId = popOperand()
+        const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
+        frame.locals[instruction.name] = valueId
+      })()
 
 
-    case 'GET': return (() => {
-      const selfId = popOperand()
-      const self = getInstance(selfId)
-      const value = self.fields[instruction.name]
-      if (!value) throw Failure(`Access to undefined field "${self.module}>>${instruction.name}"`)
-      pushOperand(value)
-    })()
+      case 'PUSH': return (() => {
+        pushOperand(instruction.id)
+      })()
 
 
-    case 'SET': return (() => {
-      const valueId = popOperand()
-      const selfId = popOperand()
-      const self = getInstance(selfId)
-      self.fields[instruction.name] = valueId
-    })()
-
-    case 'SWAP': return (() => {
-      const a = popOperand()
-      const b = popOperand()
-      pushOperand(a)
-      pushOperand(b)
-    })()
+      case 'GET': return (() => {
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        const value = self.fields[instruction.name]
+        if (!value) throw Failure(`Access to undefined field "${self.module}>>${instruction.name}"`)
+        pushOperand(value)
+      })()
 
 
-    case 'INSTANTIATE': return (() => {
-      const id = addInstance(instruction.module, instruction.innerValue)
-      pushOperand(id)
-    })()
+      case 'SET': return (() => {
+        const valueId = popOperand()
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        self.fields[instruction.name] = valueId
+      })()
+
+      case 'SWAP': return (() => {
+        const a = popOperand()
+        const b = popOperand()
+        pushOperand(a)
+        pushOperand(b)
+      })()
 
 
-    case 'INHERITS': return (() => {
-      const selfId = popOperand()
-      const self = getInstance(selfId)
-      pushOperand(inherits(resolve(self.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
-    })()
-
-    // TODO: can't we just use IF_ELSE instead?
-    case 'CONDITIONAL_JUMP': return (() => {
-      const check = popOperand()
-
-      if (check !== TRUE_ID && check !== FALSE_ID)
-        return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
-      if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-        throw Failure(`Invalid jump count ${instruction.count}`)
-
-      currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
-    })()
+      case 'INSTANTIATE': return (() => {
+        const id = addInstance(instruction.module, instruction.innerValue)
+        pushOperand(id)
+      })()
 
 
-    case 'CALL': return (() => {
-      const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
-      const selfId = popOperand()
-      const self = getInstance(selfId)
-      let lookupStart: Name
-      if (instruction.lookupStart) {
-        const ownHierarchy = hierarchy(resolve(self.module)).map(fullyQualifiedName)
-        const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
-        lookupStart = ownHierarchy[start + 1]
-      } else {
-        lookupStart = self.module
-      }
+      case 'INHERITS': return (() => {
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        pushOperand(inherits(resolve(self.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
+      })()
 
-      const method = methodLookup(instruction.message, instruction.arity, resolve(lookupStart))
+      // TODO: can't we just use IF_ELSE instead?
+      case 'CONDITIONAL_JUMP': return (() => {
+        const check = popOperand()
 
-      if (!method) {
-        log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+        if (check !== TRUE_ID && check !== FALSE_ID)
+          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+          throw Failure(`Invalid jump count ${instruction.count}`)
 
-        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
-        const nameId = addInstance('wollok.lang.String', instruction.message)
-        const argsId = addInstance('wollok.lang.List', argIds)
+        currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
+      })()
 
-        currentFrame.resume.push('return')
-        frameStack.push({
-          instructions: compile(environment)(messageNotUnderstood.body!),
-          nextInstruction: 0,
-          locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
-          operandStack: [],
-          resume: [],
-        })
-      } else {
 
-        if (method.isNative) {
-          const native = nativeLookup(natives, method)
-          const args = argIds.map(id => evaluation.instances[id])
-          log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
-          native(self, ...args)(evaluation)
+      case 'CALL': return (() => {
+        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        let lookupStart: Name
+        if (instruction.lookupStart) {
+          const ownHierarchy = hierarchy(resolve(self.module)).map(fullyQualifiedName)
+          const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
+          lookupStart = ownHierarchy[start + 1]
         } else {
+          lookupStart = self.module
+        }
 
-          const parameterNames = method.parameters.map(({ name }) => name)
-          let locals: Locals
+        const method = methodLookup(instruction.message, instruction.arity, resolve(lookupStart))
 
-          if (method.parameters.some(({ isVarArg }) => isVarArg)) {
-            const restId = addInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
-            locals = {
-              ...zipObj(parameterNames.slice(0, -1), argIds),
-              [last(method.parameters)!.name]: restId,
-              self: selfId,
-            }
-          } else {
-            locals = {
-              ...zipObj(parameterNames, argIds),
-              self: selfId,
-            }
-          }
+        if (!method) {
+          log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+
+          const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
+          const nameId = addInstance('wollok.lang.String', instruction.message)
+          const argsId = addInstance('wollok.lang.List', argIds)
 
           currentFrame.resume.push('return')
           frameStack.push({
-            instructions: [
-              ...compile(environment)(method.body!),
-              PUSH(VOID_ID),
-              INTERRUPT('return'),
-            ],
+            instructions: compile(environment)(messageNotUnderstood.body!),
             nextInstruction: 0,
-            locals,
+            locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
             operandStack: [],
             resume: [],
           })
+        } else {
+
+          if (method.isNative) {
+            log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+            const native = nativeLookup(natives, method)
+            const args = argIds.map(id => {
+              if (id === VOID_ID) throw Failure('reference to void argument')
+              return evaluation.instances[id]
+            })
+            native(self, ...args)(evaluation)
+          } else {
+
+            const parameterNames = method.parameters.map(({ name }) => name)
+            let locals: Locals
+
+            if (method.parameters.some(({ isVarArg }) => isVarArg)) {
+              const restId = addInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
+              locals = {
+                ...zipObj(parameterNames.slice(0, -1), argIds),
+                [last(method.parameters)!.name]: restId,
+                self: selfId,
+              }
+            } else {
+              locals = {
+                ...zipObj(parameterNames, argIds),
+                self: selfId,
+              }
+            }
+
+            currentFrame.resume.push('return')
+            frameStack.push({
+              instructions: [
+                ...compile(environment)(method.body!),
+                PUSH(VOID_ID),
+                INTERRUPT('return'),
+              ],
+              nextInstruction: 0,
+              locals,
+              operandStack: [],
+              resume: [],
+            })
+          }
         }
-      }
-    })()
+      })()
 
 
-    case 'INIT': return (() => {
-      const selfId = popOperand()
-      const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
-      const self = getInstance(selfId)
+      case 'INIT': return (() => {
+        const selfId = popOperand()
+        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
+        const self = getInstance(selfId)
 
-      const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
+        const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
 
-      // TODO: Add to Filler a method for doing this and just call it ?
-      const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
-        ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
-        ...fields,
-      ], [] as Field<'Linked'>[])
+        // TODO: Add to Filler a method for doing this and just call it ?
+        const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
+          ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
+          ...fields,
+        ], [] as Field<'Linked'>[])
 
-      const constructor = constructorLookup(instruction.arity, lookupStart)
-      const ownSuperclass = superclass(lookupStart)
+        const constructor = constructorLookup(instruction.arity, lookupStart)
+        const ownSuperclass = superclass(lookupStart)
 
-      if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
+        if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
 
-      let locals: Locals
-      if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
-        const restObject = addInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
-        locals = {
-          ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
-          [last(constructor.parameters)!.name]: restObject,
-          self: selfId,
+        let locals: Locals
+        if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
+          const restObject = addInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
+          locals = {
+            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
+            [last(constructor.parameters)!.name]: restObject,
+            self: selfId,
+          }
+        } else {
+          locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
         }
-      } else {
-        locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
-      }
 
-      currentFrame.resume.push('return')
-      frameStack.push({
-        instructions: new Array<Instruction>(
-          ...instruction.initFields ? [
-            ...flatMap(({ value: v, name }: Field<'Linked'>) => [
+        currentFrame.resume.push('return')
+        frameStack.push({
+          instructions: new Array<Instruction>(
+            ...instruction.initFields ? [
+              ...flatMap(({ value: v, name }: Field<'Linked'>) => [
+                LOAD('self'),
+                ...compile(environment)(v),
+                SET(name),
+              ])(allFields),
+            ] : [],
+            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
+              ...flatMap(compile(environment))(constructor.baseCall.args),
               LOAD('self'),
-              ...compile(environment)(v),
-              SET(name),
-            ])(allFields),
-          ] : [],
-          ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-            ...flatMap(compile(environment))(constructor.baseCall.args),
+              INIT(
+                constructor.baseCall.args.length,
+                constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+                false
+              ),
+            ) : [],
+            ...compile(environment)(constructor.body),
             LOAD('self'),
-            INIT(
-              constructor.baseCall.args.length,
-              constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
-              false
-            ),
-          ) : [],
-          ...compile(environment)(constructor.body),
-          LOAD('self'),
-          INTERRUPT('return')
-        ),
-        nextInstruction: 0,
-        locals,
-        operandStack: [],
-        resume: [],
-      })
-    })()
+            INTERRUPT('return')
+          ),
+          nextInstruction: 0,
+          locals,
+          operandStack: [],
+          resume: [],
+        })
+      })()
 
 
-    case 'IF_THEN_ELSE': return (() => {
-      const check = popOperand()
-      if (!check) throw Failure('Popped empty operand stack')
+      case 'IF_THEN_ELSE': return (() => {
+        const check = popOperand()
+        if (!check) throw Failure('Popped empty operand stack')
 
-      if (check !== TRUE_ID && check !== FALSE_ID)
-        return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+        if (check !== TRUE_ID && check !== FALSE_ID)
+          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
 
-      currentFrame.resume.push('result')
-      frameStack.push({
-        instructions: [
-          PUSH(VOID_ID),
-          ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
-          INTERRUPT('result'),
-        ],
-        nextInstruction: 0,
-        locals: {},
-        operandStack: [],
-        resume: [],
-      })
-    })()
-
-
-    case 'TRY_CATCH_ALWAYS': return (() => {
-      currentFrame.resume.push('result')
-
-      frameStack.push({
-        instructions: [
-          STORE('<previous_interruption>', false),
-          ...instruction.alwaysHandler,
-          LOAD('<previous_interruption>'),
-          RESUME_INTERRUPTION,
-        ] as Instruction[],
-        nextInstruction: 0,
-        locals: {},
-        operandStack: [],
-        resume: ['result', 'return', 'exception'] as Interruption[],
-      })
-
-      frameStack.push({
-        instructions: [
-          STORE('<exception>', false),
-          ...instruction.catchHandler,
-          LOAD('<exception>'),
-          INTERRUPT('exception'),
-        ],
-        nextInstruction: 0,
-        locals: {},
-        operandStack: [],
-        resume: ['exception'] as Interruption[],
-      })
-
-      frameStack.push({
-        instructions: [
-          PUSH(VOID_ID),
-          ...instruction.body,
-          INTERRUPT('result'),
-        ],
-        nextInstruction: 0,
-        locals: {},
-        operandStack: [],
-        resume: [],
-      })
-    })()
+        currentFrame.resume.push('result')
+        frameStack.push({
+          instructions: [
+            PUSH(VOID_ID),
+            ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
+            INTERRUPT('result'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: [],
+        })
+      })()
 
 
-    case 'INTERRUPT': return (() => {
-      const valueId = popOperand()
-      interrupt(instruction.interruption, valueId)
-    })()
+      case 'TRY_CATCH_ALWAYS': return (() => {
+        currentFrame.resume.push('result')
+
+        frameStack.push({
+          instructions: [
+            STORE('<previous_interruption>', false),
+            ...instruction.alwaysHandler,
+            LOAD('<previous_interruption>'),
+            RESUME_INTERRUPTION,
+          ] as Instruction[],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: ['result', 'return', 'exception'] as Interruption[],
+        })
+
+        frameStack.push({
+          instructions: [
+            STORE('<exception>', false),
+            ...instruction.catchHandler,
+            LOAD('<exception>'),
+            INTERRUPT('exception'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: ['exception'] as Interruption[],
+        })
+
+        frameStack.push({
+          instructions: [
+            PUSH(VOID_ID),
+            ...instruction.body,
+            INTERRUPT('result'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: [],
+        })
+      })()
 
 
-    case 'RESUME_INTERRUPTION': return (() => {
-      const allInterruptions: Interruption[] = ['exception', 'return', 'result']
-      if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
-      const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
+      case 'INTERRUPT': return (() => {
+        const valueId = popOperand()
+        interrupt(instruction.interruption, valueId)
+      })()
 
-      const valueId = popOperand()
-      interrupt(lastInterruption, valueId)
-    })()
+
+      case 'RESUME_INTERRUPTION': return (() => {
+        const allInterruptions: Interruption[] = ['exception', 'return', 'result']
+        if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
+        const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
+
+        const valueId = popOperand()
+        interrupt(lastInterruption, valueId)
+      })()
+    }
+
+  } catch (error) {
+    return interrupt('exception', addInstance('wollok.lang.EvaluationException', error))
   }
 
 }
@@ -729,10 +737,6 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
   runTests: () => {
     const { descendants } = utils(environment)
 
-    // TODO:
-    const SKIP = 0
-    log.warn(`Skiping ${SKIP} tests!`)
-
     const tests = descendants(environment).filter(is('Test'))
 
     log.start('Initializing Evaluation')
@@ -744,15 +748,14 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     log.done('Initializing Evaluation')
 
     tests.forEach((test, i) => {
-      if (i > SKIP && i < 196) {
-        log.resetStep()
-        const evaluation = cloneEvaluation(initializedEvaluation)
-        log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-        log.start(test.name)
-        run(evaluation, natives, test.body)
-        log.done(test.name)
-        log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      }
+      log.resetStep()
+      const evaluation = cloneEvaluation(initializedEvaluation)
+      log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      log.start(test.name)
+      run(evaluation, natives, test.body)
+      log.done(test.name)
+      log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      log.separator()
     })
   },
 

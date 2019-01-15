@@ -72,6 +72,10 @@ class StackOverflowException inherits Exception {
 	constructor() = super()
 }
 
+class EvaluationException inherits Exception {
+	constructor() = super()
+}
+
 /**
  * An exception that is thrown when a specified element cannot be found
  */
@@ -334,7 +338,12 @@ class Collection {
 	 * Example:
 	 *      plants.forEach { plant => plant.takeSomeWater() }
 	 */
-	method forEach(closure) { self.fold(null, { acc, elemi => closure.apply(elemi) }) }
+	method forEach(closure) {
+    self.fold(null, { acc, elemi =>
+      closure.apply(elemi)
+      return acc
+    })
+  }
 	
 	/**
 	 * Answers whether all the elements of self collection satisfy a given condition
@@ -1183,7 +1192,7 @@ class String {
 	 * Answers the char value at the specified index. An index ranges from 0 to length() - 1. 
 	 * The first char value of the sequence is at index 0, the next at index 1, and so on, as for array indexing.
 	 */
-	method charAt(index) native
+	method charAt(index) = self.substring(index, index + 1)
 	
 	/** 
 	 * Concatenates the specified string to the end of this string.

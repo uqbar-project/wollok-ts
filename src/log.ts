@@ -121,8 +121,8 @@ const consoleLogger: Logger = {
 
   success: (...args) => writeLine(greenBright.bold('[GOOD]: '), ...args),
 
-  separator: title => writeLine(greenBright.bold(title
-    ? `${hr()}\n ${title}\n${hr()}`
+  separator: title => writeLine(greenBright(title
+    ? bold(`${hr()}\n ${title}\n${hr()}`)
     : `${hr()}`
   )),
 
@@ -169,8 +169,10 @@ const consoleLogger: Logger = {
   clear,
 }
 
+// TODO: enable by level
 export const enableLogs = () => {
-  assign(logger, consoleLogger, { debug: () => { }, step: () => { } })
+  // assign(logger, consoleLogger, { debug: () => { }, step: () => { } })
+  assign(logger, consoleLogger)
 }
 
 export default logger

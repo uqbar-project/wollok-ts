@@ -116,7 +116,7 @@ export default {
         get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand, interrupt, addInstance } = Operations(evaluation)
           const valueId = self.innerValue[index.innerValue]
-          if (!valueId) return interrupt('exception', addInstance('wollok.lang.BadParameter'))
+          if (!valueId) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(valueId)
         },
 
@@ -311,30 +311,47 @@ export default {
           pushOperand(addInstance('wollok.lang.Number', self.innerValue.length))
         },
 
-        'charAt': (_self: RuntimeObject, _index: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
         'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand, addInstance } = Operations(evaluation)
           pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
         },
 
         'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          if (typeof other.innerValue !== 'string')
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
           pushOperand(self.innerValue.startsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
         },
 
         'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          if (typeof other.innerValue !== 'string')
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
           pushOperand(self.innerValue.endsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
         },
 
-        'indexOf': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+          const value = self.innerValue.indexOf(other.innerValue)
+
+          // TODO: change this to just throw an exception and wrap it in the call on the interpreter
+          if (value < 0) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(addInstance('wollok.lang.Number', value))
         },
-        'lastIndexOf': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+          const value = self.innerValue.lastIndexOf(other.innerValue)
+
+          // TODO: change this to just throw an exception and wrap it in the call on the interpreter
+          if (value < 0) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(addInstance('wollok.lang.Number', value))
         },
 
         'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -352,26 +369,43 @@ export default {
           pushOperand(addInstance(self.module, self.innerValue.trim()))
         },
 
-        '<': (_self: RuntimeObject, _aString: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
+          pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
         },
-        '>': (_self: RuntimeObject, _aString: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand } = Operations(evaluation)
+          pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
         },
-        'contains': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          if (typeof other.innerValue !== 'string')
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(self.innerValue.indexOf(other.innerValue) >= 0 ? TRUE_ID : FALSE_ID)
         },
-        'substring': (_self: RuntimeObject, _startIndex: RuntimeObject, _length: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-            /* TODO:*/
-            if (arguments.length === 1 || arguments.length === 2) throw new ReferenceError('To be implemented')
-            throw new ReferenceError('To be implemented')
+
+        'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) =>
+          (evaluation: Evaluation) => {
+            const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+            if (typeof startIndex.innerValue !== 'number' || endIndex && typeof endIndex.innerValue !== 'number')
+              return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+            pushOperand(addInstance(self.module, self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue)))
           },
-        'replace': (_self: RuntimeObject, _expression: RuntimeObject, _replacement: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-            /* TODO:*/
-            throw new ReferenceError('To be implemented')
-          },
+
+        'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          if (typeof expression.innerValue !== 'string' || typeof replacement.innerValue !== 'string')
+            return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(addInstance(self.module, self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)))
+        },
 
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
