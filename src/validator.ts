@@ -6,8 +6,9 @@ import { isNil, keys, reject } from 'ramda'
 import { Literal } from '../test/builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
-  New, Node, NodeKind, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
+  New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
+import { is, Kind } from './model'
 import utils from './utils'
 
 type Code = string
@@ -16,10 +17,10 @@ type Level = 'Warning' | 'Error'
 export interface Problem {
   readonly code: Code
   readonly level: Level
-  readonly node: Node
+  readonly node: Node<'Linked'>
 }
 
-const problem = (level: Level) => <N extends Node>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
+const problem = (level: Level) => <N extends Node<'Linked'>>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
   !condition(node) ? {
     level,
     code,
@@ -34,96 +35,95 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-type HaveArgs = Method | Constructor
+type HaveArgs = Method<'Linked'> | Constructor<'Linked'>
 
-type notEmpty = Program | Test | Method
+type notEmpty = Program<'Linked'> | Test<'Linked'> | Method<'Linked'>
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
     || member2.parameters.length === member1.parameters.length) && member1 !== member2
 
 const matchingConstructors =
-  (list: ReadonlyArray<ClassMember>, member: Constructor) =>
+  (list: ReadonlyArray<ClassMember<'Linked'>>, member: Constructor<'Linked'>) =>
     list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
 
 const matchingSignatures =
-  (list: ReadonlyArray<ClassMember>, member: Method) =>
+  (list: ReadonlyArray<ClassMember<'Linked'>>, member: Method<'Linked'>) =>
     list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
 
 const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 
-const isNotAbstractClass = (node: Class) =>
-  node.members.some((member): member is Method => member.kind === 'Method' && isNotEmpty(member))
+const isNotAbstractClass = (node: Class<'Linked'>) =>
+  node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
-export const validations = (environment: Environment) => {
-  const { parentOf, firstAncestorOfKind, target } = utils(environment)
+export const validations = (environment: Environment<'Linked'>) => {
+  const { parentOf, firstAncestorOfKind, resolveTarget } = utils(environment)
 
   return {
 
-    nameIsPascalCase: warning<Mixin | Class>(node =>
+    nameIsPascalCase: warning<Mixin<'Linked'> | Class<'Linked'>>(node =>
       /^[A-Z]$/.test(node.name[0])
     ),
 
-    nameIsCamelCase: warning<Parameter | Singleton | Variable>(node => node.name !== undefined &&
+    nameIsCamelCase: warning<Parameter<'Linked'> | Singleton<'Linked'> | Variable<'Linked'>>(node => node.name !== undefined &&
       /^[a-z]$/.test(node.name[0])
     ),
 
-    onlyLastParameterIsVarArg: error<Method>(node =>
+    onlyLastParameterIsVarArg: error<Method<'Linked'>>(node =>
       node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
     ),
 
-    nameIsNotKeyword: error<Reference | Method | Variable>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
+    nameIsNotKeyword: error<Reference<'Linked'> | Method<'Linked'> | Variable<'Linked'>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
       'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
       'var', 'const', '=', 'override', 'method', 'native', 'constructor',
       'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
       'null', 'false', 'true', '=>'].includes(node.name)),
 
-    hasCatchOrAlways: error<Try>(t => t.catches.length !== 0 || t.always.sentences.length !== 0 && t.body.sentences.length !== 0),
+    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length !== 0 || t.always.sentences.length !== 0 && t.body.sentences.length !== 0),
 
-    singletonIsNotUnnamed: error<Singleton>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
+    singletonIsNotUnnamed: error<Singleton<'Linked'>>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
     /* importHasNotLocalReference: error<Import>(node =>
        (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
      ),*/
 
-    nonAsignationOfFullyQualifiedReferences: error<Assignment>(node => !node.reference.name.includes('.')),
+    nonAsignationOfFullyQualifiedReferences: error<Assignment<'Linked'>>(node => !node.reference.name.includes('.')),
 
-    fieldNameDifferentFromTheMethods: error<Field>(node => (parentOf(node) as Class).members.
-      filter((member): member is Method => member.kind === 'Method').every(({ name }) => name !== node.name)),
+    fieldNameDifferentFromTheMethods: error<Field<'Linked'>>(node => parentOf<Class<'Linked'>>(node).members.
+      filter(is('Method')).every(({ name }) => name !== node.name)),
 
-    methodsHaveDistinctSignatures: error<Class>(node => node.members
-      .every(member => member.kind === 'Method'
-        && !matchingSignatures(node.members, member)
+    methodsHaveDistinctSignatures: error<Class<'Linked'>>(node => node.members
+      .every(member => is('Method')(member) && !matchingSignatures(node.members, member)
       )),
 
-    constructorsHaveDistinctArity: error<Constructor>(node => (parentOf(node) as Class).members
-      .every(member => member.kind === 'Constructor'
-        && !matchingConstructors((parentOf(node) as Class).members, member)
+    constructorsHaveDistinctArity: error<Constructor<'Linked'>>(node => parentOf<Class<'Linked'>>(node).members
+      .every(member => is('Constructor')(member) && !matchingConstructors(parentOf<Class<'Linked'>>(node).members, member)
       )),
 
-    methodNotOnlyCallToSuper: warning<Method>(node => !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+    methodNotOnlyCallToSuper: warning<Method<'Linked'>>(node =>
+      !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
 
-    testIsNotEmpty: warning<Test>(node => isNotEmpty(node)),
+    testIsNotEmpty: warning<Test<'Linked'>>(node => isNotEmpty(node)),
 
-    programIsNotEmpty: warning<Program>(node => isNotEmpty(node)),
+    programIsNotEmpty: warning<Program<'Linked'>>(node => isNotEmpty(node)),
 
-    instantiationIsNotAbstractClass: error<New>(node =>
-      isNotAbstractClass(target(node.className))),
+    instantiationIsNotAbstractClass: error<New<'Linked'>>(node =>
+      isNotAbstractClass(resolveTarget(node.className))),
 
-    notAssignToItself: error<Assignment>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
+    notAssignToItself: error<Assignment<'Linked'>>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
 
-    notAssignToItselfInVariableDeclaration: error<Field>(node =>
-      !(node.value!.kind === 'Reference' && (node.value! as Reference).name === node.name)
+    notAssignToItselfInVariableDeclaration: error<Field<'Linked'>>(node =>
+      !(is('Reference')(node.value!) && (node.value! as Reference<'Linked'>).name === node.name)
     ),
 
 
-    dontCompareAgainstTrueOrFalse: warning<Send>(
+    dontCompareAgainstTrueOrFalse: warning<Send<'Linked'>>(
       node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
     ),
 
 
-    // codigo repetido, lo sé, horrible
-    selfIsNotInAProgram: error<Self>(node => {
+    // TODO: codigo repetido, lo sé, horrible
+    selfIsNotInAProgram: error<Self<'Linked'>>(node => {
       try {
         firstAncestorOfKind('Program', node)
       } catch (e) {
@@ -132,7 +132,7 @@ export const validations = (environment: Environment) => {
       return false
     }),
 
-    noSuperInConstructorBody: error<Super>(node => {
+    noSuperInConstructorBody: error<Super<'Linked'>>(node => {
       try {
         firstAncestorOfKind('Constructor', node)
       } catch (e) {
@@ -141,7 +141,7 @@ export const validations = (environment: Environment) => {
       return false
     }),
 
-    noReturnStatementInConstructor: error<Return>(node => {
+    noReturnStatementInConstructor: error<Return<'Linked'>>(node => {
       try {
         firstAncestorOfKind('Constructor', node)
       } catch (e) {
@@ -151,10 +151,9 @@ export const validations = (environment: Environment) => {
     }),
 
 
-    /*
     // TODO: Packages inside packages
-    notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
-      .members.some(packages => packages.name === node.name)),*/
+    // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
+    // .members.some(packages => packages.name === node.name)),
 
   }
 }
@@ -163,7 +162,7 @@ export const validations = (environment: Environment) => {
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node, environment: Environment): ReadonlyArray<Problem> => {
+export default (target: Node<'Linked'>, environment: Environment<'Linked'>): ReadonlyArray<Problem> => {
   const { reduce } = utils(environment)
 
   const {
@@ -189,7 +188,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
     noReturnStatementInConstructor,
   } = validations(environment)
 
-  const problemsByKind: { [K in NodeKind]: { [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null } } = {
+  const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
     Parameter: { nameIsCamelCase, },
     Import: {},
     Body: {},
@@ -220,7 +219,7 @@ export default (target: Node, environment: Environment): ReadonlyArray<Problem> 
   }
 
   return reduce<Problem[]>((found, node) => {
-    const checks = problemsByKind[node.kind] as { [code: string]: (n: Node, c: Code) => Problem | null }
+    const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<'Linked'>, c: Code) => Problem | null }
     return [
       ...found,
       ...reject(isNil)(keys(checks).map(code => checks[code](node, code))),

@@ -1,15 +1,32 @@
+import { assert } from 'chai'
 import { formatError, Parser } from 'parsimmon'
+import link from '../src/linker'
+import { Node, Package, Reference } from '../src/model'
+import { Environment } from './builders'
 
 declare global {
+
   export namespace Chai {
+
     interface Assertion {
+      also: Assertion
       parsedBy(parser: Parser<any>): Assertion
       into(expected: {}): Assertion
       tracedTo(start: number, end: number): Assertion
-      also: Assertion
+      linkedInto(expected: Package<'Raw'>[]): Assertion
+      target(node: Node<'Linked'>): Assertion
     }
+
   }
+
 }
+
+// TODO: Improve this, maybe with rambda?
+const dropKeys = (...keys: string[]) => (obj: any) => JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// ALSO
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const also = ({ Assertion }: any, { flag }: any) => {
   Assertion.overwriteMethod('property', (base: any) => {
@@ -27,6 +44,10 @@ export const also = ({ Assertion }: any, { flag }: any) => {
   })
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PARSER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 export const parserAssertions = ({ Assertion }: any, conf: any) => {
   also({ Assertion }, conf)
 
@@ -43,9 +64,8 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
   })
 
   Assertion.addMethod('into', function(this: any, expected: any) {
-    // TODO: Improve this, maybe with rambda?
-    const unsourced = JSON.parse(JSON.stringify(this._obj, (k, v) => k === 'source' ? undefined : v))
-    new Assertion(unsourced).to.deep.equal(expected)
+    const unsourced = dropKeys('source')
+    new Assertion(unsourced(this._obj)).to.deep.equal(unsourced(expected))
   })
 
   Assertion.addMethod('tracedTo', function(this: any, start: number, end: number) {
@@ -54,4 +74,31 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
       .to.have.nested.property('source.end.offset', end)
   })
 
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LINKER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const linkerAssertions = ({ Assertion }: any) => {
+
+  Assertion.addMethod('linkedInto', function(this: any, expected: Package<'Raw'>[]) {
+    const dropLinkedFields = dropKeys('id', 'target')
+    const actualEnvironment = link(this._obj)
+    const expectedEnvironment = Environment(...expected)
+
+    new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
+  })
+
+  Assertion.addMethod('target', function(this: any, node: Node<'Linked'>) {
+    const reference: Reference<'Linked'> = this._obj
+
+    if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
+
+    this.assert(
+      this._obj.target === node.id,
+      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target} instead`,
+      `expected reference ${reference.name} to not target node with id ${node.id}`,
+    )
+  })
 }

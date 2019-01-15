@@ -14,7 +14,8 @@
     "test": "npm run test:lint && npm run test:unit",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
     "test:lint": "tslint --project .",
-    "test:sanity": "node -r ts-node/register ./test/sanity.ts"
+    "test:sanity": "node -r ts-node/register ./test/sanity.ts",
+    "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js"
   },
   "dependencies": {
     "parsimmon": "^1.12.0",
@@ -28,10 +29,13 @@
     "@types/ramda": "github:types/npm-ramda#dist",
     "@types/uuid": "^3.4.4",
     "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "chalk": "^2.4.2",
     "mocha": "^5.2.0",
+    "rewiremock": "^3.13.0",
     "simple-git": "^1.107.0",
     "ts-node": "^7.0.1",
-    "tslint": "^5.11.0",
-    "typescript": "^3.2.1"
+    "tslint": "^5.12.0",
+    "typescript": "^3.2.2"
   }
 }
