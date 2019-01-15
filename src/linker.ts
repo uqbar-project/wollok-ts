@@ -1,10 +1,9 @@
-import { assoc, memoizeWith, merge } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { CHILDREN_CACHE, flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
+import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'
 import utils, { transform, transformByKind } from './utils'
 
-export interface Scope { readonly [name: string]: string }
+export interface Scope { [name: string]: string }
 
 const mergePackage = (members: List<Entity<'Filled' | 'Linked'>>, isolated: Entity<'Filled'>): List<Entity<'Filled' | 'Linked'>> => {
 
@@ -56,7 +55,6 @@ const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope 
         if (!superclassId) throw new Error(
           `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
         )
-        // TODO: receive error message on getNodeById?
         superclass = getNodeById<Module<'Linked'>>(superclassId)
 
         return [
@@ -71,7 +69,6 @@ const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope 
           throw new Error(
             `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
           )
-        // TODO: receive error message on getNodeById?
         superclass = getNodeById<Module<'Linked'>>(superclassId)
 
         return [
@@ -84,84 +81,83 @@ const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope 
     }
   }
 
-  const innerContributionFrom = memoizeWith(({ id }) => id)(
-    (node: Node<'Linked'>): Scope => [
-      ...isModule(node)
-        ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
-        : [],
-      ...[node, ...children(node)].map(c => outerContributionFrom(c)),
-    ].reduce(merge)
-  )
+  const innerContributionFrom = (node: Node<'Linked'>): Scope => [
+    ...isModule(node)
+      ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
+      : [],
+    ...[node, ...children(node)].map(c => outerContributionFrom(c)),
+  ].reduce((a, b) => ({ ...a, ...b }))
 
-  const outerContributionFrom = memoizeWith(({ id }) => id)(
-    (contributor: Node<'Linked'>): Scope => {
-      switch (contributor.kind) {
-        case 'Import':
-          const referenced = resolve(contributor.reference.name)
+  const outerContributionFrom = (contributor: Node<'Linked'>): Scope => {
+    switch (contributor.kind) {
+      case 'Import':
+        const referenced = resolve(contributor.reference.name)
+        return {
+          [contributor.reference.name]: referenced.id,
+          ...contributor.isGeneric
+            ? children<Entity<'Linked'>>(referenced).reduce((scope: Scope, child) => {
+              scope[child.name || ''] = child.id
+              return scope
+            }, {})
+            : { [referenced.name!]: referenced.id },
+        }
+
+      case 'Package':
+        if (contributor.name === 'wollok') {
+          const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')!
+          const globalContributions = children(langPackage).map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
           return {
-            [contributor.reference.name]: referenced.id,
-            ...contributor.isGeneric
-              ? children<Entity<'Linked'>>(referenced).reduce((scope, child) => assoc(child.name || '', child.id, scope), {})
-              : { [referenced.name!]: referenced.id },
+            [contributor.name]: contributor.id,
+            ...globalContributions,
           }
+        }
+        return { [contributor.name]: contributor.id }
 
-        case 'Package':
-          if (contributor.name === 'wollok') {
-            const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')!
-            const globalContributions = children(langPackage).map(outerContributionFrom).reduce(merge)
-            return {
-              [contributor.name]: contributor.id,
-              ...globalContributions,
-            }
+      case 'Singleton':
+      case 'Class':
+      case 'Mixin':
+      case 'Program':
+      case 'Test':
+      case 'Describe':
+        return contributor.name
+          ? {
+            [contributor.name]: contributor.id,
+            [fullyQualifiedName(contributor)]: contributor.id,
           }
-          return { [contributor.name]: contributor.id }
+          : {}
 
-        case 'Singleton':
-        case 'Class':
-        case 'Mixin':
-        case 'Program':
-        case 'Test':
-        case 'Describe':
-          return contributor.name
-            ? {
-              [contributor.name]: contributor.id,
-              [fullyQualifiedName(contributor)]: contributor.id,
-            }
-            : {}
+      case 'Variable':
+      case 'Field':
+      case 'Parameter':
+        return { [contributor.name]: contributor.id }
 
-        case 'Variable':
-        case 'Field':
-        case 'Parameter':
-          return { [contributor.name]: contributor.id }
-
-        case 'Assignment':
-        case 'Reference':
-        case 'Body':
-        case 'Method':
-        case 'Constructor':
-        case 'Return':
-        case 'Reference':
-        case 'Self':
-        case 'Literal':
-        case 'Send':
-        case 'Super':
-        case 'New':
-        case 'If':
-        case 'Throw':
-        case 'Try':
-        case 'Catch':
-        case 'Environment':
-          return {}
-      }
+      case 'Assignment':
+      case 'Reference':
+      case 'Body':
+      case 'Method':
+      case 'Constructor':
+      case 'Return':
+      case 'Reference':
+      case 'Self':
+      case 'Literal':
+      case 'Send':
+      case 'Super':
+      case 'New':
+      case 'If':
+      case 'Throw':
+      case 'Try':
+      case 'Catch':
+      case 'Environment':
+        return {}
     }
-  )
+  }
 
   const allNodes = descendants(environment)
 
   allNodes.forEach(node =>
     scopes.set(node.id, () => {
       const parent = parentOf(node)
-      return merge(getScope(parent.id), innerContributionFrom(parent))
+      return { ...getScope(parent.id), ...innerContributionFrom(parent) }
     })
   )
 
@@ -201,14 +197,7 @@ export default (
   })(identifiedEnvironment)
 
   flushAll(NODE_CACHE)
-  flushAll(CHILDREN_CACHE)
 
   return targetedEnvironment
 
-  // const linkedEnvironment = { ...targetedEnvironment, id: uuid() }
-  // utils(linkedEnvironment).children(linkedEnvironment).forEach(child => {
-  //   update(PARENT_CACHE, linkedEnvironment.id + child.id, linkedEnvironment.id)
-  // })
-
-  // return linkedEnvironment
 }

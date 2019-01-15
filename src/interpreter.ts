@@ -744,7 +744,7 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     log.done('Initializing Evaluation')
 
     tests.forEach((test, i) => {
-      if (i > SKIP && i < 10) {
+      if (i > SKIP && i < 196) {
         log.resetStep()
         const evaluation = cloneEvaluation(initializedEvaluation)
         log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
