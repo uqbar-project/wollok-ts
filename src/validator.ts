@@ -1,21 +1,14 @@
 // TODO:
 
-// No members with the same selector las clases no puede tener
-// fields que se llamen como sus metodos una clase no puede tener
-// dos metodos con el mismo nombre y aridades que matcheen
 // No imports of local references
-// No asignation of fully qualified references
-
-
-// DONE
-// Name capitalization
-// Only one (the last) parameter can be vararg
-// No references named as keywords
-// No try without catch or always
-// No unnamed singleton outside Literals
 
 import { isNil, keys, reject } from 'ramda'
-import { Class, Environment, Import, Kind, Method, Mixin, Node, NodeOfKind, Package, Reference, Try, Variable } from './model'
+import { Literal } from '../test/builders'
+import {
+  Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
+  New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
+} from './model'
+import { is, Kind } from './model'
 import utils from './utils'
 
 type Code = string
@@ -42,13 +35,38 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+type HaveArgs = Method<'Linked'> | Constructor<'Linked'>
+
+type notEmpty = Program<'Linked'> | Test<'Linked'> | Method<'Linked'>
+
+const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
+  ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
+    || member2.parameters.length === member1.parameters.length) && member1 !== member2
+
+const matchingConstructors =
+  (list: ReadonlyArray<ClassMember<'Linked'>>, member: Constructor<'Linked'>) =>
+    list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
+
+const matchingSignatures =
+  (list: ReadonlyArray<ClassMember<'Linked'>>, member: Method<'Linked'>) =>
+    list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
+
+const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
+
+const isNotAbstractClass = (node: Class<'Linked'>) =>
+  node.members.some(member => is('Method')(member) && isNotEmpty(member))
+
 export const validations = (environment: Environment<'Linked'>) => {
-  const { parentOf } = utils(environment)
+  const { parentOf, firstAncestorOfKind, resolveTarget } = utils(environment)
 
   return {
 
     nameIsPascalCase: warning<Mixin<'Linked'> | Class<'Linked'>>(node =>
       /^[A-Z]$/.test(node.name[0])
+    ),
+
+    nameIsCamelCase: warning<Parameter<'Linked'> | Singleton<'Linked'> | Variable<'Linked'>>(node => node.name !== undefined &&
+      /^[a-z]$/.test(node.name[0])
     ),
 
     onlyLastParameterIsVarArg: error<Method<'Linked'>>(node =>
@@ -61,15 +79,81 @@ export const validations = (environment: Environment<'Linked'>) => {
       'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
       'null', 'false', 'true', '=>'].includes(node.name)),
 
-    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length !== 0 && t.body.sentences.length !== 0),
+    hasCatchOrAlways: error<Try<'Linked'>>(t => t.catches.length !== 0 || t.always.sentences.length !== 0 && t.body.sentences.length !== 0),
 
-    singletonIsNotUnnamed: error<Package<'Linked'>>(node => node.members.some(
-      element => element.kind === 'Singleton' && element.name !== undefined
-    )),
+    singletonIsNotUnnamed: error<Singleton<'Linked'>>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
 
-    importHasNotLocalReference: error<Import<'Linked'>>(node =>
-      (parentOf(node) as Package<'Linked'>).members.every(({ name }) => name !== node.reference.name)
+    /* importHasNotLocalReference: error<Import>(node =>
+       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
+     ),*/
+
+    nonAsignationOfFullyQualifiedReferences: error<Assignment<'Linked'>>(node => !node.reference.name.includes('.')),
+
+    fieldNameDifferentFromTheMethods: error<Field<'Linked'>>(node => parentOf<Class<'Linked'>>(node).members.
+      filter(is('Method')).every(({ name }) => name !== node.name)),
+
+    methodsHaveDistinctSignatures: error<Class<'Linked'>>(node => node.members
+      .every(member => is('Method')(member) && !matchingSignatures(node.members, member)
+      )),
+
+    constructorsHaveDistinctArity: error<Constructor<'Linked'>>(node => parentOf<Class<'Linked'>>(node).members
+      .every(member => is('Constructor')(member) && !matchingConstructors(parentOf<Class<'Linked'>>(node).members, member)
+      )),
+
+    methodNotOnlyCallToSuper: warning<Method<'Linked'>>(node =>
+      !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+
+    testIsNotEmpty: warning<Test<'Linked'>>(node => isNotEmpty(node)),
+
+    programIsNotEmpty: warning<Program<'Linked'>>(node => isNotEmpty(node)),
+
+    instantiationIsNotAbstractClass: error<New<'Linked'>>(node =>
+      isNotAbstractClass(resolveTarget(node.className))),
+
+    notAssignToItself: error<Assignment<'Linked'>>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
+
+    notAssignToItselfInVariableDeclaration: error<Field<'Linked'>>(node =>
+      !(is('Reference')(node.value!) && (node.value! as Reference<'Linked'>).name === node.name)
     ),
+
+
+    dontCompareAgainstTrueOrFalse: warning<Send<'Linked'>>(
+      node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
+    ),
+
+
+    // TODO: codigo repetido, lo sé, horrible
+    selfIsNotInAProgram: error<Self<'Linked'>>(node => {
+      try {
+        firstAncestorOfKind('Program', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
+    noSuperInConstructorBody: error<Super<'Linked'>>(node => {
+      try {
+        firstAncestorOfKind('Constructor', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
+    noReturnStatementInConstructor: error<Return<'Linked'>>(node => {
+      try {
+        firstAncestorOfKind('Constructor', node)
+      } catch (e) {
+        return true
+      }
+      return false
+    }),
+
+
+    // TODO: Packages inside packages
+    // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
+    // .members.some(packages => packages.name === node.name)),
 
   }
 }
@@ -83,36 +167,50 @@ export default (target: Node<'Linked'>, environment: Environment<'Linked'>): Rea
 
   const {
     nameIsPascalCase,
+    nameIsCamelCase,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
     hasCatchOrAlways,
     singletonIsNotUnnamed,
-    importHasNotLocalReference,
+    nonAsignationOfFullyQualifiedReferences,
+    fieldNameDifferentFromTheMethods,
+    methodsHaveDistinctSignatures,
+    constructorsHaveDistinctArity,
+    methodNotOnlyCallToSuper,
+    programIsNotEmpty,
+    testIsNotEmpty,
+    instantiationIsNotAbstractClass,
+    selfIsNotInAProgram,
+    notAssignToItself,
+    notAssignToItselfInVariableDeclaration,
+    dontCompareAgainstTrueOrFalse,
+    noSuperInConstructorBody,
+    noReturnStatementInConstructor,
   } = validations(environment)
 
   const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
-    Parameter: {},
-    Import: { importHasNotLocalReference },
+    Parameter: { nameIsCamelCase, },
+    Import: {},
     Body: {},
     Catch: {},
-    Package: { singletonIsNotUnnamed },
-    Program: {},
-    Test: {},
-    Class: { nameIsPascalCase },
-    Singleton: {},
+    Package: {},
+    Program: { programIsNotEmpty },
+    Test: { testIsNotEmpty },
+    Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
+    Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
-    Constructor: {},
-    Field: {},
-    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword },
-    Variable: { nameIsNotKeyword },
-    Return: {},
-    Assignment: {},
+    Constructor: { constructorsHaveDistinctArity },
+    Field: { fieldNameDifferentFromTheMethods, notAssignToItselfInVariableDeclaration },
+    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
+    Variable: { nameIsCamelCase, nameIsNotKeyword },
+    Return: { noReturnStatementInConstructor },
+    Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
-    Self: {},
-    New: {},
+    Self: { selfIsNotInAProgram },
+    New: { instantiationIsNotAbstractClass },
     Literal: {},
-    Send: {},
-    Super: {},
+    Send: { dontCompareAgainstTrueOrFalse },
+    Super: { noSuperInConstructorBody },
     If: {},
     Throw: {},
     Try: { hasCatchOrAlways },
