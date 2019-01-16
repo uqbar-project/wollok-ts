@@ -4,6 +4,7 @@ import log from './log'
 import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
 import utils from './utils'
 
+
 // TODO: Remove the parameter type from Id
 
 export interface Locals { [name: string]: Id<'Linked'> }
@@ -37,6 +38,8 @@ export const NULL_ID = 'null'
 export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
+
+export const DECIMAL_PRECISION = 4
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
@@ -270,7 +273,7 @@ export const Operations = (evaluation: Evaluation) => {
   // TODO: cache Numbers and Strings
   const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
     if (module === 'wollok.lang.Number') {
-      const stringValue = innerValue.toFixed(4)
+      const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
       const numberId = 'N!' + stringValue
       let cached = instances[numberId]
       if (!cached) {

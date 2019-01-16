@@ -168,39 +168,40 @@ export default {
         },
 
         '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
         },
 
         '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue - other.innerValue))
         },
 
         '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue * other.innerValue))
         },
 
         '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           if (other.innerValue === 0) interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue / other.innerValue))
         },
 
         '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue ** other.innerValue))
         },
 
         '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue % other.innerValue))
-        },
-
-        'div': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
-          pushOperand(addInstance(self.module, Math.round(self.innerValue / other.innerValue)))
         },
 
         'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -209,22 +210,26 @@ export default {
         },
 
         '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
         },
 
         '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID)
         },
 
         '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
         },
 
         '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID)
         },
 
@@ -259,13 +264,11 @@ export default {
         },
 
         'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { addInstance, pushOperand } = Operations(evaluation)
+          const { addInstance, pushOperand, interrupt } = Operations(evaluation)
+          if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue))
         },
 
-        'gcd': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
       },
 
 
@@ -491,6 +494,7 @@ export default {
 
       Closure: {
         // TODO: maybe we can do this better once Closure is a reified node?
+        // TODO: Can't we do this on the initialize?
         saveContext: (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
           const context: Frame[] = evaluation.frameStack.slice(0, -1).map(frame => ({

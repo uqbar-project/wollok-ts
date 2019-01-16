@@ -1022,7 +1022,7 @@ class Number {
 	 *		8.div(3)  ==> Answers 2
 	 * 		15.div(5) ==> Answers 3
 	 */
-	method div(other) native
+	method div(other) = (self / other).truncate(0)
 	
 	/**
 	 * raisedTo
@@ -1076,7 +1076,7 @@ class Number {
 	 * 		8.gcd(12) ==> Answers 4
 	 *		5.gcd(10) ==> Answers 5
 	 */
-	method gcd(other) native
+	method gcd(other) = if(other == 0) self else other.gcd(self % other)
 	
 	/**
 	 * least common multiple
@@ -1095,9 +1095,8 @@ class Number {
 	 */
 	method digits() {
 		var digits = self.toString().size()
-		if (self < 0) {
-			digits -= 1
-		}
+		if (self < 0) { digits -= 1 }
+    if (self % 1 != 0) { digits -= 1 }
 		return digits
 	}
 	

@@ -17,27 +17,21 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 // TODO: Don't skip tests
 const SKIP = [
+
+  // TODO: Dictionary
   join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'unnamedObjectInheritanceTest',
-    'objectInheritingFromAClassNamedParameters.wtest'),
+
+  // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'constReferencesCannotBeAssignedInAFixture.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testConstReferencesCanBeInitiallyAssignedInAFixture.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testFixture.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
-  join('test', 'sanity', 'src', 'exceptionTestCase', 'testCanCreateExceptionUsingNamedParametersWithoutCause.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
   join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'numberTestCase.wtest'),
+  join('test', 'sanity', 'src', 'exceptionTestCase', 'testCanCreateExceptionUsingNamedParametersWithoutCause.wtest'),
+  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
+  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'unnamedObjectInheritanceTest',
+    'objectInheritingFromAClassNamedParameters.wtest'),
+
+  // TODO: Properties
   join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInClass.wtest'),
   join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInObject.wtest'),
   join('test', 'sanity', 'src', 'propertiesTestCase', 'customGetterForPropertyConstInClass.wtest'),
@@ -47,13 +41,29 @@ const SKIP = [
   join('test', 'sanity', 'src', 'propertiesTestCase', 'getterForPropertyConstInWko.wtest'),
   join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInClass.wtest'),
   join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInObject.wtest'),
+  join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
+  join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
+
+  // TODO: Dates
+  join('test', 'sanity', 'src', 'date.wtest'),
+
+  // TODO: Fixtures
+  join('test', 'sanity', 'src', 'describe', 'constReferencesCannotBeAssignedInAFixture.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testFixture.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testConstReferencesCanBeInitiallyAssignedInAFixture.wtest'),
+
+  // TODO: Describes with non-test definitions
+  join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
+
   join('test', 'sanity', 'src', 'recursiveToStringTestCase.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'mixingAtInstantiation.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'multipleMixinAtInstantiationTime.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'singleMixinAtInstantiationTime.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'toStringFixture.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'inheritedOneArgumentConstructorInheritedFromSuperclass.wtest'),
-  join('test', 'sanity', 'src', 'date.wtest'),
 ]
 
 const git = simplegit()

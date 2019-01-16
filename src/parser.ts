@@ -18,8 +18,9 @@ const INFIX_OPERATORS = [
   ['>=', '<=', '>', '<'],
   ['..<', '>..', '..', '->', '>>>', '>>', '<<<', '<<', '<=>', '<>', '?:'],
   ['+', '-'],
-  ['**', '%'],
+  ['**'], // TODO: remove this line.
   ['*', '/'],
+  ['**', '%'],
 ]
 const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS.map(op => `${op}_`))
 
