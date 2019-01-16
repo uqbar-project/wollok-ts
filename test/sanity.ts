@@ -21,6 +21,15 @@ const SKIP = [
   // TODO: Dictionary
   join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),
 
+  // TODO: Dates
+  join('test', 'sanity', 'src', 'date.wtest'),
+
+  // TODO: Missing reference to with
+  join('test', 'sanity', 'src', 'mixins', 'mixingAtInstantiation.wtest'),
+  join('test', 'sanity', 'src', 'mixins', 'multipleMixinAtInstantiationTime.wtest'),
+  join('test', 'sanity', 'src', 'mixins', 'singleMixinAtInstantiationTime.wtest'),
+  join('test', 'sanity', 'src', 'mixins', 'toStringFixture.wtest'),
+
   // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),
@@ -44,8 +53,10 @@ const SKIP = [
   join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
 
-  // TODO: Dates
-  join('test', 'sanity', 'src', 'date.wtest'),
+  // TODO: Describes with non-test definitions
+  join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
 
   // TODO: Fixtures
   join('test', 'sanity', 'src', 'describe', 'constReferencesCannotBeAssignedInAFixture.wtest'),
@@ -53,16 +64,7 @@ const SKIP = [
   join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'),
   join('test', 'sanity', 'src', 'describe', 'testConstReferencesCanBeInitiallyAssignedInAFixture.wtest'),
 
-  // TODO: Describes with non-test definitions
-  join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
-
-  join('test', 'sanity', 'src', 'recursiveToStringTestCase.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'mixingAtInstantiation.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'multipleMixinAtInstantiationTime.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'singleMixinAtInstantiationTime.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'toStringFixture.wtest'),
+  // TODO: Inherited constructor with parameter
   join('test', 'sanity', 'src', 'constructors', 'inheritedOneArgumentConstructorInheritedFromSuperclass.wtest'),
 ]
 
