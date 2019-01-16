@@ -295,7 +295,7 @@ export const Operations = (evaluation: Evaluation) => {
     if (!nextFrame) {
       if (interruption === 'exception') {
         const value = getInstance(valueId)
-        log.error(value.module, ':', value.fields.message && getInstance(value.fields.message).innerValue)
+        log.error(value.module, ':', value.fields.message && getInstance(value.fields.message).innerValue || value.innerValue)
       }
       throw Failure(`Unhandled "${interruption}" interruption: ${valueId}`)
     }

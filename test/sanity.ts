@@ -17,12 +17,7 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 // TODO: Don't skip tests
 const SKIP = [
-  join('test', 'sanity', 'src', 'literals', 'sets.wtest'),
-  join('test', 'sanity', 'src', 'set.wtest'),
-  join('test', 'sanity', 'src', 'collectionTestCase.wtest'),
-  join('test', 'sanity', 'src', 'list.wtest'),
   join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),
-  join('test', 'sanity', 'src', 'numbers', 'numberIdentity.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
   join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),

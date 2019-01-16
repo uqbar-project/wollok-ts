@@ -38,18 +38,6 @@ export default {
           pushOperand(addInstance('wollok.lang.String', self.id))
         },
 
-        'instanceVariables': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
-        'instanceVariableFor': (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
-        'resolve': (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
         'kindName': (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand } = Operations(evaluation)
           pushOperand(addInstance('wollok.lang.String', self.module))
@@ -69,55 +57,12 @@ export default {
         },
       },
 
-      Set: {
-        'initialize': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
+      Collection: {
 
-        'anyOne': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'fold': (_self: RuntimeObject, _initialValue: RuntimeObject, _closure: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-            /* TODO:*/
-            throw new ReferenceError('To be implemented')
-          },
-        'add': (_self: RuntimeObject, _element: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'remove': (_self: RuntimeObject, _element: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'size': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'clear': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
-        'join': (_self: RuntimeObject, _separator: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/
-          if (arguments.length === 0 || arguments.length === 1) throw new ReferenceError('To be implemented')
-          throw new ReferenceError('To be implemented')
-        },
-
-        '==': (_self: RuntimeObject, _other: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-      },
-
-      List: {
         initialize: (self: RuntimeObject, ) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
           self.innerValue = self.innerValue || []
           pushOperand(VOID_ID)
-        },
-
-        get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
-          const valueId = self.innerValue[index.innerValue]
-          if (!valueId) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
-          pushOperand(valueId)
         },
 
         fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
@@ -165,6 +110,24 @@ export default {
           const { pushOperand } = Operations(evaluation)
           self.innerValue.splice(0, self.innerValue.length)
           pushOperand(VOID_ID)
+        },
+      },
+
+      Set: {
+
+        add: (_self: RuntimeObject, _element: RuntimeObject) => (_evaluation: Evaluation) => {
+          /* TODO:*/ throw new ReferenceError('To be implemented')
+        },
+
+      },
+
+      List: {
+
+        get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+          const valueId = self.innerValue[index.innerValue]
+          if (!valueId) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+          pushOperand(valueId)
         },
 
       },
@@ -295,8 +258,9 @@ export default {
           )
         },
 
-        'randomUpTo': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+        'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { addInstance, pushOperand } = Operations(evaluation)
+          pushOperand(addInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue))
         },
 
         'gcd': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
