@@ -24,12 +24,6 @@ const SKIP = [
   // TODO: Dates
   join('test', 'sanity', 'src', 'date.wtest'),
 
-  // TODO: Missing reference to with
-  join('test', 'sanity', 'src', 'mixins', 'mixingAtInstantiation.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'multipleMixinAtInstantiationTime.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'singleMixinAtInstantiationTime.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'toStringFixture.wtest'),
-
   // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),

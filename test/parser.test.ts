@@ -1419,24 +1419,39 @@ describe('Wollok parser', () => {
 
   })
 
-  describe('Constructors', () => {
+  describe('New', () => {
 
     const parser = Parse.New
 
-    it('should parse constructors without parameters', () => {
+    it('should parse instantiations without parameters', () => {
       'new C()'.should.be.parsedBy(parser).into(
         New(Reference('C'), [])
       ).and.be.tracedTo(0, 7)
         .and.have.nested.property('className').tracedTo(4, 5)
     })
 
-    it('should parse constructors with parameters', () => {
+    it('should parse instantiations with parameters', () => {
       'new C(1,2)'.should.be.parsedBy(parser).into(
         New(Reference('C'), [Literal(1), Literal(2)])
       ).and.be.tracedTo(0, 10)
         .and.have.nested.property('className').tracedTo(4, 5)
         .and.also.have.nested.property('args.0').tracedTo(6, 7)
         .and.also.have.nested.property('args.1').tracedTo(8, 9)
+    })
+
+    it('should parse instantiations of linearized classes as singletons', () => {
+      'new C(1,2) with M with N'.should.be.parsedBy(parser).into(
+        Literal(
+          Singleton(undefined, {
+            superCall: { superclass: Reference('C'), args: [Literal(1), Literal(2)] },
+            mixins: [Reference('N'), Reference('M')],
+          })()
+        )
+      ).and.have.nested.property('value.superCall.superclass').tracedTo(4, 5)
+        .and.also.have.nested.property('value.superCall.args.0').tracedTo(6, 7)
+        .and.also.have.nested.property('value.superCall.args.1').tracedTo(8, 9)
+        .and.also.have.nested.property('value.mixins.0').tracedTo(23, 24)
+        .and.also.have.nested.property('value.mixins.1').tracedTo(16, 17)
     })
 
     it('should not parse "new" keyword without a builder', () => {

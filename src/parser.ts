@@ -324,12 +324,34 @@ export const Super: Parser<SuperNode<'Raw'>> = lazy(() =>
 )
 
 export const New: Parser<NewNode<'Raw'>> = lazy(() =>
-  key('new').then(
-    node('New')({
-      className: Reference,
-      args: Arguments,
-    })
-  ).thru(sourced)
+  alt(
+    key('new').then(
+      seqMap(
+        Reference,
+        Arguments,
+        // TODO: Convince the world we need a single linearization syntax
+        (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
+        (superclass, args, mixins) => ({
+          kind: 'Literal' as 'Literal',
+          value: {
+            kind: 'Singleton' as 'Singleton',
+            id: undefined,
+            name: undefined,
+            superCall: { superclass, args },
+            mixins,
+            members: [],
+          },
+        })
+      )
+    ),
+
+    key('new').then(
+      node('New')({
+        className: Reference,
+        args: Arguments,
+      })
+    ).thru(sourced),
+  )
 )
 
 export const If: Parser<IfNode<'Raw'>> = lazy(() =>
