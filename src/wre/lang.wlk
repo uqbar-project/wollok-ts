@@ -1466,11 +1466,7 @@ class Range {
  */
 class Closure {
 
-  constructor() {
-    self.saveContext()
-  }
-
-  method saveContext() native
+  override method initialize() native
 
   method apply(args...) native
 	

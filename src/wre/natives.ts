@@ -494,10 +494,9 @@ export default {
 
       Closure: {
         // TODO: maybe we can do this better once Closure is a reified node?
-        // TODO: Can't we do this on the initialize?
-        saveContext: (self: RuntimeObject) => (evaluation: Evaluation) => {
+        initialize: (self: RuntimeObject) => (evaluation: Evaluation) => {
           const { pushOperand } = Operations(evaluation)
-          const context: Frame[] = evaluation.frameStack.slice(0, -1).map(frame => ({
+          const context: Frame[] = evaluation.frameStack.slice(0, -2).map(frame => ({
             instructions: [],
             nextInstruction: 0,
             locals: frame.locals,
