@@ -1,11 +1,16 @@
-// tslint:disable:no-shadowed-variable
-// tslint:disable:variable-name
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { concat, toPairs } from 'ramda'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, NodeKind, NodeOfKind, NodePayload, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Unlinked, Variable as VariableNode } from './model'
+import { last } from './extensions'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+
+const { keys } = Object
+
+type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
+
+export type NodePayload<N extends Node<'Raw'>> = Drop<N, 'kind' | 'id'>
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
+const LAZY_OPERATORS = ['||', '&&']
 const INFIX_OPERATORS = [
   ['||'],
   ['&&'],
@@ -13,10 +18,11 @@ const INFIX_OPERATORS = [
   ['>=', '<=', '>', '<'],
   ['..<', '>..', '..', '->', '>>>', '>>', '<<<', '<<', '<=>', '<>', '?:'],
   ['+', '-'],
-  ['**', '%'],
+  ['**'], // TODO: remove this line.
   ['*', '/'],
+  ['**', '%'],
 ]
-const OPERATORS = INFIX_OPERATORS.reduce(concat, PREFIX_OPERATORS.map(op => `${op}_`))
+const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS.map(op => `${op}_`))
 
 // TODO: Resolve this without effect
 let SOURCE_FILE: string | undefined
@@ -29,15 +35,16 @@ const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
 const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
 const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.or(of(undefined))
-const maybeString = (s: string) => string(s).atMost(1).map(([s]) => !!s)
+const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!head)
 
 const node = <
-  K extends NodeKind,
-  N extends NodeOfKind<K> = NodeOfKind<K>,
+  K extends Kind,
+  N extends NodeOfKind<K, 'Raw'> = NodeOfKind<K, 'Raw'>,
   P extends NodePayload<N> = NodePayload<N>,
-  C extends { [K in keyof P]: Parser<P[K]> } = { [K in keyof P]: Parser<P[K]> },
-  >(kind: K) => (fieldParserSeq: C): Parser<Unlinked<N>> => {
-    const subparsers: [keyof P, Parser<P[keyof P]>][] = toPairs(fieldParserSeq) as unknown as [keyof P, Parser<P[keyof P]>][]
+  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
+  >(kind: K) => (fieldParserSeq: C): Parser<N> => {
+    const subparsers = keys(fieldParserSeq).map(fieldName =>
+      [fieldName, fieldParserSeq[fieldName as keyof C]] as [keyof P, Parser<P[keyof P]>])
     return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
   }
 
@@ -53,28 +60,28 @@ const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
 
 export const Name: Parser<NameType> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 
-export const Parameter: Parser<Unlinked<ParameterNode>> = lazy(() =>
+export const Parameter: Parser<ParameterNode<'Raw'>> = lazy(() =>
   node('Parameter')({
     name: Name,
     isVarArg: maybeString('...'),
   }).thru(sourced)
 )
 
-export const Parameters: Parser<Unlinked<ParameterNode>[]> = lazy(() =>
+export const Parameters: Parser<List<ParameterNode<'Raw'>>> = lazy(() =>
   Parameter.sepBy(key(',')).wrap(key('('), key(')'))
 )
 
-export const Arguments: Parser<Unlinked<ExpressionNode>[]> = lazy(() =>
+export const Arguments: Parser<List<ExpressionNode<'Raw'>>> = lazy(() =>
   Expression.sepBy(key(',')).wrap(key('('), key(')'))
 )
 
-export const Body: Parser<Unlinked<BodyNode>> = lazy(() =>
+export const Body: Parser<BodyNode<'Raw'>> = lazy(() =>
   node('Body')({
     sentences: Sentence.skip(optional(alt(key(';'), _))).many(),
   }).wrap(key('{'), string('}')).thru(sourced)
 )
 
-export const SingleExpressionBody: Parser<Unlinked<BodyNode>> = lazy(() =>
+export const SingleExpressionBody: Parser<BodyNode<'Raw'>> = lazy(() =>
   node('Body')({
     sentences: Sentence.times(1),
   }).thru(sourced)
@@ -84,16 +91,19 @@ export const SingleExpressionBody: Parser<Unlinked<BodyNode>> = lazy(() =>
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Entity: Parser<Unlinked<EntityNode>> = lazy(() => alt(Package, Class, Singleton, Mixin, Program, Describe, Test))
+export const Entity: Parser<EntityNode<'Raw'>> = lazy(() => alt(Package, Class, Singleton, Mixin, Program, Describe, Test))
 
-export const Import: Parser<Unlinked<ImportNode>> = lazy(() =>
+export const Import: Parser<ImportNode<'Raw'>> = lazy(() =>
   key('import').then(node('Import')({
-    reference: node('Reference')({ name: Name.sepBy1(key('.')).tieWith('.') }).thru(sourced),
+    reference: node('Reference')({
+      name: Name.sepBy1(key('.')).tieWith('.'),
+      target: of(undefined),
+    }).thru(sourced),
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
 
-export const File = (fileName: string): Parser<Unlinked<PackageNode>> => {
+export const File = (fileName: string): Parser<PackageNode<'Raw'>> => {
   SOURCE_FILE = fileName
   return lazy(() =>
     node('Package')({
@@ -104,7 +114,7 @@ export const File = (fileName: string): Parser<Unlinked<PackageNode>> => {
   )
 }
 
-export const Package: Parser<Unlinked<PackageNode>> = lazy(() =>
+export const Package: Parser<PackageNode<'Raw'>> = lazy(() =>
   key('package').then(node('Package')({
     name: Name.skip(key('{')),
     imports: Import.sepBy(optional(_)).skip(optional(_)),
@@ -112,21 +122,21 @@ export const Package: Parser<Unlinked<PackageNode>> = lazy(() =>
   })).thru(sourced)
 )
 
-export const Program: Parser<Unlinked<ProgramNode>> = lazy(() =>
+export const Program: Parser<ProgramNode<'Raw'>> = lazy(() =>
   key('program').then(node('Program')({
     name: Name,
     body: Body,
   })).thru(sourced)
 )
 
-export const Describe: Parser<Unlinked<DescribeNode>> = lazy(() =>
+export const Describe: Parser<DescribeNode<'Raw'>> = lazy(() =>
   key('describe').then(node('Describe')({
     name: String,
     members: Test.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
 
-export const Test: Parser<Unlinked<TestNode>> = lazy(() =>
+export const Test: Parser<TestNode<'Raw'>> = lazy(() =>
   key('test').then(node('Test')({
     name: String,
     body: Body,
@@ -134,10 +144,10 @@ export const Test: Parser<Unlinked<TestNode>> = lazy(() =>
 )
 
 const MixinLinearization = lazy(() =>
-  key('mixed with').then(Reference.sepBy1(key('and')))
+  key('mixed with').then(Reference.sepBy1(key('and'))).map(mixins => mixins.reverse())
 )
 
-export const Class: Parser<Unlinked<ClassNode>> = lazy(() =>
+export const Class: Parser<ClassNode<'Raw'>> = lazy(() =>
   key('class').then(node('Class')({
     name: Name,
     superclass: optional(key('inherits').then(Reference)),
@@ -146,7 +156,7 @@ export const Class: Parser<Unlinked<ClassNode>> = lazy(() =>
   })).thru(sourced)
 )
 
-export const Singleton: Parser<Unlinked<SingletonNode>> = lazy(() => {
+export const Singleton: Parser<SingletonNode<'Raw'>> = lazy(() => {
   const SuperCall = key('inherits').then(seqMap(Reference, Arguments.or(of([])), (superclass, args) => ({ superclass, args })))
 
   return key('object').then(seqMap(
@@ -168,12 +178,14 @@ export const Singleton: Parser<Unlinked<SingletonNode>> = lazy(() => {
 
       of({ mixins: [] }),
     ),
+
     ObjectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
-    ({ name, superCall, mixins }, members) => ({ kind: 'Singleton' as 'Singleton', name, superCall, mixins, members })
+
+    ({ name, superCall, mixins }, members) => ({ kind: 'Singleton' as 'Singleton', id: undefined, name, superCall, mixins, members })
   )).thru(sourced)
 })
 
-export const Mixin: Parser<Unlinked<MixinNode>> = lazy(() =>
+export const Mixin: Parser<MixinNode<'Raw'>> = lazy(() =>
   key('mixin').then(node('Mixin')({
     name: Name,
     mixins: MixinLinearization.or(of([])),
@@ -185,11 +197,11 @@ export const Mixin: Parser<Unlinked<MixinNode>> = lazy(() =>
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const ClassMember: Parser<Unlinked<ClassMemberNode>> = lazy(() => alt(Constructor, ObjectMember))
+export const ClassMember: Parser<ClassMemberNode<'Raw'>> = lazy(() => alt(Constructor, ObjectMember))
 
-export const ObjectMember: Parser<Unlinked<ObjectMemberNode>> = lazy(() => alt(Method, Field))
+export const ObjectMember: Parser<ObjectMemberNode<'Raw'>> = lazy(() => alt(Method, Field))
 
-export const Field: Parser<Unlinked<FieldNode>> = lazy(() =>
+export const Field: Parser<FieldNode<'Raw'>> = lazy(() =>
   node('Field')({
     isReadOnly: alt(key('var').result(false), key('const').result(true)),
     name: Name,
@@ -197,22 +209,28 @@ export const Field: Parser<Unlinked<FieldNode>> = lazy(() =>
   }).thru(sourced)
 )
 
-export const Method: Parser<Unlinked<MethodNode>> = lazy(() => seqMap(
+export const Method: Parser<MethodNode<'Raw'>> = lazy(() => seqMap(
   key('override').result(true).or(of(false)),
   key('method').then(alt(Name, ...OPERATORS.map(key))),
   Parameters,
   alt(
     key('native').result({ isNative: true, body: undefined }),
     key('=').then(
-      SingleExpressionBody.map(body => ({ isNative: false, body }))
+      Expression.map(value => ({
+        isNative: false, body: {
+          kind: 'Body', id: undefined, sentences: [{ kind: 'Return', value }], source: value.source,
+        },
+      }))
     ),
     Body.map(body => ({ isNative: false, body })),
     of({ isNative: false, body: undefined })
   ),
-  (isOverride, name, parameters, { isNative, body }) => ({ kind: 'Method' as 'Method', isOverride, name, parameters, isNative, body })
+  (isOverride, name, parameters, { isNative, body }) => (
+    { kind: 'Method' as 'Method', id: undefined, isOverride, name, parameters, isNative, body }
+  )
 ).thru(sourced))
 
-export const Constructor: Parser<Unlinked<ConstructorNode>> = lazy(() =>
+export const Constructor: Parser<ConstructorNode<'Raw'>> = lazy(() =>
   key('constructor').then(node('Constructor')({
     parameters: Parameters,
     baseCall: optional(key('=').then(seqMap(
@@ -228,9 +246,9 @@ export const Constructor: Parser<Unlinked<ConstructorNode>> = lazy(() =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Sentence: Parser<Unlinked<SentenceNode>> = lazy(() => alt(Variable, Return, Assignment, Expression))
+export const Sentence: Parser<SentenceNode<'Raw'>> = lazy(() => alt(Variable, Return, Assignment, Expression))
 
-export const Variable: Parser<Unlinked<VariableNode>> = lazy(() =>
+export const Variable: Parser<VariableNode<'Raw'>> = lazy(() =>
   node('Variable')({
     isReadOnly: alt(key('var').result(false), key('const').result(true)),
     name: Name,
@@ -238,21 +256,32 @@ export const Variable: Parser<Unlinked<VariableNode>> = lazy(() =>
   }).thru(sourced)
 )
 
-export const Return: Parser<Unlinked<ReturnNode>> = lazy(() =>
-  key('return').then(node('Return')({ value: Expression })).thru(sourced)
+export const Return: Parser<ReturnNode<'Raw'>> = lazy(() =>
+  key('return').then(node('Return')({
+    value: optional(Expression),
+  })).thru(sourced)
 )
 
-export const Assignment: Parser<Unlinked<AssignmentNode>> = lazy(() =>
+export const Assignment: Parser<AssignmentNode<'Raw'>> = lazy(() =>
   seqMap(
     Reference,
     alt(...ASSIGNATION_OPERATORS.map(key)),
     Expression,
     (reference, operator, value) => ({
       kind: 'Assignment' as 'Assignment',
+      id: undefined,
       reference,
       value: operator === '='
         ? value
-        : ({ kind: 'Send' as 'Send', receiver: reference, message: operator.slice(0, -1), args: [value] }),
+        : ({
+          kind: 'Send' as 'Send',
+          id: undefined,
+          receiver: reference,
+          message: operator.slice(0, -1),
+          args: LAZY_OPERATORS.includes(operator.slice(0, -1))
+            ? [makeClosure([], [value])]
+            : [value],
+        }),
     })
   ).thru(sourced)
 )
@@ -261,9 +290,9 @@ export const Assignment: Parser<Unlinked<AssignmentNode>> = lazy(() =>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Expression: Parser<Unlinked<ExpressionNode>> = lazy(() => Operation)
+export const Expression: Parser<ExpressionNode<'Raw'>> = lazy(() => Operation)
 
-export const PrimaryExpression: Parser<Unlinked<ExpressionNode>> = lazy(() => alt(
+export const PrimaryExpression: Parser<ExpressionNode<'Raw'>> = lazy(() => alt(
   Self,
   Super,
   If,
@@ -275,17 +304,18 @@ export const PrimaryExpression: Parser<Unlinked<ExpressionNode>> = lazy(() => al
   Expression.wrap(key('('), key(')'))
 ))
 
-export const Self: Parser<Unlinked<SelfNode>> = lazy(() =>
+export const Self: Parser<SelfNode<'Raw'>> = lazy(() =>
   key('self').then(node('Self')({})).thru(sourced)
 )
 
-export const Reference: Parser<Unlinked<ReferenceNode>> = lazy(() =>
+export const Reference: Parser<ReferenceNode<'Raw'>> = lazy(() =>
   node('Reference')({
     name: Name,
+    target: of(undefined),
   }).thru(sourced)
 )
 
-export const Super: Parser<Unlinked<SuperNode>> = lazy(() =>
+export const Super: Parser<SuperNode<'Raw'>> = lazy(() =>
   key('super').then(
     node('Super')({
       args: Arguments,
@@ -293,44 +323,62 @@ export const Super: Parser<Unlinked<SuperNode>> = lazy(() =>
   ).thru(sourced)
 )
 
-export const New: Parser<Unlinked<NewNode>> = lazy(() =>
-  key('new').then(
-    node('New')({
-      className: Reference,
-      args: Arguments,
-    })
-  ).thru(sourced)
+export const New: Parser<NewNode<'Raw'>> = lazy(() =>
+  alt(
+    key('new').then(
+      seqMap(
+        Reference,
+        Arguments,
+        // TODO: Convince the world we need a single linearization syntax
+        (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
+        (superclass, args, mixins) => ({
+          kind: 'Literal' as 'Literal',
+          value: {
+            kind: 'Singleton' as 'Singleton',
+            id: undefined,
+            name: undefined,
+            superCall: { superclass, args },
+            mixins,
+            members: [],
+          },
+        })
+      )
+    ),
+
+    key('new').then(
+      node('New')({
+        className: Reference,
+        args: Arguments,
+      })
+    ).thru(sourced),
+  )
 )
 
-export const If: Parser<Unlinked<IfNode>> = lazy(() =>
+export const If: Parser<IfNode<'Raw'>> = lazy(() =>
   key('if').then(
     node('If')({
       condition: Expression.wrap(key('('), key(')')),
       thenBody: alt(Body, SingleExpressionBody),
-      elseBody: key('else')
-        .then(alt(Body, SingleExpressionBody))
-        .or(node('Body')({ sentences: of([]) }).thru(sourced)),
+      elseBody: optional(key('else').then(alt(Body, SingleExpressionBody))),
     })
   ).thru(sourced)
 )
 
-export const Throw: Parser<Unlinked<ThrowNode>> = lazy(() =>
+export const Throw: Parser<ThrowNode<'Raw'>> = lazy(() =>
   key('throw').then(
     node('Throw')({ arg: Expression })
   ).thru(sourced)
 )
 
-export const Try: Parser<Unlinked<TryNode>> = lazy(() =>
+export const Try: Parser<TryNode<'Raw'>> = lazy(() =>
   key('try').then(node('Try')({
     body: alt(Body, SingleExpressionBody),
     catches: Catch.many(),
-    always: key('then always').then(
-      alt(Body, SingleExpressionBody)
-    ).or(node('Body')({ sentences: of([]) }).thru(sourced)),
+    always: optional(key('then always').then(alt(Body, SingleExpressionBody))),
   })).thru(sourced)
 )
 
-export const Catch: Parser<Unlinked<CatchNode>> = lazy(() =>
+export const Catch: Parser<CatchNode<'Raw'>> = lazy(() =>
   key('catch').then(node('Catch')({
     parameter: Parameter,
     parameterType: optional(key(':').then(Reference)),
@@ -338,32 +386,32 @@ export const Catch: Parser<Unlinked<CatchNode>> = lazy(() =>
   })).thru(sourced)
 )
 
-export const Send: Parser<Unlinked<SendNode>> = lazy(() =>
+export const Send: Parser<SendNode<'Raw'>> = lazy(() =>
   seqMap(
     index,
     PrimaryExpression,
     seq(
       key('.').then(Name),
-      alt(Arguments, node('Literal')({ value: Closure }).thru(sourced).times(1)),
+      alt(Arguments, Closure.thru(sourced).times(1)),
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      ({ kind: 'Send', receiver, message, args, source: { start, end } }) as Unlinked<SendNode>
-      , initial) as Unlinked<SendNode>
+      ({ kind: 'Send' as 'Send', id: undefined, receiver, message, args, source: { start, end } })
+      , initial) as SendNode<'Raw'>
   )
 )
 
-export const Operation: Parser<Unlinked<ExpressionNode>> = lazy(() => {
+export const Operation: Parser<ExpressionNode<'Raw'>> = lazy(() => {
   const prefixOperation = seqMap(
     seq(index, alt(...PREFIX_OPERATORS.map(key))).many(),
     alt(Send, PrimaryExpression),
     index,
-    (calls, initial, end) => calls.reduceRight<Unlinked<ExpressionNode>>((receiver, [start, message]) =>
-      ({ kind: 'Send', receiver, message, args: [], source: { start, end } })
+    (calls, initial, end) => calls.reduceRight<ExpressionNode<'Raw'>>((receiver, [start, message]) =>
+      ({ kind: 'Send', id: undefined, receiver, message: `${message}_`, args: [], source: { start, end } })
       , initial)
   )
 
-  const infixOperation = (precedenceLevel: number): Parser<Unlinked<ExpressionNode>> => {
+  const infixOperation = (precedenceLevel: number): Parser<ExpressionNode<'Raw'>> => {
     const argument = precedenceLevel < INFIX_OPERATORS.length - 1
       ? infixOperation(precedenceLevel + 1)
       : prefixOperation
@@ -372,8 +420,16 @@ export const Operation: Parser<Unlinked<ExpressionNode>> = lazy(() => {
       index,
       argument,
       seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
-      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-        ({ kind: 'Send', receiver, message, args, source: { start, end } }) as Unlinked<SendNode>
+      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) => ({
+        kind: 'Send' as 'Send',
+        id: undefined,
+        receiver,
+        message,
+        args: LAZY_OPERATORS.includes(message)
+          ? [makeClosure([], args)]
+          : args,
+        source: { start, end },
+      })
         , initial)
     )
   }
@@ -386,20 +442,22 @@ export const Operation: Parser<Unlinked<ExpressionNode>> = lazy(() => {
 // LITERALS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Literal: Parser<Unlinked<LiteralNode<LiteralValue>>> = lazy(() =>
-  node('Literal')({
-    value: alt(
-      key('null').result(null),
-      key('true').result(true),
-      key('false').result(false),
-      regex(/-?\d+(\.\d+)?/).map(Number),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
-      String,
-      Closure,
-      Singleton,
-    ),
-  }).thru(sourced)
+export const Literal: Parser<LiteralNode<'Raw'>> = lazy(() =>
+  alt(
+    Closure,
+    node('Literal')({
+      value: alt(
+        key('null').result(null),
+        key('true').result(true),
+        key('false').result(false),
+        regex(/-?\d+(\.\d+)?/).map(Number),
+        Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
+        Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
+        String,
+        Singleton,
+      ),
+    })
+  ).thru(sourced)
 )
 
 const EscapedChar = alt(
@@ -425,7 +483,7 @@ const DoubleQuoteString: Parser<string> = alt(
 
 const String: Parser<string> = alt(SingleQuoteString, DoubleQuoteString)
 
-const Closure: Parser<Unlinked<SingletonNode>> = lazy(() =>
+const Closure: Parser<LiteralNode<'Raw', SingletonNode<'Raw'>>> = lazy(() =>
   seqMap(
     Parameter.sepBy(key(',')).skip(key('=>')).or(of([])),
     Sentence.skip(optional(alt(key(';'), _))).many(),
@@ -437,30 +495,63 @@ const Closure: Parser<Unlinked<SingletonNode>> = lazy(() =>
 // BUILDERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeClosure = (parameters: Unlinked<ParameterNode>[], sentences: Unlinked<SentenceNode>[]): Unlinked<SingletonNode> =>
-  ({
-    kind: 'Singleton',
-    superCall: { superclass: { kind: 'Reference', name: 'Closure' }, args: [] },
-    // TODO: change this to 'wollok.Closure' and make getNodeById resolve composed references
-    mixins: [],
-    name: undefined,
-    members: [
-      {
-        kind: 'Method',
-        name: 'apply', isOverride: false, isNative: false, parameters,
-        body: { kind: 'Body', sentences },
-      },
-    ],
-  })
+const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<SentenceNode<'Raw'>>):
+  LiteralNode<'Raw', SingletonNode<'Raw'>> => {
 
-const makeList = (args: Unlinked<ExpressionNode>[]) => ({
+  const sentences: List<SentenceNode<'Raw'>> = rawSentences
+    .some(sentence => sentence.kind === 'Return') || !isExpression(last(rawSentences))
+    ? [...rawSentences, { kind: 'Return', id: undefined, value: undefined }]
+    : [...rawSentences.slice(0, -1), { kind: 'Return', id: undefined, value: last(rawSentences) as ExpressionNode<'Raw'> }]
+
+  return {
+    kind: 'Literal',
+    id: undefined,
+    value: {
+      kind: 'Singleton',
+      id: undefined,
+      superCall: {
+        superclass: {
+          kind: 'Reference',
+          id: undefined,
+          target: undefined,
+          name: 'wollok.lang.Closure',
+        },
+        args: [],
+      },
+      mixins: [],
+      name: undefined,
+      members: [
+        {
+          kind: 'Method',
+          id: undefined,
+          name: '<apply>', isOverride: false, isNative: false, parameters,
+          body: { kind: 'Body', id: undefined, sentences },
+        },
+      ],
+    },
+  }
+}
+
+const makeList = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
   kind: 'New',
-  className: { kind: 'Reference', name: 'wollok.List' },
+  id: undefined,
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.List',
+    target: undefined,
+  },
   args,
 })
 
-const makeSet = (args: Unlinked<ExpressionNode>[]) => ({
+const makeSet = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
   kind: 'New',
-  className: { kind: 'Reference', name: 'wollok.Set' },
+  id: undefined,
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.Set',
+    target: undefined,
+  },
   args,
 })

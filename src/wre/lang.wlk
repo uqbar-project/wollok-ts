@@ -72,6 +72,10 @@ class StackOverflowException inherits Exception {
 	constructor() = super()
 }
 
+class EvaluationException inherits Exception {
+	constructor() = super()
+}
+
 /**
  * An exception that is thrown when a specified element cannot be found
  */
@@ -121,15 +125,16 @@ class StackTraceElement {
  * since 1.0
  */
 class Object {
-	/** Answers object identity of a Wollok object, represented by a unique number in Wollok environment */
+  constructor() {
+    self.initialize()
+  }
+
+  method initialize() { }
+
+	/** Answers object identity of a Wollok object, represented by a unique uuid in Wollok environment */
 	method identity() native
-	/** Answers a list of instance variables for this Wollok object */
-	method instanceVariables() native
-	/** Retrieves a specific variable. Expects a name */
-	method instanceVariableFor(name) native
-	/** Accesses a variable by name, in a reflexive way. */
-	method resolve(name) native
-	/** Object description in english/spanish/... (depending on i18n configuration)
+	
+  /** Object description
 	 *
 	 * Examples:
 	 * 		"2".kindName()  => Answers "a String"
@@ -144,20 +149,16 @@ class Object {
 	 * The default behavior compares them in terms of identity (===)
 	 */
 	method ==(other) {
-		return other != null && self === other 
+		return self === other 
 	}
 	
 	/** Tells whether self object is not equal to the given one */
-	method !=(other) = ! (self == other)
+	method !=(other) = !(self == other)
 	
 	/**
 	 * Tells whether self object is identical (the same) to the given one.
-	 * It does it by comparing their identities.
-	 * So self basically relies on the wollok.lang.Integer equality (which is native)
 	 */
-	method ===(other) {
-		return self.identity() == other.identity()
-	}
+	method ===(other) native
 
 	/**
 	 * Tells whether self object is not identical (the same) to the given one.
@@ -180,11 +181,7 @@ class Object {
 	/**
 	 * String representation of Wollok object
 	 */
-	method toString() {
-		// TODO: should be a set
-		// return self.toSmartString(#{})
-		return self.toSmartString([])
-	}
+	method toString() native
 	
 	/**
 	 * Provides a visual representation of Wollok Object
@@ -193,37 +190,10 @@ class Object {
 	 */
 	method printString() = self.toString()
 
-	/** @private */
-	method toSmartString(alreadyShown) {
-		if (alreadyShown.any { e => e.identity() == self.identity() } ) { 
-			return self.simplifiedToSmartString() 
-		}
-		else {
-			alreadyShown.add(self)
-			return self.internalToSmartString(alreadyShown)
-		}
-	} 
-	
-	/** @private */
-	method simplifiedToSmartString(){
-		return self.kindName()
-	}
-	
-	/** @private */
-	method internalToSmartString(alreadyShown) {
-		return self.kindName() + "[" 
-			+ self.instanceVariables().map { v => 
-				v.name() + "=" + v.valueToSmartString(alreadyShown)
-			}.join(', ') 
-		+ "]"
-	}
 	
 	/** @private */
 	method messageNotUnderstood(name, parameters) {
-		var message = if (name != "toString") 
-					self.toString()
-				 else 
-				 	self.kindName()
+		var message = if (name != "toString") self.toString() else self.kindName()
 		message += " does not understand " + name
 		if (parameters.size() > 0)
 			message += "(" + (0..(parameters.size()-1)).map { i => "p" + i }.join(',') + ")"
@@ -237,9 +207,6 @@ class Object {
 		throw new Exception(message)
 	}
 }
-
-/** Representation for methods that only have side effects */
-object void { }
 
 /** 
  * Representation of a Key/Value Association.
@@ -263,6 +230,9 @@ class Pair {
  * A collection represents a group of objects, known as its elements.
  */	
 class Collection {
+
+  override method initialize() native
+
 	/**
 	  * Answers the element that is considered to be/have the maximum value.
 	  * The criteria is given by a closure that receives a single element as input (one of the element)
@@ -280,7 +250,11 @@ class Collection {
 	  * Example:
 	  *       [11, 1, 4, 8, 3, 15, 6].max()    =>  Answers 15		 
 	  */
-	method max() = self.max({it => it})		
+	method max() = self.max({it => it})
+
+  method maxIfEmpty(continuation) = if (self.isEmpty()) continuation.apply() else self.max()
+
+  method maxIfEmpty(criteria, continuation) = if (self.isEmpty()) continuation.apply() else self.max(criteria)		
 	
 	/**
 	  * Answers the element that is considered to be/have the minimum value.
@@ -298,6 +272,10 @@ class Collection {
 	  *       [11, 1, 4, 8, 3, 15, 6].min()    =>  Answers 1 
 	  */
 	method min() = self.min({it => it})
+
+    method minIfEmpty(continuation) = if (self.isEmpty()) continuation.apply() else self.min()
+
+  method minIfEmpty(criteria, continuation) = if (self.isEmpty()) continuation.apply() else self.min(criteria)
 
 	/** @private */
 	method absolute(closure, criteria) {
@@ -358,7 +336,12 @@ class Collection {
 	 * Example:
 	 *      plants.forEach { plant => plant.takeSomeWater() }
 	 */
-	method forEach(closure) { self.fold(null, { acc, e => closure.apply(e) }) }
+	method forEach(closure) {
+    self.fold(null, { acc, elemi =>
+      closure.apply(elemi)
+      return acc
+    })
+  }
 	
 	/**
 	 * Answers whether all the elements of self collection satisfy a given condition
@@ -413,7 +396,10 @@ class Collection {
 	 * Example:
 	 *      users.findOrElse({ user => user.name() == "Cosme Fulanito" }, { homer })
 	 */
-	method findOrElse(predicate, continuation) native
+	method findOrElse(predicate, continuation) {
+    const response = self.fold(null, {result, elem => if (result == null && predicate.apply(elem)) elem else result })
+    return if (response != null) response else continuation.apply()
+  }
 
 	/**
 	 * Counts all elements of self collection that satisfies a given condition
@@ -511,18 +497,7 @@ class Collection {
 	 *
 	 */
 	method flatten() = self.flatMap { e => e }
-	
-	/** @private */
-	override method internalToSmartString(alreadyShown) {
-		return self.toStringPrefix() + self.map{e=> e.toSmartString(alreadyShown) }.join(', ') + self.toStringSufix()
-	}
-	
-	/** @private */
-	method toStringPrefix()
-	
-	/** @private */
-	method toStringSufix()
-	
+
 	/** Converts a collection to a list */
 	method asList()
 	
@@ -566,11 +541,21 @@ class Collection {
 	 */
 	method newInstance()
 	
+	method fold(element, closure) native
+	
+	/** Removes an element in this collection */ 
+	override method remove(element) native
+	
+	/** Answers the number of elements */
+	override method size() native
+		
+	/** Removes all of the elements from this collection */
+	method clear() native
+
+	/** Adds the specified element as last one */
+	method add(element) native
+
 	method anyOne() = throw new Exception("Should be implemented by the subclasses")
-	method add(element) = throw new Exception("Should be implemented by the subclasses")
-	method remove(element) = throw new Exception("Should be implemented by the subclasses")
-	method fold(element, closure) = throw new Exception("Should be implemented by the subclasses")
-	method size() = throw new Exception("Should be implemented by the subclasses")
 }
 
 /**
@@ -589,11 +574,13 @@ class Set inherits Collection {
 	/** @private */
 	override method newInstance() = #{}
 	
-	/** @private */
-	override method toStringPrefix() = "#{"
-	
-	/** @private */
-	override method toStringSufix() = "}"
+  override method toString() = {
+    const this = self.asList()
+    "#{" +
+    if (self.isEmpty()) ""
+    else this.subList(1, self.size() - 1).fold(this.head().toString(), {acc, e => acc + ', ' + e.toString()}) +
+    "}"
+  }
 	
 	/** 
 	 * Converts this set to a list
@@ -613,7 +600,7 @@ class Set inherits Collection {
 	/**
 	 * Answers any element of this collection 
 	 */
-	override method anyOne() native
+	override method anyOne() = self.asList().anyOne()
 
 	/**
 	 * Answers a new Set with the elements of both self and another collection.
@@ -633,46 +620,14 @@ class Set inherits Collection {
 	 * @returns a Set
 	 */
 	 method difference(another) =
-	 	self.filter({it => not another.contains(it)})
-	
-	// REFACTORME: DUP METHODS
-	/** 
-	 * Reduce a collection to a certain value, beginning with a seed or initial value
-	 * 
-	 * Examples
-	 * 		#{1, 9, 3, 8}.fold(0, {acum, each => acum + each}) => Answers 21, the sum of all elements
-	 *
-	 * 		var numbers = #{3, 2, 9, 1, 7}
-	 * 		numbers.fold(numbers.anyOne(), { acum, number => acum.max(number) }) => Answers 9, the maximum of all elements
-     *
-	 */
-	override method fold(initialValue, closure) native
-	
-	/**
-	 * Tries to find an element in a collection (based on a closure) or
-	 * applies a continuation closure.
-	 *
-	 * Examples:
-	 * 		#{1, 9, 3, 8}.findOrElse({ n => n.even() }, { 100 })  => Answers  8
-	 * 		#{1, 5, 3, 7}.findOrElse({ n => n.even() }, { 100 })  => Answers  100
-	 */
-	override method findOrElse(predicate, continuation) native
+	 	self.filter({it => !another.contains(it)})
 	
 	/**
 	 * Adds the specified element to this set if it is not already present
 	 */
-	override method add(element) native
-	
-	/**
-	 * Removes the specified element from this set if it is present
-	 */
-	override method remove(element) native
-	
-	/** Answers the number of elements in this set (its cardinality) */
-	override method size() native
-	
-	/** Removes all of the elements from this set */
-	method clear() native
+	override method add(element) {
+    if(!self.contains(element)) super(element)
+  }
 
 	/**
 	 * Answers the concatenated string representation of the elements in the given set.
@@ -683,18 +638,16 @@ class Set inherits Collection {
 	 * 		["you","will","love","wollok"].join(" ") => Answers "you will love wollok"
 	 * 		["you","will","love","wollok"].join()    => Answers "you,will,love,wollok"
 	 */
-	method join(separator) native
-	method join() native
-	
-	/**
-	 * Two sets are equals if they have the same elements
-	 */
-	override method equals(other) native
+	method join() = self.join(",")
+	method join(separator) = self.asList().join(separator)
 	
 	/**
 	 * @see Object#==
 	 */
-	override method ==(other) native
+	override method ==(other) =
+    self.className() == other.className() &&
+    self.size() == other.size() &&
+    self.all{elem => other.contains(elem)}
 }
 
 /**
@@ -708,12 +661,15 @@ class Set inherits Collection {
  * @since 1.3
  */
 class List inherits Collection {
+	constructor(elements...) {
+		self.addAll(elements)
+	}
 
 	/** Answers the element at the specified position in this list.
 	 * The first char value of the sequence is at index 0, the next at index 1, and so on, as for array indexing. 
 	 */
 	method get(index) native
-	
+
 	/** Creates a new list */
 	override method newInstance() = []
 	
@@ -724,7 +680,7 @@ class List inherits Collection {
 		if (self.isEmpty()) 
 			throw new Exception("Illegal operation 'anyOne' on empty collection")
 		else 
-			return self.get(0.randomUpTo(self.size()))
+			return self.get(0.randomUpTo(self.size()).truncate(0))
 	}
 	
 	/**
@@ -749,11 +705,11 @@ class List inherits Collection {
 	 */
 	method last() = self.get(self.size() - 1)
 
-	/** @private */		 
-	override method toStringPrefix() = "["
-	
-	/** @private */
-	override method toStringSufix() = "]"
+  override method toString() =
+    "[" +
+    if (self.isEmpty()) ""
+    else self.subList(1, self.size() - 1).fold(self.head().toString(), {acc, e => acc + ', ' + e.toString()}) +
+    "]"
 
 	/** 
 	 * Converts this collection to a list. No effect on Lists.
@@ -781,7 +737,7 @@ class List inherits Collection {
 	 *		[1, 5, 3, 2, 7, 9].subList(4, 6)		=> Answers [7, 9] 
 	 */
 	method subList(start,end) {
-		if(self.isEmpty())
+		if(self.isEmpty() || start >= self.size())
 			return self.newInstance()
 		const newList = self.newInstance()
 		const _start = start.limitBetween(0,self.size()-1)
@@ -793,7 +749,21 @@ class List inherits Collection {
 	/**
 	 * @see List#sortedBy
 	 */
-	method sortBy(closure) native
+	method sortBy(closure) {
+    if (self.isEmpty()) { return }
+
+    const head = self.head()
+    const tail = self.subList(1, self.size() - 1)
+    const greater = tail.filter{n => closure.apply(head, n)}
+    greater.sortBy(closure)
+    const lesser = tail.filter{n => !closure.apply(head, n)}
+    lesser.sortBy(closure)
+
+    self.clear()
+    lesser.forEach{n => self.add(n)}
+    self.add(head)
+    greater.forEach{n => self.add(n)}
+  }
 	
 	/**
 	 * Takes first n elements of a list
@@ -835,37 +805,6 @@ class List inherits Collection {
 	 */
 	method reverse() = self.subList(self.size()-1,0)
 
-	// REFACTORME: DUP METHODS
-	/** 
-	 * Reduce a collection to a certain value, beginning with a seed or initial value
-	 * 
-	 * Examples
-	 * 		#{1, 9, 3, 8}.fold(0, {acum, each => acum + each}) => Answers 21, the sum of all elements
-	 *
-	 * 		var numbers = #{3, 2, 9, 1, 7}
-	 * 		numbers.fold(numbers.anyOne(), { acum, number => acum.max(number) }) => Answers 9, the maximum of all elements
-     *
-	 */
-	override method fold(initialValue, closure) native
-	
-	/**
-	 * Finds the first element matching the boolean closure, 
-	 * or evaluates the continuation block closure if no element is found
-	 */
-	override method findOrElse(predicate, continuation) native
-	
-	/** Adds the specified element as last one */
-	override method add(element) native
-	
-	/** Removes an element in this list */ 
-	override method remove(element) native
-	
-	/** Answers the number of elements */
-	override method size() native
-	
-	/** Removes all of the mappings from this Dictionary. This is a side-effect operation. */
-	method clear() native
-
 	/**
 	 * Answers the concatenated string representation of the elements in the given set.
 	 * You can pass an optional character as an element separator (default is ",")
@@ -875,16 +814,20 @@ class List inherits Collection {
 	 * 		["you","will","love","wollok"].join(" ") => Answers "you will love wollok"
 	 * 		["you","will","love","wollok"].join()    => Answers "you,will,love,wollok"
 	 */
-	method join(separator) native
-	method join() native
+	method join() = self.join(",")
+	method join(separator) =
+    if (self.isEmpty()) ""
+    else self.subList(1, self.size()).fold(self.head().toString(), {acc, e => acc + separator + e})
+  
 	
-	/**
-	 * @see == message
-	 */
-	override method equals(other) native
 	
 	/** A list is == another list if all elements are equal (defined by == message) */
-	override method ==(other) native
+	override method ==(other) =
+    other != null &&
+    self.className() == other.className() &&
+    self.size() == other.size() &&
+    (self.size() == 0 || (0..(self.size() - 1)).all{i => self.get(i) == other.get(i)})
+
 
 	/**
 	 * Answers the list without duplicate elements
@@ -1014,12 +957,6 @@ class Number {
 										 else 
 										 	limitB.max(self).min(limitA)
 
-	/** @private */
-	override method simplifiedToSmartString(){ return self.stringValue() }
-	
-	/** @private */
-	override method internalToSmartString(alreadyShown) { return self.stringValue() }
-	
 	/** Answers whether self is between min and max */
 	method between(min, max) { return (self >= min) && (self <= max) }
 	
@@ -1037,7 +974,7 @@ class Number {
 	method even() { return self % 2 == 0 }
 	
 	/** Answers whether self is an odd number (not divisible by 2, mathematically 2k + 1) */
-	method odd() { return self.even().negate() }
+	method odd() { return !self.even() }
 	
 	/** Answers remainder between self and other
 	 * Example:
@@ -1045,8 +982,6 @@ class Number {
 	 */
 	method rem(other) { return self % other }
 	
-	method stringValue() = throw new Exception("Should be implemented in the subclass")
-
 	/**
 	 * Rounds up self up to a certain amount of decimals.
 	 * Amount of decimals must be positive
@@ -1055,7 +990,8 @@ class Number {
 	 * 14.6165.roundUp(3) ==> 14.617
 	 * 5.roundUp(3) ==> 5
 	 */
-	 method roundUp(_decimals)
+	 method roundUp(_decimals) native
+	 method roundUp() = self.roundUp(0)
 
 	/**
 	 * Truncates self up to a certain amount of decimals.
@@ -1065,17 +1001,11 @@ class Number {
 	 * -14.6165.truncate(3) ==> -14.616
 	 * 5.truncate(3) ==> 5
 	 */
-	method truncate(_decimals)
+	method truncate(_decimals) native
 
-	method plus() = self
-}
+	method +_() = self
+	method -_() native
 
-/**
- * @author jfernandes
- * @since 1.3
- * @noInstantiate
- */
-class Integer inherits Number {
 	/**
 	 * The whole wollok identity implementation is based on self method
 	 */
@@ -1092,7 +1022,7 @@ class Integer inherits Number {
 	 *		8.div(3)  ==> Answers 2
 	 * 		15.div(5) ==> Answers 3
 	 */
-	method div(other) native
+	method div(other) = (self / other).truncate(0)
 	
 	/**
 	 * raisedTo
@@ -1107,9 +1037,6 @@ class Integer inherits Number {
 	
 	/** String representation of self number */
 	override method toString() native
-	
-	/** Self as a String value. Equivalent: toString() */
-	override method stringValue() native	
 	
 	/** 
 	 * Builds a Range between self and end
@@ -1140,7 +1067,7 @@ class Integer inherits Number {
 	 * 		3.invert() ==> Answers -3
 	 * 		(-2).invert() ==> Answers 2 (be careful with parentheses)
 	 */
-	method invert() native
+  method invert() = -self
 	
 	/**
 	 * greater common divisor
@@ -1149,7 +1076,7 @@ class Integer inherits Number {
 	 * 		8.gcd(12) ==> Answers 4
 	 *		5.gcd(10) ==> Answers 5
 	 */
-	method gcd(other) native
+	method gcd(other) = if(other == 0) self else other.gcd(self % other)
 	
 	/**
 	 * least common multiple
@@ -1168,16 +1095,15 @@ class Integer inherits Number {
 	 */
 	method digits() {
 		var digits = self.toString().size()
-		if (self < 0) {
-			digits -= 1
-		}
+		if (self < 0) { digits -= 1 }
+    if (self % 1 != 0) { digits -= 1 }
 		return digits
 	}
 	
 	/** Answers whether self is a prime number, like 2, 3, 5, 7, 11... */
 	method isPrime() {
 		if (self == 1) return false
-		return (2..(self.div(2) + 1)).any({ i => self % i == 0 }).negate()
+		return !(2..(self.div(2) + 1)).any({ i => self % i == 0 })
 	}
 	
 	/**
@@ -1197,87 +1123,9 @@ class Integer inherits Number {
 	method times(action) { 
 		(1..self).forEach(action) 
 	}
-	
-	override method roundUp(_decimals) = self
-	override method truncate(_decimals) = self
-	
+
 }
 
-/**
- * @author jfernandes
- * @since 1.3
- * @noInstantiate
- */
-class Double inherits Number {
-	/** the whole wollok identity impl is based on self method */
-	override method ===(other) native
-
-	method +(other) native
-	method -(other) native
-	method *(other) native
-	method /(other) native
-	
-	/** Integer division between self and other
-	 *
-	 * Example:
-	 *		8.2.div(3.3)  ==> Answers 2
-	 * 		15.0.div(5) ==> Answers 3
-	 */
-	method div(other) native
-	
-	/**
-	 * raisedTo
-	 * 3.2 ** 2 ==> Answers 10.24
-	 */
-	method **(other) native
-	
-	/**
-	 * Answers remainder of division between self and other
-	 */
-	method %(other) native		
-
-	/** String representation of a self number */
-	override method toString() = self.stringValue()
-	
-	/** Self as a String value. Equivalent: toString() */
-	override method stringValue() native	
-	
-	method >(other) native
-	method >=(other) native
-	method <(other) native
-	method <=(other) native
-	
-	/** 
-	 * Answers absolute value of self 
-	 *
-	 * Example:
-	 * 		2.7.abs() ==> Answers 2.7
-	 *		(-3.2).abs() ==> Answers 3.2 (be careful with parentheses)
-	 */		
-	method abs() native
-	
-	/**
-	 * 3.2.invert() ==> -3.2
-	 * (-2.4).invert() ==> 2.4 (be careful with parentheses)
-	 */
-	method invert() native
-	
-	/**
-	 * Answers a random between self and max
-	 */
-	method randomUpTo(max) native
-	
-	/**
-	 * Answers the next integer greater than self
-	 * 13.224.roundUp() ==> 14
-	 * -13.224.roundUp() ==> -14
-	 * 15.942.roundUp() ==> 16
-	 */
-	method roundUp() = self.roundUp(0)
-	
-	override method roundUp(_decimals) native
-	override method truncate(_decimals) native
-}
 
 /**
  * Strings are constant; their values cannot be changed after they are created.
@@ -1293,14 +1141,16 @@ class String {
 	 * Answers the char value at the specified index. An index ranges from 0 to length() - 1. 
 	 * The first char value of the sequence is at index 0, the next at index 1, and so on, as for array indexing.
 	 */
-	method charAt(index) native
+	method charAt(index) = self.substring(index, index + 1)
 	
 	/** 
 	 * Concatenates the specified string to the end of this string.
 	 * Example:
 	 * 		"cares" + "s" => Answers "caress"
 	 */
-	method +(other) native
+	method +(other) = self.concat(other.toString())
+  
+  method concat(other) native
 	
 	/** 
 	 * Tests if this string starts with the specified prefix. It is case sensitive.
@@ -1440,9 +1290,6 @@ class String {
 	 */
 	override method printString() = '"' + self.toString() + '"'
 	
-	/** @private */
-	override method toSmartString(alreadyShown) native
-	
 	/** Compares this string to the specified object. The result is true if and only if the
 	 * argument is not null and is a String object that represents the same sequence of characters as this object.
 	 */
@@ -1477,20 +1324,13 @@ class String {
 class Boolean {
 
 	/** Answers the result of applying the logical AND operator to the specified boolean operands self and other */
-	method and(other) native
-	/** A synonym for and operation */
 	method &&(other) native
 	
 	/** Answers the result of applying the logical OR operator to the specified boolean operands self and other */
-	method or(other) native
-	/** A synonym for or operation */
 	method ||(other) native
 	
 	/** Answers a String object representing this Boolean's value. */
 	override method toString() native
-	
-	/** @private */
-	override method toSmartString(alreadyShown) native
 	
 	/** Compares this string to the specified object. The result is true if and only if the
 	 * argument is not null and represents same value (true or false)
@@ -1498,7 +1338,7 @@ class Boolean {
 	override method ==(other) native
 	
 	/** NOT logical operation */
-	method negate() native
+	method !_() native
 }
 
 /**
@@ -1515,10 +1355,8 @@ class Range {
 	var step
 	
 	constructor(_start, _end) {
-		self.validate(_start)
-		self.validate(_end)
-		start = _start 
-		end = _end
+		start = _start.truncate(0) 
+		end = _end.truncate(0)
 		if (_start > _end) { 
 			step = -1 
 		} else {
@@ -1528,9 +1366,6 @@ class Range {
 	
 	method step(_step) { step = _step }
 
-	/** @private */		
-	method validate(_limit) native
-	
 	/** 
 	 * Iterates over a Range from start to end, based on step
 	 */
@@ -1552,7 +1387,7 @@ class Range {
 	
 	/** @private */
 	method asList() {
-		return self.map({ elem => return elem })
+		return self.map({ elem => elem })
 	}
 	
 	/** Answers whether this range contains no elements */
@@ -1618,8 +1453,6 @@ class Range {
 	/** @see List#sortBy */
 	method sortedBy(closure) { return self.asList().sortedBy(closure) }
 	
-	/** @private */
-	override method internalToSmartString(alreadyShown) = start.toString() + ".." + end.toString()
 }
 
 /**
@@ -1633,13 +1466,9 @@ class Range {
  */
 class Closure {
 
-	/** Evaluates this closure passing its parameters
-	 *
-	 * Example: 
-	 * 		{ number => number + 1 }.apply(8) ==> Answers 9 // 1 parameter
-	 *		{ "screw" + "driver" }.apply() ==> Answers "screwdriver" // no parameter 
-	 */
-	method apply(parameters...) native
+  override method initialize() native
+
+  method apply(args...) native
 	
 	/** Answers a string representation of this closure object */
 	override method toString() native
@@ -1822,7 +1651,7 @@ object assert {
 		} catch e {
 			failed = true
 		}
-		if (!failed) throw new AssertionException("Block " + block + " should have failed")
+		if (!failed) throw new AssertionException("Block should have failed")
 	}
 	
 	/** 
@@ -1952,4 +1781,39 @@ class StringPrinter {
 		buffer += obj.toString() + console.newline()
 	}
 	method getBuffer() = buffer
+}
+
+/**
+ * Exception to handle difference between current and expected values
+ * in assert.throwsException... methods
+ */
+class AssertionException inherits Exception {
+
+	const expected = null
+	const actual = null
+
+	constructor(message) = super(message)
+	
+	constructor(message, cause) = super(message, cause)
+	
+	constructor(message, _expected, _actual) = self(message) {
+		expected = _expected
+		actual = _actual
+	}
+
+	method expected() = expected
+	method actual() = actual
+	
+}
+
+/**
+ * Exception to handle other values expected in assert.throwsException... methods
+ */
+class OtherValueExpectedException inherits Exception {
+	constructor(_message) = super(_message)	
+	constructor(_message,_cause) = super(_message,_cause)
+}
+
+class BadParameterException inherits Exception {
+	constructor(_value) = super("Invalid argument: " + _value)	
 }

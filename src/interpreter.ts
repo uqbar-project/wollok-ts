@@ -1,523 +1,765 @@
-import { append, assoc, drop, lensPath as lens, over as change, path, pipe, prepend, reverse, set, view } from 'ramda'
 import { v4 as uuid } from 'uuid'
-import { Assignment, Catch, Class, Constructor, Environment, Expression, Field, Id, Method, Module, Name, ObjectMember, Self, Sentence, Singleton, Test, Throw, Try } from './model'
+import { flatMap, last, zipObj } from './extensions'
+import log from './log'
+import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
 import utils from './utils'
 
 
-interface RuntimeScope { readonly [name: string]: Id }
+// TODO: Remove the parameter type from Id
 
-interface RuntimeObject {
-  readonly id: Id
-  readonly module: Singleton | Class
-  readonly attributes: RuntimeScope
-  readonly innerValue?: any
+export interface Locals { [name: string]: Id<'Linked'> }
+
+export interface RuntimeObject {
+  readonly id: Id<'Linked'>
+  readonly module: Name
+  readonly fields: Locals
+  innerValue?: any
 }
 
-interface Frame {
-  readonly scope: RuntimeScope
-  readonly pending: ReadonlyArray<[Sentence, number]>
-  readonly referenceStack: ReadonlyArray<Id>
+export interface Frame {
+  readonly instructions: List<Instruction> // TODO: rename to instructions
+  nextInstruction: number
+  locals: Locals
+  operandStack: Id<'Linked'>[]
+  resume: Interruption[]
 }
+
+export type Interruption = 'return' | 'exception' | 'result'
 
 export interface Evaluation {
-  readonly status: 'error' | 'running' | 'success'
-  readonly environment: Environment
-  readonly frameStack: ReadonlyArray<Frame>
-  readonly instances: { readonly [id: string]: RuntimeObject }
+  readonly environment: Environment<'Linked'>
+  frameStack: Frame[]
+  instances: { [id: string]: RuntimeObject }
 }
 
-const NULL_ID = 'null'
-const TRUE_ID = 'true'
-const FALSE_ID = 'false'
+export type Native = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// LOOKUP
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+export const NULL_ID = 'null'
+export const VOID_ID = 'void'
+export const TRUE_ID = 'true'
+export const FALSE_ID = 'false'
 
-const methodLookup = (environment: Environment) => (name: Name, argumentCount: number, start: Module): Method | undefined => {
-  const { hierarchy } = utils(environment)
-  for (const module of hierarchy(start)) {
-    const found = (module.members as ReadonlyArray<ObjectMember>).find(member =>
-      // TODO: Varargs
-      member.kind === 'Method' && (!!member.body || member.isNative) && member.name === name && member.parameters.length === argumentCount
-    )
-    if (found) return found as Method
-  }
-  return undefined
-}
-
-const constructorLookup = (argumentCount: number, owner: Class): Constructor | undefined => {
-  // TODO: Varargs
-  const found = owner.members.find(member => member.kind === 'Constructor' && member.parameters.length === argumentCount)
-  return found ? found as Constructor : undefined
-}
-
-// TODO: On validator, check that all the chain is there
-const constructorCallChain = (environment: Environment) =>
-  (startingClass: Class, startingArguments: ReadonlyArray<Expression>): ReadonlyArray<[Constructor, ReadonlyArray<Expression>]> => {
-
-    const { superclass } = utils(environment)
-
-    const currentConstructor = constructorLookup(startingArguments.length, startingClass)
-    const superClass = superclass(startingClass)
-
-    return currentConstructor
-      ? [
-        [currentConstructor, startingArguments],
-        ...currentConstructor.baseCall
-          ? constructorCallChain(environment)(
-            currentConstructor.baseCall.callsSuper ? superClass! : startingClass,
-            currentConstructor.baseCall.args
-          )
-          : superClass
-            ? constructorCallChain(environment)(superClass, [])
-            : [],
-      ]
-      : superClass ? constructorCallChain(environment)(superClass, []) : []
-  }
-
+export const DECIMAL_PRECISION = 4
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-type Instruction = (evaluation: Evaluation) => Evaluation
+// TODO: Factory functions
+export type Instruction
+  = { kind: 'LOAD', name: Name }
+  | { kind: 'STORE', name: Name, lookup: boolean }
+  | { kind: 'PUSH', id: Id<'Linked'> }
+  | { kind: 'GET', name: Name }
+  | { kind: 'SET', name: Name }
+  | { kind: 'SWAP' }
+  | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
+  | { kind: 'INHERITS', module: Name }
+  | { kind: 'CONDITIONAL_JUMP', count: number }
+  | { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
+  | { kind: 'INIT', arity: number, lookupStart: Name, initFields: boolean }
+  | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
+  | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
+  | { kind: 'INTERRUPT', interruption: Interruption }
+  | { kind: 'RESUME_INTERRUPTION' }
+
+export const LOAD = (name: Name): Instruction => ({ kind: 'LOAD', name })
+export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
+export const PUSH = (id: Id<'Linked'>): Instruction => ({ kind: 'PUSH', id })
+export const GET = (name: Name): Instruction => ({ kind: 'GET', name })
+export const SET = (name: Name): Instruction => ({ kind: 'SET', name })
+export const SWAP: Instruction = { kind: 'SWAP' }
+export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
+export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
+export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
+export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStart })
+export const INIT = (arity: number, lookupStart: Name, initFields: boolean): Instruction =>
+  ({ kind: 'INIT', arity, lookupStart, initFields })
+export const IF_THEN_ELSE = (thenHandler: List<Instruction>, elseHandler: List<Instruction>): Instruction =>
+  ({ kind: 'IF_THEN_ELSE', thenHandler, elseHandler })
+export const TRY_CATCH_ALWAYS = (body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction>): Instruction =>
+  ({ kind: 'TRY_CATCH_ALWAYS', body, catchHandler, alwaysHandler })
+export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: 'INTERRUPT', interruption })
+export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' })
 
 
-const INSTANCES = lens<{ readonly [id: string]: RuntimeObject }, Evaluation>(['instances'])
-const FRAME_STACK = lens<ReadonlyArray<Frame>, Evaluation>(['frameStack'])
-const CURRENT_SCOPE = lens<RuntimeScope, Evaluation>(['frameStack', 0, 'scope'])
-const CURRENT_PENDING = lens<ReadonlyArray<[Sentence, number]>, Evaluation>(['frameStack', 0, 'pending'])
-const CURRENT_REFERENCE_STACK = lens<ReadonlyArray<Id>, Evaluation>(['frameStack', 0, 'referenceStack'])
-const CURRENT_TOP_REFERENCE = lens<Id, Evaluation>(['frameStack', 0, 'referenceStack', 0])
+// TODO: Memoize
+export const compile = (environment: Environment<'Linked'>) =>
+  (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
+    // TODO: rename utils to "tools"
+    const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
+    switch (node.kind) {
+
+      case 'Body': return (() =>
+        flatMap<Sentence<'Linked'>, Instruction>(compile(environment))(node.sentences)
+      )()
+
+      case 'Variable': return (() => [
+        ...compile(environment)(node.value),
+        STORE(node.name, false),
+      ])()
+
+      case 'Return': return (() => [
+        ...node.value
+          ? compile(environment)(node.value)
+          : [PUSH(VOID_ID)],
+        INTERRUPT('return'),
+      ])()
 
 
-const STORE = (name: Name): Instruction => pipe(
-  change(CURRENT_SCOPE, assoc(name, view(CURRENT_TOP_REFERENCE))),
-  change(CURRENT_REFERENCE_STACK, drop(1))
-)
+      case 'Assignment': return (() =>
+        is('Field')(resolveTarget(node.reference))
+          ? [
+            LOAD('self'),
+            ...compile(environment)(node.value),
+            SET(node.reference.name),
+          ]
+          : [
+            ...compile(environment)(node.value),
+            STORE(node.reference.name, true),
+          ]
+      )()
 
-const LOAD = (name: Name): Instruction => evaluation =>
-  change(CURRENT_REFERENCE_STACK, append(view(CURRENT_SCOPE, evaluation)[name] || NULL_ID))(evaluation)
+      case 'Self': return (() => [
+        LOAD('self'),
+      ])()
 
-const SET = (name: Name): Instruction => evaluation => {
-  const [self, value, ...references] = view(CURRENT_REFERENCE_STACK, evaluation)
-  const current = view(INSTANCES, evaluation)[self]
-  return pipe(
-    change(INSTANCES, assoc(self, { ...current, attributes: assoc(name, value, current.attributes) })),
-    set(CURRENT_REFERENCE_STACK, references),
-  )(evaluation)
-}
 
-const POP_PENDING: Instruction = change(CURRENT_PENDING, pending => pending.slice(1))
+      case 'Reference': return (() => {
+        const target = resolveTarget(node)
 
-const PUSH_PENDING = (next: Sentence): Instruction => change(CURRENT_PENDING, pending => [[next, 0] as [Sentence, number], ...pending])
+        if (is('Field')(target)) return [
+          LOAD('self'),
+          GET(node.name),
+        ]
 
-const INC_PC: Instruction =
-  change(CURRENT_PENDING, ([[sentence, pc], ...others]) => [[sentence, pc + 1] as [Sentence, number], ...others])
+        if (isModule(target)) return [
+          LOAD(fullyQualifiedName(target)),
+        ]
 
-const PUSH_REFERENCE = (next: Id): Instruction => change(CURRENT_REFERENCE_STACK, prepend(next))
+        return [
+          LOAD(node.name),
+        ]
+      })()
 
-const POP_REFERENCE: Instruction = change(CURRENT_REFERENCE_STACK, drop(1))
 
-const PUSH_FRAME = (pending: ReadonlyArray<Sentence>): Instruction => evaluation => change(FRAME_STACK, prepend({
-  scope: view(CURRENT_SCOPE, evaluation),
-  pending: pending.map(sentence => [sentence, 0] as [Sentence, number]),
-  referenceStack: [],
-}))(evaluation)
+      case 'Literal': return (() => {
+        if (node.value === null) return [
+          PUSH(NULL_ID),
+        ]
 
-const POP_FRAME: Instruction = evaluation => pipe(
-  change(FRAME_STACK, drop(1)),
-  change(CURRENT_REFERENCE_STACK, prepend(view(CURRENT_TOP_REFERENCE, evaluation)))
-)(evaluation)
+        if (typeof node.value === 'boolean') return [
+          PUSH(node.value ? TRUE_ID : FALSE_ID),
+        ]
 
-const INSTANTIATE = (module: Class, innerValue: any = undefined): Instruction => {
-  const instance: RuntimeObject = { id: uuid(), module, attributes: {}, innerValue }
-  return pipe(
-    change(CURRENT_REFERENCE_STACK, prepend(instance.id)),
-    change(INSTANCES, assoc(instance.id, instance)),
-  )
-}
+        if (typeof node.value === 'number') return [
+          INSTANTIATE('wollok.lang.Number', node.value),
+        ]
+
+        if (typeof node.value === 'string') return [
+          INSTANTIATE('wollok.lang.String', node.value),
+        ]
+
+        if (node.value.kind === 'Singleton') return [
+          ...flatMap(compile(environment))(node.value.superCall.args),
+          INSTANTIATE(fullyQualifiedName(node.value)),
+          INIT(node.value.superCall.args.length, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
+        ]
+
+        return [
+          ...flatMap(compile(environment))(node.value.args),
+          INSTANTIATE(node.value.className.name, []),
+          INIT(node.value.args.length, node.value.className.name, false),
+        ]
+      })()
+
+
+      case 'Send': return (() => [
+        ...compile(environment)(node.receiver),
+        ...flatMap(compile(environment))(node.args),
+        CALL(node.message, node.args.length),
+      ])()
+
+
+      case 'Super': return (() => {
+        const currentMethod = firstAncestorOfKind('Method', node)
+        return [
+          LOAD('self'),
+          ...flatMap(compile(environment))(node.args),
+          CALL(currentMethod.name, node.args.length, fullyQualifiedName(parentOf(currentMethod))),
+        ]
+      })()
+
+
+      case 'New': return (() => {
+        const fqn = fullyQualifiedName(resolveTarget(node.className))
+        return [
+          ...flatMap(compile(environment))(node.args),
+          INSTANTIATE(fqn),
+          INIT(node.args.length, fqn, true),
+        ]
+      })()
+
+
+      case 'If': return (() => [
+        ...compile(environment)(node.condition),
+        IF_THEN_ELSE(compile(environment)(node.thenBody), compile(environment)(node.elseBody)),
+      ])()
+
+
+      case 'Throw': return (() => [
+        ...compile(environment)(node.arg),
+        INTERRUPT('exception'),
+      ])()
+
+
+      case 'Try': return (() => [
+        TRY_CATCH_ALWAYS(
+          compile(environment)(node.body),
+
+          flatMap<Catch<'Linked'>, Instruction>(({ parameter, parameterType, body }) => {
+            const compiledCatch: List<Instruction> = [
+              PUSH(VOID_ID),
+              LOAD('<exception>'),
+              STORE(parameter.name, false),
+              ...compile(environment)(body),
+              INTERRUPT('result'),
+            ]
+            return [
+              LOAD('<exception>'),
+              INHERITS(fullyQualifiedName(resolveTarget(parameterType))),
+              CONDITIONAL_JUMP(compiledCatch.length),
+              ...compiledCatch,
+            ]
+          })(node.catches),
+
+          compile(environment)(node.always)
+        ),
+      ])()
+    }
+  }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EVALUATION
+// OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const initialInstances = (environment: Environment): ReadonlyArray<RuntimeObject> => {
-  const { descendants, resolve } = utils(environment)
+export const Operations = (evaluation: Evaluation) => {
+  const { instances, frameStack } = evaluation
+  const { operandStack } = last(frameStack)!
 
-  return [
-    { id: NULL_ID, module: resolve<Class>('wollok.lang.Object'), attributes: {} },
-    { id: TRUE_ID, module: resolve<Class>('wollok.lang.Boolean'), attributes: {} },
-    { id: FALSE_ID, module: resolve<Class>('wollok.lang.Boolean'), attributes: {} },
-    ...descendants(environment)
-      .filter<Singleton>((node): node is Singleton => node.kind === 'Singleton')
-      .map(module => ({ id: module.id, module, attributes: {} })), // TODO: Initialize attributes
-  ]
-}
+  const Failure = (message: string) => {
+    log.error(message)
+    log.evaluation(evaluation)
+    return new Error(message)
+    // return new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
+  }
 
+  const popOperand = (): Id<'Linked'> => {
+    const response = operandStack.pop()
+    if (!response) throw Failure('Popped empty operand stack')
+    return response
+  }
 
-const createEvaluationFor = (environment: Environment) => (node: Test): Evaluation => {
-  const instances = initialInstances(environment).reduce((all, instance) => assoc(instance.id, instance, all), {})
+  const pushOperand = (id: Id<'Linked'>) => {
+    operandStack.push(id)
+  }
+
+  const getInstance = (id: Id<'Linked'>): RuntimeObject => {
+    const response = instances[id]
+    if (!response) throw Failure(`Access to undefined instance "${id}"`)
+    return response
+  }
+
+  // TODO: cache Numbers and Strings
+  const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
+    if (module === 'wollok.lang.Number') {
+      const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+      const numberId = 'N!' + stringValue
+      let cached = instances[numberId]
+      if (!cached) {
+        cached = { id: numberId, module, fields: {}, innerValue: Number(stringValue) }
+        instances[numberId] = cached
+      }
+      return numberId
+    }
+
+    const id = uuid()
+    instances[id] = { id, module, fields: {}, innerValue }
+    return id
+  }
+
+  const interrupt = (interruption: Interruption, valueId: Id<'Linked'>) => {
+    let nextFrame
+    do {
+      frameStack.pop()
+      nextFrame = last(frameStack)
+    } while (nextFrame && !nextFrame.resume.includes(interruption))
+
+    if (!nextFrame) {
+      if (interruption === 'exception') {
+        const value = getInstance(valueId)
+        log.error(value.module, ':', value.fields.message && getInstance(value.fields.message).innerValue || value.innerValue)
+      }
+      throw Failure(`Unhandled "${interruption}" interruption: ${valueId}`)
+    }
+
+    nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
+    nextFrame.operandStack.push(valueId)
+  }
+
   return {
-    environment,
-    instances,
-    status: 'running',
-    frameStack: [{
-      scope: instances,
-      pending: node.body.sentences.map(sentence => [sentence, 0] as [Sentence, number]),
-      referenceStack: [],
-    }],
+    Failure,
+    popOperand,
+    pushOperand,
+    getInstance,
+    addInstance,
+    interrupt,
   }
 }
-
-export default (environment: Environment) => ({
-  runTests: () => {
-    const { descendants } = utils(environment)
-
-    const tests = descendants(environment).filter<Test>((node): node is Test => node.kind === 'Test')
-
-    return tests.map(test => {
-      let evaluation = createEvaluationFor(environment)(test)
-      const steps: Evaluation[] = []
-      while (evaluation.frameStack.length && steps.length <= 1000) {
-        steps.push(evaluation)
-        evaluation = step(evaluation)
-      }
-    })
-  },
-})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // STEPS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-
-export const step = (evaluation: Evaluation): Evaluation => {
-
-  const {
-    status,
-    frameStack: [currentFrame],
-    instances,
-    environment,
-  } = evaluation
+export const step = (natives: {}) => (evaluation: Evaluation) => {
+  const { environment, frameStack } = evaluation
 
   const {
-    pending,
-    referenceStack,
-    scope,
-  } = currentFrame
-
-  const {
-    target,
-    firstAncestorOfKind,
-    parentOf,
     hierarchy,
+    superclass,
+    resolve,
+    fullyQualifiedName,
     inherits,
-    getNodeById,
+    constructorLookup,
+    methodLookup,
+    nativeLookup,
   } = utils(environment)
 
-  if (status !== 'running') return evaluation
-  if (!pending.length) return POP_FRAME(evaluation)
+  const {
+    Failure,
+    popOperand,
+    pushOperand,
+    getInstance,
+    addInstance,
+    interrupt,
+  } = Operations(evaluation)
 
-  const [[currentSentence, pc]] = pending
+  const currentFrame = last(frameStack)!
+  if (!currentFrame) throw Failure('Reached end of frame stack')
 
-  switch (currentSentence.kind) {
-    case 'Variable':
-      if (!currentSentence.value)
-        return pipe(
-          POP_PENDING,
-          PUSH_REFERENCE(NULL_ID),
-          STORE(currentSentence.name),
-        )(evaluation)
+  const instruction = currentFrame.instructions[currentFrame.nextInstruction]
+  if (!instruction) throw Failure(`Reached end of instructions`)
 
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_PENDING(currentSentence.value),
-        )(evaluation)
+  currentFrame.nextInstruction++
 
-        case 1: return pipe(
-          POP_PENDING,
-          PUSH_REFERENCE(referenceStack[0]),
-          STORE(currentSentence.name),
-        )(evaluation)
+  try {
 
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
+    switch (instruction.kind) {
 
-    case 'Return':
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_PENDING(currentSentence.value),
-        )(evaluation)
+      case 'LOAD': return (() => {
+        const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
+        if (!value) throw Failure(`LOAD of missing local "${instruction.name}"`)
+        pushOperand(value)
+      })()
 
-        case 1: return pipe(
-          POP_FRAME,
-        )(evaluation)
 
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
+      case 'STORE': return (() => {
+        const valueId = popOperand()
+        const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
+        frame.locals[instruction.name] = valueId
+      })()
 
-    // TODO:
-    case 'Assignment':
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_PENDING(currentSentence.value),
-        )(evaluation)
 
-        case 1:
-          return target(currentSentence.reference).kind === 'Field'
-            ? pipe(
-              POP_PENDING,
-              LOAD('self'),
-              SET(currentSentence.reference.name),
-            )(evaluation)
-            : pipe(
-              POP_PENDING,
-              STORE(currentSentence.reference.name)
-            )(evaluation)
+      case 'PUSH': return (() => {
+        pushOperand(instruction.id)
+      })()
 
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
 
-    case 'Self': return pipe(
-      POP_PENDING,
-      LOAD('self'),
-    )(evaluation)
+      case 'GET': return (() => {
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        const value = self.fields[instruction.name]
+        if (!value) throw Failure(`Access to undefined field "${self.module}>>${instruction.name}"`)
+        pushOperand(value)
+      })()
 
-    case 'Reference': return pipe(
-      POP_PENDING,
-      target(currentSentence).kind === 'Field'
-        ? PUSH_REFERENCE(instances[instances[scope.self].attributes[currentSentence.name]].id)
-        : LOAD(currentSentence.name)
-    )(evaluation)
 
-    case 'Literal':
-      if (currentSentence.value === null) return pipe(
-        POP_PENDING,
-        PUSH_REFERENCE(NULL_ID),
-      )(evaluation)
+      case 'SET': return (() => {
+        const valueId = popOperand()
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        self.fields[instruction.name] = valueId
+      })()
 
-      if (typeof currentSentence.value === 'boolean') return pipe(
-        POP_PENDING,
-        PUSH_REFERENCE(currentSentence.value ? TRUE_ID : FALSE_ID)
-      )(evaluation)
+      case 'SWAP': return (() => {
+        const a = popOperand()
+        const b = popOperand()
+        pushOperand(a)
+        pushOperand(b)
+      })()
 
-      // TODO: Add to instances
-      if (typeof currentSentence.value === 'number') return pipe(
-        POP_PENDING,
-        // TODO: Make this 'wollok.Number'
-        INSTANTIATE(getNodeById(currentSentence.scope.Number), currentSentence.value),
-      )(evaluation)
 
-      // TODO: Add to instances
-      if (typeof currentSentence.value === 'string') return pipe(
-        POP_PENDING,
-        // TODO: Make this 'wollok.String'
-        INSTANTIATE(getNodeById(currentSentence.scope.String), currentSentence.value),
-      )(evaluation)
+      case 'INSTANTIATE': return (() => {
+        const id = addInstance(instruction.module, instruction.innerValue)
+        pushOperand(id)
+      })()
 
-      if (currentSentence.value.kind === 'New') return pipe(
-        POP_PENDING,
-        PUSH_PENDING(currentSentence.value),
-      )(evaluation)
 
-      return pipe(
-        POP_PENDING,
-        PUSH_REFERENCE(instances[currentSentence.value.id].id),
-      )(evaluation)
+      case 'INHERITS': return (() => {
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        pushOperand(inherits(resolve(self.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
+      })()
 
-    case 'Send':
-      if (pc === 0) return pipe(
-        INC_PC,
-        PUSH_PENDING(currentSentence.receiver),
-      )(evaluation)
+      // TODO: can't we just use IF_ELSE instead?
+      case 'CONDITIONAL_JUMP': return (() => {
+        const check = popOperand()
 
-      if (pc <= currentSentence.args.length) return pipe(
-        INC_PC,
-        PUSH_PENDING(currentSentence.args[pc - 1]),
-      )(evaluation)
+        if (check !== TRUE_ID && check !== FALSE_ID)
+          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+          throw Failure(`Invalid jump count ${instruction.count}`)
 
-      const receiver = instances[currentFrame.referenceStack[currentSentence.args.length]]
-      // TODO: Maybe a single bytecode for this? invoke? May avoid repetition with super.
-      // TODO: What about SELF AND SCOPE?
-      const method = methodLookup(environment)(currentSentence.message, currentSentence.args.length, receiver.module)
-      return (method
-        ? [
-          PUSH_FRAME(method.body!.sentences),
-          // TODO: Handle varargs
-          ...reverse(method.parameters).map(parameter => STORE(parameter.name)),
-          STORE('self'),
-        ]
-        : [
-          // TODO: We should not create unlinked nodes
-          // TODO: We might replace this with a call to messageNotUnderstood, defined in wre
-          PUSH_PENDING({
-            kind: 'Throw',
-            arg: {
-              kind: 'New',
-              className: {
-                kind: 'Reference',
-                // TODO: Use proper path wollok...
-                name: 'MessageNotUnderstoodException',
-                scope: currentSentence.scope,
-              },
-              args: [],
-              scope: currentSentence.scope,
-            },
-            scope: currentSentence.scope,
-          } as unknown as Throw),
-        ]).reduce(pipe)(evaluation)
+        currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
+      })()
 
-    case 'Super':
-      if (pc < currentSentence.args.length) return pipe(
-        INC_PC,
-        PUSH_PENDING(currentSentence.args[pc]),
-      )(evaluation)
 
-      const currentMethod = firstAncestorOfKind('Method', currentSentence)
-      const superMethod = methodLookup(environment)(
-        currentMethod.name,
-        currentSentence.args.length,
-        parentOf<Module>(currentMethod)
-      )
+      case 'CALL': return (() => {
+        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
+        const selfId = popOperand()
+        const self = getInstance(selfId)
+        let lookupStart: Name
+        if (instruction.lookupStart) {
+          const ownHierarchy = hierarchy(resolve(self.module)).map(fullyQualifiedName)
+          const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
+          lookupStart = ownHierarchy[start + 1]
+        } else {
+          lookupStart = self.module
+        }
 
-      return (superMethod
-        ? [
-          PUSH_FRAME(superMethod.body!.sentences),
-          // TODO: Handle varargs
-          ...reverse(superMethod.parameters).map(parameter => STORE(parameter.name)),
-        ]
-        : [
-          // TODO: We should not create unlinked nodes
-          // TODO: We might replace this with a call to messageNotUnderstood, defined in wre
-          PUSH_PENDING({
-            kind: 'Throw',
-            arg: {
-              kind: 'New',
-              className: {
-                kind: 'Reference',
-                // TODO: Use proper path wollok...
-                name: 'MessageNotUnderstoodException',
-                scope: currentSentence.scope,
-              },
-              args: [],
-              scope: currentSentence.scope,
-            },
-            scope: currentSentence.scope,
-          } as unknown as Throw),
-        ]).reduce(pipe)(evaluation)
+        const method = methodLookup(instruction.message, instruction.arity, resolve(lookupStart))
 
-    case 'New':
-      if (pc < currentSentence.args.length) return pipe(
-        INC_PC,
-        PUSH_PENDING(currentSentence.args[pc]),
-      )(evaluation)
+        if (!method) {
+          log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
-      const instantiatedClass = target<Class>(currentSentence.className)
-      const instantiatedClassHierarchy = hierarchy(instantiatedClass)
-      const initializableFields = instantiatedClassHierarchy.reduce((fields, module) => [
-        ...(module.members as ObjectMember[]).filter(member => member.kind === 'Field' && !!member.value) as ReadonlyArray<Field>,
-        ...fields,
-      ], [] as ReadonlyArray<Field>)
+          const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
+          const nameId = addInstance('wollok.lang.String', instruction.message)
+          const argsId = addInstance('wollok.lang.List', argIds)
 
-      if (pc === currentSentence.args.length) return pipe(
-        INC_PC,
-        PUSH_FRAME([
-          // TODO: We shouldn't create unlinked nodes like this...
-          ...initializableFields.map(field => ({
-            kind: 'Assignment',
-            reference: { kind: 'Reference', name: field.name, scope: field.scope },
-            value: field.value!,
-            scope: field.scope,
-          }) as Assignment),
-          { kind: 'Self' } as Self,
-        ]),
-        INSTANTIATE(instantiatedClass),
-        STORE('self'),
-      )(evaluation)
-
-      const chain = constructorCallChain(environment)(instantiatedClass, currentSentence.args)
-
-      if (!chain.length) return pipe(
-        POP_PENDING,
-      )(evaluation)
-
-      // TODO: Call base constructor
-      const [constructor] = chain[0]
-
-      return pipe(
-        POP_PENDING,
-        PUSH_FRAME(constructor.body.sentences),
-      )(evaluation)
-
-    case 'If':
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_PENDING(currentSentence.condition),
-        )(evaluation)
-
-        case 1: return pipe(
-          POP_PENDING,
-          POP_REFERENCE,
-          PUSH_FRAME(referenceStack[0] === TRUE_ID ? currentSentence.thenBody.sentences : currentSentence.elseBody.sentences)
-        )(evaluation)
-
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
-
-    case 'Throw':
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_PENDING(currentSentence.arg),
-        )(evaluation)
-
-        case 1:
-          const error = instances[referenceStack[0]]
-          const tryIndex = evaluation.frameStack.findIndex(stack => {
-            const sentence = path<Sentence>(['pending', '0', '0'], stack)
-            return !!sentence && sentence.kind === 'Try' && sentence.catches.some(({ parameterType }) =>
-              !parameterType || inherits(error.module, target(parameterType))
-            )
+          currentFrame.resume.push('return')
+          frameStack.push({
+            instructions: compile(environment)(messageNotUnderstood.body!),
+            nextInstruction: 0,
+            locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
+            operandStack: [],
+            resume: [],
           })
+        } else {
 
-          if (tryIndex < 0) return { ...evaluation, status: 'error' }
+          if (method.isNative) {
+            log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+            const native = nativeLookup(natives, method)
+            const args = argIds.map(id => {
+              if (id === VOID_ID) throw Failure('reference to void argument')
+              return evaluation.instances[id]
+            })
+            native(self, ...args)(evaluation)
+          } else {
 
-          const tryNode: Try = evaluation.frameStack[tryIndex].pending[0][0] as Try
-          const catchNode: Catch = tryNode.catches.find(({ parameterType }) =>
-            !parameterType || inherits(error.module, target(parameterType))
-          )!
+            const parameterNames = method.parameters.map(({ name }) => name)
+            let locals: Locals
 
-          // TODO: Evaluate intermediate always clauses
-          return [
-            ...new Array(tryIndex).map(_ => POP_FRAME),
-            PUSH_FRAME(catchNode.body.sentences),
-            PUSH_REFERENCE(error.id),
-            STORE(catchNode.parameter.name),
-          ].reduce(pipe)(evaluation)
+            if (method.parameters.some(({ isVarArg }) => isVarArg)) {
+              const restId = addInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
+              locals = {
+                ...zipObj(parameterNames.slice(0, -1), argIds),
+                [last(method.parameters)!.name]: restId,
+                self: selfId,
+              }
+            } else {
+              locals = {
+                ...zipObj(parameterNames, argIds),
+                self: selfId,
+              }
+            }
 
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
+            currentFrame.resume.push('return')
+            frameStack.push({
+              instructions: [
+                ...compile(environment)(method.body!),
+                PUSH(VOID_ID),
+                INTERRUPT('return'),
+              ],
+              nextInstruction: 0,
+              locals,
+              operandStack: [],
+              resume: [],
+            })
+          }
+        }
+      })()
 
-    case 'Try':
-      switch (pc) {
-        case 0: return pipe(
-          INC_PC,
-          PUSH_FRAME(currentSentence.body.sentences),
-        )(evaluation)
 
-        case 1: return pipe(
-          POP_PENDING,
-          PUSH_FRAME(currentSentence.always.sentences),
-        )(evaluation)
+      case 'INIT': return (() => {
+        const selfId = popOperand()
+        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
+        const self = getInstance(selfId)
 
-        default: throw new Error(`Invalid PC: ${evaluation}`)
-      }
+        const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
+
+        // TODO: Add to Filler a method for doing this and just call it ?
+        const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
+          ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
+          ...fields,
+        ], [] as Field<'Linked'>[])
+
+        const constructor = constructorLookup(instruction.arity, lookupStart)
+        const ownSuperclass = superclass(lookupStart)
+
+        if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
+
+        let locals: Locals
+        if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
+          const restObject = addInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
+          locals = {
+            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
+            [last(constructor.parameters)!.name]: restObject,
+            self: selfId,
+          }
+        } else {
+          locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
+        }
+
+        currentFrame.resume.push('return')
+        frameStack.push({
+          instructions: new Array<Instruction>(
+            ...instruction.initFields ? [
+              ...flatMap(({ value: v, name }: Field<'Linked'>) => [
+                LOAD('self'),
+                ...compile(environment)(v),
+                SET(name),
+              ])(allFields),
+            ] : [],
+            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
+              ...flatMap(compile(environment))(constructor.baseCall.args),
+              LOAD('self'),
+              INIT(
+                constructor.baseCall.args.length,
+                constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+                false
+              ),
+            ) : [],
+            ...compile(environment)(constructor.body),
+            LOAD('self'),
+            INTERRUPT('return')
+          ),
+          nextInstruction: 0,
+          locals,
+          operandStack: [],
+          resume: [],
+        })
+      })()
+
+
+      case 'IF_THEN_ELSE': return (() => {
+        const check = popOperand()
+        if (!check) throw Failure('Popped empty operand stack')
+
+        if (check !== TRUE_ID && check !== FALSE_ID)
+          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+        currentFrame.resume.push('result')
+        frameStack.push({
+          instructions: [
+            PUSH(VOID_ID),
+            ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
+            INTERRUPT('result'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: [],
+        })
+      })()
+
+
+      case 'TRY_CATCH_ALWAYS': return (() => {
+        currentFrame.resume.push('result')
+
+        frameStack.push({
+          instructions: [
+            STORE('<previous_interruption>', false),
+            ...instruction.alwaysHandler,
+            LOAD('<previous_interruption>'),
+            RESUME_INTERRUPTION,
+          ] as Instruction[],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: ['result', 'return', 'exception'] as Interruption[],
+        })
+
+        frameStack.push({
+          instructions: [
+            STORE('<exception>', false),
+            ...instruction.catchHandler,
+            LOAD('<exception>'),
+            INTERRUPT('exception'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: ['exception'] as Interruption[],
+        })
+
+        frameStack.push({
+          instructions: [
+            PUSH(VOID_ID),
+            ...instruction.body,
+            INTERRUPT('result'),
+          ],
+          nextInstruction: 0,
+          locals: {},
+          operandStack: [],
+          resume: [],
+        })
+      })()
+
+
+      case 'INTERRUPT': return (() => {
+        const valueId = popOperand()
+        interrupt(instruction.interruption, valueId)
+      })()
+
+
+      case 'RESUME_INTERRUPTION': return (() => {
+        const allInterruptions: Interruption[] = ['exception', 'return', 'result']
+        if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
+        const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
+
+        const valueId = popOperand()
+        interrupt(lastInterruption, valueId)
+      })()
+    }
+
+  } catch (error) {
+    return interrupt('exception', addInstance('wollok.lang.EvaluationException', error))
   }
 
 }
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// EVALUATION
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const cloneEvaluation = (evaluation: Evaluation): Evaluation => ({
+  instances: Object.keys(evaluation.instances).reduce((instanceClones, name) =>
+    ({
+      ...instanceClones, [name]: {
+        // TODO: For fuck's sake just add a clone library
+        id: evaluation.instances[name].id,
+        module: evaluation.instances[name].module,
+        fields: { ...evaluation.instances[name].fields },
+        innerValue: evaluation.instances[name].innerValue,
+      },
+    })
+    , {}),
+  environment: evaluation.environment,
+  frameStack: evaluation.frameStack.map(frame => ({
+    locals: { ...frame.locals },
+    operandStack: [...frame.operandStack],
+    instructions: frame.instructions,
+    nextInstruction: frame.nextInstruction,
+    resume: [...frame.resume],
+  })),
+})
+
+const buildEvaluationFor = (environment: Environment<'Linked'>): Evaluation => {
+  const { descendants, fullyQualifiedName, resolveTarget } = utils(environment)
+
+  const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
+
+  const instances = [
+    { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
+    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
+    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
+    ...globalSingletons.map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })),
+  ].reduce((all, instance) => ({ ...all, [instance.id]: instance }), {})
+
+  const locals = {
+    null: NULL_ID,
+    true: TRUE_ID,
+    false: FALSE_ID,
+    ...globalSingletons.reduce((all, singleton) => ({ ...all, [fullyQualifiedName(singleton)]: singleton.id }), {}),
+  }
+
+  return {
+    environment,
+    instances,
+    frameStack: [{
+      instructions: [
+        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<'Linked'>) => [
+          ...flatMap(compile(environment))(args),
+          PUSH(id),
+          INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
+        ])(globalSingletons),
+      ],
+      nextInstruction: 0,
+      locals,
+      operandStack: [],
+      resume: [],
+    }],
+  }
+}
+
+// TODO: type for natives
+function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
+
+  const instructions = compile(evaluation.environment)(body)
+
+  evaluation.frameStack.push({
+    instructions,
+    nextInstruction: 0,
+    locals: {},
+    operandStack: [],
+    resume: [],
+  })
+
+  while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
+    log.step(evaluation)
+    // console.time('took')
+    // yield step(natives)(evaluation)
+    step(natives)(evaluation)
+    // console.timeEnd('took')
+  }
+
+  return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
+}
+
+export default (environment: Environment<'Linked'>, natives: {}) => ({
+
+  runTests: () => {
+    const { descendants } = utils(environment)
+
+    const tests = descendants(environment).filter(is('Test'))
+
+    log.start('Initializing Evaluation')
+    const initializedEvaluation = buildEvaluationFor(environment)
+    while (last(initializedEvaluation.frameStack)!.nextInstruction < last(initializedEvaluation.frameStack)!.instructions.length) {
+      log.step(initializedEvaluation)
+      step(natives)(initializedEvaluation)
+    }
+    log.done('Initializing Evaluation')
+
+    tests.forEach((test, i) => {
+      log.resetStep()
+      const evaluation = cloneEvaluation(initializedEvaluation)
+      log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      log.start(test.name)
+      run(evaluation, natives, test.body)
+      log.done(test.name)
+      log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      log.separator()
+    })
+  },
+
+})
