@@ -11,7 +11,7 @@ import natives from '../src/wre/natives'
 
 enableLogs()
 
-const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
+const SANITY_TESTS_REPO = 'https://github.com/uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
 const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
