@@ -6,6 +6,7 @@ import utils from '../utils'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
+const { UTC } = Date
 
 // TODO:
 // tslint:disable:variable-name
@@ -113,14 +114,6 @@ export default {
         },
       },
 
-      Set: {
-
-        add: (_self: RuntimeObject, _element: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-
-      },
-
       List: {
 
         get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
@@ -188,7 +181,7 @@ export default {
         '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
           const { addInstance, pushOperand, interrupt } = Operations(evaluation)
           if (typeof other.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
-          if (other.innerValue === 0) interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+          if (other.innerValue === 0) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
           pushOperand(addInstance(self.module, self.innerValue / other.innerValue))
         },
 
@@ -575,59 +568,108 @@ export default {
       },
 
       Date: {
-        'toString': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        '==': (_self: RuntimeObject, _aDate: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'plusDays': (_self: RuntimeObject, _days: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'plusMonths': (_self: RuntimeObject, _months: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'plusYears': (_self: RuntimeObject, _years: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'isLeapYear': (_self: RuntimeObject, ) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-        },
-        'initialize': (_self: RuntimeObject, _day: RuntimeObject, _month: RuntimeObject, _year: RuntimeObject) =>
-          (_evaluation: Evaluation) => {
-            /* TODO:*/
-            throw new ReferenceError('To be implemented')
+
+        'initialize': (self: RuntimeObject, day?: RuntimeObject, month?: RuntimeObject, year?: RuntimeObject) =>
+          (evaluation: Evaluation) => {
+            const { pushOperand } = Operations(evaluation)
+            self.innerValue = day && month && year
+              ? new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+              : new Date(new Date().setHours(0, 0, 0, 0))
+            pushOperand(VOID_ID)
           },
-        'day': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'day': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.Number', self.innerValue.getDate()))
         },
-        'dayOfWeek': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'dayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.Number', self.innerValue.getDay()))
         },
-        'month': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'month': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.Number', self.innerValue.getMonth() + 1))
         },
-        'year': (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'year': (self: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          pushOperand(addInstance('wollok.lang.Number', self.innerValue.getFullYear()))
         },
-        '-': (_self: RuntimeObject, _aDate: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (typeof days.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(addInstance(self.module, new Date(
+            self.innerValue.getFullYear(),
+            self.innerValue.getMonth(),
+            self.innerValue.getDate() + days.innerValue)
+          ))
         },
-        'minusDays': (_self: RuntimeObject, _days: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (typeof months.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          const date = new Date(
+            self.innerValue.getFullYear(),
+            self.innerValue.getMonth() + months.innerValue,
+            self.innerValue.getDate()
+          )
+
+          while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
+            date.setDate(date.getDate() - 1)
+
+          pushOperand(addInstance(self.module, date))
         },
-        'minusMonths': (_self: RuntimeObject, _months: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (typeof years.innerValue !== 'number') return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          const date = new Date(
+            self.innerValue.getFullYear() + years.innerValue,
+            self.innerValue.getMonth(),
+            self.innerValue.getDate()
+          )
+
+          if (years.innerValue > 0 && date.getDate() !== self.innerValue.getDate()) {
+            date.setDate(date.getDate() - 1)
+          }
+
+          pushOperand(addInstance(self.module, date))
         },
-        'minusYears': (_self: RuntimeObject, _years: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, addInstance } = Operations(evaluation)
+          const msPerDay = 1000 * 60 * 60 * 24
+          const ownUTC = UTC(self.innerValue.getFullYear(), self.innerValue.getMonth(), self.innerValue.getDate())
+          const otherUTC = UTC(other.innerValue.getFullYear(), other.innerValue.getMonth(), other.innerValue.getDate())
+          pushOperand(addInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
         },
-        '<': (_self: RuntimeObject, _aDate: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          // TODO: replace interruptions in natives with actual raise of js exceptions and capture them generically
+          if (other.module !== self.module) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
         },
-        '>': (_self: RuntimeObject, _aDate: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+
+        '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+          const { pushOperand, interrupt, addInstance } = Operations(evaluation)
+
+          if (other.module !== self.module) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
+          pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
         },
+
       },
 
       console: {

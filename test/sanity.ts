@@ -15,14 +15,10 @@ const SANITY_TESTS_REPO = 'git@github.com:uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
 const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
-// TODO: Don't skip tests
 const SKIP = [
 
   // TODO: Dictionary
   join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),
-
-  // TODO: Dates
-  join('test', 'sanity', 'src', 'date.wtest'),
 
   // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),

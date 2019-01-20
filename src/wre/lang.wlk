@@ -1482,29 +1482,13 @@ class Closure {
  */	
 class Date {
 
-	constructor()
+	constructor() { }
 	constructor(_day, _month, _year) { self.initialize(_day, _month, _year) }
 	
-	override method toString() native 
-	
-	/** Two dates are equals if they represent the same date */
-	override method ==(_aDate) native
-	
-	/** Answers a copy of this Date with the specified number of days added. */
-	method plusDays(_days) native
-	
-	/** Answers a copy of this Date with the specified number of months added. */
-	method plusMonths(_months) native
-	
-	/** Answers a copy of this Date with the specified number of years added. */
-	method plusYears(_years) native
-	
-	/** Checks if the year is a leap year, like 2000, 2004, 2008, 2012, 2016... */
-	method isLeapYear() native
-	
+	override method initialize() native
 	/** @private */
 	method initialize(_day, _month, _year) native
-	
+
 	/** Answers the day number of the Date */
 	method day() native
 	
@@ -1522,7 +1506,23 @@ class Date {
 	
 	/** Answers the year number of the Date */
 	method year() native
+
+	override method toString() = "a Date[day = " + self.day() + ", month = " + self.month() + ", year = " + self.year() + "]"
 	
+	override method ==(other) = self.year() == other.year() && self.month() == other.month() && self.day() == other.day()
+	
+	/** Answers a copy of this Date with the specified number of days added. */
+	method plusDays(_days) native
+	
+	/** Answers a copy of this Date with the specified number of months added. */
+	method plusMonths(_months) native
+	
+	/** Answers a copy of this Date with the specified number of years added. */
+	method plusYears(_years) native
+	
+	/** Checks if the year is a leap year, like 2000, 2004, 2008, 2012, 2016... */
+	method isLeapYear() =  self.year() % 4 == 0 && self.year() % 100 != 0 || self.year() % 400 == 0
+		
 	/** 
 	 * Answers the difference in days between two dates, in absolute values.
 	 * 
@@ -1537,15 +1537,15 @@ class Date {
 	 * For example, 2009-01-01 minus one day would result in 2008-12-31.
 	 * This instance is immutable and unaffected by this method call.  
 	 */
-	method minusDays(_days) native
+	method minusDays(days) = self.plusDays(-days)
 	
 	/** 
 	 * Answers a copy of this date with the specified number of months subtracted.
 	 */
-	method minusMonths(_months) native
+	method minusMonths(months) = self.plusMonths(-months)
 	
 	/** Answers a copy of this date with the specified number of years subtracted. */
-	method minusYears(_years) native
+	method minusYears(years) = self.plusYears(-years)
 	
 	method <(_aDate) native
 	method >(_aDate) native
