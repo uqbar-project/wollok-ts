@@ -17,9 +17,6 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 const SKIP = [
 
-  // TODO: Dictionary
-  join('test', 'sanity', 'src', 'dictionaryTestCase.wtest'),
-
   // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),

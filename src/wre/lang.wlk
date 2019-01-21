@@ -578,7 +578,7 @@ class Set inherits Collection {
     const this = self.asList()
     "#{" +
     if (self.isEmpty()) ""
-    else this.subList(1, self.size() - 1).fold(this.head().toString(), {acc, e => acc + ', ' + e.toString()}) +
+    else this.subList(1).fold(this.head().printString(), {acc, e => acc + ', ' + e.printString()}) +
     "}"
   }
 	
@@ -708,7 +708,7 @@ class List inherits Collection {
   override method toString() =
     "[" +
     if (self.isEmpty()) ""
-    else self.subList(1, self.size() - 1).fold(self.head().toString(), {acc, e => acc + ', ' + e.toString()}) +
+    else self.subList(1).fold(self.head().printString(), {acc, e => acc + ', ' + e.printString()}) +
     "]"
 
 	/** 
@@ -736,6 +736,7 @@ class List inherits Collection {
 	 *		[1, 5, 3, 2, 7, 9].subList(2, 3)		=> Answers [3, 2]	
 	 *		[1, 5, 3, 2, 7, 9].subList(4, 6)		=> Answers [7, 9] 
 	 */
+	method subList(start) = self.subList(start, self.size() - 1)
 	method subList(start,end) {
 		if(self.isEmpty() || start >= self.size())
 			return self.newInstance()
@@ -793,7 +794,7 @@ class List inherits Collection {
 		if(n >= self.size())
 			self.newInstance()
 		else
-			self.subList(n,self.size()-1)
+			self.subList(n)
 		
 	/**
 	 * Answers a new list reversing the elements, so that first element becomes last element of the new list and so on.
@@ -817,7 +818,7 @@ class List inherits Collection {
 	method join() = self.join(",")
 	method join(separator) =
     if (self.isEmpty()) ""
-    else self.subList(1, self.size()).fold(self.head().toString(), {acc, e => acc + separator + e})
+    else self.subList(1).fold(self.head().toString(), {acc, e => acc + separator + e})
   
 	
 	
@@ -843,17 +844,23 @@ class List inherits Collection {
  */
 class Dictionary {
 
-	constructor() { }
-	
+  var entries = []
+
 	/**
 	 * Adds or updates a value based on a key
 	 */
-	method put(_key, _value) native
+	method put(_key, _value) {
+    if(_key == null || _value == null) throw new BadParameterException()
+
+    self.remove(_key)
+    entries.add([_key, _value])
+  }
 	
 	/**
 	 * Answers the value to which the specified key is mapped, or null if this Dictionary contains no mapping for the key.
 	 */
-	method basicGet(_key) native
+	method basicGet(_key) = entries.findOrDefault({entry => entry.get(0) == _key}, [null,null]).get(1)
+  
 
 	/**
 	 * Answers the value to which the specified key is mapped, or evaluates a non-parameter closure otherwise 
@@ -895,17 +902,19 @@ class Dictionary {
 	/**
 	 * Removes the mapping for a key from this Dictionary if it is present 
 	 */
-	method remove(_key) native
+	method remove(_key) {
+    entries = entries.filter {entry => entry.get(0) != _key }
+  }
 	
 	/**
 	 * Answers a list of the keys contained in this Dictionary.
 	 */
-	method keys() native
+	method keys() = entries.map { entry => entry.get(0) }
 	
 	/**
 	 * Answers a list of the values contained in this Dictionary.
 	 */
-	method values() native
+	method values() = entries.map { entry => entry.get(1) }
 	
 	/**
 	 * Performs the given action for each entry in this Dictionary until all entries have been 
@@ -917,11 +926,21 @@ class Dictionary {
 	 * 		mapaTelefonos.forEach({ k, v => result += k.size() + v.size() })
 	 * 
 	 */
-	method forEach(closure) native
+	method forEach(closure) {
+    entries.forEach { entry => closure.apply(entry.get(0), entry.get(1)) }
+  }
 	
 	/** Removes all of the mappings from this Dictionary. This is a side-effect operation. */
-	method clear() native
+	method clear() {
+    entries = []
+  }
 	
+  override method toString() = "a Dictionary [" +
+    if (entries.isEmpty()) "]"
+    else entries.subList(1).fold(entries.get(0).get(0).printString() + " -> " + entries.get(0).get(1).printString(), {acum, entry =>
+      acum + ", " + entry.get(0).printString() + " -> " + entry.get(1).printString()
+    }) + "]"
+
 }
 
 /**
