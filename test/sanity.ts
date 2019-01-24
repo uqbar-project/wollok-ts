@@ -4,12 +4,12 @@ import * as simplegit from 'simple-git/promise'
 import fill from '../src/filler'
 import interpreter from '../src/interpreter'
 import link from '../src/linker'
-import log, { enableLogs } from '../src/log'
+import log, { enableLogs, LogLevel } from '../src/log'
 import { Package } from '../src/model'
 import { File } from '../src/parser'
 import natives from '../src/wre/natives'
 
-enableLogs()
+enableLogs(LogLevel.INFO)
 
 const SANITY_TESTS_REPO = 'https://github.com/uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
@@ -110,9 +110,9 @@ const runAll = async () => {
 
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
-  await runTests()
+  const [passed, total] = await runTests()
   log.done('Running tests')
-  log.success('Runned', testFiles.length, 'test files')
+  log.info(`Passed ${passed}/${total} tests on ${testFiles.length} test files`)
 }
 
 runAll()

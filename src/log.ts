@@ -8,7 +8,13 @@ const { clear, log: writeLine } = console
 const { assign, keys } = Object
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, underline, italic, bold } = chalk
 
-// const write = process.stdout.write.bind(process.stdout)
+export enum LogLevel {
+  ERROR,
+  WARN,
+  SUCCESS,
+  INFO,
+  DEBUG,
+}
 
 type Log = (...args: any[]) => void
 type Logger = {
@@ -170,10 +176,14 @@ const consoleLogger: Logger = {
   clear,
 }
 
-// TODO: enable by level
-export const enableLogs = () => {
-  // assign(logger, consoleLogger, { debug: () => { }, step: () => { } })
+export const enableLogs = (level: LogLevel = LogLevel.DEBUG) => {
   assign(logger, consoleLogger)
+
+  if (level < LogLevel.DEBUG) assign(logger, { debug: () => { }, step: () => { } })
+  if (level < LogLevel.INFO) assign(logger, { info: () => { } })
+  if (level < LogLevel.SUCCESS) assign(logger, { success: () => { } })
+  if (level < LogLevel.WARN) assign(logger, { warn: () => { } })
+  if (level < LogLevel.ERROR) assign(logger, { error: () => { } })
 }
 
 export default logger

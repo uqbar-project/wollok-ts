@@ -249,9 +249,8 @@ export const Operations = (evaluation: Evaluation) => {
 
   const Failure = (message: string) => {
     log.error(message)
-    log.evaluation(evaluation)
+    // log.evaluation(evaluation)
     return new Error(message)
-    // return new Error(`${message}: ${JSON.stringify(evaluation, (key, value) => key === 'environment' ? undefined : value)}`)
   }
 
   const popOperand = (): Id<'Linked'> => {
@@ -643,7 +642,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     }
 
   } catch (error) {
-    return interrupt('exception', addInstance('wollok.lang.EvaluationException', error))
+    interrupt('exception', addInstance('wollok.lang.EvaluationError', error))
   }
 
 }
@@ -726,10 +725,7 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 
   while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
     log.step(evaluation)
-    // console.time('took')
-    // yield step(natives)(evaluation)
     step(natives)(evaluation)
-    // console.timeEnd('took')
   }
 
   return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
@@ -737,7 +733,7 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 
 export default (environment: Environment<'Linked'>, natives: {}) => ({
 
-  runTests: () => {
+  runTests: (): [number, number] => {
     const { descendants } = utils(environment)
 
     const tests = descendants(environment).filter(is('Test'))
@@ -750,16 +746,24 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
     }
     log.done('Initializing Evaluation')
 
+    let passed = 0
     tests.forEach((test, i) => {
       log.resetStep()
       const evaluation = cloneEvaluation(initializedEvaluation)
       log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
       log.start(test.name)
-      run(evaluation, natives, test.body)
+      try {
+        run(evaluation, natives, test.body)
+        passed++
+        log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
+      } catch (error) {
+        log.error('Failed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name, error)
+      }
       log.done(test.name)
-      log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
       log.separator()
     })
+
+    return [passed, tests.length]
   },
 
 })

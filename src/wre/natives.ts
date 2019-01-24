@@ -622,7 +622,10 @@ export default {
         },
 
         '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-          const { pushOperand, addInstance } = Operations(evaluation)
+          const { pushOperand, addInstance, interrupt } = Operations(evaluation)
+
+          if (other.module !== self.module) return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+
           const msPerDay = 1000 * 60 * 60 * 24
           const ownUTC = UTC(self.innerValue.getFullYear(), self.innerValue.getMonth(), self.innerValue.getDate())
           const otherUTC = UTC(other.innerValue.getFullYear(), other.innerValue.getMonth(), other.innerValue.getDate())

@@ -72,9 +72,7 @@ class StackOverflowException inherits Exception {
 	constructor() = super()
 }
 
-class EvaluationException inherits Exception {
-	constructor() = super()
-}
+class EvaluationError inherits Exception { }
 
 /**
  * An exception that is thrown when a specified element cannot be found
@@ -850,7 +848,8 @@ class Dictionary {
 	 * Adds or updates a value based on a key
 	 */
 	method put(_key, _value) {
-    if(_key == null || _value == null) throw new BadParameterException()
+    if(_key == null) throw new BadParameterException("key")
+    if(_value == null) throw new BadParameterException("value")
 
     self.remove(_key)
     entries.add([_key, _value])
