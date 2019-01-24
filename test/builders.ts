@@ -214,7 +214,7 @@ export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode<'
 export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
 
 
-  const RuntimeObject = (id: Id<'Linked'>, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
+  const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
     id,
     module,
     fields,

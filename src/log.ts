@@ -52,7 +52,7 @@ const logger: Logger = {
 
 const hr = (size: number = columns) => '─'.repeat(size)
 
-const stringifyId = (evaluation: Evaluation) => (id: Id<'Linked'>): string => {
+const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
   const instance = evaluation.instances[id]
   const module = instance ? stringifyModule(evaluation)(instance.module) : ''
   const valueDescription = () => {

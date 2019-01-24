@@ -71,7 +71,7 @@ export default {
             last(evaluation.frameStack)!.resume.push('return')
             evaluation.frameStack.push({
               instructions: [
-                ...flatMap((id: Id<'Linked'>) => [
+                ...flatMap((id: Id) => [
                   PUSH(closure.id),
                   PUSH(id),
                 ])([...self.innerValue].reverse()),
@@ -416,7 +416,7 @@ export default {
           last(evaluation.frameStack)!.resume.push('return')
           evaluation.frameStack.push({
             instructions: [
-              ...flatMap((id: Id<'Linked'>) => [
+              ...flatMap((id: Id) => [
                 PUSH(closure.id),
                 PUSH(id),
                 CALL('apply', 1),

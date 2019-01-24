@@ -4,7 +4,7 @@ export type Cache<T> = { [key: string]: T }
 
 
 export const NODE_CACHE: Cache<Node<'Linked'>> = {}
-export const PARENT_CACHE: Cache<Id<'Linked'>> = {}
+export const PARENT_CACHE: Cache<Id> = {}
 
 
 export const getOrUpdate = <T>(cache: Cache<T>, key: string) => (definition: () => T): T => {

@@ -7,10 +7,10 @@ import utils from './utils'
 
 // TODO: Remove the parameter type from Id
 
-export interface Locals { [name: string]: Id<'Linked'> }
+export interface Locals { [name: string]: Id }
 
 export interface RuntimeObject {
-  readonly id: Id<'Linked'>
+  readonly id: Id
   readonly module: Name
   readonly fields: Locals
   innerValue?: any
@@ -20,7 +20,7 @@ export interface Frame {
   readonly instructions: List<Instruction> // TODO: rename to instructions
   nextInstruction: number
   locals: Locals
-  operandStack: Id<'Linked'>[]
+  operandStack: Id[]
   resume: Interruption[]
 }
 
@@ -49,7 +49,7 @@ export const DECIMAL_PRECISION = 4
 export type Instruction
   = { kind: 'LOAD', name: Name }
   | { kind: 'STORE', name: Name, lookup: boolean }
-  | { kind: 'PUSH', id: Id<'Linked'> }
+  | { kind: 'PUSH', id: Id }
   | { kind: 'GET', name: Name }
   | { kind: 'SET', name: Name }
   | { kind: 'SWAP' }
@@ -65,7 +65,7 @@ export type Instruction
 
 export const LOAD = (name: Name): Instruction => ({ kind: 'LOAD', name })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
-export const PUSH = (id: Id<'Linked'>): Instruction => ({ kind: 'PUSH', id })
+export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const GET = (name: Name): Instruction => ({ kind: 'GET', name })
 export const SET = (name: Name): Instruction => ({ kind: 'SET', name })
 export const SWAP: Instruction = { kind: 'SWAP' }
@@ -247,24 +247,24 @@ export const Operations = (evaluation: Evaluation) => {
   const { instances, frameStack } = evaluation
   const { operandStack } = last(frameStack)!
 
-  const popOperand = (): Id<'Linked'> => {
+  const popOperand = (): Id => {
     const response = operandStack.pop()
     if (!response) throw new RangeError('Popped empty operand stack')
     return response
   }
 
-  const pushOperand = (id: Id<'Linked'>) => {
+  const pushOperand = (id: Id) => {
     operandStack.push(id)
   }
 
-  const getInstance = (id: Id<'Linked'>): RuntimeObject => {
+  const getInstance = (id: Id): RuntimeObject => {
     const response = instances[id]
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
   }
 
   // TODO: cache Strings?
-  const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
+  const addInstance = (module: Name, innerValue?: any): Id => {
     if (module === 'wollok.lang.Number') {
       const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
       const numberId = 'N!' + stringValue
@@ -281,7 +281,7 @@ export const Operations = (evaluation: Evaluation) => {
     return id
   }
 
-  const interrupt = (interruption: Interruption, valueId: Id<'Linked'>) => {
+  const interrupt = (interruption: Interruption, valueId: Id) => {
     let nextFrame
     do {
       frameStack.pop()

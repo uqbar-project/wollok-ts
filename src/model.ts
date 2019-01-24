@@ -8,12 +8,12 @@ export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kin
 
 
 export type Name = string
-
-export type Id<S extends Stage> = S extends 'Linked' ? string : string | undefined
+export type Id = string
+export type List<T> = ReadonlyArray<T>
 
 export type Fillable<T, S extends Stage> = S extends 'Filled' | 'Linked' ? T : T | undefined
+export type Linkable<T, S extends Stage> = S extends 'Linked' ? T : T | undefined
 
-export type List<T> = ReadonlyArray<T>
 
 export interface Source {
   readonly file?: string
@@ -35,7 +35,7 @@ export type Node<S extends Stage>
 
 type BaseNode<K extends Kind, S extends Stage> = {
   readonly kind: K
-  readonly id: Id<S>
+  readonly id: Linkable<Id, S>
   readonly source?: Source
 }
 
@@ -175,7 +175,7 @@ export type Expression<S extends Stage>
 
 export type Reference<S extends Stage> = BaseNode<'Reference', S> & {
   readonly name: Name
-  readonly target: Id<S>
+  readonly target: Linkable<Id, S>
 }
 
 export type Self<S extends Stage> = BaseNode<'Self', S> & {}

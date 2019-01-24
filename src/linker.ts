@@ -25,11 +25,11 @@ const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope 
 
   const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = utils(environment)
 
-  const scopes: Map<Id<'Linked'>, Scope | (() => Scope)> = new Map([
+  const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
   ])
 
-  const getScope = (id: Id<'Linked'>): Scope => {
+  const getScope = (id: Id): Scope => {
     const scope = scopes.get(id)
     if (!scope) throw new Error(`Missing scope for node id ${id}`)
     if (scope instanceof Function) {

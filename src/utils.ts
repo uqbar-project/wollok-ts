@@ -75,7 +75,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
         children(descendant).some(({ id }) => id === node.id)
       )
       if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-      return parent.id as Id<'Linked'>
+      return parent.id as Id
     }))
 
 
@@ -85,7 +85,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
     else return firstAncestorOfKind(kind, parent)
   }
 
-  const getNodeById = <T extends Node<'Linked'>>(id: Id<'Linked'>): S extends 'Linked' ? T : never =>
+  const getNodeById = <T extends Node<'Linked'>>(id: Id): S extends 'Linked' ? T : never =>
     getOrUpdate(NODE_CACHE, environment.id + id)(() => {
       const search = (obj: any): Node<'Linked'> | undefined => {
         if (isArray(obj)) {
@@ -134,7 +134,7 @@ export default <S extends Stage>(environment: Environment<S>) => {
 
 
   const hierarchy = (m: Module<'Linked'>): List<Module<'Linked'>> => {
-    const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Id<'Linked'>> = []): List<Module<'Linked'>> => {
+    const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Id> = []): List<Module<'Linked'>> => {
       if (exclude.includes(module.id)) return []
       return [
         ...module.mixins.map(mixin => resolveTarget<Module<'Linked'>>(mixin)),

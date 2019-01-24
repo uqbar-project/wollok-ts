@@ -10,7 +10,7 @@ should()
 
 const mockInterpreterDependencies = async (mocked: {
   targets?: { [name: string]: any },
-  ids?: Id<'Linked'>[],
+  ids?: Id[],
   hierarchy?: (m: Module<'Linked'>) => List<Module<'Linked'>>,
   superclass?: (module: ClassNode<'Linked'> | Singleton<'Linked'>) => ClassNode<'Linked'> | null,
   compile?: (environment: Environment<'Linked'>) => (node: Sentence<'Linked'>) => List<Instruction>,
