@@ -247,15 +247,9 @@ export const Operations = (evaluation: Evaluation) => {
   const { instances, frameStack } = evaluation
   const { operandStack } = last(frameStack)!
 
-  const Failure = (message: string) => {
-    log.error(message)
-    // log.evaluation(evaluation)
-    return new Error(message)
-  }
-
   const popOperand = (): Id<'Linked'> => {
     const response = operandStack.pop()
-    if (!response) throw Failure('Popped empty operand stack')
+    if (!response) throw new RangeError('Popped empty operand stack')
     return response
   }
 
@@ -265,11 +259,11 @@ export const Operations = (evaluation: Evaluation) => {
 
   const getInstance = (id: Id<'Linked'>): RuntimeObject => {
     const response = instances[id]
-    if (!response) throw Failure(`Access to undefined instance "${id}"`)
+    if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
   }
 
-  // TODO: cache Numbers and Strings
+  // TODO: cache Strings?
   const addInstance = (module: Name, innerValue?: any): Id<'Linked'> => {
     if (module === 'wollok.lang.Number') {
       const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
@@ -295,11 +289,12 @@ export const Operations = (evaluation: Evaluation) => {
     } while (nextFrame && !nextFrame.resume.includes(interruption))
 
     if (!nextFrame) {
-      if (interruption === 'exception') {
-        const value = getInstance(valueId)
-        log.error(value.module, ':', value.fields.message && getInstance(value.fields.message).innerValue || value.innerValue)
-      }
-      throw Failure(`Unhandled "${interruption}" interruption: ${valueId}`)
+      const value = getInstance(valueId)
+      const message = interruption === 'exception'
+        ? `${value.module}: ${value.fields.message && getInstance(value.fields.message).innerValue || value.innerValue}`
+        : ''
+
+      throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
     }
 
     nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
@@ -307,7 +302,6 @@ export const Operations = (evaluation: Evaluation) => {
   }
 
   return {
-    Failure,
     popOperand,
     pushOperand,
     getInstance,
@@ -335,7 +329,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   } = utils(environment)
 
   const {
-    Failure,
     popOperand,
     pushOperand,
     getInstance,
@@ -344,10 +337,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   } = Operations(evaluation)
 
   const currentFrame = last(frameStack)!
-  if (!currentFrame) throw Failure('Reached end of frame stack')
+  if (!currentFrame) throw new Error('Reached end of frame stack')
 
   const instruction = currentFrame.instructions[currentFrame.nextInstruction]
-  if (!instruction) throw Failure(`Reached end of instructions`)
+  if (!instruction) throw new Error(`Reached end of instructions`)
 
   currentFrame.nextInstruction++
 
@@ -357,7 +350,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'LOAD': return (() => {
         const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
-        if (!value) throw Failure(`LOAD of missing local "${instruction.name}"`)
+        if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
         pushOperand(value)
       })()
 
@@ -378,7 +371,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const selfId = popOperand()
         const self = getInstance(selfId)
         const value = self.fields[instruction.name]
-        if (!value) throw Failure(`Access to undefined field "${self.module}>>${instruction.name}"`)
+        if (!value) throw new Error(`Access to undefined field "${self.module}>>${instruction.name}"`)
         pushOperand(value)
       })()
 
@@ -414,10 +407,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'CONDITIONAL_JUMP': return (() => {
         const check = popOperand()
 
-        if (check !== TRUE_ID && check !== FALSE_ID)
-          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+        if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-          throw Failure(`Invalid jump count ${instruction.count}`)
+          throw new Error(`Invalid jump count ${instruction.count}`)
 
         currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
       })()
@@ -459,7 +451,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
             const native = nativeLookup(natives, method)
             const args = argIds.map(id => {
-              if (id === VOID_ID) throw Failure('reference to void argument')
+              if (id === VOID_ID) throw new Error('reference to void argument')
               return evaluation.instances[id]
             })
             native(self, ...args)(evaluation)
@@ -515,7 +507,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const constructor = constructorLookup(instruction.arity, lookupStart)
         const ownSuperclass = superclass(lookupStart)
 
-        if (!constructor) throw Failure(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
+        if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
 
         let locals: Locals
         if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
@@ -562,10 +554,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'IF_THEN_ELSE': return (() => {
         const check = popOperand()
-        if (!check) throw Failure('Popped empty operand stack')
+        if (!check) throw new Error('Popped empty operand stack')
 
-        if (check !== TRUE_ID && check !== FALSE_ID)
-          return interrupt('exception', addInstance('wollok.lang.BadParameterException'))
+        if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
 
         currentFrame.resume.push('result')
         frameStack.push({
@@ -633,7 +624,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'RESUME_INTERRUPTION': return (() => {
         const allInterruptions: Interruption[] = ['exception', 'return', 'result']
-        if (currentFrame.resume.length !== allInterruptions.length - 1) throw Failure('Interruption to resume cannot be inferred')
+        if (currentFrame.resume.length !== allInterruptions.length - 1) throw new Error('Interruption to resume cannot be inferred')
         const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
 
         const valueId = popOperand()
@@ -642,6 +633,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     }
 
   } catch (error) {
+    log.error(error)
     interrupt('exception', addInstance('wollok.lang.EvaluationError', error))
   }
 
@@ -757,7 +749,7 @@ export default (environment: Environment<'Linked'>, natives: {}) => ({
         passed++
         log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
       } catch (error) {
-        log.error('Failed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name, error)
+        log.error('Failed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
       }
       log.done(test.name)
       log.separator()

@@ -72,7 +72,10 @@ class StackOverflowException inherits Exception {
 	constructor() = super()
 }
 
-class EvaluationError inherits Exception { }
+class EvaluationError inherits Exception {
+	constructor() = super()
+	constructor(_message) = super(_message)
+}
 
 /**
  * An exception that is thrown when a specified element cannot be found
