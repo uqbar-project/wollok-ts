@@ -113,6 +113,8 @@ const runAll = async () => {
   const [passed, total] = await runTests()
   log.done('Running tests')
   log.info(`Passed ${passed}/${total} tests on ${testFiles.length} test files`)
+
+  process.exit(total - passed)
 }
 
 runAll()
