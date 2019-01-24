@@ -57,7 +57,7 @@ const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 const isNotAbstractClass = (node: Class<'Linked'>) =>
   node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
-export const validations = (environment: Environment<'Linked'>) => {
+export const validations = (environment: Environment) => {
   const { parentOf, firstAncestorOfKind, resolveTarget } = utils(environment)
 
   return {
@@ -163,7 +163,7 @@ export const validations = (environment: Environment<'Linked'>) => {
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node<'Linked'>, environment: Environment<'Linked'>): ReadonlyArray<Problem> => {
+export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray<Problem> => {
   const { reduce } = utils(environment)
 
   const {

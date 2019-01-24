@@ -27,7 +27,7 @@ export interface Frame {
 export type Interruption = 'return' | 'exception' | 'result'
 
 export interface Evaluation {
-  readonly environment: Environment<'Linked'>
+  readonly environment: Environment
   frameStack: Frame[]
   instances: { [id: string]: RuntimeObject }
 }
@@ -84,7 +84,7 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 
 
 // TODO: Memoize
-export const compile = (environment: Environment<'Linked'>) =>
+export const compile = (environment: Environment) =>
   (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
     // TODO: rename utils to "tools"
     const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
@@ -664,7 +664,7 @@ const cloneEvaluation = (evaluation: Evaluation): Evaluation => ({
   })),
 })
 
-const buildEvaluationFor = (environment: Environment<'Linked'>): Evaluation => {
+const buildEvaluationFor = (environment: Environment): Evaluation => {
   const { descendants, fullyQualifiedName, resolveTarget } = utils(environment)
 
   const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
@@ -723,7 +723,7 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
   return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
 }
 
-export default (environment: Environment<'Linked'>, natives: {}) => ({
+export default (environment: Environment, natives: {}) => ({
 
   runTests: (): [number, number] => {
     const { descendants } = utils(environment)

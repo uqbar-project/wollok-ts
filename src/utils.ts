@@ -35,7 +35,9 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
   }
 
 
-export default <S extends Stage>(environment: Environment<S>) => {
+export default (environment: Environment) => {
+  type S = 'Linked'
+
   // TODO: Take this out of utils object?
   const reduce = <T>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
     children(node).reduce(reduce(tx), tx(initial, node))
@@ -109,14 +111,14 @@ export default <S extends Stage>(environment: Environment<S>) => {
   const resolve = <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
       ? getNodeById(qualifiedName.slice(1))
-      : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment<'Linked'>, step) => {
+      : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment, step) => {
         const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
         const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
         if (!next) throw new Error(
           `Could not resolve reference to ${qualifiedName}: Missing child ${step} among ${allChildren.map((c: any) => c.name)}`
         )
         return next
-      }, environment as Environment<'Linked'>) as S extends 'Linked' ? T : never
+      }, environment as Environment) as S extends 'Linked' ? T : never
   }
   // )
 

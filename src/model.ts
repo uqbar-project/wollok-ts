@@ -30,7 +30,7 @@ export type Node<S extends Stage>
   | Entity<S>
   | ClassMember<S>
   | Sentence<S>
-  | Environment<S>
+  | (S extends 'Linked' ? Environment : never)
 
 
 type BaseNode<K extends Kind, S extends Stage> = {
@@ -228,9 +228,9 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Environment<S extends Stage> = BaseNode<'Environment', S> & {
+export type Environment = BaseNode<'Environment', 'Linked'> & {
   readonly source?: undefined
-  readonly members: List<Package<S>>
+  readonly members: List<Package<'Linked'>>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

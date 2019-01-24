@@ -203,7 +203,7 @@ export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sent
     )
   ))
 
-export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode<'Raw'> => makeNode('Environment')({
+export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode => makeNode('Environment')({
   members,
 })
 
@@ -211,7 +211,7 @@ export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode<'
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const evaluationBuilders = (environment: EnvironmentNode<'Linked'>) => {
+export const evaluationBuilders = (environment: EnvironmentNode) => {
 
 
   const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({

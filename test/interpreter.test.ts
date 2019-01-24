@@ -13,7 +13,7 @@ const mockInterpreterDependencies = async (mocked: {
   ids?: Id[],
   hierarchy?: (m: Module<'Linked'>) => List<Module<'Linked'>>,
   superclass?: (module: ClassNode<'Linked'> | Singleton<'Linked'>) => ClassNode<'Linked'> | null,
-  compile?: (environment: Environment<'Linked'>) => (node: Sentence<'Linked'>) => List<Instruction>,
+  compile?: (environment: Environment) => (node: Sentence<'Linked'>) => List<Instruction>,
   methodLookup?: (name: Name, arity: number, start: Module<'Linked'>) => MethodNode<'Linked'> | undefined,
   constructorLookup?: (arity: number, owner: ClassNode<'Linked'>) => ConstructorNode<'Linked'> | undefined,
   nativeLookup?: (natives: {}, method: MethodNode<'Linked'>) => Native,

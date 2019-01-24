@@ -21,7 +21,7 @@ const mergePackage = (members: List<Entity<'Filled' | 'Linked'>>, isolated: Enti
     : [...members, isolated]
 }
 
-const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope => {
+const buildScopes = (environment: Environment): (id: string) => Scope => {
 
   const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = utils(environment)
 
@@ -166,15 +166,15 @@ const buildScopes = (environment: Environment<'Linked'>): (id: string) => Scope 
 
 export default (
   newPackages: List<Package<'Filled'>>,
-  baseEnvironment: Environment<'Linked'> = { kind: 'Environment', members: [], id: '' }
-): Environment<'Linked'> => {
+  baseEnvironment: Environment = { kind: 'Environment', members: [], id: '' }
+): Environment => {
 
   const mergedEnvironment = {
     ...baseEnvironment,
     members: newPackages.reduce(mergePackage, baseEnvironment.members),
-  } as Environment<'Linked'>
+  } as Environment
 
-  const identifiedEnvironment: Environment<'Linked'> = transform(node => {
+  const identifiedEnvironment: Environment = transform(node => {
     return node.id ? node : { ...node, id: uuid() }
   })(mergedEnvironment)
 
