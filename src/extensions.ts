@@ -4,7 +4,7 @@ const { keys } = Object
 
 export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
 
-export const flatMap = <T, R>(tx: (elem: T) => List<R>) => (elems: List<T>): R[] => {
+export const flatMap = <T, R = T>(tx: (elem: T) => List<R>) => (elems: List<T>): R[] => {
   const response: R[] = []
   for (const elem of elems) {
     response.push(...tx(elem))

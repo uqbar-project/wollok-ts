@@ -7,7 +7,6 @@ const { isArray } = Array
 const { values } = Object
 
 // TODO: Test all this
-// TODO: Review types (particulary regarding Stages)
 
 export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
   <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
@@ -36,58 +35,56 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 
 
 export default (environment: Environment) => {
-  type S = 'Linked'
 
-  // TODO: Take this out of utils object?
-  const reduce = <T>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
-    children(node).reduce(reduce(tx), tx(initial, node))
+  // TODO: Take out?
+  const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
+    children<Node<S>>(node).reduce(reduce(tx), tx(initial, node))
 
-
-  const children = <C extends Node<S>>(node: Node<S>): List<C> => {
-    const extractChildren = (obj: any): List<Node<'Linked'>> => {
-      if (isNode<'Linked'>(obj)) return [obj]
+  // TODO: Take out?
+  const children = <C extends Node<S>, S extends Stage = Stage>(node: Node<S>): List<C> => {
+    const extractChildren = (obj: any): List<C> => {
+      if (isNode<S>(obj)) return [obj as C]
       if (isArray(obj)) return flatMap(extractChildren)(obj)
       if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
       return []
     }
-    return flatMap(extractChildren)(values(node)) as unknown as List<C>
+    return flatMap(extractChildren)(values(node))
   }
 
-
-  const descendants = (node: Node<S>): List<Node<S>> => {
+  // TODO: Take out?
+  const descendants = (node: Node<'Linked'>): List<Node<'Linked'>> => {
     const directDescendants = children(node)
     const indirectDescendants = flatMap(descendants)(directDescendants)
     return [...directDescendants, ...indirectDescendants]
   }
 
 
-  const fullyQualifiedName = (node: Entity<'Linked'>): S extends 'Linked' ? Name : never => {
+  const fullyQualifiedName = (node: Entity<'Linked'>): Name => {
     const parent = parentOf(node)
-    return (
-      isEntity<'Linked'>(parent)
-        ? `${fullyQualifiedName(parent)}.${node.name}`
-        : node.name ? node.name : `#${node.id}`
-    ) as S extends 'Linked' ? Name : never
+    return isEntity(parent)
+      ? `${fullyQualifiedName(parent)}.${node.name}`
+      : node.name || `#${node.id}`
   }
 
 
-  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): S extends 'Linked' ? N : never =>
+  // TODO: Remove environment from cache keys
+  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): N =>
     getNodeById(getOrUpdate(PARENT_CACHE, environment.id + node.id)(() => {
       const parent = [environment, ...descendants(environment)].find(descendant =>
         children(descendant).some(({ id }) => id === node.id)
       )
       if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-      return parent.id as Id
+
+      return parent.id
     }))
 
 
-  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<'Linked'>): S extends 'Linked' ? NodeOfKind<K, 'Linked'> : never => {
+  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<'Linked'>): NodeOfKind<K, 'Linked'> => {
     const parent = parentOf(node)
-    if (parent.kind === kind) return parent as S extends 'Linked' ? NodeOfKind<K, 'Linked'> : never
-    else return firstAncestorOfKind(kind, parent)
+    return is(kind)(parent) ? parent : firstAncestorOfKind(kind, parent)
   }
 
-  const getNodeById = <T extends Node<'Linked'>>(id: Id): S extends 'Linked' ? T : never =>
+  const getNodeById = <N extends Node<'Linked'>>(id: Id): N =>
     getOrUpdate(NODE_CACHE, environment.id + id)(() => {
       const search = (obj: any): Node<'Linked'> | undefined => {
         if (isArray(obj)) {
@@ -105,26 +102,24 @@ export default (environment: Environment) => {
       const response = search(environment)
       if (!response) throw new Error(`Missing node ${id}`)
       return response
-    }) as S extends 'Linked' ? T : never
+    }) as N
 
 
-  const resolve = <T extends Entity<'Linked'>>(qualifiedName: string): S extends 'Linked' ? T : never => {
+  const resolve = <N extends Entity<'Linked'>>(qualifiedName: string): N => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
       ? getNodeById(qualifiedName.slice(1))
       : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment, step) => {
-        const allChildren = children(current as Entity<S>) as List<Node<'Linked'>>
+        const allChildren = children(current)
         const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
         if (!next) throw new Error(
           `Could not resolve reference to ${qualifiedName}: Missing child ${step} among ${allChildren.map((c: any) => c.name)}`
         )
         return next
-      }, environment as Environment) as S extends 'Linked' ? T : never
+      }, environment) as N
   }
-  // )
 
 
-  const resolveTarget = <T extends Node<'Linked'>>(reference: Reference<'Linked'>): S extends 'Linked' ? T : never =>
-    getNodeById<T>(reference.target)
+  const resolveTarget = <N extends Node<'Linked'>>(reference: Reference<'Linked'>): N => getNodeById(reference.target)
 
 
   const superclass = (module: Class<'Linked'> | Singleton<'Linked'>): Class<'Linked'> | null => {

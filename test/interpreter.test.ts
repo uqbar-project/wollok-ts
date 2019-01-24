@@ -3,7 +3,7 @@ import rewiremock from 'rewiremock'
 import { CALL, CONDITIONAL_JUMP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, Native, PUSH, RESUME_INTERRUPTION, SET, STORE, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
-import utils from '../src/utils'
+import tools from '../src/tools'
 import { Class, Constructor, evaluationBuilders, Field, Literal, Method, Package, Parameter, Reference, Return } from './builders'
 
 should()
@@ -20,13 +20,13 @@ const mockInterpreterDependencies = async (mocked: {
 }) => rewiremock.around(
   () => import('../src/interpreter'),
   mock => {
-    mock(() => import('../src/utils'))
+    mock(() => import('../src/tools'))
       .withDefault(env => ({
-        ...utils(env),
+        ...tools(env),
         resolveTarget: reference => mocked.targets![reference.name],
-        resolve: fqn => (mocked.targets || {})[fqn] || utils(env).resolve(fqn),
-        hierarchy: module => mocked.hierarchy ? mocked.hierarchy(module) : utils(env).hierarchy(module),
-        superclass: module => mocked.superclass ? mocked.superclass(module) : utils(env).superclass(module),
+        resolve: fqn => (mocked.targets || {})[fqn] || tools(env).resolve(fqn),
+        hierarchy: module => mocked.hierarchy ? mocked.hierarchy(module) : tools(env).hierarchy(module),
+        superclass: module => mocked.superclass ? mocked.superclass(module) : tools(env).superclass(module),
         methodLookup: mocked.methodLookup!,
         constructorLookup: mocked.constructorLookup!,
         nativeLookup: mocked.nativeLookup!,
@@ -808,7 +808,7 @@ describe('Wollok Interpreter', () => {
         const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as any
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode<'Linked'>
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode<'Linked'>
-        const X = Class('X', { superclass: utils(environment).resolve('wollok.lang.Object') as any })(
+        const X = Class('X', { superclass: tools(environment).resolve('wollok.lang.Object') as any })(
           f1 as any,
           f2 as any
         ) as ClassNode<'Linked'>
@@ -816,8 +816,8 @@ describe('Wollok Interpreter', () => {
         const { step, compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor,
           targets: { X },
-          superclass: module => module.name === 'X' ? utils(environment).resolve('wollok.lang.Object') as any : undefined,
-          hierarchy: module => module.name === 'X' ? [X, utils(environment).resolve('wollok.lang.Object')] : [],
+          superclass: module => module.name === 'X' ? tools(environment).resolve('wollok.lang.Object') as any : undefined,
+          hierarchy: module => module.name === 'X' ? [X, tools(environment).resolve('wollok.lang.Object')] : [],
         })
 
         const instruction = INIT(0, 'X', true)

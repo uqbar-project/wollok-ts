@@ -96,7 +96,7 @@ class MessageNotUnderstoodException inherits Exception {
 	/*
 	'''«super.getMessage()»
 		«FOR m : wollokStack»
-		«(m as WExpression).method?.declaringContext?.contextName».«(m as WExpression).method?.name»():«NodeModelUtils.findActualNodeFor(m).textRegionWithLineInformation.lineNumber»
+		«(m as WExpression).method?.declaringContext?.contextName».«(m as WExpression).method?.name»():«NodeModeltools.findActualNodeFor(m).textRegionWithLineInformation.lineNumber»
 		«ENDFOR»
 		'''
 	*/

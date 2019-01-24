@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Id, isModule, List, Module, Node, Package } from './model'
-import utils, { transform, transformByKind } from './utils'
+import tools, { transform, transformByKind } from './tools'
 
 export interface Scope { [name: string]: string }
 
@@ -23,7 +23,7 @@ const mergePackage = (members: List<Entity<'Filled' | 'Linked'>>, isolated: Enti
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
 
-  const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = utils(environment)
+  const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -43,7 +43,6 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   function ancestors(module: Module<'Linked'>): List<Module<'Linked'>> {
     const scope = getScope(module.id)
 
-    // TODO: avoid let
     let superclassId
     let superclass
 
@@ -179,7 +178,7 @@ export default (
   })(mergedEnvironment)
 
   transform<'Linked'>(node => {
-    utils(identifiedEnvironment).children(node).forEach(child =>
+    tools(identifiedEnvironment).children(node).forEach(child =>
       update(PARENT_CACHE, identifiedEnvironment.id + child.id, node.id)
     )
     return node

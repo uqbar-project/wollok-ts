@@ -1,5 +1,5 @@
 import { Body, Constructor, Literal, Reference } from './model'
-import { transformByKind } from './utils'
+import { transformByKind } from './tools'
 
 const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',

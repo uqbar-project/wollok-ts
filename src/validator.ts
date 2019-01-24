@@ -8,7 +8,7 @@ import {
   New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
 import { is, Kind } from './model'
-import utils from './utils'
+import tools from './tools'
 
 const { keys } = Object
 
@@ -58,7 +58,7 @@ const isNotAbstractClass = (node: Class<'Linked'>) =>
   node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
 export const validations = (environment: Environment) => {
-  const { parentOf, firstAncestorOfKind, resolveTarget } = utils(environment)
+  const { parentOf, firstAncestorOfKind, resolveTarget } = tools(environment)
 
   return {
 
@@ -164,7 +164,7 @@ export const validations = (environment: Environment) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray<Problem> => {
-  const { reduce } = utils(environment)
+  const { reduce } = tools(environment)
 
   const {
     nameIsPascalCase,
@@ -219,7 +219,7 @@ export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray
     Describe: {},
   }
 
-  return reduce<Problem[]>((found, node) => {
+  return reduce<Problem[], 'Linked'>((found, node) => {
     const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<'Linked'>, c: Code) => Problem | null }
     return [
       ...found,

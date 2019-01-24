@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
-import utils from './utils'
+import tools from './tools'
 
 
 // TODO: Remove the parameter type from Id
@@ -86,8 +86,8 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 // TODO: Memoize
 export const compile = (environment: Environment) =>
   (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
-    // TODO: rename utils to "tools"
-    const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = utils(environment)
+    // TODO: rename tools to "tools"
+    const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = tools(environment)
     switch (node.kind) {
 
       case 'Body': return (() =>
@@ -326,7 +326,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     constructorLookup,
     methodLookup,
     nativeLookup,
-  } = utils(environment)
+  } = tools(environment)
 
   const {
     popOperand,
@@ -665,7 +665,7 @@ const cloneEvaluation = (evaluation: Evaluation): Evaluation => ({
 })
 
 const buildEvaluationFor = (environment: Environment): Evaluation => {
-  const { descendants, fullyQualifiedName, resolveTarget } = utils(environment)
+  const { descendants, fullyQualifiedName, resolveTarget } = tools(environment)
 
   const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
 
@@ -726,8 +726,9 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 export default (environment: Environment, natives: {}) => ({
 
   runTests: (): [number, number] => {
-    const { descendants } = utils(environment)
+    const { descendants } = tools(environment)
 
+    // TODO: descendants stage should be inferred from the parameter
     const tests = descendants(environment).filter(is('Test'))
 
     log.start('Initializing Evaluation')
