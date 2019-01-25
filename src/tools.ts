@@ -1,4 +1,4 @@
-import { getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
+import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
 import { Native } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
@@ -48,7 +48,9 @@ export default (environment: Environment) => {
       if (obj instanceof Object) return flatMap(extractChildren)(values(obj))
       return []
     }
-    return flatMap(extractChildren)(values(node))
+    const extractedChildren = flatMap(extractChildren)(values(node))
+    extractedChildren.forEach(child => child.id && update(PARENT_CACHE, child.id!, node.id))
+    return extractedChildren
   }
 
   // TODO: Take out?

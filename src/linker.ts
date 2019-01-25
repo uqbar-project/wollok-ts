@@ -178,6 +178,7 @@ export default (
   })(mergedEnvironment)
 
   transform<'Linked'>(node => {
+    update(NODE_CACHE, node.id, node)
     tools(identifiedEnvironment).children(node).forEach(child =>
       update(PARENT_CACHE, child.id, node.id)
     )
