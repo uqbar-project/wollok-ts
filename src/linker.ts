@@ -179,7 +179,7 @@ export default (
 
   transform<'Linked'>(node => {
     tools(identifiedEnvironment).children(node).forEach(child =>
-      update(PARENT_CACHE, identifiedEnvironment.id + child.id, node.id)
+      update(PARENT_CACHE, child.id, node.id)
     )
     return node
   })(identifiedEnvironment)

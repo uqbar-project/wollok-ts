@@ -67,9 +67,8 @@ export default (environment: Environment) => {
   }
 
 
-  // TODO: Remove environment from cache keys
   const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): N =>
-    getNodeById(getOrUpdate(PARENT_CACHE, environment.id + node.id)(() => {
+    getNodeById(getOrUpdate(PARENT_CACHE, node.id)(() => {
       const parent = [environment, ...descendants(environment)].find(descendant =>
         children(descendant).some(({ id }) => id === node.id)
       )
@@ -85,7 +84,7 @@ export default (environment: Environment) => {
   }
 
   const getNodeById = <N extends Node<'Linked'>>(id: Id): N =>
-    getOrUpdate(NODE_CACHE, environment.id + id)(() => {
+    getOrUpdate(NODE_CACHE, id)(() => {
       const search = (obj: any): Node<'Linked'> | undefined => {
         if (isArray(obj)) {
           for (const value of obj) {
