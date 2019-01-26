@@ -1,7 +1,7 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
 import { Native } from './interpreter'
-import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values } = Object
@@ -33,6 +33,9 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
     return applyTransform(node)
   }
 
+export const methods = <S extends Stage>(module: Module<S>) => module.members.filter(is('Method')) as List<Method<S>>
+export const fields = <S extends Stage>(module: Module<S>) => module.members.filter(is('Field')) as List<Field<S>>
+export const constructors = <S extends Stage>(module: Class<S>) => module.members.filter(is('Constructor')) as List<Constructor<S>>
 
 export default (environment: Environment) => {
 
@@ -151,8 +154,7 @@ export default (environment: Environment) => {
 
   const methodLookup = (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
     for (const module of hierarchy(start)) {
-      const methods = module.members.filter(is<'Method'>('Method')) as Method<'Linked'>[]
-      const found = methods.find(member =>
+      const found = methods(module).find(member =>
         (!!member.body || member.isNative) && member.name === name && (
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
           member.parameters.length === arity
