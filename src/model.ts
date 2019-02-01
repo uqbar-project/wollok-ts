@@ -118,6 +118,7 @@ export type ClassMember<S extends Stage> = Constructor<S> | ObjectMember<S>
 export type Field<S extends Stage> = BaseNode<'Field', S> & {
   readonly name: Name
   readonly isReadOnly: boolean
+  readonly isProperty: boolean
   readonly value: Fillable<Expression<S>, S>
 }
 

@@ -27,19 +27,6 @@ const SKIP = [
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
 
 
-  // TODO: Properties
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInObject.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'customGetterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterAndSetterForPropertyVarInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterAndSetterForPropertyVarInWko.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterForPropertyConstInWko.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInObject.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-
   // TODO: Describes with non-test definitions
   join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
   join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),

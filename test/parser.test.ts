@@ -860,6 +860,14 @@ describe('Wollok parser', () => {
         .and.have.nested.property('value').tracedTo(10, 11)
     })
 
+    it('should parse properties', () => {
+      'var property v'.should.be.parsedBy(parser).into(
+        Field('v', {
+          isProperty: true,
+        })
+      ).and.be.tracedTo(0, 14)
+    })
+
     it('should not parse vars without name', () => {
       'var'.should.not.be.parsedBy(parser)
     })

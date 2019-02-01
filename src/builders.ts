@@ -104,6 +104,7 @@ export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNod
 export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode<'Raw'>>>) => makeNode('Field')({
   name,
   isReadOnly: false,
+  isProperty: false,
   value: undefined,
   ...payload,
 })

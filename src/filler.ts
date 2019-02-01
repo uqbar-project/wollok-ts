@@ -1,5 +1,5 @@
-import { Body, Constructor, Literal, Reference } from './model'
-import { transformByKind } from './tools'
+import { Body, Constructor, Field, Literal, Method, Module, Reference } from './model'
+import { fields, methods, transformByKind } from './tools'
 
 const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
@@ -35,13 +35,100 @@ const DEFAULT_CONSTRUCTOR: Constructor<'Filled'> = {
   body: EMPTY_BODY,
 }
 
+
+const filledPropertyAccessors = (transformed: Module<'Filled'>) => {
+  const overridesGeter = (field: Field<'Filled'>) => methods(transformed)
+    .some(method => method.name === field.name && method.parameters.length === 0)
+
+  const overridesSeter = (field: Field<'Filled'>) => methods(transformed)
+    .some(method => method.name === field.name && method.parameters.length === 1)
+
+  const propertyFields = fields(transformed).filter(field => field.isProperty)
+
+  const propertyGetters: Method<'Filled'>[] = propertyFields
+    .filter(field => !overridesGeter(field))
+    .map((field: Field<'Filled'>) => ({
+      kind: 'Method' as 'Method',
+      id: undefined,
+      isOverride: false,
+      isNative: false,
+      name: field.name,
+      parameters: [],
+      body: {
+        kind: 'Body' as 'Body',
+        id: undefined,
+        sentences: [
+          {
+            kind: 'Return' as 'Return',
+            id: undefined,
+            value: {
+              kind: 'Reference' as 'Reference',
+              id: undefined,
+              name: field.name,
+              target: undefined,
+            },
+          },
+        ],
+      },
+    })
+    )
+
+  const propertySetters: Method<'Filled'>[] = propertyFields
+    .filter(field => !field.isReadOnly && !overridesSeter(field))
+    .map((field: Field<'Filled'>) => ({
+      kind: 'Method' as 'Method',
+      id: undefined,
+      isOverride: false,
+      isNative: false,
+      name: field.name,
+      parameters: [{
+        kind: 'Parameter' as 'Parameter',
+        id: undefined,
+        name: 'value',
+        isVarArg: false,
+      }],
+      body: {
+        kind: 'Body' as 'Body',
+        id: undefined,
+        sentences: [
+          {
+            kind: 'Assignment' as 'Assignment',
+            id: undefined,
+            reference: {
+              kind: 'Reference' as 'Reference',
+              id: undefined,
+              name: field.name,
+              target: undefined,
+            },
+            value: {
+              kind: 'Reference' as 'Reference',
+              id: undefined,
+              name: 'value',
+              target: undefined,
+            },
+          },
+        ],
+      },
+    })
+    )
+
+  return [...propertyGetters, ...propertySetters]
+}
+
 export default transformByKind<'Raw', 'Filled'>({
   Class: (transformed, node) => ({
     ...transformed,
     superclass: node.name === 'Object' ? node.superclass : node.superclass ? transformed.superclass : OBJECT_CLASS,
-    members: transformed.members.some(member => member.kind === 'Constructor')
-      ? transformed.members
-      : [DEFAULT_CONSTRUCTOR, ...transformed.members],
+    members: [
+      ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
+      ...transformed.members,
+      ...filledPropertyAccessors(transformed),
+    ],
+  }),
+
+  Mixin: (transformed) => ({
+    ...transformed,
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
   }),
 
   Singleton: (transformed, node) => ({
@@ -50,6 +137,7 @@ export default transformByKind<'Raw', 'Filled'>({
       superclass: OBJECT_CLASS,
       args: [],
     },
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
   }),
 
   Field: (transformed, node) => ({

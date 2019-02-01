@@ -205,6 +205,7 @@ export const ObjectMember: Parser<ObjectMemberNode<'Raw'>> = lazy(() => alt(Meth
 export const Field: Parser<FieldNode<'Raw'>> = lazy(() =>
   node('Field')({
     isReadOnly: alt(key('var').result(false), key('const').result(true)),
+    isProperty: optional(key('property')).map(val => !!val),
     name: Name,
     value: optional(key('=').then(Expression)),
   }).thru(sourced)
