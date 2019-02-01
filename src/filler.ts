@@ -1,3 +1,4 @@
+import { getter, setter } from './builders'
 import { Body, Constructor, Field, Literal, Method, Module, Reference } from './model'
 import { fields, methods, transformByKind } from './tools'
 
@@ -45,72 +46,13 @@ const filledPropertyAccessors = (transformed: Module<'Filled'>) => {
 
   const propertyFields = fields(transformed).filter(field => field.isProperty)
 
-  const propertyGetters: Method<'Filled'>[] = propertyFields
+  const propertyGetters = propertyFields
     .filter(field => !overridesGeter(field))
-    .map((field: Field<'Filled'>) => ({
-      kind: 'Method' as 'Method',
-      id: undefined,
-      isOverride: false,
-      isNative: false,
-      name: field.name,
-      parameters: [],
-      body: {
-        kind: 'Body' as 'Body',
-        id: undefined,
-        sentences: [
-          {
-            kind: 'Return' as 'Return',
-            id: undefined,
-            value: {
-              kind: 'Reference' as 'Reference',
-              id: undefined,
-              name: field.name,
-              target: undefined,
-            },
-          },
-        ],
-      },
-    })
-    )
+    .map((field: Field<'Filled'>) => getter(field.name) as Method<'Filled'>)
 
-  const propertySetters: Method<'Filled'>[] = propertyFields
+  const propertySetters = propertyFields
     .filter(field => !field.isReadOnly && !overridesSeter(field))
-    .map((field: Field<'Filled'>) => ({
-      kind: 'Method' as 'Method',
-      id: undefined,
-      isOverride: false,
-      isNative: false,
-      name: field.name,
-      parameters: [{
-        kind: 'Parameter' as 'Parameter',
-        id: undefined,
-        name: 'value',
-        isVarArg: false,
-      }],
-      body: {
-        kind: 'Body' as 'Body',
-        id: undefined,
-        sentences: [
-          {
-            kind: 'Assignment' as 'Assignment',
-            id: undefined,
-            reference: {
-              kind: 'Reference' as 'Reference',
-              id: undefined,
-              name: field.name,
-              target: undefined,
-            },
-            value: {
-              kind: 'Reference' as 'Reference',
-              id: undefined,
-              name: 'value',
-              target: undefined,
-            },
-          },
-        ],
-      },
-    })
-    )
+    .map((field: Field<'Filled'>) => setter(field.name) as Method<'Filled'>)
 
   return [...propertyGetters, ...propertySetters]
 }
