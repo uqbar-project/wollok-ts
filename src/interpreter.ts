@@ -52,11 +52,7 @@ export type Instruction
   | { kind: 'GET', name: Name }
   | { kind: 'SET', name: Name }
   | { kind: 'SWAP' }
-<<<<<<< 7af052dae9a7cea0df3daca86bd3779d31d8122a
   | { kind: 'DUP' }
-=======
-  | { kind: 'DUP' } // TODO: Test
->>>>>>> rebasing
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }

@@ -17,7 +17,7 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 const SKIP = [
 
-  // TODO: Named parámeters
+  // TODO: Named parámeters in objects
   join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
 

@@ -1,9 +1,5 @@
 import { should, use } from 'chai'
-<<<<<<< 7af052dae9a7cea0df3daca86bd3779d31d8122a
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
-=======
 import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
->>>>>>> rebasing
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
