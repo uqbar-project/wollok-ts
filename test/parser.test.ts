@@ -1,5 +1,9 @@
 import { should, use } from 'chai'
+<<<<<<< 7af052dae9a7cea0df3daca86bd3779d31d8122a
 import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+=======
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+>>>>>>> rebasing
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -1460,6 +1464,17 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('value.superCall.args.1').tracedTo(8, 9)
         .and.also.have.nested.property('value.mixins.0').tracedTo(23, 24)
         .and.also.have.nested.property('value.mixins.1').tracedTo(16, 17)
+    })
+
+    it('should parse instantiation with named arguments', () => {
+      'new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [NamedArgument('a', Literal(1)), NamedArgument('b', Literal(2))])
+      ).and.be.tracedTo(0, 19)
+        .and.have.nested.property('className').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0').tracedTo(6, 11)
+        .and.also.have.nested.property('args.0.value').tracedTo(10, 11)
+        .and.also.have.nested.property('args.1').tracedTo(13, 18)
+        .and.also.have.nested.property('args.1.value').tracedTo(17, 18)
     })
 
     it('should not parse "new" keyword without a builder', () => {

@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
+import { Body, Catch, Class, ClassMember, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton } from './model'
 import tools from './tools'
 
 
@@ -45,7 +45,6 @@ export const DECIMAL_PRECISION = 4
 // INSTRUCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// TODO: Factory functions
 export type Instruction
   = { kind: 'LOAD', name: Name }
   | { kind: 'STORE', name: Name, lookup: boolean }
@@ -53,7 +52,11 @@ export type Instruction
   | { kind: 'GET', name: Name }
   | { kind: 'SET', name: Name }
   | { kind: 'SWAP' }
+<<<<<<< 7af052dae9a7cea0df3daca86bd3779d31d8122a
   | { kind: 'DUP' }
+=======
+  | { kind: 'DUP' } // TODO: Test
+>>>>>>> rebasing
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }
@@ -169,7 +172,7 @@ export const compile = (environment: Environment) =>
         ]
 
         return [
-          ...flatMap(compile(environment))(node.value.args),
+          ...flatMap(compile(environment))(node.value.args as List<Expression<'Linked'>>),
           INSTANTIATE(node.value.className.name, []),
           INIT(node.value.args.length, node.value.className.name, false),
         ]
@@ -195,11 +198,24 @@ export const compile = (environment: Environment) =>
 
       case 'New': return (() => {
         const fqn = fullyQualifiedName(resolveTarget(node.className))
-        return [
-          ...flatMap(compile(environment))(node.args),
-          INSTANTIATE(fqn),
-          INIT(node.args.length, fqn, true),
-        ]
+
+        if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
+          return [
+            INSTANTIATE(fqn),
+            INIT(0, fqn, true),
+            ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+              DUP,
+              ...compile(environment)(value),
+              SET(name),
+            ])(node.args as List<NamedArgument<'Linked'>>),
+          ]
+        } else {
+          return [
+            ...flatMap(compile(environment))(node.args as List<Expression<'Linked'>>),
+            INSTANTIATE(fqn),
+            INIT(node.args.length, fqn, true),
+          ]
+        }
       })()
 
 
@@ -402,7 +418,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const id = addInstance(instruction.module, instruction.innerValue)
         pushOperand(id)
       })()
-
 
       case 'INHERITS': return (() => {
         const selfId = popOperand()

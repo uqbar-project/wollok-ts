@@ -24,6 +24,7 @@ export interface Source {
 
 export type Node<S extends Stage>
   = Parameter<S>
+  | NamedArgument<S>
   | Import<S>
   | Body<S>
   | Catch<S>
@@ -46,6 +47,11 @@ type BaseNode<K extends Kind, S extends Stage> = {
 export type Parameter<S extends Stage> = BaseNode<'Parameter', S> & {
   readonly name: Name
   readonly isVarArg: boolean
+}
+
+export type NamedArgument<S extends Stage> = BaseNode<'NamedArgument', S> & {
+  readonly name: Name
+  readonly value: Expression<S>
 }
 
 export type Import<S extends Stage> = BaseNode<'Import', S> & {
@@ -199,7 +205,7 @@ export type Super<S extends Stage> = BaseNode<'Super', S> & {
 export type New<S extends Stage> = BaseNode<'New', S> & {
   // TODO: Rename to instantiatedClass ?
   readonly className: Reference<S>
-  readonly args: List<Expression<S>>
+  readonly args: List<Expression<S>> | List<NamedArgument<S>>
 }
 
 export type If<S extends Stage> = BaseNode<'If', S> & {
