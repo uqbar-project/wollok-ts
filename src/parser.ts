@@ -165,7 +165,11 @@ export const Class: Parser<ClassNode<'Raw'>> = lazy(() =>
 )
 
 export const Singleton: Parser<SingletonNode<'Raw'>> = lazy(() => {
-  const SuperCall = key('inherits').then(seqMap(Reference, Arguments.or(of([])), (superclass, args) => ({ superclass, args })))
+  const SuperCall = key('inherits').then(seqMap(
+    Reference,
+    alt(Arguments, NamedArguments, of([])),
+    (superclass, args) => ({ superclass, args }))
+  )
 
   return key('object').then(seqMap(
     alt(

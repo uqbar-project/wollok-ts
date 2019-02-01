@@ -754,6 +754,24 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('superCall.args.0').tracedTo(20, 21)
     })
 
+    it('should parse objects that inherit from a class with named arguments', () => {
+      'object O inherits D(a = 5, b = 7) {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: {
+            superclass: Reference('D'), args: [
+              NamedArgument('a', Literal(5)),
+              NamedArgument('b', Literal(7)),
+            ],
+          },
+        })()
+      ).and.be.tracedTo(0, 36)
+        .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
+        .and.also.have.nested.property('superCall.args.0').tracedTo(20, 25)
+        .and.also.have.nested.property('superCall.args.0.value').tracedTo(24, 25)
+        .and.also.have.nested.property('superCall.args.1').tracedTo(27, 32)
+        .and.also.have.nested.property('superCall.args.1.value').tracedTo(31, 32)
+    })
+
     it('should parse objects that inherit from a class and have a mixin', () => {
       'object O inherits D mixed with M {}'.should.be.parsedBy(parser).into(
         Singleton('O', {
