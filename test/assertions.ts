@@ -1,8 +1,8 @@
 import { assert } from 'chai'
 import { formatError, Parser } from 'parsimmon'
+import { Environment } from '../src/builders'
 import link from '../src/linker'
 import { Node, Package, Reference } from '../src/model'
-import { Environment } from './builders'
 
 declare global {
 

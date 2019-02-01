@@ -1,6 +1,6 @@
 import { should } from 'chai'
+import { Catch, Class, Constructor, Field, If, Literal, Parameter, Reference, Singleton, Try, Variable } from '../src/builders'
 import fill from '../src/filler'
-import { Catch, Class, Constructor, Field, If, Literal, Parameter, Reference, Singleton, Try, Variable } from './builders'
 
 should()
 

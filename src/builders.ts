@@ -1,6 +1,6 @@
-import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from '../src/interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Id, Import as ImportNode, Kind, List, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from '../src/model'
-import { NodePayload } from '../src/parser'
+import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Id, Import as ImportNode, Kind, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { NodePayload } from './parser'
 
 const { keys } = Object
 
@@ -153,7 +153,7 @@ export const Assignment = (reference: ReferenceNode<'Raw'>, value: Expression<'R
 
 export const Self = makeNode('Self')({})
 
-export const Literal = (value: LiteralValue<'Raw'>) => makeNode('Literal')({ value })
+export const Literal = <T extends LiteralValue<'Raw'>>(value: T) => makeNode('Literal')({ value })
 
 export const Send = (receiver: Expression<'Raw'>, message: Name, args: ReadonlyArray<Expression<'Raw'>> = []) => makeNode('Send')({
   receiver,
@@ -196,16 +196,50 @@ export const Catch = (parameter: ParameterNode<'Raw'>, payload?: Partial<NodePay
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sentence<'Raw'>[]) =>
+export const Closure = (...parameters: ParameterNode<'Raw'>[]) => (...body: Sentence<'Raw'>[]): LiteralNode<'Raw', SingletonNode<'Raw'>> =>
   Literal(Singleton(undefined, { superCall: { superclass: Reference('wollok.lang.Closure'), args: [] } })(
     Method('<apply>', { parameters })(
       ...body
     )
-  ))
+  )) as LiteralNode<'Raw', SingletonNode<'Raw'>>
+
+export const ListOf = (...elems: Expression<'Raw'>[]): NewNode<'Raw'> => ({
+  kind: 'New',
+  id: undefined,
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.List',
+    target: undefined,
+  },
+  args: elems,
+})
+
+export const SetOf = (...elems: Expression<'Raw'>[]): NewNode<'Raw'> => ({
+  kind: 'New',
+  id: undefined,
+  className: {
+    kind: 'Reference',
+    id: undefined,
+    name: 'wollok.lang.Set',
+    target: undefined,
+  },
+  args: elems,
+})
 
 export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode => makeNode('Environment')({
   members,
 })
+
+// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export const getter = (name: Name): MethodNode<'Raw'> => Method(name)(Return(Reference(name)))
+
+export const setter = (name: Name): MethodNode<'Raw'> => Method(name, { parameters: [Parameter('value')] })(
+  Assignment(Reference(name), Reference('value'))
+)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION

@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from './builders'
 
 const { raw } = String
 

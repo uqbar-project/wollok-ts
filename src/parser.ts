@@ -1,4 +1,5 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import { Closure as buildClosure, ListOf, SetOf } from './builders'
 import { last } from './extensions'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
@@ -451,8 +452,8 @@ export const Literal: Parser<LiteralNode<'Raw'>> = lazy(() =>
         key('true').result(true),
         key('false').result(false),
         regex(/-?\d+(\.\d+)?/).map(Number),
-        Expression.sepBy(key(',')).wrap(key('['), key(']')).map(makeList),
-        Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(makeSet),
+        Expression.sepBy(key(',')).wrap(key('['), key(']')).map(elems => ListOf(...elems)),
+        Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(elems => SetOf(...elems)),
         String,
         Singleton,
       ),
@@ -503,55 +504,5 @@ const makeClosure = (parameters: List<ParameterNode<'Raw'>>, rawSentences: List<
     ? [...rawSentences, { kind: 'Return', id: undefined, value: undefined }]
     : [...rawSentences.slice(0, -1), { kind: 'Return', id: undefined, value: last(rawSentences) as ExpressionNode<'Raw'> }]
 
-  return {
-    kind: 'Literal',
-    id: undefined,
-    value: {
-      kind: 'Singleton',
-      id: undefined,
-      superCall: {
-        superclass: {
-          kind: 'Reference',
-          id: undefined,
-          target: undefined,
-          name: 'wollok.lang.Closure',
-        },
-        args: [],
-      },
-      mixins: [],
-      name: undefined,
-      members: [
-        {
-          kind: 'Method',
-          id: undefined,
-          name: '<apply>', isOverride: false, isNative: false, parameters,
-          body: { kind: 'Body', id: undefined, sentences },
-        },
-      ],
-    },
-  }
+  return buildClosure(...parameters)(...sentences)
 }
-
-const makeList = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
-  kind: 'New',
-  id: undefined,
-  className: {
-    kind: 'Reference',
-    id: undefined,
-    name: 'wollok.lang.List',
-    target: undefined,
-  },
-  args,
-})
-
-const makeSet = (args: List<ExpressionNode<'Raw'>>): NewNode<'Raw'> => ({
-  kind: 'New',
-  id: undefined,
-  className: {
-    kind: 'Reference',
-    id: undefined,
-    name: 'wollok.lang.Set',
-    target: undefined,
-  },
-  args,
-})

@@ -2,7 +2,7 @@
 
 // No imports of local references
 
-import { Literal } from '../test/builders'
+import { Literal } from './builders'
 import {
   Assignment, Class, ClassMember, Constructor, Environment, Field, Method, Mixin,
   New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
