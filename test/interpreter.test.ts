@@ -1,7 +1,7 @@
 import { expect, should } from 'chai'
 import rewiremock from 'rewiremock'
 import { Class, Constructor, evaluationBuilders, Field, Literal, Method, Package, Parameter, Reference, Return } from '../src/builders'
-import { CALL, CONDITIONAL_JUMP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, Native, PUSH, RESUME_INTERRUPTION, SET, STORE, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, Native, PUSH, RESUME_INTERRUPTION, SET, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
 import tools from '../src/tools'
@@ -366,6 +366,65 @@ describe('Wollok Interpreter', () => {
       })
     })
 
+    describe('SWAP', () => {
+
+      it('should swap the top two operands of the stack', async () => {
+        const { step } = await mockInterpreterDependencies({})
+        const instruction = SWAP
+        const evaluation = Evaluation({})(
+          Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
+        )
+
+        step({})(evaluation)
+
+        evaluation.should.deep.equal(
+          Evaluation({})(
+            Frame({ operandStack: ['3', '1', '2'], instructions: [instruction], nextInstruction: 1 }),
+          )
+        )
+      })
+
+      it('should raise an error if the current operand stack has length < 2', async () => {
+        const { step } = await mockInterpreterDependencies({})
+        const instruction = SWAP
+        const evaluation = Evaluation({})(
+          Frame({ operandStack: ['1'], instructions: [instruction] }),
+        )
+
+        expect(() => step({})(evaluation)).to.throw()
+      })
+
+    })
+
+    describe('DUP', () => {
+
+      it('should duplicate the top operand of the stack', async () => {
+        const { step } = await mockInterpreterDependencies({})
+        const instruction = DUP
+        const evaluation = Evaluation({})(
+          Frame({ operandStack: ['2', '1'], instructions: [instruction] }),
+        )
+
+        step({})(evaluation)
+
+        evaluation.should.deep.equal(
+          Evaluation({})(
+            Frame({ operandStack: ['2', '1', '1'], instructions: [instruction], nextInstruction: 1 }),
+          )
+        )
+      })
+
+      it('should raise an error if the current operand stack is empty', async () => {
+        const { step } = await mockInterpreterDependencies({})
+        const instruction = DUP
+        const evaluation = Evaluation({})(
+          Frame({ operandStack: [], instructions: [instruction] }),
+        )
+
+        expect(() => step({})(evaluation)).to.throw()
+      })
+
+    })
 
     describe('INSTANTIATE', () => {
 

@@ -53,6 +53,7 @@ export type Instruction
   | { kind: 'GET', name: Name }
   | { kind: 'SET', name: Name }
   | { kind: 'SWAP' }
+  | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }
@@ -69,6 +70,7 @@ export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const GET = (name: Name): Instruction => ({ kind: 'GET', name })
 export const SET = (name: Name): Instruction => ({ kind: 'SET', name })
 export const SWAP: Instruction = { kind: 'SWAP' }
+export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
@@ -390,6 +392,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         pushOperand(b)
       })()
 
+      case 'DUP': return (() => {
+        const a = popOperand()
+        pushOperand(a)
+        pushOperand(a)
+      })()
 
       case 'INSTANTIATE': return (() => {
         const id = addInstance(instruction.module, instruction.innerValue)

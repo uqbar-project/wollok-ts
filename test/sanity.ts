@@ -20,12 +20,12 @@ const SKIP = [
   // TODO: Named parámeters
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
   join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),
+  join('test', 'sanity', 'src', 'exceptionTestCase', 'testCanCreateExceptionUsingNamedParametersWithoutCause.wtest'),
+
+  // TODO: Named parámeters in objects
   join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'exceptionTestCase', 'testCanCreateExceptionUsingNamedParametersWithoutCause.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'mixins', 'namedObjects', 'unnamedObjectInheritanceTest',
-    'objectInheritingFromAClassNamedParameters.wtest'),
+
 
   // TODO: Properties
   join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInClass.wtest'),
