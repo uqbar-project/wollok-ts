@@ -9,7 +9,7 @@ import { Package } from '../src/model'
 import { File } from '../src/parser'
 import natives from '../src/wre/natives'
 
-enableLogs(LogLevel.DEBUG)
+enableLogs(LogLevel.INFO)
 
 const SANITY_TESTS_REPO = 'https://github.com/uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
