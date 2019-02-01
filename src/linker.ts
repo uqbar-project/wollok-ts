@@ -130,6 +130,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
       case 'Parameter':
         return { [contributor.name]: contributor.id }
 
+      case 'NamedArgument':
       case 'Assignment':
       case 'Reference':
       case 'Body':
