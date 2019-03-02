@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -541,7 +541,6 @@ describe('Wollok parser', () => {
 
   })
 
-
   describe('Describe', () => {
     const parser = Parse.Describe
 
@@ -1057,6 +1056,16 @@ describe('Wollok parser', () => {
       'constructor() = super'.should.not.be.parsedBy(parser)
     })
 
+  })
+
+  describe('Fixture', () => {
+    const parser = Parse.Fixture
+
+    it('should parse empty fixture', () => {
+      'fixture { }'.should.be.parsedBy(parser).into(
+        Fixture()()
+      ).and.be.tracedTo(0, 11)
+    })
   })
 
   describe('Variables', () => {

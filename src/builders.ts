@@ -1,5 +1,5 @@
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Id, Import as ImportNode, Kind, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 import { NodePayload } from './parser'
 
 const { keys } = Object
@@ -131,6 +131,12 @@ export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<'Raw'>
     parameters: [],
     ...payload,
   })
+
+export const Fixture = (_?: Partial<NodePayload<FixtureNode<'Raw'>>>) =>
+  (...sentences: Sentence<'Raw'>[]) =>
+    makeNode('Fixture')({
+      body: Body(...sentences),
+    })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
