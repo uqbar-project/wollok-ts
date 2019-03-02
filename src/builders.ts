@@ -93,6 +93,7 @@ export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNod
   (...members: TestNode<'Raw'>[]) =>
     makeNode('Describe')({
       name,
+      fixture: undefined,
       members,
       ...payload,
     })

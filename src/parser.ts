@@ -132,8 +132,9 @@ export const Program: Parser<ProgramNode<'Raw'>> = lazy(() =>
 
 export const Describe: Parser<DescribeNode<'Raw'>> = lazy(() =>
   key('describe').then(node('Describe')({
-    name: String,
-    members: Test.sepBy(optional(_)).wrap(key('{'), key('}')),
+    name: String.skip(key('{')),
+    fixture: optional(Fixture),
+    members: Test.sepBy(optional(_)).skip(key('}')),
   })).thru(sourced)
 )
 

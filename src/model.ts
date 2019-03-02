@@ -83,6 +83,7 @@ export type Test<S extends Stage> = BaseNode<'Test', S> & {
 
 export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
   readonly name: string
+  readonly fixture?: Fixture<S>
   readonly members: List<Test<S>>
 }
 

@@ -550,12 +550,27 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 19)
     })
 
-    it('should parse non-empty describe', () => {
+    it('should parse describes with tests', () => {
       'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(
         Describe('name')(Test('foo')(), Test('bar')())
       ).and.be.tracedTo(0, 47)
         .and.have.nested.property('members.0').tracedTo(18, 31)
         .and.also.have.nested.property('members.1').tracedTo(32, 45)
+    })
+
+    it('should parse describes with fixture', () => {
+      'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(
+        Describe('name', {fixture: Fixture()()})()
+      ).and.be.tracedTo(0, 30)
+        .and.have.nested.property('fixture').tracedTo(18, 28)
+    })
+
+    it('should parse describes with fixture and tests', () => {
+      'describe "name" { fixture {} test "foo" {} }'.should.be.parsedBy(parser).into(
+        Describe('name', {fixture: Fixture()()})(Test('foo')())
+      ).and.be.tracedTo(0, 44)
+        .and.have.nested.property('fixture').tracedTo(18, 28)
+        .and.also.have.nested.property('members.0').tracedTo(29, 42)
     })
 
     it('should not parse describes with names that aren\'t a string', () => {
