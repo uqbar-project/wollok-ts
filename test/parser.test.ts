@@ -1066,6 +1066,18 @@ describe('Wollok parser', () => {
         Fixture()()
       ).and.be.tracedTo(0, 11)
     })
+
+    it('should parse non-empty constructors', () => {
+      'fixture {var x}'.should.be.parsedBy(parser).into(
+        Fixture()(Variable('x'))
+      ).and.be.tracedTo(0, 15)
+        .and.have.nested.property('body').tracedTo(8, 15)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(9, 14)
+    })
+
+    it('should not parse "fixture" keyword without a body', () => {
+      'fixture'.should.not.be.parsedBy(parser)
+    })
   })
 
   describe('Variables', () => {
