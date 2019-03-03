@@ -18,7 +18,7 @@ describe('Wollok parser', () => {
       `/*some comment*/import /* some
       comment */ p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-        ).and.be.tracedTo(16, 49)
+      ).and.be.tracedTo(16, 49)
         .and.have.nested.property('reference').tracedTo(48, 49)
     })
 
@@ -26,7 +26,7 @@ describe('Wollok parser', () => {
       `import //some comment
       p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-        ).and.be.tracedTo(0, 29)
+      ).and.be.tracedTo(0, 29)
         .and.have.nested.property('reference').tracedTo(28, 29)
     })
 
@@ -1088,7 +1088,7 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 11)
     })
 
-    it('should parse non-empty constructors', () => {
+    it('should parse non-empty fixture', () => {
       'fixture {var x}'.should.be.parsedBy(parser).into(
         Fixture()(Variable('x'))
       ).and.be.tracedTo(0, 15)
