@@ -572,6 +572,13 @@ describe('Wollok parser', () => {
         .and.have.nested.property('members.0').tracedTo(18, 23)
     })
 
+    it('should parse describes with methods', () => {
+      'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(
+        Describe('name')(Method('m')())
+      ).and.be.tracedTo(0, 32)
+        .and.have.nested.property('members.0').tracedTo(18, 30)
+    })
+
     it('should not parse describes with names that aren\'t a string', () => {
       'describe name { }'.should.not.be.parsedBy(parser)
     })

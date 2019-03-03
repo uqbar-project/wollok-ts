@@ -203,7 +203,7 @@ export const Mixin: Parser<MixinNode<'Raw'>> = lazy(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-export const DescribeMember: Parser<DescribeMemberNode<'Raw'>> = lazy(() => alt(Field, Fixture, Test))
+export const DescribeMember: Parser<DescribeMemberNode<'Raw'>> = lazy(() => alt(Field, Fixture, Test, Method))
 
 export const ClassMember: Parser<ClassMemberNode<'Raw'>> = lazy(() => alt(Constructor, ObjectMember))
 

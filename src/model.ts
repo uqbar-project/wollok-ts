@@ -115,7 +115,7 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
 
 export type ObjectMember<S extends Stage> = Field<S> | Method<S>
 export type ClassMember<S extends Stage> = Constructor<S> | ObjectMember<S>
-export type DescribeMember<S extends Stage> = Field<S> | Fixture<S> | Test<S>
+export type DescribeMember<S extends Stage> = Field<S> | Fixture<S> | Test<S> | Method<S>
 
 export type Field<S extends Stage> = BaseNode<'Field', S> & {
   readonly name: Name
