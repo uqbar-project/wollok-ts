@@ -18,7 +18,7 @@ describe('Wollok parser', () => {
       `/*some comment*/import /* some
       comment */ p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-      ).and.be.tracedTo(16, 49)
+        ).and.be.tracedTo(16, 49)
         .and.have.nested.property('reference').tracedTo(48, 49)
     })
 
@@ -26,7 +26,7 @@ describe('Wollok parser', () => {
       `import //some comment
       p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
-      ).and.be.tracedTo(0, 29)
+        ).and.be.tracedTo(0, 29)
         .and.have.nested.property('reference').tracedTo(28, 29)
     })
 
@@ -560,17 +560,16 @@ describe('Wollok parser', () => {
 
     it('should parse describes with fixture', () => {
       'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(
-        Describe('name', {fixture: Fixture()()})()
+        Describe('name')(Fixture()())
       ).and.be.tracedTo(0, 30)
-        .and.have.nested.property('fixture').tracedTo(18, 28)
+        .and.have.nested.property('members.0').tracedTo(18, 28)
     })
 
-    it('should parse describes with fixture and tests', () => {
-      'describe "name" { fixture {} test "foo" {} }'.should.be.parsedBy(parser).into(
-        Describe('name', {fixture: Fixture()()})(Test('foo')())
-      ).and.be.tracedTo(0, 44)
-        .and.have.nested.property('fixture').tracedTo(18, 28)
-        .and.also.have.nested.property('members.0').tracedTo(29, 42)
+    it('should parse describes with fields', () => {
+      'describe "name" { var v }'.should.be.parsedBy(parser).into(
+        Describe('name')(Field('v'))
+      ).and.be.tracedTo(0, 25)
+        .and.have.nested.property('members.0').tracedTo(18, 23)
     })
 
     it('should not parse describes with names that aren\'t a string', () => {

@@ -1,7 +1,7 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { Closure as buildClosure, ListOf, SetOf } from './builders'
 import { last } from './extensions'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 const { keys } = Object
 
@@ -42,7 +42,7 @@ const node = <
   K extends Kind,
   N extends NodeOfKind<K, 'Raw'> = NodeOfKind<K, 'Raw'>,
   P extends NodePayload<N> = NodePayload<N>,
-  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
+  C extends {[F in keyof P]: Parser<P[F]> } = {[F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers = keys(fieldParserSeq).map(fieldName =>
       [fieldName, fieldParserSeq[fieldName as keyof C]] as [keyof P, Parser<P[keyof P]>])
@@ -132,9 +132,8 @@ export const Program: Parser<ProgramNode<'Raw'>> = lazy(() =>
 
 export const Describe: Parser<DescribeNode<'Raw'>> = lazy(() =>
   key('describe').then(node('Describe')({
-    name: String.skip(key('{')),
-    fixture: optional(Fixture),
-    members: Test.sepBy(optional(_)).skip(key('}')),
+    name: String,
+    members: DescribeMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
 
@@ -204,6 +203,7 @@ export const Mixin: Parser<MixinNode<'Raw'>> = lazy(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+export const DescribeMember: Parser<DescribeMemberNode<'Raw'>> = lazy(() => alt(Field, Fixture, Test))
 
 export const ClassMember: Parser<ClassMemberNode<'Raw'>> = lazy(() => alt(Constructor, ObjectMember))
 

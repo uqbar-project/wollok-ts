@@ -189,7 +189,7 @@ export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray
     noReturnStatementInConstructor,
   } = validations(environment)
 
-  const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
+  const problemsByKind: {[K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
     Parameter: { nameIsCamelCase, },
     Import: {},
     Body: {},
@@ -217,6 +217,7 @@ export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray
     Try: { hasCatchOrAlways },
     Environment: {},
     Describe: {},
+    Fixture: {},
   }
 
   return reduce<Problem[], 'Linked'>((found, node) => {
