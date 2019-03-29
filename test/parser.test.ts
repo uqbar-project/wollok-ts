@@ -567,7 +567,7 @@ describe('Wollok parser', () => {
 
     it('should parse describes with fields', () => {
       'describe "name" { var v }'.should.be.parsedBy(parser).into(
-        Describe('name')(Field('v'))
+        Describe('name')(Variable('v'))
       ).and.be.tracedTo(0, 25)
         .and.have.nested.property('members.0').tracedTo(18, 23)
     })

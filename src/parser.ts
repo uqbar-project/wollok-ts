@@ -42,7 +42,7 @@ const node = <
   K extends Kind,
   N extends NodeOfKind<K, 'Raw'> = NodeOfKind<K, 'Raw'>,
   P extends NodePayload<N> = NodePayload<N>,
-  C extends {[F in keyof P]: Parser<P[F]> } = {[F in keyof P]: Parser<P[F]> },
+  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers = keys(fieldParserSeq).map(fieldName =>
       [fieldName, fieldParserSeq[fieldName as keyof C]] as [keyof P, Parser<P[keyof P]>])
@@ -203,7 +203,7 @@ export const Mixin: Parser<MixinNode<'Raw'>> = lazy(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-export const DescribeMember: Parser<DescribeMemberNode<'Raw'>> = lazy(() => alt(Field, Fixture, Test, Method))
+export const DescribeMember: Parser<DescribeMemberNode<'Raw'>> = lazy(() => alt(Variable, Fixture, Test, Method))
 
 export const ClassMember: Parser<ClassMemberNode<'Raw'>> = lazy(() => alt(Constructor, ObjectMember))
 
