@@ -60,8 +60,6 @@ const isNotAbstractClass = (node: Class<'Linked'>) =>
 export const validations = (environment: Environment) => {
   const { parentOf, firstAncestorOfKind, resolveTarget } = tools(environment)
 
-  // Can something like <Self<'Linked'> isNotPresentIn 'Program' be done? (typescript interprets it like a cast :( )
-  // Maybe passing the node as an actual parameter and not a parametric type?
   const isNotPresentIn = <N extends Node<'Linked'>>(kind: Kind) => error<N>((node: N) => {
     try {
       firstAncestorOfKind(kind, node)
