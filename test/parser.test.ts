@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -754,6 +754,24 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('superCall.args.0').tracedTo(20, 21)
     })
 
+    it('should parse objects that inherit from a class with named arguments', () => {
+      'object O inherits D(a = 5, b = 7) {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: {
+            superclass: Reference('D'), args: [
+              NamedArgument('a', Literal(5)),
+              NamedArgument('b', Literal(7)),
+            ],
+          },
+        })()
+      ).and.be.tracedTo(0, 36)
+        .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
+        .and.also.have.nested.property('superCall.args.0').tracedTo(20, 25)
+        .and.also.have.nested.property('superCall.args.0.value').tracedTo(24, 25)
+        .and.also.have.nested.property('superCall.args.1').tracedTo(27, 32)
+        .and.also.have.nested.property('superCall.args.1.value').tracedTo(31, 32)
+    })
+
     it('should parse objects that inherit from a class and have a mixin', () => {
       'object O inherits D mixed with M {}'.should.be.parsedBy(parser).into(
         Singleton('O', {
@@ -858,6 +876,14 @@ describe('Wollok parser', () => {
         })
       ).and.be.tracedTo(0, 11)
         .and.have.nested.property('value').tracedTo(10, 11)
+    })
+
+    it('should parse properties', () => {
+      'var property v'.should.be.parsedBy(parser).into(
+        Field('v', {
+          isProperty: true,
+        })
+      ).and.be.tracedTo(0, 14)
     })
 
     it('should not parse vars without name', () => {
@@ -1452,6 +1478,17 @@ describe('Wollok parser', () => {
         .and.also.have.nested.property('value.superCall.args.1').tracedTo(8, 9)
         .and.also.have.nested.property('value.mixins.0').tracedTo(23, 24)
         .and.also.have.nested.property('value.mixins.1').tracedTo(16, 17)
+    })
+
+    it('should parse instantiation with named arguments', () => {
+      'new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
+        New(Reference('C'), [NamedArgument('a', Literal(1)), NamedArgument('b', Literal(2))])
+      ).and.be.tracedTo(0, 19)
+        .and.have.nested.property('className').tracedTo(4, 5)
+        .and.also.have.nested.property('args.0').tracedTo(6, 11)
+        .and.also.have.nested.property('args.0.value').tracedTo(10, 11)
+        .and.also.have.nested.property('args.1').tracedTo(13, 18)
+        .and.also.have.nested.property('args.1.value').tracedTo(17, 18)
     })
 
     it('should not parse "new" keyword without a builder', () => {
