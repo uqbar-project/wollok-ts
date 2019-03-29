@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton } from './model'
+import { Body, Catch, Class, ClassMember, Describe, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton, Test } from './model'
 import tools from './tools'
 
 
@@ -736,7 +736,9 @@ export default (environment: Environment, natives: {}) => ({
     const { descendants } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
-    const tests = descendants(environment).filter(is('Test'))
+    const describes = descendants(environment).filter(is('Describe'))
+    const describeTests = flatMap((describe: Describe<'Linked'>) => descendants(describe).filter(is('Test')))(describes)
+    const freeTests = descendants(environment).filter(is('Test')).filter(it => !describeTests.includes(it))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluationFor(environment)
@@ -746,24 +748,53 @@ export default (environment: Environment, natives: {}) => ({
     }
     log.done('Initializing Evaluation')
 
+    let total = 0
     let passed = 0
-    tests.forEach((test, i) => {
-      log.resetStep()
-      const evaluation = cloneEvaluation(initializedEvaluation)
-      log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      log.start(test.name)
-      try {
-        run(evaluation, natives, test.body)
-        passed++
-        log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      } catch (error) {
-        log.error('Failed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      }
-      log.done(test.name)
+    const runTests = ((testsToRun: Test<'Linked'>[], makeBody: (t: Test<'Linked'>) => Body<'Linked'>) => {
+      const testsCount = testsToRun.length
+      total += testsCount
       log.separator()
+      testsToRun.forEach((test, i) => {
+        const n = i + 1
+        log.resetStep()
+        const evaluation = cloneEvaluation(initializedEvaluation)
+        log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        log.start(test.name)
+        try {
+          run(evaluation, natives, makeBody(test))
+          passed++
+          log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        } catch (error) {
+          log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        }
+        log.done(test.name)
+        log.separator()
+      })
     })
 
-    return [passed, tests.length]
+    log.start('Running free tests')
+    runTests(freeTests, (test) => test.body)
+    log.done('Running free tests')
+
+
+    log.start('Running describes')
+    describes.forEach((describe) => {
+      const variables: Sentence<'Linked'>[] = descendants(describe).filter(is('Variable'))
+      const bodies = descendants(describe).filter(is('Fixture')).map((f) => f.body!)
+      const fixture: Sentence<'Linked'>[] = flatMap((b: Body<'Linked'>) => b.sentences)(bodies)
+      const tests = descendants(describe).filter(is('Test'))
+      const body: (...s: Sentence<'Linked'>[]) => Body<'Linked'> = (...sentences) => {
+        return {
+          kind: 'Body',
+          id: uuid(),
+          sentences,
+        }
+      }
+      runTests(tests, ({ body: { sentences } }) => body(...variables, ...fixture, ...sentences))
+    })
+    log.done('Running describes')
+
+    return [passed, total]
   },
 
 })

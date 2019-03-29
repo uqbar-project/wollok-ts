@@ -45,10 +45,7 @@ const SKIP = [
   join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
 
   // TODO: Fixtures
-  join('test', 'sanity', 'src', 'describe', 'constReferencesCannotBeAssignedInAFixture.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testFixture.wtest'),
   join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'),
-  join('test', 'sanity', 'src', 'describe', 'testConstReferencesCanBeInitiallyAssignedInAFixture.wtest'),
 
   // TODO: Inherited constructor with parameter
   join('test', 'sanity', 'src', 'constructors', 'inheritedOneArgumentConstructorInheritedFromSuperclass.wtest'),
