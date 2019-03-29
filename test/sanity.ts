@@ -41,7 +41,6 @@ const SKIP = [
   join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
 
   // TODO: Describes with non-test definitions
-  join('test', 'sanity', 'src', 'describe', 'describeCanGroupASetOfIsolatedTestsWithInstanceVariables.wtest'),
   join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
   join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
 
