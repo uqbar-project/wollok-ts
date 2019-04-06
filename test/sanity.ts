@@ -17,12 +17,12 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 const SKIP = [
 
-  // TODO: Describes with non-test definitions
+  // TODO: Describes with methods
   join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
   join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
 
   // TODO: Fixtures
-  join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'),
+  join('test', 'sanity', 'src', 'describe', 'testIssue1221NPEForConstDefinedInFixtures.wtest'), // TODO: Why not?
 
   // TODO: Inherited constructor with parameter
   join('test', 'sanity', 'src', 'constructors', 'inheritedOneArgumentConstructorInheritedFromSuperclass.wtest'),
