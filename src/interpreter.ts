@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { flatMap, last, zipObj } from './extensions'
+import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
 import { Body, Catch, Class, ClassMember, Describe, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton, Test } from './model'
 import tools from './tools'
@@ -710,7 +710,13 @@ const buildEvaluationFor = (environment: Environment): Evaluation => {
 }
 
 // TODO: type for natives
-function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
+function run(evaluation: Evaluation, natives: {}, sentences: List<Sentence<'Linked'>>) {
+
+  const body: Body<'Linked'> = {
+    kind: 'Body',
+    id: uuid(),
+    sentences,
+  }
 
   const instructions = compile(evaluation.environment)(body)
 
@@ -737,8 +743,8 @@ export default (environment: Environment, natives: {}) => ({
 
     // TODO: descendants stage should be inferred from the parameter
     const describes = descendants(environment).filter(is('Describe'))
-    const describeTests = flatMap<Describe<'Linked'>, Test<'Linked'>>(tests)(describes)
-    const freeTests = descendants(environment).filter(is('Test')).filter(it => !describeTests.includes(it))
+    const allDescribeTests = flatMap<Describe<'Linked'>, Test<'Linked'>>(tests)(describes)
+    const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluationFor(environment)
@@ -750,7 +756,7 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
-    const runTests = ((testsToRun: List<Test<'Linked'>>, body: (t: Test<'Linked'>) => Body<'Linked'>) => {
+    const runTests = ((testsToRun: List<Test<'Linked'>>, sentences: (t: Test<'Linked'>) => List<Sentence<'Linked'>>) => {
       const testsCount = testsToRun.length
       total += testsCount
       log.separator()
@@ -761,7 +767,7 @@ export default (environment: Environment, natives: {}) => ({
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
         try {
-          run(evaluation, natives, body(test))
+          run(evaluation, natives, sentences(test))
           passed++
           log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         } catch (error) {
@@ -773,7 +779,7 @@ export default (environment: Environment, natives: {}) => ({
     })
 
     log.start('Running free tests')
-    runTests(freeTests, (test) => test.body)
+    runTests(freeTests, (test) => test.body.sentences)
     log.done('Running free tests')
 
 
@@ -782,14 +788,7 @@ export default (environment: Environment, natives: {}) => ({
       const variables = descendants(describe).filter(is('Variable'))
       const fixture = descendants(describe).find(is('Fixture'))
       const fixtureSentences = (fixture) ? fixture.body!.sentences : []
-      const body: (...s: Sentence<'Linked'>[]) => Body<'Linked'> = (...sentences) => {
-        return {
-          kind: 'Body',
-          id: uuid(),
-          sentences,
-        }
-      }
-      runTests(tests(describe), ({ body: { sentences } }) => body(...variables, ...fixtureSentences, ...sentences))
+      runTests(tests(describe), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')
 
