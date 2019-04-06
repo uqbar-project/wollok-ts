@@ -1,5 +1,6 @@
-import { Body, Constructor, Literal, Reference } from './model'
-import { transformByKind } from './tools'
+import { getter, setter } from './builders'
+import { Body, Constructor, Field, Literal, Method, Module, Reference } from './model'
+import { fields, methods, transformByKind } from './tools'
 
 const OBJECT_CLASS: Reference<'Filled'> = {
   kind: 'Reference',
@@ -35,13 +36,41 @@ const DEFAULT_CONSTRUCTOR: Constructor<'Filled'> = {
   body: EMPTY_BODY,
 }
 
+
+const filledPropertyAccessors = (transformed: Module<'Filled'>) => {
+  const overridesGeter = (field: Field<'Filled'>) => methods(transformed)
+    .some(method => method.name === field.name && method.parameters.length === 0)
+
+  const overridesSeter = (field: Field<'Filled'>) => methods(transformed)
+    .some(method => method.name === field.name && method.parameters.length === 1)
+
+  const propertyFields = fields(transformed).filter(field => field.isProperty)
+
+  const propertyGetters = propertyFields
+    .filter(field => !overridesGeter(field))
+    .map((field: Field<'Filled'>) => getter(field.name) as Method<'Filled'>)
+
+  const propertySetters = propertyFields
+    .filter(field => !field.isReadOnly && !overridesSeter(field))
+    .map((field: Field<'Filled'>) => setter(field.name) as Method<'Filled'>)
+
+  return [...propertyGetters, ...propertySetters]
+}
+
 export default transformByKind<'Raw', 'Filled'>({
   Class: (transformed, node) => ({
     ...transformed,
     superclass: node.name === 'Object' ? node.superclass : node.superclass ? transformed.superclass : OBJECT_CLASS,
-    members: transformed.members.some(member => member.kind === 'Constructor')
-      ? transformed.members
-      : [DEFAULT_CONSTRUCTOR, ...transformed.members],
+    members: [
+      ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
+      ...transformed.members,
+      ...filledPropertyAccessors(transformed),
+    ],
+  }),
+
+  Mixin: (transformed) => ({
+    ...transformed,
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
   }),
 
   Singleton: (transformed, node) => ({
@@ -50,6 +79,7 @@ export default transformByKind<'Raw', 'Filled'>({
       superclass: OBJECT_CLASS,
       args: [],
     },
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
   }),
 
   Field: (transformed, node) => ({

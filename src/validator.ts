@@ -191,6 +191,7 @@ export default (target: Node<'Linked'>, environment: Environment): ReadonlyArray
 
   const problemsByKind: {[K in Kind]: { [code: string]: (n: NodeOfKind<K, 'Linked'>, c: Code) => Problem | null } } = {
     Parameter: { nameIsCamelCase, },
+    NamedArgument: {},
     Import: {},
     Body: {},
     Catch: {},

@@ -1,5 +1,5 @@
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 import { NodePayload } from './parser'
 
 const { keys } = Object
@@ -21,6 +21,11 @@ export const Parameter = (name: Name, payload?: Partial<NodePayload<ParameterNod
   name,
   isVarArg: false,
   ...payload,
+})
+
+export const NamedArgument = (name: Name, value: Expression<'Raw'>) => makeNode('NamedArgument')({
+  name,
+  value,
 })
 
 export const Import = (reference: ReferenceNode<'Raw'>, payload?: Partial<NodePayload<ImportNode<'Raw'>>>) => makeNode('Import')({
@@ -104,6 +109,7 @@ export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNod
 export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode<'Raw'>>>) => makeNode('Field')({
   name,
   isReadOnly: false,
+  isProperty: false,
   value: undefined,
   ...payload,
 })
@@ -169,7 +175,8 @@ export const Send = (receiver: Expression<'Raw'>, message: Name, args: ReadonlyA
 
 export const Super = (args: List<Expression<'Raw'>> = []) => makeNode('Super')({ args })
 
-export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'>>) => makeNode('New')({ className, args })
+export const New = (className: ReferenceNode<'Raw'>, args: List<Expression<'Raw'>> | List<NamedArgumentNode<'Raw'>>) =>
+  makeNode('New')({ className, args })
 
 export const If = (condition: Expression<'Raw'>, thenBody: List<Sentence<'Raw'>>, elseBody?: List<Sentence<'Raw'>>) => makeNode('If')({
   condition,

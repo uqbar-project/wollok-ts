@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Describe, Environment, Field, Id, is, isModule, List, Name, Sentence, Singleton, Test } from './model'
+import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton, Test } from './model'
 import tools from './tools'
 
 
@@ -45,7 +45,6 @@ export const DECIMAL_PRECISION = 4
 // INSTRUCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// TODO: Factory functions
 export type Instruction
   = { kind: 'LOAD', name: Name }
   | { kind: 'STORE', name: Name, lookup: boolean }
@@ -162,14 +161,28 @@ export const compile = (environment: Environment) =>
           INSTANTIATE('wollok.lang.String', node.value),
         ]
 
-        if (node.value.kind === 'Singleton') return [
-          ...flatMap(compile(environment))(node.value.superCall.args),
-          INSTANTIATE(fullyQualifiedName(node.value)),
-          INIT(node.value.superCall.args.length, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
-        ]
+        if (node.value.kind === 'Singleton') {
+          if ((node.value.superCall.args as any[]).some(arg => is('NamedArgument')(arg))) {
+            return [
+              INSTANTIATE(fullyQualifiedName(node.value)),
+              INIT(0, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
+              ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+                DUP,
+                ...compile(environment)(value),
+                SET(name),
+              ])(node.value.superCall.args as List<NamedArgument<'Linked'>>),
+            ]
+          } else {
+            return [
+              ...flatMap(compile(environment))(node.value.superCall.args as List<Expression<'Linked'>>),
+              INSTANTIATE(fullyQualifiedName(node.value)),
+              INIT(node.value.superCall.args.length, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
+            ]
+          }
+        }
 
         return [
-          ...flatMap(compile(environment))(node.value.args),
+          ...flatMap(compile(environment))(node.value.args as List<Expression<'Linked'>>),
           INSTANTIATE(node.value.className.name, []),
           INIT(node.value.args.length, node.value.className.name, false),
         ]
@@ -195,11 +208,24 @@ export const compile = (environment: Environment) =>
 
       case 'New': return (() => {
         const fqn = fullyQualifiedName(resolveTarget(node.className))
-        return [
-          ...flatMap(compile(environment))(node.args),
-          INSTANTIATE(fqn),
-          INIT(node.args.length, fqn, true),
-        ]
+
+        if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
+          return [
+            INSTANTIATE(fqn),
+            INIT(0, fqn, true),
+            ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+              DUP,
+              ...compile(environment)(value),
+              SET(name),
+            ])(node.args as List<NamedArgument<'Linked'>>),
+          ]
+        } else {
+          return [
+            ...flatMap(compile(environment))(node.args as List<Expression<'Linked'>>),
+            INSTANTIATE(fqn),
+            INIT(node.args.length, fqn, true),
+          ]
+        }
       })()
 
 
@@ -402,7 +428,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const id = addInstance(instruction.module, instruction.innerValue)
         pushOperand(id)
       })()
-
 
       case 'INHERITS': return (() => {
         const selfId = popOperand()
@@ -695,11 +720,26 @@ const buildEvaluationFor = (environment: Environment): Evaluation => {
     instances,
     frameStack: [{
       instructions: [
-        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<'Linked'>) => [
-          ...flatMap(compile(environment))(args),
-          PUSH(id),
-          INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
-        ])(globalSingletons),
+        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<'Linked'>) => {
+          if ((args as any[]).some(arg => is('NamedArgument')(arg))) {
+            return [
+              PUSH(id),
+              INIT(0, fullyQualifiedName(resolveTarget(superclass)), true),
+              ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+                DUP,
+                ...compile(environment)(value),
+                SET(name),
+              ])(args as List<NamedArgument<'Linked'>>),
+              PUSH(id),
+            ]
+          } else {
+            return [
+              ...flatMap(compile(environment))(args as List<Expression<'Linked'>>),
+              PUSH(id),
+              INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
+            ]
+          }
+        })(globalSingletons),
       ],
       nextInstruction: 0,
       locals,

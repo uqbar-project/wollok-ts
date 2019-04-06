@@ -1,7 +1,7 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { Closure as buildClosure, ListOf, SetOf } from './builders'
+import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember as ClassMemberNode, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isExpression, Kind, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name as NameType, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember as ObjectMemberNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Source, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 const { keys } = Object
 
@@ -74,6 +74,13 @@ export const Parameters: Parser<List<ParameterNode<'Raw'>>> = lazy(() =>
 
 export const Arguments: Parser<List<ExpressionNode<'Raw'>>> = lazy(() =>
   Expression.sepBy(key(',')).wrap(key('('), key(')'))
+)
+
+export const NamedArguments: Parser<List<NamedArgumentNode<'Raw'>>> = lazy(() =>
+  node('NamedArgument')({
+    name: Name,
+    value: key('=').then(Expression),
+  }).thru(sourced).sepBy(key(',')).wrap(key('('), key(')'))
 )
 
 export const Body: Parser<BodyNode<'Raw'>> = lazy(() =>
@@ -164,7 +171,11 @@ export const Class: Parser<ClassNode<'Raw'>> = lazy(() =>
 )
 
 export const Singleton: Parser<SingletonNode<'Raw'>> = lazy(() => {
-  const SuperCall = key('inherits').then(seqMap(Reference, Arguments.or(of([])), (superclass, args) => ({ superclass, args })))
+  const SuperCall = key('inherits').then(seqMap(
+    Reference,
+    alt(Arguments, NamedArguments, of([])),
+    (superclass, args) => ({ superclass, args }))
+  )
 
   return key('object').then(seqMap(
     alt(
@@ -212,6 +223,7 @@ export const ObjectMember: Parser<ObjectMemberNode<'Raw'>> = lazy(() => alt(Meth
 export const Field: Parser<FieldNode<'Raw'>> = lazy(() =>
   node('Field')({
     isReadOnly: alt(key('var').result(false), key('const').result(true)),
+    isProperty: optional(key('property')).map(val => !!val),
     name: Name,
     value: optional(key('=').then(Expression)),
   }).thru(sourced)
@@ -331,32 +343,25 @@ export const Super: Parser<SuperNode<'Raw'>> = lazy(() =>
   ).thru(sourced)
 )
 
-export const New: Parser<NewNode<'Raw'>> = lazy(() =>
+export const New: Parser<NewNode<'Raw'> | LiteralNode<'Raw', SingletonNode<'Raw'>>> = lazy(() =>
   alt(
     key('new').then(
       seqMap(
         Reference,
-        Arguments,
+        alt(Arguments, NamedArguments),
         // TODO: Convince the world we need a single linearization syntax
         (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
-        (superclass, args, mixins) => ({
-          kind: 'Literal' as 'Literal',
-          value: {
-            kind: 'Singleton' as 'Singleton',
-            id: undefined,
-            name: undefined,
-            superCall: { superclass, args },
-            mixins,
-            members: [],
-          },
-        })
+        (superclass, args, mixins) => buildLiteral(buildSingleton(undefined, {
+          superCall: { superclass, args },
+          mixins,
+        })())
       )
     ),
 
     key('new').then(
       node('New')({
         className: Reference,
-        args: Arguments,
+        args: alt(Arguments, NamedArguments),
       })
     ).thru(sourced),
   )

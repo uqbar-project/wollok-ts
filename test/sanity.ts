@@ -17,29 +17,6 @@ const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 const SKIP = [
 
-  // TODO: Named parámeters
-  join('test', 'sanity', 'src', 'constructors', 'namedParametersWithInheritance.wtest'),
-  join('test', 'sanity', 'src', 'constructors', 'namedParametersWithLiterals.wtest'),
-  join('test', 'sanity', 'src', 'exceptionTestCase', 'testCanCreateExceptionUsingNamedParametersWithoutCause.wtest'),
-
-  // TODO: Named parámeters in objects
-  join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClassNamedParameters.wtest'),
-
-
-  // TODO: Properties
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'badSetterForPropertyConstInObject.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'customGetterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterAndSetterForPropertyVarInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterAndSetterForPropertyVarInWko.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'getterForPropertyConstInWko.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInClass.wtest'),
-  join('test', 'sanity', 'src', 'propertiesTestCase', 'setterForPropertyConstInObject.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'namedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-  join('test', 'sanity', 'src', 'namedObjects', 'unnamedObjectInheritanceTest', 'objectInheritingFromAClass.wtest'),
-
   // TODO: Describes with non-test definitions
   join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
   join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
