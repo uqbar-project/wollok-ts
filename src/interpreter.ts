@@ -733,11 +733,11 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 export default (environment: Environment, natives: {}) => ({
 
   runTests: (): [number, number] => {
-    const { descendants } = tools(environment)
+    const { descendants, tests } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
     const describes = descendants(environment).filter(is('Describe'))
-    const describeTests = flatMap((describe: Describe<'Linked'>) => descendants(describe).filter(is('Test')))(describes)
+    const describeTests = flatMap<Describe<'Linked'>, Test<'Linked'>>(tests)(describes)
     const freeTests = descendants(environment).filter(is('Test')).filter(it => !describeTests.includes(it))
 
     log.start('Initializing Evaluation')
@@ -750,7 +750,7 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
-    const runTests = ((testsToRun: Test<'Linked'>[], makeBody: (t: Test<'Linked'>) => Body<'Linked'>) => {
+    const runTests = ((testsToRun: List<Test<'Linked'>>, body: (t: Test<'Linked'>) => Body<'Linked'>) => {
       const testsCount = testsToRun.length
       total += testsCount
       log.separator()
@@ -761,7 +761,7 @@ export default (environment: Environment, natives: {}) => ({
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
         try {
-          run(evaluation, natives, makeBody(test))
+          run(evaluation, natives, body(test))
           passed++
           log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         } catch (error) {
@@ -778,11 +778,10 @@ export default (environment: Environment, natives: {}) => ({
 
 
     log.start('Running describes')
-    describes.forEach((describe) => {
-      const variables: Sentence<'Linked'>[] = descendants(describe).filter(is('Variable'))
-      const bodies = descendants(describe).filter(is('Fixture')).map((f) => f.body!)
-      const fixture: Sentence<'Linked'>[] = flatMap((b: Body<'Linked'>) => b.sentences)(bodies)
-      const tests = descendants(describe).filter(is('Test'))
+    describes.forEach((describe: Describe<'Linked'>) => {
+      const variables = descendants(describe).filter(is('Variable'))
+      const fixture = descendants(describe).find(is('Fixture'))
+      const fixtureSentences = (fixture) ? fixture.body!.sentences : []
       const body: (...s: Sentence<'Linked'>[]) => Body<'Linked'> = (...sentences) => {
         return {
           kind: 'Body',
@@ -790,7 +789,7 @@ export default (environment: Environment, natives: {}) => ({
           sentences,
         }
       }
-      runTests(tests, ({ body: { sentences } }) => body(...variables, ...fixture, ...sentences))
+      runTests(tests(describe), ({ body: { sentences } }) => body(...variables, ...fixtureSentences, ...sentences))
     })
     log.done('Running describes')
 

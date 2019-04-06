@@ -1,7 +1,7 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
 import { Native } from './interpreter'
-import { Class, Constructor, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage, Test } from './model'
 
 const { isArray } = Array
 const { values } = Object
@@ -36,6 +36,7 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 export const methods = <S extends Stage>(module: Module<S>) => module.members.filter(is('Method')) as List<Method<S>>
 export const fields = <S extends Stage>(module: Module<S>) => module.members.filter(is('Field')) as List<Field<S>>
 export const constructors = <S extends Stage>(module: Class<S>) => module.members.filter(is('Constructor')) as List<Constructor<S>>
+export const tests = <S extends Stage>(module: Describe<S>) => module.members.filter(is('Test')) as List<Test<S>>
 
 export default (environment: Environment) => {
 
@@ -201,5 +202,6 @@ export default (environment: Environment) => {
     methodLookup,
     constructorLookup,
     nativeLookup,
+    tests,
   }
 }
