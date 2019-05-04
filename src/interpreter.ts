@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
-import { flatMap, last, zipObj } from './extensions'
+import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton } from './model'
+import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton, Test } from './model'
 import tools from './tools'
 
 
@@ -750,7 +750,13 @@ const buildEvaluationFor = (environment: Environment): Evaluation => {
 }
 
 // TODO: type for natives
-function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
+function run(evaluation: Evaluation, natives: {}, sentences: List<Sentence<'Linked'>>) {
+
+  const body: Body<'Linked'> = {
+    kind: 'Body',
+    id: uuid(),
+    sentences,
+  }
 
   const instructions = compile(evaluation.environment)(body)
 
@@ -773,10 +779,12 @@ function run(evaluation: Evaluation, natives: {}, body: Body<'Linked'>) {
 export default (environment: Environment, natives: {}) => ({
 
   runTests: (): [number, number] => {
-    const { descendants } = tools(environment)
+    const { descendants, tests } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
-    const tests = descendants(environment).filter(is('Test'))
+    const describes = descendants(environment).filter(is('Describe'))
+    const allDescribeTests = flatMap<Describe<'Linked'>, Test<'Linked'>>(tests)(describes)
+    const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluationFor(environment)
@@ -786,24 +794,45 @@ export default (environment: Environment, natives: {}) => ({
     }
     log.done('Initializing Evaluation')
 
+    let total = 0
     let passed = 0
-    tests.forEach((test, i) => {
-      log.resetStep()
-      const evaluation = cloneEvaluation(initializedEvaluation)
-      log.info('Running test', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      log.start(test.name)
-      try {
-        run(evaluation, natives, test.body)
-        passed++
-        log.success('Passed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      } catch (error) {
-        log.error('Failed!', i, '/', tests.length, ':', test.source && test.source.file, '>>', test.name)
-      }
-      log.done(test.name)
+    const runTests = ((testsToRun: List<Test<'Linked'>>, sentences: (t: Test<'Linked'>) => List<Sentence<'Linked'>>) => {
+      const testsCount = testsToRun.length
+      total += testsCount
       log.separator()
+      testsToRun.forEach((test, i) => {
+        const n = i + 1
+        log.resetStep()
+        const evaluation = cloneEvaluation(initializedEvaluation)
+        log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        log.start(test.name)
+        try {
+          run(evaluation, natives, sentences(test))
+          passed++
+          log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        } catch (error) {
+          log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+        }
+        log.done(test.name)
+        log.separator()
+      })
     })
 
-    return [passed, tests.length]
+    log.start('Running free tests')
+    runTests(freeTests, (test) => test.body.sentences)
+    log.done('Running free tests')
+
+
+    log.start('Running describes')
+    describes.forEach((describe: Describe<'Linked'>) => {
+      const variables = descendants(describe).filter(is('Variable'))
+      const fixture = descendants(describe).find(is('Fixture'))
+      const fixtureSentences = (fixture) ? fixture.body!.sentences : []
+      runTests(tests(describe), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
+    })
+    log.done('Running describes')
+
+    return [passed, total]
   },
 
 })

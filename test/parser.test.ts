@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
 import * as Parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -541,7 +541,6 @@ describe('Wollok parser', () => {
 
   })
 
-
   describe('Describe', () => {
     const parser = Parse.Describe
 
@@ -551,12 +550,33 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 19)
     })
 
-    it('should parse non-empty describe', () => {
+    it('should parse describes with tests', () => {
       'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(
         Describe('name')(Test('foo')(), Test('bar')())
       ).and.be.tracedTo(0, 47)
         .and.have.nested.property('members.0').tracedTo(18, 31)
         .and.also.have.nested.property('members.1').tracedTo(32, 45)
+    })
+
+    it('should parse describes with fixture', () => {
+      'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(
+        Describe('name')(Fixture()())
+      ).and.be.tracedTo(0, 30)
+        .and.have.nested.property('members.0').tracedTo(18, 28)
+    })
+
+    it('should parse describes with fields', () => {
+      'describe "name" { var v }'.should.be.parsedBy(parser).into(
+        Describe('name')(Variable('v'))
+      ).and.be.tracedTo(0, 25)
+        .and.have.nested.property('members.0').tracedTo(18, 23)
+    })
+
+    it('should parse describes with methods', () => {
+      'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(
+        Describe('name')(Method('m')())
+      ).and.be.tracedTo(0, 32)
+        .and.have.nested.property('members.0').tracedTo(18, 30)
     })
 
     it('should not parse describes with names that aren\'t a string', () => {
@@ -1083,6 +1103,28 @@ describe('Wollok parser', () => {
       'constructor() = super'.should.not.be.parsedBy(parser)
     })
 
+  })
+
+  describe('Fixture', () => {
+    const parser = Parse.Fixture
+
+    it('should parse empty fixture', () => {
+      'fixture { }'.should.be.parsedBy(parser).into(
+        Fixture()()
+      ).and.be.tracedTo(0, 11)
+    })
+
+    it('should parse non-empty fixture', () => {
+      'fixture {var x}'.should.be.parsedBy(parser).into(
+        Fixture()(Variable('x'))
+      ).and.be.tracedTo(0, 15)
+        .and.have.nested.property('body').tracedTo(8, 15)
+        .and.also.have.nested.property('body.sentences.0').tracedTo(9, 14)
+    })
+
+    it('should not parse "fixture" keyword without a body', () => {
+      'fixture'.should.not.be.parsedBy(parser)
+    })
   })
 
   describe('Variables', () => {

@@ -136,6 +136,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
       case 'Body':
       case 'Method':
       case 'Constructor':
+      case 'Fixture':
       case 'Return':
       case 'Reference':
       case 'Self':

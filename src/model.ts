@@ -29,6 +29,7 @@ export type Node<S extends Stage>
   | Body<S>
   | Catch<S>
   | Entity<S>
+  | DescribeMember<S>
   | ClassMember<S>
   | Sentence<S>
   | (S extends 'Linked' ? Environment : never)
@@ -88,7 +89,7 @@ export type Test<S extends Stage> = BaseNode<'Test', S> & {
 
 export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
   readonly name: string
-  readonly members: List<Test<S>>
+  readonly members: List<DescribeMember<S>>
 }
 
 export type Class<S extends Stage> = BaseNode<'Class', S> & {
@@ -120,6 +121,7 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
 
 export type ObjectMember<S extends Stage> = Field<S> | Method<S>
 export type ClassMember<S extends Stage> = Constructor<S> | ObjectMember<S>
+export type DescribeMember<S extends Stage> = Variable<S> | Fixture<S> | Test<S> | Method<S>
 
 export type Field<S extends Stage> = BaseNode<'Field', S> & {
   readonly name: Name
@@ -142,6 +144,10 @@ export type Constructor<S extends Stage> = BaseNode<'Constructor', S> & {
   readonly parameters: List<Parameter<S>>
   readonly baseCall: Fillable<BaseCall<S>, S>
   readonly body: Body<S>
+}
+
+export type Fixture<S extends Stage> = BaseNode<'Fixture', S> & {
+  readonly body?: Body<S>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
