@@ -60,6 +60,15 @@ const isNotAbstractClass = (node: Class<'Linked'>) =>
 export const validations = (environment: Environment) => {
   const { parentOf, firstAncestorOfKind, resolveTarget } = tools(environment)
 
+  const isNotPresentIn = <N extends Node<'Linked'>>(kind: Kind) => error<N>((node: N) => {
+    try {
+      firstAncestorOfKind(kind, node)
+      return false
+    } catch (_) {
+      return true
+    }
+  })
+
   return {
 
     nameIsPascalCase: warning<Mixin<'Linked'> | Class<'Linked'>>(node =>
@@ -122,35 +131,9 @@ export const validations = (environment: Environment) => {
       node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
     ),
 
-
-    // TODO: codigo repetido, lo sé, horrible
-    selfIsNotInAProgram: error<Self<'Linked'>>(node => {
-      try {
-        firstAncestorOfKind('Program', node)
-      } catch (e) {
-        return true
-      }
-      return false
-    }),
-
-    noSuperInConstructorBody: error<Super<'Linked'>>(node => {
-      try {
-        firstAncestorOfKind('Constructor', node)
-      } catch (e) {
-        return true
-      }
-      return false
-    }),
-
-    noReturnStatementInConstructor: error<Return<'Linked'>>(node => {
-      try {
-        firstAncestorOfKind('Constructor', node)
-      } catch (e) {
-        return true
-      }
-      return false
-    }),
-
+    selfIsNotInAProgram: isNotPresentIn<Self<'Linked'>>('Program'),
+    noSuperInConstructorBody: isNotPresentIn<Super<'Linked'>>('Constructor'),
+    noReturnStatementInConstructor: isNotPresentIn<Return<'Linked'>>('Constructor'),
 
     // TODO: Packages inside packages
     // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
