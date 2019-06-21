@@ -3,6 +3,7 @@ import { formatError, Parser } from 'parsimmon'
 import { Environment } from '../src/builders'
 import link from '../src/linker'
 import { Node, Package, Reference } from '../src/model'
+import { Problem } from '../src/validator'
 
 declare global {
 
@@ -15,6 +16,7 @@ declare global {
       tracedTo(start: number, end: number): Assertion
       linkedInto(expected: Package<'Raw'>[]): Assertion
       target(node: Node<'Linked'>): Assertion
+      pass<N extends Node<'Linked'>>(validation: (node: N, code: string) => Problem | null): Assertion
     }
 
   }
@@ -99,6 +101,21 @@ export const linkerAssertions = ({ Assertion }: any) => {
       this._obj.target === node.id,
       `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target} instead`,
       `expected reference ${reference.name} to not target node with id ${node.id}`,
+    )
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// VALIDATOR ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const validatorAssertions = ({ Assertion }: any) => {
+
+  Assertion.addMethod('pass', function<N extends Node<'Linked'>>(this: any, validation: (node: N, code: string) => Problem | null) {
+    this.assert(
+      validation(this._obj, '') === null,
+      'expected node to pass validation',
+      'expected node to not pass validation'
     )
   })
 }
