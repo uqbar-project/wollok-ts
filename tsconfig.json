@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "es2017",
     "module": "commonjs",
+    "rootDir": "src",
     "outDir": "dist",
     "lib": [
       "es2017"
@@ -13,8 +14,13 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "removeComments": true,
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "esModuleInterop": true
   },
+  "include": [
+    "src"
+  ],
   "exclude": [
     "node_modules",
     "dist"

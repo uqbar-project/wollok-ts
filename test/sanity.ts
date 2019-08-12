@@ -1,22 +1,17 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { basename, join } from 'path'
-import * as simplegit from 'simple-git/promise'
-import fill from '../src/filler'
+import simplegit from 'simple-git/promise'
+import { buildEnvironment } from '../src'
 import interpreter from '../src/interpreter'
-import link from '../src/linker'
 import log, { enableLogs, LogLevel } from '../src/log'
-import { Package } from '../src/model'
-import { File } from '../src/parser'
-import natives from '../src/wre/natives'
+import natives from '../src/wre/wre.natives'
 
 enableLogs(LogLevel.INFO)
 
 const SANITY_TESTS_REPO = 'https://github.com/uqbar-project/wollok-sanity-tests.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
-const WRE_PATH = join('src', 'wre', 'lang.wlk')
 
 const SKIP = [
-
   // TODO: Describes with methods
   join('test', 'sanity', 'src', 'describe', 'testWithMethodInvocation.wtest'),
   join('test', 'sanity', 'src', 'describe', 'variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest'),
@@ -57,29 +52,16 @@ const runAll = async () => {
     log.done('Fetching tests')
   } else log.info('Will use local version of tests.')
 
-  log.start('Parsing WRE')
-  const wreSource = readFileSync(WRE_PATH, 'utf8')
-  const wre: Package<'Filled'> = {
-    kind: 'Package',
-    id: undefined,
-    name: 'wollok',
-    imports: [],
-    members: [fill(File('lang').tryParse(wreSource))],
-  }
-  log.done('Parsing WRE')
-
-  log.start('Parsing tests')
+  log.start('Reading tests')
   const testFiles = getTestsInDir(join(SANITY_TESTS_FOLDER, 'src'))
-  const nonSkipedTestFiles = testFiles.filter(file => !SKIP.includes(file))
-  log.done('Parsing tests')
+  const nonSkipedTestFiles = testFiles
+    .filter(file => !SKIP.includes(file))
+    .map(testFile => ({ name: basename(testFile), content: readFileSync(testFile, 'utf8') }))
+  log.done('Reading tests')
 
-  const testNodes = nonSkipedTestFiles.map(testFile =>
-    fill(File(basename(testFile).split('.')[0]).tryParse(readFileSync(testFile, 'utf8')))
-  )
-
-  log.start('Linking')
-  const environment = link([wre, ...testNodes])
-  log.done('Linking')
+  log.start('Building environment')
+  const environment = buildEnvironment(nonSkipedTestFiles)
+  log.done('Building environment')
 
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)

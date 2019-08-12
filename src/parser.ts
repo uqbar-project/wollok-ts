@@ -45,7 +45,7 @@ const node = <
   C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers = keys(fieldParserSeq).map(fieldName =>
-      [fieldName, fieldParserSeq[fieldName as keyof C]] as [keyof P, Parser<P[keyof P]>])
+      [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
     return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
   }
 

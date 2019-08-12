@@ -3,7 +3,7 @@ import { last } from './extensions'
 import { Evaluation, Instruction } from './interpreter'
 import { Id, Name } from './model'
 
-const { columns = 80 } = process.stdout
+const columns = (process.stdout && process.stdout.columns) || 80
 const { clear, log: writeLine } = console
 const { assign, keys } = Object
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, underline, italic, bold } = chalk

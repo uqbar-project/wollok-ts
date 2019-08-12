@@ -1,5 +1,8 @@
 .vscode
 dist
+perf
+*.tgz
 node_modules
 yarn-error.log
 test/sanity
+src/wre/wre.json

@@ -240,8 +240,10 @@ export const SetOf = (...elems: Expression<'Raw'>[]): NewNode<'Raw'> => ({
   args: elems,
 })
 
-export const Environment = (...members: PackageNode<'Raw'>[]): EnvironmentNode => makeNode('Environment')({
+export const Environment = (...members: PackageNode<'Linked'>[]): EnvironmentNode => ({
   members,
+  kind: 'Environment',
+  id: undefined as any,
 })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

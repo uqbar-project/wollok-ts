@@ -4,7 +4,6 @@ import log from './log'
 import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton, Test } from './model'
 import tools from './tools'
 
-
 // TODO: Remove the parameter type from Id
 
 export interface Locals { [name: string]: Id }

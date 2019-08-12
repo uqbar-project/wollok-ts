@@ -87,7 +87,7 @@ export const linkerAssertions = ({ Assertion }: any) => {
   Assertion.addMethod('linkedInto', function(this: any, expected: Package<'Raw'>[]) {
     const dropLinkedFields = dropKeys('id', 'target')
     const actualEnvironment = link(this._obj)
-    const expectedEnvironment = Environment(...expected)
+    const expectedEnvironment = Environment(...expected as any)
 
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })
@@ -111,7 +111,7 @@ export const linkerAssertions = ({ Assertion }: any) => {
 
 export const validatorAssertions = ({ Assertion }: any) => {
 
-  Assertion.addMethod('pass', function<N extends Node<'Linked'>>(this: any, validation: (node: N, code: string) => Problem | null) {
+  Assertion.addMethod('pass', function <N extends Node<'Linked'>>(this: any, validation: (node: N, code: string) => Problem | null) {
     this.assert(
       validation(this._obj, '') === null,
       'expected node to pass validation',
