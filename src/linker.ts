@@ -176,6 +176,7 @@ export default (
   } as Environment
 
   const identifiedEnvironment: Environment = transform(node => {
+    // TODO: It would make life easier and more performant if we used a fqn where possible as id
     return node.id ? node : { ...node, id: uuid() }
   })(mergedEnvironment)
 

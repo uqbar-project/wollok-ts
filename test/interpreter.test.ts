@@ -1,7 +1,7 @@
 import { expect, should } from 'chai'
 import rewiremock from 'rewiremock'
 import { Class, Constructor, evaluationBuilders, Field, Literal, Method, Package, Parameter, Reference, Return } from '../src/builders'
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, Native, PUSH, RESUME_INTERRUPTION, SET, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, SET, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Id, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
 import tools from '../src/tools'
@@ -16,7 +16,7 @@ const mockInterpreterDependencies = async (mocked: {
   compile?: (environment: Environment) => (node: Sentence<'Linked'>) => List<Instruction>,
   methodLookup?: (name: Name, arity: number, start: Module<'Linked'>) => MethodNode<'Linked'> | undefined,
   constructorLookup?: (arity: number, owner: ClassNode<'Linked'>) => ConstructorNode<'Linked'> | undefined,
-  nativeLookup?: (natives: {}, method: MethodNode<'Linked'>) => Native,
+  nativeLookup?: (natives: {}, method: MethodNode<'Linked'>) => NativeFunction,
 }) => rewiremock.around(
   () => import('../src/interpreter'),
   mock => {
@@ -602,7 +602,7 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the arguments and receiver from the operand stack and create a new frame for the method body', async () => {
         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<'Linked'>
-        const { step, compile } = await mockInterpreterDependencies({ methodLookup: () => method })
+        const { step, compile: compile } = await mockInterpreterDependencies({ methodLookup: () => method })
         const instruction = CALL('m', 2)
         const evaluation = Evaluation({
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -639,7 +639,7 @@ describe('Wollok Interpreter', () => {
             Parameter('p2', { isVarArg: true }),
           ],
         })(Return(Literal(5))) as MethodNode<'Linked'>
-        const { step, compile } = await mockInterpreterDependencies({ methodLookup: () => method, ids: ['6'] })
+        const { step, compile: compile } = await mockInterpreterDependencies({ methodLookup: () => method, ids: ['6'] })
         const instruction = CALL('m', 3)
         const evaluation = Evaluation({
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -681,8 +681,8 @@ describe('Wollok Interpreter', () => {
             Parameter('parameters', { isVarArg: true }),
           ],
         })(Return(Literal(5))) as MethodNode<'Linked'>
-        const { step, compile } = await mockInterpreterDependencies({
-          ids: ['4', '5'],
+        const { step, compile: compile } = await mockInterpreterDependencies({
+          ids: ['4'],
           methodLookup: name => name === 'messageNotUnderstood' ? messageNotUnderstood : undefined,
         })
         const instruction = CALL('m', 2)
@@ -698,13 +698,13 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.deep.equal(
           Evaluation({
-            1: RuntimeObject('1', 'wollok.lang.Object'),
-            2: RuntimeObject('2', 'wollok.lang.Object'),
-            3: RuntimeObject('3', 'wollok.lang.Object'),
-            4: RuntimeObject('4', 'wollok.lang.String', {}, 'm'),
-            5: RuntimeObject('5', 'wollok.lang.List', {}, ['2', '1']),
+            '1': RuntimeObject('1', 'wollok.lang.Object'),
+            '2': RuntimeObject('2', 'wollok.lang.Object'),
+            '3': RuntimeObject('3', 'wollok.lang.Object'),
+            'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
+            '4': RuntimeObject('4', 'wollok.lang.List', {}, ['2', '1']),
           })(
-            Frame({ locals: { self: '3', name: '4', parameters: '5' }, instructions: compile(environment)(messageNotUnderstood.body!) }),
+            Frame({ locals: { self: '3', name: 'S!m', parameters: '4' }, instructions: compile(environment)(messageNotUnderstood.body!) }),
             Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
@@ -717,7 +717,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<'Linked'>
 
-        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction = CALL('m', 2)
@@ -751,7 +751,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<'Linked'>
 
-        const native: Native = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
         const { step } = await mockInterpreterDependencies({ methodLookup: () => method, nativeLookup: () => native })
         const instruction = CALL('m', 3)
@@ -832,7 +832,7 @@ describe('Wollok Interpreter', () => {
           ],
           baseCall: { callsSuper: true, args: [] },
         })(Return()) as any
-        const { step, compile } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
+        const { step, compile: compile } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction = INIT(2, 'wollok.lang.Object', false)
         const evaluation = Evaluation({
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -872,7 +872,7 @@ describe('Wollok Interpreter', () => {
           f2 as any
         ) as ClassNode<'Linked'>
 
-        const { step, compile } = await mockInterpreterDependencies({
+        const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor,
           targets: { X },
           superclass: module => module.name === 'X' ? tools(environment).resolve('wollok.lang.Object') as any : undefined,
@@ -921,7 +921,7 @@ describe('Wollok Interpreter', () => {
           ],
           baseCall: { callsSuper: true, args: [] },
         })(Return()) as any
-        const { step, compile } = await mockInterpreterDependencies({
+        const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor,
           ids: ['6'],
         })

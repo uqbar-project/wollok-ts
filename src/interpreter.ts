@@ -1,10 +1,8 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Sentence, Singleton, Test } from './model'
+import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Program, Sentence, Singleton, Test } from './model'
 import tools from './tools'
-
-// TODO: Remove the parameter type from Id
 
 export interface Locals { [name: string]: Id }
 
@@ -16,7 +14,7 @@ export interface RuntimeObject {
 }
 
 export interface Frame {
-  readonly instructions: List<Instruction> // TODO: rename to instructions
+  readonly instructions: List<Instruction>
   nextInstruction: number
   locals: Locals
   operandStack: Id[]
@@ -31,7 +29,10 @@ export interface Evaluation {
   instances: { [id: string]: RuntimeObject }
 }
 
-export type Native = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
+export type NativeFunction = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
+export interface Natives {
+  [name: string]: NativeFunction | Natives
+}
 
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
@@ -83,10 +84,9 @@ export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: '
 export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' })
 
 
-// TODO: Memoize
+// TODO: Memoize?
 export const compile = (environment: Environment) =>
   (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
-    // TODO: rename tools to "tools"
     const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = tools(environment)
     switch (node.kind) {
 
@@ -290,20 +290,25 @@ export const Operations = (evaluation: Evaluation) => {
     return response
   }
 
-  // TODO: cache Strings?
-  const addInstance = (module: Name, innerValue?: any): Id => {
-    if (module === 'wollok.lang.Number') {
-      const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-      const numberId = 'N!' + stringValue
-      let cached = instances[numberId]
-      if (!cached) {
-        cached = { id: numberId, module, fields: {}, innerValue: Number(stringValue) }
-        instances[numberId] = cached
-      }
-      return numberId
+  const addInstance = (module: Name, baseInnerValue?: any): Id => {
+    let id: Id
+    let innerValue = baseInnerValue
+
+    switch (module) {
+      case 'wollok.lang.Number':
+        const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+        id = 'N!' + stringValue
+        innerValue = Number(stringValue)
+        break
+
+      case 'wollok.lang.String':
+        id = 'S!' + innerValue
+        break
+
+      default:
+        id = uuid()
     }
 
-    const id = uuid()
     instances[id] = { id, module, fields: {}, innerValue }
     return id
   }
@@ -669,33 +674,37 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   }
 
 }
+
+/** Takes all possible steps, until the last frame has no pending instructions */
+export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
+  const takeStep = step(natives)
+  while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
+    log.step(evaluation)
+    takeStep(evaluation)
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const cloneEvaluation = (evaluation: Evaluation): Evaluation => ({
-  instances: Object.keys(evaluation.instances).reduce((instanceClones, name) =>
-    ({
-      ...instanceClones, [name]: {
-        // TODO: For fuck's sake just add a clone library
-        id: evaluation.instances[name].id,
-        module: evaluation.instances[name].module,
-        fields: { ...evaluation.instances[name].fields },
-        innerValue: evaluation.instances[name].innerValue,
-      },
-    })
-    , {}),
-  environment: evaluation.environment,
+const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
+  ...evaluation,
+  instances: Object.keys(evaluation.instances).reduce((instanceClones, name) => ({
+    ...instanceClones, [name]: {
+      ...evaluation.instances[name],
+      fields: { ...evaluation.instances[name].fields },
+    },
+  }), {}),
   frameStack: evaluation.frameStack.map(frame => ({
+    ...frame,
     locals: { ...frame.locals },
     operandStack: [...frame.operandStack],
-    instructions: frame.instructions,
-    nextInstruction: frame.nextInstruction,
     resume: [...frame.resume],
   })),
 })
 
-const buildEvaluationFor = (environment: Environment): Evaluation => {
+const buildEvaluation = (environment: Environment): Evaluation => {
   const { descendants, fullyQualifiedName, resolveTarget } = tools(environment)
 
   const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
@@ -748,9 +757,7 @@ const buildEvaluationFor = (environment: Environment): Evaluation => {
   }
 }
 
-// TODO: type for natives
-function run(evaluation: Evaluation, natives: {}, sentences: List<Sentence<'Linked'>>) {
-
+function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<'Linked'>>) {
   const body: Body<'Linked'> = {
     kind: 'Body',
     id: uuid(),
@@ -767,15 +774,54 @@ function run(evaluation: Evaluation, natives: {}, sentences: List<Sentence<'Link
     resume: [],
   })
 
-  while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
-    log.step(evaluation)
-    step(natives)(evaluation)
-  }
+  stepAll(natives)(evaluation)
 
   return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
 }
 
 export default (environment: Environment, natives: {}) => ({
+
+  buildEvaluation: () => buildEvaluation(environment),
+
+  copyEvaluation,
+
+  step: step(natives),
+
+  stepAll: stepAll(natives),
+
+  sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
+    const takeStep = step(natives)
+    const initialFrameCount = evaluation.frameStack.length
+    last(evaluation.frameStack)!.resume.push('return')
+    evaluation.frameStack.push({
+      instructions: [
+        CALL(message, args.length),
+        INTERRUPT('return'),
+      ],
+      nextInstruction: 0,
+      locals: {},
+      operandStack: [receiver, ...args],
+      resume: [],
+    })
+    do {
+      takeStep(evaluation)
+    } while (evaluation.frameStack.length > initialFrameCount)
+  },
+
+  runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
+    const { resolve } = tools(environment)
+
+    const programSentences = resolve<Program<'Linked'>>(fullyQualifiedName).body.sentences
+
+    log.start('Initializing Evaluation')
+    const initializedEvaluation = evaluation || buildEvaluation(environment)
+    stepAll(natives)(initializedEvaluation)
+    log.done('Initializing Evaluation')
+
+    log.info('Running program', fullyQualifiedName)
+    run(initializedEvaluation, natives, programSentences)
+    log.success('Done!')
+  },
 
   runTests: (): [number, number] => {
     const { descendants, tests } = tools(environment)
@@ -786,11 +832,8 @@ export default (environment: Environment, natives: {}) => ({
     const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')))
 
     log.start('Initializing Evaluation')
-    const initializedEvaluation = buildEvaluationFor(environment)
-    while (last(initializedEvaluation.frameStack)!.nextInstruction < last(initializedEvaluation.frameStack)!.instructions.length) {
-      log.step(initializedEvaluation)
-      step(natives)(initializedEvaluation)
-    }
+    const initializedEvaluation = buildEvaluation(environment)
+    stepAll(natives)(initializedEvaluation)
     log.done('Initializing Evaluation')
 
     let total = 0
@@ -802,7 +845,7 @@ export default (environment: Environment, natives: {}) => ({
       testsToRun.forEach((test, i) => {
         const n = i + 1
         log.resetStep()
-        const evaluation = cloneEvaluation(initializedEvaluation)
+        const evaluation = copyEvaluation(initializedEvaluation)
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
         try {

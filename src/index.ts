@@ -1,5 +1,6 @@
 import * as build from './builders'
 import fill from './filler'
+import { Evaluation } from './interpreter'
 import interpret from './interpreter'
 import link from './linker'
 import validate from './linker'
@@ -14,6 +15,7 @@ const buildEnvironment = (files: { name: string, content: string }[]): Environme
 
 export * from './model'
 export {
+  Evaluation,
   buildEnvironment,
   build,
   parse,

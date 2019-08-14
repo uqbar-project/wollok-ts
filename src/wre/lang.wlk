@@ -1838,3 +1838,26 @@ class OtherValueExpectedException inherits Exception {
 class BadParameterException inherits Exception {
 	constructor(_value) = super("Invalid argument: " + _value)	
 }
+
+object io {
+	const eventHandlers = new Dictionary()
+	var eventQueue = []
+
+	method queueEvent(event) {
+		eventQueue.add(event)
+	}
+
+  // TODO: removeHandler
+	method addHandler(event, callback) {
+		if (!eventHandlers.containsKey(event)) eventHandlers.put(event, [])
+		eventHandlers.get(event).add(callback)
+	}
+
+	method flushEvents() {
+		const currentEvents = eventQueue.copy()
+		eventQueue = []
+		currentEvents.forEach{ event =>
+			eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
+		}
+	}
+}

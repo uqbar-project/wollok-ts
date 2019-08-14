@@ -93,9 +93,8 @@ export default {
     },
 
     remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, getInstance } = Operations(evaluation)
-      const index = self.innerValue.findIndex((id: string) => getInstance(id).innerValue === element.innerValue)
-      if (index > -1) self.innerValue.splice(index, 1)
+      const { pushOperand } = Operations(evaluation)
+      self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
       pushOperand(VOID_ID)
     },
 

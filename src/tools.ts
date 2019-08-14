@@ -1,6 +1,6 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
-import { Native } from './interpreter'
+import { NativeFunction } from './interpreter'
 import { Class, Constructor, Describe, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage, Test } from './model'
 
 const { isArray } = Array
@@ -175,7 +175,7 @@ export default (environment: Environment) => {
   }
 
 
-  const nativeLookup = (natives: {}, method: Method<'Linked'>): Native => {
+  const nativeLookup = (natives: {}, method: Method<'Linked'>): NativeFunction => {
     const fqn = `${fullyQualifiedName(parentOf<Module<'Linked'>>(method))}.${method.name}`
     return fqn.split('.').reduce((current, step) => {
       const next = current[step]
