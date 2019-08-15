@@ -268,7 +268,7 @@ class Position {
 	 * Returns the distance between given position and self.
 	 */	
 	method distance(position) {
-		self.checkNotNull(position, "distance")
+		// self.checkNotNull(position, "distance")
 		const deltaX = x - position.x()
 		const deltaY = y - position.y()
 		return (deltaX.square() + deltaY.square()).squareRoot() 
@@ -305,9 +305,9 @@ class Position {
  */
 object keyboard {
 
-	method any() = new Key(keyCodes = [-1])
+	method any() = new Key(keyCodes = [])
 
-	method num(n) = new Key(keyCodes = [n + 7, n + 144])
+	method num(n) = new Key(keyCodes = ["Digit"+n])
 	
 	method num0() = self.num(0)
 
@@ -329,87 +329,87 @@ object keyboard {
 
 	method num9() = self.num(9)
 
-	method a() = new Key(keyCodes = [29])
+	method a() = new Key(keyCodes = ["KeyA"])
 
-	method alt() = new Key(keyCodes = [57, 58])
+	method alt() = new Key(keyCodes = ["AltRight", "AltLeft"])
 
-	method b() = new Key(keyCodes = [30])
+	method b() = new Key(keyCodes = ["KeyB"])
 
-	method backspace() = new Key(keyCodes = [67])
+	method backspace() = new Key(keyCodes = ["Backspace"])
 
-	method c() = new Key(keyCodes = [31])
+	method c() = new Key(keyCodes = ["KeyC"])
 
-	method control() = new Key(keyCodes = [129, 130])
+	method control() = new Key(keyCodes = ["ControlLeft", "ControlRight"])
 
-	method d() = new Key(keyCodes = [32])
+	method d() = new Key(keyCodes = ["KeyD"])
 
-	method del() = new Key(keyCodes = [67])
+	method del() = new Key(keyCodes = ["Delete"])
 
-	method center() = new Key(keyCodes = [23])
+	method center() = new Key(keyCodes = [])
 
-	method down() = new Key(keyCodes = [20])
+	method down() = new Key(keyCodes = ["ArrowDown"])
 
-	method left() = new Key(keyCodes = [21])
+	method left() = new Key(keyCodes = ["ArrowLeft"])
 
-	method right() = new Key(keyCodes = [22])
+	method right() = new Key(keyCodes = ["ArrowRight"])
 
-	method up() = new Key(keyCodes = [19])
+	method up() = new Key(keyCodes = ["ArrowUp"])
 
-	method e() = new Key(keyCodes = [33])
+	method e() = new Key(keyCodes = ["KeyE"])
 
-	method enter() = new Key(keyCodes = [66])
+	method enter() = new Key(keyCodes = ["Enter"])
 
-	method f() = new Key(keyCodes = [34])
+	method f() = new Key(keyCodes = ["KeyF"])
 
-	method g() = new Key(keyCodes = [35])
+	method g() = new Key(keyCodes = ["KeyG"])
 
-	method h() = new Key(keyCodes = [36])
+	method h() = new Key(keyCodes = ["KeyH"])
 
-	method i() = new Key(keyCodes = [37])
+	method i() = new Key(keyCodes = ["KeyI"])
 
-	method j() = new Key(keyCodes = [38])
+	method j() = new Key(keyCodes = ["KeyJ"])
 
-	method k() = new Key(keyCodes = [39])
+	method k() = new Key(keyCodes = ["KeyK"])
 
-	method l() = new Key(keyCodes = [40])
+	method l() = new Key(keyCodes = ["KeyL"])
 
-	method m() = new Key(keyCodes = [41])
+	method m() = new Key(keyCodes = ["KeyM"])
 
-	method minusKey() = new Key(keyCodes = [69])
+	method minusKey() = new Key(keyCodes = ["Minus"])
 
-	method n() = new Key(keyCodes = [42])
+	method n() = new Key(keyCodes = ["KeyN"])
 
-	method o() = new Key(keyCodes = [43])
+	method o() = new Key(keyCodes = ["KeyO"])
 
-	method p() = new Key(keyCodes = [44])
+	method p() = new Key(keyCodes = ["KeyP"])
 
-	method plusKey() = new Key(keyCodes = [81])
+	method plusKey() = new Key(keyCodes = ["Plus"])
 
-	method q() = new Key(keyCodes = [45])
+	method q() = new Key(keyCodes = ["KeyQ"])
 
-	method r() = new Key(keyCodes = [46])
+	method r() = new Key(keyCodes = ["KeyR"])
 
-	method s() = new Key(keyCodes = [47])
+	method s() = new Key(keyCodes = ["KeyS"])
 
-	method shift() = new Key(keyCodes = [59, 60])
+	method shift() = new Key(keyCodes = ["ShiftLeft", "ShiftRight"])
 
-	method slash() = new Key(keyCodes = [76])
+	method slash() = new Key(keyCodes = ["Slash"])
 
-	method space() = new Key(keyCodes = [62])
+	method space() = new Key(keyCodes = ["Space"])
 
-	method t() = new Key(keyCodes = [48])
+	method t() = new Key(keyCodes = ["KeyT"])
 
-	method u() = new Key(keyCodes = [49])
+	method u() = new Key(keyCodes = ["KeyU"])
 
-	method v() = new Key(keyCodes = [50])
+	method v() = new Key(keyCodes = ["KeyV"])
 
-	method w() = new Key(keyCodes = [51])
+	method w() = new Key(keyCodes = ["KeyW"])
 
-	method x() = new Key(keyCodes = [52])
+	method x() = new Key(keyCodes = ["KeyX"])
 
-	method y() = new Key(keyCodes = [53])
+	method y() = new Key(keyCodes = ["KeyY"])
 
-	method z() = new Key(keyCodes = [54])
+	method z() = new Key(keyCodes = ["KeyZ"])
 
 }
 
@@ -425,6 +425,7 @@ class Key {
      	 *         => when user hits "i" key, pepita will say "hola!"
 	 */	
 	method onPressDo(action) {
-		keyCodes.forEach{ key => game.whenKeyPressedDo(key, action) } //TODO: Implement native
+		// keyCodes.forEach{ key => game.whenKeyPressedDo(key, action) }
+		keyCodes.forEach { key => game.whenKeyPressedDo(["keydown", key], action) }
 	}
 }

@@ -1,5 +1,7 @@
-import { Evaluation, Operations, RuntimeObject, VOID_ID } from '../interpreter'
+import { last } from '../extensions'
+import { CALL, Evaluation, INTERRUPT, Operations, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
+import tools from '../tools'
 
 // TODO: tests
 
@@ -38,8 +40,23 @@ export default {
       pushOperand(VOID_ID)
     },
 
-    whenKeyPressedDo: (_self: RuntimeObject, _key: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+    whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
+      const { resolve } = tools(evaluation.environment)
+
+      last(evaluation.frameStack)!.resume.push('return')
+      evaluation.frameStack.push({
+        instructions: [
+          PUSH(resolve('wollok.lang.io').id),
+          PUSH(event.id),
+          PUSH(action.id),
+          CALL('addHandler', 2),
+          INTERRUPT('return'),
+        ],
+        nextInstruction: 0,
+        locals: {},
+        operandStack: [],
+        resume: [],
+      })
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {

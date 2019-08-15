@@ -194,7 +194,7 @@ class Object {
 	
 	/** @private */
 	method messageNotUnderstood(name, parameters) {
-		var message = if (name != "toString") self.toString() else self.kindName()
+		var message = if (name != "toString") self.kindName() + "#" + self.toString() else self.kindName()
 		message += " does not understand " + name
 		if (parameters.size() > 0)
 			message += "(" + (0..(parameters.size()-1)).map { i => "p" + i }.join(',') + ")"
