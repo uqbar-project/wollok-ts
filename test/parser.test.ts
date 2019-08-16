@@ -1495,14 +1495,14 @@ describe('Wollok parser', () => {
       'new C()'.should.be.parsedBy(parser).into(
         New(Reference('C'), [])
       ).and.be.tracedTo(0, 7)
-        .and.have.nested.property('className').tracedTo(4, 5)
+        .and.have.nested.property('instantiated').tracedTo(4, 5)
     })
 
     it('should parse instantiations with parameters', () => {
       'new C(1,2)'.should.be.parsedBy(parser).into(
         New(Reference('C'), [Literal(1), Literal(2)])
       ).and.be.tracedTo(0, 10)
-        .and.have.nested.property('className').tracedTo(4, 5)
+        .and.have.nested.property('instantiated').tracedTo(4, 5)
         .and.also.have.nested.property('args.0').tracedTo(6, 7)
         .and.also.have.nested.property('args.1').tracedTo(8, 9)
     })
@@ -1526,7 +1526,7 @@ describe('Wollok parser', () => {
       'new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
         New(Reference('C'), [NamedArgument('a', Literal(1)), NamedArgument('b', Literal(2))])
       ).and.be.tracedTo(0, 19)
-        .and.have.nested.property('className').tracedTo(4, 5)
+        .and.have.nested.property('instantiated').tracedTo(4, 5)
         .and.also.have.nested.property('args.0').tracedTo(6, 11)
         .and.also.have.nested.property('args.0.value').tracedTo(10, 11)
         .and.also.have.nested.property('args.1').tracedTo(13, 18)
@@ -1837,7 +1837,7 @@ describe('Wollok parser', () => {
       'throw e'.should.be.parsedBy(parser).into(
         Throw(Reference('e'))
       ).and.be.tracedTo(0, 7)
-        .and.have.nested.property('arg').tracedTo(6, 7)
+        .and.have.nested.property('exception').tracedTo(6, 7)
     })
 
     it('should not parse "throw" keyword without a exception', () => {

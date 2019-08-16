@@ -358,7 +358,7 @@ export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = 
 
     key('new').then(
       node('New')({
-        className: Reference,
+        instantiated: Reference,
         args: alt(Arguments, NamedArguments),
       })
     ).thru(sourced),
@@ -377,7 +377,7 @@ export const If: Parser<IfNode<Raw>> = lazy(() =>
 
 export const Throw: Parser<ThrowNode<Raw>> = lazy(() =>
   key('throw').then(
-    node('Throw')({ arg: Expression })
+    node('Throw')({ exception: Expression })
   ).thru(sourced)
 )
 

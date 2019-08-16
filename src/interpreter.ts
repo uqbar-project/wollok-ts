@@ -182,8 +182,8 @@ export const compile = (environment: Environment) =>
 
         return [
           ...flatMap(compile(environment))(node.value.args as List<Expression<Linked>>),
-          INSTANTIATE(node.value.className.name, []),
-          INIT(node.value.args.length, node.value.className.name, false),
+          INSTANTIATE(node.value.instantiated.name, []),
+          INIT(node.value.args.length, node.value.instantiated.name, false),
         ]
       })()
 
@@ -206,7 +206,7 @@ export const compile = (environment: Environment) =>
 
 
       case 'New': return (() => {
-        const fqn = fullyQualifiedName(resolveTarget(node.className))
+        const fqn = fullyQualifiedName(resolveTarget(node.instantiated))
 
         if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
           return [
@@ -235,7 +235,7 @@ export const compile = (environment: Environment) =>
 
 
       case 'Throw': return (() => [
-        ...compile(environment)(node.arg),
+        ...compile(environment)(node.exception),
         INTERRUPT('exception'),
       ])()
 

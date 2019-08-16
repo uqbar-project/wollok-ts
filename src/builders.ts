@@ -171,7 +171,7 @@ export const Send = (receiver: Expression<Raw>, message: Name, args: ReadonlyArr
 export const Super = (args: List<Expression<Raw>> = []) => makeNode('Super')({ args })
 
 export const New = (className: ReferenceNode<Raw>, args: List<Expression<Raw>> | List<NamedArgumentNode<Raw>>) =>
-  makeNode('New')({ className, args })
+  makeNode('New')({ instantiated: className, args })
 
 export const If = (condition: Expression<Raw>, thenBody: List<Sentence<Raw>>, elseBody?: List<Sentence<Raw>>) => makeNode('If')({
   condition,
@@ -179,7 +179,7 @@ export const If = (condition: Expression<Raw>, thenBody: List<Sentence<Raw>>, el
   elseBody: elseBody && Body(...elseBody),
 })
 
-export const Throw = (arg: Expression<Raw>) => makeNode('Throw')({ arg })
+export const Throw = (arg: Expression<Raw>) => makeNode('Throw')({ exception: arg })
 
 export const Try = (sentences: List<Sentence<Raw>>, payload: {
   catches?: List<CatchNode<Raw>>,
@@ -212,7 +212,7 @@ export const Closure = (...parameters: ParameterNode<Raw>[]) => (...body: Senten
 
 export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',
-  className: {
+  instantiated: {
     kind: 'Reference',
     name: 'wollok.lang.List',
   },
@@ -221,7 +221,7 @@ export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
 
 export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',
-  className: {
+  instantiated: {
     kind: 'Reference',
     name: 'wollok.lang.Set',
   },

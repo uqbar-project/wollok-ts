@@ -118,7 +118,7 @@ export const validations = (environment: Environment) => {
     programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
 
     instantiationIsNotAbstractClass: error<New<Linked>>(node =>
-      isNotAbstractClass(resolveTarget(node.className))),
+      isNotAbstractClass(resolveTarget(node.instantiated))),
 
     notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
 

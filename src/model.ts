@@ -5,19 +5,17 @@ export type Raw = 'Raw'
 export type Filled = Raw & 'Filled'
 export type Linked = Filled & 'Linked'
 
+type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T[K] }
+type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
+
 
 export type Kind = Node<Linked>['kind']
 export type KindOf<N extends Node<any>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
-
 export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
-
-export type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T[K] }
-export type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
-
 
 export interface Source {
   readonly file?: string
@@ -105,14 +103,15 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly superclass: Reference<S> | null
 }>
 
-// TODO: Inline this in Singleton?
-export interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> | List<NamedArgument<S>> }
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
-  readonly name?: Name // TODO: assign name after linking. superclass.fqn#id
+  readonly name?: Name // TODO: assign anonymous singletons' name after linking? superclass.fqn#id
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
 } & Fillable<S, {
-  readonly superCall: SuperCall<S>
+  readonly superCall: {
+    superclass: Reference<S>,
+    args: List<Expression<S>> | List<NamedArgument<S>>
+  }
 }>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
@@ -141,18 +140,16 @@ export type Field<S extends Stage> = BaseNode<'Field', S> & {
 export type Method<S extends Stage> = BaseNode<'Method', S> & {
   readonly name: Name
   readonly isOverride: boolean
-  readonly isNative: boolean
+  readonly isNative: boolean // TODO: Represent abstractness and nativeness as body types?
   readonly parameters: List<Parameter<S>>
   readonly body?: Body<S>
 }
 
-// TODO: Inline this in Constructor?
-export interface BaseCall<S extends Stage> { callsSuper: boolean, args: List<Expression<S>> }
 export type Constructor<S extends Stage> = BaseNode<'Constructor', S> & {
   readonly parameters: List<Parameter<S>>
   readonly body: Body<S>
 } & Fillable<S, {
-  readonly baseCall: BaseCall<S>
+  readonly baseCall: { callsSuper: boolean, args: List<Expression<S>> }
 }>
 
 export type Fixture<S extends Stage> = BaseNode<'Fixture', S> & {
@@ -220,8 +217,7 @@ export type Super<S extends Stage> = BaseNode<'Super', S> & {
 }
 
 export type New<S extends Stage> = BaseNode<'New', S> & {
-  // TODO: Rename to instantiatedClass ?
-  readonly className: Reference<S>
+  readonly instantiated: Reference<S>
   readonly args: List<Expression<S>> | List<NamedArgument<S>>
 }
 
@@ -233,8 +229,7 @@ export type If<S extends Stage> = BaseNode<'If', S> & {
 }>
 
 export type Throw<S extends Stage> = BaseNode<'Throw', S> & {
-  // TODO: Rename to exception ?
-  readonly arg: Expression<S>
+  readonly exception: Expression<S>
 }
 
 export type Try<S extends Stage> = BaseNode<'Try', S> & {
