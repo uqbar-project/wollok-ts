@@ -1,9 +1,13 @@
 import { Index } from 'parsimmon'
 
-export type Stage = 'Raw' | 'Filled' | 'Linked'
+export type Stage = Raw | Filled | Linked
+export type Raw = 'Raw'
+export type Filled = Raw & 'Filled'
+export type Linked = Filled & 'Linked'
 
-export type Kind = Node<Stage>['kind']
-export type KindOf<N extends Node<Stage>> = N['kind']
+
+export type Kind = Node<Linked>['kind']
+export type KindOf<N extends Node<any>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
 
@@ -11,8 +15,8 @@ export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
 
-export type Fillable<T, S extends Stage> = S extends 'Filled' | 'Linked' ? T : T | undefined
-export type Linkable<T, S extends Stage> = S extends 'Linked' ? T : T | undefined
+export type Fillable<T, S extends Stage> = S extends Filled ? T : T | undefined
+export type Linkable<T, S extends Stage> = S extends Linked ? T : T | undefined
 
 
 export interface Source {
@@ -32,7 +36,7 @@ export type Node<S extends Stage>
   | DescribeMember<S>
   | ClassMember<S>
   | Sentence<S>
-  | (S extends 'Linked' ? Environment : never)
+  | (S extends Linked ? Environment : never)
 
 
 type BaseNode<K extends Kind, S extends Stage> = {
@@ -241,9 +245,9 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Environment = BaseNode<'Environment', 'Linked'> & {
+export type Environment = BaseNode<'Environment', Linked> & {
   readonly source?: undefined
-  readonly members: List<Package<'Linked'>>
+  readonly members: List<Package<Linked>>
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

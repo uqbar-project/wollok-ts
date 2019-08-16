@@ -1,9 +1,9 @@
-import { Id, Node } from './model'
+import { Id, Linked, Node } from './model'
 
 export type Cache<T> = { [key: string]: T }
 
 
-export const NODE_CACHE: Cache<Node<'Linked'>> = {}
+export const NODE_CACHE: Cache<Node<Linked>> = {}
 export const PARENT_CACHE: Cache<Id> = {}
 
 
