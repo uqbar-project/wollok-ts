@@ -9,13 +9,13 @@ const { keys } = Object
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (payload: NodePayload<N>): N =>
-  ({ ...payload, kind, id: undefined }) as any
+  ({ ...payload, kind }) as any
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Reference = (name: Name) => makeNode('Reference')({ name, target: undefined })
+export const Reference = (name: Name) => makeNode('Reference')({ name })
 
 export const Parameter = (name: Name, payload?: Partial<NodePayload<ParameterNode<Raw>>>) => makeNode('Parameter')({
   name,
@@ -55,7 +55,6 @@ export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode<Raw>>>
       name,
       members,
       mixins: [],
-      superclass: undefined,
       ...payload,
     })
 
@@ -65,7 +64,6 @@ export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNo
       members,
       mixins: [],
       ...name ? { name } : {},
-      superCall: undefined,
       ...payload,
     })
 
@@ -110,7 +108,6 @@ export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode<Raw>>>
   name,
   isReadOnly: false,
   isProperty: false,
-  value: undefined,
   ...payload,
 })
 
@@ -133,7 +130,6 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<Raw>
 export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<Raw>>>) =>
   (...sentences: Sentence<Raw>[]) => makeNode('Constructor')({
     body: Body(...sentences),
-    baseCall: undefined,
     parameters: [],
     ...payload,
   })
@@ -151,7 +147,6 @@ export const Fixture = (_?: Partial<NodePayload<FixtureNode<Raw>>>) =>
 export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode<Raw>>>) => makeNode('Variable')({
   name,
   isReadOnly: false,
-  value: undefined,
   ...payload,
 })
 
@@ -201,7 +196,6 @@ export const Catch = (parameter: ParameterNode<Raw>, payload?: Partial<NodePaylo
     makeNode('Catch')({
       body: Body(...sentences),
       parameter,
-      parameterType: undefined,
       ...payload,
     })
 
@@ -218,24 +212,18 @@ export const Closure = (...parameters: ParameterNode<Raw>[]) => (...body: Senten
 
 export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',
-  id: undefined,
   className: {
     kind: 'Reference',
-    id: undefined,
     name: 'wollok.lang.List',
-    target: undefined,
   },
   args: elems,
 })
 
 export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',
-  id: undefined,
   className: {
     kind: 'Reference',
-    id: undefined,
     name: 'wollok.lang.Set',
-    target: undefined,
   },
   args: elems,
 })
@@ -243,7 +231,7 @@ export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
 export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => ({
   members,
   kind: 'Environment',
-  id: undefined as any,
+  id: '',
 })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

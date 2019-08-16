@@ -4,33 +4,26 @@ import { fields, methods, transformByKind } from './tools'
 
 const OBJECT_CLASS: Reference<Filled> = {
   kind: 'Reference',
-  id: undefined,
   name: 'wollok.lang.Object',
-  target: undefined,
 }
 
 const EXCEPTION_CLASS: Reference<Filled> = {
   kind: 'Reference',
-  id: undefined,
   name: 'wollok.lang.Exception',
-  target: undefined,
 }
 
 const NULL: Literal<Filled> = {
   kind: 'Literal',
-  id: undefined,
   value: null,
 }
 
 const EMPTY_BODY: Body<Filled> = {
   kind: 'Body',
-  id: undefined,
   sentences: [],
 }
 
 const DEFAULT_CONSTRUCTOR: Constructor<Filled> = {
   kind: 'Constructor',
-  id: undefined,
   parameters: [],
   baseCall: { callsSuper: true, args: [] },
   body: EMPTY_BODY,
@@ -60,7 +53,7 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
 export default transformByKind<Raw, Filled>({
   Class: (transformed, node) => ({
     ...transformed,
-    superclass: node.name === 'Object' ? node.superclass : node.superclass ? transformed.superclass : OBJECT_CLASS,
+    superclass: node.name === 'Object' ? null : node.superclass ? transformed.superclass : OBJECT_CLASS,
     members: [
       ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
       ...transformed.members,

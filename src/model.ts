@@ -15,8 +15,8 @@ export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
 
-export type Fillable<T, S extends Stage> = S extends Filled ? T : T | undefined
-export type Linkable<T, S extends Stage> = S extends Linked ? T : T | undefined
+export type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T[K] }
+export type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
 
 
 export interface Source {
@@ -41,9 +41,10 @@ export type Node<S extends Stage>
 
 type BaseNode<K extends Kind, S extends Stage> = {
   readonly kind: K
-  readonly id: Linkable<Id, S>
   readonly source?: Source
-}
+} & Linkable<S, {
+  readonly id: Id
+}>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -98,19 +99,21 @@ export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
 
 export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly name: Name
-  readonly superclass?: Fillable<Reference<S>, S>
   readonly mixins: List<Reference<S>>
   readonly members: List<ClassMember<S>>
-}
+} & Fillable<S, {
+  readonly superclass: Reference<S> | null
+}>
 
 // TODO: Inline this in Singleton?
 export interface SuperCall<S extends Stage> { superclass: Reference<S>, args: List<Expression<S>> | List<NamedArgument<S>> }
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
   readonly name?: Name // TODO: assign name after linking. superclass.fqn#id
-  readonly superCall: Fillable<SuperCall<S>, S>
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
-}
+} & Fillable<S, {
+  readonly superCall: SuperCall<S>
+}>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
   readonly name: Name
@@ -131,8 +134,9 @@ export type Field<S extends Stage> = BaseNode<'Field', S> & {
   readonly name: Name
   readonly isReadOnly: boolean
   readonly isProperty: boolean
-  readonly value: Fillable<Expression<S>, S>
-}
+} & Fillable<S, {
+  readonly value: Expression<S>
+}>
 
 export type Method<S extends Stage> = BaseNode<'Method', S> & {
   readonly name: Name
@@ -146,9 +150,10 @@ export type Method<S extends Stage> = BaseNode<'Method', S> & {
 export interface BaseCall<S extends Stage> { callsSuper: boolean, args: List<Expression<S>> }
 export type Constructor<S extends Stage> = BaseNode<'Constructor', S> & {
   readonly parameters: List<Parameter<S>>
-  readonly baseCall: Fillable<BaseCall<S>, S>
   readonly body: Body<S>
-}
+} & Fillable<S, {
+  readonly baseCall: BaseCall<S>
+}>
 
 export type Fixture<S extends Stage> = BaseNode<'Fixture', S> & {
   readonly body?: Body<S>
@@ -163,8 +168,9 @@ export type Sentence<S extends Stage> = Variable<S> | Return<S> | Assignment<S> 
 export type Variable<S extends Stage> = BaseNode<'Variable', S> & {
   readonly name: Name
   readonly isReadOnly: boolean
-  readonly value: Fillable<Expression<S>, S>
-}
+} & Fillable<S, {
+  readonly value: Expression<S>
+}>
 
 export type Return<S extends Stage> = BaseNode<'Return', S> & {
   readonly value?: Expression<S>
@@ -192,8 +198,9 @@ export type Expression<S extends Stage>
 
 export type Reference<S extends Stage> = BaseNode<'Reference', S> & {
   readonly name: Name
-  readonly target: Linkable<Id, S>
-}
+} & Linkable<S, {
+  readonly target: Id
+}>
 
 export type Self<S extends Stage> = BaseNode<'Self', S> & {}
 
@@ -221,8 +228,9 @@ export type New<S extends Stage> = BaseNode<'New', S> & {
 export type If<S extends Stage> = BaseNode<'If', S> & {
   readonly condition: Expression<S>
   readonly thenBody: Body<S>
-  readonly elseBody: Fillable<Body<S>, S>
-}
+} & Fillable<S, {
+  readonly elseBody: Body<S>
+}>
 
 export type Throw<S extends Stage> = BaseNode<'Throw', S> & {
   // TODO: Rename to exception ?
@@ -232,14 +240,16 @@ export type Throw<S extends Stage> = BaseNode<'Throw', S> & {
 export type Try<S extends Stage> = BaseNode<'Try', S> & {
   readonly body: Body<S>
   readonly catches: List<Catch<S>>
-  readonly always: Fillable<Body<S>, S>
-}
+} & Fillable<S, {
+  readonly always: Body<S>
+}>
 
 export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
   readonly parameter: Parameter<S>
-  readonly parameterType: Fillable<Reference<S>, S>
   readonly body: Body<S>
-}
+} & Fillable<S, {
+  readonly parameterType: Reference<S>
+}>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS

@@ -9,7 +9,7 @@ const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: 
 
   if (isolated.kind !== 'Package') return [...members, isolated]
 
-  const existent = members.find((member): member is Package<Filled | Linked> =>
+  const existent = members.find((member): member is (Package<Filled> | Package<Linked>) =>
     member.kind === 'Package' && member.name === isolated.name
   )
 

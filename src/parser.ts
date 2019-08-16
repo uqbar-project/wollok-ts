@@ -199,7 +199,7 @@ export const Singleton: Parser<SingletonNode<Raw>> = lazy(() => {
 
     ObjectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
 
-    ({ name, superCall, mixins }, members) => ({ kind: 'Singleton' as 'Singleton', id: undefined, name, superCall, mixins, members })
+    ({ name, superCall, mixins }, members) => ({ kind: 'Singleton' as const, name, superCall, mixins, members })
   )).thru(sourced)
 })
 
@@ -234,19 +234,19 @@ export const Method: Parser<MethodNode<Raw>> = lazy(() => seqMap(
   key('method').then(alt(Name, ...OPERATORS.map(key))),
   Parameters,
   alt(
-    key('native').result({ isNative: true, body: undefined }),
     key('=').then(
       Expression.map(value => ({
         isNative: false, body: {
-          kind: 'Body', id: undefined, sentences: [{ kind: 'Return', value }], source: value.source,
+          kind: 'Body', sentences: [{ kind: 'Return', value }], source: value.source,
         },
       }))
     ),
+    key('native').result({ isNative: true }),
     Body.map(body => ({ isNative: false, body })),
-    of({ isNative: false, body: undefined })
+    of({ isNative: false })
   ),
   (isOverride, name, parameters, { isNative, body }) => (
-    { kind: 'Method' as 'Method', id: undefined, isOverride, name, parameters, isNative, body }
+    { kind: 'Method' as 'Method', isOverride, name, parameters, isNative, body }
   )
 ).thru(sourced))
 
@@ -288,14 +288,12 @@ export const Assignment: Parser<AssignmentNode<Raw>> = lazy(() =>
     alt(...ASSIGNATION_OPERATORS.map(key)),
     Expression,
     (reference, operator, value) => ({
-      kind: 'Assignment' as 'Assignment',
-      id: undefined,
+      kind: 'Assignment' as const,
       reference,
       value: operator === '='
         ? value
         : ({
-          kind: 'Send' as 'Send',
-          id: undefined,
+          kind: 'Send' as const,
           receiver: reference,
           message: operator.slice(0, -1),
           args: LAZY_OPERATORS.includes(operator.slice(0, -1))
@@ -409,7 +407,7 @@ export const Send: Parser<SendNode<Raw>> = lazy(() =>
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      ({ kind: 'Send' as 'Send', id: undefined, receiver, message, args, source: { start, end } })
+      ({ kind: 'Send' as 'Send', receiver, message, args, source: { start, end } })
       , initial) as SendNode<Raw>
   )
 )
@@ -420,7 +418,7 @@ export const Operation: Parser<ExpressionNode<Raw>> = lazy(() => {
     alt(Send, PrimaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<ExpressionNode<Raw>>((receiver, [start, message]) =>
-      ({ kind: 'Send', id: undefined, receiver, message: `${message}_`, args: [], source: { start, end } })
+      ({ kind: 'Send', receiver, message: `${message}_`, args: [], source: { start, end } })
       , initial)
   )
 
@@ -434,8 +432,7 @@ export const Operation: Parser<ExpressionNode<Raw>> = lazy(() => {
       argument,
       seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) => ({
-        kind: 'Send' as 'Send',
-        id: undefined,
+        kind: 'Send' as const,
         receiver,
         message,
         args: LAZY_OPERATORS.includes(message)
@@ -513,8 +510,8 @@ const makeClosure = (parameters: List<ParameterNode<Raw>>, rawSentences: List<Se
 
   const sentences: List<SentenceNode<Raw>> = rawSentences
     .some(sentence => sentence.kind === 'Return') || !isExpression(last(rawSentences))
-    ? [...rawSentences, { kind: 'Return', id: undefined, value: undefined }]
-    : [...rawSentences.slice(0, -1), { kind: 'Return', id: undefined, value: last(rawSentences) as ExpressionNode<Raw> }]
+    ? [...rawSentences, { kind: 'Return', value: undefined }]
+    : [...rawSentences.slice(0, -1), { kind: 'Return', value: last(rawSentences) as ExpressionNode<Raw> }]
 
   return buildClosure(...parameters)(...sentences)
 }
