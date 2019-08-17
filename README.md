@@ -22,6 +22,7 @@ Before anything else, you will need a *TypeScript* editor. We recomend [Visual S
 - [TSLint](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
 - [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
 - [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
+- [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
 
 You might also want to copy the following configurations to your user settings (`ctrl+,`):
 
