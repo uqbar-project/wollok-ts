@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
-import * as Parse from '../src/parser'
+import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
 const { raw } = String
@@ -12,7 +12,7 @@ describe('Wollok parser', () => {
 
 
   describe('Comments', () => {
-    const parser = Parse.Import
+    const parser = parse.importEntity
 
     it('multiline comments should be ignored in between tokens', () => {
       `/*some comment*/import /* some
@@ -49,7 +49,7 @@ describe('Wollok parser', () => {
 
   describe('Names', () => {
 
-    const parser = Parse.Name
+    const parser = parse.name
 
     it('should parse names that begin with _', () => {
       '_foo123'.should.be.be.parsedBy(parser).into(
@@ -73,7 +73,7 @@ describe('Wollok parser', () => {
 
 
   describe('Literals', () => {
-    const parser = Parse.Literal
+    const parser = parse.literal
 
     describe('Booleans', () => {
 
@@ -382,7 +382,7 @@ describe('Wollok parser', () => {
 
   describe('Local references', () => {
 
-    const parser = Parse.Reference
+    const parser = parse.reference
 
     it('should parse references that begin with _', () => {
       '_foo123'.should.be.be.parsedBy(parser).into(
@@ -406,7 +406,7 @@ describe('Wollok parser', () => {
 
   describe('Fully qualified reference', () => {
 
-    const parser = Parse.Reference
+    const parser = parse.reference
 
     it('should parse uppercase references', () => {
       'C'.should.be.parsedBy(parser).into(
@@ -433,7 +433,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Files', () => {
-    const parser = Parse.File('foo')
+    const parser = parse.file('foo')
 
     it('should parse empty packages', () => {
       ''.should.be.parsedBy(parser).into(
@@ -456,7 +456,7 @@ describe('Wollok parser', () => {
 
   describe('Imports', () => {
 
-    const parser = Parse.Import
+    const parser = parse.importEntity
 
     it('should parse imported packages', () => {
       'import p'.should.be.parsedBy(parser).into(
@@ -486,7 +486,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Programs', () => {
-    const parser = Parse.Program
+    const parser = parse.programEntity
     it('should parse empty programs', () => {
       'program name { }'.should.be.parsedBy(parser).into(
         Program('name')()
@@ -512,7 +512,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Tests', () => {
-    const parser = Parse.Test
+    const parser = parse.testEntity
 
     it('should parse empty test', () => {
       'test "name" { }'.should.be.parsedBy(parser).into(
@@ -542,7 +542,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Describe', () => {
-    const parser = Parse.Describe
+    const parser = parse.describeEntity
 
     it('should parse empty describe', () => {
       'describe "name" { }'.should.be.parsedBy(parser).into(
@@ -593,7 +593,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Packages', () => {
-    const parser = Parse.Package
+    const parser = parse.packageEntity
 
     it('should parse empty packages', () => {
       'package p {}'.should.be.parsedBy(parser).into(
@@ -623,7 +623,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Classes', () => {
-    const parser = Parse.Class
+    const parser = parse.classEntity
 
     it('should parse empty classes', () => {
       'class C {}'.should.be.parsedBy(parser).into(
@@ -703,7 +703,7 @@ describe('Wollok parser', () => {
 
   describe('Mixins', () => {
 
-    const parser = Parse.Mixin
+    const parser = parse.mixinEntity
 
     it('should parse empty mixins', () => {
       'mixin M {}'.should.be.parsedBy(parser).into(
@@ -739,7 +739,7 @@ describe('Wollok parser', () => {
 
   describe('Singletons', () => {
 
-    const parser = Parse.Singleton
+    const parser = parse.singletonEntity
 
     it('should parse empty objects', () => {
       'object O {}'.should.be.parsedBy(parser).into(
@@ -861,7 +861,7 @@ describe('Wollok parser', () => {
 
   describe('Fields', () => {
 
-    const parser = Parse.Field
+    const parser = parse.field
 
     it('should parse var declaration', () => {
       'var v'.should.be.parsedBy(parser).into(
@@ -926,7 +926,7 @@ describe('Wollok parser', () => {
 
   describe('Methods', () => {
 
-    const parser = Parse.Method
+    const parser = parse.method
 
     it('should parse method declarations', () => {
       'method m()'.should.be.parsedBy(parser).into(
@@ -1025,7 +1025,7 @@ describe('Wollok parser', () => {
 
   describe('Constructors', () => {
 
-    const parser = Parse.Constructor
+    const parser = parse.constructor
 
     it('should parse empty constructors', () => {
       'constructor () { }'.should.be.parsedBy(parser).into(
@@ -1106,7 +1106,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Fixture', () => {
-    const parser = Parse.Fixture
+    const parser = parse.fixtureEntity
 
     it('should parse empty fixture', () => {
       'fixture { }'.should.be.parsedBy(parser).into(
@@ -1128,7 +1128,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Variables', () => {
-    const parser = Parse.Variable
+    const parser = parse.variableSentence
     it('should parse var declaration', () => {
       'var v'.should.be.parsedBy(parser).into(
         Variable('v')
@@ -1181,7 +1181,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Returns', () => {
-    const parser = Parse.Return
+    const parser = parse.returnSentence
 
     it('should parse returns', () => {
       'return 5'.should.be.parsedBy(parser).into(
@@ -1199,7 +1199,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Assignments', () => {
-    const parser = Parse.Assignment
+    const parser = parse.assignmentSentence
 
     it('should parse simple assignments', () => {
       'a = b'.should.be.parsedBy(parser).into(
@@ -1291,7 +1291,7 @@ describe('Wollok parser', () => {
 
   describe('Infix operations', () => {
 
-    const parser = Parse.Operation
+    const parser = parse.operation
 
     it('should parse operations with arithmetic operators that are used infixed', () => {
       'a + b + c'.should.be.parsedBy(parser).into(
@@ -1364,7 +1364,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Prefix Operations', () => {
-    const parser = Parse.Operation
+    const parser = parse.operation
 
     it('should parse the negation of a reference with the "!" operator', () => {
       '!a'.should.be.parsedBy(parser).into(
@@ -1393,7 +1393,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Send', () => {
-    const parser = Parse.Send
+    const parser = parse.sendExpression
 
     it('should parse sending messages without parameters', () => {
       'a.m()'.should.be.parsedBy(parser).into(
@@ -1489,7 +1489,7 @@ describe('Wollok parser', () => {
 
   describe('New', () => {
 
-    const parser = Parse.New
+    const parser = parse.newExpression
 
     it('should parse instantiations without parameters', () => {
       'new C()'.should.be.parsedBy(parser).into(
@@ -1544,7 +1544,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Super calls', () => {
-    const parser = Parse.Super
+    const parser = parse.superExpression
 
     it('should parse super call without parameters', () => {
       'super()'.should.be.parsedBy(parser).into(
@@ -1571,7 +1571,7 @@ describe('Wollok parser', () => {
   })
 
   describe('If expressions', () => {
-    const parser = Parse.If
+    const parser = parse.ifExpression
 
     it('should parse "if" with "then" body', () => {
       'if(a) x'.should.be.parsedBy(parser).into(
@@ -1675,7 +1675,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Try expressions', () => {
-    const parser = Parse.Try
+    const parser = parse.tryExpression
 
     it('should parse try expressions', () => {
       'try x'.should.be.parsedBy(parser).into(
@@ -1831,7 +1831,7 @@ describe('Wollok parser', () => {
   })
 
   describe('Throw Expressions', () => {
-    const parser = Parse.Throw
+    const parser = parse.throwExpression
 
     it('should parse throw expressions', () => {
       'throw e'.should.be.parsedBy(parser).into(

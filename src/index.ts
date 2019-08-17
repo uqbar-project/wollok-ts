@@ -11,7 +11,7 @@ import wre from './wre/wre.json'
 
 
 const buildEnvironment = (files: { name: string, content: string }[]): Environment =>
-  link(files.map(({ name, content }) => fill(parse.File(name).tryParse(content))), wre as Environment)
+  link(files.map(({ name, content }) => fill(parse.file(name).tryParse(content))), wre as Environment)
 
 export * from './model'
 export {

@@ -174,7 +174,7 @@ export type Return<S extends Stage> = BaseNode<'Return', S> & {
 }
 
 export type Assignment<S extends Stage> = BaseNode<'Assignment', S> & {
-  readonly reference: Reference<S>
+  readonly reference: Reference<S> // TODO: rename to variable?
   readonly value: Expression<S>
 }
 
@@ -280,5 +280,3 @@ export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isN
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
 export const is = <K extends Kind>(k: K) => <S extends Stage>(node: Node<S>): node is NodeOfKind<K, S> => node.kind === k
-
-// TODO: Export pre-set node types for every stage? Like RawIf, FilledIf, etc?
