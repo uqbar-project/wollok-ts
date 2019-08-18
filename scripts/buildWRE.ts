@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'fs'
 import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
-import { File } from '../src/parser'
+import { file } from '../src/parser'
 
 const { log } = console
 
@@ -12,8 +12,8 @@ log('Building WRE...')
 
 log('\tParsing...')
 const rawWRE = Package('wollok')(
-  File('lang').tryParse(readFileSync(`${WRE_PATH}/lang.wlk`, 'utf8')),
-  File('game').tryParse(readFileSync(`${WRE_PATH}/game.wlk`, 'utf8')),
+  file('lang').tryParse(readFileSync(`${WRE_PATH}/lang.wlk`, 'utf8')),
+  file('game').tryParse(readFileSync(`${WRE_PATH}/game.wlk`, 'utf8')),
 )
 
 log('\tFilling...')
