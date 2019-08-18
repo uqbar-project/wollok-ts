@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, List, Name, NamedArgument, Program, Sentence, Singleton, Test } from './model'
+import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test } from './model'
 import tools from './tools'
 
 export interface Locals { [name: string]: Id }
@@ -39,7 +39,7 @@ export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
 
-export const DECIMAL_PRECISION = 4
+export const DECIMAL_PRECISION = 5
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
@@ -86,12 +86,12 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 
 // TODO: Memoize?
 export const compile = (environment: Environment) =>
-  (node: Sentence<'Linked'> | Body<'Linked'>): List<Instruction> => {
+  (node: Sentence<Linked> | Body<Linked>): List<Instruction> => {
     const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = tools(environment)
     switch (node.kind) {
 
       case 'Body': return (() =>
-        flatMap<Sentence<'Linked'>, Instruction>(compile(environment))(node.sentences)
+        flatMap<Sentence<Linked>, Instruction>(compile(environment))(node.sentences)
       )()
 
       case 'Variable': return (() => [
@@ -165,15 +165,15 @@ export const compile = (environment: Environment) =>
             return [
               INSTANTIATE(fullyQualifiedName(node.value)),
               INIT(0, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
-              ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+              ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
                 SET(name),
-              ])(node.value.superCall.args as List<NamedArgument<'Linked'>>),
+              ])(node.value.superCall.args as List<NamedArgument<Linked>>),
             ]
           } else {
             return [
-              ...flatMap(compile(environment))(node.value.superCall.args as List<Expression<'Linked'>>),
+              ...flatMap(compile(environment))(node.value.superCall.args as List<Expression<Linked>>),
               INSTANTIATE(fullyQualifiedName(node.value)),
               INIT(node.value.superCall.args.length, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
             ]
@@ -181,9 +181,9 @@ export const compile = (environment: Environment) =>
         }
 
         return [
-          ...flatMap(compile(environment))(node.value.args as List<Expression<'Linked'>>),
-          INSTANTIATE(node.value.className.name, []),
-          INIT(node.value.args.length, node.value.className.name, false),
+          ...flatMap(compile(environment))(node.value.args as List<Expression<Linked>>),
+          INSTANTIATE(node.value.instantiated.name, []),
+          INIT(node.value.args.length, node.value.instantiated.name, false),
         ]
       })()
 
@@ -206,21 +206,21 @@ export const compile = (environment: Environment) =>
 
 
       case 'New': return (() => {
-        const fqn = fullyQualifiedName(resolveTarget(node.className))
+        const fqn = fullyQualifiedName(resolveTarget(node.instantiated))
 
         if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
           return [
             INSTANTIATE(fqn),
             INIT(0, fqn, true),
-            ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+            ...flatMap(({ name, value }: NamedArgument<Linked>) => [
               DUP,
               ...compile(environment)(value),
               SET(name),
-            ])(node.args as List<NamedArgument<'Linked'>>),
+            ])(node.args as List<NamedArgument<Linked>>),
           ]
         } else {
           return [
-            ...flatMap(compile(environment))(node.args as List<Expression<'Linked'>>),
+            ...flatMap(compile(environment))(node.args as List<Expression<Linked>>),
             INSTANTIATE(fqn),
             INIT(node.args.length, fqn, true),
           ]
@@ -235,7 +235,7 @@ export const compile = (environment: Environment) =>
 
 
       case 'Throw': return (() => [
-        ...compile(environment)(node.arg),
+        ...compile(environment)(node.exception),
         INTERRUPT('exception'),
       ])()
 
@@ -244,7 +244,7 @@ export const compile = (environment: Environment) =>
         TRY_CATCH_ALWAYS(
           compile(environment)(node.body),
 
-          flatMap<Catch<'Linked'>, Instruction>(({ parameter, parameterType, body }) => {
+          flatMap<Catch<Linked>, Instruction>(({ parameter, parameterType, body }) => {
             const compiledCatch: List<Instruction> = [
               PUSH(VOID_ID),
               LOAD('<exception>'),
@@ -532,13 +532,13 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
         const self = getInstance(selfId)
 
-        const lookupStart: Class<'Linked'> = resolve(instruction.lookupStart)
+        const lookupStart: Class<Linked> = resolve(instruction.lookupStart)
 
         // TODO: Add to Filler a method for doing this and just call it ?
         const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
-          ...(module.members as ClassMember<'Linked'>[]).filter(is('Field')),
+          ...(module.members as ClassMember<Linked>[]).filter(is('Field')),
           ...fields,
-        ], [] as Field<'Linked'>[])
+        ], [] as Field<Linked>[])
 
         const constructor = constructorLookup(instruction.arity, lookupStart)
         const ownSuperclass = superclass(lookupStart)
@@ -561,7 +561,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         frameStack.push({
           instructions: new Array<Instruction>(
             ...instruction.initFields ? [
-              ...flatMap(({ value: v, name }: Field<'Linked'>) => [
+              ...flatMap(({ value: v, name }: Field<Linked>) => [
                 LOAD('self'),
                 ...compile(environment)(v),
                 SET(name),
@@ -728,21 +728,21 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     instances,
     frameStack: [{
       instructions: [
-        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<'Linked'>) => {
+        ...flatMap(({ id, superCall: { superclass, args } }: Singleton<Linked>) => {
           if ((args as any[]).some(arg => is('NamedArgument')(arg))) {
             return [
               PUSH(id),
               INIT(0, fullyQualifiedName(resolveTarget(superclass)), true),
-              ...flatMap(({ name, value }: NamedArgument<'Linked'>) => [
+              ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
                 SET(name),
-              ])(args as List<NamedArgument<'Linked'>>),
+              ])(args as List<NamedArgument<Linked>>),
               PUSH(id),
             ]
           } else {
             return [
-              ...flatMap(compile(environment))(args as List<Expression<'Linked'>>),
+              ...flatMap(compile(environment))(args as List<Expression<Linked>>),
               PUSH(id),
               INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
             ]
@@ -757,8 +757,8 @@ const buildEvaluation = (environment: Environment): Evaluation => {
   }
 }
 
-function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<'Linked'>>) {
-  const body: Body<'Linked'> = {
+function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<Linked>>) {
+  const body: Body<Linked> = {
     kind: 'Body',
     id: uuid(),
     sentences,
@@ -811,7 +811,7 @@ export default (environment: Environment, natives: {}) => ({
   runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
     const { resolve } = tools(environment)
 
-    const programSentences = resolve<Program<'Linked'>>(fullyQualifiedName).body.sentences
+    const programSentences = resolve<Program<Linked>>(fullyQualifiedName).body.sentences
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = evaluation || buildEvaluation(environment)
@@ -828,7 +828,7 @@ export default (environment: Environment, natives: {}) => ({
 
     // TODO: descendants stage should be inferred from the parameter
     const describes = descendants(environment).filter(is('Describe'))
-    const allDescribeTests = flatMap<Describe<'Linked'>, Test<'Linked'>>(tests)(describes)
+    const allDescribeTests = flatMap<Describe<Linked>, Test<Linked>>(tests)(describes)
     const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')))
 
     log.start('Initializing Evaluation')
@@ -838,7 +838,7 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
-    const runTests = ((testsToRun: List<Test<'Linked'>>, sentences: (t: Test<'Linked'>) => List<Sentence<'Linked'>>) => {
+    const runTests = ((testsToRun: List<Test<Linked>>, sentences: (t: Test<Linked>) => List<Sentence<Linked>>) => {
       const testsCount = testsToRun.length
       total += testsCount
       log.separator()
@@ -866,7 +866,7 @@ export default (environment: Environment, natives: {}) => ({
 
 
     log.start('Running describes')
-    describes.forEach((describe: Describe<'Linked'>) => {
+    describes.forEach((describe: Describe<Linked>) => {
       const variables = descendants(describe).filter(is('Variable'))
       const fixture = descendants(describe).find(is('Fixture'))
       const fixtureSentences = (fixture) ? fixture.body!.sentences : []

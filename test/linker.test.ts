@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from '../src/builders'
 import link from '../src/linker'
-import { Class as ClassNode, Field as FieldNode, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import tools from '../src/tools'
 import { linkerAssertions } from './assertions'
 
@@ -107,7 +107,7 @@ describe('Wollok linker', () => {
           Mixin('M')()
         ),
       ),
-    ] as PackageNode<'Filled'>[])
+    ] as PackageNode<Filled>[])
 
     const { descendants } = tools(environment)
     const nodes = [environment, ...descendants(environment)]
@@ -127,14 +127,14 @@ describe('Wollok linker', () => {
             Field('h', { value: Reference('f') }),
           ),
         ),
-      ] as PackageNode<'Filled'>[])
+      ] as PackageNode<Filled>[])
 
-      const Object = (environment.members[0].members[0] as PackageNode<'Linked'>).members[0] as ClassNode<'Linked'>
-      const p = environment.members[1] as PackageNode<'Linked'>
-      const C = p.members[0] as ClassNode<'Linked'>
-      const f = C.members[0] as FieldNode<'Linked'>
-      const g = C.members[1] as FieldNode<'Linked'>
-      const h = C.members[2] as FieldNode<'Linked'>
+      const Object = (environment.members[0].members[0] as PackageNode<Linked>).members[0] as ClassNode<Linked>
+      const p = environment.members[1] as PackageNode<Linked>
+      const C = p.members[0] as ClassNode<Linked>
+      const f = C.members[0] as FieldNode<Linked>
+      const g = C.members[1] as FieldNode<Linked>
+      const h = C.members[2] as FieldNode<Linked>
 
       C.superclass!.should.target(Object)
       f.value.should.target(C)
@@ -162,24 +162,24 @@ describe('Wollok linker', () => {
           ),
           Class('C', { superclass: Reference('x') })(),
         ),
-      ] as PackageNode<'Filled'>[])
+      ] as PackageNode<Filled>[])
 
       const p = environment.members[1]
-      const S = p.members[0] as SingletonNode<'Linked'>
-      const f = S.members[0] as FieldNode<'Linked'>
-      const m1 = S.members[1] as MethodNode<'Linked'>
+      const S = p.members[0] as SingletonNode<Linked>
+      const f = S.members[0] as FieldNode<Linked>
+      const m1 = S.members[1] as MethodNode<Linked>
       const m1p = m1.parameters[0]
-      const m1r = m1.body!.sentences[0] as ReferenceNode<'Linked'>
-      const m1c = m1.body!.sentences[1] as LiteralNode<'Linked', SingletonNode<'Linked'>>
-      const m1cm = m1c.value.members[0] as MethodNode<'Linked'>
+      const m1r = m1.body!.sentences[0] as ReferenceNode<Linked>
+      const m1c = m1.body!.sentences[1] as LiteralNode<Linked, SingletonNode<Linked>>
+      const m1cm = m1c.value.members[0] as MethodNode<Linked>
       const m1cmp = m1cm.parameters[0]
-      const m1cmr = m1cm.body!.sentences[0] as ReferenceNode<'Linked'>
-      const m2 = S.members[2] as MethodNode<'Linked'>
-      const m2v = m2.body!.sentences[0] as VariableNode<'Linked'>
-      const m2r = m2.body!.sentences[1] as ReferenceNode<'Linked'>
-      const m3 = S.members[3] as MethodNode<'Linked'>
-      const m3r = m3.body!.sentences[0] as ReferenceNode<'Linked'>
-      // const C = p.members[1] as ClassNode<'Linked'>
+      const m1cmr = m1cm.body!.sentences[0] as ReferenceNode<Linked>
+      const m2 = S.members[2] as MethodNode<Linked>
+      const m2v = m2.body!.sentences[0] as VariableNode<Linked>
+      const m2r = m2.body!.sentences[1] as ReferenceNode<Linked>
+      const m3 = S.members[3] as MethodNode<Linked>
+      const m3r = m3.body!.sentences[0] as ReferenceNode<Linked>
+      // const C = p.members[1] as ClassNode<Linked>
 
       S.superCall.args[0].should.target(f)
       f.value.should.target(f)
@@ -211,15 +211,15 @@ describe('Wollok linker', () => {
         Package('r')(
           Class('T', { superclass: Reference('Object') })()
         ),
-      ] as PackageNode<'Filled'>[])
+      ] as PackageNode<Filled>[])
 
       const p = environment.members[1]
-      const C = p.members[0] as ClassNode<'Linked'>
-      const D = p.members[1] as ClassNode<'Linked'>
+      const C = p.members[0] as ClassNode<Linked>
+      const D = p.members[1] as ClassNode<Linked>
       const q = environment.members[2]
-      const S = q.members[0] as ClassNode<'Linked'>
+      const S = q.members[0] as ClassNode<Linked>
       const r = environment.members[3]
-      const T = r.members[0] as ClassNode<'Linked'>
+      const T = r.members[0] as ClassNode<Linked>
 
       C.superclass!.should.target(S)
       D.superclass!.should.target(T)
@@ -232,7 +232,7 @@ describe('Wollok linker', () => {
           Package('p')(
             Class('C', { superclass: Reference('S') })(),
           ),
-        ] as PackageNode<'Filled'>[])
+        ] as PackageNode<Filled>[])
       }).to.throw()
     })
 

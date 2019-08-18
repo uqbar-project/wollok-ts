@@ -28,6 +28,14 @@
         "esSpecCompliant": true
       }
     ],
+    "space-before-function-paren": [
+      true,
+      {
+        "anonymous": "always",
+        "named": "never",
+        "asyncArrow": "always"
+      }
+    ],
     "no-consecutive-blank-lines": [
       true,
       2

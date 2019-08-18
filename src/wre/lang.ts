@@ -1,7 +1,7 @@
 import { flatMap, last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, Operations, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
-import { Id, Method, Singleton } from '../model'
+import { Id, Linked, Method, Singleton } from '../model'
 import tools from '../tools'
 
 const { random, floor, ceil } = Math
@@ -464,7 +464,7 @@ export default {
       const { resolve, methodLookup } = tools(evaluation.environment)
       const { addInstance } = Operations(evaluation)
 
-      const apply = resolve<Singleton<'Linked'>>(self.module).members.find(({ name }) => name === '<apply>') as Method<'Linked'>
+      const apply = resolve<Singleton<Linked>>(self.module).members.find(({ name }) => name === '<apply>') as Method<Linked>
       const argIds = args.map(arg => arg ? arg.id : VOID_ID)
       const parameterNames = apply.parameters.map(({ name }) => name)
       const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)

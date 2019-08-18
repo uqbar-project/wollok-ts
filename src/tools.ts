@@ -1,7 +1,7 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage, Test } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage, Test } from './model'
 
 const { isArray } = Array
 const { values } = Object
@@ -42,7 +42,7 @@ export default (environment: Environment) => {
 
   // TODO: Take out?
   const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
-    children<Node<S>>(node).reduce(reduce(tx), tx(initial, node))
+    children(node).reduce(reduce(tx), tx(initial, node))
 
   // TODO: Take out?
   const children = <C extends Node<S>, S extends Stage = Stage>(node: Node<S>): List<C> => {
@@ -58,14 +58,14 @@ export default (environment: Environment) => {
   }
 
   // TODO: Take out?
-  const descendants = (node: Node<'Linked'>): List<Node<'Linked'>> => {
+  const descendants = (node: Node<Linked>): List<Node<Linked>> => {
     const directDescendants = children(node)
     const indirectDescendants = flatMap(descendants)(directDescendants)
     return [...directDescendants, ...indirectDescendants]
   }
 
 
-  const fullyQualifiedName = (node: Entity<'Linked'>): Name => {
+  const fullyQualifiedName = (node: Entity<Linked>): Name => {
     const parent = parentOf(node)
     return isEntity(parent)
       ? `${fullyQualifiedName(parent)}.${node.name}`
@@ -73,7 +73,7 @@ export default (environment: Environment) => {
   }
 
 
-  const parentOf = <N extends Node<'Linked'>>(node: Node<'Linked'>): N =>
+  const parentOf = <N extends Node<Linked>>(node: Node<Linked>): N =>
     getNodeById(getOrUpdate(PARENT_CACHE, node.id)(() => {
       const parent = [environment, ...descendants(environment)].find(descendant =>
         children(descendant).some(({ id }) => id === node.id)
@@ -84,21 +84,21 @@ export default (environment: Environment) => {
     }))
 
 
-  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<'Linked'>): NodeOfKind<K, 'Linked'> => {
+  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> => {
     const parent = parentOf(node)
     return is(kind)(parent) ? parent : firstAncestorOfKind(kind, parent)
   }
 
-  const getNodeById = <N extends Node<'Linked'>>(id: Id): N =>
+  const getNodeById = <N extends Node<Linked>>(id: Id): N =>
     getOrUpdate(NODE_CACHE, id)(() => {
-      const search = (obj: any): Node<'Linked'> | undefined => {
+      const search = (obj: any): Node<Linked> | undefined => {
         if (isArray(obj)) {
           for (const value of obj) {
             const found = search(value)
             if (found) return found
           }
         } else if (obj instanceof Object) {
-          if (isNode<'Linked'>(obj) && obj.id === id) return obj
+          if (isNode<Linked>(obj) && obj.id === id) return obj
           return search(values(obj))
         }
         return undefined
@@ -110,12 +110,12 @@ export default (environment: Environment) => {
     }) as N
 
 
-  const resolve = <N extends Entity<'Linked'>>(qualifiedName: string): N => {
+  const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
       ? getNodeById(qualifiedName.slice(1))
-      : qualifiedName.split('.').reduce((current: Entity<'Linked'> | Environment, step) => {
+      : qualifiedName.split('.').reduce((current: Entity<Linked> | Environment, step) => {
         const allChildren = children(current)
-        const next = allChildren.find((child): child is Entity<'Linked'> => isEntity(child) && child.name === step)
+        const next = allChildren.find((child): child is Entity<Linked> => isEntity(child) && child.name === step)
         if (!next) throw new Error(
           `Could not resolve reference to ${qualifiedName}: Missing child ${step} among ${allChildren.map((c: any) => c.name)}`
         )
@@ -124,22 +124,22 @@ export default (environment: Environment) => {
   }
 
 
-  const resolveTarget = <N extends Node<'Linked'>>(reference: Reference<'Linked'>): N => getNodeById(reference.target)
+  const resolveTarget = <N extends Node<Linked>>(reference: Reference<Linked>): N => getNodeById(reference.target)
 
 
-  const superclass = (module: Class<'Linked'> | Singleton<'Linked'>): Class<'Linked'> | null => {
+  const superclass = (module: Class<Linked> | Singleton<Linked>): Class<Linked> | null => {
     switch (module.kind) {
-      case 'Class': return module.superclass ? resolveTarget<Class<'Linked'>>(module.superclass!) : null
-      case 'Singleton': return resolveTarget<Class<'Linked'>>(module.superCall.superclass)
+      case 'Class': return module.superclass ? resolveTarget<Class<Linked>>(module.superclass!) : null
+      case 'Singleton': return resolveTarget<Class<Linked>>(module.superCall.superclass)
     }
   }
 
 
-  const hierarchy = (m: Module<'Linked'>): List<Module<'Linked'>> => {
-    const hierarchyExcluding = (module: Module<'Linked'>, exclude: List<Id> = []): List<Module<'Linked'>> => {
+  const hierarchy = (m: Module<Linked>): List<Module<Linked>> => {
+    const hierarchyExcluding = (module: Module<Linked>, exclude: List<Id> = []): List<Module<Linked>> => {
       if (exclude.includes(module.id)) return []
       return [
-        ...module.mixins.map(mixin => resolveTarget<Module<'Linked'>>(mixin)),
+        ...module.mixins.map(mixin => resolveTarget<Module<Linked>>(mixin)),
         ...module.kind === 'Mixin' ? [] : superclass(module) ? [superclass(module)!] : [],
       ].reduce(({ mods, exs }, mod) => (
         { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
@@ -150,10 +150,10 @@ export default (environment: Environment) => {
   }
 
 
-  const inherits = (child: Module<'Linked'>, parent: Module<'Linked'>) => hierarchy(child).some(({ id }) => parent.id === id)
+  const inherits = (child: Module<Linked>, parent: Module<Linked>) => hierarchy(child).some(({ id }) => parent.id === id)
 
 
-  const methodLookup = (name: Name, arity: number, start: Module<'Linked'>): Method<'Linked'> | undefined => {
+  const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
     for (const module of hierarchy(start)) {
       const found = methods(module).find(member =>
         (!!member.body || member.isNative) && member.name === name && (
@@ -167,7 +167,7 @@ export default (environment: Environment) => {
   }
 
 
-  const constructorLookup = (arity: number, owner: Class<'Linked'>): Constructor<'Linked'> | undefined => {
+  const constructorLookup = (arity: number, owner: Class<Linked>): Constructor<Linked> | undefined => {
     return owner.members.filter(is('Constructor')).find(member =>
       member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
       member.parameters.length === arity
@@ -175,8 +175,8 @@ export default (environment: Environment) => {
   }
 
 
-  const nativeLookup = (natives: {}, method: Method<'Linked'>): NativeFunction => {
-    const fqn = `${fullyQualifiedName(parentOf<Module<'Linked'>>(method))}.${method.name}`
+  const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
+    const fqn = `${fullyQualifiedName(parentOf<Module<Linked>>(method))}.${method.name}`
     return fqn.split('.').reduce((current, step) => {
       const next = current[step]
       if (!next) throw new Error(`Native not found: ${fqn}`)
