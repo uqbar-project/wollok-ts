@@ -150,7 +150,7 @@ describe('Wollok linker', () => {
             Field('x', { value: Reference('x') }),
             Method('m1', { parameters: [Parameter('x')] })(
               Reference('x'),
-              Closure(Parameter('x'))(Reference('x'))
+              Closure(undefined, Parameter('x'))(Reference('x'))
             ),
             Method('m2')(
               Variable('x', { value: Reference('x') }),
