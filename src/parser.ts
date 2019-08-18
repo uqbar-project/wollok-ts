@@ -1,4 +1,4 @@
-import { alt, any, index, lazy, lookahead, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
 import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
@@ -33,14 +33,6 @@ const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
 const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.fallback(undefined)
 const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!head)
-const readAhead = (parser: Parser<any>) => {
-  let sourceSize: number
-  let source: string
-
-  return lookahead(parser.mark().map(({ start, end }) => {
-    sourceSize = end.offset - start.offset
-  })).chain(_1 => lookahead(any.times(sourceSize).tie().map(r => { source = r })).map(_2 => source))
-}
 
 const node = <
   K extends Kind,
@@ -515,7 +507,9 @@ const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() => {
     sentence.skip(optional(alt(key(';'), _))).many(),
   ).wrap(key('{'), key('}'))
 
-  return readAhead(closure).chain(closureSource => closure.map(([ps, b]) => makeClosure(ps, b, closureSource)))
+  return closure.mark().chain(({ start, end, value: [ps, b] }) => Parsimmon((input: string, i: number) =>
+    makeSuccess(i, makeClosure(ps, b, input.slice(start.offset, end.offset)))
+  ))
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
