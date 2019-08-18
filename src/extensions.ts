@@ -1,6 +1,6 @@
 import { List } from './model'
 
-const { keys } = Object
+export const keys = <T>(obj: T) => Object.keys(obj) as (keyof T)[]
 
 export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
 
@@ -21,9 +21,9 @@ export const zipObj = (fieldNames: List<string>, fieldValues: List<any>): {} => 
 }
 
 export const mapObject = <T, R = any>(tx: (value: T[keyof T], key: keyof T) => R, obj: T): { [K in keyof T]: R } => {
-  const response: any = {}
+  const response = {} as { [K in keyof T]: R }
   for (const key of keys(obj)) {
-    response[key] = tx((obj as any)[key], key as keyof T)
+    response[key] = tx(obj[key], key)
   }
   return response
 }

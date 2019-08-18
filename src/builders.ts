@@ -1,15 +1,16 @@
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
-import { NodePayload } from './parser'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
 const { keys } = Object
+
+type NodePayload<N extends Node<any>> = Omit<N, 'kind'>
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (payload: NodePayload<N>): N =>
-  ({ ...payload, kind }) as any
+const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (payload: NodePayload<N>): NodePayload<N> & { kind: K } =>
+  ({ ...payload, kind })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -160,7 +161,7 @@ export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>
 
 export const Self = makeNode('Self')({})
 
-export const Literal = <T extends LiteralValue<Raw>>(value: T) => makeNode('Literal')({ value })
+export const Literal = <T extends LiteralValue<Raw>>(value: T) => makeNode<'Literal', LiteralNode<Raw, T>>('Literal')({ value })
 
 export const Send = (receiver: Expression<Raw>, message: Name, args: ReadonlyArray<Expression<Raw>> = []) => makeNode('Send')({
   receiver,
@@ -208,7 +209,7 @@ export const Closure = (...parameters: ParameterNode<Raw>[]) => (...body: Senten
     Method('<apply>', { parameters })(
       ...body
     )
-  )) as LiteralNode<Raw, SingletonNode<Raw>>
+  ))
 
 export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',

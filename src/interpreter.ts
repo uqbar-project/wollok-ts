@@ -39,7 +39,7 @@ export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
 
-export const DECIMAL_PRECISION = 4
+export const DECIMAL_PRECISION = 5
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS

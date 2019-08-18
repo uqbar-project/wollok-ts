@@ -1,13 +1,9 @@
 import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, Node, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
-
-type Drop<T, K> = Pick<T, Exclude<keyof T, K>>
-
-export type NodePayload<N extends Node<Raw>> = Drop<N, 'kind' | 'id'>
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -34,13 +30,13 @@ let SOURCE_FILE: string | undefined
 const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
 const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
-const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.or(of(undefined))
+const optional = <T>(parser: Parser<T>): Parser<T | undefined> => parser.fallback(undefined)
 const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!head)
 
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  P extends NodePayload<N> = NodePayload<N>,
+  P extends Omit<N, 'kind'> = Omit<N, 'kind'>,
   C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers = keys(fieldParserSeq).map(fieldName =>
@@ -180,7 +176,7 @@ export const classEntity: Parser<Class<Raw>> = lazy(() =>
   key('class').then(node('Class')({
     name,
     superclass: optional(key('inherits').then(reference)),
-    mixins: mixinLinearization.or(of([])),
+    mixins: mixinLinearization.fallback([]),
     members: classMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
@@ -197,7 +193,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
 
       seqMap(
         superCall,
-        mixinLinearization.or(of([])),
+        mixinLinearization.fallback([]),
         (call, mixins) => ({ superCall: call, mixins })
       ),
 
@@ -206,7 +202,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
       seqMap(
         notFollowedBy(key('inherits').or(key('mixed with'))).then(name),
         optional(superCall),
-        mixinLinearization.or(of([])),
+        mixinLinearization.fallback([]),
         (singletonName, call, mixins) => ({ singletonName, superCall: call, mixins })
       ),
 
@@ -223,7 +219,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
 export const mixinEntity: Parser<Mixin<Raw>> = lazy(() =>
   key('mixin').then(node('Mixin')({
     name,
-    mixins: mixinLinearization.or(of([])),
+    mixins: mixinLinearization.fallback([]),
     members: alt(method, field).sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
 )
@@ -247,7 +243,7 @@ export const field: Parser<Field<Raw>> = lazy(() =>
 )
 
 export const method: Parser<Method<Raw>> = lazy(() => seqMap(
-  key('override').result(true).or(of(false)),
+  key('override').result(true).fallback(false),
   key('method').then(alt(name, ...OPERATORS.map(key))),
   parameters,
   alt(
@@ -507,7 +503,7 @@ const stringLiteral: Parser<string> = lazy(() => {
 
 const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() =>
   seqMap(
-    parameter.sepBy(key(',')).skip(key('=>')).or(of([])),
+    parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
     sentence.skip(optional(alt(key(';'), _))).many(),
     makeClosure
   ).wrap(key('{'), key('}'))
