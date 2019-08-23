@@ -522,7 +522,10 @@ export default {
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
       const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', `Closure#${self.id}`))
+      pushOperand(self.fields['<toString>']
+        ? self.fields['<toString>']
+        : addInstance('wollok.lang.String', `Closure#${self.id}`)
+      )
     },
   },
 

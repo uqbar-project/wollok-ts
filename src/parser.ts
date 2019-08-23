@@ -1,4 +1,4 @@
-import { alt, index, lazy, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
 import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
@@ -50,7 +50,6 @@ const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
   parser,
   index
 ).map(([start, payload, end]) => ({ ...payload as any, source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }))
-
 
 export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName
@@ -502,19 +501,22 @@ const stringLiteral: Parser<string> = lazy(() => {
   return alt(singleQuoteString, doubleQuoteString)
 })
 
-const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() =>
-  seqMap(
+const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() => {
+  const closure = seq(
     parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
     sentence.skip(optional(alt(key(';'), _))).many(),
-    makeClosure
   ).wrap(key('{'), key('}'))
-)
+
+  return closure.mark().chain(({ start, end, value: [ps, b] }) => Parsimmon((input: string, i: number) =>
+    makeSuccess(i, makeClosure(ps, b, input.slice(start.offset, end.offset)))
+  ))
+})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // BUILDERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List<Sentence<Raw>>):
+const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List<Sentence<Raw>>, toString?: string):
   Literal<Raw, Singleton<Raw>> => {
 
   const sentences: List<Sentence<Raw>> = rawSentences
@@ -522,5 +524,5 @@ const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List
     ? [...rawSentences, { kind: 'Return', value: undefined }]
     : [...rawSentences.slice(0, -1), { kind: 'Return', value: last(rawSentences) as Expression<Raw> }]
 
-  return buildClosure(...closureParameters)(...sentences)
+  return buildClosure(toString, ...closureParameters)(...sentences)
 }

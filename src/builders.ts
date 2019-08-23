@@ -204,12 +204,14 @@ export const Catch = (parameter: ParameterNode<Raw>, payload?: Partial<NodePaylo
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Closure = (...parameters: ParameterNode<Raw>[]) => (...body: Sentence<Raw>[]): LiteralNode<Raw, SingletonNode<Raw>> =>
-  Literal(Singleton(undefined, { superCall: { superclass: Reference('wollok.lang.Closure'), args: [] } })(
-    Method('<apply>', { parameters })(
-      ...body
-    )
-  ))
+export const Closure = (toString?: string, ...parameters: ParameterNode<Raw>[]) =>
+  (...body: Sentence<Raw>[]): LiteralNode<Raw, SingletonNode<Raw>> =>
+    Literal(Singleton(undefined, { superCall: { superclass: Reference('wollok.lang.Closure'), args: [] } })(
+      Method('<apply>', { parameters })(
+        ...body
+      ),
+      ...toString ? [Field('<toString>', { isReadOnly: true, value: Literal(toString) })] : []
+    ))
 
 export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
   kind: 'New',
