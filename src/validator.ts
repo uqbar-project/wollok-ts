@@ -97,7 +97,7 @@ export const validations = (environment: Environment) => {
        (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
      ),*/
 
-    nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.reference.name.includes('.')),
+    nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
     fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => parentOf<Class<Linked>>(node).members.
       filter(is('Method')).every(({ name }) => name !== node.name)),
@@ -120,7 +120,7 @@ export const validations = (environment: Environment) => {
     instantiationIsNotAbstractClass: error<New<Linked>>(node =>
       isNotAbstractClass(resolveTarget(node.instantiated))),
 
-    notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.reference.name)),
+    notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
 
     notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
       !(is('Reference')(node.value!) && (node.value! as Reference<Linked>).name === node.name)

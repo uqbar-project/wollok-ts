@@ -30,7 +30,7 @@ export const NamedArgument = (name: Name, value: Expression<Raw>) => makeNode('N
 })
 
 export const Import = (reference: ReferenceNode<Raw>, payload?: Partial<NodePayload<ImportNode<Raw>>>) => makeNode('Import')({
-  reference,
+  entity: reference,
   isGeneric: false,
   ...payload,
 })
@@ -153,7 +153,7 @@ export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode<
 
 export const Return = (value: Expression<Raw> | undefined = undefined) => makeNode('Return')({ value })
 
-export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>) => makeNode('Assignment')({ reference, value })
+export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>) => makeNode('Assignment')({ variable: reference, value })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EXPRESSIONS

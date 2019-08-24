@@ -59,7 +59,7 @@ export type NamedArgument<S extends Stage> = BaseNode<'NamedArgument', S> & {
 }
 
 export type Import<S extends Stage> = BaseNode<'Import', S> & {
-  readonly reference: Reference<S>
+  readonly entity: Reference<S>
   readonly isGeneric: boolean
 }
 
@@ -104,7 +104,7 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
 }>
 
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
-  readonly name?: Name // TODO: assign anonymous singletons' name after linking? superclass.fqn#id
+  readonly name?: Name
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
 } & Fillable<S, {
@@ -174,7 +174,7 @@ export type Return<S extends Stage> = BaseNode<'Return', S> & {
 }
 
 export type Assignment<S extends Stage> = BaseNode<'Assignment', S> & {
-  readonly reference: Reference<S> // TODO: rename to variable?
+  readonly variable: Reference<S>
   readonly value: Expression<S>
 }
 

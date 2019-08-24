@@ -125,7 +125,7 @@ export const entity: Parser<Entity<Raw>> = lazy(() => alt(
 
 export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
-    reference: node('Reference')({
+    entity: node('Reference')({
       name: name.sepBy1(key('.')).tieWith('.'),
       target: of(undefined),
     }).thru(sourced),
@@ -302,7 +302,7 @@ export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
     expression,
     (variable, operator, value) => ({
       kind: 'Assignment' as const,
-      reference: variable,
+      variable,
       value: operator === '='
         ? value
         : ({

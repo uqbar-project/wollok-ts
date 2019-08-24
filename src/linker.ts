@@ -90,9 +90,9 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   const outerContributionFrom = (contributor: Node<Linked>): Scope => {
     switch (contributor.kind) {
       case 'Import':
-        const referenced = resolve(contributor.reference.name)
+        const referenced = resolve(contributor.entity.name)
         return {
-          [contributor.reference.name]: referenced.id,
+          [contributor.entity.name]: referenced.id,
           ...contributor.isGeneric
             ? children<Entity<Linked>>(referenced).reduce((scope: Scope, child) => {
               scope[child.name || ''] = child.id

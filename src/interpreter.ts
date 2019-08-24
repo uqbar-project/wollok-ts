@@ -108,15 +108,15 @@ export const compile = (environment: Environment) =>
 
 
       case 'Assignment': return (() =>
-        is('Field')(resolveTarget(node.reference))
+        is('Field')(resolveTarget(node.variable))
           ? [
             LOAD('self'),
             ...compile(environment)(node.value),
-            SET(node.reference.name),
+            SET(node.variable.name),
           ]
           : [
             ...compile(environment)(node.value),
-            STORE(node.reference.name, true),
+            STORE(node.variable.name, true),
           ]
       )()
 

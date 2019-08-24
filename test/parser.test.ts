@@ -19,7 +19,7 @@ describe('Wollok parser', () => {
       comment */ p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
       ).and.be.tracedTo(16, 49)
-        .and.have.nested.property('reference').tracedTo(48, 49)
+        .and.have.nested.property('entity').tracedTo(48, 49)
     })
 
     it('line comments should be ignored at the end of line', () => {
@@ -27,7 +27,7 @@ describe('Wollok parser', () => {
       p`.should.be.parsedBy(parser).into(
         Import(Reference('p'))
       ).and.be.tracedTo(0, 29)
-        .and.have.nested.property('reference').tracedTo(28, 29)
+        .and.have.nested.property('entity').tracedTo(28, 29)
     })
 
     it('should not parse elements inside line comment', () => {
@@ -462,17 +462,17 @@ describe('Wollok parser', () => {
       'import p'.should.be.parsedBy(parser).into(
         Import(Reference('p'))
       ).and.be.tracedTo(0, 8)
-        .and.have.nested.property('reference').tracedTo(7, 8)
+        .and.have.nested.property('entity').tracedTo(7, 8)
     })
 
     it('should parse generic imports', () => {
       'import p.q.*'.should.be.parsedBy(parser).into(
         Import(Reference('p.q'), {
-          reference: Reference('p.q'),
+          entity: Reference('p.q'),
           isGeneric: true,
         })
       ).and.be.tracedTo(0, 12)
-        .and.have.nested.property('reference').tracedTo(7, 10)
+        .and.have.nested.property('entity').tracedTo(7, 10)
     })
 
     it('should not parse malformed imports', () => {
@@ -1205,7 +1205,7 @@ describe('Wollok parser', () => {
       'a = b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Reference('b'))
       ).and.be.tracedTo(0, 5)
-        .and.have.property('reference').tracedTo(0, 1)
+        .and.have.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value').tracedTo(4, 5)
     })
 
@@ -1213,7 +1213,7 @@ describe('Wollok parser', () => {
       'a += b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '+', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
     })
@@ -1222,7 +1222,7 @@ describe('Wollok parser', () => {
       'a -= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '-', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
@@ -1232,7 +1232,7 @@ describe('Wollok parser', () => {
       'a *= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '*', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
@@ -1242,7 +1242,7 @@ describe('Wollok parser', () => {
       'a /= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '/', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
@@ -1252,7 +1252,7 @@ describe('Wollok parser', () => {
       'a %= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '%', [Reference('b')]))
       ).and.be.tracedTo(0, 6)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0').tracedTo(5, 6)
 
@@ -1262,7 +1262,7 @@ describe('Wollok parser', () => {
       'a ||= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '||', [Closure()(Return(Reference('b')))]))
       ).and.be.tracedTo(0, 7)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
 
@@ -1272,7 +1272,7 @@ describe('Wollok parser', () => {
       'a &&= b'.should.be.parsedBy(parser).into(
         Assignment(Reference('a'), Send(Reference('a'), '&&', [Closure()(Return(Reference('b')))]))
       ).and.be.tracedTo(0, 7)
-        .and.have.nested.property('reference').tracedTo(0, 1)
+        .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
     })
 
