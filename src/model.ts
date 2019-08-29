@@ -2,10 +2,10 @@ import { Index } from 'parsimmon'
 
 export type Stage = Raw | Filled | Linked
 export type Raw = 'Raw'
-export type Filled = Raw & 'Filled'
-export type Linked = Filled & 'Linked'
+export type Filled = 'Filled'
+export type Linked = 'Linked'
 
-type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T[K] }
+type Fillable<S extends Stage, T> = S extends Filled | Linked ? T : { [K in keyof T]+?: T[K] }
 type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
 
 

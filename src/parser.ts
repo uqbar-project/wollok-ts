@@ -254,9 +254,9 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
         },
       }))
     ),
-    key('native').result({ isNative: true }),
+    key('native').result({ isNative: true, body: undefined }),
     body.map(methodBody => ({ isNative: false, body: methodBody })),
-    of({ isNative: false })
+    of({ isNative: false, body: undefined })
   ),
   (isOverride, methodName, methodParameters, { isNative, body: methodBody }) => (
     { kind: 'Method' as const, isOverride, name: methodName, parameters: methodParameters, isNative, body: methodBody }
