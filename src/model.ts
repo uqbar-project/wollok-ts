@@ -1,5 +1,7 @@
 import { Index } from 'parsimmon'
 
+// TODO: Use Linked as default stage for all types
+
 export type Stage = Raw | Filled | Linked
 export type Raw = 'Raw'
 export type Filled = 'Filled'
@@ -93,12 +95,18 @@ export type Test<S extends Stage> = BaseNode<'Test', S> & {
 export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
   readonly name: string
   readonly members: List<DescribeMember<S>>
+
+  tests(): List<Test<S>>
 }
 
 export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly name: Name
   readonly mixins: List<Reference<S>>
   readonly members: List<ClassMember<S>>
+
+  methods(): List<Method<S>>
+  fields(): List<Field<S>>
+  constructors(): List<Constructor<S>>
 } & Fillable<S, {
   readonly superclass: Reference<S> | null
 }>
@@ -107,6 +115,9 @@ export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
   readonly name?: Name
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
+
+  methods(): List<Method<S>>
+  fields(): List<Field<S>>
 } & Fillable<S, {
   readonly superCall: {
     superclass: Reference<S>,
@@ -118,6 +129,9 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
   readonly name: Name
   readonly mixins: List<Reference<S>>
   readonly members: List<ObjectMember<S>>
+
+  methods(): List<Method<S>>
+  fields(): List<Field<S>>
 }
 
 
@@ -259,7 +273,7 @@ export type Environment = BaseNode<'Environment', Linked> & {
 // TYPE GUARDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = <S extends Stage>(obj: any): obj is Node<S> => obj && obj.kind
+export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 export const isEntity = <S extends Stage>(obj: any): obj is Entity<S> => isNode(obj) &&
   ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
@@ -279,4 +293,4 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
-export const is = <K extends Kind>(k: K) => <S extends Stage>(node: Node<S>): node is NodeOfKind<K, S> => node.kind === k
+export const is = <K extends Kind>(k: K) => <S extends Stage>(obj: any): obj is NodeOfKind<K, S> => isNode(obj) && obj.kind === k

@@ -1,20 +1,22 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Field, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage, Test } from './model'
+import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values } = Object
 
 // TODO: Test all this
 
+// TODO: Extract applyTransform into single propagate function
 export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
   <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
     const applyTransform = (obj: any): any =>
-      isNode<S>(obj) ? mapObject(applyTransform, tx(obj) as any) :
-        isArray(obj) ? obj.map(applyTransform) :
-          obj instanceof Object ? mapObject(applyTransform, obj) :
-            obj
+      typeof obj === 'function' ? obj :
+        isNode<S>(obj) ? mapObject(applyTransform, tx(obj) as any) :
+          isArray(obj) ? obj.map(applyTransform) :
+            obj instanceof Object ? mapObject(applyTransform, obj) :
+              obj
 
     return applyTransform(node)
   }
@@ -25,18 +27,14 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 ) =>
   <N extends Node<S>, K extends KindOf<N> = KindOf<N>>(node: N): NodeOfKind<K, R> => {
     const applyTransform = (obj: any): any =>
-      isNode<S>(obj) ? (tx[obj.kind] || defaultTx as any)(mapObject(applyTransform, obj as any), obj) :
-        isArray(obj) ? obj.map(applyTransform) :
-          obj instanceof Object ? mapObject(applyTransform, obj) :
-            obj
+      typeof obj === 'function' ? obj :
+        isNode<S>(obj) ? (tx[obj.kind] || defaultTx as any)(mapObject(applyTransform, obj as any), obj) :
+          isArray(obj) ? obj.map(applyTransform) :
+            obj instanceof Object ? mapObject(applyTransform, obj) :
+              obj
 
     return applyTransform(node)
   }
-
-export const methods = <S extends Stage>(module: Module<S>) => module.members.filter(is('Method')) as List<Method<S>>
-export const fields = <S extends Stage>(module: Module<S>) => module.members.filter(is('Field')) as List<Field<S>>
-export const constructors = <S extends Stage>(module: Class<S>) => module.members.filter(is('Constructor')) as List<Constructor<S>>
-export const tests = <S extends Stage>(module: Describe<S>) => module.members.filter(is('Test')) as List<Test<S>>
 
 export default (environment: Environment) => {
 
@@ -86,7 +84,7 @@ export default (environment: Environment) => {
 
   const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> => {
     const parent = parentOf(node)
-    return is(kind)(parent) ? parent : firstAncestorOfKind(kind, parent)
+    return is(kind)<Linked>(parent) ? parent : firstAncestorOfKind(kind, parent)
   }
 
   const getNodeById = <N extends Node<Linked>>(id: Id): N =>
@@ -124,7 +122,13 @@ export default (environment: Environment) => {
   }
 
 
-  const resolveTarget = <N extends Node<Linked>>(reference: Reference<Linked>): N => getNodeById(reference.target)
+  const resolveTarget = <N extends Node<Linked>>(reference: Reference<Linked>): N => {
+    try {
+      return getNodeById(reference.target)
+    } catch (e) {
+      throw new Error(`Could not resolve target for ${JSON.stringify(reference)}`)
+    }
+  }
 
 
   const superclass = (module: Class<Linked> | Singleton<Linked>): Class<Linked> | null => {
@@ -155,7 +159,7 @@ export default (environment: Environment) => {
 
   const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
     for (const module of hierarchy(start)) {
-      const found = methods(module).find(member =>
+      const found = module.methods().find(member =>
         (!!member.body || member.isNative) && member.name === name && (
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
           member.parameters.length === arity
@@ -168,7 +172,7 @@ export default (environment: Environment) => {
 
 
   const constructorLookup = (arity: number, owner: Class<Linked>): Constructor<Linked> | undefined => {
-    return owner.members.filter(is('Constructor')).find(member =>
+    return owner.constructors().find(member =>
       member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
       member.parameters.length === arity
     )
@@ -202,6 +206,5 @@ export default (environment: Environment) => {
     methodLookup,
     constructorLookup,
     nativeLookup,
-    tests,
   }
 }

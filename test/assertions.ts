@@ -24,7 +24,8 @@ declare global {
 }
 
 // TODO: Improve this, maybe with rambda?
-const dropKeys = (...keys: string[]) => (obj: any) => JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
+const dropKeys = (...keys: string[]) => (obj: any) =>
+  JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ALSO

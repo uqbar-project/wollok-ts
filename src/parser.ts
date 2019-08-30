@@ -1,4 +1,5 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import { Methods, Raw as RawBehavior } from './behavior'
 import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
 import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
@@ -37,12 +38,13 @@ const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!hea
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  P extends Omit<N, 'kind'> = Omit<N, 'kind'>,
+  P extends Omit<N, 'kind' | Methods<N>> = Omit<N, 'kind' | Methods<N>>,
   C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
-    const subparsers = keys(fieldParserSeq).map(fieldName =>
-      [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
-    return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
+    const subparsers = keys(fieldParserSeq).map(fieldName => [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
+    return (subparsers.length ? seqObj<P>(...subparsers) : of({}))
+      .map(payload => ({ kind, ...payload as any }))
+      .map(data => RawBehavior<N>(data))
   }
 
 const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
@@ -190,7 +192,6 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
 
   return key('object').then(seqMap(
     alt(
-
       seqMap(
         superCall,
         mixinLinearization.fallback([]),
@@ -212,7 +213,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
     objectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
 
     ({ singletonName, superCall: call, mixins }, members) =>
-      ({ kind: 'Singleton' as const, name: singletonName, superCall: call, mixins, members })
+      buildSingleton(singletonName, { superCall: call, mixins })(...members)
   )).thru(sourced)
 })
 

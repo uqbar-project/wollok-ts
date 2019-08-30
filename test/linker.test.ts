@@ -8,6 +8,7 @@ import { linkerAssertions } from './assertions'
 should()
 use(linkerAssertions)
 
+// TODO: Use generated WRE
 const WRE = Package('wollok')(
   Package('lang')(
     Class('Object')(),

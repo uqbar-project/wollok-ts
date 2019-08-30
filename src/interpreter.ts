@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, without, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, ClassMember, Describe, Environment, Expression, Field, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test } from './model'
+import { Body, Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 import tools from './tools'
 
 export interface Locals { [name: string]: Id }
@@ -536,7 +536,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         // TODO: Add to Filler a method for doing this and just call it ?
         const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
-          ...(module.members as ClassMember<Linked>[]).filter(is('Field')),
+          ...module.fields(),
           ...fields,
         ], [] as Field<Linked>[])
 
@@ -707,7 +707,7 @@ const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
 const buildEvaluation = (environment: Environment): Evaluation => {
   const { descendants, fullyQualifiedName, resolveTarget } = tools(environment)
 
-  const globalSingletons = descendants(environment).filter(is('Singleton')).filter(node => !!node.name)
+  const globalSingletons = (descendants(environment).filter(is('Singleton')) as List<Singleton<Linked>>).filter(node => !!node.name)
 
   const instances = [
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
@@ -729,7 +729,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     frameStack: [{
       instructions: [
         ...flatMap(({ id, superCall: { superclass, args } }: Singleton<Linked>) => {
-          if ((args as any[]).some(arg => is('NamedArgument')(arg))) {
+          if ((args as any[]).some(is('NamedArgument'))) {
             return [
               PUSH(id),
               INIT(0, fullyQualifiedName(resolveTarget(superclass)), true),
@@ -824,12 +824,13 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runTests: (): [number, number] => {
-    const { descendants, tests } = tools(environment)
+    const { descendants } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
-    const describes = descendants(environment).filter(is('Describe'))
-    const allDescribeTests = flatMap<Describe<Linked>, Test<Linked>>(tests)(describes)
-    const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')))
+    // TODO: maybe descendants should have an optional filter function
+    const describes = descendants(environment).filter(is('Describe')) as List<Describe<Linked>>
+    const allDescribeTests = flatMap<Describe<Linked>, Test<Linked>>((describe: Describe<Linked>) => describe.tests())(describes)
+    const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')) as List<Test<Linked>>)
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)
@@ -867,10 +868,10 @@ export default (environment: Environment, natives: {}) => ({
 
     log.start('Running describes')
     describes.forEach((describe: Describe<Linked>) => {
-      const variables = descendants(describe).filter(is('Variable'))
-      const fixture = descendants(describe).find(is('Fixture'))
+      const variables = descendants(describe).filter(is('Variable')) as List<Variable<Linked>>
+      const fixture = descendants(describe).find(is('Fixture')) as Fixture<Linked>
       const fixtureSentences = (fixture) ? fixture.body!.sentences : []
-      runTests(tests(describe), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
+      runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')
 

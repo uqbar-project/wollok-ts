@@ -99,8 +99,8 @@ export const validations = (environment: Environment) => {
 
     nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
-    fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => parentOf<Class<Linked>>(node).members.
-      filter(is('Method')).every(({ name }) => name !== node.name)),
+    fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => parentOf<Class<Linked>>(node)
+      .methods().every(({ name }) => name !== node.name)),
 
     methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
       .every(member => is('Method')(member) && !matchingSignatures(node.members, member)

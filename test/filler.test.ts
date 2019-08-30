@@ -1,7 +1,6 @@
 import { should } from 'chai'
 import { Assignment, Catch, Class, Constructor, Field, If, Literal, Method, Parameter, Reference, Return, Singleton, Try, Variable } from '../src/builders'
 import fill from '../src/filler'
-import { is } from '../src/model'
 
 should()
 
@@ -26,7 +25,7 @@ describe('Wollok filler', () => {
   })
 
   it('fills non overrided accessors for properties', () => {
-    fill(Class('C')(Field('p', { isProperty: true }))).members.filter(is('Method')).should.deep.equal([
+    fill(Class('C')(Field('p', { isProperty: true }))).methods().should.deep.equal([
       Method('p')(Return(Reference('p'))),
       Method('p', { parameters: [Parameter('value')] })(Assignment(Reference('p'), Reference('value'))),
     ])

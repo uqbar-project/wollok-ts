@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { Linked as LinkedBehavior } from './behavior'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Id, isModule, Linked, List, Module, Node, Package } from './model'
 import tools, { transform, transformByKind } from './tools'
@@ -194,13 +195,12 @@ export default (
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
-      const next = { ...node, target }
-      return next
+      return { ...node, target }
     },
   })(identifiedEnvironment)
 
   flushAll(NODE_CACHE)
+  flushAll(PARENT_CACHE)
 
-  return targetedEnvironment
-
+  return transform<Linked>(LinkedBehavior)(targetedEnvironment)
 }
