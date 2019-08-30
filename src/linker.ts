@@ -199,8 +199,9 @@ export default (
     },
   })(identifiedEnvironment)
 
-  flushAll(NODE_CACHE)
-  flushAll(PARENT_CACHE)
+  const finalEnvironment = transform<Linked>(LinkedBehavior)(targetedEnvironment)
 
-  return transform<Linked>(LinkedBehavior)(targetedEnvironment)
+  flushAll(NODE_CACHE)
+
+  return finalEnvironment
 }

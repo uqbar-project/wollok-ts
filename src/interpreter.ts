@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { flatMap, last, without, zipObj } from './extensions'
+import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Body, Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 import tools from './tools'
@@ -824,13 +824,12 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runTests: (): [number, number] => {
-    const { descendants } = tools(environment)
+    const { descendants, parentOf } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
     // TODO: maybe descendants should have an optional filter function
     const describes = descendants(environment).filter(is('Describe')) as List<Describe<Linked>>
-    const allDescribeTests = flatMap<Describe<Linked>, Test<Linked>>((describe: Describe<Linked>) => describe.tests())(describes)
-    const freeTests = without(allDescribeTests)(descendants(environment).filter(is('Test')) as List<Test<Linked>>)
+    const freeTests = descendants(environment).filter(node => is('Test')(node) && parentOf(node).kind !== 'Describe') as List<Test<Linked>>
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)
