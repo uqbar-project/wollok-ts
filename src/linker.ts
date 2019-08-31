@@ -163,6 +163,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 }
 
 export default (newPackagesData: List<Package<Filled>>, baseEnvironmentData: Environment = buildEnvironment()): Environment => {
+  // TODO: We should assume that what we receive are well formed nodes and any service passing json should wrap before calling.
   const newPackages = newPackagesData.map(transform(FilledBehavior))
   const baseEnvironment = transform(LinkedBehavior)(baseEnvironmentData)
 
