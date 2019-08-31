@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { Linked as LinkedBehavior } from './behavior'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Body, Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
@@ -705,9 +706,9 @@ const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
 })
 
 const buildEvaluation = (environment: Environment): Evaluation => {
-  const { descendants, fullyQualifiedName, resolveTarget } = tools(environment)
+  const { fullyQualifiedName, resolveTarget } = tools(environment)
 
-  const globalSingletons = (descendants(environment).filter(is('Singleton')) as List<Singleton<Linked>>).filter(node => !!node.name)
+  const globalSingletons = environment.descendants<Singleton<Linked>>(is('Singleton')).filter(node => !!node.name)
 
   const instances = [
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
@@ -758,11 +759,11 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<Linked>>) {
-  const body: Body<Linked> = {
-    kind: 'Body',
+  const body = LinkedBehavior<Body<Linked>>({
+    kind: 'Body' as const,
     id: uuid(),
     sentences,
-  }
+  })
 
   const instructions = compile(evaluation.environment)(body)
 
@@ -824,12 +825,12 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runTests: (): [number, number] => {
-    const { descendants, parentOf } = tools(environment)
+    const { parentOf } = tools(environment)
 
     // TODO: descendants stage should be inferred from the parameter
     // TODO: maybe descendants should have an optional filter function
-    const describes = descendants(environment).filter(is('Describe')) as List<Describe<Linked>>
-    const freeTests = descendants(environment).filter(node => is('Test')(node) && parentOf(node).kind !== 'Describe') as List<Test<Linked>>
+    const describes = environment.descendants<Describe<Linked>>(is('Describe'))
+    const freeTests = environment.descendants<Test<Linked>>(is('Test')).filter(node => parentOf(node).kind !== 'Describe')
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)
@@ -867,8 +868,8 @@ export default (environment: Environment, natives: {}) => ({
 
     log.start('Running describes')
     describes.forEach((describe: Describe<Linked>) => {
-      const variables = descendants(describe).filter(is('Variable')) as List<Variable<Linked>>
-      const fixture = descendants(describe).find(is('Fixture')) as Fixture<Linked>
+      const variables = describe.descendants<Variable<Linked>>(is('Variable'))
+      const fixture = describe.descendants<Fixture<Linked>>(is('Fixture'))[0]
       const fixtureSentences = (fixture) ? fixture.body!.sentences : []
       runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })

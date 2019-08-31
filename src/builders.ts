@@ -1,8 +1,7 @@
-import { Raw as RawBehavior } from './behavior'
+import { Linked as LinkedBehavior, Raw as RawBehavior } from './behavior'
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
-const { keys } = Object
 
 type NodePayload<N extends Node<any>> = Partial<Omit<N, 'kind'>>
 
@@ -45,9 +44,9 @@ export const Body = (...sentences: Sentence<Raw>[]) => makeNode('Body')({ senten
 export const Package = (name: Name, payload?: NodePayload<PackageNode<Raw>>) =>
   (...members: Entity<Raw>[]) => makeNode('Package')({
     name,
-    members,
     imports: [],
     ...payload,
+    members,
   })
 
 
@@ -122,8 +121,8 @@ export const Method = (name: Name, payload?: NodePayload<MethodNode<Raw>>) =>
       isOverride: false,
       isNative: false,
       parameters: [],
-      ...payload && keys(payload).includes('body') && body === undefined ? {} : {
-        body: Body(...sentences),
+      ...payload && 'body' in payload && body === undefined ? {} : {
+        body: body || Body(...sentences),
       },
       ...otherPayload,
     })
@@ -164,11 +163,13 @@ export const Self = makeNode('Self')({})
 
 export const Literal = <T extends LiteralValue<Raw>>(value: T) => makeNode<'Literal', LiteralNode<Raw, T>>('Literal')({ value })
 
-export const Send = (receiver: Expression<Raw>, message: Name, args: ReadonlyArray<Expression<Raw>> = []) => makeNode('Send')({
-  receiver,
-  message,
-  args,
-})
+export const Send = (receiver: Expression<Raw>, message: Name, args: List<Expression<Raw>> = [], payload?: NodePayload<SendNode<Raw>>) =>
+  makeNode('Send')({
+    receiver,
+    message,
+    args,
+    ...payload,
+  })
 
 export const Super = (args: List<Expression<Raw>> = []) => makeNode('Super')({ args })
 
@@ -214,27 +215,13 @@ export const Closure = (toString?: string, ...parameters: ParameterNode<Raw>[]) 
       ...toString ? [Field('<toString>', { isReadOnly: true, value: Literal(toString) })] : []
     ))
 
-export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
-  kind: 'New',
-  instantiated: {
-    kind: 'Reference',
-    name: 'wollok.lang.List',
-  },
-  args: elems,
-})
+export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.List'), elems)
 
-export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
-  kind: 'New',
-  instantiated: {
-    kind: 'Reference',
-    name: 'wollok.lang.Set',
-  },
-  args: elems,
-})
+export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.Set'), elems)
 
-export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => ({
-  members,
+export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => LinkedBehavior<EnvironmentNode>({
   kind: 'Environment',
+  members,
   id: '',
 })
 

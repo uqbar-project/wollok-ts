@@ -1,30 +1,28 @@
 import { v4 as uuid } from 'uuid'
-import { Linked as LinkedBehavior } from './behavior'
+import { Filled as FilledBehavior, Linked as LinkedBehavior } from './behavior'
+import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { Entity, Environment, Filled, Id, isModule, Linked, List, Module, Node, Package } from './model'
+import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
 import tools, { transform, transformByKind } from './tools'
 
 export interface Scope { [name: string]: string }
 
 const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: Entity<Filled>): List<Entity<Filled> | Entity<Linked>> => {
-
-  if (isolated.kind !== 'Package') return [...members, isolated]
-
+  if (!is('Package')(isolated)) return [...members, isolated]
   const existent = members.find((member): member is (Package<Filled> | Package<Linked>) =>
-    member.kind === 'Package' && member.name === isolated.name
+    is('Package')(member) && member.name === isolated.name
   )
-
   return existent
     ? [
       ...members.filter(member => member !== existent),
-      { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
+      buildPackage(existent.name, existent)(...isolated.members.reduce(mergePackage, existent.members) as List<Entity<Raw>>) as Package<'Filled'>,
     ]
     : [...members, isolated]
 }
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
 
-  const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = tools(environment)
+  const { getNodeById, parentOf, resolve, fullyQualifiedName } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -85,7 +83,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
     ...isModule(node)
       ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
       : [],
-    ...[node, ...children(node)].map(c => outerContributionFrom(c)),
+    ...[node, ...node.children()].map(c => outerContributionFrom(c)),
   ].reduce((a, b) => ({ ...a, ...b }))
 
   const outerContributionFrom = (contributor: Node<Linked>): Scope => {
@@ -95,7 +93,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
         return {
           [contributor.entity.name]: referenced.id,
           ...contributor.isGeneric
-            ? children<Entity<Linked>>(referenced).reduce((scope: Scope, child) => {
+            ? referenced.children<Entity<Linked>>().reduce((scope: Scope, child) => {
               scope[child.name || ''] = child.id
               return scope
             }, {})
@@ -104,8 +102,8 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 
       case 'Package':
         if (contributor.name === 'wollok') {
-          const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')!
-          const globalContributions = children(langPackage).map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
+          const langPackage = contributor.children().find(p => p.kind === 'Package' && p.name === 'lang')!
+          const globalContributions = langPackage.children().map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
           return {
             [contributor.name]: contributor.id,
             ...globalContributions,
@@ -154,9 +152,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
     }
   }
 
-  const allNodes = descendants(environment)
-
-  allNodes.forEach(node =>
+  environment.descendants().forEach(node =>
     scopes.set(node.id, () => {
       const parent = parentOf(node)
       return { ...getScope(parent.id), ...innerContributionFrom(parent) }
@@ -166,15 +162,14 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   return getScope
 }
 
-export default (
-  newPackages: List<Package<Filled>>,
-  baseEnvironment: Environment = { kind: 'Environment', members: [], id: '' }
-): Environment => {
+export default (newPackagesData: List<Package<Filled>>, baseEnvironmentData: Environment = buildEnvironment()): Environment => {
+  const newPackages = newPackagesData.map(transform(FilledBehavior))
+  const baseEnvironment = transform(LinkedBehavior)(baseEnvironmentData)
 
   const mergedEnvironment = {
     ...baseEnvironment,
-    members: newPackages.reduce(mergePackage, baseEnvironment.members),
-  } as Environment
+    members: newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
+  }
 
   const identifiedEnvironment: Environment = transform<Linked, Linked>(node => {
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
@@ -183,13 +178,14 @@ export default (
 
   transform<Linked>(node => {
     update(NODE_CACHE, node.id, node)
-    tools(identifiedEnvironment).children(node).forEach(child =>
+    node.children().forEach(child =>
       update(PARENT_CACHE, child.id, node.id)
     )
     return node
   })(identifiedEnvironment)
 
   const scopes = buildScopes(identifiedEnvironment)
+
   const targetedEnvironment = transformByKind<Linked>({
     Reference: node => {
       const target = scopes(node.id)[node.name]
@@ -199,9 +195,7 @@ export default (
     },
   })(identifiedEnvironment)
 
-  const finalEnvironment = transform<Linked>(LinkedBehavior)(targetedEnvironment)
-
   flushAll(NODE_CACHE)
 
-  return finalEnvironment
+  return targetedEnvironment
 }

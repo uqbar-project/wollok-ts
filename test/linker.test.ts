@@ -2,7 +2,6 @@ import { expect, should, use } from 'chai'
 import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from '../src/builders'
 import link from '../src/linker'
 import { Class as ClassNode, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
-import tools from '../src/tools'
 import { linkerAssertions } from './assertions'
 
 should()
@@ -110,8 +109,7 @@ describe('Wollok linker', () => {
       ),
     ] as PackageNode<Filled>[])
 
-    const { descendants } = tools(environment)
-    const nodes = [environment, ...descendants(environment)]
+    const nodes = [environment, ...environment.descendants()]
 
     nodes.forEach(node => node.should.have.property('id'))
   })

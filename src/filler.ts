@@ -1,34 +1,19 @@
 import { Filled as FilledBehavior } from './behavior'
-import { getter, setter } from './builders'
+import { Body as buildBody, Constructor as buildConstructor, getter, Literal as buildLiteral, Reference as buildReference, setter } from './builders'
 import { Body, Constructor, Field, Filled, KindOf, Literal, Method, Module, Node, NodeOfKind, Raw, Reference } from './model'
 import { transformByKind } from './tools'
 
-const OBJECT_CLASS: Reference<Filled> = {
-  kind: 'Reference',
-  name: 'wollok.lang.Object',
-}
+const OBJECT_CLASS: Reference<Filled> = buildReference('wollok.lang.Object') as Reference<Filled>
 
-const EXCEPTION_CLASS: Reference<Filled> = {
-  kind: 'Reference',
-  name: 'wollok.lang.Exception',
-}
+const EXCEPTION_CLASS: Reference<Filled> = buildReference('wollok.lang.Exception') as Reference<Filled>
 
-const NULL: Literal<Filled> = {
-  kind: 'Literal',
-  value: null,
-}
+const NULL: Literal<Filled> = buildLiteral(null) as Literal<Filled>
 
-const EMPTY_BODY: Body<Filled> = {
-  kind: 'Body',
-  sentences: [],
-}
+const EMPTY_BODY: Body<Filled> = buildBody() as Body<Filled>
 
-const DEFAULT_CONSTRUCTOR: Constructor<Filled> = {
-  kind: 'Constructor',
-  parameters: [],
+const DEFAULT_CONSTRUCTOR: Constructor<Filled> = buildConstructor({
   baseCall: { callsSuper: true, args: [] },
-  body: EMPTY_BODY,
-}
+})() as Constructor<Filled>
 
 
 const filledPropertyAccessors = (transformed: Module<Filled>) => {

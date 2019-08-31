@@ -42,6 +42,9 @@ export type Node<S extends Stage>
 type BaseNode<K extends Kind, S extends Stage> = {
   readonly kind: K
   readonly source?: Source
+
+  children<N extends Node<S> = Node<S>>(): List<N>
+  descendants<N extends Node<S>>(filter?: (obj: any) => obj is N): List<N>
 } & Linkable<S, {
   readonly id: Id
 }>
@@ -293,4 +296,4 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
-export const is = <K extends Kind>(k: K) => <S extends Stage>(obj: any): obj is NodeOfKind<K, S> => isNode(obj) && obj.kind === k
+export const is = <N extends NodeOfKind<K, Stage>, K extends Kind>(k: K) => (obj: any): obj is N => isNode(obj) && obj.kind === k

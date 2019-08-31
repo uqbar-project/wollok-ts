@@ -8,7 +8,7 @@ import {
   Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
 import { is, Kind } from './model'
-import tools from './tools'
+import tools, { reduce } from './tools'
 
 const { keys } = Object
 
@@ -147,7 +147,6 @@ export const validations = (environment: Environment) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export default (target: Node<Linked>, environment: Environment): ReadonlyArray<Problem> => {
-  const { reduce } = tools(environment)
 
   const {
     nameIsPascalCase,

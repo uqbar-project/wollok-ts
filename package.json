@@ -9,9 +9,10 @@
     "dist"
   ],
   "scripts": {
-    "postinstall": "if [ -d scripts ]; then ts-node scripts/buildWRE.ts; fi",
+    "buildWRE": "if [ -d scripts ]; then ts-node scripts/buildWRE.ts; fi",
+    "postinstall": "npm run buildWRE",
     "prepare": "rm -rf dist && tsc && cp src/wre/wre.json dist/wre",
-    "test": "npm run postinstall && npm run test:lint && npm run test:unit && npm run test:sanity",
+    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity",
     "test:lint": "tslint --project .",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
     "test:sanity": "node -r ts-node/register ./test/sanity.ts",

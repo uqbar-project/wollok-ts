@@ -15,6 +15,7 @@ declare global {
       into(expected: {}): Assertion
       tracedTo(start: number, end: number): Assertion
       linkedInto(expected: Package<Raw>[]): Assertion
+      filledInto(expected: any): Assertion
       target(node: Node<Linked>): Assertion
       pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion
     }
@@ -79,6 +80,21 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
 
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// FILLER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const fillerAssertions = ({ Assertion }: any) => {
+
+  Assertion.addMethod('filledInto', function (this: any, expected: any) {
+    const dropMethods = (target: any) =>
+      JSON.parse(JSON.stringify(target, (_, value) => typeof value === 'function' ? '<function>' : value))
+
+
+    new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
+  })
+
+}
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
