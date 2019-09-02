@@ -58,16 +58,9 @@ const isNotAbstractClass = (node: Class<Linked>) =>
   node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
 export const validations = (environment: Environment) => {
-  const { parentOf, firstAncestorOfKind, resolveTarget } = tools(environment)
+  const { firstAncestorOfKind, resolveTarget } = tools(environment)
 
-  const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => {
-    try {
-      firstAncestorOfKind(kind, node)
-      return false
-    } catch (_) {
-      return true
-    }
-  })
+  const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !firstAncestorOfKind(kind, node))
 
   return {
 
@@ -91,23 +84,19 @@ export const validations = (environment: Environment) => {
 
     hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
-    singletonIsNotUnnamed: error<Singleton<Linked>>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
-
-    /* importHasNotLocalReference: error<Import>(node =>
-       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
-     ),*/
+    singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().kind === 'Package') && node.name !== undefined),
 
     nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
-    fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => parentOf<Class<Linked>>(node)
+    fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent<Class<Linked>>()
       .methods().every(({ name }) => name !== node.name)),
 
     methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
       .every(member => is('Method')(member) && !matchingSignatures(node.members, member)
       )),
 
-    constructorsHaveDistinctArity: error<Constructor<Linked>>(node => parentOf<Class<Linked>>(node).members
-      .every(member => is('Constructor')(member) && !matchingConstructors(parentOf<Class<Linked>>(node).members, member)
+    constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent<Class<Linked>>().members
+      .every(member => is('Constructor')(member) && !matchingConstructors(node.parent<Class<Linked>>().members, member)
       )),
 
     methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
@@ -131,6 +120,7 @@ export const validations = (environment: Environment) => {
       node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
     ),
 
+    // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
     selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),
     noSuperInConstructorBody: isNotPresentIn<Super<Linked>>('Constructor'),
     noReturnStatementInConstructor: isNotPresentIn<Return<Linked>>('Constructor'),

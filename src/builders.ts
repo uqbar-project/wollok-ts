@@ -2,7 +2,6 @@ import { Linked as LinkedBehavior, Raw as RawBehavior } from './behavior'
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
-
 type NodePayload<N extends Node<any>> = Partial<Omit<N, 'kind'>>
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -219,11 +218,14 @@ export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Referen
 
 export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.Set'), elems)
 
-export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => LinkedBehavior<EnvironmentNode>({
-  kind: 'Environment',
-  members,
-  id: '',
-})
+export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => {
+  const environment: EnvironmentNode = {
+    kind: 'Environment',
+    members,
+    id: '',
+  } as any
+  return LinkedBehavior(environment)
+}
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // UTILS
@@ -240,7 +242,6 @@ export const setter = (name: Name): MethodNode<Raw> => Method(name, { parameters
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const evaluationBuilders = (environment: EnvironmentNode) => {
-
 
   const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
     id,

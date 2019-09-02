@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try } from '../src/builders'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Linked, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Linked, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Send as SendNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
 import { validatorAssertions } from './assertions'
 
@@ -614,10 +614,10 @@ describe('Wollok Validations', () => {
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const programExample = packageExample.members[0] as ProgramNode<Linked>
-      const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value as SelfNode<Linked>
+      const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value!
       const classExample = (packageExample.members[1] as ClassNode<Linked>)
       const methodExample = classExample.members[0] as MethodNode<Linked>
-      const selfInMethod = methodExample.body!.sentences[0] as SelfNode<Linked>
+      const selfInMethod = methodExample.body!.sentences[0]
 
       it('should pass when self is in a method', () => {
         selfInMethod.should.pass(selfIsNotInAProgram)

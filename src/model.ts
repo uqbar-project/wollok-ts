@@ -47,6 +47,8 @@ type BaseNode<K extends Kind, S extends Stage> = {
   descendants<N extends Node<S>>(filter?: (obj: any) => obj is N): List<N>
 } & Linkable<S, {
   readonly id: Id
+  environment(): Environment
+  parent<N extends Node<S>>(): N // TODO: declare for each node with the right parent type instead of with generic ?
 }>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -267,7 +269,7 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Environment = BaseNode<'Environment', Linked> & {
+export interface Environment extends BaseNode<'Environment', Linked> {
   readonly source?: undefined
   readonly members: List<Package<Linked>>
 }

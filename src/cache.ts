@@ -2,7 +2,9 @@ import { Id, Linked, Node } from './model'
 
 export type Cache<T> = { [key: string]: T }
 
-
+// TODO: What if... Cache was a saved on the environment?
+// Since we have immutable nodes, you always need to change the root to make a change.
+// Maybe that can be used as auto-flush?
 export const NODE_CACHE: Cache<Node<Linked>> = {}
 export const PARENT_CACHE: Cache<Id> = {}
 

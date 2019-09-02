@@ -622,7 +622,7 @@ describe('Wollok Interpreter', () => {
           })(
             Frame({
               locals: { self: '3', p1: '2', p2: '1' }, instructions: [
-                ...compile(environment)(method.body!),
+                ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
@@ -664,7 +664,7 @@ describe('Wollok Interpreter', () => {
           })(
             Frame({
               locals: { self: '4', p1: '3', p2: '6' }, instructions: [
-                ...compile(environment)(method.body!),
+                ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
@@ -704,7 +704,10 @@ describe('Wollok Interpreter', () => {
             'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
             '4': RuntimeObject('4', 'wollok.lang.List', {}, ['2', '1']),
           })(
-            Frame({ locals: { self: '3', name: 'S!m', parameters: '4' }, instructions: compile(environment)(messageNotUnderstood.body!) }),
+            Frame({
+              locals: { self: '3', name: 'S!m', parameters: '4' },
+              instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
+            }),
             Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
@@ -831,8 +834,8 @@ describe('Wollok Interpreter', () => {
             Parameter('p2'),
           ],
           baseCall: { callsSuper: true, args: [] },
-        })(Return()) as any
-        const { step, compile: compile } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
+        })(Return()) as ConstructorNode<Linked>
+        const { step, compile: compile } = await mockInterpreterDependencies({ constructorLookup: () => constructor as any })
         const instruction = INIT(2, 'wollok.lang.Object', false)
         const evaluation = Evaluation({
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -853,7 +856,7 @@ describe('Wollok Interpreter', () => {
             Frame({
               locals: { self: '1', p1: '3', p2: '2' },
               instructions: [
-                ...compile(environment)(constructor.body),
+                ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -864,7 +867,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('prepends supercall and, if initFields is set to true, the initialization of fields to the constructor call', async () => {
-        const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as any
+        const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode<Linked>
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode<Linked>
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode<Linked>
         const X = Class('X', { superclass: tools(environment).resolve('wollok.lang.Object') as any })(
@@ -873,7 +876,7 @@ describe('Wollok Interpreter', () => {
         ) as ClassNode<Linked>
 
         const { step, compile: compile } = await mockInterpreterDependencies({
-          constructorLookup: () => constructor,
+          constructorLookup: () => constructor as any,
           targets: { X },
           superclass: module => module.name === 'X' ? tools(environment).resolve('wollok.lang.Object') as any : undefined,
           hierarchy: module => module.name === 'X' ? [X, tools(environment).resolve('wollok.lang.Object')] : [],
@@ -903,7 +906,7 @@ describe('Wollok Interpreter', () => {
                 SET(f2.name),
                 LOAD('self'),
                 INIT(0, 'wollok.lang.Object', false),
-                ...compile(environment)(constructor.body),
+                ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -920,7 +923,7 @@ describe('Wollok Interpreter', () => {
             Parameter('p2', { isVarArg: true }),
           ],
           baseCall: { callsSuper: true, args: [] },
-        })(Return()) as any
+        })(Return()) as ConstructorNode<Linked>
         const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor,
           ids: ['6'],
@@ -950,7 +953,7 @@ describe('Wollok Interpreter', () => {
             Frame({
               locals: { self: '1', p1: '4', p2: '6' },
               instructions: [
-                ...compile(environment)(constructor.body),
+                ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -973,7 +976,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the current operand stack length is < arity + 1', async () => {
-        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as any
+        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode<Linked>
         const { step } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction = INIT(2, 'wollok.lang.Object', true)
         const evaluation = Evaluation({
@@ -986,7 +989,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
-        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as any
+        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode<Linked>
         const { step } = await mockInterpreterDependencies({ constructorLookup: () => constructor })
         const instruction = INIT(2, 'wollok.lang.Object', true)
         const evaluation = Evaluation({

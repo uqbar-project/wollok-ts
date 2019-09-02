@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { Filled as FilledBehavior, Linked as LinkedBehavior } from './behavior'
+import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
@@ -22,7 +22,7 @@ const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: 
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
 
-  const { getNodeById, parentOf, resolve, fullyQualifiedName } = tools(environment)
+  const { getNodeById, resolve, fullyQualifiedName } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -154,7 +154,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 
   environment.descendants().forEach(node =>
     scopes.set(node.id, () => {
-      const parent = parentOf(node)
+      const parent = node.parent()
       return { ...getScope(parent.id), ...innerContributionFrom(parent) }
     })
   )
@@ -162,20 +162,16 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   return getScope
 }
 
-export default (newPackagesData: List<Package<Filled>>, baseEnvironmentData: Environment = buildEnvironment()): Environment => {
-  // TODO: We should assume that what we receive are well formed nodes and any service passing json should wrap before calling.
-  const newPackages = newPackagesData.map(transform(FilledBehavior))
-  const baseEnvironment = transform(LinkedBehavior)(baseEnvironmentData)
+export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment = buildEnvironment()): Environment => {
 
-  const mergedEnvironment = {
-    ...baseEnvironment,
-    members: newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
-  }
+  const mergedEnvironment = buildEnvironment(
+    ...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
+  )
 
-  const identifiedEnvironment: Environment = transform<Linked, Linked>(node => {
+  const identifiedEnvironment: Environment = LinkedBehavior(transform<Linked, Linked>(node =>
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
-    return node.id ? node : { ...node, id: uuid() }
-  })(mergedEnvironment)
+    node.id ? node : { ...node, id: uuid() }
+  )(mergedEnvironment))
 
   transform<Linked>(node => {
     update(NODE_CACHE, node.id, node)
@@ -187,14 +183,14 @@ export default (newPackagesData: List<Package<Filled>>, baseEnvironmentData: Env
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const targetedEnvironment = transformByKind<Linked>({
+  const targetedEnvironment = LinkedBehavior(transformByKind<Linked>({
     Reference: node => {
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
       return { ...node, target }
     },
-  })(identifiedEnvironment)
+  })(identifiedEnvironment))
 
   flushAll(NODE_CACHE)
 

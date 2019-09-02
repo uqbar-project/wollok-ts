@@ -1,4 +1,4 @@
-import { getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
+import { getOrUpdate, NODE_CACHE } from './cache'
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Reference, Singleton, Stage } from './model'
@@ -42,30 +42,32 @@ export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) =>
 export default (environment: Environment) => {
 
   const fullyQualifiedName = (node: Entity<Linked>): Name => {
-    const parent = parentOf(node)
+    const parent = node.parent()
     return isEntity(parent)
       ? `${fullyQualifiedName(parent)}.${node.name}`
       : node.name || `#${node.id}`
   }
 
-
-  const parentOf = <N extends Node<Linked>>(node: Node<Linked>): N =>
-    getNodeById(getOrUpdate(PARENT_CACHE, node.id)(() => {
-      const parent = [environment, ...environment.descendants()].find(descendant =>
-        descendant.children().some(({ id }) => id === node.id)
-      )
-      if (!parent) throw new Error(`Node ${JSON.stringify(node)} is not part of the environment`)
-
-      return parent.id
-    }))
-
-
-  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> => {
-    const parent = parentOf(node)
-    if (is(kind)(parent)) return parent as NodeOfKind<K, Linked>
-    return firstAncestorOfKind(kind, parent)
+  const ancestors = (node: Node<Linked>): List<Node<Linked>> => {
+    try {
+      const parent = node.parent()
+      return [parent, ...ancestors(parent)]
+    } catch (e) {
+      return []
+    }
   }
 
+  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> | undefined => {
+    let parent: Node<Linked>
+    try {
+      parent = node.parent()
+    } catch (_) { return undefined }
+
+    if (is(kind)(parent)) return parent as NodeOfKind<K, Linked>
+    return firstAncestorOfKind<K>(kind, parent)
+  }
+
+  // TODO: Make this a configuration for descendants() ?
   const getNodeById = <N extends Node<Linked>>(id: Id): N =>
     getOrUpdate(NODE_CACHE, id)(() => {
       const search = (obj: any): Node<Linked> | undefined => {
@@ -86,7 +88,7 @@ export default (environment: Environment) => {
       return response
     }) as N
 
-
+  // TODO: Put on every node and make it relative
   const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
       ? getNodeById(qualifiedName.slice(1))
@@ -159,7 +161,7 @@ export default (environment: Environment) => {
 
 
   const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
-    const fqn = `${fullyQualifiedName(parentOf<Module<Linked>>(method))}.${method.name}`
+    const fqn = `${fullyQualifiedName(method.parent<Module<Linked>>())}.${method.name}`
     return fqn.split('.').reduce((current, step) => {
       const next = current[step]
       if (!next) throw new Error(`Native not found: ${fqn}`)
@@ -170,7 +172,7 @@ export default (environment: Environment) => {
 
   return {
     transform,
-    parentOf,
+    ancestors,
     firstAncestorOfKind,
     getNodeById,
     resolve,

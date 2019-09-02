@@ -1,8 +1,7 @@
 import { v4 as uuid } from 'uuid'
-import { Linked as LinkedBehavior } from './behavior'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Body, Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 import tools from './tools'
 
 export interface Locals { [name: string]: Id }
@@ -86,14 +85,11 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 
 
 // TODO: Memoize?
-export const compile = (environment: Environment) =>
-  (node: Sentence<Linked> | Body<Linked>): List<Instruction> => {
-    const { resolveTarget, firstAncestorOfKind, parentOf, fullyQualifiedName } = tools(environment)
-    switch (node.kind) {
+export const compile = (environment: Environment) => (...sentences: Sentence<Linked>[]): List<Instruction> =>
+  flatMap<Sentence<Linked>, Instruction>(node => {
+    const { resolveTarget, firstAncestorOfKind, fullyQualifiedName } = tools(environment)
 
-      case 'Body': return (() =>
-        flatMap<Sentence<Linked>, Instruction>(compile(environment))(node.sentences)
-      )()
+    switch (node.kind) {
 
       case 'Variable': return (() => [
         ...compile(environment)(node.value),
@@ -201,7 +197,7 @@ export const compile = (environment: Environment) =>
         return [
           LOAD('self'),
           ...flatMap(compile(environment))(node.args),
-          CALL(currentMethod.name, node.args.length, fullyQualifiedName(parentOf(currentMethod))),
+          CALL(currentMethod.name, node.args.length, fullyQualifiedName(currentMethod.parent())),
         ]
       })()
 
@@ -231,7 +227,7 @@ export const compile = (environment: Environment) =>
 
       case 'If': return (() => [
         ...compile(environment)(node.condition),
-        IF_THEN_ELSE(compile(environment)(node.thenBody), compile(environment)(node.elseBody)),
+        IF_THEN_ELSE(compile(environment)(...node.thenBody.sentences), compile(environment)(...node.elseBody.sentences)),
       ])()
 
 
@@ -243,14 +239,14 @@ export const compile = (environment: Environment) =>
 
       case 'Try': return (() => [
         TRY_CATCH_ALWAYS(
-          compile(environment)(node.body),
+          compile(environment)(...node.body.sentences),
 
           flatMap<Catch<Linked>, Instruction>(({ parameter, parameterType, body }) => {
             const compiledCatch: List<Instruction> = [
               PUSH(VOID_ID),
               LOAD('<exception>'),
               STORE(parameter.name, false),
-              ...compile(environment)(body),
+              ...compile(environment)(...body.sentences),
               INTERRUPT('result'),
             ]
             return [
@@ -261,11 +257,11 @@ export const compile = (environment: Environment) =>
             ]
           })(node.catches),
 
-          compile(environment)(node.always)
+          compile(environment)(...node.always.sentences)
         ),
       ])()
     }
-  }
+  })(sentences)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // OPERATIONS
@@ -476,7 +472,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
           currentFrame.resume.push('return')
           frameStack.push({
-            instructions: compile(environment)(messageNotUnderstood.body!),
+            instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
             nextInstruction: 0,
             locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
             operandStack: [],
@@ -514,7 +510,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             currentFrame.resume.push('return')
             frameStack.push({
               instructions: [
-                ...compile(environment)(method.body!),
+                ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
@@ -577,7 +573,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
                 false
               ),
             ) : [],
-            ...compile(environment)(constructor.body),
+            ...compile(environment)(...constructor.body.sentences),
             LOAD('self'),
             INTERRUPT('return')
           ),
@@ -759,13 +755,8 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<Linked>>) {
-  const body = LinkedBehavior<Body<Linked>>({
-    kind: 'Body' as const,
-    id: uuid(),
-    sentences,
-  })
 
-  const instructions = compile(evaluation.environment)(body)
+  const instructions = compile(evaluation.environment)(...sentences)
 
   evaluation.frameStack.push({
     instructions,
@@ -825,12 +816,11 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runTests: (): [number, number] => {
-    const { parentOf } = tools(environment)
-
     // TODO: descendants stage should be inferred from the parameter
     // TODO: maybe descendants should have an optional filter function
+    // TODO: create extension function to divide array based on condition
     const describes = environment.descendants<Describe<Linked>>(is('Describe'))
-    const freeTests = environment.descendants<Test<Linked>>(is('Test')).filter(node => parentOf(node).kind !== 'Describe')
+    const freeTests = environment.descendants<Test<Linked>>(is('Test')).filter(node => !is('Describe')(node.parent()))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)

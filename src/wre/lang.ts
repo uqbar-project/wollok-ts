@@ -481,7 +481,7 @@ export default {
 
         last(evaluation.frameStack)!.resume.push('return')
         evaluation.frameStack.push({
-          instructions: compile(evaluation.environment)(messageNotUnderstood.body!),
+          instructions: compile(evaluation.environment)(...messageNotUnderstood.body!.sentences),
           nextInstruction: 0,
           locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: self.id },
           operandStack: [],
@@ -508,7 +508,7 @@ export default {
 
       evaluation.frameStack.push({
         instructions: [
-          ...compile(evaluation.environment)(apply.body!),
+          ...compile(evaluation.environment)(...apply.body!.sentences),
           PUSH(VOID_ID),
           INTERRUPT('return'),
         ],
