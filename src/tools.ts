@@ -1,10 +1,8 @@
-import { getOrUpdate, NODE_CACHE } from './cache'
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
 import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
-const { values } = Object
 
 // TODO: Test all this
 
@@ -67,31 +65,11 @@ export default (environment: Environment) => {
     return firstAncestorOfKind<K>(kind, parent)
   }
 
-  // TODO: Make this a configuration for descendants() ?
-  const getNodeById = <N extends Node<Linked>>(id: Id): N =>
-    getOrUpdate(NODE_CACHE, id)(() => {
-      const search = (obj: any): Node<Linked> | undefined => {
-        if (isArray(obj)) {
-          for (const value of obj) {
-            const found = search(value)
-            if (found) return found
-          }
-        } else if (obj instanceof Object) {
-          if (isNode<Linked>(obj) && obj.id === id) return obj
-          return search(values(obj))
-        }
-        return undefined
-      }
-
-      const response = search(environment)
-      if (!response) throw new Error(`Missing node ${id}`)
-      return response
-    }) as N
 
   // TODO: Put on every node and make it relative
   const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
-      ? getNodeById(qualifiedName.slice(1))
+      ? environment.getNodeById(qualifiedName.slice(1))
       : qualifiedName.split('.').reduce((current: Entity<Linked> | Environment, step) => {
         const allChildren = current.children()
         const next = allChildren.find((child): child is Entity<Linked> => isEntity(child) && child.name === step)
@@ -157,7 +135,6 @@ export default (environment: Environment) => {
     transform,
     ancestors,
     firstAncestorOfKind,
-    getNodeById,
     resolve,
     hierarchy,
     inherits,

@@ -22,7 +22,7 @@ const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: 
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
 
-  const { getNodeById, resolve, fullyQualifiedName } = tools(environment)
+  const { resolve, fullyQualifiedName } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -47,18 +47,18 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 
     switch (module.kind) {
       case 'Class':
-        if (!module.superclass) return [...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name]))]
+        if (!module.superclass) return [...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name]))]
 
         superclassId = scope[module.superclass.name]
         if (!superclassId) throw new Error(
           `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
         )
-        superclass = getNodeById<Module<Linked>>(superclassId)
+        superclass = environment.getNodeById<Module<Linked>>(superclassId)
 
         return [
           superclass,
           ...ancestors(superclass),
-          ...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name])),
+          ...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name])),
         ]
 
       case 'Singleton':
@@ -67,15 +67,15 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
           throw new Error(
             `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
           )
-        superclass = getNodeById<Module<Linked>>(superclassId)
+        superclass = environment.getNodeById<Module<Linked>>(superclassId)
 
         return [
           ...[superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name])),
+          ...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name])),
         ]
 
       case 'Mixin':
-        return module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name]))
+        return module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name]))
     }
   }
 

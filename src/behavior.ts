@@ -1,7 +1,7 @@
-import { getOrUpdate, PARENT_CACHE, update } from './cache'
+import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap } from './extensions'
-import { Class, Describe, Environment, Filled as FilledStage, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Reference, Singleton } from './model'
-import tools, { transform } from './tools'
+import { Class, Describe, Environment, Filled as FilledStage, Id, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Reference, Singleton } from './model'
+import { transform } from './tools'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -58,14 +58,37 @@ export const Filled = <N extends Node<FilledStage>>(obj: Partial<N>): N => {
 }
 
 export const Linked = (environmentData: Partial<Environment>) => {
-  const environment: Environment = Filled(environmentData as any) as any
+  const environment: Environment = assign(Filled(environmentData as any), {
+
+    getNodeById<T extends Node<LinkedStage>>(this: Environment, id: Id): T {
+      return getOrUpdate(NODE_CACHE, id)(() => {
+        const search = (obj: any): Node<LinkedStage> | undefined => {
+          if (isArray(obj)) {
+            for (const value of obj) {
+              const found = search(value)
+              if (found) return found
+            }
+          } else if (obj instanceof Object) {
+            if (isNode<LinkedStage>(obj) && obj.id === id) return obj
+            return search(values(obj))
+          }
+          return undefined
+        }
+
+        const response = search(environment)
+        if (!response) throw new Error(`Missing node ${id}`)
+        return response
+      }) as T
+    },
+
+  }) as any
+
 
   const baseBehavior = {
     environment(this: Node<LinkedStage>) { return environment },
 
     parent<T extends Node<LinkedStage>>(this: Node<LinkedStage>): T {
-      const { getNodeById } = tools(this.environment())
-      return getNodeById(getOrUpdate(PARENT_CACHE, this.id)(() => {
+      return this.environment().getNodeById(getOrUpdate(PARENT_CACHE, this.id)(() => {
         const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
           descendant.children().some(({ id }) => id === this.id)
         )
@@ -97,8 +120,7 @@ export const Linked = (environmentData: Partial<Environment>) => {
 
         if (is('Reference')(node)) assign(node, {
           target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
-            const { getNodeById } = tools(this.environment())
-            return getNodeById(this.targetId)
+            return this.environment().getNodeById(this.targetId)
           },
         })
 

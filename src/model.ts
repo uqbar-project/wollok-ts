@@ -278,6 +278,8 @@ export type Catch<S extends Stage> = BaseNode<'Catch', S> & {
 export interface Environment extends BaseNode<'Environment', Linked> {
   readonly source?: undefined
   readonly members: List<Package<Linked>>
+
+  getNodeById<N extends Node<Linked>>(id: Id): N
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
