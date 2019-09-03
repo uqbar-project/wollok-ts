@@ -193,7 +193,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 
 
       case 'Super': return (() => {
-        const currentMethod = firstAncestorOfKind('Method', node)
+        const currentMethod = firstAncestorOfKind('Method', node)!
         return [
           LOAD('self'),
           ...flatMap(compile(environment))(node.args),

@@ -114,6 +114,8 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
   constructors(): List<Constructor<S>>
 } & Fillable<S, {
   readonly superclass: Reference<S> | null
+}> & Linkable<S, {
+  superclassNode(): Class<S> | null
 }>
 
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
@@ -128,6 +130,8 @@ export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
     superclass: Reference<S>,
     args: List<Expression<S>> | List<NamedArgument<S>>
   }
+}> & Linkable<S, {
+  superclassNode(): Class<S> | null
 }>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {

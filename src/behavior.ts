@@ -1,6 +1,6 @@
 import { getOrUpdate, PARENT_CACHE, update } from './cache'
 import { flatMap } from './extensions'
-import { Class, Describe, Environment, Filled as FilledStage, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage } from './model'
+import { Class, Describe, Environment, Filled as FilledStage, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Singleton } from './model'
 import tools, { transform } from './tools'
 
 const { isArray } = Array
@@ -80,7 +80,22 @@ export const Linked = (environmentData: Partial<Environment>) => {
 
   return assign(environment, linkedBehavior, {
     members: environment.members.map(
-      transform((node: Node<FilledStage>) => ({ ...Filled(node), ...linkedBehavior }) as Node<LinkedStage>)
+      transform((n: Node<FilledStage>) => {
+        const node = Filled(n) as Node<LinkedStage>
+
+        assign(node, linkedBehavior)
+        if (is('Singleton')(node) || is('Class')(node)) assign(node, {
+          superclassNode(this: Class<LinkedStage> | Singleton<LinkedStage>): Class<LinkedStage> | null {
+            const { resolveTarget } = tools(this.environment())
+            switch (this.kind) {
+              case 'Class': return this.superclass ? resolveTarget<Class<LinkedStage>>(this.superclass!) : null
+              case 'Singleton': return resolveTarget<Class<LinkedStage>>(this.superCall.superclass)
+            }
+          },
+        })
+
+        return node
+      })
     ),
   })
 }
