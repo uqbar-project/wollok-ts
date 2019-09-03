@@ -39,13 +39,6 @@ export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) =>
 
 export default (environment: Environment) => {
 
-  const fullyQualifiedName = (node: Entity<Linked>): Name => {
-    const parent = node.parent()
-    return isEntity(parent)
-      ? `${fullyQualifiedName(parent)}.${node.name}`
-      : node.name || `#${node.id}`
-  }
-
   const ancestors = (node: Node<Linked>): List<Node<Linked>> => {
     try {
       const parent = node.parent()
@@ -66,7 +59,7 @@ export default (environment: Environment) => {
   }
 
 
-  // TODO: Put on every node and make it relative
+  // TODO: Put on every node and make it relative?
   const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
     return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
       ? environment.getNodeById(qualifiedName.slice(1))
@@ -122,7 +115,7 @@ export default (environment: Environment) => {
 
 
   const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
-    const fqn = `${fullyQualifiedName(method.parent<Module<Linked>>())}.${method.name}`
+    const fqn = `${method.parent<Module<Linked>>().fullyQualifiedName()}.${method.name}`
     return fqn.split('.').reduce((current, step) => {
       const next = current[step]
       if (!next) throw new Error(`Native not found: ${fqn}`)
@@ -138,7 +131,6 @@ export default (environment: Environment) => {
     resolve,
     hierarchy,
     inherits,
-    fullyQualifiedName,
     methodLookup,
     constructorLookup,
     nativeLookup,

@@ -85,24 +85,32 @@ export type Package<S extends Stage> = BaseNode<'Package', S> & {
   readonly name: Name
   readonly imports: List<Import<S>>
   readonly members: List<Entity<S>>
-}
+} & Linkable<S, {
+  fullyQualifiedName(): Name
+}>
 
 export type Program<S extends Stage> = BaseNode<'Program', S> & {
   readonly name: Name
   readonly body: Body<S>
-}
+} & Linkable<S, {
+  fullyQualifiedName(): Name
+}>
 
 export type Test<S extends Stage> = BaseNode<'Test', S> & {
   readonly name: string
   readonly body: Body<S>
-}
+} & Linkable<S, {
+  fullyQualifiedName(): Name
+}>
 
 export type Describe<S extends Stage> = BaseNode<'Describe', S> & {
   readonly name: string
   readonly members: List<DescribeMember<S>>
 
   tests(): List<Test<S>>
-}
+} & Linkable<S, {
+  fullyQualifiedName(): Name
+}>
 
 export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly name: Name
@@ -117,6 +125,7 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
   readonly superclass: Reference<S> | null
 }> & Linkable<S, {
   superclassNode(): Class<S> | null
+  fullyQualifiedName(): Name
 }>
 
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
@@ -133,6 +142,7 @@ export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
   }
 }> & Linkable<S, {
   superclassNode(): Class<S>
+  fullyQualifiedName(): Name
 }>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
@@ -142,7 +152,9 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
 
   methods(): List<Method<S>>
   fields(): List<Field<S>>
-}
+} & Linkable<S, {
+  fullyQualifiedName(): Name
+}>
 
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -289,7 +301,7 @@ export interface Environment extends BaseNode<'Environment', Linked> {
 export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 export const isEntity = <S extends Stage>(obj: any): obj is Entity<S> => isNode(obj) &&
-  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Test'].includes(obj.kind)
+  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(obj.kind)
 
 export const isModule = <S extends Stage>(obj: any): obj is Module<S> => isNode(obj) &&
   ['Singleton', 'Mixin', 'Class'].includes(obj.kind)

@@ -1,6 +1,6 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap } from './extensions'
-import { Class, Describe, Environment, Filled as FilledStage, Id, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Reference, Singleton } from './model'
+import { Class, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Module, Name, Node, Raw as RawStage, Reference, Singleton } from './model'
 import { transform } from './tools'
 
 const { isArray } = Array
@@ -105,6 +105,15 @@ export const Linked = (environmentData: Partial<Environment>) => {
         const node = Filled(n) as Node<LinkedStage>
 
         assign(node, baseBehavior)
+
+        if (isEntity(node)) assign(node, {
+          fullyQualifiedName(this: Entity<LinkedStage>): Name {
+            const parent = this.parent()
+            return isEntity(parent)
+              ? `${parent.fullyQualifiedName()}.${this.name}`
+              : this.name || `#${this.id}`
+          },
+        })
 
         if (is('Class')(node)) assign(node, {
           superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {

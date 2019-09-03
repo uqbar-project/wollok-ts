@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Catch, Class, Describe, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 import tools from './tools'
 
 export interface Locals { [name: string]: Id }
@@ -87,7 +87,7 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 // TODO: Memoize?
 export const compile = (environment: Environment) => (...sentences: Sentence<Linked>[]): List<Instruction> =>
   flatMap<Sentence<Linked>, Instruction>(node => {
-    const { firstAncestorOfKind, fullyQualifiedName } = tools(environment)
+    const { firstAncestorOfKind } = tools(environment)
 
     switch (node.kind) {
 
@@ -131,7 +131,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
         ]
 
         if (isModule(target)) return [
-          LOAD(fullyQualifiedName(target)),
+          LOAD(target.fullyQualifiedName()),
         ]
 
         return [
@@ -160,8 +160,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
         if (node.value.kind === 'Singleton') {
           if ((node.value.superCall.args as any[]).some(arg => is('NamedArgument')(arg))) {
             return [
-              INSTANTIATE(fullyQualifiedName(node.value)),
-              INIT(0, fullyQualifiedName(node.value.superCall.superclass.target()), true),
+              INSTANTIATE(node.value.fullyQualifiedName()),
+              INIT(0, node.value.superCall.superclass.target<Class<Linked>>().fullyQualifiedName(), true),
               ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
@@ -171,8 +171,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
           } else {
             return [
               ...flatMap(compile(environment))(node.value.superCall.args as List<Expression<Linked>>),
-              INSTANTIATE(fullyQualifiedName(node.value)),
-              INIT(node.value.superCall.args.length, fullyQualifiedName(node.value.superCall.superclass.target()), true),
+              INSTANTIATE(node.value.fullyQualifiedName()),
+              INIT(node.value.superCall.args.length, node.value.superCall.superclass.target<Class<Linked>>().fullyQualifiedName(), true),
             ]
           }
         }
@@ -197,13 +197,13 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
         return [
           LOAD('self'),
           ...flatMap(compile(environment))(node.args),
-          CALL(currentMethod.name, node.args.length, fullyQualifiedName(currentMethod.parent())),
+          CALL(currentMethod.name, node.args.length, currentMethod.parent<Entity<Linked>>().fullyQualifiedName()),
         ]
       })()
 
 
       case 'New': return (() => {
-        const fqn = fullyQualifiedName(node.instantiated.target())
+        const fqn = node.instantiated.target<Entity<Linked>>().fullyQualifiedName()
 
         if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
           return [
@@ -251,7 +251,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
             ]
             return [
               LOAD('<exception>'),
-              INHERITS(fullyQualifiedName(parameterType.target())),
+              INHERITS(parameterType.target<Module<Linked>>().fullyQualifiedName()),
               CONDITIONAL_JUMP(compiledCatch.length),
               ...compiledCatch,
             ]
@@ -349,7 +349,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const {
     hierarchy,
     resolve,
-    fullyQualifiedName,
     inherits,
     constructorLookup,
     methodLookup,
@@ -453,7 +452,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const self = getInstance(selfId)
         let lookupStart: Name
         if (instruction.lookupStart) {
-          const ownHierarchy = hierarchy(resolve(self.module)).map(fullyQualifiedName)
+          const ownHierarchy = hierarchy(resolve(self.module)).map(module => module.fullyQualifiedName())
           const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
           lookupStart = ownHierarchy[start + 1]
         } else {
@@ -539,7 +538,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const constructor = constructorLookup(instruction.arity, lookupStart)
         const ownSuperclass = lookupStart.superclassNode()
 
-        if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
+        if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
 
         let locals: Locals
         if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
@@ -568,7 +567,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               LOAD('self'),
               INIT(
                 constructor.baseCall.args.length,
-                constructor.baseCall.callsSuper ? fullyQualifiedName(ownSuperclass!) : instruction.lookupStart,
+                constructor.baseCall.callsSuper ? ownSuperclass!.fullyQualifiedName() : instruction.lookupStart,
                 false
               ),
             ) : [],
@@ -701,7 +700,6 @@ const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
 })
 
 const buildEvaluation = (environment: Environment): Evaluation => {
-  const { fullyQualifiedName } = tools(environment)
 
   const globalSingletons = environment.descendants<Singleton<Linked>>(is('Singleton')).filter(node => !!node.name)
 
@@ -709,14 +707,14 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
     { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
     { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
-    ...globalSingletons.map(module => ({ id: module.id, module: fullyQualifiedName(module), fields: {} })),
+    ...globalSingletons.map(module => ({ id: module.id, module: module.fullyQualifiedName(), fields: {} })),
   ].reduce((all, instance) => ({ ...all, [instance.id]: instance }), {})
 
   const locals = {
     null: NULL_ID,
     true: TRUE_ID,
     false: FALSE_ID,
-    ...globalSingletons.reduce((all, singleton) => ({ ...all, [fullyQualifiedName(singleton)]: singleton.id }), {}),
+    ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
   }
 
   return {
@@ -728,7 +726,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           if ((args as any[]).some(is('NamedArgument'))) {
             return [
               PUSH(id),
-              INIT(0, fullyQualifiedName(superclass.target()), true),
+              INIT(0, superclass.target<Class<Linked>>().fullyQualifiedName(), true),
               ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
@@ -740,7 +738,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
             return [
               ...flatMap(compile(environment))(args as List<Expression<Linked>>),
               PUSH(id),
-              INIT(args.length, fullyQualifiedName(superclass.target()), true),
+              INIT(args.length, superclass.target<Class<Linked>>().fullyQualifiedName(), true),
             ]
           }
         })(globalSingletons),

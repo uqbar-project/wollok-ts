@@ -22,7 +22,7 @@ const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: 
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
 
-  const { resolve, fullyQualifiedName } = tools(environment)
+  const { resolve } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -120,7 +120,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
         return contributor.name
           ? {
             [contributor.name]: contributor.id,
-            [fullyQualifiedName(contributor)]: contributor.id,
+            [contributor.fullyQualifiedName()]: contributor.id,
           }
           : {}
 
