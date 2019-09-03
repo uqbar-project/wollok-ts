@@ -84,13 +84,16 @@ export const Linked = (environmentData: Partial<Environment>) => {
         const node = Filled(n) as Node<LinkedStage>
 
         assign(node, linkedBehavior)
-        if (is('Singleton')(node) || is('Class')(node)) assign(node, {
-          superclassNode(this: Class<LinkedStage> | Singleton<LinkedStage>): Class<LinkedStage> | null {
+        if (is('Class')(node)) assign(node, {
+          superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
             const { resolveTarget } = tools(this.environment())
-            switch (this.kind) {
-              case 'Class': return this.superclass ? resolveTarget<Class<LinkedStage>>(this.superclass!) : null
-              case 'Singleton': return resolveTarget<Class<LinkedStage>>(this.superCall.superclass)
-            }
+            return this.superclass ? resolveTarget<Class<LinkedStage>>(this.superclass!) : null
+          },
+        })
+        if (is('Singleton')(node)) assign(node, {
+          superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> | null {
+            const { resolveTarget } = tools(this.environment())
+            return resolveTarget<Class<LinkedStage>>(this.superCall.superclass)
           },
         })
 

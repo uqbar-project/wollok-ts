@@ -188,7 +188,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
-      return { ...node, target }
+      return { ...node, targetId: target }
     },
   })(identifiedEnvironment))
 

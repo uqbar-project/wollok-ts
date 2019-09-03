@@ -3,7 +3,7 @@ import rewiremock from 'rewiremock'
 import { Class, Constructor, evaluationBuilders, Field, Literal, Method, Package, Parameter, Reference, Return } from '../src/builders'
 import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, Frame, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, SET, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
-import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Filled, Id, Linked, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence, Singleton } from '../src/model'
+import { Class as ClassNode, Constructor as ConstructorNode, Environment, Field as FieldNode, Filled, Id, Linked, List, Method as MethodNode, Module, Name, Package as PackageNode, Sentence } from '../src/model'
 import tools from '../src/tools'
 
 should()
@@ -12,7 +12,6 @@ const mockInterpreterDependencies = async (mocked: {
   targets?: { [name: string]: any },
   ids?: Id[],
   hierarchy?: (m: Module<Linked>) => List<Module<Linked>>,
-  superclass?: (module: ClassNode<Linked> | Singleton<Linked>) => ClassNode<Linked> | null,
   compile?: (environment: Environment) => (node: Sentence<Linked>) => List<Instruction>,
   methodLookup?: (name: Name, arity: number, start: Module<Linked>) => MethodNode<Linked> | undefined,
   constructorLookup?: (arity: number, owner: ClassNode<Linked>) => ConstructorNode<Linked> | undefined,
@@ -26,7 +25,6 @@ const mockInterpreterDependencies = async (mocked: {
         resolveTarget: reference => mocked.targets![reference.name],
         resolve: fqn => (mocked.targets || {})[fqn] || tools(env).resolve(fqn),
         hierarchy: module => mocked.hierarchy ? mocked.hierarchy(module) : tools(env).hierarchy(module),
-        superclass: module => mocked.superclass ? mocked.superclass(module) : tools(env).superclass(module),
         methodLookup: mocked.methodLookup!,
         constructorLookup: mocked.constructorLookup!,
         nativeLookup: mocked.nativeLookup!,
@@ -874,11 +872,11 @@ describe('Wollok Interpreter', () => {
           f1 as any,
           f2 as any
         ) as ClassNode<Linked>
+        X.superclassNode = () => tools(environment).resolve<ClassNode<Linked>>('wollok.lang.Object')
 
         const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor as any,
           targets: { X },
-          superclass: module => module.name === 'X' ? tools(environment).resolve('wollok.lang.Object') as any : undefined,
           hierarchy: module => module.name === 'X' ? [X, tools(environment).resolve('wollok.lang.Object')] : [],
         })
 

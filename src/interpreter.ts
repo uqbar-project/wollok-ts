@@ -348,7 +348,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
   const {
     hierarchy,
-    superclass,
     resolve,
     fullyQualifiedName,
     inherits,
@@ -538,7 +537,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         ], [] as Field<Linked>[])
 
         const constructor = constructorLookup(instruction.arity, lookupStart)
-        const ownSuperclass = superclass(lookupStart)
+        const ownSuperclass = lookupStart.superclassNode()
 
         if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${fullyQualifiedName(lookupStart)}`)
 

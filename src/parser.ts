@@ -73,7 +73,7 @@ export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 export const reference: Parser<Reference<Raw>> = lazy(() =>
   node('Reference')({
     name,
-    target: of(undefined),
+    targetId: of(undefined),
   }).thru(sourced)
 )
 
@@ -129,7 +129,7 @@ export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
     entity: node('Reference')({
       name: name.sepBy1(key('.')).tieWith('.'),
-      target: of(undefined),
+      targetId: of(undefined),
     }).thru(sourced),
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))

@@ -102,7 +102,7 @@ export const fillerAssertions = ({ Assertion }: any) => {
 export const linkerAssertions = ({ Assertion }: any) => {
 
   Assertion.addMethod('linkedInto', function (this: any, expected: Package<Raw>[]) {
-    const dropLinkedFields = dropKeys('id', 'target')
+    const dropLinkedFields = dropKeys('id', 'targetId')
     const actualEnvironment = link(this._obj)
     const expectedEnvironment = Environment(...expected as any)
 
@@ -115,8 +115,8 @@ export const linkerAssertions = ({ Assertion }: any) => {
     if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
 
     this.assert(
-      this._obj.target === node.id,
-      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target} instead`,
+      this._obj.targetId === node.id,
+      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.targetId} instead`,
       `expected reference ${reference.name} to not target node with id ${node.id}`,
     )
   })
