@@ -221,6 +221,7 @@ export type Reference<S extends Stage> = BaseNode<'Reference', S> & {
   readonly name: Name
 } & Linkable<S, {
   readonly targetId: Id
+  target<N extends Node<Linked>>(): N
 }>
 
 export type Self<S extends Stage> = BaseNode<'Self', S> & {}

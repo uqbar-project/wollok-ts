@@ -22,7 +22,6 @@ const mockInterpreterDependencies = async (mocked: {
     mock(() => import('../src/tools'))
       .withDefault(env => ({
         ...tools(env),
-        resolveTarget: reference => mocked.targets![reference.name],
         resolve: fqn => (mocked.targets || {})[fqn] || tools(env).resolve(fqn),
         hierarchy: module => mocked.hierarchy ? mocked.hierarchy(module) : tools(env).hierarchy(module),
         methodLookup: mocked.methodLookup!,

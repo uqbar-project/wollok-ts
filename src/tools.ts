@@ -1,7 +1,7 @@
 import { getOrUpdate, NODE_CACHE } from './cache'
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Reference, Stage } from './model'
+import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
 const { values } = Object
@@ -103,20 +103,11 @@ export default (environment: Environment) => {
   }
 
 
-  const resolveTarget = <N extends Node<Linked>>(reference: Reference<Linked>): N => {
-    try {
-      return getNodeById(reference.targetId)
-    } catch (e) {
-      throw new Error(`Could not resolve target for ${JSON.stringify(reference)}`)
-    }
-  }
-
-
   const hierarchy = (m: Module<Linked>): List<Module<Linked>> => {
     const hierarchyExcluding = (module: Module<Linked>, exclude: List<Id> = []): List<Module<Linked>> => {
       if (exclude.includes(module.id)) return []
       return [
-        ...module.mixins.map(mixin => resolveTarget<Module<Linked>>(mixin)),
+        ...module.mixins.map(mixin => mixin.target<Module<Linked>>()),
         ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
       ].reduce(({ mods, exs }, mod) => (
         { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
@@ -168,7 +159,6 @@ export default (environment: Environment) => {
     firstAncestorOfKind,
     getNodeById,
     resolve,
-    resolveTarget,
     hierarchy,
     inherits,
     fullyQualifiedName,

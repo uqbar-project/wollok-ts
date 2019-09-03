@@ -1,6 +1,6 @@
 import { getOrUpdate, PARENT_CACHE, update } from './cache'
 import { flatMap } from './extensions'
-import { Class, Describe, Environment, Filled as FilledStage, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Singleton } from './model'
+import { Class, Describe, Environment, Filled as FilledStage, is, isModule, isNode, Linked as LinkedStage, List, Module, Node, Raw as RawStage, Reference, Singleton } from './model'
 import tools, { transform } from './tools'
 
 const { isArray } = Array
@@ -60,8 +60,7 @@ export const Filled = <N extends Node<FilledStage>>(obj: Partial<N>): N => {
 export const Linked = (environmentData: Partial<Environment>) => {
   const environment: Environment = Filled(environmentData as any) as any
 
-  const linkedBehavior = {
-
+  const baseBehavior = {
     environment(this: Node<LinkedStage>) { return environment },
 
     parent<T extends Node<LinkedStage>>(this: Node<LinkedStage>): T {
@@ -75,25 +74,31 @@ export const Linked = (environmentData: Partial<Environment>) => {
         return parent.id
       }))
     },
-
   }
 
-  return assign(environment, linkedBehavior, {
+  return assign(environment, baseBehavior, {
     members: environment.members.map(
       transform((n: Node<FilledStage>) => {
         const node = Filled(n) as Node<LinkedStage>
 
-        assign(node, linkedBehavior)
+        assign(node, baseBehavior)
+
         if (is('Class')(node)) assign(node, {
           superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
-            const { resolveTarget } = tools(this.environment())
-            return this.superclass ? resolveTarget<Class<LinkedStage>>(this.superclass!) : null
+            return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
           },
         })
+
         if (is('Singleton')(node)) assign(node, {
           superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> | null {
-            const { resolveTarget } = tools(this.environment())
-            return resolveTarget<Class<LinkedStage>>(this.superCall.superclass)
+            return this.superCall.superclass.target<Class<LinkedStage>>()
+          },
+        })
+
+        if (is('Reference')(node)) assign(node, {
+          target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
+            const { getNodeById } = tools(this.environment())
+            return getNodeById(this.targetId)
           },
         })
 

@@ -87,7 +87,7 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 // TODO: Memoize?
 export const compile = (environment: Environment) => (...sentences: Sentence<Linked>[]): List<Instruction> =>
   flatMap<Sentence<Linked>, Instruction>(node => {
-    const { resolveTarget, firstAncestorOfKind, fullyQualifiedName } = tools(environment)
+    const { firstAncestorOfKind, fullyQualifiedName } = tools(environment)
 
     switch (node.kind) {
 
@@ -105,7 +105,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 
 
       case 'Assignment': return (() =>
-        is('Field')(resolveTarget(node.variable))
+        is('Field')(node.variable.target())
           ? [
             LOAD('self'),
             ...compile(environment)(node.value),
@@ -123,7 +123,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 
 
       case 'Reference': return (() => {
-        const target = resolveTarget(node)
+        const target = node.target()
 
         if (is('Field')(target)) return [
           LOAD('self'),
@@ -161,7 +161,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
           if ((node.value.superCall.args as any[]).some(arg => is('NamedArgument')(arg))) {
             return [
               INSTANTIATE(fullyQualifiedName(node.value)),
-              INIT(0, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
+              INIT(0, fullyQualifiedName(node.value.superCall.superclass.target()), true),
               ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
@@ -172,7 +172,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
             return [
               ...flatMap(compile(environment))(node.value.superCall.args as List<Expression<Linked>>),
               INSTANTIATE(fullyQualifiedName(node.value)),
-              INIT(node.value.superCall.args.length, fullyQualifiedName(resolveTarget(node.value.superCall.superclass)), true),
+              INIT(node.value.superCall.args.length, fullyQualifiedName(node.value.superCall.superclass.target()), true),
             ]
           }
         }
@@ -203,7 +203,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 
 
       case 'New': return (() => {
-        const fqn = fullyQualifiedName(resolveTarget(node.instantiated))
+        const fqn = fullyQualifiedName(node.instantiated.target())
 
         if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
           return [
@@ -251,7 +251,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
             ]
             return [
               LOAD('<exception>'),
-              INHERITS(fullyQualifiedName(resolveTarget(parameterType))),
+              INHERITS(fullyQualifiedName(parameterType.target())),
               CONDITIONAL_JUMP(compiledCatch.length),
               ...compiledCatch,
             ]
@@ -701,7 +701,7 @@ const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
 })
 
 const buildEvaluation = (environment: Environment): Evaluation => {
-  const { fullyQualifiedName, resolveTarget } = tools(environment)
+  const { fullyQualifiedName } = tools(environment)
 
   const globalSingletons = environment.descendants<Singleton<Linked>>(is('Singleton')).filter(node => !!node.name)
 
@@ -728,7 +728,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           if ((args as any[]).some(is('NamedArgument'))) {
             return [
               PUSH(id),
-              INIT(0, fullyQualifiedName(resolveTarget(superclass)), true),
+              INIT(0, fullyQualifiedName(superclass.target()), true),
               ...flatMap(({ name, value }: NamedArgument<Linked>) => [
                 DUP,
                 ...compile(environment)(value),
@@ -740,7 +740,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
             return [
               ...flatMap(compile(environment))(args as List<Expression<Linked>>),
               PUSH(id),
-              INIT(args.length, fullyQualifiedName(resolveTarget(superclass)), true),
+              INIT(args.length, fullyQualifiedName(superclass.target()), true),
             ]
           }
         })(globalSingletons),

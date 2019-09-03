@@ -58,7 +58,7 @@ const isNotAbstractClass = (node: Class<Linked>) =>
   node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
 export const validations = (environment: Environment) => {
-  const { firstAncestorOfKind, resolveTarget } = tools(environment)
+  const { firstAncestorOfKind } = tools(environment)
 
   const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !firstAncestorOfKind(kind, node))
 
@@ -107,7 +107,7 @@ export const validations = (environment: Environment) => {
     programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
 
     instantiationIsNotAbstractClass: error<New<Linked>>(node =>
-      isNotAbstractClass(resolveTarget(node.instantiated))),
+      isNotAbstractClass(node.instantiated.target())),
 
     notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
 
