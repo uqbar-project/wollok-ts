@@ -345,7 +345,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const { environment, frameStack } = evaluation
 
   const {
-    hierarchy,
     resolve,
     inherits,
     constructorLookup,
@@ -450,7 +449,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const self = getInstance(selfId)
         let lookupStart: Name
         if (instruction.lookupStart) {
-          const ownHierarchy = hierarchy(resolve(self.module)).map(module => module.fullyQualifiedName())
+          const ownHierarchy = resolve<Module<Linked>>(self.module).hierarchy().map(module => module.fullyQualifiedName())
           const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
           lookupStart = ownHierarchy[start + 1]
         } else {
@@ -528,7 +527,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const lookupStart: Class<Linked> = resolve(instruction.lookupStart)
 
         // TODO: Add to Filler a method for doing this and just call it ?
-        const allFields = hierarchy(resolve(self.module)).reduce((fields, module) => [
+        const allFields = resolve<Module<Linked>>(self.module).hierarchy().reduce((fields, module) => [
           ...module.fields(),
           ...fields,
         ], [] as Field<Linked>[])

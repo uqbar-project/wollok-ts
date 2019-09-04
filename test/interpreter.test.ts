@@ -11,7 +11,6 @@ should()
 const mockInterpreterDependencies = async (mocked: {
   targets?: { [name: string]: any },
   ids?: Id[],
-  hierarchy?: (m: Module<Linked>) => List<Module<Linked>>,
   compile?: (environment: Environment) => (node: Sentence<Linked>) => List<Instruction>,
   methodLookup?: (name: Name, arity: number, start: Module<Linked>) => MethodNode<Linked> | undefined,
   constructorLookup?: (arity: number, owner: ClassNode<Linked>) => ConstructorNode<Linked> | undefined,
@@ -23,7 +22,6 @@ const mockInterpreterDependencies = async (mocked: {
       .withDefault(env => ({
         ...tools(env),
         resolve: fqn => (mocked.targets || {})[fqn] || tools(env).resolve(fqn),
-        hierarchy: module => mocked.hierarchy ? mocked.hierarchy(module) : tools(env).hierarchy(module),
         methodLookup: mocked.methodLookup!,
         constructorLookup: mocked.constructorLookup!,
         nativeLookup: mocked.nativeLookup!,
@@ -872,11 +870,11 @@ describe('Wollok Interpreter', () => {
           f2 as any
         ) as ClassNode<Linked>
         X.superclassNode = () => tools(environment).resolve<ClassNode<Linked>>('wollok.lang.Object')
+        X.hierarchy = () => [X, tools(environment).resolve('wollok.lang.Object')]
 
         const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor as any,
           targets: { X },
-          hierarchy: module => module.name === 'X' ? [X, tools(environment).resolve('wollok.lang.Object')] : [],
         })
 
         const instruction = INIT(0, 'X', true)

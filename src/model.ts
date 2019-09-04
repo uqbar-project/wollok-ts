@@ -128,6 +128,7 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
 }> & Linkable<S, {
   superclassNode(): Class<S> | null
   fullyQualifiedName(): Name
+  hierarchy(): List<Module<S>>
 }>
 
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
@@ -145,6 +146,7 @@ export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
 }> & Linkable<S, {
   superclassNode(): Class<S>
   fullyQualifiedName(): Name
+  hierarchy(): List<Module<S>>
 }>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
@@ -156,6 +158,7 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
   fields(): List<Field<S>>
 } & Linkable<S, {
   fullyQualifiedName(): Name
+  hierarchy(): List<Module<S>>
 }>
 
 

@@ -1,6 +1,6 @@
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
+import { Class, Constructor, Entity, Environment, isEntity, isNode, Kind, KindOf, Linked, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
 
@@ -54,26 +54,11 @@ export default (environment: Environment) => {
   }
 
 
-  const hierarchy = (m: Module<Linked>): List<Module<Linked>> => {
-    const hierarchyExcluding = (module: Module<Linked>, exclude: List<Id> = []): List<Module<Linked>> => {
-      if (exclude.includes(module.id)) return []
-      return [
-        ...module.mixins.map(mixin => mixin.target<Module<Linked>>()),
-        ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
-      ].reduce(({ mods, exs }, mod) => (
-        { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
-      ), { mods: [module], exs: [module.id, ...exclude] }).mods
-    }
-
-    return hierarchyExcluding(m)
-  }
-
-
-  const inherits = (child: Module<Linked>, parent: Module<Linked>) => hierarchy(child).some(({ id }) => parent.id === id)
+  const inherits = (child: Module<Linked>, parent: Module<Linked>) => child.hierarchy().some(({ id }) => parent.id === id)
 
 
   const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
-    for (const module of hierarchy(start)) {
+    for (const module of start.hierarchy()) {
       const found = module.methods().find(member =>
         (!!member.body || member.isNative) && member.name === name && (
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
@@ -107,7 +92,6 @@ export default (environment: Environment) => {
   return {
     transform,
     resolve,
-    hierarchy,
     inherits,
     methodLookup,
     constructorLookup,

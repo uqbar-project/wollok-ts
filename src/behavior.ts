@@ -125,6 +125,22 @@ export const Linked = (environmentData: Partial<Environment>) => {
           },
         })
 
+        if (isModule(node)) assign(node, {
+          hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
+            const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
+              if (exclude.includes(module.id)) return []
+              return [
+                ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
+                ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
+              ].reduce(({ mods, exs }, mod) => (
+                { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
+              ), { mods: [module], exs: [module.id, ...exclude] }).mods
+            }
+
+            return hierarchyExcluding(this)
+          },
+        })
+
         if (is('Class')(node)) assign(node, {
           superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
             return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
@@ -132,7 +148,7 @@ export const Linked = (environmentData: Partial<Environment>) => {
         })
 
         if (is('Singleton')(node)) assign(node, {
-          superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> | null {
+          superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
             return this.superCall.superclass.target<Class<LinkedStage>>()
           },
         })
