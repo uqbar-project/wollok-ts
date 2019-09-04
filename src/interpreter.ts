@@ -346,7 +346,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
   const {
     resolve,
-    inherits,
     constructorLookup,
     methodLookup,
     nativeLookup,
@@ -428,7 +427,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'INHERITS': return (() => {
         const selfId = popOperand()
         const self = getInstance(selfId)
-        pushOperand(inherits(resolve(self.module), resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
+        pushOperand(resolve<Module<Linked>>(self.module).inherits(resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
       })()
 
       // TODO: can't we just use IF_ELSE instead?

@@ -54,9 +54,6 @@ export default (environment: Environment) => {
   }
 
 
-  const inherits = (child: Module<Linked>, parent: Module<Linked>) => child.hierarchy().some(({ id }) => parent.id === id)
-
-
   const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
     for (const module of start.hierarchy()) {
       const found = module.methods().find(member =>
@@ -92,7 +89,6 @@ export default (environment: Environment) => {
   return {
     transform,
     resolve,
-    inherits,
     methodLookup,
     constructorLookup,
     nativeLookup,

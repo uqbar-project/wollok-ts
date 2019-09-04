@@ -126,6 +126,7 @@ export const Linked = (environmentData: Partial<Environment>) => {
         })
 
         if (isModule(node)) assign(node, {
+
           hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
             const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
               if (exclude.includes(module.id)) return []
@@ -139,6 +140,11 @@ export const Linked = (environmentData: Partial<Environment>) => {
 
             return hierarchyExcluding(this)
           },
+
+          inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
+            return this.hierarchy().some(({ id }) => other.id === id)
+          },
+
         })
 
         if (is('Class')(node)) assign(node, {
