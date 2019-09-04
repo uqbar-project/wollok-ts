@@ -3,16 +3,16 @@ import { Index } from 'parsimmon'
 // TODO: Use Linked as default stage for all types
 
 export type Stage = Raw | Filled | Linked
-export type Raw = 'Raw'
-export type Filled = 'Filled'
-export type Linked = 'Linked'
+export abstract class Raw { protected rawTag = 'Raw' }
+export abstract class Filled extends Raw { protected filledTag = 'Filled' }
+export abstract class Linked extends Filled { protected linkedTag = 'Linked' }
 
-type Fillable<S extends Stage, T> = S extends Filled | Linked ? T : { [K in keyof T]+?: T[K] }
+type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T[K] }
 type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
 
 
-export type Kind = Node<Linked>['kind']
-export type KindOf<N extends Node<any>> = N['kind']
+export type Kind = Node<Stage>['kind']
+export type KindOf<N extends Node<Stage>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
 export type Name = string

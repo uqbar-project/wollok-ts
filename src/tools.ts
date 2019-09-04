@@ -39,15 +39,6 @@ export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) =>
 
 export default (environment: Environment) => {
 
-  const ancestors = (node: Node<Linked>): List<Node<Linked>> => {
-    try {
-      const parent = node.parent()
-      return [parent, ...ancestors(parent)]
-    } catch (e) {
-      return []
-    }
-  }
-
   const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> | undefined => {
     let parent: Node<Linked>
     try {
@@ -126,7 +117,6 @@ export default (environment: Environment) => {
 
   return {
     transform,
-    ancestors,
     firstAncestorOfKind,
     resolve,
     hierarchy,
