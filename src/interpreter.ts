@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 import tools from './tools'
 
 export interface Locals { [name: string]: Id }
@@ -87,8 +87,6 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 // TODO: Memoize?
 export const compile = (environment: Environment) => (...sentences: Sentence<Linked>[]): List<Instruction> =>
   flatMap<Sentence<Linked>, Instruction>(node => {
-    const { firstAncestorOfKind } = tools(environment)
-
     switch (node.kind) {
 
       case 'Variable': return (() => [
@@ -193,7 +191,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 
 
       case 'Super': return (() => {
-        const currentMethod = firstAncestorOfKind('Method', node)!
+        const currentMethod = node.closestAncestor<Method<Linked>>(is('Method'))!
         return [
           LOAD('self'),
           ...flatMap(compile(environment))(node.args),

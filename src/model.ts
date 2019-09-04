@@ -49,6 +49,8 @@ type BaseNode<K extends Kind, S extends Stage> = {
   readonly id: Id
   environment(): Environment
   parent<N extends Node<S>>(): N // TODO: declare for each node with the right parent type instead of with generic ?
+  // TODO: would it be too slow to replace this with ancestors().find?
+  closestAncestor<N extends Node<S>>(filter: (obj: any) => obj is N): N | undefined
 }>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -318,4 +320,5 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
 
-export const is = <N extends NodeOfKind<K, Stage>, K extends Kind>(k: K) => (obj: any): obj is N => isNode(obj) && obj.kind === k
+export const is = <N extends NodeOfKind<K, Stage>, K extends Kind = KindOf<N>>(k: K) => (obj: any): obj is N =>
+  isNode(obj) && obj.kind === k

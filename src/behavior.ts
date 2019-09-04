@@ -97,6 +97,16 @@ export const Linked = (environmentData: Partial<Environment>) => {
         return parent.id
       }))
     },
+
+
+    closestAncestor<N extends Node<LinkedStage>>(this: Node<LinkedStage>, filter: (obj: any) => obj is N): N | undefined {
+      let parent: Node<LinkedStage>
+      try {
+        parent = this.parent()
+      } catch (_) { return undefined }
+
+      return filter(parent) ? parent : parent.closestAncestor(filter)
+    },
   }
 
   return assign(environment, baseBehavior, {

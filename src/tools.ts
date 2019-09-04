@@ -1,6 +1,6 @@
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Entity, Environment, Id, is, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
+import { Class, Constructor, Entity, Environment, Id, isEntity, isNode, Kind, KindOf, Linked, List, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
 
@@ -38,17 +38,6 @@ export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) =>
   (node as any).children().reduce(reduce(tx), tx(initial, node))
 
 export default (environment: Environment) => {
-
-  const firstAncestorOfKind = <K extends Kind>(kind: K, node: Node<Linked>): NodeOfKind<K, Linked> | undefined => {
-    let parent: Node<Linked>
-    try {
-      parent = node.parent()
-    } catch (_) { return undefined }
-
-    if (is(kind)(parent)) return parent as NodeOfKind<K, Linked>
-    return firstAncestorOfKind<K>(kind, parent)
-  }
-
 
   // TODO: Put on every node and make it relative?
   const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
@@ -117,7 +106,6 @@ export default (environment: Environment) => {
 
   return {
     transform,
-    firstAncestorOfKind,
     resolve,
     hierarchy,
     inherits,
