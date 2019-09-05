@@ -461,7 +461,7 @@ export default {
     },
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      const { methodLookup } = tools(evaluation.environment)
+      const { methodLookup } = tools()
       const { addInstance } = Operations(evaluation)
 
       const apply = evaluation
