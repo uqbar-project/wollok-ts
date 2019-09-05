@@ -1,6 +1,6 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap } from './extensions'
-import { Class, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Module, Name, Node, Raw as RawStage, Reference, Singleton } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton } from './model'
 import { transform } from './tools'
 
 const { isArray } = Array
@@ -158,11 +158,32 @@ export const Linked = (environmentData: Partial<Environment>) => {
             return this.hierarchy().some(({ id }) => other.id === id)
           },
 
+          lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
+            for (const module of this.hierarchy()) {
+              const found = module.methods().find(member =>
+                (!!member.body || member.isNative) && member.name === name && (
+                  member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+                  member.parameters.length === arity
+                )
+              )
+              if (found) return found
+            }
+            return undefined
+          },
+
         })
 
         if (is('Class')(node)) assign(node, {
           superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
             return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
+          },
+
+          lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
+            return this.constructors().find(member =>
+              // TODO: extract method matches(name, arity) or something like that for constructors and methods
+              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+              member.parameters.length === arity
+            )
           },
         })
 

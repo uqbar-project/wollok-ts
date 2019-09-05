@@ -1,8 +1,7 @@
 import { flatMap, last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, Operations, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
-import { Id, Linked, Method, Singleton } from '../model'
-import tools from '../tools'
+import { Id, Linked, Method, Module, Singleton } from '../model'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
@@ -461,7 +460,6 @@ export default {
     },
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      const { methodLookup } = tools()
       const { addInstance } = Operations(evaluation)
 
       const apply = evaluation
@@ -479,7 +477,9 @@ export default {
       ) {
         log.warn('Method not found:', self.module, '>> <apply> /', args.length)
 
-        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, evaluation.environment.getNodeByFQN(self.module))!
+        const messageNotUnderstood = evaluation.environment
+          .getNodeByFQN<Module<Linked>>(self.module)
+          .lookupMethod('messageNotUnderstood', 2)!
         const nameId = addInstance('wollok.lang.String', 'apply')
         const argsId = addInstance('wollok.lang.List', argIds)
 

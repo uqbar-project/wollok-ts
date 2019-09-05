@@ -1,12 +1,12 @@
 import { mapObject } from './extensions'
-import { NativeFunction } from './interpreter'
-import { Class, Constructor, isNode, Kind, KindOf, Linked, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
+import { isNode, Kind, KindOf, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
 
 // TODO: Test all this
 
 // TODO: Extract applyTransform into single propagate function
+// TODO: Or join transform and transformByKind in the same method
 export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
   <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
     const applyTransform = (obj: any): any =>
@@ -36,45 +36,3 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 
 export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
   (node as any).children().reduce(reduce(tx), tx(initial, node))
-
-export default () => {
-
-  const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
-    for (const module of start.hierarchy()) {
-      const found = module.methods().find(member =>
-        (!!member.body || member.isNative) && member.name === name && (
-          member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-          member.parameters.length === arity
-        )
-      )
-      if (found) return found
-    }
-    return undefined
-  }
-
-
-  const constructorLookup = (arity: number, owner: Class<Linked>): Constructor<Linked> | undefined => {
-    return owner.constructors().find(member =>
-      member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-      member.parameters.length === arity
-    )
-  }
-
-
-  const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
-    const fqn = `${method.parent<Module<Linked>>().fullyQualifiedName()}.${method.name}`
-    return fqn.split('.').reduce((current, step) => {
-      const next = current[step]
-      if (!next) throw new Error(`Native not found: ${fqn}`)
-      return next
-    }, natives as any)
-  }
-
-
-  return {
-    transform,
-    methodLookup,
-    constructorLookup,
-    nativeLookup,
-  }
-}

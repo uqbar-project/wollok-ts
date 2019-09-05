@@ -130,7 +130,8 @@ export type Class<S extends Stage> = BaseNode<'Class', S> & {
   fullyQualifiedName(): Name
   hierarchy(): List<Module<S>>
   inherits(other: Module<Linked>): boolean
-
+  lookupMethod(name: Name, arity: number): Method<Linked> | undefined
+  lookupConstructor(arity: number): Constructor<Linked> | undefined
 }>
 
 export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
@@ -150,6 +151,7 @@ export type Singleton<S extends Stage> = BaseNode<'Singleton', S> & {
   fullyQualifiedName(): Name
   hierarchy(): List<Module<S>>
   inherits(other: Module<Linked>): boolean
+  lookupMethod(name: Name, arity: number): Method<Linked> | undefined
 }>
 
 export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
@@ -163,6 +165,7 @@ export type Mixin<S extends Stage> = BaseNode<'Mixin', S> & {
   fullyQualifiedName(): Name
   hierarchy(): List<Module<S>>
   inherits(other: Module<Linked>): boolean
+  lookupMethod(name: Name, arity: number): Method<Linked> | undefined
 }>
 
 

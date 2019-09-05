@@ -2,7 +2,6 @@ import { v4 as uuid } from 'uuid'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
-import tools from './tools'
 
 export interface Locals { [name: string]: Id }
 
@@ -265,6 +264,15 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 // OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
+  const fqn = `${method.parent<Module<Linked>>().fullyQualifiedName()}.${method.name}`
+  return fqn.split('.').reduce((current, name) => {
+    const next = current[name]
+    if (!next) throw new Error(`Native not found: ${fqn}`)
+    return next
+  }, natives as any)
+}
+
 export const Operations = (evaluation: Evaluation) => {
   const { instances, frameStack } = evaluation
   const { operandStack } = last(frameStack)!
@@ -343,12 +351,6 @@ export const Operations = (evaluation: Evaluation) => {
 
 export const step = (natives: {}) => (evaluation: Evaluation) => {
   const { environment, frameStack } = evaluation
-
-  const {
-    constructorLookup,
-    methodLookup,
-    nativeLookup,
-  } = tools()
 
   const {
     popOperand,
@@ -456,12 +458,12 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           lookupStart = self.module
         }
 
-        const method = methodLookup(instruction.message, instruction.arity, environment.getNodeByFQN(lookupStart))
+        const method = environment.getNodeByFQN<Module<Linked>>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
-          const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, environment.getNodeByFQN(self.module))!
+          const messageNotUnderstood = environment.getNodeByFQN<Module<Linked>>(self.module).lookupMethod('messageNotUnderstood', 2)!
           const nameId = addInstance('wollok.lang.String', instruction.message)
           const argsId = addInstance('wollok.lang.List', argIds)
 
@@ -532,7 +534,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...fields,
         ], [] as Field<Linked>[])
 
-        const constructor = constructorLookup(instruction.arity, lookupStart)
+        const constructor = lookupStart.lookupConstructor(instruction.arity)
         const ownSuperclass = lookupStart.superclassNode()
 
         if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
