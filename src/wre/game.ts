@@ -1,7 +1,6 @@
 import { last } from '../extensions'
 import { CALL, Evaluation, INTERRUPT, Operations, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
-import tools from '../tools'
 
 // TODO: tests
 
@@ -41,12 +40,10 @@ export default {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      const { resolve } = tools(evaluation.environment)
-
       last(evaluation.frameStack)!.resume.push('return')
       evaluation.frameStack.push({
         instructions: [
-          PUSH(resolve('wollok.lang.io').id),
+          PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
           PUSH(event.id),
           PUSH(action.id),
           CALL('addHandler', 2),

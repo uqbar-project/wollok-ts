@@ -461,10 +461,14 @@ export default {
     },
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      const { resolve, methodLookup } = tools(evaluation.environment)
+      const { methodLookup } = tools(evaluation.environment)
       const { addInstance } = Operations(evaluation)
 
-      const apply = resolve<Singleton<Linked>>(self.module).members.find(({ name }) => name === '<apply>') as Method<Linked>
+      const apply = evaluation
+        .environment
+        .getNodeByFQN<Singleton<Linked>>(self.module)
+        .members
+        .find(({ name }) => name === '<apply>') as Method<Linked>
       const argIds = args.map(arg => arg ? arg.id : VOID_ID)
       const parameterNames = apply.parameters.map(({ name }) => name)
       const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
@@ -475,7 +479,7 @@ export default {
       ) {
         log.warn('Method not found:', self.module, '>> <apply> /', args.length)
 
-        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
+        const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, evaluation.environment.getNodeByFQN(self.module))!
         const nameId = addInstance('wollok.lang.String', 'apply')
         const argsId = addInstance('wollok.lang.List', argIds)
 

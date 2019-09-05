@@ -301,6 +301,7 @@ export interface Environment extends BaseNode<'Environment', Linked> {
   readonly members: List<Package<Linked>>
 
   getNodeById<N extends Node<Linked>>(id: Id): N
+  getNodeByFQN<N extends Node<Linked>>(fullyQualifiedName: Name): N
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

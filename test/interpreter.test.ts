@@ -19,9 +19,8 @@ const mockInterpreterDependencies = async (mocked: {
   () => import('../src/interpreter'),
   mock => {
     mock(() => import('../src/tools'))
-      .withDefault(env => ({
-        ...tools(env),
-        resolve: fqn => (mocked.targets || {})[fqn] || tools(env).resolve(fqn),
+      .withDefault(() => ({
+        ...tools(),
         methodLookup: mocked.methodLookup!,
         constructorLookup: mocked.constructorLookup!,
         nativeLookup: mocked.nativeLookup!,
@@ -865,12 +864,12 @@ describe('Wollok Interpreter', () => {
         const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode<Linked>
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode<Linked>
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode<Linked>
-        const X = Class('X', { superclass: tools(environment).resolve('wollok.lang.Object') as any })(
+        const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
           f1 as any,
           f2 as any
         ) as ClassNode<Linked>
-        X.superclassNode = () => tools(environment).resolve<ClassNode<Linked>>('wollok.lang.Object')
-        X.hierarchy = () => [X, tools(environment).resolve('wollok.lang.Object')]
+        X.superclassNode = () => environment.getNodeByFQN<ClassNode<Linked>>('wollok.lang.Object')
+        X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
 
         const { step, compile: compile } = await mockInterpreterDependencies({
           constructorLookup: () => constructor as any,
@@ -883,6 +882,9 @@ describe('Wollok Interpreter', () => {
         })(
           Frame({ operandStack: ['1'], instructions: [instruction] }),
         )
+
+        const unmocked = evaluation.environment.getNodeByFQN
+        evaluation.environment.getNodeByFQN = fqn => fqn === 'X' ? X : unmocked(fqn) as any
 
         step({})(evaluation)
 

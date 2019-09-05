@@ -3,7 +3,7 @@ import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
-import tools, { transform, transformByKind } from './tools'
+import { transform, transformByKind } from './tools'
 
 export interface Scope { [name: string]: string }
 
@@ -23,8 +23,6 @@ const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: 
 }
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
-
-  const { resolve } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -91,7 +89,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   const outerContributionFrom = (contributor: Node<Linked>): Scope => {
     switch (contributor.kind) {
       case 'Import':
-        const referenced = resolve(contributor.entity.name)
+        const referenced = environment.getNodeByFQN<Entity<Linked>>(contributor.entity.name)
         return {
           [contributor.entity.name]: referenced.id,
           ...contributor.isGeneric

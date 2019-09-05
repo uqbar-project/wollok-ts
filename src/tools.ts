@@ -1,6 +1,6 @@
 import { mapObject } from './extensions'
 import { NativeFunction } from './interpreter'
-import { Class, Constructor, Entity, Environment, isEntity, isNode, Kind, KindOf, Linked, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
+import { Class, Constructor, isNode, Kind, KindOf, Linked, Method, Module, Name, Node, NodeOfKind, Stage } from './model'
 
 const { isArray } = Array
 
@@ -37,22 +37,7 @@ export const transformByKind = <S extends Stage, R extends Stage = S>(
 export const reduce = <T, S extends Stage>(tx: (acum: T, node: Node<S>) => T) => (initial: T, node: Node<S>): T =>
   (node as any).children().reduce(reduce(tx), tx(initial, node))
 
-export default (environment: Environment) => {
-
-  // TODO: Put on every node and make it relative?
-  const resolve = <N extends Entity<Linked>>(qualifiedName: string): N => {
-    return qualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
-      ? environment.getNodeById(qualifiedName.slice(1))
-      : qualifiedName.split('.').reduce((current: Entity<Linked> | Environment, step) => {
-        const allChildren = current.children()
-        const next = allChildren.find((child): child is Entity<Linked> => isEntity(child) && child.name === step)
-        if (!next) throw new Error(
-          `Could not resolve reference to ${qualifiedName}: Missing child ${step} among ${allChildren.map((c: any) => c.name)}`
-        )
-        return next
-      }, environment) as N
-  }
-
+export default () => {
 
   const methodLookup = (name: Name, arity: number, start: Module<Linked>): Method<Linked> | undefined => {
     for (const module of start.hierarchy()) {
@@ -88,7 +73,6 @@ export default (environment: Environment) => {
 
   return {
     transform,
-    resolve,
     methodLookup,
     constructorLookup,
     nativeLookup,

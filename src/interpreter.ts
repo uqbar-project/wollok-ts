@@ -345,11 +345,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const { environment, frameStack } = evaluation
 
   const {
-    resolve,
     constructorLookup,
     methodLookup,
     nativeLookup,
-  } = tools(environment)
+  } = tools()
 
   const {
     popOperand,
@@ -427,7 +426,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'INHERITS': return (() => {
         const selfId = popOperand()
         const self = getInstance(selfId)
-        pushOperand(resolve<Module<Linked>>(self.module).inherits(resolve(instruction.module)) ? TRUE_ID : FALSE_ID)
+        pushOperand(
+          environment.getNodeByFQN<Module<Linked>>(self.module).inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
+        )
       })()
 
       // TODO: can't we just use IF_ELSE instead?
@@ -448,19 +449,19 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const self = getInstance(selfId)
         let lookupStart: Name
         if (instruction.lookupStart) {
-          const ownHierarchy = resolve<Module<Linked>>(self.module).hierarchy().map(module => module.fullyQualifiedName())
+          const ownHierarchy = environment.getNodeByFQN<Module<Linked>>(self.module).hierarchy().map(module => module.fullyQualifiedName())
           const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
           lookupStart = ownHierarchy[start + 1]
         } else {
           lookupStart = self.module
         }
 
-        const method = methodLookup(instruction.message, instruction.arity, resolve(lookupStart))
+        const method = methodLookup(instruction.message, instruction.arity, environment.getNodeByFQN(lookupStart))
 
         if (!method) {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
-          const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, resolve(self.module))!
+          const messageNotUnderstood = methodLookup('messageNotUnderstood', 2, environment.getNodeByFQN(self.module))!
           const nameId = addInstance('wollok.lang.String', instruction.message)
           const argsId = addInstance('wollok.lang.List', argIds)
 
@@ -523,10 +524,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
         const self = getInstance(selfId)
 
-        const lookupStart: Class<Linked> = resolve(instruction.lookupStart)
+        const lookupStart: Class<Linked> = environment.getNodeByFQN(instruction.lookupStart)
 
         // TODO: Add to Filler a method for doing this and just call it ?
-        const allFields = resolve<Module<Linked>>(self.module).hierarchy().reduce((fields, module) => [
+        const allFields = environment.getNodeByFQN<Module<Linked>>(self.module).hierarchy().reduce((fields, module) => [
           ...module.fields(),
           ...fields,
         ], [] as Field<Linked>[])
@@ -794,9 +795,7 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
-    const { resolve } = tools(environment)
-
-    const programSentences = resolve<Program<Linked>>(fullyQualifiedName).body.sentences
+    const programSentences = environment.getNodeByFQN<Program<Linked>>(fullyQualifiedName).body.sentences
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = evaluation || buildEvaluation(environment)

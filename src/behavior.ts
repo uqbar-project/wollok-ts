@@ -81,6 +81,19 @@ export const Linked = (environmentData: Partial<Environment>) => {
       }) as T
     },
 
+    getNodeByFQN<N extends Entity<LinkedStage>>(fullyQualifiedName: string): N {
+      return fullyQualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
+        ? environment.getNodeById(fullyQualifiedName.slice(1))
+        : fullyQualifiedName.split('.').reduce((current: Entity<LinkedStage> | Environment, step) => {
+          const children = current.children()
+          const next = children.find((child): child is Entity<LinkedStage> => isEntity(child) && child.name === step)
+          if (!next) throw new Error(
+            `Could not resolve reference to ${fullyQualifiedName}: Missing child ${step} among ${children.map((c: any) => c.name)}`
+          )
+          return next
+        }, environment) as N
+    },
+
   }) as any
 
 
