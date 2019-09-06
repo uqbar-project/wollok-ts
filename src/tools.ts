@@ -7,18 +7,6 @@ const { isArray } = Array
 
 // TODO: Extract applyTransform into single propagate function
 // TODO: Or join transform and transformByKind in the same method
-export const transform = <S extends Stage, R extends Stage = S>(tx: (node: Node<S>) => Node<R>) =>
-  <N extends Node<S>, U extends Node<R> = N extends Node<R> ? N : Node<R>>(node: N): U => {
-    const applyTransform = (obj: any): any =>
-      typeof obj === 'function' ? obj :
-        isNode<S>(obj) ? mapObject(applyTransform, tx(obj) as any) :
-          isArray(obj) ? obj.map(applyTransform) :
-            obj instanceof Object ? mapObject(applyTransform, obj) :
-              obj
-
-    return applyTransform(node)
-  }
-
 export const transformByKind = <S extends Stage, R extends Stage = S>(
   tx: { [K in Kind]?: (after: NodeOfKind<K, R>, before: NodeOfKind<K, S>) => NodeOfKind<K, R> },
   defaultTx: (transformed: Node<R>, node: Node<S>) => Node<R> = node => node,

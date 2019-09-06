@@ -11,7 +11,7 @@ type Fillable<S extends Stage, T> = S extends Filled ? T : { [K in keyof T]+?: T
 type Linkable<S extends Stage, T> = S extends Linked ? T : { [K in keyof T]+?: T[K] }
 
 
-export type Kind = Node<Stage>['kind']
+export type Kind = Node<Linked>['kind']
 export type KindOf<N extends Node<Stage>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
@@ -45,6 +45,10 @@ type BaseNode<K extends Kind, S extends Stage> = {
 
   children<N extends Node<S> = Node<S>>(): List<N>
   descendants<N extends Node<S>>(filter?: (obj: any) => obj is N): List<N>
+  transform<R extends Stage = S>(tx: (node: Node<S>) => Node<R>): NodeOfKind<K, R>
+  // transformByKind<R extends Stage = S>(
+  //   tx: Partial<{ [N in Kind]: (after: NodeOfKind<N, R>, before: NodeOfKind<N, S>) => NodeOfKind<N, R> }>,
+  // ): NodeOfKind<K, R>
 } & Linkable<S, {
   readonly id: Id
   environment(): Environment

@@ -1,7 +1,6 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { flatMap } from './extensions'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton } from './model'
-import { transform } from './tools'
+import { flatMap, mapObject } from './extensions'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -14,6 +13,7 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
   const node = { ...obj } as N
 
   assign(node, {
+
     children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
       const extractChildren = (owner: any): List<T> => {
         if (isNode(owner)) return [owner as T]
@@ -33,6 +33,32 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
       const descendants = [...directDescendants, ...indirectDescendants]
       return filter ? descendants.filter(filter) : descendants as any
     },
+
+    transform<R extends Stage>(this: Node<RawStage>, tx: (node: Node<RawStage>) => Node<RawStage>): Node<R> {
+      const applyTransform = (value: any): any =>
+        typeof value === 'function' ? value :
+          isNode<RawStage>(value) ? mapObject(applyTransform, tx(value) as any) :
+            isArray(value) ? value.map(applyTransform) :
+              value instanceof Object ? mapObject(applyTransform, value) :
+                value
+
+      return applyTransform(this)
+    },
+
+    // transformByKind<R extends Stage>(
+    //   this: Node<RawStage>,
+    //   tx: { [K in Kind]?: (afterChildPropagation: Node<R>, beforeChildPropagation: Node<RawStage>) => Node<R> },
+    // ): Node<R> {
+    //   const applyTransform = (value: any): any =>
+    //     typeof value === 'function' ? value :
+    //       isNode<RawStage>(value) ? (tx[value.kind] || ((n: any) => n) as any)(mapObject(applyTransform, value as any), value) :
+    //         isArray(value) ? value.map(applyTransform) :
+    //           value instanceof Object ? mapObject(applyTransform, value) :
+    //             value
+
+    //   return applyTransform(this)
+    // },
+
   })
 
   if (isModule(node)) assign(node, {
@@ -123,84 +149,82 @@ export const Linked = (environmentData: Partial<Environment>) => {
   }
 
   return assign(environment, baseBehavior, {
-    members: environment.members.map(
-      transform((n: Node<FilledStage>) => {
-        const node = Filled(n) as Node<LinkedStage>
+    members: environment.transform(n => {
 
-        assign(node, baseBehavior)
+      const node: Node<LinkedStage> = assign(Filled(n as any), baseBehavior) as any
 
-        if (isEntity(node)) assign(node, {
-          fullyQualifiedName(this: Entity<LinkedStage>): Name {
-            const parent = this.parent()
-            return isEntity(parent)
-              ? `${parent.fullyQualifiedName()}.${this.name}`
-              : this.name || `#${this.id}`
-          },
-        })
-
-        if (isModule(node)) assign(node, {
-
-          hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
-            const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
-              if (exclude.includes(module.id)) return []
-              return [
-                ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
-                ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
-              ].reduce(({ mods, exs }, mod) => (
-                { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
-              ), { mods: [module], exs: [module.id, ...exclude] }).mods
-            }
-
-            return hierarchyExcluding(this)
-          },
-
-          inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
-            return this.hierarchy().some(({ id }) => other.id === id)
-          },
-
-          lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
-            for (const module of this.hierarchy()) {
-              const found = module.methods().find(member =>
-                (!!member.body || member.isNative) && member.name === name && (
-                  member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-                  member.parameters.length === arity
-                )
-              )
-              if (found) return found
-            }
-            return undefined
-          },
-
-        })
-
-        if (is('Class')(node)) assign(node, {
-          superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
-            return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
-          },
-
-          lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-            return this.constructors().find(member =>
-              // TODO: extract method matches(name, arity) or something like that for constructors and methods
-              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-              member.parameters.length === arity
-            )
-          },
-        })
-
-        if (is('Singleton')(node)) assign(node, {
-          superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
-            return this.superCall.superclass.target<Class<LinkedStage>>()
-          },
-        })
-
-        if (is('Reference')(node)) assign(node, {
-          target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
-            return this.environment().getNodeById(this.targetId)
-          },
-        })
-
-        return node
+      if (isEntity(node)) assign(node, {
+        fullyQualifiedName(this: Entity<LinkedStage>): Name {
+          const parent = this.parent()
+          return isEntity(parent)
+            ? `${parent.fullyQualifiedName()}.${this.name}`
+            : this.name || `#${this.id}`
+        },
       })
-    ),
+
+      if (isModule(node)) assign(node, {
+
+        hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
+          const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
+            if (exclude.includes(module.id)) return []
+            return [
+              ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
+              ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
+            ].reduce(({ mods, exs }, mod) => (
+              { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
+            ), { mods: [module], exs: [module.id, ...exclude] }).mods
+          }
+
+          return hierarchyExcluding(this)
+        },
+
+        inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
+          return this.hierarchy().some(({ id }) => other.id === id)
+        },
+
+        lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
+          for (const module of this.hierarchy()) {
+            const found = module.methods().find(member =>
+              (!!member.body || member.isNative) && member.name === name && (
+                member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+                member.parameters.length === arity
+              )
+            )
+            if (found) return found
+          }
+          return undefined
+        },
+
+      })
+
+      if (is('Class')(node)) assign(node, {
+        superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
+          return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
+        },
+
+        lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
+          return this.constructors().find(member =>
+            // TODO: extract method matches(name, arity) or something like that for constructors and methods
+            member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+            member.parameters.length === arity
+          )
+        },
+      })
+
+      if (is('Singleton')(node)) assign(node, {
+        superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
+          return this.superCall.superclass.target<Class<LinkedStage>>()
+        },
+      })
+
+      if (is('Reference')(node)) assign(node, {
+        target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
+          return this.environment().getNodeById(this.targetId)
+        },
+      })
+
+      return node
+
+    }).members,
   })
 }

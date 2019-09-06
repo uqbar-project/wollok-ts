@@ -3,7 +3,7 @@ import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
-import { transform, transformByKind } from './tools'
+import { transformByKind } from './tools'
 
 export interface Scope { [name: string]: string }
 
@@ -168,18 +168,18 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
     ...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
   )
 
-  const identifiedEnvironment: Environment = LinkedBehavior(transform<Linked, Linked>(node =>
+  const identifiedEnvironment: Environment = LinkedBehavior(mergedEnvironment.transform(node =>
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
     node.id ? node : { ...node, id: uuid() }
-  )(mergedEnvironment))
+  ))
 
-  transform<Linked>(node => {
+  identifiedEnvironment.transform(node => {
     update(NODE_CACHE, node.id, node)
     node.children().forEach(child =>
       update(PARENT_CACHE, child.id, node.id)
     )
     return node
-  })(identifiedEnvironment)
+  })
 
   const scopes = buildScopes(identifiedEnvironment)
 

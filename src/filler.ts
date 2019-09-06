@@ -37,58 +37,62 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
 }
 
 export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<KindOf<N>, Filled>>(
-  transformByKind<Raw, Filled>({
-    Class: (transformed, node) => ({
-      ...transformed,
-      superclass: node.name === 'Object' ? null : node.superclass ? transformed.superclass : OBJECT_CLASS,
-      members: [
-        ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
-        ...transformed.members,
-        ...filledPropertyAccessors(transformed),
-      ],
-    }),
+  transformByKind<Filled>(
+    {
+      Class: (transformed, node) => ({
+        ...transformed,
+        superclass: node.name === 'Object' ? null : node.superclass ? transformed.superclass : OBJECT_CLASS,
+        members: [
+          ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
+          ...transformed.members,
+          ...filledPropertyAccessors(transformed),
+        ],
+      }),
 
-    Mixin: (transformed) => ({
-      ...transformed,
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-    }),
+      Mixin: (transformed) => ({
+        ...transformed,
+        members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+      }),
 
-    Singleton: (transformed, node) => ({
-      ...transformed,
-      superCall: node.superCall ? transformed.superCall : {
-        superclass: OBJECT_CLASS,
-        args: [],
-      },
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-    }),
+      Singleton: (transformed, node) => ({
+        ...transformed,
+        superCall: node.superCall ? transformed.superCall : {
+          superclass: OBJECT_CLASS,
+          args: [],
+        },
+        members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+      }),
 
-    Field: (transformed, node) => ({
-      ...transformed,
-      value: node.value ? transformed.value : NULL,
-    }),
+      Field: (transformed, node) => ({
+        ...transformed,
+        value: node.value ? transformed.value : NULL,
+      }),
 
-    Constructor: (transformed, node) => ({
-      ...transformed,
-      baseCall: node.baseCall ? transformed.baseCall : DEFAULT_CONSTRUCTOR.baseCall,
-    }),
+      Constructor: (transformed, node) => ({
+        ...transformed,
+        baseCall: node.baseCall ? transformed.baseCall : DEFAULT_CONSTRUCTOR.baseCall,
+      }),
 
-    Variable: (transformed, node) => ({
-      ...transformed,
-      value: node.value ? transformed.value : NULL,
-    }),
+      Variable: (transformed, node) => ({
+        ...transformed,
+        value: node.value ? transformed.value : NULL,
+      }),
 
-    If: (transformed, node) => ({
-      ...transformed,
-      elseBody: node.elseBody ? transformed.elseBody : EMPTY_BODY,
-    }),
+      If: (transformed, node) => ({
+        ...transformed,
+        elseBody: node.elseBody ? transformed.elseBody : EMPTY_BODY,
+      }),
 
-    Try: (transformed, node) => ({
-      ...transformed,
-      always: node.always ? transformed.always : EMPTY_BODY,
-    }),
+      Try: (transformed, node) => ({
+        ...transformed,
+        always: node.always ? transformed.always : EMPTY_BODY,
+      }),
 
-    Catch: (transformed, node) => ({
-      ...transformed,
-      parameterType: node.parameterType ? transformed.parameterType : EXCEPTION_CLASS,
-    }),
-  })(rawNode))
+      Catch: (transformed, node) => ({
+        ...transformed,
+        parameterType: node.parameterType ? transformed.parameterType : EXCEPTION_CLASS,
+      }),
+
+    }
+  )(rawNode)
+)
