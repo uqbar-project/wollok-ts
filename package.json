@@ -24,7 +24,7 @@
     "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.1",
+    "@types/chai": "^4.2.2",
     "@types/mocha": "^5.2.7",
     "@types/uuid": "^3.4.5",
     "chai": "^4.2.0",
@@ -34,7 +34,7 @@
     "rewiremock": "^3.13.7",
     "simple-git": "^1.126.0",
     "ts-node": "^7.0.1",
-    "tslint": "^5.19.0",
-    "typescript": "^3.6.2"
+    "tslint": "^5.20.0",
+    "typescript": "^3.6.3"
   }
 }
