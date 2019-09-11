@@ -35,6 +35,6 @@
     "simple-git": "^1.126.0",
     "ts-node": "^7.0.1",
     "tslint": "^5.20.0",
-    "typescript": "^3.6.3"
+    "typescript": "^3.6.2"
   }
 }
