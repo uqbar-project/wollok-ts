@@ -1,10 +1,15 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { Methods, Raw as RawBehavior } from './behavior'
+import { Raw as RawBehavior } from './behavior'
 import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
 import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
+
+
+type Methods<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T]
+type Optionals<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof T]
+
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -38,8 +43,11 @@ const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!hea
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  P extends Omit<N, 'kind' | Methods<N>> = Omit<N, 'kind' | Methods<N>>,
-  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
+  // TODO: Don't list fields like 'id', instead exclude all | undefined entries
+  P extends { [F in keyof N]: Parser<N[F]> } = { [F in keyof N]: Parser<N[F]> },
+  M extends Omit<P, 'kind' | Optionals<N> | Methods<N>> = Omit<P, 'kind' | Optionals<N> | Methods<N>>,
+  O extends Partial<Pick<P, Optionals<N>>> = Partial<Pick<P, Optionals<N>>>,
+  C extends M & O = M & O,
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
     const subparsers = keys(fieldParserSeq).map(fieldName => [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
     return (subparsers.length ? seqObj<P>(...subparsers) : of({}))
@@ -73,7 +81,6 @@ export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 export const reference: Parser<Reference<Raw>> = lazy(() =>
   node('Reference')({
     name,
-    targetId: of(undefined),
   }).thru(sourced)
 )
 
@@ -129,7 +136,6 @@ export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
     entity: node('Reference')({
       name: name.sepBy1(key('.')).tieWith('.'),
-      targetId: of(undefined),
     }).thru(sourced),
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))

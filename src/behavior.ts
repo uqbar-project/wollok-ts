@@ -7,8 +7,6 @@ const { values, assign } = Object
 
 // TODO: Test all behaviors
 
-export type Methods<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T]
-
 export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
   const node = { ...obj } as N
 
