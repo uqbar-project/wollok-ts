@@ -1,6 +1,6 @@
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -43,19 +43,25 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
       return applyTransform(this)
     },
 
-    // transformByKind<R extends Stage>(
-    //   this: Node<RawStage>,
-    //   tx: { [K in Kind]?: (afterChildPropagation: Node<R>, beforeChildPropagation: Node<RawStage>) => Node<R> },
-    // ): Node<R> {
-    //   const applyTransform = (value: any): any =>
-    //     typeof value === 'function' ? value :
-    //       isNode<RawStage>(value) ? (tx[value.kind] || ((n: any) => n) as any)(mapObject(applyTransform, value as any), value) :
-    //         isArray(value) ? value.map(applyTransform) :
-    //           value instanceof Object ? mapObject(applyTransform, value) :
-    //             value
+    // TODO: Extract applyTransform into single propagate function
+    // TODO: Or join transform and transformByKind in the same method
+    transformByKind<R extends Stage>(
+      this: Node<RawStage>,
+      tx: { [K in Kind]?: (afterChildPropagation: Node<R>, beforeChildPropagation: Node<RawStage>) => Node<R> },
+    ): Node<R> {
+      const applyTransform = (value: any): any =>
+        typeof value === 'function' ? value :
+          isNode<RawStage>(value) ? (tx[value.kind] || ((n: any) => n) as any)(mapObject(applyTransform, value as any), value) :
+            isArray(value) ? value.map(applyTransform) :
+              value instanceof Object ? mapObject(applyTransform, value) :
+                value
 
-    //   return applyTransform(this)
-    // },
+      return applyTransform(this)
+    },
+
+    reduce<T>(this: Node<RawStage>, tx: (acum: T, node: Node<RawStage>) => T, initial: T): T {
+      return this.children().reduce((acum, child) => child.reduce(tx, acum), tx(initial, node))
+    },
 
   })
 

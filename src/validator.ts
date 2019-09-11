@@ -8,7 +8,6 @@ import {
   Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
 import { is, Kind } from './model'
-import { reduce } from './tools'
 
 const { keys } = Object
 
@@ -189,11 +188,11 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Fixture: {},
   }
 
-  return reduce<Problem[], Linked>((found, node) => {
+  return target.reduce<Problem[]>((found, node) => {
     const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<Linked>, c: Code) => Problem | null }
     return [
       ...found,
       ...keys(checks).map(code => checks[code](node, code)!).filter(result => result !== null),
     ]
-  })([], target)
+  }, [])
 }

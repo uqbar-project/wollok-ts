@@ -6,7 +6,6 @@ import link from './linker'
 import validate from './linker'
 import { Environment } from './model'
 import * as parse from './parser'
-import * as tools from './tools'
 import wre from './wre/wre.json'
 
 
@@ -23,5 +22,4 @@ export {
   link,
   validate,
   interpret,
-  tools
 }

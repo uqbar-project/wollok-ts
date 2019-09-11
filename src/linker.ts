@@ -3,7 +3,6 @@ import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
-import { transformByKind } from './tools'
 
 export interface Scope { [name: string]: string }
 
@@ -181,14 +180,14 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const targetedEnvironment = LinkedBehavior(transformByKind<Linked>({
+  const targetedEnvironment = LinkedBehavior(identifiedEnvironment.transformByKind({
     Reference: node => {
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
       return { ...node, targetId: target }
     },
-  })(identifiedEnvironment))
+  }) as any)
 
   flushAll(NODE_CACHE)
 

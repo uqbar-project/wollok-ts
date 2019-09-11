@@ -1,7 +1,6 @@
 import { Filled as FilledBehavior } from './behavior'
 import { Body as buildBody, Constructor as buildConstructor, getter, Literal as buildLiteral, Reference as buildReference, setter } from './builders'
 import { Body, Constructor, Field, Filled, KindOf, Literal, Method, Module, Node, NodeOfKind, Raw, Reference } from './model'
-import { transformByKind } from './tools'
 
 const OBJECT_CLASS: Reference<Filled> = buildReference('wollok.lang.Object') as Reference<Filled>
 
@@ -37,7 +36,7 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
 }
 
 export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<KindOf<N>, Filled>>(
-  transformByKind<Raw, Filled>(
+  rawNode.transformByKind<Raw, Filled, Node<Filled>>(
     {
       Class: (transformed, node) => ({
         ...transformed,
@@ -94,5 +93,5 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
       }),
 
     }
-  )(rawNode)
+  ) as any
 )
