@@ -45,13 +45,10 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
 
     // TODO: Extract applyTransform into single propagate function
     // TODO: Or join transform and transformByKind in the same method
-    transformByKind<R extends Stage>(
-      this: Node<RawStage>,
-      tx: { [K in Kind]?: (afterChildPropagation: Node<R>, beforeChildPropagation: Node<RawStage>) => Node<R> },
-    ): Node<R> {
+    transformByKind<R extends Stage>(this: Node<RawStage>, tx: { [K in Kind]?: (node: Node<R>) => Node<R> }): Node<R> {
       const applyTransform = (value: any): any =>
         typeof value === 'function' ? value :
-          isNode<RawStage>(value) ? (tx[value.kind] || ((n: any) => n) as any)(mapObject(applyTransform, value as any), value) :
+          isNode<RawStage>(value) ? (tx[value.kind] as any || ((n: any) => n))(mapObject(applyTransform, value as any)) :
             isArray(value) ? value.map(applyTransform) :
               value instanceof Object ? mapObject(applyTransform, value) :
                 value

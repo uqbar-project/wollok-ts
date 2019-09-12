@@ -46,10 +46,8 @@ export interface BaseNode<S extends Stage> {
   children: <N extends Node<S> = Node<S>>() => List<N>
   descendants: <N extends Node<S>>(filter?: (obj: any) => obj is N) => List<N>
   transform: <R extends S = S>(tx: (node: Node<S>) => Node<R>) => OnStage<this & Node<Stage>, R>
-  transformByKind: <R extends S = S, C extends S = S, E extends Node<R> = Node<R>>(
-    tx: Partial<{ [N in Kind]:
-      (afterChildPropagation: NodeOfKind<N, R>, beforeChildPropagation: NodeOfKind<N, C>) => NodeOfKind<N, R>
-    }>,
+  transformByKind: <R extends S = S, E extends Node<R> = Node<R>>(
+    tx: Partial<{ [N in Kind]: (node: NodeOfKind<N, R>) => NodeOfKind<N, R> }>,
   ) => E
   reduce: <T, R extends S = S>(tx: (acum: T, node: Node<R>) => T, initial: T) => T
   environment: Linkable<S, () => Environment>
