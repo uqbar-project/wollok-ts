@@ -1,4 +1,4 @@
-import { evaluationBuilders } from './builders'
+import * as build from './builders'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
@@ -18,6 +18,9 @@ export interface Frame {
   locals: Locals
   operandStack: Id[]
   resume: Interruption[]
+
+  popOperand(): Id
+  pushOperand(id: Id): void
 }
 
 export type Interruption = 'return' | 'exception' | 'result'
@@ -27,6 +30,7 @@ export interface Evaluation {
   frameStack: Frame[]
   instances: { [id: string]: RuntimeObject }
 
+  currentFrame(): Frame
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: any): Id
 }
@@ -268,24 +272,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const Operations = (evaluation: Evaluation) => {
-  const { instances, frameStack } = evaluation
-  const { operandStack } = last(frameStack)!
-
-  const popOperand = (): Id => {
-    const response = operandStack.pop()
-    if (!response) throw new RangeError('Popped empty operand stack')
-    return response
-  }
-
-  const pushOperand = (id: Id) => {
-    operandStack.push(id)
-  }
-
-  const getInstance = (id: Id): RuntimeObject => {
-    const response = instances[id]
-    if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
-    return response
-  }
+  const { frameStack } = evaluation
 
   const interrupt = (interruption: Interruption, valueId: Id) => {
     let nextFrame
@@ -295,9 +282,9 @@ export const Operations = (evaluation: Evaluation) => {
     } while (nextFrame && !nextFrame.resume.includes(interruption))
 
     if (!nextFrame) {
-      const value = getInstance(valueId)
+      const value = evaluation.instance(valueId)
       const message = interruption === 'exception'
-        ? `${value.module}: ${value.fields.message && getInstance(value.fields.message).innerValue || value.innerValue}`
+        ? `${value.module}: ${value.fields.message && evaluation.instance(value.fields.message).innerValue || value.innerValue}`
         : ''
 
       throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
@@ -308,9 +295,6 @@ export const Operations = (evaluation: Evaluation) => {
   }
 
   return {
-    popOperand,
-    pushOperand,
-    getInstance,
     interrupt,
   }
 }
@@ -323,13 +307,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
   const { environment, frameStack } = evaluation
 
   const {
-    popOperand,
-    pushOperand,
-    getInstance,
     interrupt,
   } = Operations(evaluation)
 
-  const currentFrame = last(frameStack)!
+  const currentFrame = evaluation.currentFrame()
   if (!currentFrame) throw new Error('Reached end of frame stack')
 
   const instruction = currentFrame.instructions[currentFrame.nextInstruction]
@@ -344,67 +325,67 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'LOAD': return (() => {
         const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
         if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
-        pushOperand(value)
+        currentFrame.pushOperand(value)
       })()
 
 
       case 'STORE': return (() => {
-        const valueId = popOperand()
+        const valueId = evaluation.currentFrame().popOperand()
         const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
         frame.locals[instruction.name] = valueId
       })()
 
 
       case 'PUSH': return (() => {
-        pushOperand(instruction.id)
+        currentFrame.pushOperand(instruction.id)
       })()
 
 
       case 'GET': return (() => {
-        const selfId = popOperand()
-        const self = getInstance(selfId)
+        const selfId = evaluation.currentFrame().popOperand()
+        const self = evaluation.instance(selfId)
         const value = self.fields[instruction.name]
         if (!value) throw new Error(`Access to undefined field "${self.module}>>${instruction.name}"`)
-        pushOperand(value)
+        currentFrame.pushOperand(value)
       })()
 
 
       case 'SET': return (() => {
-        const valueId = popOperand()
-        const selfId = popOperand()
-        const self = getInstance(selfId)
+        const valueId = evaluation.currentFrame().popOperand()
+        const selfId = evaluation.currentFrame().popOperand()
+        const self = evaluation.instance(selfId)
         self.fields[instruction.name] = valueId
       })()
 
       case 'SWAP': return (() => {
-        const a = popOperand()
-        const b = popOperand()
-        pushOperand(a)
-        pushOperand(b)
+        const a = evaluation.currentFrame().popOperand()
+        const b = evaluation.currentFrame().popOperand()
+        currentFrame.pushOperand(a)
+        currentFrame.pushOperand(b)
       })()
 
       case 'DUP': return (() => {
-        const a = popOperand()
-        pushOperand(a)
-        pushOperand(a)
+        const a = evaluation.currentFrame().popOperand()
+        currentFrame.pushOperand(a)
+        currentFrame.pushOperand(a)
       })()
 
       case 'INSTANTIATE': return (() => {
         const id = evaluation.createInstance(instruction.module, instruction.innerValue)
-        pushOperand(id)
+        currentFrame.pushOperand(id)
       })()
 
       case 'INHERITS': return (() => {
-        const selfId = popOperand()
-        const self = getInstance(selfId)
-        pushOperand(
+        const selfId = evaluation.currentFrame().popOperand()
+        const self = evaluation.instance(selfId)
+        currentFrame.pushOperand(
           environment.getNodeByFQN<Module<Linked>>(self.module).inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
         )
       })()
 
       // TODO: can't we just use IF_ELSE instead?
       case 'CONDITIONAL_JUMP': return (() => {
-        const check = popOperand()
+        const check = evaluation.currentFrame().popOperand()
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
@@ -415,9 +396,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'CALL': return (() => {
-        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
-        const selfId = popOperand()
-        const self = getInstance(selfId)
+        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
+        const selfId = evaluation.currentFrame().popOperand()
+        const self = evaluation.instance(selfId)
         let lookupStart: Name
         if (instruction.lookupStart) {
           const ownHierarchy = environment.getNodeByFQN<Module<Linked>>(self.module).hierarchy().map(module => module.fullyQualifiedName())
@@ -437,13 +418,10 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
           currentFrame.resume.push('return')
-          frameStack.push({
+          frameStack.push(build.Frame({
             instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
-            nextInstruction: 0,
             locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
-            operandStack: [],
-            resume: [],
-          })
+          }))
         } else {
 
           if (method.isNative) {
@@ -479,26 +457,24 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             }
 
             currentFrame.resume.push('return')
-            frameStack.push({
+
+            frameStack.push(build.Frame({
+              locals,
               instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
-              nextInstruction: 0,
-              locals,
-              operandStack: [],
-              resume: [],
-            })
+            }))
           }
         }
       })()
 
 
       case 'INIT': return (() => {
-        const selfId = popOperand()
-        const argIds = Array.from({ length: instruction.arity }, popOperand).reverse()
-        const self = getInstance(selfId)
+        const selfId = evaluation.currentFrame().popOperand()
+        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
+        const self = evaluation.instance(selfId)
 
         const lookupStart: Class<Linked> = environment.getNodeByFQN(instruction.lookupStart)
 
@@ -526,7 +502,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }
 
         currentFrame.resume.push('return')
-        frameStack.push({
+        frameStack.push(build.Frame({
+          locals,
           instructions: new Array<Instruction>(
             ...instruction.initFields ? [
               ...flatMap(({ value: v, name }: Field<Linked>) => [
@@ -548,80 +525,62 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             LOAD('self'),
             INTERRUPT('return')
           ),
-          nextInstruction: 0,
-          locals,
-          operandStack: [],
-          resume: [],
-        })
+        }))
       })()
 
 
       case 'IF_THEN_ELSE': return (() => {
-        const check = popOperand()
+        const check = evaluation.currentFrame().popOperand()
         if (!check) throw new Error('Popped empty operand stack')
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
 
         currentFrame.resume.push('result')
-        frameStack.push({
+        frameStack.push(build.Frame({
           instructions: [
             PUSH(VOID_ID),
             ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
             INTERRUPT('result'),
           ],
-          nextInstruction: 0,
-          locals: {},
-          operandStack: [],
-          resume: [],
-        })
+        }))
       })()
 
 
       case 'TRY_CATCH_ALWAYS': return (() => {
         currentFrame.resume.push('result')
 
-        frameStack.push({
+        frameStack.push(build.Frame({
           instructions: [
             STORE('<previous_interruption>', false),
             ...instruction.alwaysHandler,
             LOAD('<previous_interruption>'),
             RESUME_INTERRUPTION,
           ] as Instruction[],
-          nextInstruction: 0,
-          locals: {},
-          operandStack: [],
           resume: ['result', 'return', 'exception'] as Interruption[],
-        })
+        }))
 
-        frameStack.push({
+        frameStack.push(build.Frame({
           instructions: [
             STORE('<exception>', false),
             ...instruction.catchHandler,
             LOAD('<exception>'),
             INTERRUPT('exception'),
           ],
-          nextInstruction: 0,
-          locals: {},
-          operandStack: [],
           resume: ['exception'] as Interruption[],
-        })
+        }))
 
-        frameStack.push({
+        frameStack.push(build.Frame({
           instructions: [
             PUSH(VOID_ID),
             ...instruction.body,
             INTERRUPT('result'),
           ],
-          nextInstruction: 0,
-          locals: {},
-          operandStack: [],
-          resume: [],
-        })
+        }))
       })()
 
 
       case 'INTERRUPT': return (() => {
-        const valueId = popOperand()
+        const valueId = evaluation.currentFrame().popOperand()
         interrupt(instruction.interruption, valueId)
       })()
 
@@ -631,7 +590,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         if (currentFrame.resume.length !== allInterruptions.length - 1) throw new Error('Interruption to resume cannot be inferred')
         const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
 
-        const valueId = popOperand()
+        const valueId = evaluation.currentFrame().popOperand()
         interrupt(lastInterruption, valueId)
       })()
     }
@@ -690,8 +649,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
   }
 
-  const build = evaluationBuilders(environment)
-  return build.Evaluation(instances)(
+  return build.Evaluation(environment, instances)(
     build.Frame({
       locals,
       instructions: [
@@ -724,13 +682,9 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<
 
   const instructions = compile(evaluation.environment)(...sentences)
 
-  evaluation.frameStack.push({
+  evaluation.frameStack.push(build.Frame({
     instructions,
-    nextInstruction: 0,
-    locals: {},
-    operandStack: [],
-    resume: [],
-  })
+  }))
 
   stepAll(natives)(evaluation)
 
@@ -751,16 +705,13 @@ export default (environment: Environment, natives: {}) => ({
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.length
     last(evaluation.frameStack)!.resume.push('return')
-    evaluation.frameStack.push({
+    evaluation.frameStack.push(build.Frame({
       instructions: [
         CALL(message, args.length),
         INTERRUPT('return'),
       ],
-      nextInstruction: 0,
-      locals: {},
       operandStack: [receiver, ...args],
-      resume: [],
-    })
+    }))
     do {
       takeStep(evaluation)
     } while (evaluation.frameStack.length > initialFrameCount)

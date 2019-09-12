@@ -1,6 +1,6 @@
-import { Evaluation as EvaluationBehavior, Linked as LinkedBehavior, Raw as RawBehavior } from './behavior'
+import { Evaluation as EvaluationBehavior, Frame as FrameBehavior, Linked as LinkedBehavior, Raw as RawBehavior } from './behavior'
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentType, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
 type NodePayload<N extends Node<any>> = Partial<Omit<N, 'kind'>>
 
@@ -218,8 +218,8 @@ export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Referen
 
 export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.Set'), elems)
 
-export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => {
-  const environment: EnvironmentNode = {
+export const Environment = (...members: PackageNode<Linked>[]): EnvironmentType => {
+  const environment: EnvironmentType = {
     kind: 'Environment',
     members,
     id: '',
@@ -241,34 +241,25 @@ export const setter = (name: Name): MethodNode<Raw> => Method(name, { parameters
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const evaluationBuilders = (environment: EnvironmentNode) => {
-
-  const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
-    id,
-    module,
-    fields,
-    innerValue,
+export const Evaluation = (environment: EnvironmentType, instances: { [id: string]: RuntimeObjectType } = {}) =>
+  (...frameStack: FrameType[]): EvaluationType => EvaluationBehavior({
+    environment,
+    instances,
+    frameStack: [...frameStack].reverse(),
   })
 
-  const Frame = (payload: Partial<FrameType>): FrameType => ({
-    locals: {},
-    nextInstruction: 0,
-    instructions: [],
-    resume: [],
-    operandStack: [],
-    ...payload,
-  })
+export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
+  locals: {},
+  nextInstruction: 0,
+  instructions: [],
+  resume: [],
+  operandStack: [],
+  ...payload,
+})
 
-  const Evaluation = (instances: { [id: string]: RuntimeObjectType } = {}) =>
-    (...frameStack: FrameType[]): EvaluationType => EvaluationBehavior({
-      environment,
-      instances,
-      frameStack: [...frameStack].reverse(),
-    })
-
-  return {
-    RuntimeObject,
-    Frame,
-    Evaluation,
-  }
-}
+export const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
+  id,
+  module,
+  fields,
+  innerValue,
+})
