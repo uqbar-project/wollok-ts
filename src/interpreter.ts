@@ -1,4 +1,4 @@
-import { v4 as uuid } from 'uuid'
+import { evaluationBuilders } from './builders'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
 import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, Linked, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
@@ -26,6 +26,9 @@ export interface Evaluation {
   readonly environment: Environment
   frameStack: Frame[]
   instances: { [id: string]: RuntimeObject }
+
+  instance(id: Id): RuntimeObject
+  createInstance(module: Name, baseInnerValue?: any): Id
 }
 
 export type NativeFunction = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
@@ -264,15 +267,6 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
 // OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const nativeLookup = (natives: {}, method: Method<Linked>): NativeFunction => {
-  const fqn = `${method.parent<Module<Linked>>().fullyQualifiedName()}.${method.name}`
-  return fqn.split('.').reduce((current, name) => {
-    const next = current[name]
-    if (!next) throw new Error(`Native not found: ${fqn}`)
-    return next
-  }, natives as any)
-}
-
 export const Operations = (evaluation: Evaluation) => {
   const { instances, frameStack } = evaluation
   const { operandStack } = last(frameStack)!
@@ -291,29 +285,6 @@ export const Operations = (evaluation: Evaluation) => {
     const response = instances[id]
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
-  }
-
-  const addInstance = (module: Name, baseInnerValue?: any): Id => {
-    let id: Id
-    let innerValue = baseInnerValue
-
-    switch (module) {
-      case 'wollok.lang.Number':
-        const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-        id = 'N!' + stringValue
-        innerValue = Number(stringValue)
-        break
-
-      case 'wollok.lang.String':
-        id = 'S!' + innerValue
-        break
-
-      default:
-        id = uuid()
-    }
-
-    instances[id] = { id, module, fields: {}, innerValue }
-    return id
   }
 
   const interrupt = (interruption: Interruption, valueId: Id) => {
@@ -340,7 +311,6 @@ export const Operations = (evaluation: Evaluation) => {
     popOperand,
     pushOperand,
     getInstance,
-    addInstance,
     interrupt,
   }
 }
@@ -356,7 +326,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     popOperand,
     pushOperand,
     getInstance,
-    addInstance,
     interrupt,
   } = Operations(evaluation)
 
@@ -421,7 +390,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
       case 'INSTANTIATE': return (() => {
-        const id = addInstance(instruction.module, instruction.innerValue)
+        const id = evaluation.createInstance(instruction.module, instruction.innerValue)
         pushOperand(id)
       })()
 
@@ -464,8 +433,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
           const messageNotUnderstood = environment.getNodeByFQN<Module<Linked>>(self.module).lookupMethod('messageNotUnderstood', 2)!
-          const nameId = addInstance('wollok.lang.String', instruction.message)
-          const argsId = addInstance('wollok.lang.List', argIds)
+          const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
+          const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
           currentFrame.resume.push('return')
           frameStack.push({
@@ -479,7 +448,12 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
           if (method.isNative) {
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
-            const native = nativeLookup(natives, method)
+            const fqn = `${method.parent<Module<Linked>>().fullyQualifiedName()}.${method.name}`
+            const native: NativeFunction = fqn.split('.').reduce((current, name) => {
+              const next = current[name]
+              if (!next) throw new Error(`Native not found: ${fqn}`)
+              return next
+            }, natives as any)
             const args = argIds.map(id => {
               if (id === VOID_ID) throw new Error('reference to void argument')
               return evaluation.instances[id]
@@ -491,7 +465,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             let locals: Locals
 
             if (method.parameters.some(({ isVarArg }) => isVarArg)) {
-              const restId = addInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
+              const restId = evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
               locals = {
                 ...zipObj(parameterNames.slice(0, -1), argIds),
                 [last(method.parameters)!.name]: restId,
@@ -541,7 +515,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         let locals: Locals
         if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
-          const restObject = addInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
+          const restObject = evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
           locals = {
             ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
             [last(constructor.parameters)!.name]: restObject,
@@ -664,7 +638,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
   } catch (error) {
     log.error(error)
-    interrupt('exception', addInstance('wollok.lang.EvaluationError', error))
+    interrupt('exception', evaluation.createInstance('wollok.lang.EvaluationError', error))
   }
 
 }
@@ -716,10 +690,10 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
   }
 
-  return {
-    environment,
-    instances,
-    frameStack: [{
+  const build = evaluationBuilders(environment)
+  return build.Evaluation(instances)(
+    build.Frame({
+      locals,
       instructions: [
         ...flatMap(({ id, superCall: { superclass, args } }: Singleton<Linked>) => {
           if ((args as any[]).some(is('NamedArgument'))) {
@@ -742,12 +716,8 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           }
         })(globalSingletons),
       ],
-      nextInstruction: 0,
-      locals,
-      operandStack: [],
-      resume: [],
-    }],
-  }
+    })
+  )
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<Linked>>) {

@@ -31,24 +31,24 @@ export default {
     },
 
     'identity': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', self.id))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', self.id))
     },
 
     'kindName': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', self.module))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
     },
 
     'className': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', self.module))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
       // TODO: Improve?
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', `${self.module}[${keys(self.fields).map(key =>
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', `${self.module}[${keys(self.fields).map(key =>
         `${key} = ${self.fields[key]}`
       ).join(', ')}]`))
     },
@@ -98,8 +98,8 @@ export default {
     },
 
     size: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.length))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -127,50 +127,50 @@ export default {
     },
 
     '-_': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance(self.module, -self.innerValue))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue - other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue * other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
       if (other.innerValue === 0) throw new RangeError('other')
-      pushOperand(addInstance(self.module, self.innerValue / other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue ** other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue % other.innerValue))
+      pushOperand(evaluation.createInstance(self.module, self.innerValue % other.innerValue))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', `${self.innerValue}`))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', `${self.innerValue}`))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -198,22 +198,22 @@ export default {
     },
 
     'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (self.innerValue > 0) pushOperand(self.id)
-      else pushOperand(addInstance(self.module, -self.innerValue))
+      else pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
 
       if (decimals.module !== self.module) throw new TypeError('decimals')
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      pushOperand(addInstance(self.module, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
+      pushOperand(evaluation.createInstance(self.module, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
 
       if (decimals.module !== self.module) throw new TypeError('decimals')
       if (decimals.innerValue < 0) throw new RangeError('decimals')
@@ -222,15 +222,15 @@ export default {
       const decimalPosition = num.indexOf('.')
 
       pushOperand(decimalPosition >= 0
-        ? addInstance(self.module, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
+        ? evaluation.createInstance(self.module, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
         : self.id
       )
     },
 
     'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { addInstance, pushOperand } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (other.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue))
+      pushOperand(evaluation.createInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue))
     },
 
   },
@@ -238,13 +238,13 @@ export default {
 
   String: {
     'length': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.length))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance(self.module, self.innerValue + other.innerValue))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -260,38 +260,38 @@ export default {
     },
 
     'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       const value = self.innerValue.indexOf(other.innerValue)
 
       if (other.module !== self.module) throw new TypeError('other')
       if (value < 0) throw new RangeError('other')
 
-      pushOperand(addInstance('wollok.lang.Number', value))
+      pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       const value = self.innerValue.lastIndexOf(other.innerValue)
 
       if (other.module !== self.module) throw new TypeError('other')
       if (value < 0) throw new RangeError('other')
 
-      pushOperand(addInstance('wollok.lang.Number', value))
+      pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance(self.module, self.innerValue.toLowerCase()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance(self.module, self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance(self.module, self.innerValue.toUpperCase()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance(self.module, self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance(self.module, self.innerValue.trim()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance(self.module, self.innerValue.trim()))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -312,17 +312,19 @@ export default {
 
     'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) =>
       (evaluation: Evaluation) => {
-        const { pushOperand, addInstance } = Operations(evaluation)
+        const { pushOperand } = Operations(evaluation)
         if (startIndex.module !== 'wollok.lang.Number') throw new TypeError('startIndex')
         if (endIndex && endIndex.module !== 'wollok.lang.Number') throw new TypeError('endIndex')
-        pushOperand(addInstance(self.module, self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue)))
+        pushOperand(evaluation.createInstance(self.module, self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue)))
       },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (expression.module !== self.module) throw new TypeError('other')
       if (replacement.module !== self.module) throw new TypeError('other')
-      pushOperand(addInstance(self.module, self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)))
+      pushOperand(
+        evaluation.createInstance(self.module, self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue))
+      )
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -377,8 +379,8 @@ export default {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.String', self.innerValue.toString()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -394,7 +396,7 @@ export default {
 
   Range: {
     forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      const { getInstance, addInstance } = Operations(evaluation)
+      const { getInstance } = Operations(evaluation)
       const start = getInstance(self.fields.start)
       const end = getInstance(self.fields.end)
       const step = getInstance(self.fields.step)
@@ -406,7 +408,7 @@ export default {
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
         for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
-      const valueIds = values.map(v => addInstance('wollok.lang.Number', v)).reverse()
+      const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
       last(evaluation.frameStack)!.resume.push('return')
       evaluation.frameStack.push({
@@ -427,7 +429,7 @@ export default {
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { getInstance, addInstance, pushOperand } = Operations(evaluation)
+      const { getInstance, pushOperand } = Operations(evaluation)
       const start = getInstance(self.fields.start)
       const end = getInstance(self.fields.end)
       const step = getInstance(self.fields.step)
@@ -439,7 +441,7 @@ export default {
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
         for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
-      pushOperand(addInstance('wollok.lang.Number', values[floor(random() * values.length)]))
+      pushOperand(evaluation.createInstance('wollok.lang.Number', values[floor(random() * values.length)]))
     },
   },
 
@@ -460,7 +462,6 @@ export default {
     },
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      const { addInstance } = Operations(evaluation)
 
       const apply = evaluation
         .environment
@@ -480,8 +481,8 @@ export default {
         const messageNotUnderstood = evaluation.environment
           .getNodeByFQN<Module<Linked>>(self.module)
           .lookupMethod('messageNotUnderstood', 2)!
-        const nameId = addInstance('wollok.lang.String', 'apply')
-        const argsId = addInstance('wollok.lang.List', argIds)
+        const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
+        const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
         last(evaluation.frameStack)!.resume.push('return')
         evaluation.frameStack.push({
@@ -497,7 +498,7 @@ export default {
 
       let locals: Locals
       if (hasVarArg) {
-        const restId = addInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1))
+        const restId = evaluation.createInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1))
         locals = {
           ...zipObj(parameterNames.slice(0, -1), argIds),
           [last(apply.parameters)!.name]: restId,
@@ -525,10 +526,10 @@ export default {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       pushOperand(self.fields['<toString>']
         ? self.fields['<toString>']
-        : addInstance('wollok.lang.String', `Closure#${self.id}`)
+        : evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`)
       )
     },
   },
@@ -545,29 +546,29 @@ export default {
       },
 
     'day': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.getDate()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getDate()))
     },
 
     'dayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.getDay()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getDay()))
     },
 
     'month': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.getMonth() + 1))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getMonth() + 1))
     },
 
     'year': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
-      pushOperand(addInstance('wollok.lang.Number', self.innerValue.getFullYear()))
+      const { pushOperand } = Operations(evaluation)
+      pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getFullYear()))
     },
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
-      pushOperand(addInstance(self.module, new Date(
+      pushOperand(evaluation.createInstance(self.module, new Date(
         self.innerValue.getFullYear(),
         self.innerValue.getMonth(),
         self.innerValue.getDate() + days.innerValue)
@@ -575,7 +576,7 @@ export default {
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
       if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
 
       const date = new Date(
@@ -587,11 +588,11 @@ export default {
       while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
         date.setDate(date.getDate() - 1)
 
-      pushOperand(addInstance(self.module, date))
+      pushOperand(evaluation.createInstance(self.module, date))
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
 
       if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
 
@@ -605,18 +606,18 @@ export default {
         date.setDate(date.getDate() - 1)
       }
 
-      pushOperand(addInstance(self.module, date))
+      pushOperand(evaluation.createInstance(self.module, date))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance } = Operations(evaluation)
+      const { pushOperand } = Operations(evaluation)
 
       if (other.module !== self.module) throw new TypeError('other')
 
       const msPerDay = 1000 * 60 * 60 * 24
       const ownUTC = UTC(self.innerValue.getFullYear(), self.innerValue.getMonth(), self.innerValue.getDate())
       const otherUTC = UTC(other.innerValue.getFullYear(), other.innerValue.getMonth(), other.innerValue.getDate())
-      pushOperand(addInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
+      pushOperand(evaluation.createInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {

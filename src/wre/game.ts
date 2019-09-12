@@ -10,9 +10,9 @@ import { Id } from '../model'
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance, getInstance } = Operations(evaluation)
+      const { pushOperand, getInstance } = Operations(evaluation)
       if (!self.fields.visuals) {
-        self.fields.visuals = addInstance('wollok.lang.List', [])
+        self.fields.visuals = evaluation.createInstance('wollok.lang.List', [])
       }
       getInstance(self.fields.visuals).innerValue.push(positionable.id)
       pushOperand(VOID_ID)

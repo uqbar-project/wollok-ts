@@ -1,5 +1,7 @@
+import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, mapObject } from './extensions'
+import { DECIMAL_PRECISION, Evaluation as EvaluationData, RuntimeObject } from './interpreter'
 import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -233,4 +235,47 @@ export const Linked = (environmentData: Partial<Environment>) => {
 
     }).members,
   })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// EVALUATION
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const Evaluation = (obj: Partial<EvaluationData>) => {
+  const evaluation = obj as EvaluationData
+
+  assign(evaluation, {
+
+    instance(this: EvaluationData, id: Id): RuntimeObject {
+      const response = this.instances[id]
+      if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
+      return response
+    },
+
+    createInstance(this: EvaluationData, module: Name, baseInnerValue?: any): Id {
+      let id: Id
+      let innerValue = baseInnerValue
+
+      switch (module) {
+        case 'wollok.lang.Number':
+          const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+          id = 'N!' + stringValue
+          innerValue = Number(stringValue)
+          break
+
+        case 'wollok.lang.String':
+          id = 'S!' + innerValue
+          break
+
+        default:
+          id = uuid()
+      }
+
+      this.instances[id] = { id, module, fields: {}, innerValue }
+      return id
+    },
+
+  })
+
+  return evaluation
 }
