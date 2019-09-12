@@ -7,6 +7,10 @@ const { values, assign } = Object
 
 // TODO: Test all behaviors
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// RAW
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
   const node = { ...obj } as N
 
@@ -71,11 +75,19 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
   return node
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// FILLED
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 export const Filled = <N extends Node<FilledStage>>(obj: Partial<N>): N => {
   const node = Raw(obj) as N
 
   return node
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LINKED
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const Linked = (environmentData: Partial<Environment>) => {
   const environment: Environment = assign(Filled(environmentData as any), {
