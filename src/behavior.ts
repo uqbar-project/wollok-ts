@@ -1,11 +1,11 @@
 import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, last, mapObject } from './extensions'
-import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject } from './interpreter'
+import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
 import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
-const { values, assign } = Object
+const { values, assign, keys } = Object
 
 // TODO: Test all behaviors
 
@@ -277,6 +277,42 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       this.instances[id] = { id, module, fields: {}, innerValue }
       return id
+    },
+
+    interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
+      let nextFrame
+      do {
+        this.frameStack.pop()
+        nextFrame = last(this.frameStack)
+      } while (nextFrame && !nextFrame.resume.includes(interruption))
+
+      if (!nextFrame) {
+        const value = this.instance(valueId)
+        const message = interruption === 'exception'
+          ? `${value.module}: ${value.fields.message && this.instance(value.fields.message).innerValue || value.innerValue}`
+          : ''
+
+        throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
+      }
+
+      nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
+      nextFrame.pushOperand(valueId)
+    },
+
+    copy(this: EvaluationType): EvaluationType {
+      return {
+        ...this,
+        instances: keys(this.instances).reduce((instanceClones, name) => ({
+          ...instanceClones,
+          [name]: { ...this.instance(name), fields: { ...this.instance(name).fields } },
+        }), {}),
+        frameStack: this.frameStack.map(frame => ({
+          ...frame,
+          locals: { ...frame.locals },
+          operandStack: [...frame.operandStack],
+          resume: [...frame.resume],
+        })),
+      }
     },
 
   })

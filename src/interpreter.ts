@@ -33,6 +33,8 @@ export interface Evaluation {
   currentFrame(): Frame
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: any): Id
+  interrupt(interruption: Interruption, valueId: Id): void
+  copy(): Evaluation
 }
 
 export type NativeFunction = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
@@ -268,47 +270,11 @@ export const compile = (environment: Environment) => (...sentences: Sentence<Lin
   })(sentences)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// OPERATIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const Operations = (evaluation: Evaluation) => {
-  const { frameStack } = evaluation
-
-  const interrupt = (interruption: Interruption, valueId: Id) => {
-    let nextFrame
-    do {
-      frameStack.pop()
-      nextFrame = last(frameStack)
-    } while (nextFrame && !nextFrame.resume.includes(interruption))
-
-    if (!nextFrame) {
-      const value = evaluation.instance(valueId)
-      const message = interruption === 'exception'
-        ? `${value.module}: ${value.fields.message && evaluation.instance(value.fields.message).innerValue || value.innerValue}`
-        : ''
-
-      throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
-    }
-
-    nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
-    nextFrame.operandStack.push(valueId)
-  }
-
-  return {
-    interrupt,
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // STEPS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const step = (natives: {}) => (evaluation: Evaluation) => {
   const { environment, frameStack } = evaluation
-
-  const {
-    interrupt,
-  } = Operations(evaluation)
 
   const currentFrame = evaluation.currentFrame()
   if (!currentFrame) throw new Error('Reached end of frame stack')
@@ -581,7 +547,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'INTERRUPT': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
-        interrupt(instruction.interruption, valueId)
+        evaluation.interrupt(instruction.interruption, valueId)
       })()
 
 
@@ -591,13 +557,13 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
 
         const valueId = evaluation.currentFrame().popOperand()
-        interrupt(lastInterruption, valueId)
+        evaluation.interrupt(lastInterruption, valueId)
       })()
     }
 
   } catch (error) {
     log.error(error)
-    interrupt('exception', evaluation.createInstance('wollok.lang.EvaluationError', error))
+    evaluation.interrupt('exception', evaluation.createInstance('wollok.lang.EvaluationError', error))
   }
 
 }
@@ -614,22 +580,6 @@ export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const copyEvaluation = (evaluation: Evaluation): Evaluation => ({
-  ...evaluation,
-  instances: Object.keys(evaluation.instances).reduce((instanceClones, name) => ({
-    ...instanceClones, [name]: {
-      ...evaluation.instances[name],
-      fields: { ...evaluation.instances[name].fields },
-    },
-  }), {}),
-  frameStack: evaluation.frameStack.map(frame => ({
-    ...frame,
-    locals: { ...frame.locals },
-    operandStack: [...frame.operandStack],
-    resume: [...frame.resume],
-  })),
-})
 
 const buildEvaluation = (environment: Environment): Evaluation => {
 
@@ -688,14 +638,12 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence<
 
   stepAll(natives)(evaluation)
 
-  return evaluation.instances[evaluation.frameStack.pop()!.operandStack.pop()!]
+  return evaluation.instances[evaluation.frameStack.pop()!.popOperand()]
 }
 
 export default (environment: Environment, natives: {}) => ({
 
   buildEvaluation: () => buildEvaluation(environment),
-
-  copyEvaluation,
 
   step: step(natives),
 
@@ -751,7 +699,7 @@ export default (environment: Environment, natives: {}) => ({
       testsToRun.forEach((test, i) => {
         const n = i + 1
         log.resetStep()
-        const evaluation = copyEvaluation(initializedEvaluation)
+        const evaluation = initializedEvaluation.copy()
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
         try {
