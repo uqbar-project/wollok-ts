@@ -165,7 +165,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
     ...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
   )
 
-  const identifiedEnvironment: Environment = LinkedBehavior(mergedEnvironment.transform(node =>
+  const identifiedEnvironment: Environment = LinkedBehavior(mergedEnvironment.transform<Linked, Environment>(node =>
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
     node.id ? node : { ...node, id: uuid() }
   ))
@@ -180,7 +180,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   const scopes = buildScopes(identifiedEnvironment)
 
-  const targetedEnvironment = LinkedBehavior(identifiedEnvironment.transformByKind({
+  const targetedEnvironment = LinkedBehavior(identifiedEnvironment.transform({
     Reference: node => {
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient

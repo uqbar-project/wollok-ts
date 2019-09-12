@@ -32,26 +32,19 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
       return filter ? descendants.filter(filter) : descendants as any
     },
 
-    transform<R extends Stage>(this: Node<RawStage>, tx: (node: Node<RawStage>) => Node<RawStage>): Node<R> {
-      const applyTransform = (value: any): any =>
-        typeof value === 'function' ? value :
-          isNode<RawStage>(value) ? mapObject(applyTransform, tx(value) as any) :
-            isArray(value) ? value.map(applyTransform) :
-              value instanceof Object ? mapObject(applyTransform, value) :
-                value
-
-      return applyTransform(this)
-    },
-
-    // TODO: Extract applyTransform into single propagate function
-    // TODO: Or join transform and transformByKind in the same method
-    transformByKind<R extends Stage>(this: Node<RawStage>, tx: { [K in Kind]?: (node: Node<R>) => Node<R> }): Node<R> {
-      const applyTransform = (value: any): any =>
-        typeof value === 'function' ? value :
-          isNode<RawStage>(value) ? (tx[value.kind] as any || ((n: any) => n))(mapObject(applyTransform, value as any)) :
-            isArray(value) ? value.map(applyTransform) :
-              value instanceof Object ? mapObject(applyTransform, value) :
-                value
+    transform<R extends Stage>(
+      this: Node<RawStage>,
+      tx: ((node: Node<RawStage>) => Node<R>) | { [K in Kind]?: (node: Node<R>) => Node<R> }
+    ): Node<R> {
+      const applyTransform = (value: any): any => {
+        if (typeof value === 'function') return value
+        if (isArray(value)) return value.map(applyTransform)
+        if (isNode<RawStage>(value)) return typeof tx === 'function'
+          ? mapObject(applyTransform, tx(value))
+          : (tx[value.kind] as any || ((n: any) => n))(mapObject(applyTransform, value as any))
+        if (value instanceof Object) return mapObject(applyTransform, value)
+        return value
+      }
 
       return applyTransform(this)
     },
@@ -150,7 +143,7 @@ export const Linked = (environmentData: Partial<Environment>) => {
   }
 
   return assign(environment, baseBehavior, {
-    members: environment.transform(n => {
+    members: environment.transform<LinkedStage, Environment>(n => {
 
       const node: Node<LinkedStage> = assign(Filled(n as any), baseBehavior) as any
 
