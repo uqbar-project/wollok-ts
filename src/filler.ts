@@ -36,7 +36,7 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
 }
 
 export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<KindOf<N>, Filled>>(
-  rawNode.transformByKind<Raw, Filled, Node<Filled>>(
+  rawNode.transformByKind<Filled, Raw, Node<Filled>>(
     {
       Class: (transformed, node) => ({
         ...transformed,
