@@ -56,7 +56,7 @@ const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 const isNotAbstractClass = (node: Class<Linked>) =>
   node.members.some(member => is('Method')(member) && isNotEmpty(member))
 
-const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.closestAncestor(is<Node<Linked>>(kind)))
+const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.closestAncestor(kind))
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {

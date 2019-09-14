@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, is, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
@@ -18,6 +18,10 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
 
   assign(node, {
 
+    is<K extends Kind>(this: Node<RawStage>, kind: K): boolean {
+      return isNode(this) && this.kind === kind
+    },
+
     children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
       const extractChildren = (owner: any): List<T> => {
         if (isNode(owner)) return [owner as T]
@@ -31,11 +35,11 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
       return extractedChildren
     },
 
-    descendants<T extends Node<RawStage>>(this: Node<RawStage>, filter?: (node: Node<RawStage>) => node is T): List<T> {
+    descendants<T extends Node<RawStage>>(this: Node<RawStage>, kind?: Kind): List<T> {
       const directDescendants = this.children<Node<RawStage>>()
-      const indirectDescendants = flatMap<Node<RawStage>>(child => child.descendants(filter))(directDescendants)
+      const indirectDescendants = flatMap<Node<RawStage>>(child => child.descendants(kind))(directDescendants)
       const descendants = [...directDescendants, ...indirectDescendants]
-      return filter ? descendants.filter(filter) : descendants as any
+      return kind ? descendants.filter(descendant => descendant.is(kind)) : descendants as any
     },
 
     transform<R extends Stage>(
@@ -62,16 +66,16 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
   })
 
   if (isModule(node)) assign(node, {
-    methods(this: Module<RawStage>) { return this.members.filter(is('Method')) },
-    fields(this: Module<RawStage>) { return this.members.filter(is('Field')) },
+    methods(this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) },
+    fields(this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) },
   })
 
-  if (is('Class')(node)) assign(node, {
-    constructors(this: Class<RawStage>) { return this.members.filter(is('Constructor')) },
+  if (node.is('Class')) assign(node, {
+    constructors(this: Class<RawStage>) { return this.members.filter(member => member.is('Constructor')) },
   })
 
-  if (is('Describe')(node)) assign(node, {
-    tests(this: Describe<RawStage>) { return this.members.filter(is('Test')) },
+  if (node.is('Describe')) assign(node, {
+    tests(this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) },
   })
 
   return node
@@ -146,13 +150,13 @@ export const Linked = (environmentData: Partial<Environment>) => {
     },
 
 
-    closestAncestor<N extends Node<LinkedStage>>(this: Node<LinkedStage>, filter: (obj: any) => obj is N): N | undefined {
+    closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
       let parent: Node<LinkedStage>
       try {
         parent = this.parent()
       } catch (_) { return undefined }
 
-      return filter(parent) ? parent : parent.closestAncestor(filter)
+      return parent.is(kind) ? parent : parent.closestAncestor(kind) as any
     },
   }
 
@@ -205,7 +209,7 @@ export const Linked = (environmentData: Partial<Environment>) => {
 
       })
 
-      if (is('Class')(node)) assign(node, {
+      if (node.is('Class')) assign(node, {
         superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
           return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
         },
@@ -219,13 +223,13 @@ export const Linked = (environmentData: Partial<Environment>) => {
         },
       })
 
-      if (is('Singleton')(node)) assign(node, {
+      if (node.is('Singleton')) assign(node, {
         superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
           return this.superCall.superclass.target<Class<LinkedStage>>()
         },
       })
 
-      if (is('Reference')(node)) assign(node, {
+      if (node.is('Reference')) assign(node, {
         target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
           return this.environment().getNodeById(this.targetId)
         },

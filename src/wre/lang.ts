@@ -2,7 +2,7 @@ import * as build from '../builders'
 import { flatMap, last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
-import { Id, Linked, Method, Module, Singleton } from '../model'
+import { Id, Method, Module, Singleton } from '../model'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
@@ -452,9 +452,9 @@ export default {
 
       const apply = evaluation
         .environment
-        .getNodeByFQN<Singleton<Linked>>(self.module)
+        .getNodeByFQN<Singleton>(self.module)
         .members
-        .find(({ name }) => name === '<apply>') as Method<Linked>
+        .find(({ name }) => name === '<apply>') as Method
       const argIds = args.map(arg => arg ? arg.id : VOID_ID)
       const parameterNames = apply.parameters.map(({ name }) => name)
       const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
@@ -466,7 +466,7 @@ export default {
         log.warn('Method not found:', self.module, '>> <apply> /', args.length)
 
         const messageNotUnderstood = evaluation.environment
-          .getNodeByFQN<Module<Linked>>(self.module)
+          .getNodeByFQN<Module>(self.module)
           .lookupMethod('messageNotUnderstood', 2)!
         const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
