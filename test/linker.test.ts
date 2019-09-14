@@ -1,19 +1,15 @@
 import { expect, should, use } from 'chai'
+import { Linked as LinkedBehavior } from '../src/behavior'
 import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from '../src/builders'
 import link from '../src/linker'
-import { Class as ClassNode, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 
 should()
 use(linkerAssertions)
 
-// TODO: Use generated WRE
-const WRE = Package('wollok')(
-  Package('lang')(
-    Class('Object')(),
-    Class('Closure', { superclass: Reference('wollok.lang.Object') })()
-  )
-)
+const WRE: Environment = LinkedBehavior(wre as any)
 
 describe('Wollok linker', () => {
 
@@ -21,7 +17,7 @@ describe('Wollok linker', () => {
 
     it('should merge independent packages into a single environment', () => {
       [
-        WRE,
+        ...WRE.members,
         Package('A')(
           Package('B')(),
         ),
@@ -30,7 +26,7 @@ describe('Wollok linker', () => {
           Class('B', { superclass: Reference('Object') })(),
         ),
       ].should.be.linkedInto([
-        WRE,
+        ...WRE.members,
         Package('A')(
           Package('B')(),
         ),
@@ -43,7 +39,7 @@ describe('Wollok linker', () => {
 
     it('should merge same name packages into a single package', () => {
       [
-        WRE,
+        ...WRE.members,
         Package('A')(
           Class('X', { superclass: Reference('Object') })()
         ),
@@ -54,7 +50,7 @@ describe('Wollok linker', () => {
           Class('X', { superclass: Reference('Object') })()
         ),
       ].should.be.linkedInto([
-        WRE,
+        ...WRE.members,
         Package('A')(
           Class('X', { superclass: Reference('Object') })(),
           Class('Y', { superclass: Reference('Object') })(),
@@ -67,7 +63,7 @@ describe('Wollok linker', () => {
 
     it('should recursively merge same name packages into a single package', () => {
       [
-        WRE,
+        ...WRE.members,
         Package('A')(
           Package('B')(
             Class('X', { superclass: Reference('Object') })(
@@ -83,7 +79,7 @@ describe('Wollok linker', () => {
           ),
         ),
       ].should.be.linkedInto([
-        WRE,
+        ...WRE.members,
         Package('A')(
           Package('B')(
             Class('X', { superclass: Reference('Object') })(
@@ -100,14 +96,13 @@ describe('Wollok linker', () => {
 
   it('should assign an id to all nodes', () => {
     const environment = link([
-      WRE,
       Package('p')(
         Class('C', { superclass: Reference('Object') })(),
         Package('q')(
           Mixin('M')()
         ),
       ),
-    ] as PackageNode<Filled>[])
+    ] as PackageNode<Filled>[], WRE)
 
     const nodes = [environment, ...environment.descendants()]
 
@@ -118,7 +113,6 @@ describe('Wollok linker', () => {
 
     it('should target their definitions', () => {
       const environment = link([
-        WRE,
         Package('p')(
           Class('C', { superclass: Reference('Object') })(
             Field('f', { value: Reference('C') }),
@@ -126,9 +120,9 @@ describe('Wollok linker', () => {
             Field('h', { value: Reference('f') }),
           ),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode<Filled>[], WRE)
 
-      const Object = (environment.members[0].members[0] as PackageNode<Linked>).members[0] as ClassNode<Linked>
+      const Object = environment.getNodeByFQN<ClassNode<Linked>>('wollok.lang.Object')
       const p = environment.members[1] as PackageNode<Linked>
       const C = p.members[0] as ClassNode<Linked>
       const f = C.members[0] as FieldNode<Linked>
@@ -143,7 +137,6 @@ describe('Wollok linker', () => {
 
     it('should override targets according to scope level', () => {
       const environment = link([
-        WRE,
         Package('x')(
           Singleton('x', { superCall: { superclass: Reference('Object'), args: [Reference('x')] } })(
             Field('x', { value: Reference('x') }),
@@ -161,7 +154,7 @@ describe('Wollok linker', () => {
           ),
           Class('C', { superclass: Reference('x') })(),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode<Filled>[], WRE)
 
       const p = environment.members[1]
       const S = p.members[0] as SingletonNode<Linked>
@@ -194,7 +187,6 @@ describe('Wollok linker', () => {
 
     it('should target imported references', () => {
       const environment = link([
-        WRE,
         Package('p', {
           imports: [
             Import(Reference('q'), { isGeneric: true }),
@@ -210,7 +202,7 @@ describe('Wollok linker', () => {
         Package('r')(
           Class('T', { superclass: Reference('Object') })()
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode<Filled>[], WRE)
 
       const p = environment.members[1]
       const C = p.members[0] as ClassNode<Linked>
@@ -227,11 +219,10 @@ describe('Wollok linker', () => {
     it('should not be linkable if target is missing', () => {
       expect(() => {
         link([
-          WRE,
           Package('p')(
             Class('C', { superclass: Reference('S') })(),
           ),
-        ] as PackageNode<Filled>[])
+        ] as PackageNode<Filled>[], WRE)
       }).to.throw()
     })
 

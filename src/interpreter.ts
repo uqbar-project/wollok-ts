@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, is, isModule, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, isModule, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 export interface Locals { [name: string]: Id }
 
@@ -111,7 +111,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
       case 'Assignment': return (() =>
-        is('Field')(node.variable.target())
+        node.variable.target().is('Field')
           ? [
             LOAD('self'),
             ...compile(environment)(node.value),
@@ -131,7 +131,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       case 'Reference': return (() => {
         const target = node.target()
 
-        if (is('Field')(target)) return [
+        if (target.is('Field')) return [
           LOAD('self'),
           GET(node.name),
         ]
@@ -164,7 +164,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         ]
 
         if (node.value.kind === 'Singleton') {
-          if ((node.value.superCall.args as any[]).some(arg => is('NamedArgument')(arg))) {
+          if ((node.value.superCall.args as any[]).some(arg => arg.is('NamedArgument'))) {
             return [
               INSTANTIATE(node.value.fullyQualifiedName()),
               INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
@@ -211,7 +211,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       case 'New': return (() => {
         const fqn = node.instantiated.target<Entity>().fullyQualifiedName()
 
-        if ((node.args as any[]).some(arg => is('NamedArgument')(arg))) {
+        if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
           return [
             INSTANTIATE(fqn),
             INIT(0, fqn, true),
@@ -604,7 +604,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
       locals,
       instructions: [
         ...flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
-          if ((args as any[]).some(is('NamedArgument'))) {
+          if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
             return [
               PUSH(id),
               INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
@@ -683,7 +683,7 @@ export default (environment: Environment, natives: {}) => ({
     // TODO: maybe descendants should have an optional filter function
     // TODO: create extension function to divide array based on condition
     const describes = environment.descendants<Describe>('Describe')
-    const freeTests = environment.descendants<Test>('Test').filter(node => !is('Describe')(node.parent()))
+    const freeTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)

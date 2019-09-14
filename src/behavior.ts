@@ -13,7 +13,7 @@ const { values, assign, keys } = Object
 // RAW
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
+export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   const node = { ...obj } as N
 
   assign(node, {
@@ -85,7 +85,7 @@ export const Raw = <N extends Node<RawStage>>(obj: Partial<N>): N => {
 // FILLED
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const Filled = <N extends Node<FilledStage>>(obj: Partial<N>): N => {
+export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
   const node = Raw(obj) as N
 
   return node
@@ -95,7 +95,7 @@ export const Filled = <N extends Node<FilledStage>>(obj: Partial<N>): N => {
 // LINKED
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const Linked = (environmentData: Partial<Environment>) => {
+export function Linked(environmentData: Partial<Environment>) {
   const environment: Environment = assign(Filled(environmentData as any), {
 
     getNodeById<T extends Node<LinkedStage>>(this: Environment, id: Id): T {

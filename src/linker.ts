@@ -7,8 +7,10 @@ import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, No
 export interface Scope { [name: string]: string }
 
 const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: Entity<Filled>): List<Entity<Filled> | Entity<Linked>> => {
-  if (!is('Package')(isolated)) return [...members, isolated]
-  const existent = members.filter(is<Package<Filled>>('Package')).find(member => member.name === isolated.name)
+  if (!isolated.is('Package')) return [...members, isolated]
+  const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
+    is('Package')(member) && member.name === isolated.name
+  )
   return existent
     ? [
       ...members.filter(member => member !== existent),

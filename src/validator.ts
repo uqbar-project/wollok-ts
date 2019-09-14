@@ -7,7 +7,7 @@ import {
   Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
   Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
-import { is, Kind } from './model'
+import { Kind } from './model'
 
 const { keys } = Object
 
@@ -54,7 +54,7 @@ const matchingSignatures =
 const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 
 const isNotAbstractClass = (node: Class<Linked>) =>
-  node.members.some(member => is('Method')(member) && isNotEmpty(member))
+  node.members.some(member => member.is('Method') && isNotEmpty(member))
 
 const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.closestAncestor(kind))
 
@@ -88,11 +88,11 @@ export const validations = {
     .methods().every(({ name }) => name !== node.name)),
 
   methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
-    .every(member => is('Method')(member) && !matchingSignatures(node.members, member)
+    .every(member => member.is('Method') && !matchingSignatures(node.members, member)
     )),
 
   constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent<Class<Linked>>().members
-    .every(member => is('Constructor')(member) && !matchingConstructors(node.parent<Class<Linked>>().members, member)
+    .every(member => member.is('Constructor') && !matchingConstructors(node.parent<Class<Linked>>().members, member)
     )),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
@@ -108,7 +108,7 @@ export const validations = {
   notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
 
   notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
-    !(is('Reference')(node.value!) && (node.value! as Reference<Linked>).name === node.name)
+    !(node.value!.is('Reference') && node.value!.name === node.name)
   ),
 
 
