@@ -35,7 +35,8 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
       return extractedChildren
     },
 
-    descendants<T extends Node<RawStage>>(this: Node<RawStage>, kind?: Kind): List<T> {
+    // TODO: do this without creating all the intermediate lists
+    descendants(this: Node<RawStage>, kind?: Kind): List<Node<RawStage>> {
       const directDescendants = this.children<Node<RawStage>>()
       const indirectDescendants = flatMap<Node<RawStage>>(child => child.descendants(kind))(directDescendants)
       const descendants = [...directDescendants, ...indirectDescendants]
@@ -44,7 +45,7 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
     transform<R extends Stage>(
       this: Node<RawStage>,
-      tx: ((node: Node<RawStage>) => Node<R>) | { [K in Kind]?: (node: Node<R>) => Node<R> }
+      tx: ((node: Node<RawStage>) => Node<R>) | { [K in Kind]?: (node: Node<RawStage>) => Node<R> }
     ): Node<R> {
       const applyTransform = (value: any): any => {
         if (typeof value === 'function') return value

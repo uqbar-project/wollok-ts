@@ -602,10 +602,10 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Program('pr')(
-            Return(Self)
+            Return(Self())
           ),
           Class('C')(
-            Method('m')(Return(Self))
+            Method('m')(Return(Self()))
           )
         ),
       ] as PackageNode<Filled>[])

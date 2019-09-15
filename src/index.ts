@@ -1,4 +1,4 @@
-// import * as behavior from './behavior'
+import * as behavior from './behavior'
 import * as build from './builders'
 import fill from './filler'
 import interpret, { Evaluation } from './interpreter'
@@ -9,12 +9,13 @@ import validate from './validator'
 import wre from './wre/wre.json'
 
 
-const buildEnvironment = (files: { name: string, content: string }[]): Environment =>
-  link(files.map(({ name, content }) => fill(parse.file(name).tryParse(content))), (wre as any))
+function buildEnvironment(files: { name: string, content: string }[]): Environment {
+  return link(files.map(({ name, content }) => fill(parse.file(name).tryParse(content))), behavior.Linked(wre as any))
+}
 
 export * from './model'
 export {
-  // behavior,
+  behavior,
   Evaluation,
   buildEnvironment,
   build,

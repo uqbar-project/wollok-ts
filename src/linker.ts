@@ -2,14 +2,14 @@ import { v4 as uuid } from 'uuid'
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { Entity, Environment, Filled, Id, is, isModule, Linked, List, Module, Node, Package, Raw } from './model'
+import { Entity, Environment, Filled, Id, isModule, Linked, List, Module, Node, Package, Raw } from './model'
 
 export interface Scope { [name: string]: string }
 
 const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: Entity<Filled>): List<Entity<Filled> | Entity<Linked>> => {
   if (!isolated.is('Package')) return [...members, isolated]
   const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
-    is('Package')(member) && member.name === isolated.name
+    member.is('Package') && member.name === isolated.name
   )
   return existent
     ? [

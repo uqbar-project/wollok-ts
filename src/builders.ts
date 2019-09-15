@@ -158,7 +158,7 @@ export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Self = makeNode('Self')({})
+export const Self = () => makeNode('Self')({})
 
 export const Literal = <T extends LiteralValue<Raw>>(value: T) => makeNode<'Literal', LiteralNode<Raw, T>>('Literal')({ value })
 

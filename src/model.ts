@@ -44,8 +44,8 @@ export interface BaseNode<S extends Stage> {
   is: <K extends Kind>(kind: K) => this is { kind: K }
   children: <N extends Node<S> = Node<S>>() => List<N>
   descendants: <N extends Node<S>>(kind?: Kind) => List<N>
-  transform: <R extends S = S, E extends Node<R> = Node<R>>(
-    tx: ((node: Node<S>) => Node<R>) | Partial<{ [N in Kind]: (node: NodeOfKind<N, R>) => NodeOfKind<N, R> }>
+  transform: <R extends S = S, E extends Node<R> = Node<R>, C extends S = S>(
+    tx: ((node: Node<S>) => Node<R>) | Partial<{ [N in Kind]: (node: NodeOfKind<N, C>) => NodeOfKind<N, R> }>
   ) => E
   reduce: <T, R extends S = S>(tx: (acum: T, node: Node<R>) => T, initial: T) => T
   environment: Linkable<S, () => Environment>
@@ -333,6 +333,3 @@ export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> =>
 
 export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
   (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))
-
-export const is = <N extends NodeOfKind<K, Stage>, K extends Kind = KindOf<N>>(k: K) => (obj: any): obj is N =>
-  isNode(obj) && obj.kind === k
