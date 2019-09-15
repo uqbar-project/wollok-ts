@@ -203,7 +203,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         return [
           LOAD('self'),
           ...flatMap(compile(environment))(node.args),
-          CALL(currentMethod.name, node.args.length, currentMethod.parent<Entity>().fullyQualifiedName()),
+          CALL(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName()),
         ]
       })()
 
@@ -392,7 +392,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
           if (method.isNative) {
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
-            const fqn = `${method.parent<Module>().fullyQualifiedName()}.${method.name}`
+            const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
             const native: NativeFunction = fqn.split('.').reduce((current, name) => {
               const next = current[name]
               if (!next) throw new Error(`Native not found: ${fqn}`)

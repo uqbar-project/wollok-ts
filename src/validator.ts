@@ -84,15 +84,15 @@ export const validations = {
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
-  fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent<Class<Linked>>()
+  fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent()
     .methods().every(({ name }) => name !== node.name)),
 
   methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
     .every(member => member.is('Method') && !matchingSignatures(node.members, member)
     )),
 
-  constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent<Class<Linked>>().members
-    .every(member => member.is('Constructor') && !matchingConstructors(node.parent<Class<Linked>>().members, member)
+  constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent().members
+    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member)
     )),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>

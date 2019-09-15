@@ -54,9 +54,8 @@ export interface BaseNode<S extends Stage> {
   ) => E
   reduce: <T, R extends S = S>(tx: (acum: T, node: Node<R>) => T, initial: T) => T
   environment: Linkable<S, () => Environment>
-  parent: Linkable<S, <N extends Node<S>>() => N> // TODO: declare for each node with the right parent type instead of with generic ?
+  parent: Linkable<S, () => Node<S>>
   // TODO: would it be too slow to replace this with ancestors().find?
-  // TODO: Review these filtered signatures
   closestAncestor: Linkable<S, <N extends Node<S>>(kind: Kind) => N | undefined>
 }
 
@@ -131,6 +130,7 @@ export type Module<S extends Stage = Final> = Class<S> | Singleton<S> | Mixin<S>
 export interface BaseModule<S extends Stage> extends BaseEntity<S> {
   methods: () => List<Method<S>>
   fields: () => List<Field<S>>
+  parent: Linkable<S, () => Package<S>>
   hierarchy: Linkable<S, () => List<Module<S>>>
   inherits: Linkable<S, (other: Module<Linked>) => boolean>
   lookupMethod: Linkable<S, (name: Name, arity: number) => Method<Linked> | undefined>
@@ -183,6 +183,8 @@ export interface Field<S extends Stage = Final> extends BaseNode<S> {
   readonly isReadOnly: boolean
   readonly isProperty: boolean
   readonly value: Fillable<S, Expression<S>>
+
+  parent: Linkable<S, () => Module<S>>
 }
 
 export interface Method<S extends Stage = Final> extends BaseNode<S> {
@@ -192,6 +194,8 @@ export interface Method<S extends Stage = Final> extends BaseNode<S> {
   readonly isNative: boolean // TODO: Represent abstractness and nativeness as body types?
   readonly parameters: List<Parameter<S>>
   readonly body?: Body<S>
+
+  parent: Linkable<S, () => Module<S>>
 }
 
 export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
@@ -199,6 +203,8 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
   readonly parameters: List<Parameter<S>>
   readonly body: Body<S>
   readonly baseCall: Fillable<S, { callsSuper: boolean, args: List<Expression<S>> }>
+
+  parent: Linkable<S, () => Class<S>>
 }
 
 export interface Fixture<S extends Stage = Final> extends BaseNode<S> {
