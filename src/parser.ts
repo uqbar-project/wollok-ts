@@ -2,7 +2,7 @@ import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, re
 import { Raw as RawBehavior } from './behavior'
 import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
 
@@ -520,7 +520,7 @@ const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() => {
 const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List<Sentence<Raw>>, toString?: string):
   Literal<Raw, Singleton<Raw>> => {
 
-  const sentences: List<Sentence<Raw>> = rawSentences.some(s => s.is('Return')) || !isExpression(last(rawSentences))
+  const sentences: List<Sentence<Raw>> = rawSentences.some(s => s.is('Return')) || (rawSentences.length && !last(rawSentences)!.is('Expression'))
     ? [...rawSentences, buildReturn()]
     : [...rawSentences.slice(0, -1), buildReturn(last(rawSentences) as Expression<Raw>)]
 

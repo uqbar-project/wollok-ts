@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { flatMap, last, zipObj } from './extensions'
 import log from './log'
-import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, isModule, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 export interface Locals { [name: string]: Id }
 
@@ -136,7 +136,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           GET(node.name),
         ]
 
-        if (isModule(target)) return [
+        if (target.is('Module')) return [
           LOAD(target.fullyQualifiedName()),
         ]
 

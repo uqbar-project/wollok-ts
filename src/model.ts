@@ -41,7 +41,12 @@ export interface BaseNode<S extends Stage> {
   readonly source?: Source
   readonly id: Linkable<S, Id>
 
-  is: <K extends Kind>(kind: K) => this is { kind: K }
+  is<K extends Kind>(kind: K): this is { kind: K }
+  is(kind: 'Entity'): this is { kind: KindOf<Entity> }
+  is(kind: 'Module'): this is { kind: KindOf<Module> }
+  is(kind: 'Sentence'): this is { kind: KindOf<Sentence> }
+  is(kind: 'Expression'): this is { kind: KindOf<Expression> }
+
   children: <N extends Node<S> = Node<S>>() => List<N>
   descendants: <N extends Node<S>>(kind?: Kind) => List<N>
   transform: <R extends S = S, E extends Node<R> = Node<R>, C extends S = S>(
@@ -315,21 +320,3 @@ export interface Environment<S extends Linked = Final> extends BaseNode<S> {
   getNodeById<N extends Node<S>>(id: Id): N
   getNodeByFQN<N extends Node<S>>(fullyQualifiedName: Name): N
 }
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// TYPE GUARDS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
-
-export const isEntity = <S extends Stage>(obj: any): obj is Entity<S> => isNode(obj) &&
-  ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(obj.kind)
-
-export const isModule = <S extends Stage>(obj: any): obj is Module<S> => isNode(obj) &&
-  ['Singleton', 'Mixin', 'Class'].includes(obj.kind)
-
-export const isExpression = <S extends Stage>(obj: any): obj is Expression<S> => isNode(obj) &&
-  ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(obj.kind)
-
-export const isSentence = <S extends Stage>(obj: any): obj is Sentence<S> => isNode(obj) &&
-  (['Variable', 'Return', 'Assignment'].includes(obj.kind) || isExpression(obj))

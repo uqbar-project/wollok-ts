@@ -2,10 +2,12 @@ import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, isEntity, isModule, isNode, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
+
+const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 // TODO: Test all behaviors
 
@@ -18,8 +20,12 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
   assign(node, {
 
-    is<K extends Kind>(this: Node<RawStage>, kind: K): boolean {
-      return isNode(this) && this.kind === kind
+    is(this: Node<RawStage>, kind: Kind | 'Entity' | 'Module' | 'Expression' | 'Sentence'): boolean {
+      if (kind === 'Entity') return ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(this.kind)
+      if (kind === 'Module') return ['Singleton', 'Mixin', 'Class'].includes(this.kind)
+      if (kind === 'Expression') return ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(this.kind)
+      if (kind === 'Sentence') return ['Variable', 'Return', 'Assignment'].includes(this.kind)
+      return this.kind === kind
     },
 
     children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
@@ -66,7 +72,7 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
   })
 
-  if (isModule(node)) assign(node, {
+  if (node.is('Module')) assign(node, {
     methods(this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) },
     fields(this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) },
   })
@@ -108,7 +114,7 @@ export function Linked(environmentData: Partial<Environment>) {
               if (found) return found
             }
           } else if (obj instanceof Object) {
-            if (isNode<LinkedStage>(obj) && obj.id === id) return obj
+            if (isNode(obj) && obj.id === id) return obj
             return search(values(obj))
           }
           return undefined
@@ -125,7 +131,7 @@ export function Linked(environmentData: Partial<Environment>) {
         ? environment.getNodeById(fullyQualifiedName.slice(1))
         : fullyQualifiedName.split('.').reduce((current: Entity<LinkedStage> | Environment, step) => {
           const children = current.children()
-          const next = children.find((child): child is Entity<LinkedStage> => isEntity(child) && child.name === step)
+          const next = children.find((child): child is Entity<LinkedStage> => child.is('Entity') && child.name === step)
           if (!next) throw new Error(
             `Could not resolve reference to ${fullyQualifiedName}: Missing child ${step} among ${children.map((c: any) => c.name)}`
           )
@@ -166,16 +172,16 @@ export function Linked(environmentData: Partial<Environment>) {
 
       const node: Node<LinkedStage> = assign(Filled(n as any), baseBehavior) as any
 
-      if (isEntity(node)) assign(node, {
+      if (node.is('Entity')) assign(node, {
         fullyQualifiedName(this: Entity<LinkedStage>): Name {
           const parent = this.parent()
-          return isEntity(parent)
+          return parent.is('Entity')
             ? `${parent.fullyQualifiedName()}.${this.name}`
             : this.name || `#${this.id}`
         },
       })
 
-      if (isModule(node)) assign(node, {
+      if (node.is('Module')) assign(node, {
 
         hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
           const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {

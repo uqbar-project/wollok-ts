@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { Entity, Environment, Filled, Id, isModule, Linked, List, Module, Node, Package, Raw } from './model'
+import { Entity, Environment, Filled, Id, Linked, List, Module, Node, Package, Raw } from './model'
 
 export interface Scope { [name: string]: string }
 
@@ -79,7 +79,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   }
 
   const innerContributionFrom = (node: Node<Linked>): Scope => [
-    ...isModule(node)
+    ...node.is('Module')
       ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
       : [],
     ...[node, ...node.children()].map(c => outerContributionFrom(c)),
