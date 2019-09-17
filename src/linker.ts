@@ -1,29 +1,27 @@
 import { v4 as uuid } from 'uuid'
+import { Linked as LinkedBehavior } from './behavior'
+import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { flushAll, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { Entity, Environment, Filled, Id, isModule, Linked, List, Module, Node, Package } from './model'
-import tools, { transform, transformByKind } from './tools'
+import { Entity, Environment, Filled, Id, Linked, List, Module, Node, Package, Raw } from './model'
 
 export interface Scope { [name: string]: string }
 
 const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: Entity<Filled>): List<Entity<Filled> | Entity<Linked>> => {
-
-  if (isolated.kind !== 'Package') return [...members, isolated]
-
-  const existent = members.find((member): member is (Package<Filled> | Package<Linked>) =>
-    member.kind === 'Package' && member.name === isolated.name
+  if (!isolated.is('Package')) return [...members, isolated]
+  const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
+    member.is('Package') && member.name === isolated.name
   )
-
   return existent
     ? [
       ...members.filter(member => member !== existent),
-      { ...existent, members: isolated.members.reduce(mergePackage, existent.members) },
+      buildPackage(existent.name, existent)(
+        ...isolated.members.reduce(mergePackage, existent.members) as List<Entity<Raw>>
+      ) as Package<Filled>,
     ]
     : [...members, isolated]
 }
 
 const buildScopes = (environment: Environment): (id: string) => Scope => {
-
-  const { children, descendants, getNodeById, parentOf, resolve, fullyQualifiedName } = tools(environment)
 
   const scopes: Map<Id, Scope | (() => Scope)> = new Map([
     [environment.id, {}],
@@ -48,18 +46,18 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 
     switch (module.kind) {
       case 'Class':
-        if (!module.superclass) return [...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name]))]
+        if (!module.superclass) return [...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name]))]
 
         superclassId = scope[module.superclass.name]
         if (!superclassId) throw new Error(
           `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
         )
-        superclass = getNodeById<Module<Linked>>(superclassId)
+        superclass = environment.getNodeById<Module<Linked>>(superclassId)
 
         return [
           superclass,
           ...ancestors(superclass),
-          ...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name])),
+          ...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name])),
         ]
 
       case 'Singleton':
@@ -68,33 +66,33 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
           throw new Error(
             `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
           )
-        superclass = getNodeById<Module<Linked>>(superclassId)
+        superclass = environment.getNodeById<Module<Linked>>(superclassId)
 
         return [
           ...[superclass, ...ancestors(superclass)],
-          ...module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name])),
+          ...module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name])),
         ]
 
       case 'Mixin':
-        return module.mixins.map(m => getNodeById<Module<Linked>>(scope[m.name]))
+        return module.mixins.map(m => environment.getNodeById<Module<Linked>>(scope[m.name]))
     }
   }
 
   const innerContributionFrom = (node: Node<Linked>): Scope => [
-    ...isModule(node)
+    ...node.is('Module')
       ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
       : [],
-    ...[node, ...children(node)].map(c => outerContributionFrom(c)),
+    ...[node, ...node.children()].map(c => outerContributionFrom(c)),
   ].reduce((a, b) => ({ ...a, ...b }))
 
   const outerContributionFrom = (contributor: Node<Linked>): Scope => {
     switch (contributor.kind) {
       case 'Import':
-        const referenced = resolve(contributor.entity.name)
+        const referenced = environment.getNodeByFQN<Entity<Linked>>(contributor.entity.name)
         return {
           [contributor.entity.name]: referenced.id,
           ...contributor.isGeneric
-            ? children<Entity<Linked>>(referenced).reduce((scope: Scope, child) => {
+            ? referenced.children<Entity<Linked>>().reduce((scope: Scope, child) => {
               scope[child.name || ''] = child.id
               return scope
             }, {})
@@ -103,8 +101,8 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
 
       case 'Package':
         if (contributor.name === 'wollok') {
-          const langPackage = children(contributor).find(p => p.kind === 'Package' && p.name === 'lang')!
-          const globalContributions = children(langPackage).map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
+          const langPackage = contributor.children().find(p => p.kind === 'Package' && p.name === 'lang')!
+          const globalContributions = langPackage.children().map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
           return {
             [contributor.name]: contributor.id,
             ...globalContributions,
@@ -121,7 +119,7 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
         return contributor.name
           ? {
             [contributor.name]: contributor.id,
-            [fullyQualifiedName(contributor)]: contributor.id,
+            [contributor.fullyQualifiedName()]: contributor.id,
           }
           : {}
 
@@ -153,11 +151,9 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
     }
   }
 
-  const allNodes = descendants(environment)
-
-  allNodes.forEach(node =>
+  environment.descendants().forEach(node =>
     scopes.set(node.id, () => {
-      const parent = parentOf(node)
+      const parent = node.parent()
       return { ...getScope(parent.id), ...innerContributionFrom(parent) }
     })
   )
@@ -165,42 +161,37 @@ const buildScopes = (environment: Environment): (id: string) => Scope => {
   return getScope
 }
 
-export default (
-  newPackages: List<Package<Filled>>,
-  baseEnvironment: Environment = { kind: 'Environment', members: [], id: '' }
-): Environment => {
+export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment = buildEnvironment()): Environment => {
 
-  const mergedEnvironment = {
-    ...baseEnvironment,
-    members: newPackages.reduce(mergePackage, baseEnvironment.members),
-  } as Environment
+  const mergedEnvironment = buildEnvironment(
+    ...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
+  )
 
-  const identifiedEnvironment: Environment = transform<Linked, Linked>(node => {
+  const identifiedEnvironment: Environment = LinkedBehavior(mergedEnvironment.transform<Linked, Environment>(node =>
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
-    return node.id ? node : { ...node, id: uuid() }
-  })(mergedEnvironment)
+    node.id ? node : { ...node, id: uuid() }
+  ))
 
-  transform<Linked>(node => {
+  identifiedEnvironment.transform(node => {
     update(NODE_CACHE, node.id, node)
-    tools(identifiedEnvironment).children(node).forEach(child =>
+    node.children().forEach(child =>
       update(PARENT_CACHE, child.id, node.id)
     )
     return node
-  })(identifiedEnvironment)
+  })
 
   const scopes = buildScopes(identifiedEnvironment)
-  const targetedEnvironment = transformByKind<Linked>({
+
+  const targetedEnvironment = LinkedBehavior(identifiedEnvironment.transform({
     Reference: node => {
       const target = scopes(node.id)[node.name]
       // TODO: In the future, we should make this fail-resilient
       if (!target) throw new Error(`Missing reference to ${node.name}`)
-      const next = { ...node, target }
-      return next
+      return { ...node, targetId: target }
     },
-  })(identifiedEnvironment)
+  }) as any)
 
   flushAll(NODE_CACHE)
 
   return targetedEnvironment
-
 }

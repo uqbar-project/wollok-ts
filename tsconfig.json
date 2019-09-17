@@ -2,7 +2,6 @@
   "compilerOptions": {
     "target": "es2017",
     "module": "commonjs",
-    "rootDir": "src",
     "outDir": "dist",
     "lib": [
       "es2017"
@@ -18,9 +17,6 @@
     "resolveJsonModule": true,
     "esModuleInterop": true
   },
-  "include": [
-    "src"
-  ],
   "exclude": [
     "node_modules",
     "dist"

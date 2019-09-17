@@ -28,7 +28,4 @@ export const mapObject = <T, R = any>(tx: (value: T[keyof T], key: keyof T) => R
   return response
 }
 
-export const without = <T>(ignores: List<T>) => (elements: List<T>): List<T> =>
-  elements.filter(it => !ignores.includes(it))
-
 export const copy = <T extends {}>(target: T): T => ({ ...target })

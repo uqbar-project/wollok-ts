@@ -4,11 +4,10 @@
 
 import { Literal } from './builders'
 import {
-  Assignment, Class, ClassMember, Constructor, Environment, Field, Linked, Method,
+  Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
   Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
 } from './model'
-import { is, Kind } from './model'
-import tools from './tools'
+import { Kind } from './model'
 
 const { keys } = Object
 
@@ -55,99 +54,84 @@ const matchingSignatures =
 const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
 
 const isNotAbstractClass = (node: Class<Linked>) =>
-  node.members.some(member => is('Method')(member) && isNotEmpty(member))
+  node.members.some(member => member.is('Method') && isNotEmpty(member))
 
-export const validations = (environment: Environment) => {
-  const { parentOf, firstAncestorOfKind, resolveTarget } = tools(environment)
+const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.closestAncestor(kind))
 
-  const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => {
-    try {
-      firstAncestorOfKind(kind, node)
-      return false
-    } catch (_) {
-      return true
-    }
-  })
+// TODO: Why are we exporting this as a single object?
+export const validations = {
+  nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
+    /^[A-Z]$/.test(node.name[0])
+  ),
 
-  return {
+  nameIsCamelCase: warning<Parameter<Linked> | Singleton<Linked> | Variable<Linked>>(node => node.name !== undefined &&
+    /^[a-z]$/.test(node.name[0])
+  ),
 
-    nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
-      /^[A-Z]$/.test(node.name[0])
-    ),
+  onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
+    node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
+  ),
 
-    nameIsCamelCase: warning<Parameter<Linked> | Singleton<Linked> | Variable<Linked>>(node => node.name !== undefined &&
-      /^[a-z]$/.test(node.name[0])
-    ),
+  nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
+    'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
+    'var', 'const', '=', 'override', 'method', 'native', 'constructor',
+    'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
+    'null', 'false', 'true', '=>'].includes(node.name)),
 
-    onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
-      node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
-    ),
+  hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
-    nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
-      'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
-      'var', 'const', '=', 'override', 'method', 'native', 'constructor',
-      'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
-      'null', 'false', 'true', '=>'].includes(node.name)),
+  singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().kind === 'Package') && node.name !== undefined),
 
-    hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
+  nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
-    singletonIsNotUnnamed: error<Singleton<Linked>>(node => (parentOf(node).kind === 'Package') && node.name !== undefined),
+  fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent()
+    .methods().every(({ name }) => name !== node.name)),
 
-    /* importHasNotLocalReference: error<Import>(node =>
-       (parentOf(node) as Package).members.every(({ name }) => name !== node.reference.name)
-     ),*/
+  methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
+    .every(member => member.is('Method') && !matchingSignatures(node.members, member)
+    )),
 
-    nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
+  constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent().members
+    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member)
+    )),
 
-    fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => parentOf<Class<Linked>>(node).members.
-      filter(is('Method')).every(({ name }) => name !== node.name)),
+  methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
+    !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
 
-    methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
-      .every(member => is('Method')(member) && !matchingSignatures(node.members, member)
-      )),
+  testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
 
-    constructorsHaveDistinctArity: error<Constructor<Linked>>(node => parentOf<Class<Linked>>(node).members
-      .every(member => is('Constructor')(member) && !matchingConstructors(parentOf<Class<Linked>>(node).members, member)
-      )),
+  programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
 
-    methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
-      !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+  instantiationIsNotAbstractClass: error<New<Linked>>(node =>
+    isNotAbstractClass(node.instantiated.target())),
 
-    testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
+  notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
 
-    programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
-
-    instantiationIsNotAbstractClass: error<New<Linked>>(node =>
-      isNotAbstractClass(resolveTarget(node.instantiated))),
-
-    notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
-
-    notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
-      !(is('Reference')(node.value!) && (node.value! as Reference<Linked>).name === node.name)
-    ),
+  notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
+    !(node.value!.is('Reference') && node.value!.name === node.name)
+  ),
 
 
-    dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
-      node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
-    ),
+  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
+    node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
+  ),
 
-    selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),
-    noSuperInConstructorBody: isNotPresentIn<Super<Linked>>('Constructor'),
-    noReturnStatementInConstructor: isNotPresentIn<Return<Linked>>('Constructor'),
+  // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
+  selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),
+  noSuperInConstructorBody: isNotPresentIn<Super<Linked>>('Constructor'),
+  noReturnStatementInConstructor: isNotPresentIn<Return<Linked>>('Constructor'),
 
-    // TODO: Packages inside packages
-    // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
-    // .members.some(packages => packages.name === node.name)),
+  // TODO: Packages inside packages
+  // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
+  // .members.some(packages => packages.name === node.name)),
 
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node<Linked>, environment: Environment): ReadonlyArray<Problem> => {
-  const { reduce } = tools(environment)
+export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 
   const {
     nameIsPascalCase,
@@ -170,7 +154,7 @@ export default (target: Node<Linked>, environment: Environment): ReadonlyArray<P
     dontCompareAgainstTrueOrFalse,
     noSuperInConstructorBody,
     noReturnStatementInConstructor,
-  } = validations(environment)
+  } = validations
 
   const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, Linked>, c: Code) => Problem | null } } = {
     Parameter: { nameIsCamelCase, },
@@ -204,11 +188,11 @@ export default (target: Node<Linked>, environment: Environment): ReadonlyArray<P
     Fixture: {},
   }
 
-  return reduce<Problem[], Linked>((found, node) => {
+  return target.reduce<Problem[]>((found, node) => {
     const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<Linked>, c: Code) => Problem | null }
     return [
       ...found,
       ...keys(checks).map(code => checks[code](node, code)!).filter(result => result !== null),
     ]
-  })([], target)
+  }, [])
 }

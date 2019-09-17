@@ -1,16 +1,15 @@
+import { Evaluation as EvaluationBehavior, Frame as FrameBehavior, Linked as LinkedBehavior, Raw as RawBehavior } from './behavior'
 import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
-import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
+import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentType, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
-const { keys } = Object
-
-type NodePayload<N extends Node<any>> = Omit<N, 'kind'>
+type NodePayload<N extends Node<any>> = Partial<Omit<N, 'kind'>>
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (payload: NodePayload<N>): NodePayload<N> & { kind: K } =>
-  ({ ...payload, kind })
+const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (payload: NodePayload<N>) =>
+  RawBehavior<N>({ ...payload, kind })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -18,7 +17,7 @@ const makeNode = <K extends Kind, N extends NodeOfKind<K, Raw>>(kind: K) => (pay
 
 export const Reference = (name: Name) => makeNode('Reference')({ name })
 
-export const Parameter = (name: Name, payload?: Partial<NodePayload<ParameterNode<Raw>>>) => makeNode('Parameter')({
+export const Parameter = (name: Name, payload?: NodePayload<ParameterNode<Raw>>) => makeNode('Parameter')({
   name,
   isVarArg: false,
   ...payload,
@@ -29,7 +28,7 @@ export const NamedArgument = (name: Name, value: Expression<Raw>) => makeNode('N
   value,
 })
 
-export const Import = (reference: ReferenceNode<Raw>, payload?: Partial<NodePayload<ImportNode<Raw>>>) => makeNode('Import')({
+export const Import = (reference: ReferenceNode<Raw>, payload?: NodePayload<ImportNode<Raw>>) => makeNode('Import')({
   entity: reference,
   isGeneric: false,
   ...payload,
@@ -41,16 +40,16 @@ export const Body = (...sentences: Sentence<Raw>[]) => makeNode('Body')({ senten
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Package = (name: Name, payload?: Partial<NodePayload<PackageNode<Raw>>>) =>
+export const Package = (name: Name, payload?: NodePayload<PackageNode<Raw>>) =>
   (...members: Entity<Raw>[]) => makeNode('Package')({
     name,
-    members,
     imports: [],
     ...payload,
+    members,
   })
 
 
-export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode<Raw>>>) =>
+export const Class = (name: Name, payload?: NodePayload<ClassNode<Raw>>) =>
   (...members: ClassMember<Raw>[]) =>
     makeNode('Class')({
       name,
@@ -59,7 +58,7 @@ export const Class = (name: Name, payload?: Partial<NodePayload<ClassNode<Raw>>>
       ...payload,
     })
 
-export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNode<Raw>>>) =>
+export const Singleton = (name?: Name, payload?: NodePayload<SingletonNode<Raw>>) =>
   (...members: ObjectMember<Raw>[]) =>
     makeNode('Singleton')({
       members,
@@ -68,7 +67,7 @@ export const Singleton = (name?: Name, payload?: Partial<NodePayload<SingletonNo
       ...payload,
     })
 
-export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode<Raw>>>) =>
+export const Mixin = (name: Name, payload?: NodePayload<MixinNode<Raw>>) =>
   (...members: ObjectMember<Raw>[]) =>
     makeNode('Mixin')({
       name,
@@ -77,7 +76,7 @@ export const Mixin = (name: Name, payload?: Partial<NodePayload<MixinNode<Raw>>>
       ...payload,
     })
 
-export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode<Raw>>>) =>
+export const Program = (name: Name, payload?: NodePayload<ProgramNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) =>
     makeNode('Program')({
       name,
@@ -85,7 +84,7 @@ export const Program = (name: Name, payload?: Partial<NodePayload<ProgramNode<Ra
       ...payload,
     })
 
-export const Test = (name: string, payload?: Partial<NodePayload<TestNode<Raw>>>) =>
+export const Test = (name: string, payload?: NodePayload<TestNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) =>
     makeNode('Test')({
       name,
@@ -93,7 +92,7 @@ export const Test = (name: string, payload?: Partial<NodePayload<TestNode<Raw>>>
       ...payload,
     })
 
-export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNode<Raw>>>) =>
+export const Describe = (name: string, payload?: NodePayload<DescribeNode<Raw>>) =>
   (...members: DescribeMemberNode<Raw>[]) =>
     makeNode('Describe')({
       name,
@@ -105,14 +104,14 @@ export const Describe = (name: string, payload?: Partial<NodePayload<DescribeNod
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Field = (name: Name, payload?: Partial<NodePayload<FieldNode<Raw>>>) => makeNode('Field')({
+export const Field = (name: Name, payload?: NodePayload<FieldNode<Raw>>) => makeNode('Field')({
   name,
   isReadOnly: false,
   isProperty: false,
   ...payload,
 })
 
-export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<Raw>>>) =>
+export const Method = (name: Name, payload?: NodePayload<MethodNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) => {
     const { body, ...otherPayload } = payload || { body: undefined }
 
@@ -121,21 +120,21 @@ export const Method = (name: Name, payload?: Partial<NodePayload<MethodNode<Raw>
       isOverride: false,
       isNative: false,
       parameters: [],
-      ...payload && keys(payload).includes('body') && body === undefined ? {} : {
-        body: Body(...sentences),
+      ...payload && 'body' in payload && body === undefined ? {} : {
+        body: body || Body(...sentences),
       },
       ...otherPayload,
     })
   }
 
-export const Constructor = (payload?: Partial<NodePayload<ConstructorNode<Raw>>>) =>
+export const Constructor = (payload?: NodePayload<ConstructorNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) => makeNode('Constructor')({
     body: Body(...sentences),
     parameters: [],
     ...payload,
   })
 
-export const Fixture = (_?: Partial<NodePayload<FixtureNode<Raw>>>) =>
+export const Fixture = (_?: NodePayload<FixtureNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) =>
     makeNode('Fixture')({
       body: Body(...sentences),
@@ -145,7 +144,7 @@ export const Fixture = (_?: Partial<NodePayload<FixtureNode<Raw>>>) =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Variable = (name: Name, payload?: Partial<NodePayload<VariableNode<Raw>>>) => makeNode('Variable')({
+export const Variable = (name: Name, payload?: NodePayload<VariableNode<Raw>>) => makeNode('Variable')({
   name,
   isReadOnly: false,
   ...payload,
@@ -159,15 +158,17 @@ export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Self = makeNode('Self')({})
+export const Self = () => makeNode('Self')({})
 
 export const Literal = <T extends LiteralValue<Raw>>(value: T) => makeNode<'Literal', LiteralNode<Raw, T>>('Literal')({ value })
 
-export const Send = (receiver: Expression<Raw>, message: Name, args: ReadonlyArray<Expression<Raw>> = []) => makeNode('Send')({
-  receiver,
-  message,
-  args,
-})
+export const Send = (receiver: Expression<Raw>, message: Name, args: List<Expression<Raw>> = [], payload?: NodePayload<SendNode<Raw>>) =>
+  makeNode('Send')({
+    receiver,
+    message,
+    args,
+    ...payload,
+  })
 
 export const Super = (args: List<Expression<Raw>> = []) => makeNode('Super')({ args })
 
@@ -192,7 +193,7 @@ export const Try = (sentences: List<Sentence<Raw>>, payload: {
     always: payload.always && Body(...payload.always),
   })
 
-export const Catch = (parameter: ParameterNode<Raw>, payload?: Partial<NodePayload<CatchNode<Raw>>>) =>
+export const Catch = (parameter: ParameterNode<Raw>, payload?: NodePayload<CatchNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]) =>
     makeNode('Catch')({
       body: Body(...sentences),
@@ -213,29 +214,18 @@ export const Closure = (toString?: string, ...parameters: ParameterNode<Raw>[]) 
       ...toString ? [Field('<toString>', { isReadOnly: true, value: Literal(toString) })] : []
     ))
 
-export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
-  kind: 'New',
-  instantiated: {
-    kind: 'Reference',
-    name: 'wollok.lang.List',
-  },
-  args: elems,
-})
+export const ListOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.List'), elems)
 
-export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => ({
-  kind: 'New',
-  instantiated: {
-    kind: 'Reference',
-    name: 'wollok.lang.Set',
-  },
-  args: elems,
-})
+export const SetOf = (...elems: Expression<Raw>[]): NewNode<Raw> => New(Reference('wollok.lang.Set'), elems)
 
-export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode => ({
-  members,
-  kind: 'Environment',
-  id: '',
-})
+export const Environment = (...members: PackageNode<Linked>[]): EnvironmentType => {
+  const environment: EnvironmentType = {
+    kind: 'Environment',
+    members,
+    id: '',
+  } as any
+  return LinkedBehavior(environment)
+}
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // UTILS
@@ -251,35 +241,25 @@ export const setter = (name: Name): MethodNode<Raw> => Method(name, { parameters
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const evaluationBuilders = (environment: EnvironmentNode) => {
-
-
-  const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
-    id,
-    module,
-    fields,
-    innerValue,
+export const Evaluation = (environment: EnvironmentType, instances: { [id: string]: RuntimeObjectType } = {}) =>
+  (...frameStack: FrameType[]): EvaluationType => EvaluationBehavior({
+    environment,
+    instances,
+    frameStack: [...frameStack].reverse(),
   })
 
-  const Frame = (payload: Partial<FrameType>): FrameType => ({
-    locals: {},
-    nextInstruction: 0,
-    instructions: [],
-    resume: [],
-    operandStack: [],
-    ...payload,
-  })
+export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
+  locals: {},
+  nextInstruction: 0,
+  instructions: [],
+  resume: [],
+  operandStack: [],
+  ...payload,
+})
 
-  const Evaluation = (instances: { [id: string]: RuntimeObjectType } = {}) =>
-    (...frameStack: FrameType[]): EvaluationType => ({
-      environment,
-      instances,
-      frameStack: [...frameStack].reverse(),
-    })
-
-  return {
-    RuntimeObject,
-    Frame,
-    Evaluation,
-  }
-}
+export const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerValue: any = undefined): RuntimeObjectType => ({
+  id,
+  module,
+  fields,
+  innerValue,
+})

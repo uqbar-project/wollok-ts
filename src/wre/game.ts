@@ -1,7 +1,7 @@
+import * as build from '../builders'
 import { last } from '../extensions'
-import { CALL, Evaluation, INTERRUPT, Operations, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
+import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
-import tools from '../tools'
 
 // TODO: tests
 
@@ -11,12 +11,11 @@ import tools from '../tools'
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, addInstance, getInstance } = Operations(evaluation)
       if (!self.fields.visuals) {
-        self.fields.visuals = addInstance('wollok.lang.List', [])
+        self.fields.visuals = evaluation.createInstance('wollok.lang.List', [])
       }
-      getInstance(self.fields.visuals).innerValue.push(positionable.id)
-      pushOperand(VOID_ID)
+      evaluation.instance(self.fields.visuals).innerValue.push(positionable.id)
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -32,31 +31,24 @@ export default {
     },
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand, getInstance } = Operations(evaluation)
       if (self.fields.visuals) {
-        const visuals = getInstance(self.fields.visuals)
+        const visuals = evaluation.instance(self.fields.visuals)
         visuals.innerValue = visuals.innerValue.filter((id: Id) => id !== visual.id)
       }
-      pushOperand(VOID_ID)
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      const { resolve } = tools(evaluation.environment)
-
       last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push({
+      evaluation.frameStack.push(build.Frame({
         instructions: [
-          PUSH(resolve('wollok.lang.io').id),
+          PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
           PUSH(event.id),
           PUSH(action.id),
           CALL('addHandler', 2),
           INTERRUPT('return'),
         ],
-        nextInstruction: 0,
-        locals: {},
-        operandStack: [],
-        resume: [],
-      })
+      }))
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -92,35 +84,31 @@ export default {
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand } = Operations(evaluation)
       if (title) {
         self.fields.title = title.id
-        pushOperand(VOID_ID)
-      } else pushOperand(self.fields.title)
+        evaluation.currentFrame().pushOperand(VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.fields.title)
     },
 
     width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand } = Operations(evaluation)
       if (width) {
         self.fields.width = width.id
-        pushOperand(VOID_ID)
-      } else pushOperand(self.fields.width)
+        evaluation.currentFrame().pushOperand(VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.fields.width)
     },
 
     height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand } = Operations(evaluation)
       if (height) {
         self.fields.height = height.id
-        pushOperand(VOID_ID)
-      } else pushOperand(self.fields.height)
+        evaluation.currentFrame().pushOperand(VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.fields.height)
     },
 
     ground: (self: RuntimeObject, image: RuntimeObject) => (evaluation: Evaluation) => {
-      const { pushOperand } = Operations(evaluation)
       if (image) {
         self.fields.ground = image.id
-        pushOperand(VOID_ID)
-      } else pushOperand(self.fields.ground)
+        evaluation.currentFrame().pushOperand(VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.fields.ground)
     },
 
     boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {

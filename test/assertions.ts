@@ -1,6 +1,9 @@
 import { assert } from 'chai'
 import { formatError, Parser } from 'parsimmon'
+import { ImportMock } from 'ts-mock-imports'
+import uuid from 'uuid'
 import { Environment } from '../src/builders'
+import { step } from '../src/interpreter'
 import link from '../src/linker'
 import { Linked, Node, Package, Raw, Reference } from '../src/model'
 import { Problem } from '../src/validator'
@@ -15,16 +18,23 @@ declare global {
       into(expected: {}): Assertion
       tracedTo(start: number, end: number): Assertion
       linkedInto(expected: Package<Raw>[]): Assertion
+      filledInto(expected: any): Assertion
       target(node: Node<Linked>): Assertion
       pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion
+      stepped(natives?: {}): Assertion
     }
 
   }
 
 }
 
-// TODO: Improve this, maybe with rambda?
-const dropKeys = (...keys: string[]) => (obj: any) => JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
+// TODO: Improve these
+const dropKeys = (...keys: string[]) => (obj: any) =>
+  JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
+
+const dropMethods = (target: any) =>
+  JSON.parse(JSON.stringify(target, (_, value) => typeof value === 'function' ? '<function>' : value))
+
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ALSO
@@ -79,13 +89,24 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// FILLER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const fillerAssertions = ({ Assertion }: any) => {
+
+  Assertion.addMethod('filledInto', function (this: any, expected: any) {
+    new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
+  })
+
+}
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const linkerAssertions = ({ Assertion }: any) => {
 
   Assertion.addMethod('linkedInto', function (this: any, expected: Package<Raw>[]) {
-    const dropLinkedFields = dropKeys('id', 'target')
+    const dropLinkedFields = dropKeys('id', 'targetId')
     const actualEnvironment = link(this._obj)
     const expectedEnvironment = Environment(...expected as any)
 
@@ -98,8 +119,8 @@ export const linkerAssertions = ({ Assertion }: any) => {
     if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
 
     this.assert(
-      this._obj.target === node.id,
-      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target} instead`,
+      this._obj.targetId === node.id,
+      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.targetId} instead`,
       `expected reference ${reference.name} to not target node with id ${node.id}`,
     )
   })
@@ -117,5 +138,24 @@ export const validatorAssertions = ({ Assertion }: any) => {
       'expected node to pass validation',
       'expected node to not pass validation'
     )
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// INTERPRETER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
+  also({ Assertion }, conf)
+
+  Assertion.addMethod('stepped', function (this: any, natives: {} = {}) {
+    const stub = ImportMock.mockFunction(uuid, 'v4', 'new_id')
+    step(natives)(this._obj)
+    stub.restore()
+
+  })
+
+  Assertion.addMethod('into', function (this: any, expected: any) {
+    new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
 }

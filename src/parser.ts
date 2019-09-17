@@ -1,9 +1,15 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
-import { Closure as buildClosure, ListOf, Literal as buildLiteral, SetOf, Singleton as buildSingleton } from './builders'
+import { Raw as RawBehavior } from './behavior'
+import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, is, isExpression, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
+
+
+type Methods<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T]
+type Optionals<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof T]
+
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS = ['!', '-', '+']
@@ -37,12 +43,16 @@ const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!hea
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  P extends Omit<N, 'kind'> = Omit<N, 'kind'>,
-  C extends { [F in keyof P]: Parser<P[F]> } = { [F in keyof P]: Parser<P[F]> },
+  // TODO: Don't list fields like 'id', instead exclude all | undefined entries
+  P extends { [F in keyof N]: Parser<N[F]> } = { [F in keyof N]: Parser<N[F]> },
+  M extends Omit<P, 'kind' | Optionals<N> | Methods<N>> = Omit<P, 'kind' | Optionals<N> | Methods<N>>,
+  O extends Partial<Pick<P, Optionals<N>>> = Partial<Pick<P, Optionals<N>>>,
+  C extends M & O = M & O,
   >(kind: K) => (fieldParserSeq: C): Parser<N> => {
-    const subparsers = keys(fieldParserSeq).map(fieldName =>
-      [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
-    return (subparsers.length ? seqObj<P>(...subparsers) : of({})).map(payload => ({ kind, ...payload as any }))
+    const subparsers = keys(fieldParserSeq).map(fieldName => [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
+    return (subparsers.length ? seqObj<P>(...subparsers) : of({}))
+      .map(payload => ({ kind, ...payload as any }))
+      .map(data => RawBehavior<N>(data))
   }
 
 const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
@@ -71,7 +81,6 @@ export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 export const reference: Parser<Reference<Raw>> = lazy(() =>
   node('Reference')({
     name,
-    target: of(undefined),
   }).thru(sourced)
 )
 
@@ -127,7 +136,6 @@ export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
     entity: node('Reference')({
       name: name.sepBy1(key('.')).tieWith('.'),
-      target: of(undefined),
     }).thru(sourced),
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))
@@ -190,7 +198,6 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
 
   return key('object').then(seqMap(
     alt(
-
       seqMap(
         superCall,
         mixinLinearization.fallback([]),
@@ -212,7 +219,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
     objectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
 
     ({ singletonName, superCall: call, mixins }, members) =>
-      ({ kind: 'Singleton' as const, name: singletonName, superCall: call, mixins, members })
+      buildSingleton(singletonName, { superCall: call, mixins })(...members)
   )).thru(sourced)
 })
 
@@ -249,18 +256,15 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
   alt(
     key('=').then(
       expression.map(value => ({
-        isNative: false, body: {
-          kind: 'Body', sentences: [{ kind: 'Return', value }], source: value.source,
-        },
+        isNative: false, body: { ...buildBody(buildReturn(value)), source: value.source },
       }))
     ),
     key('native').result({ isNative: true, body: undefined }),
     body.map(methodBody => ({ isNative: false, body: methodBody })),
     of({ isNative: false, body: undefined })
   ),
-  (isOverride, methodName, methodParameters, { isNative, body: methodBody }) => (
-    { kind: 'Method' as const, isOverride, name: methodName, parameters: methodParameters, isNative, body: methodBody }
-  )
+  (isOverride, methodName, methodParameters, { isNative, body: methodBody }) =>
+    buildMethod(methodName, { isOverride, parameters: methodParameters, isNative, body: methodBody })()
 ).thru(sourced))
 
 export const constructor: Parser<Constructor<Raw>> = lazy(() =>
@@ -300,20 +304,16 @@ export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
     reference,
     alt(...ASSIGNATION_OPERATORS.map(key)),
     expression,
-    (variable, operator, value) => ({
-      kind: 'Assignment' as const,
+    (variable, operator, value) => buildAssignment(
       variable,
-      value: operator === '='
+      operator === '='
         ? value
-        : ({
-          kind: 'Send' as const,
-          receiver: variable,
-          message: operator.slice(0, -1),
-          args: LAZY_OPERATORS.includes(operator.slice(0, -1))
-            ? [makeClosure([], [value])]
-            : [value],
-        }),
-    })
+        : buildSend(
+          variable,
+          operator.slice(0, -1),
+          LAZY_OPERATORS.includes(operator.slice(0, -1)) ? [makeClosure([], [value])] : [value]
+        ),
+    )
   ).thru(sourced)
 )
 
@@ -403,6 +403,7 @@ export const catchClause: Parser<Catch<Raw>> = lazy(() =>
   })).thru(sourced)
 )
 
+// TODO: change type to Parser<Expression<Raw>>
 export const sendExpression: Parser<Send<Raw>> = lazy(() =>
   seqMap(
     index,
@@ -413,7 +414,7 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      ({ kind: 'Send' as const, receiver, message, args, source: { start, end } })
+      buildSend(receiver, message, args, { source: { start, end } })
       , initial) as Send<Raw>
   )
 )
@@ -424,7 +425,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      ({ kind: 'Send', receiver, message: `${message}_`, args: [], source: { start, end } })
+      buildSend(receiver, `${message}_`, [], { source: { start, end } })
       , initial)
   )
 
@@ -437,15 +438,15 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
       index,
       argument,
       seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
-      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) => ({
-        kind: 'Send' as const,
-        receiver,
-        message,
-        args: LAZY_OPERATORS.includes(message)
-          ? [makeClosure([], args)]
-          : args,
-        source: { start, end },
-      })
+      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
+        buildSend(
+          receiver,
+          message,
+          LAZY_OPERATORS.includes(message)
+            ? [makeClosure([], args)]
+            : args,
+          { source: { start, end } }
+        )
         , initial)
     )
   }
@@ -519,10 +520,9 @@ const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() => {
 const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List<Sentence<Raw>>, toString?: string):
   Literal<Raw, Singleton<Raw>> => {
 
-  const sentences: List<Sentence<Raw>> = rawSentences
-    .some(is('Return')) || !isExpression(last(rawSentences))
-    ? [...rawSentences, { kind: 'Return', value: undefined }]
-    : [...rawSentences.slice(0, -1), { kind: 'Return', value: last(rawSentences) as Expression<Raw> }]
+  const sentences: List<Sentence<Raw>> = rawSentences.some(s => s.is('Return')) || (rawSentences.length && !last(rawSentences)!.is('Expression'))
+    ? [...rawSentences, buildReturn()]
+    : [...rawSentences.slice(0, -1), buildReturn(last(rawSentences) as Expression<Raw>)]
 
   return buildClosure(toString, ...closureParameters)(...sentences)
 }
