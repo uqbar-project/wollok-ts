@@ -497,7 +497,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'IF_THEN_ELSE': return (() => {
         const check = evaluation.currentFrame().popOperand()
-        if (!check) throw new Error('Popped empty operand stack')
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
 

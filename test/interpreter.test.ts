@@ -776,7 +776,6 @@ describe('Wollok Interpreter', () => {
 
         environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => constructor
 
-
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
             1: RuntimeObject('1', 'wollok.lang.Object'),

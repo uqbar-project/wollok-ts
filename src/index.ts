@@ -14,6 +14,7 @@ function buildEnvironment(files: { name: string, content: string }[]): Environme
 }
 
 export * from './model'
+export * from './cache'
 export {
   behavior,
   Evaluation,

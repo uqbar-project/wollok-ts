@@ -169,7 +169,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   const identifiedEnvironment: Environment = LinkedBehavior(mergedEnvironment.transform<Linked, Environment>(node =>
     // TODO: It would make life easier and more performant if we used a fqn where possible as id
-    node.id ? node : { ...node, id: uuid() }
+    ({ ...node, id: uuid() })
   ))
 
   identifiedEnvironment.transform(node => {
