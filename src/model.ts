@@ -209,6 +209,7 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
 
 export interface Fixture<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Fixture'
+  // TODO: Is this supposed to be optional?
   readonly body?: Body<S>
 }
 

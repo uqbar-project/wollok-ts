@@ -6,59 +6,56 @@
  * @since 1.0
  */
 class Exception {
-  const message
-  const cause
+	/** specified detail message. */
+	const property message = null
+	
+	/** specified cause */
+	const property cause = null
 
-  /** Constructs a new exception with no detailed message. */
-  constructor()
-  /** Constructs a new exception with the specified detail message. */
-  constructor(_message) = self(_message, null)
-  /** Constructs a new exception with the specified detail message and cause. */
-  constructor(_message, _cause) { message = _message ; cause = _cause }
+	/** Prints this exception and its backtrace to the console */
+	method printStackTrace() { self.printStackTrace(console) }
 
-  /** Prints this exception and its backtrace to the console */
-  method printStackTrace() { self.printStackTrace(console) }
+	/** Prints this exception and its backtrace as a string value */
+	method getStackTraceAsString() {
+		const printer = new StringPrinter()
+		self.printStackTrace(printer)
+		return printer.getBuffer()
+	}
+	
+	/**
+	  * @private
+	  * Prints this exception and its backtrace to the specified printer 
+	  */
+	method printStackTrace(printer) { self.printStackTraceWithPrefix("", printer) }
+	
+	/** @private */
+	method printStackTraceWithPrefix(prefix, printer) {
+		printer.println(prefix + self.className() + (if (message != null) (": " + message.toString()) else ""))
+		
+		// TODO: eventually we will need a stringbuffer or something to avoid memory consumption
+		self.getStackTrace().forEach { e =>
+			printer.println("\tat " + e.contextDescription() + " [" + e.location() + "]")
+		}
+		
+		if (cause != null)
+			cause.printStackTraceWithPrefix("Caused by: ", printer)
+	}
+	
+	/** @private */
+	method createStackTraceElement(contextDescription, location) = new StackTraceElement(contextDescription = contextDescription, location = location)
 
-  /** Prints this exception and its backtrace as a string value */
-  method getStackTraceAsString() {
-    const printer = new StringPrinter()
-    self.printStackTrace(printer)
-    return printer.getBuffer()
-  }
-
-  /** Prints this exception and its backtrace to the specified printer */
-  method printStackTrace(printer) { self.printStackTraceWithPreffix("", printer) }
-
-  /** @private */
-  method printStackTraceWithPreffix(preffix, printer) {
-    printer.println(preffix +  self.className() + (if (message != null) (": " + message.toString()) else ""))
-
-    // TODO: eventually we will need a stringbuffer or something to avoid memory consumption
-    self.getStackTrace().forEach { e =>
-      printer.println("\tat " + e.contextDescription() + " [" + e.location() + "]")
-    }
-
-    if (cause != null)
-      cause.printStackTraceWithPreffix("Caused by: ", printer)
-  }
-
-  /** @private */
-  method createStackTraceElement(contextDescription, location) = new StackTraceElement(contextDescription, location)
-
-  /** Provides programmatic access to the stack trace information printed by printStackTrace() with full path files for linking */
-  method getFullStackTrace() native
-
-  /** Provides programmatic access to the stack trace information printed by printStackTrace(). */
-  method getStackTrace() native
-
-  /** Answers the cause of the exception, if present */
-  method getCause() = cause
-
-  /** Answers the detail message string of this exception. */
-  method getMessage() = message
-
-  /** Overrides the behavior to compare exceptions */
-  override method equals(other) = other.className().equals(self.className()) && other.getMessage() == self.getMessage()
+	/** Provides programmatic access to the stack trace information
+	 * printed by printStackTrace() with full path files for linking 
+	 */
+	method getFullStackTrace() native
+	
+	/** Provides programmatic access to the stack trace information
+	 * printed by printStackTrace(). 
+	 */
+	method getStackTrace() native
+	
+	/** Overrides the behavior to compare exceptions */
+	override method equals(other) = other.className().equals(self.className()) && other.message() == self.message()
 }
 
 /**
@@ -68,38 +65,34 @@ class Exception {
  * @author jfernandes
  * @since 1.5.1
  */
-class StackOverflowException inherits Exception {
-  constructor() = super()
-}
-
-class EvaluationError inherits Exception {
-  constructor() = super()
-  constructor(_message) = super(_message)
-}
+class StackOverflowException inherits Exception {}
 
 /**
  * An exception that is thrown when a specified element cannot be found
  */
-class ElementNotFoundException inherits Exception {
-  constructor(_message) = super(_message)
-  constructor(_message, _cause) = super(_message, _cause)
+class ElementNotFoundException inherits Exception {}
+
+/**
+ * An exception that is thrown for domain propose
+ */
+class DomainException inherits Exception {
+	const property source = null
 }
+
+
+class EvaluationError inherits Exception {}
 
 /**
  * An exception that is thrown when an object cannot understand a certain message
  */
 class MessageNotUnderstoodException inherits Exception {
-  constructor()
-  constructor(_message) = super(_message)
-  constructor(_message, _cause) = super(_message, _cause)
-
-  /*
-  '''«super.getMessage()»
-    «FOR m : wollokStack»
-    «(m as WExpression).method?.declaringContext?.contextName».«(m as WExpression).method?.name»():«NodeModeltools.findActualNodeFor(m).textRegionWithLineInformation.lineNumber»
-    «ENDFOR»
-    '''
-  */
+	/*
+	'''«super.message()»
+		«FOR m : wollokStack»
+		«(m as WExpression).method?.declaringContext?.contextName».«(m as WExpression).method?.name»():«NodeModelUtils.findActualNodeFor(m).textRegionWithLineInformation.lineNumber»
+		«ENDFOR»
+		'''
+	*/
 }
 
 /**
@@ -200,12 +193,12 @@ class Object {
       message += "(" + (0..(parameters.size()-1)).map { i => "p" + i }.join(',') + ")"
     else
       message += "()"
-    throw new MessageNotUnderstoodException(message)
+    throw new MessageNotUnderstoodException(message = message)
   }
 
   /** Builds an exception with a message */
   method error(message) {
-    throw new Exception(message)
+    throw new Exception(message = message)
   }
 }
 
@@ -214,16 +207,17 @@ class Object {
  * It is also useful if you want to model a Point.
  */
 class Pair {
-  const x
-  const y
-  constructor (_x, _y) {
-    x = _x
-    y = _y
-  }
-  method getX() { return x }
-  method getY() { return y }
-  method getKey() { return self.getX() }
-  method getValue() { return self.getY() }
+	const property x
+	const property y
+	constructor (_x, _y) {
+		x = _x
+		y = _y
+	}
+	method key() = x
+	method value() = y
+
+	/** String representation of a Pair */
+	override method toString() = x.toString() + " -> " + y.toString()
 }
 
 /**
@@ -287,13 +281,13 @@ class Collection {
       if (acc == null)
         new Pair(e, n)
       else {
-        if (criteria.apply(n, acc.getY()))
+        if (criteria.apply(n, acc.y()))
           new Pair(e, n)
         else
           acc
       }
     })
-    return result.getX()
+    return result.x()
   }
 
   // non-native methods
@@ -1091,7 +1085,7 @@ class Number {
    * Example:
    *     1..4   Answers ==> a new Range object from 1 to 4
    */
-  method ..(end) = new Range(self, end)
+  method ..(end) = new Range(start = self, end = end)
 
   method >(other) native
   method >=(other) native
@@ -1725,14 +1719,14 @@ object assert {
    *    assert.that(8.even())   ==> ok, nothing happens
    */
   method that(value) {
-    if (!value) throw new AssertionException("Value was not true")
+    if (!value) throw new AssertionException(message = "Value was not true")
   }
 
   /** Tests whether value is false. Otherwise throws an exception.
    * @see assert#that(value)
    */
   method notThat(value) {
-    if (value) throw new AssertionException("Value was not false")
+    if (value) throw new AssertionException(message = "Value was not false")
   }
 
   /**
@@ -1744,7 +1738,7 @@ object assert {
    *     assert.equals(10.01, 100.div(10)) ==> throws an exception
    */
   method equals(expected, actual) {
-    if (expected != actual) throw new AssertionException("Expected [" + expected.printString() + "] but found [" + actual.printString() + "]", expected.printString(), actual.printString())
+    if (expected != actual) throw new AssertionException(message = "Expected [" + expected.printString() + "] but found [" + actual.printString() + "]")
   }
 
   /**
@@ -1756,8 +1750,8 @@ object assert {
    *     assert.notEquals(10, value)     ==> throws an exception
    */
   method notEquals(expected, actual) {
-    if (expected == actual) throw new AssertionException("Expected to be different, but [" + expected.printString() + "] and [" + actual.printString() + "] match")
-  }
+    if (expected == actual) throw new AssertionException(message = "Expected to be different, but [" + expected.printString() + "] and [" + actual.printString() + "] match")
+	}
 
   /**
    * Tests whether a block throws an exception. Otherwise an exception is thrown.
@@ -1776,7 +1770,7 @@ object assert {
     } catch e {
       failed = true
     }
-    if (!failed) throw new AssertionException("Block should have failed")
+    if (!failed) throw new AssertionException(message = "Block " + block + " should have failed")
   }
 
   /**
@@ -1803,7 +1797,7 @@ object assert {
     }
     catch ex : OtherValueExpectedException
     {
-      throw new AssertionException("The Exception expected was " + exceptionExpected + " but got " + ex.getCause())
+      throw new AssertionException(message = "The Exception expected was " + exceptionExpected + " but got " + ex.cause())
     }
   }
 
@@ -1824,11 +1818,11 @@ object assert {
   method throwsExceptionWithMessage(errorMessage, block) {
     try
     {
-      self.throwsExceptionByComparing(block,{a => errorMessage.equals(a.getMessage())})
+      self.throwsExceptionByComparing(block,{a => errorMessage.equals(a.message())})
     }
     catch ex : OtherValueExpectedException
     {
-      throw new AssertionException("The error message expected was " + errorMessage + " but got " + ex.getCause().getMessage())
+			throw new AssertionException(message = "The error message expected was " + errorMessage + " but got " + ex.cause().message())
     }
   }
 
@@ -1853,7 +1847,7 @@ object assert {
     }
     catch ex : OtherValueExpectedException
     {
-      throw new AssertionException("The exception expected was " + exceptionExpected.className() + " but got " + ex.getCause().className())
+			throw new AssertionException(message = "The exception expected was " + exceptionExpected.className() + " but got " + ex.cause().className())
     }
   }
 
@@ -1885,9 +1879,9 @@ object assert {
         if(comparison.apply(ex))
           self.that(true)
         else
-          throw new OtherValueExpectedException("Expected other value", ex)
-      }
-    if (continue) throw new AssertionException("Should have thrown an exception")
+          throw new OtherValueExpectedException(message = "Expected other value", cause = ex)
+			}
+		if (continue) throw new AssertionException(message = "Should have thrown an exception")
   }
 
   /**
@@ -1895,7 +1889,7 @@ object assert {
    * Useful when you reach code that should not be reached.
    */
   method fail(message) {
-    throw new AssertionException(message)
+    throw new AssertionException(message = message)
   }
 
 }
@@ -1913,22 +1907,8 @@ class StringPrinter {
  * in assert.throwsException... methods
  */
 class AssertionException inherits Exception {
-
-  const expected = null
-  const actual = null
-
-  constructor(message) = super(message)
-
-  constructor(message, cause) = super(message, cause)
-
-  constructor(message, _expected, _actual) = self(message) {
-    expected = _expected
-    actual = _actual
-  }
-
-  method expected() = expected
-  method actual() = actual
-
+	const property expected = null
+	const property actual = null
 }
 
 /**

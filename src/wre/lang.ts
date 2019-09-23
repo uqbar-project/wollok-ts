@@ -1,6 +1,6 @@
 import * as build from '../builders'
 import { flatMap, last, zipObj } from '../extensions'
-import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
 import { Id, Method, Module, Singleton } from '../model'
 
@@ -521,9 +521,12 @@ export default {
     'initialize': (self: RuntimeObject) => (evaluation: Evaluation) => {
       const today = new Date(new Date().setHours(0, 0, 0, 0))
 
-      if (!self.fields.day) self.fields.day = evaluation.createInstance('wollok.lang.Number', today.getDate())
-      if (!self.fields.month) self.fields.month = evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1)
-      if (!self.fields.year) self.fields.year = evaluation.createInstance('wollok.lang.Number', today.getFullYear())
+      if (!self.fields.day || self.fields.day === NULL_ID)
+        self.fields.day = evaluation.createInstance('wollok.lang.Number', today.getDate())
+      if (!self.fields.month || self.fields.month === NULL_ID)
+        self.fields.month = evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1)
+      if (!self.fields.year || self.fields.year === NULL_ID)
+        self.fields.year = evaluation.createInstance('wollok.lang.Number', today.getFullYear())
 
       const day = evaluation.instance(self.fields.day)
       const month = evaluation.instance(self.fields.month)
@@ -540,11 +543,18 @@ export default {
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
       if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, new Date(
+
+      const instance = evaluation.instance(evaluation.createInstance(self.module, new Date(
         self.innerValue.getFullYear(),
         self.innerValue.getMonth(),
-        self.innerValue.getDate() + days.innerValue)
+        self.innerValue.getDate() + floor(days.innerValue))
       ))
+
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
@@ -552,21 +562,27 @@ export default {
 
       const date = new Date(
         self.innerValue.getFullYear(),
-        self.innerValue.getMonth() + months.innerValue,
+        self.innerValue.getMonth() + floor(months.innerValue),
         self.innerValue.getDate()
       )
 
       while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
         date.setDate(date.getDate() - 1)
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
+
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
       if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
 
       const date = new Date(
-        self.innerValue.getFullYear() + years.innerValue,
+        self.innerValue.getFullYear() + floor(years.innerValue),
         self.innerValue.getMonth(),
         self.innerValue.getDate()
       )
@@ -575,37 +591,55 @@ export default {
         date.setDate(date.getDate() - 1)
       }
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
+
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
+
     'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
       if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, new Date(
+
+      const instance = evaluation.instance(evaluation.createInstance(self.module, new Date(
         self.innerValue.getFullYear(),
         self.innerValue.getMonth(),
-        self.innerValue.getDate() - days.innerValue)
+        self.innerValue.getDate() - floor(days.innerValue))
       ))
+
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
       if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
 
+      const substracted = floor(months.innerValue)
       const date = new Date(
         self.innerValue.getFullYear(),
-        self.innerValue.getMonth() - months.innerValue,
+        self.innerValue.getMonth() - substracted,
         self.innerValue.getDate()
       )
 
-      while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
-        date.setDate(date.getDate() - 1)
+      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
       if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
 
       const date = new Date(
-        self.innerValue.getFullYear() - years.innerValue,
+        self.innerValue.getFullYear() - floor(years.innerValue),
         self.innerValue.getMonth(),
         self.innerValue.getDate()
       )
@@ -614,7 +648,13 @@ export default {
         date.setDate(date.getDate() - 1)
       }
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
+
+      instance.fields.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
+      instance.fields.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
+      instance.fields.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      evaluation.currentFrame().pushOperand(instance.id)
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {

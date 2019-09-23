@@ -638,9 +638,11 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
   stepAll(natives)(evaluation)
 
-  return evaluation.instances[evaluation.frameStack.pop()!.popOperand()]
+  const currentFrame = evaluation.frameStack.pop()!
+  return currentFrame.operandStack.length ? evaluation.instances[currentFrame.popOperand()] : null
 }
 
+// TODO: Refactor this interface
 export default (environment: Environment, natives: {}) => ({
 
   buildEvaluation: () => buildEvaluation(environment),
@@ -679,8 +681,6 @@ export default (environment: Environment, natives: {}) => ({
   },
 
   runTests: (): [number, number] => {
-    // TODO: descendants stage should be inferred from the parameter
-    // TODO: maybe descendants should have an optional filter function
     // TODO: create extension function to divide array based on condition
     const describes = environment.descendants<Describe>('Describe')
     const freeTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
@@ -718,12 +718,11 @@ export default (environment: Environment, natives: {}) => ({
     runTests(freeTests, (test) => test.body.sentences)
     log.done('Running free tests')
 
-
     log.start('Running describes')
     describes.forEach((describe: Describe) => {
-      const variables = describe.descendants<Variable>('Variable')
-      const fixture = describe.descendants<Fixture>('Fixture')[0]
-      const fixtureSentences = (fixture) ? fixture.body!.sentences : []
+      const variables = describe.children().filter((child): child is Variable => child.is('Variable'))
+      const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
+      const fixtureSentences = flatMap((fixture: Fixture) => fixture.body!.sentences)(fixtures)
       runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')
