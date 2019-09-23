@@ -1065,7 +1065,7 @@ class Number {
 	 * Example:
 	 * 		1..4   Answers ==> a new Range object from 1 to 4
 	 */
-	method ..(end) = new Range(self, end)
+	method ..(end) = new Range(start = self, end = end)
 	
 	method >(other) native
 	method >=(other) native
@@ -1375,10 +1375,10 @@ class Range {
 	const end
 	var step
 	
-	constructor(_start, _end) {
-		start = _start.truncate(0) 
-		end = _end.truncate(0)
-		if (_start > _end) { 
+	method initialize() {
+		start = start.truncate(0)
+		end = end.truncate(0)
+		if (start > end) { 
 			step = -1 
 		} else {
 			step = 1
@@ -1495,6 +1495,16 @@ class Closure {
 	override method toString() native
 }
 
+/** Represents days of week. */	
+
+object monday { }
+object tuesday { }
+object wednesday { }
+object thursday { }
+object friday { }
+object saturday { }
+object sunday { }
+
 /**
  *
  * Represents a Date (without time). A Date is immutable, once created you can not change it.
@@ -1503,85 +1513,154 @@ class Closure {
  */	
 class Date {
 
-	constructor() { }
-	constructor(_day, _month, _year) { self.initialize(_day, _month, _year) }
+	const property day
+	const property month
+	const property year
 	
-	override method initialize() native
 	/** @private */
-	method initialize(_day, _month, _year) native
-
-	/** Answers the day number of the Date */
-	method day() native
+	method initialize() native
+	
+	/** String representation of a date */
+	override method toString() = "" + month + "/" + day + "/" + year
+	
+	/** Two dates are equals if they represent the same date */
+	override method ==(_aDate) native
+	
+	/** 
+	  * Answers a copy of this Date with the specified number of days added. 
+	  * Parameter must be an integer value.
+	  * This operation has no side effect (a new date is returned).	  
+	  *
+	  * Example:
+	  *     new Date(day = 12, month = 5, year = 2018).plusDays(1) 
+	  *        ==> Answers 13/5/2018, a day forward
+	  *     
+	  *     new Date(day = 12, month = 5, year = 2018).plusDays(-1)
+	  *        ==> Answers 11/5/2018, a day back
+	  */
+	method plusDays(_days) native
+	
+	/** 
+	  * Answers a copy of this Date with the specified number of months added. 
+	  * Parameter must be an integer value.
+	  * This operation has no side effect (a new date is returned).
+	  *
+	  * Example:
+	  *     new Date(day = 31, month = 1, year = 2018).plusMonths(1)
+      *        ==> Answers 28/2/2018, a month forward
+	  *     
+	  *     new Date(day = 12, month = 5, year = 2018).plusMonths(-1)
+	  *        ==> Answers 12/4/2018, a month back
+	  */
+	method plusMonths(_months) native
+	
+	/** 
+	  * Answers a copy of this Date with the specified number of years added. 
+	  * Parameter must be an integer value.
+	  * This operation has no side effect (a new date is returned).
+	  *
+	  * Example:
+	  *     new Date(day = 31, month = 1, year = 2018).plusYears(1)
+      *        ==> Answers 31/1/2019, a year forward
+	  *     
+	  *     new Date(day = 12, month = 5, year = 2018).plusYears(-1)
+	  *        ==> Answers 12/5/2017, a year back
+	  */
+	method plusYears(_years) native
+	
+	/** 
+	  * Checks if the year is a leap year, like 2000, 2004, 2008...
+	  *
+	  * Example:
+	  *     new Date(day = 12, month = 5, year = 2018).isLeapYear() ==> Answers false 
+	  */
+	method isLeapYear() native
+	
+	/** Answers the day of the week of the Date with an object representation.
+	 * There is a wko (well known object) for every day of the week.
+	 *
+	 * Example:
+	 *     new Date(day = 24, month = 2, year = 2018).dayOfWeek() ==> Answers saturday object
+	 */
+	method dayOfWeek() = [monday, tuesday, wednesday, thursday, friday, saturday, sunday].get(self.internalDayOfWeek() - 1)
 	
 	/** Answers the day of week of the Date, where
 	 * 1 = MONDAY
 	 * 2 = TUESDAY
 	 * 3 = WEDNESDAY
-	 *...
+	 * ...
 	 * 7 = SUNDAY
+	 *
+	 * Example:
+	 *     new Date(day = 24, month = 2, year = 2018).internalDayOfWeek() ==> Answers 6 (SATURDAY) 
 	 */
-	method dayOfWeek() native
+	method internalDayOfWeek() native
 	
-	/** Answers the month number of the Date */
-	method month() native
-	
-	/** Answers the year number of the Date */
-	method year() native
-
-	override method toString() = "a Date[day = " + self.day() + ", month = " + self.month() + ", year = " + self.year() + "]"
-	
-	override method ==(other) = self.year() == other.year() && self.month() == other.month() && self.day() == other.day()
-	
-	/** Answers a copy of this Date with the specified number of days added. */
-	method plusDays(_days) native
-	
-	/** Answers a copy of this Date with the specified number of months added. */
-	method plusMonths(_months) native
-	
-	/** Answers a copy of this Date with the specified number of years added. */
-	method plusYears(_years) native
-	
-	/** Checks if the year is a leap year, like 2000, 2004, 2008, 2012, 2016... */
-	method isLeapYear() =  self.year() % 4 == 0 && self.year() % 100 != 0 || self.year() % 400 == 0
-		
 	/** 
-	 * Answers the difference in days between two dates, in absolute values.
+	 * Answers the difference in days between two dates, assuming self is minuend and _aDate is subtrahend. 
 	 * 
 	 * Examples:
 	 * 		new Date().plusDays(4) - new Date() ==> Answers 4
-	 *		new Date() - new Date().plusDays(2) ==> Answers 2
+	 *		new Date() - new Date().plusDays(2) ==> Answers -2
 	 */
 	method -(_aDate) native
 	
 	/** 
 	 * Answers a copy of this date with the specified number of days subtracted.
-	 * For example, 2009-01-01 minus one day would result in 2008-12-31.
-	 * This instance is immutable and unaffected by this method call.  
+	 * This instance is immutable and unaffected by this method call.
+	 * Parameter must be an integer value.
+	 * This operation has no side effect (a new date is returned).	 
+     *
+	 * Examples:
+	 * 		new Date(day = 1, month = 1, year = 2009).minusDays(1) 
+	 *          ==> Answers 31/12/2008, a day back
+	 *
+	 * 		new Date(day = 1, month = 1, year = 2009).minusDays(-1) 
+	 *          ==> Answers 2/1/2009, a day forward
 	 */
-	method minusDays(days) = self.plusDays(-days)
+	method minusDays(_days) native
 	
 	/** 
-	 * Answers a copy of this date with the specified number of months subtracted.
-	 */
-	method minusMonths(months) = self.plusMonths(-months)
+	  * Answers a copy of this date with the specified number of months subtracted.
+	  * Parameter must be an integer value.
+	  * This operation has no side effect (a new date is returned).	  
+	  *
+	  * Examples:
+	  * 		new Date(day = 1, month = 1, year = 2009).minusMonths(1) 
+	  *             ==> Answers 1/12/2008, a month back
+	  *
+	  * 		new Date(day = 1, month = 1, year = 2009).minusMonths(-1) 
+	  *             ==> Answers 1/2/2009, a month forward
+	  */
+	method minusMonths(_months) native
 	
-	/** Answers a copy of this date with the specified number of years subtracted. */
-	method minusYears(years) = self.plusYears(-years)
+	/** 
+	  * Answers a copy of this date with the specified number of years subtracted.
+	  * Parameter must be an integer value.
+	  * This operation has no side effect (a new date is returned).	  
+	  *
+	  * Examples:
+	  * 		new Date(day = 1, month = 1, year = 2009).minusYears(1) 
+	  *             ==> Answers 1/1/2008, a year back
+	  *
+	  * 		new Date(day = 1, month = 1, year = 2009).minusYears(-1) 
+	  *             ==> Answers 1/1/2010, a year forward
+	  */
+	method minusYears(_years) native
 	
 	method <(_aDate) native
 	method >(_aDate) native
-	method <=(_aDate) { 
-		return (self < _aDate) || (self.equals(_aDate))
-	}
-	method >=(_aDate) { 
-		return (self > _aDate) || (self.equals(_aDate)) 
-	}
+	method <=(_aDate) = (self < _aDate) || (self.equals(_aDate))
+	method >=(_aDate) = (self > _aDate) || (self.equals(_aDate)) 
 	
-	/** Answers whether self is between two dates (both inclusive comparison) */
-	method between(_startDate, _endDate) { 
-		return (self >= _startDate) && (self <= _endDate) 
-	}
-
+	/**
+	  * Answers whether self is between two dates (both inclusive comparison)
+	  *
+	  * Example:
+	  *     new Date(day = 2, month = 4, year = 2018).between(new Date(day = 1, month = 4, year = 2018), new Date(day = 2, month = 4, year = 2018))
+	  *         ==> Answers true 
+	  */
+	method between(_startDate, _endDate) = (self >= _startDate) && (self <= _endDate) 
 }
 
 ////////////////////////////////////

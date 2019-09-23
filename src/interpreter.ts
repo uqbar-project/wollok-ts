@@ -214,12 +214,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
           return [
             INSTANTIATE(fqn),
-            INIT(0, fqn, true),
             ...flatMap(({ name, value }: NamedArgument) => [
               DUP,
               ...compile(environment)(value),
               SET(name),
             ])(node.args as List<NamedArgument>),
+            INIT(0, fqn, true),
           ]
         } else {
           return [
@@ -449,6 +449,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...module.fields(),
           ...fields,
         ], [] as Field[])
+        const unitializedFields = allFields.filter(field => !self.fields[field.name])
 
         const constructor = lookupStart.lookupConstructor(instruction.arity)
         const ownSuperclass = lookupStart.superclassNode()
@@ -476,7 +477,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
                 LOAD('self'),
                 ...compile(environment)(v),
                 SET(name),
-              ])(allFields),
+              ])(unitializedFields),
             ] : [],
             ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
               ...flatMap(compile(environment))(constructor.baseCall.args),

@@ -9,11 +9,12 @@ const { assign, keys } = Object
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, underline, italic, bold } = chalk
 
 export enum LogLevel {
-  ERROR,
-  WARN,
-  SUCCESS,
-  INFO,
+  NONE,
   DEBUG,
+  INFO,
+  SUCCESS,
+  WARN,
+  ERROR,
 }
 
 type Log = (...args: any[]) => void
@@ -177,13 +178,15 @@ const consoleLogger: Logger = {
 }
 
 export const enableLogs = (level: LogLevel = LogLevel.DEBUG) => {
+  if (level === LogLevel.NONE) return
+
   assign(logger, consoleLogger)
 
-  if (level < LogLevel.DEBUG) assign(logger, { debug: () => { }, step: () => { } })
-  if (level < LogLevel.INFO) assign(logger, { info: () => { } })
-  if (level < LogLevel.SUCCESS) assign(logger, { success: () => { } })
-  if (level < LogLevel.WARN) assign(logger, { warn: () => { } })
-  if (level < LogLevel.ERROR) assign(logger, { error: () => { } })
+  if (level > LogLevel.DEBUG) assign(logger, { debug: () => { }, step: () => { } })
+  if (level > LogLevel.INFO) assign(logger, { info: () => { }, start: () => { }, done: () => { } })
+  if (level > LogLevel.SUCCESS) assign(logger, { success: () => { } })
+  if (level > LogLevel.WARN) assign(logger, { warn: () => { } })
+  if (level > LogLevel.ERROR) assign(logger, { error: () => { } })
 }
 
 export default logger

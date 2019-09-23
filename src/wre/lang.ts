@@ -515,39 +515,30 @@ export default {
     },
   },
 
+  // TODO: No need to save the inner value here. Can just use the fields.
   Date: {
 
-    'initialize': (self: RuntimeObject, day?: RuntimeObject, month?: RuntimeObject, year?: RuntimeObject) =>
-      (evaluation: Evaluation) => {
+    'initialize': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      const today = new Date(new Date().setHours(0, 0, 0, 0))
 
-        self.innerValue = day && month && year
-          ? new Date(year.innerValue, month.innerValue - 1, day.innerValue)
-          : new Date(new Date().setHours(0, 0, 0, 0))
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      },
+      if (!self.fields.day) self.fields.day = evaluation.createInstance('wollok.lang.Number', today.getDate())
+      if (!self.fields.month) self.fields.month = evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1)
+      if (!self.fields.year) self.fields.year = evaluation.createInstance('wollok.lang.Number', today.getFullYear())
 
-    'day': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      const day = evaluation.instance(self.fields.day)
+      const month = evaluation.instance(self.fields.month)
+      const year = evaluation.instance(self.fields.year)
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getDate()))
+      self.innerValue = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
-    'dayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
+    'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getDay()))
     },
 
-    'month': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getMonth() + 1))
-    },
-
-    'year': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getFullYear()))
-    },
-
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-
       if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, new Date(
         self.innerValue.getFullYear(),
@@ -557,7 +548,6 @@ export default {
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-
       if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
 
       const date = new Date(
@@ -573,8 +563,6 @@ export default {
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-
-
       if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
 
       const date = new Date(
@@ -589,10 +577,47 @@ export default {
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
     },
+    'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
+      if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, new Date(
+        self.innerValue.getFullYear(),
+        self.innerValue.getMonth(),
+        self.innerValue.getDate() - days.innerValue)
+      ))
+    },
+
+    'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
+      if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
+
+      const date = new Date(
+        self.innerValue.getFullYear(),
+        self.innerValue.getMonth() - months.innerValue,
+        self.innerValue.getDate()
+      )
+
+      while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
+        date.setDate(date.getDate() - 1)
+
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+    },
+
+    'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
+      if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
+
+      const date = new Date(
+        self.innerValue.getFullYear() - years.innerValue,
+        self.innerValue.getMonth(),
+        self.innerValue.getDate()
+      )
+
+      if (years.innerValue > 0 && date.getDate() !== self.innerValue.getDate()) {
+        date.setDate(date.getDate() - 1)
+      }
+
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, date))
+    },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
-
       if (other.module !== self.module) throw new TypeError('other')
 
       const msPerDay = 1000 * 60 * 60 * 24
@@ -601,16 +626,30 @@ export default {
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
     },
 
-    '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      if (other.module !== self.module) throw new TypeError('other')
+      const day = evaluation.instance(self.fields.day).innerValue
+      const month = evaluation.instance(self.fields.month).innerValue
+      const year = evaluation.instance(self.fields.year).innerValue
+      const otherDay = evaluation.instance(other.fields.day).innerValue
+      const otherMonth = evaluation.instance(other.fields.month).innerValue
+      const otherYear = evaluation.instance(other.fields.year).innerValue
+      const answer = day === otherDay && month === otherMonth && year === otherYear
+      evaluation.currentFrame().pushOperand(answer ? TRUE_ID : FALSE_ID)
+    },
 
+    '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
       if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
+    },
+
+    'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame().pushOperand(new Date(self.innerValue.getFullYear(), 1, 29).getDate() === 29 ? TRUE_ID : FALSE_ID)
     },
 
   },
