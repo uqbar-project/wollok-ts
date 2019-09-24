@@ -8,7 +8,7 @@ import interpreter from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
 import natives from '../src/wre/wre.natives'
 
-const SANITY_TESTS_REPO = 'https://github.com/uqbar-project/wollok-sanity-tests.git'
+const WOLLOK_LANGUAGE_REPO = 'https://github.com/uqbar-project/wollok-language.git'
 const SANITY_TESTS_FOLDER = join('test', 'sanity')
 const ARGS = commandLineArgs([
   { name: 'local', alias: 'l', type: Boolean, defaultValue: false },
@@ -42,7 +42,7 @@ const fetchTests = async () => {
     await gitClient(SANITY_TESTS_FOLDER).pull()
   } else {
     mkdirSync(SANITY_TESTS_FOLDER)
-    await gitClient(SANITY_TESTS_FOLDER).clone(SANITY_TESTS_REPO, '.')
+    await gitClient(SANITY_TESTS_FOLDER).clone(WOLLOK_LANGUAGE_REPO, '.')
   }
 }
 
@@ -57,11 +57,11 @@ const runAll = async () => {
   } else log.info('Will use local version of tests.')
 
   log.start('Reading tests')
-  const testFiles = globby.sync(ARGS.files, { cwd: 'test/sanity/src' })
-  const skippedTestFiles = globby.sync(SKIP, { cwd: 'test/sanity/src' })
+  const testFiles = globby.sync(ARGS.files, { cwd: 'test/sanity/test/sanity' })
+  const skippedTestFiles = globby.sync(SKIP, { cwd: 'test/sanity/test/sanity' })
   const nonSkipedTestFiles = testFiles
     .filter(file => !skippedTestFiles.includes(file))
-    .map(testFile => ({ name: basename(testFile), content: readFileSync(join(SANITY_TESTS_FOLDER, 'src', testFile), 'utf8') }))
+    .map(testFile => ({ name: basename(testFile), content: readFileSync(join(SANITY_TESTS_FOLDER, 'test', 'sanity', testFile), 'utf8') }))
   log.done('Reading tests')
   log.info(`Will run tests from ${nonSkipedTestFiles.length} file(s)`)
 
