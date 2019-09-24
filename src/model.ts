@@ -210,7 +210,7 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
 export interface Fixture<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Fixture'
   // TODO: Is this supposed to be optional?
-  readonly body?: Body<S>
+  readonly body: Body<S>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -318,7 +318,6 @@ export interface Catch<S extends Stage = Final> extends BaseNode<S> {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// TODO: Maybe environment shouldn't be a Node, like Evaluation is not a node...
 export interface Environment<S extends Linked = Final> extends BaseNode<S> {
   readonly kind: 'Environment'
   readonly source?: undefined

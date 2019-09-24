@@ -722,7 +722,7 @@ export default (environment: Environment, natives: {}) => ({
     describes.forEach((describe: Describe) => {
       const variables = describe.children().filter((child): child is Variable => child.is('Variable'))
       const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
-      const fixtureSentences = flatMap((fixture: Fixture) => fixture.body!.sentences)(fixtures)
+      const fixtureSentences = flatMap((fixture: Fixture) => fixture.body.sentences)(fixtures)
       runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')
