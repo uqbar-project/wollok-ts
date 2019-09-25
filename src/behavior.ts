@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { flatMap, last, mapObject } from './extensions'
+import { last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
 import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Scope, Singleton, Stage } from './model'
 
@@ -33,26 +33,31 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
     children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
       const extractChildren = (owner: any): List<T> => {
         if (isNode(owner)) return [owner as T]
-        if (isArray(owner)) return flatMap(extractChildren)(owner)
-        if (owner instanceof Object) return flatMap(extractChildren)(values(owner))
+        if (isArray(owner)) return owner.flatMap(extractChildren)
+        if (owner instanceof Object) return values(owner).flatMap(extractChildren)
         return []
       }
 
       const cached = this.id && CHILDREN_CACHE.get(this.id) as any
       if (cached) return cached
 
-      const extractedChildren = flatMap(extractChildren)(values(this))
-      extractedChildren.forEach(child => child.id && update(PARENT_CACHE, child.id!, this.id))
-      if (this.id) CHILDREN_CACHE.set(this.id, extractedChildren)
-      return extractedChildren
+      const response = values(this).flatMap(extractChildren)
+      response.forEach(child => child.id && update(PARENT_CACHE, child.id!, this.id))
+      if (this.id) CHILDREN_CACHE.set(this.id, response)
+      return response
     },
 
-    // TODO: do this without creating all the intermediate lists
     descendants(this: Node<RawStage>, kind?: Kind): List<Node<RawStage>> {
-      const directDescendants = this.children<Node<RawStage>>()
-      const indirectDescendants = flatMap<Node<RawStage>>(child => child.descendants(kind))(directDescendants)
-      const descendants = [...directDescendants, ...indirectDescendants]
-      return kind ? descendants.filter(descendant => descendant.is(kind)) : descendants as any
+      const pending: Node<RawStage>[] = []
+      const response: Node<RawStage>[] = []
+      let next: Node<RawStage> | undefined = this
+      do {
+        const children = next!.children()
+        response.push(...kind ? children.filter(descendant => descendant.is(kind)) : children)
+        pending.push(...children)
+        next = pending.shift()
+      } while (pending.length)
+      return response
     },
 
     transform<R extends Stage>(
@@ -110,6 +115,9 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 
 export function Linked(environmentData: Partial<Environment>) {
 
+  const FQN_CACHE: Map<Name, Node<LinkedStage>> = new Map()
+  const SCOPE_CACHE: Map<Id, Scope> = new Map()
+
   const environment: Environment = assign(Filled(environmentData as any), {
 
     getNodeById<T extends Node<LinkedStage>>(this: Environment, id: Id): T {
@@ -134,7 +142,10 @@ export function Linked(environmentData: Partial<Environment>) {
     },
 
     getNodeByFQN<N extends Entity<LinkedStage>>(fullyQualifiedName: string): N {
-      return fullyQualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
+      const cached = FQN_CACHE.get(fullyQualifiedName)
+      if (cached) return cached as any
+
+      const response: N = fullyQualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
         ? environment.getNodeById(fullyQualifiedName.slice(1))
         : fullyQualifiedName.split('.').reduce((current: Entity<LinkedStage> | Environment, step) => {
           const children = current.children()
@@ -144,11 +155,13 @@ export function Linked(environmentData: Partial<Environment>) {
           )
           return next
         }, environment) as N
+
+      FQN_CACHE.set(fullyQualifiedName, response)
+
+      return response
     },
 
   }) as any
-
-  const SCOPE_CACHE: Map<Id, Scope> = new Map()
 
   const baseBehavior = {
     environment(this: Node<LinkedStage>) { return environment },
@@ -158,7 +171,7 @@ export function Linked(environmentData: Partial<Environment>) {
         const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
           descendant.children().some(({ id }) => id === this.id)
         )
-        if (!parent) throw new Error(`Node ${JSON.stringify(this)} is not part of the environment`)
+        if (!parent) throw new Error(`Node is not part of the environment`)
 
         return parent.id
       }))

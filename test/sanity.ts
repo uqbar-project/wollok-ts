@@ -72,6 +72,7 @@ const runAll = async () => {
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
   const [passed, total] = await runTests()
+  log.separator('Results')
   log.done('Running tests')
 
   enableLogs(LogLevel.SUCCESS);

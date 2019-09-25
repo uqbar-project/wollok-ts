@@ -1,7 +1,7 @@
 import * as build from './builders'
-import { flatMap, last, zipObj } from './extensions'
+import { last, zipObj } from './extensions'
 import log from './log'
-import { Catch, Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 export interface Locals { [name: string]: Id }
 
@@ -94,9 +94,8 @@ export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' }
 
 // TODO: Memoize?
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
-  flatMap<Sentence, Instruction>(node => {
+  sentences.flatMap(node => {
     switch (node.kind) {
-
       case 'Variable': return (() => [
         ...compile(environment)(node.value),
         STORE(node.name, false),
@@ -168,15 +167,15 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             return [
               INSTANTIATE(node.value.fullyQualifiedName()),
               INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
-              ...flatMap(({ name, value }: NamedArgument) => [
+              ...(node.value.superCall.args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
                 DUP,
                 ...compile(environment)(value),
                 SET(name),
-              ])(node.value.superCall.args as List<NamedArgument>),
+              ]),
             ]
           } else {
             return [
-              ...flatMap(compile(environment))(node.value.superCall.args as List<Expression>),
+              ...(node.value.superCall.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
               INSTANTIATE(node.value.fullyQualifiedName()),
               INIT(node.value.superCall.args.length, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
             ]
@@ -184,7 +183,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         }
 
         return [
-          ...flatMap(compile(environment))(node.value.args as List<Expression>),
+          ...(node.value.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
           INSTANTIATE(node.value.instantiated.name, []),
           INIT(node.value.args.length, node.value.instantiated.name, false),
         ]
@@ -193,7 +192,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
       case 'Send': return (() => [
         ...compile(environment)(node.receiver),
-        ...flatMap(compile(environment))(node.args),
+        ...node.args.flatMap(arg => compile(environment)(arg)),
         CALL(node.message, node.args.length),
       ])()
 
@@ -202,7 +201,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const currentMethod = node.closestAncestor<Method>('Method')!
         return [
           LOAD('self'),
-          ...flatMap(compile(environment))(node.args),
+          ...node.args.flatMap(arg => compile(environment)(arg)),
           CALL(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName()),
         ]
       })()
@@ -214,16 +213,16 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
           return [
             INSTANTIATE(fqn),
-            ...flatMap(({ name, value }: NamedArgument) => [
+            ...(node.args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
               DUP,
               ...compile(environment)(value),
               SET(name),
-            ])(node.args as List<NamedArgument>),
+            ]),
             INIT(0, fqn, true),
           ]
         } else {
           return [
-            ...flatMap(compile(environment))(node.args as List<Expression>),
+            ...(node.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(fqn),
             INIT(node.args.length, fqn, true),
           ]
@@ -247,7 +246,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         TRY_CATCH_ALWAYS(
           compile(environment)(...node.body.sentences),
 
-          flatMap<Catch, Instruction>(({ parameter, parameterType, body }) => {
+          node.catches.flatMap(({ parameter, parameterType, body }) => {
             const compiledCatch: List<Instruction> = [
               PUSH(VOID_ID),
               LOAD('<exception>'),
@@ -261,13 +260,13 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
               CONDITIONAL_JUMP(compiledCatch.length),
               ...compiledCatch,
             ]
-          })(node.catches),
+          }),
 
           compile(environment)(...node.always.sentences)
         ),
       ])()
     }
-  })(sentences)
+  })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // STEPS
@@ -473,14 +472,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           locals,
           instructions: new Array<Instruction>(
             ...instruction.initFields ? [
-              ...flatMap(({ value: v, name }: Field) => [
+              ...unitializedFields.flatMap(({ value: v, name }: Field) => [
                 LOAD('self'),
                 ...compile(environment)(v),
                 SET(name),
-              ])(unitializedFields),
+              ]),
             ] : [],
             ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-              ...flatMap(compile(environment))(constructor.baseCall.args),
+              ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
               LOAD('self'),
               INIT(
                 constructor.baseCall.args.length,
@@ -603,26 +602,26 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     build.Frame({
       locals,
       instructions: [
-        ...flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
+        ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
           if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
             return [
               PUSH(id),
               INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
-              ...flatMap(({ name, value }: NamedArgument) => [
+              ...(args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
                 DUP,
                 ...compile(environment)(value),
                 SET(name),
-              ])(args as List<NamedArgument>),
+              ]),
               PUSH(id),
             ]
           } else {
             return [
-              ...flatMap(compile(environment))(args as List<Expression>),
+              ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
               PUSH(id),
               INIT(args.length, superclass.target<Class>().fullyQualifiedName(), true),
             ]
           }
-        })(globalSingletons),
+        }),
       ],
     })
   )
@@ -722,7 +721,7 @@ export default (environment: Environment, natives: {}) => ({
     describes.forEach((describe: Describe) => {
       const variables = describe.children().filter((child): child is Variable => child.is('Variable'))
       const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
-      const fixtureSentences = flatMap((fixture: Fixture) => fixture.body.sentences)(fixtures)
+      const fixtureSentences = fixtures.flatMap(fixture => fixture.body.sentences)
       runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')

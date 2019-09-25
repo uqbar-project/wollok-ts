@@ -1,5 +1,5 @@
 import * as build from '../builders'
-import { flatMap, last, zipObj } from '../extensions'
+import { last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
 import { Id, Method, Module, Singleton } from '../model'
@@ -67,15 +67,15 @@ export default {
         last(evaluation.frameStack)!.resume.push('return')
         evaluation.frameStack.push(build.Frame({
           instructions: [
-            ...flatMap((id: Id) => [
+            ...[...self.innerValue].reverse().flatMap((id: Id) => [
               PUSH(closure.id),
               PUSH(id),
-            ])([...self.innerValue].reverse()),
+            ]),
             PUSH(initialValue.id),
-            ...flatMap(() => [
+            ...self.innerValue.flatMap(() => [
               SWAP,
               CALL('apply', 2),
-            ])(self.innerValue),
+            ]),
             INTERRUPT('return'),
           ],
           locals: { self: closure.id },
@@ -407,11 +407,11 @@ export default {
       last(evaluation.frameStack)!.resume.push('return')
       evaluation.frameStack.push(build.Frame({
         instructions: [
-          ...flatMap((id: Id) => [
+          ...valueIds.flatMap((id: Id) => [
             PUSH(closure.id),
             PUSH(id),
             CALL('apply', 1),
-          ])(valueIds),
+          ]),
           PUSH(VOID_ID),
           INTERRUPT('return'),
         ],

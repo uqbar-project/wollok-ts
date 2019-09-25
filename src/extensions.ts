@@ -4,14 +4,6 @@ export const keys = <T>(obj: T) => Object.keys(obj) as (keyof T)[]
 
 export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
 
-export const flatMap = <T, R = T>(tx: (elem: T) => List<R>) => (elems: List<T>): R[] => {
-  const response: R[] = []
-  for (const elem of elems) {
-    response.push(...tx(elem))
-  }
-  return response
-}
-
 export const zipObj = (fieldNames: List<string>, fieldValues: List<any>): {} => {
   const response: any = {}
   for (let i = 0; i < fieldNames.length; i++) {
@@ -27,5 +19,3 @@ export const mapObject = <T, R = any>(tx: (value: T[keyof T], key: keyof T) => R
   }
   return response
 }
-
-export const copy = <T extends {}>(target: T): T => ({ ...target })

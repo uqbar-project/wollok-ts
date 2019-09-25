@@ -24,8 +24,8 @@ export interface Source {
   readonly end: Index
 }
 
-// TODO: Use Map instead
-export interface Scope { [name: string]: Id }
+// TODO: Use Map instead ?
+export type Scope = Record<Name, Id>
 
 
 export type Node<S extends Stage = Final>
