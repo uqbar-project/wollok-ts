@@ -279,6 +279,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
         scopeCache[this.id] = { ...parent.scope(), ...innerContributionFrom(parent) }
       }
+
       return scopeCache[this.id]
     },
 

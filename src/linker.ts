@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
-import { NODE_CACHE, update } from './cache'
+import { NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { Entity, Environment, Filled, Linked, List, Package, Raw } from './model'
 
 const mergePackage = (members: List<Entity<Filled> | Entity<Linked>>, isolated: Entity<Filled>): List<Entity<Filled> | Entity<Linked>> => {
@@ -30,15 +30,16 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
     ({ ...node, id: uuid() })
   ))
 
-  identifiedEnvironment.transform(node => {
-    update(NODE_CACHE, node.id, node)
-    // node.children().forEach(child =>
-    //   update(PARENT_CACHE, child.id, node.id)
-    // )
-    return node
-  })
 
   const environment = LinkedBehavior(identifiedEnvironment)
+
+  environment.transform(node => {
+    update(NODE_CACHE, node.id, node)
+    node.children().forEach(child =>
+      update(PARENT_CACHE, child.id, node.id)
+    )
+    return node
+  })
 
   environment.transform({
     Reference: node => {
