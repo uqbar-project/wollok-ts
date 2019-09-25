@@ -24,6 +24,7 @@ export interface Source {
   readonly end: Index
 }
 
+// TODO: Use Map instead
 export interface Scope { [name: string]: Id }
 
 
