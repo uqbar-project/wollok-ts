@@ -119,8 +119,8 @@ export const linkerAssertions = ({ Assertion }: any) => {
     if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
 
     this.assert(
-      this._obj.targetId === node.id,
-      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.targetId} instead`,
+      this._obj.target().id === node.id,
+      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target().id} instead`,
       `expected reference ${reference.name} to not target node with id ${node.id}`,
     )
   })

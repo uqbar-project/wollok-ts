@@ -24,6 +24,8 @@ export interface Source {
   readonly end: Index
 }
 
+export interface Scope { [name: string]: Id }
+
 
 export type Node<S extends Stage = Final>
   = Parameter<S>
@@ -55,6 +57,7 @@ export interface BaseNode<S extends Stage> {
   reduce: <T, R extends S = S>(tx: (acum: T, node: Node<R>) => T, initial: T) => T
   environment: Linkable<S, () => Environment>
   parent: Linkable<S, () => Node<S>>
+  scope: Linkable<S, () => Scope>
   // TODO: would it be too slow to replace this with ancestors().find?
   closestAncestor: Linkable<S, <N extends Node<S>>(kind: Kind) => N | undefined>
 }
@@ -254,7 +257,6 @@ export type Expression<S extends Stage = Final>
 export interface Reference<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Reference'
   readonly name: Name
-  readonly targetId: Linkable<S, Id>
 
   target: Linkable<S, <N extends Node<Linked>>() => N>
 }

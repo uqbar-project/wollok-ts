@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { flatMap, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Scope, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
@@ -141,6 +141,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
   }) as any
 
+  const scopeCache: { [id: string]: Scope } = {}
 
   const baseBehavior = {
     environment(this: Node<LinkedStage>) { return environment },
@@ -156,6 +157,130 @@ export function Linked(environmentData: Partial<Environment>) {
       }))
     },
 
+    scope(this: Node<LinkedStage>): Scope {
+      function ancestors(module: Module<LinkedStage>): List<Module<LinkedStage>> {
+        const scope = module.scope()
+
+        let superclassId
+        let superclass
+
+        switch (module.kind) {
+          case 'Class':
+            if (!module.superclass) return [...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name]))]
+
+            superclassId = scope[module.superclass.name]
+            if (!superclassId) throw new Error(
+              `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
+            )
+            superclass = environment.getNodeById<Module<LinkedStage>>(superclassId)
+
+            return [
+              superclass,
+              ...ancestors(superclass),
+              ...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name])),
+            ]
+
+          case 'Singleton':
+            superclassId = scope[module.superCall.superclass.name]
+            if (!superclassId)
+              throw new Error(
+                `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
+              )
+            superclass = environment.getNodeById<Module<LinkedStage>>(superclassId)
+
+            return [
+              ...[superclass, ...ancestors(superclass)],
+              ...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name])),
+            ]
+
+          case 'Mixin':
+            return module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name]))
+        }
+      }
+
+      const innerContributionFrom = (node: Node<LinkedStage>): Scope => [
+        ...node.is('Module')
+          ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
+          : [],
+        ...[node, ...node.children()].map(c => outerContributionFrom(c)),
+      ].reduce((a, b) => ({ ...a, ...b }))
+
+      const outerContributionFrom = (contributor: Node<LinkedStage>): Scope => {
+        switch (contributor.kind) {
+          case 'Import':
+            const referenced = environment.getNodeByFQN<Entity<LinkedStage>>(contributor.entity.name)
+            return {
+              [contributor.entity.name]: referenced.id,
+              ...contributor.isGeneric
+                ? referenced.children<Entity<LinkedStage>>().reduce((scope: Scope, child) => {
+                  scope[child.name || ''] = child.id
+                  return scope
+                }, {})
+                : { [referenced.name!]: referenced.id },
+            }
+
+          case 'Package':
+            if (contributor.name === 'wollok') {
+              const langPackage = contributor.children().find(p => p.kind === 'Package' && p.name === 'lang')!
+              const globalContributions = langPackage.children().map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
+              return {
+                [contributor.name]: contributor.id,
+                ...globalContributions,
+              }
+            }
+            return { [contributor.name]: contributor.id }
+
+          case 'Singleton':
+          case 'Class':
+          case 'Mixin':
+          case 'Program':
+          case 'Test':
+          case 'Describe':
+            return contributor.name
+              ? {
+                [contributor.name]: contributor.id,
+                [contributor.fullyQualifiedName()]: contributor.id,
+              }
+              : {}
+
+          case 'Variable':
+          case 'Field':
+          case 'Parameter':
+            return { [contributor.name]: contributor.id }
+
+          case 'NamedArgument':
+          case 'Assignment':
+          case 'Reference':
+          case 'Body':
+          case 'Method':
+          case 'Constructor':
+          case 'Fixture':
+          case 'Return':
+          case 'Reference':
+          case 'Self':
+          case 'Literal':
+          case 'Send':
+          case 'Super':
+          case 'New':
+          case 'If':
+          case 'Throw':
+          case 'Try':
+          case 'Catch':
+          case 'Environment':
+            return {}
+        }
+      }
+
+      if (!scopeCache[this.id]) {
+        let parent: Node<LinkedStage>
+        try {
+          parent = this.parent()
+        } catch (_) { return {} }
+
+        scopeCache[this.id] = { ...parent.scope(), ...innerContributionFrom(parent) }
+      }
+      return scopeCache[this.id]
+    },
 
     closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
       let parent: Node<LinkedStage>
@@ -238,7 +363,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
       if (node.is('Reference')) assign(node, {
         target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
-          return this.environment().getNodeById(this.targetId)
+          return this.environment().getNodeById(this.scope()[this.name])
         },
       })
 
