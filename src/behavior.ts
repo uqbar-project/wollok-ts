@@ -18,6 +18,8 @@ const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind
 export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   const node = { ...obj } as N
 
+  const CHILDREN_CACHE: Map<Id, List<Node<RawStage>>> = new Map()
+
   assign(node, {
 
     is(this: Node<RawStage>, kind: Kind | 'Entity' | 'Module' | 'Expression' | 'Sentence'): boolean {
@@ -36,8 +38,12 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
         return []
       }
 
+      const cached = this.id && CHILDREN_CACHE.get(this.id) as any
+      if (cached) return cached
+
       const extractedChildren = flatMap(extractChildren)(values(this))
       extractedChildren.forEach(child => child.id && update(PARENT_CACHE, child.id!, this.id))
+      if (this.id) CHILDREN_CACHE.set(this.id, extractedChildren)
       return extractedChildren
     },
 
@@ -103,6 +109,7 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export function Linked(environmentData: Partial<Environment>) {
+
   const environment: Environment = assign(Filled(environmentData as any), {
 
     getNodeById<T extends Node<LinkedStage>>(this: Environment, id: Id): T {
@@ -141,7 +148,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
   }) as any
 
-  const scopeCache: { [id: string]: Scope } = {}
+  const SCOPE_CACHE: Map<Id, Scope> = new Map()
 
   const baseBehavior = {
     environment(this: Node<LinkedStage>) { return environment },
@@ -161,18 +168,13 @@ export function Linked(environmentData: Partial<Environment>) {
       function ancestors(module: Module<LinkedStage>): List<Module<LinkedStage>> {
         const scope = module.scope()
 
-        let superclassId
         let superclass
 
         switch (module.kind) {
           case 'Class':
             if (!module.superclass) return [...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name]))]
 
-            superclassId = scope[module.superclass.name]
-            if (!superclassId) throw new Error(
-              `Missing superclass ${module.superclass.name} for class ${module.name} on scope ${JSON.stringify(scope)}`
-            )
-            superclass = environment.getNodeById<Module<LinkedStage>>(superclassId)
+            superclass = environment.getNodeById<Module<LinkedStage>>(scope[module.superclass.name])
 
             return [
               superclass,
@@ -181,12 +183,7 @@ export function Linked(environmentData: Partial<Environment>) {
             ]
 
           case 'Singleton':
-            superclassId = scope[module.superCall.superclass.name]
-            if (!superclassId)
-              throw new Error(
-                `Missing superclass ${module.superCall.superclass.name} for singleton ${module.name} on scope ${JSON.stringify(scope)}`
-              )
-            superclass = environment.getNodeById<Module<LinkedStage>>(superclassId)
+            superclass = environment.getNodeById<Module<LinkedStage>>(scope[module.superCall.superclass.name])
 
             return [
               ...[superclass, ...ancestors(superclass)],
@@ -271,16 +268,18 @@ export function Linked(environmentData: Partial<Environment>) {
         }
       }
 
-      if (!scopeCache[this.id]) {
-        let parent: Node<LinkedStage>
-        try {
-          parent = this.parent()
-        } catch (_) { return {} }
+      const cached = SCOPE_CACHE.get(this.id)
+      if (cached) return cached
 
-        scopeCache[this.id] = { ...parent.scope(), ...innerContributionFrom(parent) }
-      }
+      let parent: Node<LinkedStage>
+      try {
+        parent = this.parent()
+      } catch (_) { return {} }
 
-      return scopeCache[this.id]
+      const response = { ...parent.scope(), ...innerContributionFrom(parent) }
+      SCOPE_CACHE.set(this.id, response)
+
+      return response
     },
 
     closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {

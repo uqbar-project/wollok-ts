@@ -33,20 +33,17 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   const environment = LinkedBehavior(identifiedEnvironment)
 
-  environment.transform(node => {
+  environment.reduce((_, node) => {
     update(NODE_CACHE, node.id, node)
     node.children().forEach(child =>
       update(PARENT_CACHE, child.id, node.id)
     )
-    return node
-  })
 
-  environment.transform({
-    Reference: node => {
-      // TODO: In the future, we should make this fail-resilient
-      return node.target()
-    },
-  })
+    // TODO: In the future, we should make this fail-resilient
+    if (node.is('Reference')) node.target()
+
+    return null
+  }, null)
 
   // flushAll(NODE_CACHE)
 

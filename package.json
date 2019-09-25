@@ -15,7 +15,7 @@
     "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity",
     "test:lint": "tslint --project .",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
-    "test:sanity": "ts-node ./test/sanity.ts",
+    "test:sanity": "node -r ts-node/register ./test/sanity.ts",
     "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js"
   },
   "dependencies": {
