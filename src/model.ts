@@ -24,7 +24,6 @@ export interface Source {
   readonly end: Index
 }
 
-// TODO: Use Map instead ?
 export type Scope = Record<Name, Id>
 
 
@@ -43,6 +42,7 @@ export type Node<S extends Stage = Final>
 export interface BaseNode<S extends Stage> {
   readonly source?: Source
   readonly id: Linkable<S, Id>
+  readonly scope: Linkable<S, Scope>
 
   is<K extends Kind>(kind: K): this is { kind: K }
   is(kind: 'Entity'): this is { kind: KindOf<Entity> }
@@ -58,7 +58,6 @@ export interface BaseNode<S extends Stage> {
   reduce: <T, R extends S = S>(tx: (acum: T, node: Node<R>) => T, initial: T) => T
   environment: Linkable<S, () => Environment>
   parent: Linkable<S, () => Node<S>>
-  scope: Linkable<S, () => Scope>
   // TODO: would it be too slow to replace this with ancestors().find?
   closestAncestor: Linkable<S, <N extends Node<S>>(kind: Kind) => N | undefined>
 }

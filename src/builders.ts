@@ -3,6 +3,7 @@ import { Evaluation as EvaluationType, Frame as FrameType, Locals, RuntimeObject
 import { Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember as DescribeMemberNode, Entity, Environment as EnvironmentType, Expression, Field as FieldNode, Fixture as FixtureNode, Id, Import as ImportNode, Kind, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, NodeOfKind, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Raw, Reference as ReferenceNode, Send as SendNode, Sentence, Singleton as SingletonNode, Test as TestNode, Variable as VariableNode } from './model'
 
 type NodePayload<N extends Node<any>> = Partial<Omit<N, 'kind'>>
+// TODO: Provide instances already filled?
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
@@ -222,7 +223,7 @@ export const Environment = (...members: PackageNode<Linked>[]): EnvironmentType 
   const environment: EnvironmentType = {
     kind: 'Environment',
     members,
-    id: '',
+    id: undefined,
   } as any
   return LinkedBehavior(environment)
 }

@@ -106,10 +106,9 @@ export const fillerAssertions = ({ Assertion }: any) => {
 export const linkerAssertions = ({ Assertion }: any) => {
 
   Assertion.addMethod('linkedInto', function (this: any, expected: Package<Raw>[]) {
-    const dropLinkedFields = dropKeys('id', 'targetId')
+    const dropLinkedFields = dropKeys('id', 'scope')
     const actualEnvironment = link(this._obj)
     const expectedEnvironment = Environment(...expected as any)
-
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })
 

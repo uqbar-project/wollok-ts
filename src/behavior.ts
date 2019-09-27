@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Scope, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
@@ -53,10 +53,10 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
       let next: Node<RawStage> | undefined = this
       do {
         const children = next!.children()
-        response.push(...kind ? children.filter(descendant => descendant.is(kind)) : children)
+        response.push(...kind ? children.filter(child => child.is(kind)) : children)
         pending.push(...children)
         next = pending.shift()
-      } while (pending.length)
+      } while (next)
       return response
     },
 
@@ -78,7 +78,7 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
     },
 
     reduce<T>(this: Node<RawStage>, tx: (acum: T, node: Node<RawStage>) => T, initial: T): T {
-      return this.children().reduce((acum, child) => child.reduce(tx, acum), tx(initial, node))
+      return this.children().reduce((acum, child) => child.reduce(tx, acum), tx(initial, this))
     },
 
   })
@@ -116,7 +116,6 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 export function Linked(environmentData: Partial<Environment>) {
 
   const FQN_CACHE: Map<Name, Node<LinkedStage>> = new Map()
-  const SCOPE_CACHE: Map<Id, Scope> = new Map()
 
   const environment: Environment = assign(Filled(environmentData as any), {
 
@@ -171,128 +170,10 @@ export function Linked(environmentData: Partial<Environment>) {
         const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
           descendant.children().some(({ id }) => id === this.id)
         )
-        if (!parent) throw new Error(`Node is not part of the environment`)
+        if (!parent) throw new Error(`Node ${this.kind} ${(this as any).name}#${this.id} is not part of the environment ${this.environment().id}`)
 
         return parent.id
       }))
-    },
-
-    scope(this: Node<LinkedStage>): Scope {
-      function ancestors(module: Module<LinkedStage>): List<Module<LinkedStage>> {
-        const scope = module.scope()
-
-        let superclass
-
-        switch (module.kind) {
-          case 'Class':
-            if (!module.superclass) return [...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name]))]
-
-            superclass = environment.getNodeById<Module<LinkedStage>>(scope[module.superclass.name])
-
-            return [
-              superclass,
-              ...ancestors(superclass),
-              ...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name])),
-            ]
-
-          case 'Singleton':
-            superclass = environment.getNodeById<Module<LinkedStage>>(scope[module.superCall.superclass.name])
-
-            return [
-              ...[superclass, ...ancestors(superclass)],
-              ...module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name])),
-            ]
-
-          case 'Mixin':
-            return module.mixins.map(m => environment.getNodeById<Module<LinkedStage>>(scope[m.name]))
-        }
-      }
-
-      const innerContributionFrom = (node: Node<LinkedStage>): Scope => [
-        ...node.is('Module')
-          ? ancestors(node).map(ancestor => innerContributionFrom(ancestor))
-          : [],
-        ...[node, ...node.children()].map(c => outerContributionFrom(c)),
-      ].reduce((a, b) => ({ ...a, ...b }))
-
-      const outerContributionFrom = (contributor: Node<LinkedStage>): Scope => {
-        switch (contributor.kind) {
-          case 'Import':
-            const referenced = environment.getNodeByFQN<Entity<LinkedStage>>(contributor.entity.name)
-            return {
-              [contributor.entity.name]: referenced.id,
-              ...contributor.isGeneric
-                ? referenced.children<Entity<LinkedStage>>().reduce((scope: Scope, child) => {
-                  scope[child.name || ''] = child.id
-                  return scope
-                }, {})
-                : { [referenced.name!]: referenced.id },
-            }
-
-          case 'Package':
-            if (contributor.name === 'wollok') {
-              const langPackage = contributor.children().find(p => p.kind === 'Package' && p.name === 'lang')!
-              const globalContributions = langPackage.children().map(outerContributionFrom).reduce((a, b) => ({ ...a, ...b }))
-              return {
-                [contributor.name]: contributor.id,
-                ...globalContributions,
-              }
-            }
-            return { [contributor.name]: contributor.id }
-
-          case 'Singleton':
-          case 'Class':
-          case 'Mixin':
-          case 'Program':
-          case 'Test':
-          case 'Describe':
-            return contributor.name
-              ? {
-                [contributor.name]: contributor.id,
-                [contributor.fullyQualifiedName()]: contributor.id,
-              }
-              : {}
-
-          case 'Variable':
-          case 'Field':
-          case 'Parameter':
-            return { [contributor.name]: contributor.id }
-
-          case 'NamedArgument':
-          case 'Assignment':
-          case 'Reference':
-          case 'Body':
-          case 'Method':
-          case 'Constructor':
-          case 'Fixture':
-          case 'Return':
-          case 'Reference':
-          case 'Self':
-          case 'Literal':
-          case 'Send':
-          case 'Super':
-          case 'New':
-          case 'If':
-          case 'Throw':
-          case 'Try':
-          case 'Catch':
-          case 'Environment':
-            return {}
-        }
-      }
-
-      const cached = SCOPE_CACHE.get(this.id)
-      if (cached) return cached
-
-      let parent: Node<LinkedStage>
-      try {
-        parent = this.parent()
-      } catch (_) { return {} }
-
-      const response = { ...parent.scope(), ...innerContributionFrom(parent) }
-      SCOPE_CACHE.set(this.id, response)
-
-      return response
     },
 
     closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
@@ -376,7 +257,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
       if (node.is('Reference')) assign(node, {
         target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
-          return this.environment().getNodeById(this.scope()[this.name])
+          return this.environment().getNodeById(this.scope[this.name])
         },
       })
 

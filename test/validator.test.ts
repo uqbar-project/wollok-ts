@@ -1,5 +1,6 @@
 import { should, use } from 'chai'
 import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try } from '../src/builders'
+import fill from '../src/filler'
 import link from '../src/linker'
 import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Linked, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Send as SendNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
@@ -23,11 +24,11 @@ describe('Wollok Validations', () => {
     describe('Singleton is not unnamed', () => {
       const environment = link([
         WRE,
-        Package('p')(
+        fill(Package('p')(
           Singleton()(),
           Singleton('s')(),
-        ),
-      ] as PackageNode<Filled>[])
+        )),
+      ])
 
       const { singletonIsNotUnnamed } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
