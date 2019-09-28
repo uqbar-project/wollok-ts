@@ -1,8 +1,8 @@
 import { v4 as uuid } from 'uuid'
 import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
-import { last, mapObject } from './extensions'
+import { divideOn, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
@@ -83,6 +83,16 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
   })
 
+  if (node.is('Package')) assign(node, {
+    getNodeByQN(this: Package<RawStage>, qualifiedName: Name): Node<RawStage> {
+      return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
+        const next = current.children().find(child => child.is('Entity') && child.name === step)
+        if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+        return next
+      }, this)
+    },
+  })
+
   if (node.is('Module')) assign(node, {
     methods(this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) },
     fields(this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) },
@@ -117,9 +127,9 @@ export function Linked(environmentData: Partial<Environment>) {
 
   const FQN_CACHE: Map<Name, Node<LinkedStage>> = new Map()
 
-  const environment: Environment = assign(Filled(environmentData as any), {
+  const environment: Environment<LinkedStage> = assign(Filled(environmentData as any), {
 
-    getNodeById<T extends Node<LinkedStage>>(this: Environment, id: Id): T {
+    getNodeById<T extends Node<LinkedStage>>(this: Environment<LinkedStage>, id: Id): T {
       return getOrUpdate(NODE_CACHE, id)(() => {
         const search = (obj: any): Node<LinkedStage> | undefined => {
           if (isArray(obj)) {
@@ -140,20 +150,20 @@ export function Linked(environmentData: Partial<Environment>) {
       }) as T
     },
 
-    getNodeByFQN<N extends Entity<LinkedStage>>(fullyQualifiedName: string): N {
+    getNodeByFQN(this: Environment<LinkedStage>, fullyQualifiedName: string): Node<LinkedStage> {
       const cached = FQN_CACHE.get(fullyQualifiedName)
       if (cached) return cached as any
 
-      const response: N = fullyQualifiedName.startsWith('#') // TODO: It would be nice to make this the superclass FQN # id
-        ? environment.getNodeById(fullyQualifiedName.slice(1))
-        : fullyQualifiedName.split('.').reduce((current: Entity<LinkedStage> | Environment, step) => {
-          const children = current.children()
-          const next = children.find((child): child is Entity<LinkedStage> => child.is('Entity') && child.name === step)
-          if (!next) throw new Error(
-            `Could not resolve reference to ${fullyQualifiedName}: Missing child ${step} among ${children.map((c: any) => c.name)}`
-          )
-          return next
-        }, environment) as N
+      let response: Node<LinkedStage>
+      // TODO: It would be nice to make this the superclass FQN # id
+      if (fullyQualifiedName.startsWith('#')) {
+        response = this.getNodeById(fullyQualifiedName.slice(1))
+      } else {
+        const [start, rest] = divideOn('.')(fullyQualifiedName)
+        const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
+        if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+        response = rest ? root.getNodeByQN(rest) : root
+      }
 
       FQN_CACHE.set(fullyQualifiedName, response)
 

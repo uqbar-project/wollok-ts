@@ -11,6 +11,7 @@ type Linkable<S extends Stage, T> = S extends Linked ? T : T | undefined
 
 
 export type Kind = Node['kind']
+export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression'
 export type KindOf<N extends Node<Stage>> = N['kind']
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
@@ -51,7 +52,7 @@ export interface BaseNode<S extends Stage> {
   is(kind: 'Expression'): this is { kind: KindOf<Expression> }
 
   children: <N extends Node<S> = Node<S>>() => List<N>
-  descendants: <N extends Node<S>>(kind?: Kind) => List<N>
+  descendants: <N extends Node<S>>(kind?: Kind | Category) => List<N>
   transform: <R extends S = S, E extends Node<R> = Node<R>, C extends S = S>(
     tx: ((node: Node<S>) => Node<R>) | Partial<{ [N in Kind]: (node: NodeOfKind<N, C>) => NodeOfKind<N, R> }>
   ) => E
@@ -103,6 +104,8 @@ export interface Package<S extends Stage = Final> extends BaseEntity<S> {
   readonly name: Name
   readonly imports: List<Import<S>>
   readonly members: List<Entity<S>>
+
+  getNodeByQN<N extends Node<S>>(qualifiedName: Name): N
 }
 
 export interface Program<S extends Stage = Final> extends BaseEntity<S> {

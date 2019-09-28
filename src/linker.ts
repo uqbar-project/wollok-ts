@@ -2,6 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { NODE_CACHE, PARENT_CACHE, update } from './cache'
+import { divideOn } from './extensions'
 import { Entity, Environment, Filled, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
 const { assign } = Object
@@ -27,18 +28,11 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
 function resolve(context: Node<Linked>, qualifiedName: Name): Module<Linked> {
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
-  const [root, ...path] = qualifiedName.split('.')
-
-  const start = context.environment().getNodeById<Entity<Linked>>(context.scope[root])
-
-  // TODO: getDescendantByQN in entities ?
-  return path.reduce((current: Entity<Linked>, step) => {
-    const next = current.children().find((child): child is Entity<Linked> => child.is('Entity') && child.name === step)
-    if (!next) throw new Error(
-      `Could not resolve reference to ${qualifiedName}: Missing child ${step} among childs of ${current.name}`
-    )
-    return next
-  }, start) as Module<Linked>
+  const [start, rest] = divideOn('.')(qualifiedName)
+  const root = context.environment().getNodeById<Entity<Linked>>(context.scope[start])
+  return rest.length
+    ? (root as Package<Linked>).getNodeByQN<Module<Linked>>(rest)
+    : root as Module<Linked>
 }
 
 const scopeContribution = (contributor: Node<Linked>): Scope => {
@@ -89,10 +83,10 @@ const scopeContribution = (contributor: Node<Linked>): Scope => {
   }
 }
 
-const scopeWithin = (includeInner: boolean) => (node: Node<Linked>): Scope => {
+const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope => {
   const response = { ...node.scope }
 
-  if (includeInner && node.is('Module')) {
+  if (includeInherited && node.is('Module')) {
     function hierarchy(module: Module<Linked>): List<Module<Linked>> {
       const mixins = module.mixins.map(m => resolve(module, m.name))
 
@@ -106,7 +100,7 @@ const scopeWithin = (includeInner: boolean) => (node: Node<Linked>): Scope => {
       ]
     }
 
-    assign(response, ...hierarchy(node).map(scopeWithin(includeInner)))
+    assign(response, ...hierarchy(node).map(scopeWithin(includeInherited)))
   }
 
   assign(response, ...[node, ...node.children()].map(scopeContribution))
@@ -114,16 +108,21 @@ const scopeWithin = (includeInner: boolean) => (node: Node<Linked>): Scope => {
   return response
 }
 
-const assignEntityScopes = (node: Node<Linked>, scope: Scope = {}) => {
-  (node as any).scope = scope
-  const innerScope = scopeWithin(false)(node)
-  for (const child of node.children()) if (child.is('Entity')) assignEntityScopes(child, innerScope)
-}
+const assignScopes = (environment: Environment<Linked>) => {
+  function propagateScopeAssignment(
+    node: Node<Linked>,
+    scope: Scope,
+    includeInheritedNames: boolean,
+    propagateOn: (child: Node<Linked>) => boolean,
+  ) {
+    (node as any).scope = scope
+    const innerScope = scopeWithin(includeInheritedNames)(node)
+    for (const child of node.children())
+      if (propagateOn(child)) propagateScopeAssignment(child, innerScope, includeInheritedNames, propagateOn)
+  }
 
-const assignNonEntityScopes = (node: Node<Linked>, scope: Scope = {}) => {
-  (node as any).scope = scope
-  const innerScope = scopeWithin(true)(node)
-  for (const child of node.children()) assignNonEntityScopes(child, innerScope)
+  propagateScopeAssignment(environment, {}, false, child => child.is('Entity'))
+  propagateScopeAssignment(environment, {}, true, () => true)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -140,14 +139,12 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   environment.reduce((_, node) => {
     update(NODE_CACHE, node.id, node)
-    node.children().forEach(child =>
+    for (const child of node.children())
       update(PARENT_CACHE, child.id, node.id)
-    )
     return null
   }, null)
 
-  assignEntityScopes(environment)
-  assignNonEntityScopes(environment)
+  assignScopes(environment)
 
   environment.reduce((_, node) => {
     // TODO: In the future, we should make this fail-resilient

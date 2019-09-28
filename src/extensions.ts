@@ -4,6 +4,11 @@ export const keys = <T>(obj: T) => Object.keys(obj) as (keyof T)[]
 
 export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
 
+export const divideOn = (separator: string) => (str: string): [string, string] => {
+  const [head, ...tail] = str.split(separator)
+  return [head, tail.join(separator)]
+}
+
 export const zipObj = (fieldNames: List<string>, fieldValues: List<any>): {} => {
   const response: any = {}
   for (let i = 0; i < fieldNames.length; i++) {
