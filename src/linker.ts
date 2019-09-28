@@ -24,8 +24,8 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
     : [...members, isolated]
 }
 
-
-function resolve(context: Node<Linked>, qualifiedName: Name): Module<Linked> {
+// TODO: Use reference target instead passing a custom scope?
+const resolve = (context: Node<Linked>, qualifiedName: Name): Module<Linked> => {
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
   const [start, rest] = divideOn('.')(qualifiedName)
@@ -105,7 +105,7 @@ const assignScopes = (environment: Environment<Linked>) => {
 
 export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment = buildEnvironment()): Environment => {
 
-  // TODO: It would make life easier and more performant if we used a fqn where possible as id
+  // TODO: It would make life easier and more performant if we used a fqn where possible as id. Maybe?
   const environment = LinkedBehavior(
     buildEnvironment(...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>)
       .transform<Linked, Environment>(node => ({ ...node, id: uuid() }))
@@ -120,6 +120,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   assignScopes(environment)
 
+  // TODO: Move this to validations
   environment.reduce((_, node) => {
     // TODO: In the future, we should make this fail-resilient
     if (node.is('Reference') && !node.parent().is('Import')) {
