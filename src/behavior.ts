@@ -1,13 +1,27 @@
 import { v4 as uuid } from 'uuid'
-import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
+import { getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
 import { divideOn, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
 
 const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
+
+
+function cache<N extends { id?: Id }, R>(f: (this: N) => R): (this: N) => R {
+  const CACHE: Map<Id, R> = new Map()
+
+  return function (this: N): R {
+    const cached = this.id && CACHE.get(this.id)
+    if (cached) return cached
+
+    const response = f.bind(this)()
+    if (this.id) CACHE.set(this.id, response)
+    return response
+  }
+}
 
 // TODO: Test all behaviors
 
@@ -18,11 +32,9 @@ const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind
 export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   const node = { ...obj } as N
 
-  const CHILDREN_CACHE: Map<Id, List<Node<RawStage>>> = new Map()
-
   assign(node, {
 
-    is(this: Node<RawStage>, kind: Kind | 'Entity' | 'Module' | 'Expression' | 'Sentence'): boolean {
+    is(this: Node<RawStage>, kind: Kind | Category): boolean {
       if (kind === 'Entity') return ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(this.kind)
       if (kind === 'Module') return ['Singleton', 'Mixin', 'Class'].includes(this.kind)
       if (kind === 'Expression') return ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(this.kind)
@@ -30,22 +42,16 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
       return this.kind === kind
     },
 
-    children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
-      const extractChildren = (owner: any): List<T> => {
-        if (isNode(owner)) return [owner as T]
+    children: cache(function (this: Node<RawStage>): List<Node<RawStage>> {
+      const extractChildren = (owner: any): List<Node<RawStage>> => {
+        if (isNode<RawStage>(owner)) return [owner]
         if (isArray(owner)) return owner.flatMap(extractChildren)
         if (owner instanceof Object) return values(owner).flatMap(extractChildren)
         return []
       }
 
-      const cached = this.id && CHILDREN_CACHE.get(this.id) as any
-      if (cached) return cached
-
-      const response = values(this).flatMap(extractChildren)
-      response.forEach(child => child.id && update(PARENT_CACHE, child.id!, this.id))
-      if (this.id) CHILDREN_CACHE.set(this.id, response)
-      return response
-    },
+      return values(this).flatMap(extractChildren)
+    }),
 
     descendants(this: Node<RawStage>, kind?: Kind): List<Node<RawStage>> {
       const pending: Node<RawStage>[] = []
