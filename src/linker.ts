@@ -40,25 +40,10 @@ const scopeContribution = (contributor: Node<Linked>): Scope => {
     case 'Import':
       const referenced = resolve(contributor.parent(), contributor.entity.name)
       return {
-        [contributor.entity.name]: referenced.id,
         ...contributor.isGeneric
-          ? referenced.children<Entity<Linked>>().reduce((scope: Scope, child) => {
-            if (child.name) scope[child.name] = child.id
-            return scope
-          }, {})
-          : { [referenced.name!]: referenced.id },
+          ? assign({}, ...referenced.children().map(scopeContribution))
+          : scopeContribution(referenced),
       }
-
-    case 'Package':
-      if (contributor.name === 'wollok') {
-        const langPackage = contributor.children().find(p => p.kind === 'Package' && p.name === 'lang')!
-        const globalContributions = langPackage.children().map(scopeContribution).reduce((a, b) => ({ ...a, ...b }))
-        return {
-          [contributor.name]: contributor.id,
-          ...globalContributions,
-        }
-      }
-      return { [contributor.name]: contributor.id }
 
     case 'Singleton':
     case 'Class':
@@ -73,6 +58,7 @@ const scopeContribution = (contributor: Node<Linked>): Scope => {
         }
         : {}
 
+    case 'Package':
     case 'Variable':
     case 'Field':
     case 'Parameter':
@@ -109,6 +95,8 @@ const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope =
 }
 
 const assignScopes = (environment: Environment<Linked>) => {
+  const globalScope = assign({}, ...environment.getNodeByFQN<Package>('wollok.lang').children().map(scopeContribution))
+
   function propagateScopeAssignment(
     node: Node<Linked>,
     scope: Scope,
@@ -121,8 +109,8 @@ const assignScopes = (environment: Environment<Linked>) => {
       if (propagateOn(child)) propagateScopeAssignment(child, innerScope, includeInheritedNames, propagateOn)
   }
 
-  propagateScopeAssignment(environment, {}, false, child => child.is('Entity'))
-  propagateScopeAssignment(environment, {}, true, () => true)
+  propagateScopeAssignment(environment, globalScope, false, child => child.is('Entity'))
+  propagateScopeAssignment(environment, environment.scope, true, () => true)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -148,10 +136,9 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   environment.reduce((_, node) => {
     // TODO: In the future, we should make this fail-resilient
-    if (node.is('Reference')) {
+    if (node.is('Reference') && !node.parent().is('Import')) {
       try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && Object.keys(node.scope)}`) }
     }
-
     return null
   }, null)
 
