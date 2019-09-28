@@ -36,37 +36,23 @@ function resolve(context: Node<Linked>, qualifiedName: Name): Module<Linked> {
 }
 
 const scopeContribution = (contributor: Node<Linked>): Scope => {
-  switch (contributor.kind) {
-    case 'Import':
-      const referenced = resolve(contributor.parent(), contributor.entity.name)
-      return {
-        ...contributor.isGeneric
-          ? assign({}, ...referenced.children().map(scopeContribution))
-          : scopeContribution(referenced),
-      }
-
-    case 'Singleton':
-    case 'Class':
-    case 'Mixin':
-    case 'Program':
-    case 'Test':
-    case 'Describe':
-      return contributor.name
-        ? {
-          [contributor.name]: contributor.id,
-          [contributor.fullyQualifiedName()]: contributor.id,
-        }
-        : {}
-
-    case 'Package':
-    case 'Variable':
-    case 'Field':
-    case 'Parameter':
-      return { [contributor.name]: contributor.id }
-
-    default:
-      return {}
+  if (contributor.is('Import')) {
+    const referenced = resolve(contributor.parent(), contributor.entity.name)
+    return {
+      ...contributor.isGeneric
+        ? assign({}, ...referenced.children().map(scopeContribution))
+        : scopeContribution(referenced),
+    }
   }
+
+  if (
+    contributor.is('Entity') ||
+    contributor.is('Variable') ||
+    contributor.is('Field') ||
+    contributor.is('Parameter')
+  ) return contributor.name ? { [contributor.name]: contributor.id } : {}
+
+  return {}
 }
 
 const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope => {

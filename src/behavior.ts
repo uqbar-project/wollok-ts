@@ -266,8 +266,10 @@ export function Linked(environmentData: Partial<Environment>) {
       })
 
       if (node.is('Reference')) assign(node, {
-        target<N extends Node<LinkedStage>>(this: Reference<LinkedStage>): N {
-          return this.environment().getNodeById(this.scope[this.name])
+        target(this: Reference<LinkedStage>): Node<LinkedStage> {
+          const [start, rest] = divideOn('.')(this.name)
+          const root = this.environment().getNodeById<Package<LinkedStage>>(this.scope[start])
+          return rest.length ? root.getNodeByQN(rest) : root
         },
       })
 
