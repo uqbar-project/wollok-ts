@@ -24,7 +24,7 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
     : [...members, isolated]
 }
 
-// TODO: Use reference target instead passing a custom scope?
+// TODO: Use reference target passing a custom scope instead?
 const resolve = (context: Node<Linked>, qualifiedName: Name): Module<Linked> => {
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
