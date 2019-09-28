@@ -60,7 +60,8 @@ const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope =
 
   if (includeInherited && node.is('Module')) {
     function hierarchy(module: Module<Linked>): List<Module<Linked>> {
-      const mixins = module.mixins.map(m => resolve(module, m.name))
+      // const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
+      const mixins = module.mixins.map(mixin => mixin.target<Module<Linked>>())
 
       if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixins
 
