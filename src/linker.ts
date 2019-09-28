@@ -120,9 +120,8 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   assignScopes(environment)
 
-  // TODO: Move this to validations
+  // TODO: Move this to validations so it becomes fail-resilient
   environment.reduce((_, node) => {
-    // TODO: In the future, we should make this fail-resilient
     if (node.is('Reference') && !node.parent().is('Import')) {
       try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && Object.keys(node.scope)}`) }
     }

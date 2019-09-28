@@ -43,7 +43,6 @@ const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!hea
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  // TODO: Don't list fields like 'id', instead exclude all | undefined entries
   P extends { [F in keyof N]: Parser<N[F]> } = { [F in keyof N]: Parser<N[F]> },
   M extends Omit<P, 'kind' | Optionals<N> | Methods<N>> = Omit<P, 'kind' | Optionals<N> | Methods<N>>,
   O extends Partial<Pick<P, Optionals<N>>> = Partial<Pick<P, Optionals<N>>>,

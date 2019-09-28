@@ -83,16 +83,6 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
   })
 
-  if (node.is('Package')) assign(node, {
-    getNodeByQN(this: Package<RawStage>, qualifiedName: Name): Node<RawStage> {
-      return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
-        const next = current.children().find(child => child.is('Entity') && child.name === step)
-        if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
-        return next
-      }, this)
-    },
-  })
-
   if (node.is('Module')) assign(node, {
     methods(this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) },
     fields(this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) },
@@ -154,16 +144,10 @@ export function Linked(environmentData: Partial<Environment>) {
       const cached = FQN_CACHE.get(fullyQualifiedName)
       if (cached) return cached as any
 
-      let response: Node<LinkedStage>
-      // TODO: It would be nice to make this the superclass FQN # id
-      if (fullyQualifiedName.startsWith('#')) {
-        response = this.getNodeById(fullyQualifiedName.slice(1))
-      } else {
-        const [start, rest] = divideOn('.')(fullyQualifiedName)
-        const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
-        if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-        response = rest ? root.getNodeByQN(rest) : root
-      }
+      const [start, rest] = divideOn('.')(fullyQualifiedName)
+      const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
+      if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+      const response = rest ? root.getNodeByQN(rest) : root
 
       FQN_CACHE.set(fullyQualifiedName, response)
 
@@ -180,7 +164,7 @@ export function Linked(environmentData: Partial<Environment>) {
         const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
           descendant.children().some(({ id }) => id === this.id)
         )
-        if (!parent) throw new Error(`Node ${this.kind} ${(this as any).name}#${this.id} is not part of the environment ${this.environment().id}`)
+        if (!parent) throw new Error(`Node ${this.kind}#${this.id} is not in the environment`)
 
         return parent.id
       }))
@@ -204,14 +188,29 @@ export function Linked(environmentData: Partial<Environment>) {
       if (node.is('Entity')) assign(node, {
         fullyQualifiedName(this: Entity<LinkedStage>): Name {
           const parent = this.parent()
-          return parent.is('Entity')
-            ? `${parent.fullyQualifiedName()}.${this.name}`
-            : this.name || `#${this.id}`
+          const label = this.is('Singleton')
+            ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
+            : this.name.replace(/\.#/g, '')
+
+          return parent.is('Package')
+            ? `${parent.fullyQualifiedName()}.${label}`
+            : label
+        },
+      })
+
+      if (node.is('Package')) assign(node, {
+        getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<RawStage> {
+          const [, id] = qualifiedName.split('#')
+          if (id) return this.environment().getNodeById(id)
+          return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
+            const next = current.children().find(child => child.is('Entity') && child.name === step)
+            if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+            return next
+          }, this)
         },
       })
 
       if (node.is('Module')) assign(node, {
-
         hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
           const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
             if (exclude.includes(module.id)) return []

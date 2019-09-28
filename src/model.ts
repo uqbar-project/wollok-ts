@@ -257,6 +257,7 @@ export type Expression<S extends Stage = Final>
   | Throw<S>
   | Try<S>
 
+// TODO: Add extra parameter with the type of referenced node?
 export interface Reference<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Reference'
   readonly name: Name
