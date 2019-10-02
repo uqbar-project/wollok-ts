@@ -4,7 +4,7 @@ import { Environment as buildEnvironment, Package as buildPackage } from './buil
 import { divideOn } from './extensions'
 import { Entity, Environment, Filled, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
-const { assign } = Object
+const { assign, keys } = Object
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
@@ -59,10 +59,10 @@ const scopeContribution = (contributor: Node<Linked>): Scope => {
   return {}
 }
 
-const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope => {
+const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): Scope => {
   const response = { ...node.scope }
 
-  if (includeInherited && node.is('Module')) {
+  if (includeInheritedMembers && node.is('Module')) {
     function hierarchy(module: Module<Linked>): List<Module<Linked>> {
       const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
 
@@ -77,7 +77,7 @@ const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope =
       ]
     }
 
-    assign(response, ...hierarchy(node).map(scopeWithin(includeInherited)))
+    assign(response, ...hierarchy(node).map(scopeWithin(includeInheritedMembers)))
   }
 
   assign(response, ...[node, ...node.children()].map(scopeContribution))
@@ -113,17 +113,16 @@ const assignScopes = (environment: Environment<Linked>) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment = buildEnvironment()): Environment => {
-  // TODO: It would make life easier and more performant if we used a fqn where possible as id. Maybe?
+  // TODO: Would it make life easier if we used fqn where possible as id?
   const environment = LinkedBehavior(buildEnvironment(...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>)
     .transform<Linked, Environment>(node => ({ ...node, id: uuid() })))
 
   assignScopes(environment)
 
   // TODO: Move this to validations so it becomes fail-resilient
-  // TODO: Make a forEach method on node
   environment.forEach(node => {
     if (node.is('Reference') && !node.parent().is('Import')) {
-      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && Object.keys(node.scope)}`) }
+      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && keys(node.scope)}`) }
     }
   })
 
