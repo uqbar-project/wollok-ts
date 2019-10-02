@@ -68,6 +68,14 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
       return response
     },
 
+    forEach(
+      this: Node<RawStage>,
+      tx: ((node: Node<RawStage>) => void) | { [K in Kind]?: (node: Node<RawStage>) => void }
+    ) {
+      (typeof tx === 'function' ? tx : (tx[this.kind] || (_ => _)))(this)
+      this.children().forEach(child => child.forEach(tx))
+    },
+
     transform<R extends Stage>(
       this: Node<RawStage>,
       tx: ((node: Node<RawStage>) => Node<R>) | { [K in Kind]?: (node: Node<RawStage>) => Node<R> }
@@ -124,7 +132,7 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 export function Linked(environmentData: Partial<Environment>) {
   const environment: Environment<LinkedStage> = Filled(environmentData as any).transform(node => Filled(node as any)) as any
 
-  environment.reduce((_, node) => {
+  environment.forEach(node => {
 
     assign(node, {
       environment(this: Node<LinkedStage>) { return environment },
@@ -178,11 +186,11 @@ export function Linked(environmentData: Partial<Environment>) {
     })
 
     if (node.is('Package')) assign(node, {
-      getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<RawStage> {
+      getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<LinkedStage> {
         const [, id] = qualifiedName.split('#')
         if (id) return this.environment().getNodeById(id)
-        return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
-          const next = current.children().find(child => child.is('Entity') && child.name === step)
+        return qualifiedName.split('.').reduce((current: Node<LinkedStage>, step) => {
+          const next = current.children<Node<LinkedStage>>().find(child => child.is('Entity') && child.name === step)
           if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
           return next
         }, this)
@@ -252,9 +260,7 @@ export function Linked(environmentData: Partial<Environment>) {
     })
 
     if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
-
-    return null
-  }, null)
+  })
 
   return environment
 }

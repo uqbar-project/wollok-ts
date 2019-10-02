@@ -121,12 +121,11 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
 
   // TODO: Move this to validations so it becomes fail-resilient
   // TODO: Make a forEach method on node
-  environment.reduce((_, node) => {
+  environment.forEach(node => {
     if (node.is('Reference') && !node.parent().is('Import')) {
       try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && Object.keys(node.scope)}`) }
     }
-    return null
-  }, null)
+  })
 
   return environment
 }

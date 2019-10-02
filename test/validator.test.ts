@@ -11,12 +11,12 @@ should()
 
 // TODO: General cleanup
 
-const WRE = Package('wollok')(
+const WRE = fill(Package('wollok')(
   Package('lang')(
     Class('Object')(),
     Class('Closure')()
   )
-)
+))
 
 describe('Wollok Validations', () => {
 
