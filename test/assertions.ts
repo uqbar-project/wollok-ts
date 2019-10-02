@@ -148,9 +148,13 @@ export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
   also({ Assertion }, conf)
 
   Assertion.addMethod('stepped', function (this: any, natives: {} = {}) {
-    const stub = ImportMock.mockFunction(uuid, 'v4', 'new_id')
-    step(natives)(this._obj)
-    stub.restore()
+    let n = 0
+    const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
+    try {
+      step(natives)(this._obj)
+    } finally {
+      stub.restore()
+    }
 
   })
 

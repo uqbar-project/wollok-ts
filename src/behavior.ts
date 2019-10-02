@@ -1,5 +1,4 @@
 import { v4 as uuid } from 'uuid'
-import { getOrUpdate, NODE_CACHE, PARENT_CACHE } from './cache'
 import { divideOn, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
@@ -10,15 +9,18 @@ const { values, assign, keys } = Object
 const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 
-function cache<N extends { id?: Id }, R>(f: (this: N) => R): (this: N) => R {
-  const CACHE: Map<Id, R> = new Map()
+const NODE_CACHE = new Map<Id, Node<LinkedStage>>()
 
-  return function (this: N): R {
-    const cached = this.id && CACHE.get(this.id)
+function cache<N extends { id?: Id }, R>(f: (this: N, ...args: any[]) => R, CACHE: Map<Id, R> = new Map()) {
+  return function (this: N, ...args: any[]): R {
+    if (!this.id) return f.bind(this)(...args)
+
+    const key = `${this.id}${args}`
+    const cached = CACHE.get(key)
     if (cached) return cached
 
-    const response = f.bind(this)()
-    if (this.id) CACHE.set(this.id, response)
+    const response = f.bind(this)(...args)
+    CACHE.set(key, response)
     return response
   }
 }
@@ -90,16 +92,16 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   })
 
   if (node.is('Module')) assign(node, {
-    methods(this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) },
-    fields(this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) },
+    methods: cache(function (this: Module<RawStage>) { return this.members.filter(member => member.is('Method')) }),
+    fields: cache(function (this: Module<RawStage>) { return this.members.filter(member => member.is('Field')) }),
   })
 
   if (node.is('Class')) assign(node, {
-    constructors(this: Class<RawStage>) { return this.members.filter(member => member.is('Constructor')) },
+    constructors: cache(function (this: Class<RawStage>) { return this.members.filter(member => member.is('Constructor')) }),
   })
 
   if (node.is('Describe')) assign(node, {
-    tests(this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) },
+    tests: cache(function (this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) }),
   })
 
   return node
@@ -120,168 +122,141 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export function Linked(environmentData: Partial<Environment>) {
+  const environment: Environment<LinkedStage> = Filled(environmentData as any).transform(node => Filled(node as any)) as any
 
-  const FQN_CACHE: Map<Name, Node<LinkedStage>> = new Map()
+  environment.reduce((_, node) => {
 
-  const environment: Environment<LinkedStage> = assign(Filled(environmentData as any), {
+    assign(node, {
+      environment(this: Node<LinkedStage>) { return environment },
 
-    getNodeById<T extends Node<LinkedStage>>(this: Environment<LinkedStage>, id: Id): T {
-      return getOrUpdate(NODE_CACHE, id)(() => {
-        const search = (obj: any): Node<LinkedStage> | undefined => {
-          if (isArray(obj)) {
-            for (const value of obj) {
-              const found = search(value)
-              if (found) return found
-            }
-          } else if (obj instanceof Object) {
-            if (isNode(obj) && obj.id === id) return obj
-            return search(values(obj))
-          }
-          return undefined
-        }
+      // TODO: Don't save this to the scope, use a cache instead
+      parent(this: Node<LinkedStage>): Node<LinkedStage> {
+        if (this.scope) return this.environment().getNodeById(this.scope['<parent>'])
 
-        const response = search(environment)
-        if (!response) throw new Error(`Missing node ${id}`)
-        return response
-      }) as T
-    },
-
-    getNodeByFQN(this: Environment<LinkedStage>, fullyQualifiedName: string): Node<LinkedStage> {
-      const cached = FQN_CACHE.get(fullyQualifiedName)
-      if (cached) return cached as any
-
-      const [start, rest] = divideOn('.')(fullyQualifiedName)
-      const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
-      if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-      const response = rest ? root.getNodeByQN(rest) : root
-
-      FQN_CACHE.set(fullyQualifiedName, response)
-
-      return response
-    },
-
-  }) as any
-
-  const baseBehavior = {
-    environment(this: Node<LinkedStage>) { return environment },
-
-    parent<T extends Node<LinkedStage>>(this: Node<LinkedStage>): T {
-      return this.environment().getNodeById(getOrUpdate(PARENT_CACHE, this.id)(() => {
         const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
           descendant.children().some(({ id }) => id === this.id)
         )
         if (!parent) throw new Error(`Node ${this.kind}#${this.id} is not in the environment`)
 
-        return parent.id
-      }))
-    },
+        return parent
+      },
 
-    closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
-      let parent: Node<LinkedStage>
-      try {
-        parent = this.parent()
-      } catch (_) { return undefined }
+      closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
+        let parent: Node<LinkedStage>
+        try {
+          parent = this.parent()
+        } catch (_) { return undefined }
 
-      return parent.is(kind) ? parent : parent.closestAncestor(kind) as any
-    },
-  }
+        return parent.is(kind) ? parent : parent.closestAncestor(kind) as any
+      },
+    })
 
-  return assign(environment, baseBehavior, {
-    members: environment.transform<LinkedStage, Environment>(n => {
+    if (node.is('Environment')) assign(node, {
+      getNodeById: cache(function (this: Environment<LinkedStage>, id: Id): Node<LinkedStage> {
+        throw new Error(`Missing node in node cache with id ${id}`)
+      }, NODE_CACHE),
 
-      const node: Node<LinkedStage> = assign(Filled(n as any), baseBehavior) as any
+      getNodeByFQN: cache(function (this: Environment<LinkedStage>, fullyQualifiedName: string): Node<LinkedStage> {
+        const [start, rest] = divideOn('.')(fullyQualifiedName)
+        const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
+        if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+        return rest ? root.getNodeByQN(rest) : root
+      }),
+    })
 
-      if (node.is('Entity')) assign(node, {
-        fullyQualifiedName(this: Entity<LinkedStage>): Name {
-          const parent = this.parent()
-          const label = this.is('Singleton')
-            ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
-            : this.name.replace(/\.#/g, '')
+    if (node.is('Entity')) assign(node, {
+      fullyQualifiedName: cache(function (this: Entity<LinkedStage>): Name {
+        const parent = this.parent()
+        const label = this.is('Singleton')
+          ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
+          : this.name.replace(/\.#/g, '')
 
-          return parent.is('Package')
-            ? `${parent.fullyQualifiedName()}.${label}`
-            : label
-        },
-      })
+        return parent.is('Package')
+          ? `${parent.fullyQualifiedName()}.${label}`
+          : label
+      }),
+    })
 
-      if (node.is('Package')) assign(node, {
-        getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<RawStage> {
-          const [, id] = qualifiedName.split('#')
-          if (id) return this.environment().getNodeById(id)
-          return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
-            const next = current.children().find(child => child.is('Entity') && child.name === step)
-            if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
-            return next
-          }, this)
-        },
-      })
+    if (node.is('Package')) assign(node, {
+      getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<RawStage> {
+        const [, id] = qualifiedName.split('#')
+        if (id) return this.environment().getNodeById(id)
+        return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
+          const next = current.children().find(child => child.is('Entity') && child.name === step)
+          if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+          return next
+        }, this)
+      },
+    })
 
-      if (node.is('Module')) assign(node, {
-        hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
-          const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
-            if (exclude.includes(module.id)) return []
-            return [
-              ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
-              ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
-            ].reduce(({ mods, exs }, mod) => (
-              { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
-            ), { mods: [module], exs: [module.id, ...exclude] }).mods
-          }
+    if (node.is('Module')) assign(node, {
+      hierarchy: cache(function (this: Module<LinkedStage>): List<Module<LinkedStage>> {
+        const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
+          if (exclude.includes(module.id)) return []
+          return [
+            ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
+            ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
+          ].reduce(({ mods, exs }, mod) => (
+            { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
+          ), { mods: [module], exs: [module.id, ...exclude] }).mods
+        }
 
-          return hierarchyExcluding(this)
-        },
+        return hierarchyExcluding(this)
+      }),
 
-        inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
-          return this.hierarchy().some(({ id }) => other.id === id)
-        },
+      inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
+        return this.hierarchy().some(({ id }) => other.id === id)
+      },
 
-        lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
-          for (const module of this.hierarchy()) {
-            const found = module.methods().find(member =>
-              (!!member.body || member.isNative) && member.name === name && (
-                member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-                member.parameters.length === arity
-              )
+      lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
+        for (const module of this.hierarchy()) {
+          const found = module.methods().find(member =>
+            (!!member.body || member.isNative) && member.name === name && (
+              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+              member.parameters.length === arity
             )
-            if (found) return found
-          }
-          return undefined
-        },
-
-      })
-
-      if (node.is('Class')) assign(node, {
-        superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
-          return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
-        },
-
-        lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-          return this.constructors().find(member =>
-            // TODO: extract method matches(name, arity) or something like that for constructors and methods
-            member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-            member.parameters.length === arity
           )
-        },
-      })
+          if (found) return found
+        }
+        return undefined
+      },
 
-      if (node.is('Singleton')) assign(node, {
-        superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
-          return this.superCall.superclass.target<Class<LinkedStage>>()
-        },
-      })
+    })
 
-      if (node.is('Reference')) assign(node, {
-        target(this: Reference<LinkedStage>): Node<LinkedStage> {
-          const [start, rest] = divideOn('.')(this.name)
-          const root = this.environment().getNodeById<Package<LinkedStage>>(this.scope[start])
-          return rest.length ? root.getNodeByQN(rest) : root
-        },
-      })
+    if (node.is('Class')) assign(node, {
+      superclassNode: cache(function (this: Class<LinkedStage>): Class<LinkedStage> | null {
+        return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
+      }),
 
-      return node
+      lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
+        return this.constructors().find(member =>
+          // TODO: extract method matches(name, arity) or something like that for constructors and methods
+          member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+          member.parameters.length === arity
+        )
+      },
+    })
 
-    }).members,
-  })
+    if (node.is('Singleton')) assign(node, {
+      superclassNode: cache(function (this: Singleton<LinkedStage>): Class<LinkedStage> {
+        return this.superCall.superclass.target<Class<LinkedStage>>()
+      }),
+    })
+
+    if (node.is('Reference')) assign(node, {
+      target: cache(function (this: Reference<LinkedStage>): Node<LinkedStage> {
+        const [start, rest] = divideOn('.')(this.name)
+        const root = this.environment().getNodeById<Package<LinkedStage>>(this.scope[start])
+        return rest.length ? root.getNodeByQN(rest) : root
+      }),
+    })
+
+    if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
+
+    return null
+  }, null)
+
+  return environment
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

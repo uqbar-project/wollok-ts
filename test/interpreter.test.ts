@@ -1,4 +1,5 @@
 import { expect, should, use } from 'chai'
+import { restore, stub } from 'sinon'
 import { Class, Constructor, Evaluation, Field, Frame, Literal, Method, Package, Parameter, Reference, Return, RuntimeObject } from '../src/builders'
 import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, GET, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, SET, step, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
@@ -18,6 +19,11 @@ const WRE = Package('wollok')(
 ) as unknown as PackageNode<Filled>
 
 const environment = link([WRE])
+
+// TODO: Some mocking is quite ugly. Either properly link the mock classes or use sinon for cleaner definitions.
+afterEach(() => {
+  restore()
+})
 
 describe('Wollok Interpreter', () => {
 
@@ -370,9 +376,9 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
-            new_id: RuntimeObject('new_id', 'wollok.lang.Object'),
+            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.Object'),
           })(
-            Frame({ operandStack: ['new_id'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -583,10 +589,10 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
-            new_id: RuntimeObject('new_id', 'wollok.lang.List', {}, ['2', '1']),
+            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({
-              locals: { self: '4', p1: '3', p2: 'new_id' }, instructions: [
+              locals: { self: '4', p1: '3', p2: 'new_id_0' }, instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
@@ -624,10 +630,10 @@ describe('Wollok Interpreter', () => {
             '2': RuntimeObject('2', 'wollok.lang.Object'),
             '3': RuntimeObject('3', 'wollok.lang.Object'),
             'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
-            'new_id': RuntimeObject('new_id', 'wollok.lang.List', {}, ['2', '1']),
+            'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           })(
             Frame({
-              locals: { self: '3', name: 'S!m', parameters: 'new_id' },
+              locals: { self: '3', name: 'S!m', parameters: 'new_id_0' },
               instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
             }),
             Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -800,8 +806,8 @@ describe('Wollok Interpreter', () => {
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode
         const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
-          f1 as any,
-          f2 as any
+          f1,
+          f2
         ) as ClassNode
         X.superclassNode = () => environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
         X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
@@ -813,10 +819,10 @@ describe('Wollok Interpreter', () => {
           Frame({ operandStack: ['1'], instructions: [instruction] }),
         )
 
-        const unmocked = evaluation.environment.getNodeByFQN
-        evaluation.environment.getNodeByFQN = fqn => fqn === 'X' ? X : unmocked(fqn) as any
+        const getNodeByFQNStub = stub(evaluation.environment, 'getNodeByFQN')
+        getNodeByFQNStub.withArgs('X').returns(X)
+        getNodeByFQNStub.callThrough()
         X.lookupConstructor = () => constructor
-
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
@@ -872,10 +878,10 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
-            new_id: RuntimeObject('new_id', 'wollok.lang.List', {}, ['3', '2']),
+            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['3', '2']),
           })(
             Frame({
-              locals: { self: '1', p1: '4', p2: 'new_id' },
+              locals: { self: '1', p1: '4', p2: 'new_id_0' },
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),

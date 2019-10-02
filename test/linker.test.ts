@@ -9,6 +9,7 @@ import { linkerAssertions } from './assertions'
 should()
 use(linkerAssertions)
 
+// TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
 const WRE: Environment = LinkedBehavior(wre as any)
 
 describe('Wollok linker', () => {
