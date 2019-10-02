@@ -10,6 +10,7 @@ const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind
 
 
 const NODE_CACHE = new Map<Id, Node<LinkedStage>>()
+const PARENT_CACHE = new Map<Id, Node<LinkedStage>>()
 
 function cache<N extends { id?: Id }, R>(f: (this: N, ...args: any[]) => R, CACHE: Map<Id, R> = new Map()) {
   return function (this: N, ...args: any[]): R {
@@ -70,10 +71,13 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
     forEach(
       this: Node<RawStage>,
-      tx: ((node: Node<RawStage>) => void) | { [K in Kind]?: (node: Node<RawStage>) => void }
+      tx: ((node: Node<RawStage>, parent?: Node<RawStage>) => void) | { [K in Kind]?: (node: Node<RawStage>) => void },
+      parent?: Node<RawStage>,
     ) {
-      (typeof tx === 'function' ? tx : (tx[this.kind] || (_ => _)))(this)
-      this.children().forEach(child => child.forEach(tx))
+      if (typeof tx === 'function')
+        tx(this, parent)
+      else (tx[this.kind] || (_ => _))(this)
+      this.children().forEach(child => child.forEach(tx, this))
     },
 
     transform<R extends Stage>(
@@ -132,22 +136,14 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 export function Linked(environmentData: Partial<Environment>) {
   const environment: Environment<LinkedStage> = Filled(environmentData as any).transform(node => Filled(node as any)) as any
 
-  environment.forEach(node => {
+  environment.forEach((node, parentNode) => {
 
     assign(node, {
       environment(this: Node<LinkedStage>) { return environment },
 
-      // TODO: Don't save this to the scope, use a cache instead
-      parent(this: Node<LinkedStage>): Node<LinkedStage> {
-        if (this.scope) return this.environment().getNodeById(this.scope['<parent>'])
-
-        const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
-          descendant.children().some(({ id }) => id === this.id)
-        )
-        if (!parent) throw new Error(`Node ${this.kind}#${this.id} is not in the environment`)
-
-        return parent
-      },
+      parent: cache(function (this: Node<LinkedStage>): Node<LinkedStage> {
+        throw new Error(`Missing parent in cache for node ${this.id}`)
+      }, PARENT_CACHE),
 
       closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
         let parent: Node<LinkedStage>
@@ -260,6 +256,8 @@ export function Linked(environmentData: Partial<Environment>) {
     })
 
     if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
+    if (node.id && parentNode?.id) PARENT_CACHE.set(`${node.id}`, parentNode)
+
   })
 
   return environment

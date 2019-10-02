@@ -54,7 +54,8 @@ export interface BaseNode<S extends Stage> {
   children: <N extends Node<S> = Node<S>>() => List<N>
   descendants: <N extends Node<S>>(kind?: Kind | Category) => List<N>
   forEach: <C extends S = S>(
-    tx: ((node: Node<S>) => void) | Partial<{ [N in Kind]: (node: NodeOfKind<N, C>) => void }>
+    tx: ((node: Node<S>, parent?: Node<S>) => void) | Partial<{ [N in Kind]: (node: NodeOfKind<N, C>) => void }>,
+    parent?: Node<C>
   ) => void
   transform: <R extends S = S, E extends Node<R> = Node<R>>(
     tx: ((node: Node<S>) => Node<R>) | Partial<{ [N in Kind]: (node: NodeOfKind<N, S>) => NodeOfKind<N, R> }>

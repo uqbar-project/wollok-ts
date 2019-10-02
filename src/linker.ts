@@ -82,7 +82,7 @@ const scopeWithin = (includeInherited: boolean) => (node: Node<Linked>): Scope =
 
   assign(response, ...[node, ...node.children()].map(scopeContribution))
 
-  return assign(response, { '<parent>': node.id })
+  return response
 }
 
 const assignScopes = (environment: Environment<Linked>) => {
