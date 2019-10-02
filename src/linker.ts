@@ -7,7 +7,7 @@ import { Entity, Environment, Filled, Linked, List, Module, Name, Node, Package,
 const { assign } = Object
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// STEPS
+// MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): List<Entity<Filled>> => {
@@ -22,6 +22,10 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
     ]
     : [...members, isolated]
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// SCOPES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // TODO: Use reference target passing a custom scope instead?
 const resolve = (context: Node<Linked>, qualifiedName: Name): Module<Linked> => {
