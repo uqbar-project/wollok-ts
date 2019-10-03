@@ -4,7 +4,9 @@ import { Environment as buildEnvironment, Package as buildPackage } from './buil
 import { divideOn } from './extensions'
 import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
-const { assign, keys } = Object
+const { assign } = Object
+
+// TODO: Merge Entities too, replacing clashing members
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
@@ -129,7 +131,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
   // TODO: Move this to validations so it becomes fail-resilient
   environment.forEach({
     Reference: node => {
-      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && keys(node.scope)}`) }
+      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name}`) }
     },
   })
 
