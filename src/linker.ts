@@ -2,7 +2,7 @@ import { v4 as uuid } from 'uuid'
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { divideOn } from './extensions'
-import { Entity, Environment, Filled, Linked, List, Module, Name, Node, Package, Scope } from './model'
+import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
 const { assign, keys } = Object
 
@@ -64,22 +64,27 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 
   if (includeInheritedMembers && node.is('Module')) {
 
-    // TODO: maybe rename to inheritedMembers?
-    function hierarchy(module: Module<Linked>): List<Module<Linked>> {
-      const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
+    function inheritedScope(module: Module<Linked>, exclude: List<Id> = []): Scope {
+      if (exclude.includes(module.id)) return {}
 
-      if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixins
+      const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
+      const mixinsScope: Scope = assign({}, ...mixins.flatMap(mixin =>
+        mixin.children().map(scopeContribution)
+      ))
+
+      if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixinsScope
 
       const superclass = resolve(module, module.is('Class') ? module.superclass!.name : module.superCall.superclass.name)
+      const superclassScope = assign({}, ...superclass.children().map(scopeContribution))
 
-      return [
-        ...hierarchy(superclass),
-        superclass,
-        ...mixins,
-      ]
+      return {
+        ...inheritedScope(superclass, [module.id, ...exclude]),
+        ...superclassScope,
+        ...mixinsScope,
+      }
     }
 
-    assign(response, ...hierarchy(node).map(scopeWithin(includeInheritedMembers)), { ...response })
+    assign(response, inheritedScope(node), { ...response })
   }
 
   assign(response, ...[node, ...node.children()].map(scopeContribution))
