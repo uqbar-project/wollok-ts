@@ -63,6 +63,8 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
   const response = { ...node.scope }
 
   if (includeInheritedMembers && node.is('Module')) {
+
+    // TODO: maybe rename to inheritedMembers?
     function hierarchy(module: Module<Linked>): List<Module<Linked>> {
       const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
 
@@ -71,13 +73,13 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
       const superclass = resolve(module, module.is('Class') ? module.superclass!.name : module.superCall.superclass.name)
 
       return [
-        superclass,
         ...hierarchy(superclass),
+        superclass,
         ...mixins,
       ]
     }
 
-    assign(response, ...hierarchy(node).map(scopeWithin(includeInheritedMembers)))
+    assign(response, ...hierarchy(node).map(scopeWithin(includeInheritedMembers)), { ...response })
   }
 
   assign(response, ...[node, ...node.children()].map(scopeContribution))
@@ -120,10 +122,10 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
   assignScopes(environment)
 
   // TODO: Move this to validations so it becomes fail-resilient
-  environment.forEach(node => {
-    if (node.is('Reference') && !node.parent().is('Import')) {
+  environment.forEach({
+    Reference: node => {
       try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} on scope ${node.scope && keys(node.scope)}`) }
-    }
+    },
   })
 
   return environment

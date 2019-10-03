@@ -172,7 +172,7 @@ describe('Wollok linker', () => {
       const m2r = m2.body!.sentences[1] as ReferenceNode<Linked>
       const m3 = S.members[3] as MethodNode<Linked>
       const m3r = m3.body!.sentences[0] as ReferenceNode<Linked>
-      // const C = p.members[1] as ClassNode<Linked>
+      const C = p.members[1] as ClassNode<Linked>
 
       S.superCall.args[0].should.target(f)
       f.value.should.target(f)
@@ -181,10 +181,13 @@ describe('Wollok linker', () => {
       m2v.value.should.target(m2v)
       m2r.should.target(m2v)
       m3r.should.target(f)
-
-      // TODO: points to field because inner contributions of parent precede parent itself.
-      // C.superclass!.should.target(S)
+      C.superclass!.should.target(S)
     })
+
+    // TODO: test overriden reference in class from mixins
+    // TODO: test overriden reference in class from superclass
+    // TODO: test overriden reference in linearized mixin from superclass
+    // TODO: test overriden reference in superclass from super-superclass
 
     it('should target imported references', () => {
       const environment = link([
