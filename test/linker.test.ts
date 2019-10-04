@@ -93,6 +93,25 @@ describe('Wollok linker', () => {
         ),
       ])
     })
+
+    it('should replace old entities prioritizing right to left', () => {
+      [
+        ...WRE.members,
+        Package('p')(
+          Class('C')(Field('x')),
+        ),
+
+        Package('p')(
+          Class('C')(Field('y')),
+        ),
+      ].should.be.linkedInto([
+        ...WRE.members,
+        Package('p')(
+          Class('C')(Field('y')),
+        ),
+      ])
+    })
+
   })
 
   it('should assign an id to all nodes', () => {
@@ -351,6 +370,10 @@ describe('Wollok linker', () => {
       C.superclass!.should.target(S)
       D.superclass!.should.target(T)
     })
+
+  })
+
+  describe('error handling', () => {
 
     it('should not crash if a class inherits from itself', () => {
       link([

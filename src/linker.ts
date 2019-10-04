@@ -6,14 +6,12 @@ import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Pack
 
 const { assign } = Object
 
-// TODO: Merge Entities too, replacing clashing members
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): List<Entity<Filled>> => {
-  if (!isolated.is('Package')) return [...members, isolated]
+  if (!isolated.is('Package')) return [...members.filter(({ name }) => name !== isolated.name), isolated]
   const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
     member.is('Package') && member.name === isolated.name
   )
