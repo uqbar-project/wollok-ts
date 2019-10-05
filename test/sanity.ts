@@ -21,14 +21,7 @@ enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
 
 // TODO: Don't skip tests
 const SKIP = [
-  // TODO: Describes with methods
-  '**/describe/testWithMethodInvocation.wtest',
-  '**/describe/variableOfDescribeDoesntHaveSideEffectsBetweenTests.wtest',
-
-  // TODO: Fixtures
-  '**/describe/testIssue1221NPEForConstDefinedInFixtures.wtest',
-
-  // TODO: Inherited constructor with parameter
+  // TODO: Inherited constructor with parameter (See wollok-language #15)
   '**/constructors/inheritedOneArgumentConstructorInheritedFromSuperclass.wtest',
 ]
 
