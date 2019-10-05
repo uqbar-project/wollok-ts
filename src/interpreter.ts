@@ -372,7 +372,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         } else {
           lookupStart = self.module
         }
-
         const method = environment.getNodeByFQN<Module>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
@@ -440,7 +439,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const selfId = evaluation.currentFrame().popOperand()
         const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
         const self = evaluation.instance(selfId)
-
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
 
         // TODO: Add to Filler a method for doing this and just call it ?

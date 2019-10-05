@@ -1,6 +1,7 @@
 // TODO:
 
 // No imports of local references
+// No siblings with the same name
 
 import { Literal } from './builders'
 import {

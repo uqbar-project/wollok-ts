@@ -1,13 +1,30 @@
 import { v4 as uuid } from 'uuid'
-import { getOrUpdate, NODE_CACHE, PARENT_CACHE, update } from './cache'
 import { divideOn, last, mapObject } from './extensions'
 import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
-import { Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
+import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
 const { values, assign, keys } = Object
 
 const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
+
+
+const NODE_CACHE = new Map<Id, Node<LinkedStage>>()
+const PARENT_CACHE = new Map<Id, Node<LinkedStage>>()
+
+function cached<N extends { id?: Id }, R>(f: (this: N, ...args: any[]) => R, cache: Map<Id, R> = new Map()) {
+  return function (this: N, ...args: any[]): R {
+    if (!this.id) return f.bind(this)(...args)
+
+    const key = `${this.id}${args}`
+    const cachedValue = cache.get(key)
+    if (cachedValue) return cachedValue
+
+    const response = f.bind(this)(...args)
+    cache.set(key, response)
+    return response
+  }
+}
 
 // TODO: Test all behaviors
 
@@ -18,11 +35,9 @@ const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind
 export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   const node = { ...obj } as N
 
-  const CHILDREN_CACHE: Map<Id, List<Node<RawStage>>> = new Map()
-
   assign(node, {
 
-    is(this: Node<RawStage>, kind: Kind | 'Entity' | 'Module' | 'Expression' | 'Sentence'): boolean {
+    is(this: Node<RawStage>, kind: Kind | Category): boolean {
       if (kind === 'Entity') return ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(this.kind)
       if (kind === 'Module') return ['Singleton', 'Mixin', 'Class'].includes(this.kind)
       if (kind === 'Expression') return ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(this.kind)
@@ -30,22 +45,16 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
       return this.kind === kind
     },
 
-    children<T extends Node<RawStage>>(this: Node<RawStage>): List<T> {
-      const extractChildren = (owner: any): List<T> => {
-        if (isNode(owner)) return [owner as T]
+    children: cached(function (this: Node<RawStage>): List<Node<RawStage>> {
+      const extractChildren = (owner: any): List<Node<RawStage>> => {
+        if (isNode<RawStage>(owner)) return [owner]
         if (isArray(owner)) return owner.flatMap(extractChildren)
         if (owner instanceof Object) return values(owner).flatMap(extractChildren)
         return []
       }
 
-      const cached = this.id && CHILDREN_CACHE.get(this.id) as any
-      if (cached) return cached
-
-      const response = values(this).flatMap(extractChildren)
-      response.forEach(child => child.id && update(PARENT_CACHE, child.id!, this.id))
-      if (this.id) CHILDREN_CACHE.set(this.id, response)
-      return response
-    },
+      return values(this).flatMap(extractChildren)
+    }),
 
     descendants(this: Node<RawStage>, kind?: Kind): List<Node<RawStage>> {
       const pending: Node<RawStage>[] = []
@@ -58,6 +67,17 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
         next = pending.shift()
       } while (next)
       return response
+    },
+
+    forEach(
+      this: Node<RawStage>,
+      tx: ((node: Node<RawStage>, parent?: Node<RawStage>) => void) | { [K in Kind]?: (node: Node<RawStage>) => void },
+      parent?: Node<RawStage>,
+    ) {
+      if (typeof tx === 'function')
+        tx(this, parent)
+      else (tx[this.kind] || (_ => _))(this)
+      this.children().forEach(child => child.forEach(tx, this))
     },
 
     transform<R extends Stage>(
@@ -114,168 +134,133 @@ export function Filled<N extends Node<FilledStage>>(obj: Partial<N>): N {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export function Linked(environmentData: Partial<Environment>) {
+  const environment: Environment<LinkedStage> = Filled(environmentData as any).transform(node => Filled(node as any)) as any
 
-  const FQN_CACHE: Map<Name, Node<LinkedStage>> = new Map()
+  environment.forEach((node, parentNode) => {
 
-  const environment: Environment<LinkedStage> = assign(Filled(environmentData as any), {
+    assign(node, {
+      environment(this: Node<LinkedStage>) { return environment },
 
-    getNodeById<T extends Node<LinkedStage>>(this: Environment<LinkedStage>, id: Id): T {
-      return getOrUpdate(NODE_CACHE, id)(() => {
-        const search = (obj: any): Node<LinkedStage> | undefined => {
-          if (isArray(obj)) {
-            for (const value of obj) {
-              const found = search(value)
-              if (found) return found
-            }
-          } else if (obj instanceof Object) {
-            if (isNode(obj) && obj.id === id) return obj
-            return search(values(obj))
-          }
-          return undefined
+      parent: cached(function (this: Node<LinkedStage>): Node<LinkedStage> {
+        throw new Error(`Missing parent in cache for node ${this.id}`)
+      }, PARENT_CACHE),
+
+      closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
+        let parent: Node<LinkedStage>
+        try {
+          parent = this.parent()
+        } catch (_) { return undefined }
+
+        return parent.is(kind) ? parent : parent.closestAncestor(kind) as any
+      },
+    })
+
+    if (node.is('Environment')) assign(node, {
+      getNodeById: cached(function (this: Environment<LinkedStage>, id: Id): Node<LinkedStage> {
+        throw new Error(`Missing node in node cache with id ${id}`)
+      }, NODE_CACHE),
+
+      getNodeByFQN: cached(function (this: Environment<LinkedStage>, fullyQualifiedName: string): Node<LinkedStage> {
+        const [start, rest] = divideOn('.')(fullyQualifiedName)
+        const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
+        if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+        return rest ? root.getNodeByQN(rest) : root
+      }),
+    })
+
+    if (node.is('Entity')) assign(node, {
+      fullyQualifiedName(this: Entity<LinkedStage>): Name {
+        const parent = this.parent()
+        const label = this.is('Singleton')
+          ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
+          : this.name.replace(/\.#/g, '')
+
+        return parent.is('Package')
+          ? `${parent.fullyQualifiedName()}.${label}`
+          : label
+      },
+    })
+
+    if (node.is('Package')) assign(node, {
+      getNodeByQN: cached(function (this: Package<LinkedStage>, qualifiedName: Name): Node<LinkedStage> {
+        const [, id] = qualifiedName.split('#')
+        if (id) return this.environment().getNodeById(id)
+        return qualifiedName.split('.').reduce((current: Node<LinkedStage>, step) => {
+          const next = current.children<Node<LinkedStage>>().find(child => child.is('Entity') && child.name === step)
+          if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+          return next
+        }, this)
+      }),
+    })
+
+    if (node.is('Module')) assign(node, {
+      hierarchy: cached(function (this: Module<LinkedStage>): List<Module<LinkedStage>> {
+        const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
+          if (exclude.includes(module.id)) return []
+          return [
+            ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
+            ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
+          ].reduce(({ mods, exs }, mod) => (
+            { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
+          ), { mods: [module], exs: [module.id, ...exclude] }).mods
         }
 
-        const response = search(environment)
-        if (!response) throw new Error(`Missing node ${id}`)
-        return response
-      }) as T
-    },
+        return hierarchyExcluding(this)
+      }),
 
-    getNodeByFQN(this: Environment<LinkedStage>, fullyQualifiedName: string): Node<LinkedStage> {
-      const cached = FQN_CACHE.get(fullyQualifiedName)
-      if (cached) return cached as any
+      inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
+        return this.hierarchy().some(({ id }) => other.id === id)
+      },
 
-      const [start, rest] = divideOn('.')(fullyQualifiedName)
-      const root = this.children<Package<LinkedStage>>().find(child => child.name === start)
-      if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-      const response = rest ? root.getNodeByQN(rest) : root
-
-      FQN_CACHE.set(fullyQualifiedName, response)
-
-      return response
-    },
-
-  }) as any
-
-  const baseBehavior = {
-    environment(this: Node<LinkedStage>) { return environment },
-
-    parent<T extends Node<LinkedStage>>(this: Node<LinkedStage>): T {
-      return this.environment().getNodeById(getOrUpdate(PARENT_CACHE, this.id)(() => {
-        const parent = [this.environment(), ...this.environment().descendants()].find(descendant =>
-          descendant.children().some(({ id }) => id === this.id)
-        )
-        if (!parent) throw new Error(`Node ${this.kind}#${this.id} is not in the environment`)
-
-        return parent.id
-      }))
-    },
-
-    closestAncestor<N extends Node<LinkedStage>, K extends Kind>(this: Node<LinkedStage>, kind: K): N | undefined {
-      let parent: Node<LinkedStage>
-      try {
-        parent = this.parent()
-      } catch (_) { return undefined }
-
-      return parent.is(kind) ? parent : parent.closestAncestor(kind) as any
-    },
-  }
-
-  return assign(environment, baseBehavior, {
-    members: environment.transform<LinkedStage, Environment>(n => {
-
-      const node: Node<LinkedStage> = assign(Filled(n as any), baseBehavior) as any
-
-      if (node.is('Entity')) assign(node, {
-        fullyQualifiedName(this: Entity<LinkedStage>): Name {
-          const parent = this.parent()
-          const label = this.is('Singleton')
-            ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
-            : this.name.replace(/\.#/g, '')
-
-          return parent.is('Package')
-            ? `${parent.fullyQualifiedName()}.${label}`
-            : label
-        },
-      })
-
-      if (node.is('Package')) assign(node, {
-        getNodeByQN(this: Package<LinkedStage>, qualifiedName: Name): Node<RawStage> {
-          const [, id] = qualifiedName.split('#')
-          if (id) return this.environment().getNodeById(id)
-          return qualifiedName.split('.').reduce((current: Node<RawStage>, step) => {
-            const next = current.children().find(child => child.is('Entity') && child.name === step)
-            if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
-            return next
-          }, this)
-        },
-      })
-
-      if (node.is('Module')) assign(node, {
-        hierarchy(this: Module<LinkedStage>): List<Module<LinkedStage>> {
-          const hierarchyExcluding = (module: Module<LinkedStage>, exclude: List<Id> = []): List<Module<LinkedStage>> => {
-            if (exclude.includes(module.id)) return []
-            return [
-              ...module.mixins.map(mixin => mixin.target<Module<LinkedStage>>()),
-              ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
-            ].reduce(({ mods, exs }, mod) => (
-              { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
-            ), { mods: [module], exs: [module.id, ...exclude] }).mods
-          }
-
-          return hierarchyExcluding(this)
-        },
-
-        inherits(this: Module<LinkedStage>, other: Module<LinkedStage>): boolean {
-          return this.hierarchy().some(({ id }) => other.id === id)
-        },
-
-        lookupMethod(this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
-          for (const module of this.hierarchy()) {
-            const found = module.methods().find(member =>
-              (!!member.body || member.isNative) && member.name === name && (
-                member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-                member.parameters.length === arity
-              )
+      lookupMethod: cached(function (this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
+        for (const module of this.hierarchy()) {
+          const found = module.methods().find(member =>
+            (!!member.body || member.isNative) && member.name === name && (
+              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+              member.parameters.length === arity
             )
-            if (found) return found
-          }
-          return undefined
-        },
-
-      })
-
-      if (node.is('Class')) assign(node, {
-        superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
-          return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
-        },
-
-        lookupConstructor(this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-          return this.constructors().find(member =>
-            // TODO: extract method matches(name, arity) or something like that for constructors and methods
-            member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-            member.parameters.length === arity
           )
-        },
-      })
+          if (found) return found
+        }
+        return undefined
+      }),
 
-      if (node.is('Singleton')) assign(node, {
-        superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
-          return this.superCall.superclass.target<Class<LinkedStage>>()
-        },
-      })
+    })
 
-      if (node.is('Reference')) assign(node, {
-        target(this: Reference<LinkedStage>): Node<LinkedStage> {
-          const [start, rest] = divideOn('.')(this.name)
-          const root = this.environment().getNodeById<Package<LinkedStage>>(this.scope[start])
-          return rest.length ? root.getNodeByQN(rest) : root
-        },
-      })
+    if (node.is('Class')) assign(node, {
+      superclassNode(this: Class<LinkedStage>): Class<LinkedStage> | null {
+        return this.superclass ? this.superclass.target<Class<LinkedStage>>() : null
+      },
 
-      return node
+      lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
+        return this.constructors().find(member =>
+          // TODO: extract method matches(name, arity) or something like that for constructors and methods
+          member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+          member.parameters.length === arity
+        )
+      }),
+    })
 
-    }).members,
+    if (node.is('Singleton')) assign(node, {
+      superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
+        return this.superCall.superclass.target<Class<LinkedStage>>()
+      },
+    })
+
+    if (node.is('Reference')) assign(node, {
+      target: cached(function (this: Reference<LinkedStage>): Node<LinkedStage> {
+        const [start, rest] = divideOn('.')(this.name)
+        const root = this.environment().getNodeById<Package<LinkedStage>>(this.scope[start])
+        return rest.length ? root.getNodeByQN(rest) : root
+      }),
+    })
+
+    if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
+    if (node.id && parentNode?.id) PARENT_CACHE.set(`${node.id}`, parentNode)
+
   })
+
+  return environment
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

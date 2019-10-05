@@ -8,7 +8,8 @@ import { linkerAssertions } from './assertions'
 
 should()
 use(linkerAssertions)
-
+// TODO: Split uber-tests into smaller tests with clearer descriptions
+// TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
 const WRE: Environment = LinkedBehavior(wre as any)
 
 describe('Wollok linker', () => {
@@ -92,6 +93,25 @@ describe('Wollok linker', () => {
         ),
       ])
     })
+
+    it('should replace old entities prioritizing right to left', () => {
+      [
+        ...WRE.members,
+        Package('p')(
+          Class('C')(Field('x')),
+        ),
+
+        Package('p')(
+          Class('C')(Field('y')),
+        ),
+      ].should.be.linkedInto([
+        ...WRE.members,
+        Package('p')(
+          Class('C')(Field('y')),
+        ),
+      ])
+    })
+
   })
 
   it('should assign an id to all nodes', () => {
@@ -171,7 +191,7 @@ describe('Wollok linker', () => {
       const m2r = m2.body!.sentences[1] as ReferenceNode<Linked>
       const m3 = S.members[3] as MethodNode<Linked>
       const m3r = m3.body!.sentences[0] as ReferenceNode<Linked>
-      // const C = p.members[1] as ClassNode<Linked>
+      const C = p.members[1] as ClassNode<Linked>
 
       S.superCall.args[0].should.target(f)
       f.value.should.target(f)
@@ -180,9 +200,144 @@ describe('Wollok linker', () => {
       m2v.value.should.target(m2v)
       m2r.should.target(m2v)
       m3r.should.target(f)
+      C.superclass!.should.target(S)
+    })
 
-      // TODO: points to field because inner contributions of parent precede parent itself.
-      // C.superclass!.should.target(S)
+    it('should target inherited members', () => {
+      const environment = link([
+        Package('p')(
+          Mixin('M')(Field('y')),
+          Class('A')(Field('x')),
+          Class('B', { superclass: Reference('A') })(),
+          Class('C', { superclass: Reference('B'), mixins: [Reference('M')] })(
+            Method('m')(
+              Reference('x'),
+              Reference('y'),
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const A = environment.getNodeByFQN<ClassNode>('p.A')
+      const Ax = A.fields()[0]
+      const M = environment.getNodeByFQN<ClassNode>('p.M')
+      const My = M.fields()[0]
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const my = m.body!.sentences[1] as ReferenceNode<Linked>
+
+      mx.should.target(Ax)
+      my.should.target(My)
+    })
+
+    it('should target local overriden references to members inherited from mixins', () => {
+      const environment = link([
+        Package('p')(
+          Mixin('M')(Field('x')),
+          Class('C', { mixins: [Reference('M')] })(
+            Field('x'),
+            Method('m')(
+              Reference('x')
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const x = C.fields()[0]
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+
+      mx.should.target(x)
+    })
+
+    it('should target local overriden references to members inherited from superclass', () => {
+      const environment = link([
+        Package('p')(
+          Class('A')(Field('x')),
+          Class('B', { superclass: Reference('A') })(),
+          Class('C', { superclass: Reference('B') })(
+            Field('x'),
+            Method('m')(
+              Reference('x'),
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const x = C.fields()[0]
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+
+      mx.should.target(x)
+    })
+
+    it('should target references overriden on mixins to members inherited from superclass', () => {
+      const environment = link([
+        Package('p')(
+          Mixin('M')(Field('x')),
+          Class('A')(Field('x')),
+          Class('C', { superclass: Reference('A'), mixins: [Reference('M')] })(
+            Method('m')(
+              Reference('x'),
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const M = environment.getNodeByFQN<ClassNode>('p.M')
+      const Mx = M.fields()[0]
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+
+      mx.should.target(Mx)
+    })
+
+    it('should target references overriden on mixins to members inherited from further mixin', () => {
+      const environment = link([
+        Package('p')(
+          Mixin('M', { mixins: [Reference('N')] })(Field('x')),
+          Mixin('N')(Field('x')),
+          Class('C', { mixins: [Reference('M')] })(
+            Method('m')(
+              Reference('x'),
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const M = environment.getNodeByFQN<ClassNode>('p.M')
+      const Mx = M.fields()[0]
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+
+      mx.should.target(Mx)
+    })
+
+    it('should target references overriden on superclass to members inherited from further superclass', () => {
+      const environment = link([
+        Package('p')(
+          Class('A')(Field('x')),
+          Class('B', { superclass: Reference('A') })(Field('x')),
+          Class('C', { superclass: Reference('B') })(
+            Method('m')(
+              Reference('x'),
+            )
+          ),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      const B = environment.getNodeByFQN<ClassNode>('p.B')
+      const Bx = B.fields()[0]
+      const C = environment.getNodeByFQN<ClassNode>('p.C')
+      const m = C.methods()[0] as MethodNode<Linked>
+      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+
+      mx.should.target(Bx)
     })
 
     it('should target imported references', () => {
@@ -214,6 +369,46 @@ describe('Wollok linker', () => {
 
       C.superclass!.should.target(S)
       D.superclass!.should.target(T)
+    })
+
+  })
+
+  describe('error handling', () => {
+
+    it('should not crash if a class inherits from itself', () => {
+      link([
+        Package('p')(
+          Class('C', { superclass: Reference('C') })(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+    })
+
+    it('should not crash if there is an inheritance cycle', () => {
+      link([
+        Package('p')(
+          Class('A', { superclass: Reference('C') })(),
+          Class('B', { superclass: Reference('A') })(),
+          Class('C', { superclass: Reference('B') })(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+    })
+
+    it('should not crash if a mixin includes itself', () => {
+      link([
+        Package('p')(
+          Mixin('A', { mixins: [Reference('A')] })(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+    })
+
+    it('should not crash if there is an linearization cycle', () => {
+      link([
+        Package('p')(
+          Mixin('A', { mixins: [Reference('C')] })(),
+          Mixin('B', { mixins: [Reference('A')] })(),
+          Mixin('C', { mixins: [Reference('B')] })(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
     })
 
     it('should not be linkable if target is missing', () => {

@@ -119,8 +119,8 @@ export const linkerAssertions = ({ Assertion }: any) => {
 
     this.assert(
       this._obj.target().id === node.id,
-      `expected reference ${reference.name} to target node with id ${node.id} but found ${reference.target().id} instead`,
-      `expected reference ${reference.name} to not target node with id ${node.id}`,
+      `expected reference ${reference.name} to target ${node.kind} ${(node as any).name} ${node.id} but found ${reference.target().kind} ${reference.target<any>().name} ${reference.target().id} instead`,
+      `expected reference ${reference.name} to not target node ${node.kind} ${(node as any).name} ${node.id}`,
     )
   })
 }
@@ -148,9 +148,13 @@ export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
   also({ Assertion }, conf)
 
   Assertion.addMethod('stepped', function (this: any, natives: {} = {}) {
-    const stub = ImportMock.mockFunction(uuid, 'v4', 'new_id')
-    step(natives)(this._obj)
-    stub.restore()
+    let n = 0
+    const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
+    try {
+      step(natives)(this._obj)
+    } finally {
+      stub.restore()
+    }
 
   })
 
