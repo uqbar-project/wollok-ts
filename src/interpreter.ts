@@ -689,14 +689,14 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
-    const runTests = ((testsToRun: List<Test>, sentences: (t: Test) => List<Sentence>) => {
+    const runTests = ((testsToRun: List<Test>, baseEvaluation: Evaluation, sentences: (t: Test) => List<Sentence>) => {
       const testsCount = testsToRun.length
       total += testsCount
       log.separator()
       testsToRun.forEach((test, i) => {
         const n = i + 1
         log.resetStep()
-        const evaluation = initializedEvaluation.copy()
+        const evaluation = baseEvaluation.copy()
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
         try {
@@ -712,7 +712,7 @@ export default (environment: Environment, natives: {}) => ({
     })
 
     log.start('Running free tests')
-    runTests(freeTests, (test) => test.body.sentences)
+    runTests(freeTests, initializedEvaluation, (test) => test.body.sentences)
     log.done('Running free tests')
 
     log.start('Running describes')
@@ -720,7 +720,13 @@ export default (environment: Environment, natives: {}) => ({
       const variables = describe.children().filter((child): child is Variable => child.is('Variable'))
       const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
       const fixtureSentences = fixtures.flatMap(fixture => fixture.body.sentences)
-      runTests(describe.tests(), ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
+      const describeEvaluation = initializedEvaluation.copy()
+      describeEvaluation.frameStack.push(build.Frame({
+        locals: {
+          self: describeEvaluation.createInstance(describe.fullyQualifiedName()),
+        },
+      }))
+      runTests(describe.tests(), describeEvaluation, ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })
     log.done('Running describes')
 
