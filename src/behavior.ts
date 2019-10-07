@@ -257,7 +257,6 @@ export function Linked(environmentData: Partial<Environment>) {
 
     if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
     if (node.id && parentNode?.id) PARENT_CACHE.set(`${node.id}`, parentNode)
-
   })
 
   return environment
