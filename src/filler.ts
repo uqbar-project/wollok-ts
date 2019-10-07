@@ -39,7 +39,7 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
   (rawNode as Node<Filled>).transform<Filled, Node<Filled>>({
     Class: (transformed) => ({
       ...transformed,
-      superclass: transformed.name === 'Object' ? null : transformed.superclass ? transformed.superclass : OBJECT_CLASS,
+      superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
       members: [
         ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
         ...transformed.members,
@@ -54,7 +54,7 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
 
     Singleton: (transformed) => ({
       ...transformed,
-      superCall: transformed.superCall ? transformed.superCall : {
+      superCall: transformed.superCall ?? {
         superclass: OBJECT_CLASS,
         args: [],
       },
@@ -63,32 +63,32 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
 
     Field: (transformed) => ({
       ...transformed,
-      value: transformed.value ? transformed.value : NULL,
+      value: transformed.value ?? NULL,
     }),
 
     Constructor: (transformed) => ({
       ...transformed,
-      baseCall: transformed.baseCall ? transformed.baseCall : DEFAULT_CONSTRUCTOR.baseCall,
+      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
     }),
 
     Variable: (transformed) => ({
       ...transformed,
-      value: transformed.value ? transformed.value : NULL,
+      value: transformed.value ?? NULL,
     }),
 
     If: (transformed) => ({
       ...transformed,
-      elseBody: transformed.elseBody ? transformed.elseBody : EMPTY_BODY,
+      elseBody: transformed.elseBody ?? EMPTY_BODY,
     }),
 
     Try: (transformed) => ({
       ...transformed,
-      always: transformed.always ? transformed.always : EMPTY_BODY,
+      always: transformed.always ?? EMPTY_BODY,
     }),
 
     Catch: (transformed) => ({
       ...transformed,
-      parameterType: transformed.parameterType ? transformed.parameterType : EXCEPTION_CLASS,
+      parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
     }),
 
   }) as any

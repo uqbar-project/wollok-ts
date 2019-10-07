@@ -240,7 +240,7 @@ export function Linked(environmentData: Partial<Environment>) {
           // TODO: extract method matches(name, arity) or something like that for constructors and methods
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
           member.parameters.length === arity
-        )
+        ) ?? this.superclassNode() ?.lookupConstructor(arity)
       }),
     })
 
