@@ -114,6 +114,9 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
 
   if (node.is('Describe')) assign(node, {
     tests(this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) },
+    methods(this: Describe<RawStage>) { return this.members.filter(member => member.is('Method')) },
+    variables(this: Describe<RawStage>) { return this.members.filter(member => member.is('Variable')) },
+    fixture(this: Describe<RawStage>) { return this.members.find(member => member.is('Fixture')) },
   })
 
   return node
@@ -245,6 +248,17 @@ export function Linked(environmentData: Partial<Environment>) {
       superclassNode(this: Singleton<LinkedStage>): Class<LinkedStage> {
         return this.superCall.superclass.target<Class<LinkedStage>>()
       },
+    })
+
+    if (node.is('Describe')) assign(node, {
+      lookupMethod: cached(function (this: Describe<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
+        return this.methods().find(member =>
+          (!!member.body || member.isNative) && member.name === name && (
+            member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+            member.parameters.length === arity
+          )
+        )
+      }),
     })
 
     if (node.is('Reference')) assign(node, {
