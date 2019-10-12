@@ -38,10 +38,22 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   assign(node, {
 
     is(this: Node<RawStage>, kind: Kind | Category): boolean {
-      if (kind === 'Entity') return ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(this.kind)
-      if (kind === 'Module') return ['Singleton', 'Mixin', 'Class'].includes(this.kind)
-      if (kind === 'Expression') return ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(this.kind)
-      if (kind === 'Sentence') return ['Variable', 'Return', 'Assignment'].includes(this.kind)
+      if (kind === 'Entity') return [
+        'Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test', 'Variable',
+      ].includes(this.kind)
+
+      if (kind === 'Module') return [
+        'Singleton', 'Mixin', 'Class',
+      ].includes(this.kind)
+
+      if (kind === 'Expression') return [
+        'Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try',
+      ].includes(this.kind)
+
+      if (kind === 'Sentence') return [
+        'Variable', 'Return', 'Assignment',
+      ].includes(this.kind)
+
       return this.kind === kind
     },
 

@@ -3,7 +3,7 @@ import { last, zipObj } from './extensions'
 import log from './log'
 import { Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
-export interface Locals { [name: string]: Id }
+export type Locals = Record<Name, Id>
 
 export interface RuntimeObject {
   readonly id: Id
