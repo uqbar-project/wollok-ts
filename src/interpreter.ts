@@ -46,6 +46,7 @@ export const NULL_ID = 'null'
 export const VOID_ID = 'void'
 export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
+export const LAZY_ID = '<lazy>'
 
 export const DECIMAL_PRECISION = 5
 
@@ -54,7 +55,7 @@ export const DECIMAL_PRECISION = 5
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Instruction
-  = { kind: 'LOAD', name: Name }
+  = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
   | { kind: 'GET', name: Name }
@@ -71,7 +72,7 @@ export type Instruction
   | { kind: 'INTERRUPT', interruption: Interruption }
   | { kind: 'RESUME_INTERRUPTION' }
 
-export const LOAD = (name: Name): Instruction => ({ kind: 'LOAD', name })
+export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const GET = (name: Name): Instruction => ({ kind: 'GET', name })
@@ -133,6 +134,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         if (target.is('Field')) return [
           LOAD('self'),
           GET(node.name),
+        ]
+
+        if (target.is('Variable') && target.parent().is('Package')) return [
+          LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
         ]
 
         if (target.is('Module')) return [
@@ -290,7 +295,22 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'LOAD': return (() => {
         const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
         if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
-        currentFrame.pushOperand(value)
+
+        // TODO: should add tests for the lazy load and store
+        if (value !== LAZY_ID) currentFrame.pushOperand(value)
+        else {
+          if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
+
+          currentFrame.resume.push('result')
+          frameStack.push(build.Frame({
+            instructions: [
+              ...instruction.lazyInitialization,
+              DUP,
+              STORE(instruction.name, true),
+              INTERRUPT('result'),
+            ],
+          }))
+        }
       })()
 
 
@@ -581,6 +601,7 @@ export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
 const buildEvaluation = (environment: Environment): Evaluation => {
 
   const globalSingletons = environment.descendants<Singleton>('Singleton').filter(node => !!node.name)
+  const globalConstants = environment.descendants<Variable>('Variable').filter(node => node.parent().is('Package'))
 
   const instances = [
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
@@ -594,6 +615,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     true: TRUE_ID,
     false: FALSE_ID,
     ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
+    ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
   }
 
   return build.Evaluation(environment, instances)(
@@ -705,6 +727,7 @@ export default (environment: Environment, natives: {}) => ({
           log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         } catch (error) {
           log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
+          log.error(error)
         }
         log.done(test.name)
         log.separator()
