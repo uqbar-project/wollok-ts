@@ -38,10 +38,22 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
   assign(node, {
 
     is(this: Node<RawStage>, kind: Kind | Category): boolean {
-      if (kind === 'Entity') return ['Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test'].includes(this.kind)
-      if (kind === 'Module') return ['Singleton', 'Mixin', 'Class'].includes(this.kind)
-      if (kind === 'Expression') return ['Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try'].includes(this.kind)
-      if (kind === 'Sentence') return ['Variable', 'Return', 'Assignment'].includes(this.kind)
+      if (kind === 'Entity') return [
+        'Package', 'Class', 'Singleton', 'Mixin', 'Program', 'Describe', 'Test', 'Variable',
+      ].includes(this.kind)
+
+      if (kind === 'Module') return [
+        'Singleton', 'Mixin', 'Class',
+      ].includes(this.kind)
+
+      if (kind === 'Expression') return [
+        'Reference', 'Self', 'Literal', 'Send', 'Super', 'New', 'If', 'Throw', 'Try',
+      ].includes(this.kind)
+
+      if (kind === 'Sentence') return [
+        'Variable', 'Return', 'Assignment',
+      ].includes(this.kind)
+
       return this.kind === kind
     },
 
@@ -240,7 +252,7 @@ export function Linked(environmentData: Partial<Environment>) {
           // TODO: extract method matches(name, arity) or something like that for constructors and methods
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
           member.parameters.length === arity
-        )
+        ) ?? this.superclassNode() ?.lookupConstructor(arity)
       }),
     })
 
@@ -271,7 +283,6 @@ export function Linked(environmentData: Partial<Environment>) {
 
     if (environment.id && node.id) NODE_CACHE.set(`${environment.id}${node.id}`, node)
     if (node.id && parentNode?.id) PARENT_CACHE.set(`${node.id}`, parentNode)
-
   })
 
   return environment

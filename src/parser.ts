@@ -128,7 +128,8 @@ export const entity: Parser<Entity<Raw>> = lazy(() => alt(
   mixinEntity,
   programEntity,
   describeEntity,
-  testEntity
+  testEntity,
+  variableSentence,
 ))
 
 export const importEntity: Parser<Import<Raw>> = lazy(() =>

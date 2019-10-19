@@ -19,12 +19,6 @@ const ARGS = commandLineArgs([
 
 enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
 
-// TODO: Don't skip tests
-const SKIP = [
-  // TODO: Inherited constructor with parameter (See wollok-language #15)
-  '**/constructors/inheritedOneArgumentConstructorInheritedFromSuperclass.wtest',
-]
-
 const fetchTests = async () => {
   if (existsSync(SANITY_TESTS_FOLDER)) {
     const diff = await gitClient(SANITY_TESTS_FOLDER).diff()
@@ -51,10 +45,10 @@ const runAll = async () => {
 
   log.start('Reading tests')
   const testFiles = globby.sync(ARGS.files, { cwd: 'test/sanity/test/sanity' })
-  const skippedTestFiles = globby.sync(SKIP, { cwd: 'test/sanity/test/sanity' })
-  const nonSkipedTestFiles = testFiles
-    .filter(file => !skippedTestFiles.includes(file))
-    .map(testFile => ({ name: basename(testFile), content: readFileSync(join(SANITY_TESTS_FOLDER, 'test', 'sanity', testFile), 'utf8') }))
+  const nonSkipedTestFiles = testFiles.map(testFile => ({
+    name: basename(testFile),
+    content: readFileSync(join(SANITY_TESTS_FOLDER, 'test', 'sanity', testFile), 'utf8'),
+  }))
   log.done('Reading tests')
   log.info(`Will run tests from ${nonSkipedTestFiles.length} file(s)`)
 

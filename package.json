@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "0.0.1",
+  "version": "1.8.1",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",
@@ -11,7 +11,7 @@
   "scripts": {
     "buildWRE": "if [ -d scripts ]; then ts-node scripts/buildWRE.ts; fi",
     "postinstall": "npm run buildWRE",
-    "prepare": "rm -rf dist && tsc && cp src/wre/wre.json dist/wre",
+    "prepare": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp",
     "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity",
     "test:lint": "tslint --project .",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
