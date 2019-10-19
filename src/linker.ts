@@ -51,7 +51,6 @@ const scopeContribution = (contributor: Node<Linked>): Scope => {
 
   if (
     contributor.is('Entity') ||
-    contributor.is('Variable') ||
     contributor.is('Field') ||
     contributor.is('Parameter')
   ) return contributor.name ? { [contributor.name]: contributor.id } : {}

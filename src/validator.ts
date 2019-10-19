@@ -1,7 +1,7 @@
 // TODO:
-
 // No imports of local references
 // No siblings with the same name
+// No global mutable vars
 
 import { Literal } from './builders'
 import {

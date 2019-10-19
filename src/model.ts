@@ -98,7 +98,14 @@ export interface Body<S extends Stage = Final> extends BaseNode<S> {
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Entity<S extends Stage = Final> = Package<S> | Program<S> | Test<S> | Describe<S> | Module<S>
+export type Entity<S extends Stage = Final>
+  = Package<S>
+  | Program<S>
+  | Test<S>
+  | Describe<S>
+  | Module<S>
+  | Variable<S>
+
 export interface BaseEntity<S extends Stage> extends BaseNode<S> {
   fullyQualifiedName: Linkable<S, () => Name>
 }
@@ -135,6 +142,13 @@ export interface Describe<S extends Stage = Final> extends BaseEntity<S> {
   fixture: () => Fixture<S> | undefined
   parent: Linkable<S, () => Package<S>>
   lookupMethod: Linkable<S, (name: Name, arity: number) => Method<Linked> | undefined>
+}
+
+export interface Variable<S extends Stage = Final> extends BaseEntity<S> {
+  readonly kind: 'Variable'
+  readonly name: Name
+  readonly isReadOnly: boolean
+  readonly value: Fillable<S, Expression<S>>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -232,13 +246,6 @@ export interface Fixture<S extends Stage = Final> extends BaseNode<S> {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type Sentence<S extends Stage = Final> = Variable<S> | Return<S> | Assignment<S> | Expression<S>
-
-export interface Variable<S extends Stage = Final> extends BaseNode<S> {
-  readonly kind: 'Variable'
-  readonly name: Name
-  readonly isReadOnly: boolean
-  readonly value: Fillable<S, Expression<S>>
-}
 
 export interface Return<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Return'
