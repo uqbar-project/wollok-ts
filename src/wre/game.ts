@@ -1,5 +1,3 @@
-import * as build from '../builders'
-import { last } from '../extensions'
 import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
@@ -39,16 +37,13 @@ export default {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        instructions: [
-          PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
-          PUSH(event.id),
-          PUSH(action.id),
-          CALL('addHandler', 2),
-          INTERRUPT('return'),
-        ],
-      }))
+      evaluation.suspend('return', [
+        PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
+        PUSH(event.id),
+        PUSH(action.id),
+        CALL('addHandler', 2),
+        INTERRUPT('return'),
+      ])
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {

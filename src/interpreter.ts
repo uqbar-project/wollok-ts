@@ -5,6 +5,11 @@ import { Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, L
 
 export type Locals = Record<Name, Id>
 
+export interface Context {
+  readonly parent: Id
+  readonly locals: Locals
+}
+
 export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
@@ -14,8 +19,8 @@ export interface RuntimeObject {
 
 export interface Frame {
   readonly instructions: List<Instruction>
+  readonly context: Id
   nextInstruction: number
-  locals: Locals
   operandStack: Id[]
   resume: Interruption[]
 
@@ -28,11 +33,15 @@ export type Interruption = 'return' | 'exception' | 'result'
 export interface Evaluation {
   readonly environment: Environment
   frameStack: Frame[]
-  instances: { [id: string]: RuntimeObject }
+  instances: Record<Id, RuntimeObject>
+  contexts: Record<Id, Context> // TODO: GC contexts
 
   currentFrame(): Frame
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: any): Id
+  context(id: Id): Context
+  createContext(parent: Id, locals?: Locals): Id
+  suspend(until: Interruption, instructions: List<Instruction>, locals?: Locals): void
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
 }
@@ -93,7 +102,6 @@ export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: '
 export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' })
 
 
-// TODO: Memoize?
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => {
     switch (node.kind) {
@@ -293,7 +301,15 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
-        const value = frameStack.map(({ locals }) => locals[instruction.name]).reverse().find(it => !!it)
+        function resolve(name: Name, contextId: Id): Id {
+          const context = evaluation.context(contextId)
+          const reponse = context.locals[name]
+          if (reponse) return reponse
+          if (!context.parent) throw new Error(`LOAD of missing local "${name}"`)
+          return resolve(name, context.parent)
+        }
+
+        const value = resolve(instruction.name, currentFrame.context)
         if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
 
         // TODO: should add tests for the lazy load and store
@@ -301,23 +317,26 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          currentFrame.resume.push('result')
-          frameStack.push(build.Frame({
-            instructions: [
-              ...instruction.lazyInitialization,
-              DUP,
-              STORE(instruction.name, true),
-              INTERRUPT('result'),
-            ],
-          }))
+          evaluation.suspend('result', [
+            ...instruction.lazyInitialization,
+            DUP,
+            STORE(instruction.name, true),
+            INTERRUPT('result'),
+          ])
         }
       })()
 
 
       case 'STORE': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
-        const frame = instruction.lookup && [...frameStack].reverse().find(({ locals }) => instruction.name in locals) || currentFrame
-        frame.locals[instruction.name] = valueId
+        const currentContext = evaluation.context(currentFrame.context)
+        let context: Context | undefined = currentContext
+        if (instruction.lookup) {
+          while (context && !(instruction.name in context.locals)) {
+            context = context.parent ? evaluation.context(context.parent) : undefined
+          }
+        }
+        (context ?? currentContext).locals[instruction.name] = valueId
       })()
 
 
@@ -395,20 +414,22 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const method = environment.getNodeByFQN<Module>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
+
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
           const messageNotUnderstood = environment.getNodeByFQN<Module>(self.module).lookupMethod('messageNotUnderstood', 2)!
           const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-          currentFrame.resume.push('return')
-          frameStack.push(build.Frame({
-            instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
-            locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: selfId },
-          }))
+          evaluation.suspend('return', compile(environment)(...messageNotUnderstood.body!.sentences), {
+            ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
+            self: selfId,
+          })
+
         } else {
 
           if (method.isNative) {
+
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
             const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
             const native: NativeFunction = fqn.split('.').reduce((current, name) => {
@@ -420,36 +441,28 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               if (id === VOID_ID) throw new Error('reference to void argument')
               return evaluation.instances[id]
             })
+
             native(self, ...args)(evaluation)
+
           } else {
 
             const parameterNames = method.parameters.map(({ name }) => name)
-            let locals: Locals
-
-            if (method.parameters.some(({ isVarArg }) => isVarArg)) {
-              const restId = evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))
-              locals = {
+            const locals: Locals = method.parameters.some(({ isVarArg }) => isVarArg)
+              ? {
                 ...zipObj(parameterNames.slice(0, -1), argIds),
-                [last(method.parameters)!.name]: restId,
+                [last(method.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)),
                 self: selfId,
               }
-            } else {
-              locals = {
+              : {
                 ...zipObj(parameterNames, argIds),
                 self: selfId,
               }
-            }
 
-            currentFrame.resume.push('return')
-
-            frameStack.push(build.Frame({
-              locals,
-              instructions: [
-                ...compile(environment)(...method.body!.sentences),
-                PUSH(VOID_ID),
-                INTERRUPT('return'),
-              ],
-            }))
+            evaluation.suspend('return', [
+              ...compile(environment)(...method.body!.sentences),
+              PUSH(VOID_ID),
+              INTERRUPT('return'),
+            ], locals)
           }
         }
       })()
@@ -485,54 +498,53 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
         }
 
-        currentFrame.resume.push('return')
-        frameStack.push(build.Frame({
-          locals,
-          instructions: new Array<Instruction>(
-            ...instruction.initFields ? [
-              ...unitializedFields.flatMap(({ value: v, name }: Field) => [
-                LOAD('self'),
-                ...compile(environment)(v),
-                SET(name),
-              ]),
-            ] : [],
-            ...ownSuperclass || !constructor.baseCall.callsSuper ? new Array<Instruction>(
-              ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
+        evaluation.suspend('return', [
+          ...instruction.initFields ? [
+            ...unitializedFields.flatMap(({ value: v, name }: Field) => [
               LOAD('self'),
-              INIT(
-                constructor.baseCall.args.length,
-                constructor.baseCall.callsSuper ? ownSuperclass!.fullyQualifiedName() : instruction.lookupStart,
-                false
-              ),
-            ) : [],
-            ...compile(environment)(...constructor.body.sentences),
+              ...compile(environment)(v),
+              SET(name),
+            ]),
+          ] : [],
+          ...ownSuperclass || !constructor.baseCall.callsSuper ? [
+            ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
             LOAD('self'),
-            INTERRUPT('return')
-          ),
-        }))
+            INIT(
+              constructor.baseCall.args.length,
+              constructor.baseCall.callsSuper ? ownSuperclass!.fullyQualifiedName() : instruction.lookupStart,
+              false
+            ),
+          ] : [],
+          ...compile(environment)(...constructor.body.sentences),
+          LOAD('self'),
+          INTERRUPT('return'),
+        ], locals)
       })()
 
-
+      // TODO: Don't use lambdas, extract to functions so we can just use switch
       case 'IF_THEN_ELSE': return (() => {
         const check = evaluation.currentFrame().popOperand()
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
 
-        currentFrame.resume.push('result')
-        frameStack.push(build.Frame({
-          instructions: [
-            PUSH(VOID_ID),
-            ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
-            INTERRUPT('result'),
-          ],
-        }))
+        // TODO: instead of this, use new instructions for pushing and poping new contexts
+        evaluation.suspend('result', [
+          PUSH(VOID_ID),
+          ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
+          INTERRUPT('result'),
+        ])
       })()
 
 
       case 'TRY_CATCH_ALWAYS': return (() => {
         currentFrame.resume.push('result')
 
+        const alwaysContext = evaluation.createContext(evaluation.currentFrame().context)
+        const catchContext = evaluation.createContext(alwaysContext)
+        const tryContext = evaluation.createContext(catchContext)
+
         frameStack.push(build.Frame({
+          context: alwaysContext,
           instructions: [
             STORE('<previous_interruption>', false),
             ...instruction.alwaysHandler,
@@ -543,6 +555,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }))
 
         frameStack.push(build.Frame({
+          context: catchContext,
           instructions: [
             STORE('<exception>', false),
             ...instruction.catchHandler,
@@ -553,6 +566,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }))
 
         frameStack.push(build.Frame({
+          context: tryContext,
           instructions: [
             PUSH(VOID_ID),
             ...instruction.body,
@@ -618,9 +632,10 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
   }
 
-  return build.Evaluation(environment, instances)(
+  const evaluation = build.Evaluation(environment, instances)()
+  evaluation.frameStack.push(
     build.Frame({
-      locals,
+      context: evaluation.createContext('', locals),
       instructions: [
         ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
           if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
@@ -645,13 +660,16 @@ const buildEvaluation = (environment: Environment): Evaluation => {
       ],
     })
   )
+  return evaluation
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
 
   const instructions = compile(evaluation.environment)(...sentences)
 
+  // TODO: ! use suspend instead
   evaluation.frameStack.push(build.Frame({
+    context: evaluation.createContext(evaluation.currentFrame().context),
     instructions,
   }))
 
@@ -673,12 +691,14 @@ export default (environment: Environment, natives: {}) => ({
   sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.length
-    last(evaluation.frameStack)!.resume.push('return')
+    evaluation.currentFrame().resume.push('return')
+    // TODO: ! use suspend instead
     evaluation.frameStack.push(build.Frame({
       instructions: [
         CALL(message, args.length),
         INTERRUPT('return'),
       ],
+      context: evaluation.createContext(evaluation.currentFrame().context),
       operandStack: [receiver, ...args],
     }))
     do {
@@ -744,10 +764,13 @@ export default (environment: Environment, natives: {}) => ({
       const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
       const fixtureSentences = fixtures.flatMap(fixture => fixture.body.sentences)
       const describeEvaluation = initializedEvaluation.copy()
+      // TODO: ! improve this to use suspend instead
       describeEvaluation.frameStack.push(build.Frame({
-        locals: {
-          self: describeEvaluation.createInstance(describe.fullyQualifiedName()),
-        },
+        context: describeEvaluation.createContext(
+          describeEvaluation.currentFrame().context,
+          {
+            self: describeEvaluation.createInstance(describe.fullyQualifiedName()),
+          }),
       }))
       runTests(describe.tests(), describeEvaluation, ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
     })

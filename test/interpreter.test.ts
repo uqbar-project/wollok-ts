@@ -33,42 +33,53 @@ describe('Wollok Interpreter', () => {
 
       it('should push the local with the given name from the current locals into the current operand stack', async () => {
         const instruction = LOAD('x')
-        const evaluation = Evaluation(environment, {})(
-          Frame({ locals: { x: '1' }, operandStack: ['2'], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, { 1: { parent: '', locals: { x: '1' } } })(
+          Frame({ context: '1', operandStack: ['2'], instructions: [instruction] }),
         )
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, { 1: { parent: '', locals: { x: '1' } } })(
+            Frame({ context: '1', operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('if the local is missing in the current frame, it should search it through the frame stack', async () => {
         const instruction = LOAD('x')
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction] }),
-          Frame({}),
-          Frame({ locals: { x: '1' } }),
-          Frame({ locals: { x: '2' } }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+          2: { parent: '1', locals: { x: '2' } },
+          3: { parent: '2', locals: { x: '1' } },
+          4: { parent: '3', locals: {} },
+        })(
+          Frame({ context: '4', instructions: [instruction] }),
+          Frame({ context: '3' }),
+          Frame({ context: '2' }),
+          Frame({ context: '1' }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ operandStack: ['1'], instructions: [instruction], nextInstruction: 1 }),
-            Frame({}),
-            Frame({ locals: { x: '1' } }),
-            Frame({ locals: { x: '2' } }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+            2: { parent: '1', locals: { x: '2' } },
+            3: { parent: '2', locals: { x: '1' } },
+            4: { parent: '3', locals: {} },
+          })(
+            Frame({ context: '4', operandStack: ['1'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '3' }),
+            Frame({ context: '2' }),
+            Frame({ context: '1' }),
           )
         )
       })
 
       it('should raise an error if the local is not in scope', async () => {
-
         const instruction = LOAD('x')
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', instructions: [instruction] }),
         )
 
         expect(() => step({})(evaluation)).to.throw()
@@ -81,92 +92,125 @@ describe('Wollok Interpreter', () => {
 
       it('should save the current operand stack to the given local name in the current locals', async () => {
         const instruction = STORE('x', false)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: ['1'], instructions: [instruction] }),
-          Frame({ locals: { x: '2' } }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+          2: { parent: '1', locals: {} },
+
+        })(
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
+          Frame({ context: '2' }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
-            Frame({ locals: { x: '2' } }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '1' } },
+            2: { parent: '1', locals: {} },
+          })(
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '2' }),
           )
         )
       })
 
       it('should override the current local value', async () => {
         const instruction = STORE('x', false)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ locals: { x: '2' }, operandStack: ['1'], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: { x: '2' } },
+        })(
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '1' } },
+          })(
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('should override the current local value', async () => {
         const instruction = STORE('x', false)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ locals: { x: '2' }, operandStack: ['1'], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: { x: '2' } },
+        })(
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '1' } },
+          })(
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('if the local is missing in the current frame and lookup is active, it should search it through the frame stack', async () => {
         const instruction = STORE('x', true)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: ['1'], instructions: [instruction] }),
-          Frame({ locals: { x: '2' } }),
-          Frame({ locals: { x: '2' } }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: { x: '2' } },
+          2: { parent: '1', locals: { x: '2' } },
+          3: { parent: '2', locals: {} },
+        })(
+          Frame({ context: '3', operandStack: ['1'], instructions: [instruction] }),
+          Frame({ context: '2' }),
+          Frame({ context: '1' }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ instructions: [instruction], nextInstruction: 1 }),
-            Frame({ locals: { x: '1' } }),
-            Frame({ locals: { x: '2' } }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '2' } },
+            2: { parent: '1', locals: { x: '1' } },
+            3: { parent: '2', locals: {} },
+          })(
+            Frame({ context: '3', instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '2' }),
+            Frame({ context: '1' }),
           )
         )
       })
 
       it('if the local is missing in the current frame and lookup is not active, it should add it to the current frame', async () => {
         const instruction = STORE('x', false)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: ['1'], instructions: [instruction] }),
-          Frame({ locals: { x: '2' } }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+          2: { parent: '1', locals: { x: '2' } },
+        })(
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
+          Frame({ context: '2' }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
-            Frame({ locals: { x: '2' } }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '1' } },
+            2: { parent: '1', locals: { x: '2' } },
+          })(
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '2' }),
           )
         )
       })
 
       it('if the local is not in scope, it should add it to the current frame', async () => {
         const instruction = STORE('x', true)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: ['1'], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ locals: { x: '1' }, instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: { x: '1' } },
+          })(
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -174,8 +218,10 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the current operand stack is empty', async () => {
 
         const instruction = STORE('x', true)
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', instructions: [instruction] }),
         )
 
         expect(() => step({})(evaluation)).to.throw()
@@ -536,8 +582,8 @@ describe('Wollok Interpreter', () => {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
           3: RuntimeObject('3', 'wollok.lang.Object'),
-        })(
-          Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
+        }, { 1: { parent: '', locals: {} } })(
+          Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
 
         evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
@@ -548,15 +594,18 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: { self: '3', p1: '2', p2: '1' } },
           })(
             Frame({
-              locals: { self: '3', p1: '2', p2: '1' }, instructions: [
+              context: 'new_id_0', instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -575,8 +624,10 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
           4: RuntimeObject('4', 'wollok.lang.Object'),
           5: RuntimeObject('5', 'wollok.lang.Object'),
+        }, {
+          1: { parent: '', locals: {} },
         })(
-          Frame({ operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }),
+          Frame({ context: '1', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }),
         )
 
         evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
@@ -590,15 +641,19 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_1: { parent: '1', locals: { self: '4', p1: '3', p2: 'new_id_0' } },
           })(
             Frame({
-              locals: { self: '4', p1: '3', p2: 'new_id_0' }, instructions: [
+              context: 'new_id_1',
+              instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -615,8 +670,10 @@ describe('Wollok Interpreter', () => {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
           3: RuntimeObject('3', 'wollok.lang.Object'),
+        }, {
+          1: { parent: '', locals: {} },
         })(
-          Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
+          Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
 
         evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = (
@@ -631,12 +688,15 @@ describe('Wollok Interpreter', () => {
             '3': RuntimeObject('3', 'wollok.lang.Object'),
             'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
             'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_1: { parent: '1', locals: { self: '3', name: 'S!m', parameters: 'new_id_0' } },
           })(
             Frame({
-              locals: { self: '3', name: 'S!m', parameters: 'new_id_0' },
+              context: 'new_id_1',
               instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
             }),
-            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -776,8 +836,10 @@ describe('Wollok Interpreter', () => {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
           3: RuntimeObject('3', 'wollok.lang.Object'),
+        }, {
+          1: { parent: '', locals: {} },
         })(
-          Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
+          Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
 
         environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => constructor
@@ -787,16 +849,19 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
             2: RuntimeObject('2', 'wollok.lang.Object'),
             3: RuntimeObject('3', 'wollok.lang.Object'),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: { self: '1', p1: '3', p2: '2' } },
           })(
             Frame({
-              locals: { self: '1', p1: '3', p2: '2' },
+              context: 'new_id_0',
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -815,8 +880,10 @@ describe('Wollok Interpreter', () => {
         const instruction = INIT(0, 'X', true)
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'X'),
+        }, {
+          1: { parent: '', locals: {} },
         })(
-          Frame({ operandStack: ['1'], instructions: [instruction] }),
+          Frame({ context: '1', operandStack: ['1'], instructions: [instruction] }),
         )
 
         const getNodeByFQNStub = stub(evaluation.environment, 'getNodeByFQN')
@@ -827,9 +894,12 @@ describe('Wollok Interpreter', () => {
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
             1: RuntimeObject('1', 'X'),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: { self: '1' } },
           })(
             Frame({
-              locals: { self: '1' },
+              context: 'new_id_0',
               instructions: [
                 LOAD('self'),
                 ...compile(environment)(f1.value),
@@ -844,7 +914,7 @@ describe('Wollok Interpreter', () => {
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -864,8 +934,10 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
           4: RuntimeObject('4', 'wollok.lang.Object'),
           5: RuntimeObject('5', 'wollok.lang.Object'),
+        }, {
+          1: { parent: '', locals: {} },
         })(
-          Frame({ operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }),
+          Frame({ context: '1', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }),
         )
 
         environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => constructor
@@ -879,16 +951,19 @@ describe('Wollok Interpreter', () => {
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['3', '2']),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_1: { parent: '1', locals: { self: '1', p1: '4', p2: 'new_id_0' } },
           })(
             Frame({
-              locals: { self: '1', p1: '4', p2: 'new_id_0' },
+              context: 'new_id_1',
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
             }),
-            Frame({ operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -943,31 +1018,39 @@ describe('Wollok Interpreter', () => {
 
       it('should pop a boolean from the operand stack and push a frame to evaluate the then clause if it is true', async () => {
         const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: [TRUE_ID], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', operandStack: [TRUE_ID], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
-            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: {} },
+          })(
+            Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
+            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('should pop a boolean from the operand stack and push a frame to evaluate the else clause if it is false', async () => {
         const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
-
-        const evaluation = Evaluation(environment, {})(
-          Frame({ operandStack: [FALSE_ID], instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', operandStack: [FALSE_ID], instructions: [instruction] }),
         )
 
-
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
-            Frame({ instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
-            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: {} },
+          })(
+            Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
+            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -1000,14 +1083,22 @@ describe('Wollok Interpreter', () => {
 
       it('should create three nested frames to handle the given try, catch and always instruction sequences', async () => {
         const instruction = TRY_CATCH_ALWAYS([PUSH('5')], [PUSH('7')], [PUSH('9')]) as Extract<Instruction, { kind: 'TRY_CATCH_ALWAYS' }>
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
-          Evaluation(environment, {})(
+          Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: {} },
+            new_id_1: { parent: 'new_id_0', locals: {} },
+            new_id_2: { parent: 'new_id_1', locals: {} },
+          })(
             Frame({
+              context: 'new_id_2',
               instructions: [
                 PUSH(VOID_ID),
                 ...instruction.body,
@@ -1015,6 +1106,7 @@ describe('Wollok Interpreter', () => {
               ],
             }),
             Frame({
+              context: 'new_id_1',
               resume: ['exception'],
               instructions: [
                 STORE('<exception>', false),
@@ -1024,6 +1116,7 @@ describe('Wollok Interpreter', () => {
               ],
             }),
             Frame({
+              context: 'new_id_0',
               resume: ['result', 'return', 'exception'],
               instructions: [
                 STORE('<previous_interruption>', false),
@@ -1032,7 +1125,7 @@ describe('Wollok Interpreter', () => {
                 RESUME_INTERRUPTION,
               ],
             }),
-            Frame({ resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })

@@ -1,8 +1,8 @@
 import * as build from '../builders'
 import { last, zipObj } from '../extensions'
-import { CALL, compile, Evaluation, FALSE_ID, Frame, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
-import { Id, Method, Module, Singleton } from '../model'
+import { Id, Module, Singleton } from '../model'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
@@ -64,22 +64,18 @@ export default {
 
     fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
       (evaluation: Evaluation) => {
-        last(evaluation.frameStack)!.resume.push('return')
-        evaluation.frameStack.push(build.Frame({
-          instructions: [
-            ...[...self.innerValue].reverse().flatMap((id: Id) => [
-              PUSH(closure.id),
-              PUSH(id),
-            ]),
-            PUSH(initialValue.id),
-            ...self.innerValue.flatMap(() => [
-              SWAP,
-              CALL('apply', 2),
-            ]),
-            INTERRUPT('return'),
-          ],
-          locals: { self: closure.id },
-        }))
+        evaluation.suspend('return', [
+          ...[...self.innerValue].reverse().flatMap((id: Id) => [
+            PUSH(closure.id),
+            PUSH(id),
+          ]),
+          PUSH(initialValue.id),
+          ...self.innerValue.flatMap(() => [
+            SWAP,
+            CALL('apply', 2),
+          ]),
+          INTERRUPT('return'),
+        ], { self: closure.id })
       },
 
     add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
@@ -348,14 +344,11 @@ export default {
 
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
-      last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        instructions: [
-          PUSH(closure.id),
-          CALL('apply', 0),
-          INTERRUPT('return'),
-        ],
-      }))
+      evaluation.suspend('return', [
+        PUSH(closure.id),
+        CALL('apply', 0),
+        INTERRUPT('return'),
+      ])
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
@@ -363,14 +356,11 @@ export default {
 
       if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
-      last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        instructions: [
-          PUSH(closure.id),
-          CALL('apply', 0),
-          INTERRUPT('return'),
-        ],
-      }))
+      evaluation.suspend('return', [
+        PUSH(closure.id),
+        CALL('apply', 0),
+        INTERRUPT('return'),
+      ])
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -404,19 +394,15 @@ export default {
 
       const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
-      last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        instructions: [
-          ...valueIds.flatMap((id: Id) => [
-            PUSH(closure.id),
-            PUSH(id),
-            CALL('apply', 1),
-          ]),
-          PUSH(VOID_ID),
-          INTERRUPT('return'),
-        ],
-        locals: { self: self.id },
-      }))
+      evaluation.suspend('return', [
+        ...valueIds.flatMap((id: Id) => [
+          PUSH(closure.id),
+          PUSH(id),
+          CALL('apply', 1),
+        ]),
+        PUSH(VOID_ID),
+        INTERRUPT('return'),
+      ], { self: closure.id })
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -437,14 +423,10 @@ export default {
   },
 
   Closure: {
-    // TODO: maybe we can do this better once Closure is a reified node?
+    // TODO: improve once contexts are reified.
     initialize: (self: RuntimeObject) => (evaluation: Evaluation) => {
 
-      const context: Frame[] = evaluation.frameStack.slice(0, -2).map(({ locals }) =>
-        build.Frame(({ locals }))
-      )
-
-      self.innerValue = context
+      self.innerValue = last(evaluation.frameStack.slice(0, -2))!.context
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
@@ -453,8 +435,8 @@ export default {
       const apply = evaluation
         .environment
         .getNodeByFQN<Singleton>(self.module)
-        .members
-        .find(({ name }) => name === '<apply>') as Method
+        .methods()
+        .find(({ name }) => name === '<apply>')!
       const argIds = args.map(arg => arg ? arg.id : VOID_ID)
       const parameterNames = apply.parameters.map(({ name }) => name)
       const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
@@ -471,11 +453,10 @@ export default {
         const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-        last(evaluation.frameStack)!.resume.push('return')
-        evaluation.frameStack.push(build.Frame({
-          instructions: compile(evaluation.environment)(...messageNotUnderstood.body!.sentences),
-          locals: { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]), self: self.id },
-        }))
+        evaluation.suspend('return', compile(evaluation.environment)(...messageNotUnderstood.body!.sentences), {
+          ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
+          self: self.id,
+        })
 
         return
       }
@@ -491,12 +472,9 @@ export default {
         locals = { ...zipObj(parameterNames, argIds) }
       }
 
-      last(evaluation.frameStack)!.resume.push('return')
-
-      self.innerValue.forEach((frame: Frame) => evaluation.frameStack.push(frame))
-
+      evaluation.currentFrame().resume.push('return')
       evaluation.frameStack.push(build.Frame({
-        locals,
+        context: evaluation.createContext(self.innerValue, locals),
         instructions: [
           ...compile(evaluation.environment)(...apply.body!.sentences),
           PUSH(VOID_ID),

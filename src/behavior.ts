@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
+import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Instruction, Interruption, Locals, RuntimeObject } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -301,11 +302,13 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return last(this.frameStack)!
     },
 
+
     instance(this: EvaluationType, id: Id): RuntimeObject {
       const response = this.instances[id]
       if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
       return response
     },
+
 
     createInstance(this: EvaluationType, module: Name, baseInnerValue?: any): Id {
       let id: Id
@@ -328,6 +331,27 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       this.instances[id] = { id, module, fields: {}, innerValue }
       return id
+    },
+
+
+    context(this: EvaluationType, id: Id): Context {
+      const response = this.contexts[id]
+      if (!response) throw new RangeError(`Access to undefined context "${id}"`)
+      return response
+    },
+
+
+    createContext(this: EvaluationType, parent: Id, locals: Locals = {}): Id {
+      const id = uuid()
+      this.contexts[id] = { parent, locals }
+      return id
+    },
+
+
+    suspend(this: EvaluationType, until: Interruption, instructions: List<Instruction>, locals?: Locals) {
+      const currentFrame = this.currentFrame()
+      currentFrame.resume.push(until)
+      this.frameStack.push(build.Frame({ context: this.createContext(currentFrame.context, locals), instructions }))
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
@@ -353,13 +377,16 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     copy(this: EvaluationType): EvaluationType {
       return {
         ...this,
-        instances: keys(this.instances).reduce((instanceClones, name) => ({
+        instances: keys(this.instances).reduce((instanceClones, id) => ({
           ...instanceClones,
-          [name]: { ...this.instance(name), fields: { ...this.instance(name).fields } },
+          [id]: { ...this.instance(id), fields: { ...this.instance(id).fields } },
+        }), {}),
+        contexts: keys(this.contexts).reduce((contextClones, id) => ({
+          ...contextClones,
+          [id]: { ...this.context(id), locals: { ...this.context(id).locals } },
         }), {}),
         frameStack: this.frameStack.map(frame => ({
           ...frame,
-          locals: { ...frame.locals },
           operandStack: [...frame.operandStack],
           resume: [...frame.resume],
         })),
