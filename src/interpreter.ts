@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Class, Describe, Entity, Environment, Expression, Field, Fixture, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Class, Describe, Entity, Environment, Expression, Field, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 export type Locals = Record<Name, Id>
 
@@ -14,7 +14,7 @@ export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
   readonly fields: Locals
-  innerValue?: any
+  innerValue?: any // TODO: Change this to JSONable elements only
 }
 
 export interface Frame {
@@ -41,7 +41,7 @@ export interface Evaluation {
   createInstance(module: Name, baseInnerValue?: any): Id
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals): Id
-  suspend(until: Interruption, instructions: List<Instruction>, locals?: Locals): void
+  suspend(until: Interruption, instructions: List<Instruction>, context: Id): void
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
 }
@@ -301,16 +301,16 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
-        function resolve(name: Name, contextId: Id): Id {
+        function resolve(name: Name, contextId: Id): Id | undefined {
           const context = evaluation.context(contextId)
           const reponse = context.locals[name]
           if (reponse) return reponse
-          if (!context.parent) throw new Error(`LOAD of missing local "${name}"`)
+          if (!context.parent) return undefined
           return resolve(name, context.parent)
         }
 
         const value = resolve(instruction.name, currentFrame.context)
-        if (!value) throw new Error(`LOAD of missing local "${instruction.name}"`)
+        if (!value) throw new Error(`LOAD of missing local "${instruction.name}" on context ${JSON.stringify(evaluation.context(currentFrame.context))}`)
 
         // TODO: should add tests for the lazy load and store
         if (value !== LAZY_ID) currentFrame.pushOperand(value)
@@ -322,7 +322,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             DUP,
             STORE(instruction.name, true),
             INTERRUPT('result'),
-          ])
+          ], currentFrame.context)
         }
       })()
 
@@ -421,10 +421,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-          evaluation.suspend('return', compile(environment)(...messageNotUnderstood.body!.sentences), {
-            ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
-            self: selfId,
-          })
+          evaluation.suspend(
+            'return',
+            compile(environment)(...messageNotUnderstood.body!.sentences),
+            evaluation.createContext(evaluation.context(currentFrame.context).parent, {
+              ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
+              self: selfId,
+            })
+          )
 
         } else {
 
@@ -462,7 +466,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               INTERRUPT('return'),
-            ], locals)
+            ], evaluation.createContext(evaluation.context(currentFrame.context).parent, locals))
           }
         }
       })()
@@ -486,17 +490,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
 
-        let locals: Locals
-        if (constructor.parameters.some(({ isVarArg }) => isVarArg)) {
-          const restObject = evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))
-          locals = {
+        const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
+          ? {
             ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
-            [last(constructor.parameters)!.name]: restObject,
+            [last(constructor.parameters)!.name]:
+              evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)),
             self: selfId,
           }
-        } else {
-          locals = { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
-        }
+          : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
 
         evaluation.suspend('return', [
           ...instruction.initFields ? [
@@ -518,7 +519,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...compile(environment)(...constructor.body.sentences),
           LOAD('self'),
           INTERRUPT('return'),
-        ], locals)
+        ], evaluation.createContext(currentFrame.context, locals))
       })()
 
       // TODO: Don't use lambdas, extract to functions so we can just use switch
@@ -532,19 +533,15 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           PUSH(VOID_ID),
           ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
           INTERRUPT('result'),
-        ])
+        ], evaluation.createContext(currentFrame.context))
       })()
 
 
       case 'TRY_CATCH_ALWAYS': return (() => {
         currentFrame.resume.push('result')
 
-        const alwaysContext = evaluation.createContext(evaluation.currentFrame().context)
-        const catchContext = evaluation.createContext(alwaysContext)
-        const tryContext = evaluation.createContext(catchContext)
-
         frameStack.push(build.Frame({
-          context: alwaysContext,
+          context: evaluation.createContext(evaluation.currentFrame().context),
           instructions: [
             STORE('<previous_interruption>', false),
             ...instruction.alwaysHandler,
@@ -555,7 +552,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }))
 
         frameStack.push(build.Frame({
-          context: catchContext,
+          context: evaluation.createContext(evaluation.currentFrame().context),
           instructions: [
             STORE('<exception>', false),
             ...instruction.catchHandler,
@@ -566,7 +563,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }))
 
         frameStack.push(build.Frame({
-          context: tryContext,
+          context: evaluation.createContext(evaluation.currentFrame().context),
           instructions: [
             PUSH(VOID_ID),
             ...instruction.body,
@@ -698,7 +695,7 @@ export default (environment: Environment, natives: {}) => ({
         CALL(message, args.length),
         INTERRUPT('return'),
       ],
-      context: evaluation.createContext(evaluation.currentFrame().context),
+      context: evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent),
       operandStack: [receiver, ...args],
     }))
     do {
@@ -760,20 +757,24 @@ export default (environment: Environment, natives: {}) => ({
 
     log.start('Running describes')
     describes.forEach((describe: Describe) => {
-      const variables = describe.children().filter((child): child is Variable => child.is('Variable'))
-      const fixtures = describe.children().filter((child): child is Fixture => child.is('Fixture'))
-      const fixtureSentences = fixtures.flatMap(fixture => fixture.body.sentences)
       const describeEvaluation = initializedEvaluation.copy()
+
       // TODO: ! improve this to use suspend instead
       describeEvaluation.frameStack.push(build.Frame({
         context: describeEvaluation.createContext(
           describeEvaluation.currentFrame().context,
-          {
-            self: describeEvaluation.createInstance(describe.fullyQualifiedName()),
-          }),
+          { self: describeEvaluation.createInstance(describe.fullyQualifiedName()) }),
+        instructions: compile(describeEvaluation.environment)(
+          ...describe.variables(),
+          ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
+        ),
       }))
-      runTests(describe.tests(), describeEvaluation, ({ body: { sentences } }) => [...variables, ...fixtureSentences, ...sentences])
+
+      stepAll(natives)(describeEvaluation)
+
+      runTests(describe.tests(), describeEvaluation, ({ body: { sentences } }) => sentences)
     })
+
     log.done('Running describes')
 
     return [passed, total]

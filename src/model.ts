@@ -138,8 +138,8 @@ export interface Describe<S extends Stage = Final> extends BaseEntity<S> {
 
   tests: () => List<Test<S>>
   methods: () => List<Method<S>>
-  fields: () => List<Field<S>>
-  fixture: () => Fixture<S> | undefined
+  variables: () => List<Variable<S>>
+  fixtures: () => List<Fixture<S>>
   parent: Linkable<S, () => Package<S>>
   lookupMethod: Linkable<S, (name: Name, arity: number) => Method<Linked> | undefined>
 }

@@ -43,7 +43,7 @@ export default {
         PUSH(action.id),
         CALL('addHandler', 2),
         INTERRUPT('return'),
-      ])
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {

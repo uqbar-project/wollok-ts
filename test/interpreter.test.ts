@@ -582,7 +582,9 @@ describe('Wollok Interpreter', () => {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
           3: RuntimeObject('3', 'wollok.lang.Object'),
-        }, { 1: { parent: '', locals: {} } })(
+        }, {
+          1: { parent: '', locals: {} },
+        })(
           Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
 
@@ -596,7 +598,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: { self: '3', p1: '2', p2: '1' } },
+            new_id_0: { parent: '', locals: { self: '3', p1: '2', p2: '1' } },
           })(
             Frame({
               context: 'new_id_0', instructions: [
@@ -643,7 +645,7 @@ describe('Wollok Interpreter', () => {
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           }, {
             1: { parent: '', locals: {} },
-            new_id_1: { parent: '1', locals: { self: '4', p1: '3', p2: 'new_id_0' } },
+            new_id_1: { parent: '', locals: { self: '4', p1: '3', p2: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',
@@ -690,7 +692,7 @@ describe('Wollok Interpreter', () => {
             'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           }, {
             1: { parent: '', locals: {} },
-            new_id_1: { parent: '1', locals: { self: '3', name: 'S!m', parameters: 'new_id_0' } },
+            new_id_1: { parent: '', locals: { self: '3', name: 'S!m', parameters: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',
@@ -851,7 +853,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: { self: '1', p1: '3', p2: '2' } },
+            new_id_0: { parent: '', locals: { self: '1', p1: '3', p2: '2' } },
           })(
             Frame({
               context: 'new_id_0',
@@ -896,7 +898,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'X'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: { self: '1' } },
+            new_id_0: { parent: '', locals: { self: '1' } },
           })(
             Frame({
               context: 'new_id_0',
@@ -953,7 +955,7 @@ describe('Wollok Interpreter', () => {
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['3', '2']),
           }, {
             1: { parent: '', locals: {} },
-            new_id_1: { parent: '1', locals: { self: '1', p1: '4', p2: 'new_id_0' } },
+            new_id_1: { parent: '', locals: { self: '1', p1: '4', p2: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',

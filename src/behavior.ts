@@ -28,6 +28,7 @@ function cached<N extends { id?: Id }, R>(f: (this: N, ...args: any[]) => R, cac
 }
 
 // TODO: Test all behaviors
+// TODO: Can we type these so they relate to the types on the model?
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // RAW
@@ -129,7 +130,7 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
     tests(this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) },
     methods(this: Describe<RawStage>) { return this.members.filter(member => member.is('Method')) },
     variables(this: Describe<RawStage>) { return this.members.filter(member => member.is('Variable')) },
-    fixture(this: Describe<RawStage>) { return this.members.find(member => member.is('Fixture')) },
+    fixtures(this: Describe<RawStage>) { return this.members.filter(member => member.is('Fixture')) },
   })
 
   return node
@@ -348,10 +349,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    suspend(this: EvaluationType, until: Interruption, instructions: List<Instruction>, locals?: Locals) {
-      const currentFrame = this.currentFrame()
-      currentFrame.resume.push(until)
-      this.frameStack.push(build.Frame({ context: this.createContext(currentFrame.context, locals), instructions }))
+    suspend(this: EvaluationType, until: Interruption, instructions: List<Instruction>, context: Id) {
+      this.currentFrame().resume.push(until)
+      this.frameStack.push(build.Frame({ context, instructions }))
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {

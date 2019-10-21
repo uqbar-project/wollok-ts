@@ -75,7 +75,7 @@ export default {
             CALL('apply', 2),
           ]),
           INTERRUPT('return'),
-        ], { self: closure.id })
+        ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
       },
 
     add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
@@ -340,15 +340,13 @@ export default {
   Boolean: {
 
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-
-
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
       evaluation.suspend('return', [
         PUSH(closure.id),
         CALL('apply', 0),
         INTERRUPT('return'),
-      ])
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
@@ -360,7 +358,7 @@ export default {
         PUSH(closure.id),
         CALL('apply', 0),
         INTERRUPT('return'),
-      ])
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -402,7 +400,7 @@ export default {
         ]),
         PUSH(VOID_ID),
         INTERRUPT('return'),
-      ], { self: closure.id })
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -453,10 +451,14 @@ export default {
         const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-        evaluation.suspend('return', compile(evaluation.environment)(...messageNotUnderstood.body!.sentences), {
-          ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
-          self: self.id,
-        })
+        evaluation.suspend(
+          'return',
+          compile(evaluation.environment)(...messageNotUnderstood.body!.sentences),
+          evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, {
+            ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
+            self: self.id,
+          })
+        )
 
         return
       }
