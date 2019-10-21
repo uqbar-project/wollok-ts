@@ -3,6 +3,8 @@ import { last, zipObj } from './extensions'
 import log from './log'
 import { Class, Describe, Entity, Environment, Expression, Field, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
+const { assign } = Object
+
 export type Locals = Record<Name, Id>
 
 export interface Context {
@@ -14,6 +16,7 @@ export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
   readonly fields: Locals
+  readonly context: Id
   innerValue?: any // TODO: Change this to JSONable elements only
 }
 
@@ -424,9 +427,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           evaluation.suspend(
             'return',
             compile(environment)(...messageNotUnderstood.body!.sentences),
-            evaluation.createContext(evaluation.context(currentFrame.context).parent, {
+            evaluation.createContext(self.context, {
               ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
-              self: selfId,
             })
           )
 
@@ -455,18 +457,16 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ? {
                 ...zipObj(parameterNames.slice(0, -1), argIds),
                 [last(method.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)),
-                self: selfId,
               }
               : {
                 ...zipObj(parameterNames, argIds),
-                self: selfId,
               }
 
             evaluation.suspend('return', [
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               INTERRUPT('return'),
-            ], evaluation.createContext(evaluation.context(currentFrame.context).parent, locals))
+            ], evaluation.createContext(self.context, locals))
           }
         }
       })()
@@ -495,9 +495,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
             [last(constructor.parameters)!.name]:
               evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)),
-            self: selfId,
           }
-          : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds), self: selfId }
+          : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
         evaluation.suspend('return', [
           ...instruction.initFields ? [
@@ -519,7 +518,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...compile(environment)(...constructor.body.sentences),
           LOAD('self'),
           INTERRUPT('return'),
-        ], evaluation.createContext(currentFrame.context, locals))
+        ], evaluation.createContext(self.context, locals))
       })()
 
       // TODO: Don't use lambdas, extract to functions so we can just use switch
@@ -599,7 +598,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 /** Takes all possible steps, until the last frame has no pending instructions */
 export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
   const takeStep = step(natives)
-  while (last(evaluation.frameStack)!.nextInstruction < last(evaluation.frameStack)!.instructions.length) {
+  // TODO: add done() message to check instructions pending
+  while (evaluation.currentFrame().nextInstruction < evaluation.currentFrame().instructions.length) {
     log.step(evaluation)
     takeStep(evaluation)
   }
@@ -611,28 +611,41 @@ export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
 
 const buildEvaluation = (environment: Environment): Evaluation => {
 
-  const globalSingletons = environment.descendants<Singleton>('Singleton').filter(node => !!node.name)
   const globalConstants = environment.descendants<Variable>('Variable').filter(node => node.parent().is('Package'))
+  const globalSingletons = environment.descendants<Singleton>('Singleton').filter(node => !!node.name)
 
+  // TODO: Can we do this using createInstance instead?
   const instances = [
     { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
     { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
     { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
-    ...globalSingletons.map(module => ({ id: module.id, module: module.fullyQualifiedName(), fields: {} })),
-  ].reduce((all, instance) => ({ ...all, [instance.id]: instance }), {})
+    ...globalSingletons.map(module => ({
+      id: module.id,
+      module: module.fullyQualifiedName(),
+      fields: {},
+    })),
+  ]
 
-  const locals = {
+  const evaluation = build.Evaluation(
+    environment,
+    instances.reduce((all, instance) => ({ ...all, [instance.id]: instance }), {}),
+  )()
+
+  const globalContext = evaluation.createContext('', {
     null: NULL_ID,
     true: TRUE_ID,
     false: FALSE_ID,
     ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
-  }
+  })
 
-  const evaluation = build.Evaluation(environment, instances)()
+  instances.forEach(instance => {
+    assign(instance, { context: evaluation.createContext(globalContext, { self: instance.id }) })
+  })
+
   evaluation.frameStack.push(
     build.Frame({
-      context: evaluation.createContext('', locals),
+      context: globalContext,
       instructions: [
         ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
           if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
@@ -657,16 +670,18 @@ const buildEvaluation = (environment: Environment): Evaluation => {
       ],
     })
   )
+
   return evaluation
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
 
   const instructions = compile(evaluation.environment)(...sentences)
+  const context = evaluation.createContext(evaluation.currentFrame().context)
 
   // TODO: ! use suspend instead
   evaluation.frameStack.push(build.Frame({
-    context: evaluation.createContext(evaluation.currentFrame().context),
+    context,
     instructions,
   }))
 
@@ -728,42 +743,44 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
-    const runTests = ((testsToRun: List<Test>, baseEvaluation: Evaluation, sentences: (t: Test) => List<Sentence>) => {
-      const testsCount = testsToRun.length
+    const runTests = ((tests: List<Test>, baseEvaluation: Evaluation) => {
+      const testsCount = tests.length
       total += testsCount
       log.separator()
-      testsToRun.forEach((test, i) => {
+      tests.forEach((test, i) => {
         const n = i + 1
-        log.resetStep()
         const evaluation = baseEvaluation.copy()
+
+        log.resetStep()
         log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         log.start(test.name)
+
         try {
-          run(evaluation, natives, sentences(test))
+          run(evaluation, natives, test.body.sentences)
           passed++
           log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
         } catch (error) {
           log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
           log.error(error)
         }
+
         log.done(test.name)
         log.separator()
       })
     })
 
     log.start('Running free tests')
-    runTests(freeTests, initializedEvaluation, (test) => test.body.sentences)
+    runTests(freeTests, initializedEvaluation)
     log.done('Running free tests')
 
     log.start('Running describes')
     describes.forEach((describe: Describe) => {
       const describeEvaluation = initializedEvaluation.copy()
+      const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
 
       // TODO: ! improve this to use suspend instead
       describeEvaluation.frameStack.push(build.Frame({
-        context: describeEvaluation.createContext(
-          describeEvaluation.currentFrame().context,
-          { self: describeEvaluation.createInstance(describe.fullyQualifiedName()) }),
+        context: describeEvaluation.instance(describeId).context,
         instructions: compile(describeEvaluation.environment)(
           ...describe.variables(),
           ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
@@ -772,7 +789,7 @@ export default (environment: Environment, natives: {}) => ({
 
       stepAll(natives)(describeEvaluation)
 
-      runTests(describe.tests(), describeEvaluation, ({ body: { sentences } }) => sentences)
+      runTests(describe.tests(), describeEvaluation)
     })
 
     log.done('Running describes')

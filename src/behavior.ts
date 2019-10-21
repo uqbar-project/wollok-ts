@@ -330,7 +330,13 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = uuid()
       }
 
-      this.instances[id] = { id, module, fields: {}, innerValue }
+      this.instances[id] = {
+        id,
+        module,
+        fields: {},
+        context: this.createContext(this.currentFrame().context, { self: id }),
+        innerValue,
+      }
       return id
     },
 
