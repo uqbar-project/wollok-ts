@@ -334,9 +334,11 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
         id,
         module,
         fields: {},
-        context: this.createContext(this.currentFrame().context, { self: id }),
         innerValue,
       }
+
+      this.createContext(this.currentFrame().context, { self: id }, id)
+
       return id
     },
 
@@ -347,9 +349,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return response
     },
 
-
-    createContext(this: EvaluationType, parent: Id, locals: Locals = {}): Id {
-      const id = uuid()
+    // TODO: accept id for context so we can use same id for instances
+    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid()): Id {
       this.contexts[id] = { parent, locals }
       return id
     },

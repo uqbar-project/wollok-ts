@@ -16,7 +16,6 @@ export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
   readonly fields: Locals
-  readonly context: Id
   innerValue?: any // TODO: Change this to JSONable elements only
 }
 
@@ -43,7 +42,7 @@ export interface Evaluation {
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: any): Id
   context(id: Id): Context
-  createContext(parent: Id, locals?: Locals): Id
+  createContext(parent: Id, locals?: Locals, id?: Id): Id
   suspend(until: Interruption, instructions: List<Instruction>, context: Id): void
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
@@ -427,7 +426,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           evaluation.suspend(
             'return',
             compile(environment)(...messageNotUnderstood.body!.sentences),
-            evaluation.createContext(self.context, {
+            evaluation.createContext(self.id, {
               ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
             })
           )
@@ -466,7 +465,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               INTERRUPT('return'),
-            ], evaluation.createContext(self.context, locals))
+            ], evaluation.createContext(self.id, locals))
           }
         }
       })()
@@ -518,7 +517,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...compile(environment)(...constructor.body.sentences),
           LOAD('self'),
           INTERRUPT('return'),
-        ], evaluation.createContext(self.context, locals))
+        ], evaluation.createContext(self.id, locals))
       })()
 
       // TODO: Don't use lambdas, extract to functions so we can just use switch
@@ -639,8 +638,9 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
   })
 
+  // TODO: use createInstance and createContext
   instances.forEach(instance => {
-    assign(instance, { context: evaluation.createContext(globalContext, { self: instance.id }) })
+    assign(instance, { context: evaluation.createContext(globalContext, { self: instance.id }, instance.id) })
   })
 
   evaluation.frameStack.push(
@@ -675,7 +675,6 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 }
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
-
   const instructions = compile(evaluation.environment)(...sentences)
   const context = evaluation.createContext(evaluation.currentFrame().context)
 
@@ -780,7 +779,7 @@ export default (environment: Environment, natives: {}) => ({
 
       // TODO: ! improve this to use suspend instead
       describeEvaluation.frameStack.push(build.Frame({
-        context: describeEvaluation.instance(describeId).context,
+        context: describeEvaluation.instance(describeId).id,
         instructions: compile(describeEvaluation.environment)(
           ...describe.variables(),
           ...describe.fixtures().flatMap(fixture => fixture.body.sentences),

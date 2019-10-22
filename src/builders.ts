@@ -267,5 +267,4 @@ export const RuntimeObject = (id: Id, module: Name, fields: Locals = {}, innerVa
   module,
   fields,
   innerValue,
-  context: '',
 })

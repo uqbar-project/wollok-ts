@@ -416,15 +416,20 @@ describe('Wollok Interpreter', () => {
 
       it('should create a new instance from the given module and push it to the operand stack', async () => {
         const instruction = INSTANTIATE('wollok.lang.Object')
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction] }),
+        const evaluation = Evaluation(environment, {}, {
+          1: { parent: '', locals: {} },
+        })(
+          Frame({ context: '1', instructions: [instruction] }),
         )
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.Object'),
+          }, {
+            1: { parent: '', locals: {} },
+            new_id_0: { parent: '1', locals: { self: 'new_id_0' } },
           })(
-            Frame({ operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -598,7 +603,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '', locals: { self: '3', p1: '2', p2: '1' } },
+            new_id_0: { parent: '3', locals: { p1: '2', p2: '1' } },
           })(
             Frame({
               context: 'new_id_0', instructions: [
@@ -645,7 +650,8 @@ describe('Wollok Interpreter', () => {
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           }, {
             1: { parent: '', locals: {} },
-            new_id_1: { parent: '', locals: { self: '4', p1: '3', p2: 'new_id_0' } },
+            new_id_0: { parent: '1', locals: { self: 'new_id_0' } },
+            new_id_1: { parent: '4', locals: { p1: '3', p2: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',
@@ -691,8 +697,10 @@ describe('Wollok Interpreter', () => {
             'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
             'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
           }, {
-            1: { parent: '', locals: {} },
-            new_id_1: { parent: '', locals: { self: '3', name: 'S!m', parameters: 'new_id_0' } },
+            '1': { parent: '', locals: {} },
+            'S!m': { parent: '1', locals: { self: 'S!m' } },
+            'new_id_0': { parent: '1', locals: { self: 'new_id_0' } },
+            'new_id_1': { parent: '3', locals: { name: 'S!m', parameters: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',
@@ -853,7 +861,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '', locals: { self: '1', p1: '3', p2: '2' } },
+            new_id_0: { parent: '1', locals: { p1: '3', p2: '2' } },
           })(
             Frame({
               context: 'new_id_0',
@@ -898,7 +906,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'X'),
           }, {
             1: { parent: '', locals: {} },
-            new_id_0: { parent: '', locals: { self: '1' } },
+            new_id_0: { parent: '1', locals: {} },
           })(
             Frame({
               context: 'new_id_0',
@@ -929,7 +937,9 @@ describe('Wollok Interpreter', () => {
           ],
           baseCall: { callsSuper: true, args: [] },
         })(Return()) as ConstructorNode
+
         const instruction = INIT(3, 'wollok.lang.Object', false)
+
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -955,7 +965,8 @@ describe('Wollok Interpreter', () => {
             new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['3', '2']),
           }, {
             1: { parent: '', locals: {} },
-            new_id_1: { parent: '', locals: { self: '1', p1: '4', p2: 'new_id_0' } },
+            new_id_0: { parent: '1', locals: { self: 'new_id_0' } },
+            new_id_1: { parent: '1', locals: { p1: '4', p2: 'new_id_0' } },
           })(
             Frame({
               context: 'new_id_1',
