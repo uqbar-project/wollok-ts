@@ -253,23 +253,28 @@ describe('Wollok Interpreter', () => {
       it('should pop an object id from the current stack operand and push back the value of the given field', async () => {
         const instruction = GET('x')
         const evaluation = Evaluation(environment, {
-          1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
+          1: RuntimeObject('1', 'wollok.lang.Object'),
+        }, {
+          0: { parent: '', locals: {} },
+          1: { parent: '0', locals: { x: '2' } },
         })(
-          Frame({ operandStack: ['3', '1'], instructions: [instruction] }),
+          Frame({ context: '0', operandStack: ['3', '1'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
-            1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
+            1: RuntimeObject('1', 'wollok.lang.Object'),
+          }, {
+            0: { parent: '', locals: {} },
+            1: { parent: '0', locals: { x: '2' } },
           })(
-            Frame({ operandStack: ['3', '2'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '0', operandStack: ['3', '2'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('should raise an error if the current operand stack is empty', async () => {
-
         const instruction = GET('x')
         const evaluation = Evaluation(environment, {})(
           Frame({ instructions: [instruction] }),
@@ -279,7 +284,6 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if there is no instance with the given id', async () => {
-
         const instruction = GET('x')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -294,21 +298,26 @@ describe('Wollok Interpreter', () => {
 
 
     describe('SET', () => {
-
       it('should pop a value and an object id from the current stack operand and set its field of the given name', async () => {
         const instruction = SET('x')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
+        }, {
+          0: { parent: '', locals: {} },
+          1: { parent: '0', locals: {} },
         })(
-          Frame({ operandStack: ['1', '2'], instructions: [instruction] }),
+          Frame({ context: '0', operandStack: ['1', '2'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
-            1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
+            1: RuntimeObject('1', 'wollok.lang.Object'),
+          }, {
+            0: { parent: '', locals: {} },
+            1: { parent: '0', locals: { x: '2' } },
           })(
-            Frame({ instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '0', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -316,23 +325,28 @@ describe('Wollok Interpreter', () => {
       it('should override the current field value', async () => {
         const instruction = SET('x')
         const evaluation = Evaluation(environment, {
-          1: RuntimeObject('1', 'wollok.lang.Object', { x: '4' }),
+          1: RuntimeObject('1', 'wollok.lang.Object'),
+        }, {
+          0: { parent: '', locals: {} },
+          1: { parent: '0', locals: { x: '4' } },
         })(
-          Frame({ operandStack: ['1', '2'], instructions: [instruction] }),
+          Frame({ context: '0', operandStack: ['1', '2'], instructions: [instruction] }),
         )
 
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
-            1: RuntimeObject('1', 'wollok.lang.Object', { x: '2' }),
+            1: RuntimeObject('1', 'wollok.lang.Object'),
+          }, {
+            0: { parent: '', locals: {} },
+            1: { parent: '0', locals: { x: '2' } },
           })(
-            Frame({ instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '0', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
 
       it('should raise an error if the current operand stack has length < 2', async () => {
-
         const instruction = SET('x')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -647,7 +661,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
-            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
+            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', ['2', '1']),
           }, {
             1: { parent: '', locals: {} },
             new_id_0: { parent: '1', locals: { self: 'new_id_0' } },
@@ -694,8 +708,8 @@ describe('Wollok Interpreter', () => {
             '1': RuntimeObject('1', 'wollok.lang.Object'),
             '2': RuntimeObject('2', 'wollok.lang.Object'),
             '3': RuntimeObject('3', 'wollok.lang.Object'),
-            'S!m': RuntimeObject('S!m', 'wollok.lang.String', {}, 'm'),
-            'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['2', '1']),
+            'S!m': RuntimeObject('S!m', 'wollok.lang.String', 'm'),
+            'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', ['2', '1']),
           }, {
             '1': { parent: '', locals: {} },
             'S!m': { parent: '1', locals: { self: 'S!m' } },
@@ -962,7 +976,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
             4: RuntimeObject('4', 'wollok.lang.Object'),
             5: RuntimeObject('5', 'wollok.lang.Object'),
-            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', {}, ['3', '2']),
+            new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', ['3', '2']),
           }, {
             1: { parent: '', locals: {} },
             new_id_0: { parent: '1', locals: { self: 'new_id_0' } },

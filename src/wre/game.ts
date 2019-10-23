@@ -9,10 +9,11 @@ import { Id } from '../model'
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      if (!self.fields.visuals) {
-        self.fields.visuals = evaluation.createInstance('wollok.lang.List', [])
+      const selfLocals = evaluation.context(self.id).locals
+      if (!selfLocals.visuals) {
+        selfLocals.visuals = evaluation.createInstance('wollok.lang.List', [])
       }
-      evaluation.instance(self.fields.visuals).innerValue.push(positionable.id)
+      evaluation.instance(selfLocals.visuals).innerValue.push(positionable.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
@@ -29,8 +30,9 @@ export default {
     },
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-      if (self.fields.visuals) {
-        const visuals = evaluation.instance(self.fields.visuals)
+      const selfLocals = evaluation.context(self.id).locals
+      if (selfLocals.visuals) {
+        const visuals = evaluation.instance(selfLocals.visuals)
         visuals.innerValue = visuals.innerValue.filter((id: Id) => id !== visual.id)
       }
       evaluation.currentFrame().pushOperand(VOID_ID)
@@ -79,31 +81,36 @@ export default {
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
+      // TODO: Add behavior for runtime objects to read and write fields
+      const selfLocals = evaluation.context(self.id).locals
       if (title) {
-        self.fields.title = title.id
+        selfLocals.title = title.id
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.title)
+      } else evaluation.currentFrame().pushOperand(selfLocals.title)
     },
 
     width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
+      const selfLocals = evaluation.context(self.id).locals
       if (width) {
-        self.fields.width = width.id
+        selfLocals.width = width.id
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.width)
+      } else evaluation.currentFrame().pushOperand(selfLocals.width)
     },
 
     height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
+      const selfLocals = evaluation.context(self.id).locals
       if (height) {
-        self.fields.height = height.id
+        selfLocals.height = height.id
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.height)
+      } else evaluation.currentFrame().pushOperand(selfLocals.height)
     },
 
     ground: (self: RuntimeObject, image: RuntimeObject) => (evaluation: Evaluation) => {
+      const selfLocals = evaluation.context(self.id).locals
       if (image) {
-        self.fields.ground = image.id
+        selfLocals.ground = image.id
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.ground)
+      } else evaluation.currentFrame().pushOperand(selfLocals.ground)
     },
 
     boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {

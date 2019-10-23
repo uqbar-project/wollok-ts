@@ -330,12 +330,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = uuid()
       }
 
-      this.instances[id] = {
-        id,
-        module,
-        fields: {},
-        innerValue,
-      }
+      this.instances[id] = { id, module, innerValue }
 
       this.createContext(this.currentFrame().context, { self: id }, id)
 
@@ -370,8 +365,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       if (!nextFrame) {
         const value = this.instance(valueId)
+        const valueLocals = this.context(valueId).locals
         const message = interruption === 'exception'
-          ? `${value.module}: ${value.fields.message && this.instance(value.fields.message).innerValue || value.innerValue}`
+          ? `${value.module}: ${valueLocals.message && this.instance(valueLocals.message).innerValue || value.innerValue}`
           : ''
 
         throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
@@ -386,7 +382,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
         ...this,
         instances: keys(this.instances).reduce((instanceClones, id) => ({
           ...instanceClones,
-          [id]: { ...this.instance(id), fields: { ...this.instance(id).fields } },
+          [id]: { ...this.instance(id) },
         }), {}),
         contexts: keys(this.contexts).reduce((contextClones, id) => ({
           ...contextClones,

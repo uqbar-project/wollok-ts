@@ -15,7 +15,6 @@ export interface Context {
 export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
-  readonly fields: Locals
   innerValue?: any // TODO: Change this to JSONable elements only
 }
 
@@ -349,9 +348,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'GET': return (() => {
         const selfId = evaluation.currentFrame().popOperand()
-        const self = evaluation.instance(selfId)
-        const value = self.fields[instruction.name]
-        if (!value) throw new Error(`Access to undefined field "${self.module}>>${instruction.name}"`)
+        const value = evaluation.context(selfId).locals[instruction.name]
+        if (!value) throw new Error(`Access to undefined field "${evaluation.instance(selfId).module}>>${instruction.name}"`)
         currentFrame.pushOperand(value)
       })()
 
@@ -359,8 +357,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'SET': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
         const selfId = evaluation.currentFrame().popOperand()
-        const self = evaluation.instance(selfId)
-        self.fields[instruction.name] = valueId
+        evaluation.context(selfId).locals[instruction.name] = valueId
       })()
 
       case 'SWAP': return (() => {
@@ -482,7 +479,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...module.fields(),
           ...fields,
         ], [] as Field[])
-        const unitializedFields = allFields.filter(field => !self.fields[field.name])
+        const selfLocals = evaluation.context(selfId).locals
+        const unitializedFields = allFields.filter(field => !selfLocals[field.name])
 
         const constructor = lookupStart.lookupConstructor(instruction.arity)
         const ownSuperclass = lookupStart.superclassNode()
