@@ -1,4 +1,3 @@
-import * as build from '../builders'
 import { last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
@@ -474,16 +473,11 @@ export default {
         locals = { ...zipObj(parameterNames, argIds) }
       }
 
-      evaluation.currentFrame().resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        context: evaluation.createContext(self.innerValue, locals),
-        instructions: [
-          ...compile(evaluation.environment)(...apply.body!.sentences),
-          PUSH(VOID_ID),
-          INTERRUPT('return'),
-        ],
-      }))
-
+      evaluation.suspend('return', [
+        ...compile(evaluation.environment)(...apply.body!.sentences),
+        PUSH(VOID_ID),
+        INTERRUPT('return'),
+      ], evaluation.createContext(self.innerValue, locals))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {

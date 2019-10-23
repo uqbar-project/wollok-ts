@@ -1130,7 +1130,7 @@ describe('Wollok Interpreter', () => {
             }),
             Frame({
               context: 'new_id_0',
-              resume: ['result', 'return', 'exception'],
+              resume: ['exception', 'return', 'result'],
               instructions: [
                 STORE('<previous_interruption>', false),
                 ...instruction.alwaysHandler,

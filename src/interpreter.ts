@@ -43,7 +43,7 @@ export interface Evaluation {
   createInstance(module: Name, baseInnerValue?: any): Id
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id): Id
-  suspend(until: Interruption, instructions: List<Instruction>, context: Id): void
+  suspend(until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id): void
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
 }
@@ -288,7 +288,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const step = (natives: {}) => (evaluation: Evaluation) => {
-  const { environment, frameStack } = evaluation
+  const { environment } = evaluation
 
   const currentFrame = evaluation.currentFrame()
   if (!currentFrame) throw new Error('Reached end of frame stack')
@@ -536,38 +536,25 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'TRY_CATCH_ALWAYS': return (() => {
-        currentFrame.resume.push('result')
+        evaluation.suspend('result', [
+          STORE('<previous_interruption>', false),
+          ...instruction.alwaysHandler,
+          LOAD('<previous_interruption>'),
+          RESUME_INTERRUPTION,
+        ], evaluation.createContext(currentFrame.context))
 
-        frameStack.push(build.Frame({
-          context: evaluation.createContext(evaluation.currentFrame().context),
-          instructions: [
-            STORE('<previous_interruption>', false),
-            ...instruction.alwaysHandler,
-            LOAD('<previous_interruption>'),
-            RESUME_INTERRUPTION,
-          ] as Instruction[],
-          resume: ['result', 'return', 'exception'] as Interruption[],
-        }))
+        evaluation.suspend(['exception', 'return', 'result'], [
+          STORE('<exception>', false),
+          ...instruction.catchHandler,
+          LOAD('<exception>'),
+          INTERRUPT('exception'),
+        ], evaluation.createContext(evaluation.currentFrame().context))
 
-        frameStack.push(build.Frame({
-          context: evaluation.createContext(evaluation.currentFrame().context),
-          instructions: [
-            STORE('<exception>', false),
-            ...instruction.catchHandler,
-            LOAD('<exception>'),
-            INTERRUPT('exception'),
-          ],
-          resume: ['exception'] as Interruption[],
-        }))
-
-        frameStack.push(build.Frame({
-          context: evaluation.createContext(evaluation.currentFrame().context),
-          instructions: [
-            PUSH(VOID_ID),
-            ...instruction.body,
-            INTERRUPT('result'),
-          ],
-        }))
+        evaluation.suspend('exception', [
+          PUSH(VOID_ID),
+          ...instruction.body,
+          INTERRUPT('result'),
+        ], evaluation.createContext(evaluation.currentFrame().context))
       })()
 
 
@@ -678,11 +665,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
   const context = evaluation.createContext(evaluation.currentFrame().context)
 
-  // TODO: ! use suspend instead
-  evaluation.frameStack.push(build.Frame({
-    context,
-    instructions,
-  }))
+  evaluation.suspend([], instructions, context)
 
   stepAll(natives)(evaluation)
 
@@ -702,16 +685,15 @@ export default (environment: Environment, natives: {}) => ({
   sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.length
-    evaluation.currentFrame().resume.push('return')
-    // TODO: ! use suspend instead
-    evaluation.frameStack.push(build.Frame({
-      instructions: [
-        CALL(message, args.length),
-        INTERRUPT('return'),
-      ],
-      context: evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent),
-      operandStack: [receiver, ...args],
-    }))
+
+    evaluation.suspend('return', [
+      PUSH(receiver),
+      ...args.map(PUSH),
+      CALL(message, args.length),
+      INTERRUPT('return'),
+    ], evaluation.createContext(receiver))
+
+    // TODO: stepAll?
     do {
       takeStep(evaluation)
     } while (evaluation.frameStack.length > initialFrameCount)
@@ -777,14 +759,10 @@ export default (environment: Environment, natives: {}) => ({
       const describeEvaluation = initializedEvaluation.copy()
       const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
 
-      // TODO: ! improve this to use suspend instead
-      describeEvaluation.frameStack.push(build.Frame({
-        context: describeEvaluation.instance(describeId).id,
-        instructions: compile(describeEvaluation.environment)(
-          ...describe.variables(),
-          ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
-        ),
-      }))
+      describeEvaluation.suspend([], compile(describeEvaluation.environment)(
+        ...describe.variables(),
+        ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
+      ), describeEvaluation.instance(describeId).id)
 
       stepAll(natives)(describeEvaluation)
 

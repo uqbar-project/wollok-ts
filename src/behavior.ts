@@ -356,8 +356,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    suspend(this: EvaluationType, until: Interruption, instructions: List<Instruction>, context: Id) {
-      this.currentFrame().resume.push(until)
+    suspend(this: EvaluationType, until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id) {
+      this.currentFrame().resume.push(...isArray(until) ? until : [until])
       this.frameStack.push(build.Frame({ context, instructions }))
     },
 
