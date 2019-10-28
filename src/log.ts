@@ -59,7 +59,6 @@ const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
     if (val === undefined) return ''
     if (['string', 'boolean', 'number', 'null'].includes(typeof val)) return `(${val})`
     if (val instanceof Array) return `(${val.map(e => typeof e === 'string' ? stringifyId(evaluation)(e) : '?').join(', ')})`
-    if (val instanceof Date) return `(${val.getDate()}/${val.getMonth() + 1}/${val.getFullYear()})`
     return ''
   }
   return magenta(id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)

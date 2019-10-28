@@ -1,5 +1,5 @@
 import { last, zipObj } from '../extensions'
-import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { assertBoolean, assertCollection, assertNumber, assertString, CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
 import { Id, Module, Singleton } from '../model'
 
@@ -55,45 +55,49 @@ export default {
   Collection: {
 
     initialize: (self: RuntimeObject, ) => (evaluation: Evaluation) => {
-
       self.innerValue = self.innerValue || []
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
-    fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) =>
-      (evaluation: Evaluation) => {
-        evaluation.suspend('return', [
-          ...[...self.innerValue].reverse().flatMap((id: Id) => [
-            PUSH(closure.id),
-            PUSH(id),
-          ]),
-          PUSH(initialValue.id),
-          ...self.innerValue.flatMap(() => [
-            SWAP,
-            CALL('apply', 2),
-          ]),
-          INTERRUPT('return'),
-        ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
-      },
+    fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
+
+      evaluation.suspend('return', [
+        ...[...self.innerValue].reverse().flatMap((id: Id) => [
+          PUSH(closure.id),
+          PUSH(id),
+        ]),
+        PUSH(initialValue.id),
+        ...self.innerValue.flatMap(() => [
+          SWAP,
+          CALL('apply', 2),
+        ]),
+        INTERRUPT('return'),
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
+    },
 
     add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
 
       self.innerValue.push(element.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
 
       self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     size: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
 
       self.innerValue.splice(0, self.innerValue.length)
       evaluation.currentFrame().pushOperand(VOID_ID)
@@ -103,6 +107,8 @@ export default {
   List: {
 
     get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+      assertCollection(self)
+      assertNumber(index)
 
       const valueId = self.innerValue[index.innerValue]
       if (!valueId) throw new RangeError('index')
@@ -113,91 +119,100 @@ export default {
 
   Number: {
     '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '-_': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
-      if (other.module !== self.module) throw new TypeError('other')
+      assertNumber(self)
+      assertNumber(other)
       if (other.innerValue === 0) throw new RangeError('other')
+
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue % other.innerValue))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', `${self.innerValue}`))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
 
       if (self.innerValue > 0) evaluation.currentFrame().pushOperand(self.id)
       else evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-
-
-      if (decimals.module !== self.module) throw new TypeError('decimals')
+      assertNumber(self)
+      assertNumber(decimals)
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       evaluation.currentFrame().pushOperand(
@@ -206,9 +221,8 @@ export default {
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-
-
-      if (decimals.module !== self.module) throw new TypeError('decimals')
+      assertNumber(self)
+      assertNumber(decimals)
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       const num = self.innerValue.toString()
@@ -221,8 +235,9 @@ export default {
     },
 
     'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertNumber(self)
+      assertNumber(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(
         evaluation.createInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue)
       )
@@ -233,111 +248,124 @@ export default {
 
   String: {
     'length': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue.startsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue.endsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
       const value = self.innerValue.indexOf(other.innerValue)
 
-      if (other.module !== self.module) throw new TypeError('other')
       if (value < 0) throw new RangeError('other')
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
       const value = self.innerValue.lastIndexOf(other.innerValue)
 
-      if (other.module !== self.module) throw new TypeError('other')
       if (value < 0) throw new RangeError('other')
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.trim()))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
       evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
       evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(other)
 
-      if (other.module !== self.module) throw new TypeError('other')
       evaluation.currentFrame().pushOperand(self.innerValue.indexOf(other.innerValue) >= 0 ? TRUE_ID : FALSE_ID)
     },
 
-    'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) =>
-      (evaluation: Evaluation) => {
+    'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertNumber(startIndex)
+      if (endIndex) assertNumber(endIndex)
 
-        if (startIndex.module !== 'wollok.lang.Number') throw new TypeError('startIndex')
-        if (endIndex && endIndex.module !== 'wollok.lang.Number') throw new TypeError('endIndex')
-        evaluation.currentFrame().pushOperand(
-          evaluation.createInstance(self.module, self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue))
-        )
-      },
+      const value = self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue)
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
+    },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
+      assertString(self)
+      assertString(expression)
+      assertString(replacement)
 
-      if (expression.module !== self.module) throw new TypeError('other')
-      if (replacement.module !== self.module) throw new TypeError('other')
-      evaluation.currentFrame().pushOperand(
-        evaluation.createInstance(self.module, self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue))
-      )
+      const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(self.id)
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
     },
   },
 
   Boolean: {
-
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      assertBoolean(self)
+
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
       evaluation.suspend('return', [
@@ -348,7 +376,7 @@ export default {
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-
+      assertBoolean(self)
 
       if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
@@ -360,17 +388,16 @@ export default {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      assertBoolean(self)
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '!_': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
       evaluation.currentFrame().pushOperand(self.innerValue ? FALSE_ID : TRUE_ID)
     },
   },
@@ -381,6 +408,10 @@ export default {
       const start = evaluation.instance(selfLocals.start)
       const end = evaluation.instance(selfLocals.end)
       const step = evaluation.instance(selfLocals.step)
+
+      assertNumber(start)
+      assertNumber(end)
+      assertNumber(step)
 
       const values = []
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
@@ -408,6 +439,10 @@ export default {
       const end = evaluation.instance(selfLocals.end)
       const step = evaluation.instance(selfLocals.step)
 
+      assertNumber(start)
+      assertNumber(end)
+      assertNumber(step)
+
       const values = []
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
         for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue) values.unshift(i)
@@ -422,13 +457,11 @@ export default {
   Closure: {
     // TODO: improve once contexts are reified.
     initialize: (self: RuntimeObject) => (evaluation: Evaluation) => {
-
       self.innerValue = last(evaluation.frameStack.slice(0, -2))!.context
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-
       const apply = evaluation
         .environment
         .getNodeByFQN<Singleton>(self.module)
@@ -477,7 +510,7 @@ export default {
         ...compile(evaluation.environment)(...apply.body!.sentences),
         PUSH(VOID_ID),
         INTERRUPT('return'),
-      ], evaluation.createContext(self.innerValue, locals))
+      ], evaluation.createContext(self.innerValue as Id, locals))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -491,7 +524,6 @@ export default {
 
   // TODO: No need to save the inner value here. Can just use the fields.
   Date: {
-
     'initialize': (self: RuntimeObject) => (evaluation: Evaluation) => {
       const today = new Date(new Date().setHours(0, 0, 0, 0))
       const selfLocals = evaluation.context(self.id).locals
@@ -502,132 +534,166 @@ export default {
       if (!selfLocals.year || selfLocals.year === NULL_ID)
         selfLocals.year = evaluation.createInstance('wollok.lang.Number', today.getFullYear())
 
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
-
-      self.innerValue = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
-
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.getDay()))
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
+
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value.getDay()))
     },
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module, new Date(
-        self.innerValue.getFullYear(),
-        self.innerValue.getMonth(),
-        self.innerValue.getDate() + floor(days.innerValue))
-      ))
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(days)
 
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
       const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const date = new Date(
-        self.innerValue.getFullYear(),
-        self.innerValue.getMonth() + floor(months.innerValue),
-        self.innerValue.getDate()
-      )
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(months)
 
-      while (months.innerValue > 0 && date.getMonth() > (self.innerValue.getMonth() + months.innerValue) % 12)
-        date.setDate(date.getDate() - 1)
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
       const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
+
+      while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
+        value.setDate(value.getDate() - 1)
+
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const date = new Date(
-        self.innerValue.getFullYear() + floor(years.innerValue),
-        self.innerValue.getMonth(),
-        self.innerValue.getDate()
-      )
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(years)
 
-      if (years.innerValue > 0 && date.getDate() !== self.innerValue.getDate()) {
-        date.setDate(date.getDate() - 1)
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instanceLocals = evaluation.context(instance.id).locals
+
+      const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
+
+      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
+        value.setDate(value.getDate() - 1)
       }
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
-      const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      if (days.module !== 'wollok.lang.Number') throw new TypeError('days')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module, new Date(
-        self.innerValue.getFullYear(),
-        self.innerValue.getMonth(),
-        self.innerValue.getDate() - floor(days.innerValue))
-      ))
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(days)
+
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
       const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      if (months.module !== 'wollok.lang.Number') throw new TypeError('months')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const substracted = floor(months.innerValue)
-      const date = new Date(
-        self.innerValue.getFullYear(),
-        self.innerValue.getMonth() - substracted,
-        self.innerValue.getDate()
-      )
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(months)
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
       const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+
+      const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      if (years.module !== 'wollok.lang.Number') throw new TypeError('years')
+      const selfLocals = evaluation.context(self.id).locals
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
 
-      const date = new Date(
-        self.innerValue.getFullYear() - floor(years.innerValue),
-        self.innerValue.getMonth(),
-        self.innerValue.getDate()
-      )
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+      assertNumber(years)
 
-      if (years.innerValue > 0 && date.getDate() !== self.innerValue.getDate()) {
-        date.setDate(date.getDate() - 1)
+      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instanceLocals = evaluation.context(instance.id).locals
+
+      const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
+
+      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
+        value.setDate(value.getDate() - 1)
       }
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module, date))
-      const instanceLocals = evaluation.context(instance.id).locals
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', instance.innerValue.getFullYear())
+      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
+      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
+      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
@@ -635,14 +701,32 @@ export default {
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
+      const selfLocals = evaluation.context(self.id).locals
+      const ownDay = evaluation.instance(selfLocals.day)
+      const ownMonth = evaluation.instance(selfLocals.month)
+      const ownYear = evaluation.instance(selfLocals.year)
+
+      const otherLocals = evaluation.context(other.id).locals
+      const otherDay = evaluation.instance(otherLocals.day)
+      const otherMonth = evaluation.instance(otherLocals.month)
+      const otherYear = evaluation.instance(otherLocals.year)
+
+      assertNumber(ownDay)
+      assertNumber(ownMonth)
+      assertNumber(ownYear)
+
+      assertNumber(otherDay)
+      assertNumber(otherMonth)
+      assertNumber(otherYear)
+
       const msPerDay = 1000 * 60 * 60 * 24
-      const ownUTC = UTC(self.innerValue.getFullYear(), self.innerValue.getMonth(), self.innerValue.getDate())
-      const otherUTC = UTC(other.innerValue.getFullYear(), other.innerValue.getMonth(), other.innerValue.getDate())
+      const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
+      const otherUTC = UTC(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.module !== self.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
 
       const selfLocals = evaluation.context(self.id).locals
       const otherLocals = evaluation.context(other.id).locals
@@ -662,16 +746,68 @@ export default {
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
-      evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
+
+      const selfLocals = evaluation.context(self.id).locals
+      const otherLocals = evaluation.context(other.id).locals
+
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
+
+      const otherDay = evaluation.instance(otherLocals.day)
+      const otherMonth = evaluation.instance(otherLocals.month)
+      const otherYear = evaluation.instance(otherLocals.year)
+
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+
+      assertNumber(otherDay)
+      assertNumber(otherMonth)
+      assertNumber(otherYear)
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+      const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
+
+      evaluation.currentFrame().pushOperand(value < otherValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
-      evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
+
+      const selfLocals = evaluation.context(self.id).locals
+      const otherLocals = evaluation.context(other.id).locals
+
+      const day = evaluation.instance(selfLocals.day)
+      const month = evaluation.instance(selfLocals.month)
+      const year = evaluation.instance(selfLocals.year)
+
+      const otherDay = evaluation.instance(otherLocals.day)
+      const otherMonth = evaluation.instance(otherLocals.month)
+      const otherYear = evaluation.instance(otherLocals.year)
+
+      assertNumber(day)
+      assertNumber(month)
+      assertNumber(year)
+
+      assertNumber(otherDay)
+      assertNumber(otherMonth)
+      assertNumber(otherYear)
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+      const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
+
+      evaluation.currentFrame().pushOperand(value > otherValue ? TRUE_ID : FALSE_ID)
     },
 
     'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(new Date(self.innerValue.getFullYear(), 1, 29).getDate() === 29 ? TRUE_ID : FALSE_ID)
+      const selfLocals = evaluation.context(self.id).locals
+      const year = evaluation.instance(selfLocals.year)
+
+      assertNumber(year)
+
+      const value = new Date(year.innerValue, 1, 29)
+      evaluation.currentFrame().pushOperand(value.getDate() === 29 ? TRUE_ID : FALSE_ID)
     },
 
   },

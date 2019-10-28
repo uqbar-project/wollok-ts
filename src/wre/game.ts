@@ -1,4 +1,4 @@
-import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
+import { assertCollection, CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 // TODO: tests
@@ -13,7 +13,12 @@ export default {
       if (!selfLocals.visuals) {
         selfLocals.visuals = evaluation.createInstance('wollok.lang.List', [])
       }
-      evaluation.instance(selfLocals.visuals).innerValue.push(positionable.id)
+
+      const visuals = evaluation.instance(selfLocals.visuals)
+
+      assertCollection(visuals)
+
+      visuals.innerValue.push(positionable.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
@@ -33,6 +38,7 @@ export default {
       const selfLocals = evaluation.context(self.id).locals
       if (selfLocals.visuals) {
         const visuals = evaluation.instance(selfLocals.visuals)
+        assertCollection(visuals)
         visuals.innerValue = visuals.innerValue.filter((id: Id) => id !== visual.id)
       }
       evaluation.currentFrame().pushOperand(VOID_ID)
