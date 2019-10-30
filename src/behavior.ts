@@ -317,6 +317,13 @@ export const Frame = (obj: Partial<FrameType>): FrameType => {
 export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<RuntimeObjectType>) => {
   const runtimeObject = { ...obj } as RuntimeObjectType
 
+  const assertIs = (instance: RuntimeObjectType, module: Name, innerValueType: string) => {
+    if (instance.module !== module)
+      throw new TypeError(`Expected an instance of ${module} but got a ${instance.module} instead`)
+    if (typeof obj.innerValue !== innerValueType)
+      throw new TypeError(`Malformed Runtime Object: invalid inner value ${instance.innerValue} for ${module} instance`)
+  }
+
   assign(runtimeObject, {
     context(this: RuntimeObjectType): Context {
       return evaluation.context(this.id)
@@ -329,6 +336,17 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
 
     set(this: RuntimeObjectType, field: Name, valueId: Id): void {
       this.context().locals[field] = valueId
+    },
+
+    assertIsNumber(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.Number', 'number') },
+
+    assertIsString(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.String', 'string') },
+
+    assertIsBoolean(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.Boolean', 'boolean') },
+
+    assertIsCollection(this: RuntimeObjectType) {
+      if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
+        throw new TypeError('Malformed Runtime Object: Collection inner value should be a List<Id>')
     },
 
   })

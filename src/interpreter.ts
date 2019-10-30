@@ -4,7 +4,6 @@ import log from './log'
 import { Class, Describe, Entity, Environment, Expression, Field, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 const { assign } = Object
-const { isArray } = Array
 
 export type Locals = Record<Name, Id>
 
@@ -21,6 +20,11 @@ export interface RuntimeObject {
   context(): Context
   get(field: Name): RuntimeObject | undefined
   set(field: Name, valueId: Id): void
+
+  assertIsNumber(): asserts this is RuntimeObject & { innerValue: number }
+  assertIsString(): asserts this is RuntimeObject & { innerValue: string }
+  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: boolean }
+  assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] }
 }
 
 export interface Frame {
@@ -64,32 +68,6 @@ export const FALSE_ID = 'false'
 export const LAZY_ID = '<lazy>'
 
 export const DECIMAL_PRECISION = 5
-
-export function assertCollection(obj: RuntimeObject): asserts obj is RuntimeObject & { innerValue: Id[] } {
-  if (!isArray(obj.innerValue) || (obj.innerValue.length && typeof obj.innerValue[0] !== 'string'))
-    throw new TypeError('Malformed Runtime Object: Collection inner value should be a List<Id>')
-}
-
-export function assertNumber(obj: RuntimeObject): asserts obj is RuntimeObject & { innerValue: number } {
-  if (obj.module !== 'wollok.lang.Number')
-    throw new TypeError(`Expected an instance of wollok.lang.Number but got a ${obj.module} instead`)
-  if (typeof obj.innerValue !== 'number')
-    throw new TypeError('Malformed Runtime Object: Number inner value should be a number')
-}
-
-export function assertString(obj: RuntimeObject): asserts obj is RuntimeObject & { innerValue: string } {
-  if (obj.module !== 'wollok.lang.String')
-    throw new TypeError(`Expected an instance of wollok.lang.String but got a ${obj.module} instead`)
-  if (typeof obj.innerValue !== 'string')
-    throw new TypeError('Malformed Runtime Object: String inner value should be a string')
-}
-
-export function assertBoolean(obj: RuntimeObject): asserts obj is RuntimeObject & { innerValue: Boolean } {
-  if (obj.module !== 'wollok.lang.Boolean')
-    throw new TypeError(`Expected an instance of wollok.lang.Boolean but got a ${obj.module} instead`)
-  if (typeof obj.innerValue !== 'boolean')
-    throw new TypeError('Malformed Runtime Object: Boolean inner value should be a boolean')
-}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS

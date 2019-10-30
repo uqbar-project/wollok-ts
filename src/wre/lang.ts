@@ -1,5 +1,5 @@
 import { last, zipObj } from '../extensions'
-import { assertBoolean, assertCollection, assertNumber, assertString, CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import log from '../log'
 import { Id, Module, Singleton } from '../model'
 
@@ -60,7 +60,7 @@ export default {
     },
 
     fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
+      self.assertIsCollection()
 
       evaluation.suspend('return', [
         ...[...self.innerValue].reverse().flatMap((id: Id) => [
@@ -77,27 +77,27 @@ export default {
     },
 
     add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
+      self.assertIsCollection()
 
       self.innerValue.push(element.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
+      self.assertIsCollection()
 
       self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     size: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
+      self.assertIsCollection()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
+      self.assertIsCollection()
 
       self.innerValue.splice(0, self.innerValue.length)
       evaluation.currentFrame().pushOperand(VOID_ID)
@@ -107,8 +107,8 @@ export default {
   List: {
 
     get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
-      assertCollection(self)
-      assertNumber(index)
+      self.assertIsCollection()
+      index.assertIsNumber()
 
       const valueId = self.innerValue[index.innerValue]
       if (!valueId) throw new RangeError('index')
@@ -123,50 +123,50 @@ export default {
     },
 
     '-_': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
+      self.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
       if (other.innerValue === 0) throw new RangeError('other')
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue % other.innerValue))
     },
@@ -176,43 +176,43 @@ export default {
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
+      self.assertIsNumber()
 
       if (self.innerValue > 0) evaluation.currentFrame().pushOperand(self.id)
       else evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(decimals)
+      self.assertIsNumber()
+      decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       evaluation.currentFrame().pushOperand(
@@ -221,8 +221,8 @@ export default {
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(decimals)
+      self.assertIsNumber()
+      decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       const num = self.innerValue.toString()
@@ -235,8 +235,8 @@ export default {
     },
 
     'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertNumber(self)
-      assertNumber(other)
+      self.assertIsNumber()
+      other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(
         evaluation.createInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue)
@@ -248,35 +248,35 @@ export default {
 
   String: {
     'length': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
+      self.assertIsString()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(self.innerValue.startsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(self.innerValue.endsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       const value = self.innerValue.indexOf(other.innerValue)
 
@@ -286,8 +286,8 @@ export default {
     },
 
     'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       const value = self.innerValue.lastIndexOf(other.innerValue)
 
@@ -297,57 +297,60 @@ export default {
     },
 
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
+      self.assertIsString()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
+      self.assertIsString()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
+      self.assertIsString()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.trim()))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(other)
+      self.assertIsString()
+      other.assertIsString()
 
       evaluation.currentFrame().pushOperand(self.innerValue.indexOf(other.innerValue) >= 0 ? TRUE_ID : FALSE_ID)
     },
 
     'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertNumber(startIndex)
-      if (endIndex) assertNumber(endIndex)
+      self.assertIsString()
+      startIndex.assertIsNumber()
+      if (endIndex) {
+        const endIndexInstance: RuntimeObject = endIndex
+        endIndexInstance.assertIsNumber()
+      }
 
-      const value = self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue)
+      const value = self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue as number)
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
     },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
-      assertString(self)
-      assertString(expression)
-      assertString(replacement)
+      self.assertIsString()
+      expression.assertIsString()
+      replacement.assertIsString()
 
       const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
       evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
@@ -364,7 +367,7 @@ export default {
 
   Boolean: {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      assertBoolean(self)
+      self.assertIsBoolean()
 
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
@@ -376,7 +379,7 @@ export default {
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      assertBoolean(self)
+      self.assertIsBoolean()
 
       if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
@@ -388,7 +391,7 @@ export default {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      assertBoolean(self)
+      self.assertIsBoolean()
 
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
     },
@@ -404,13 +407,13 @@ export default {
 
   Range: {
     forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      const start = self.get('start')!
-      const end = self.get('end')!
-      const step = self.get('step')!
+      const start: RuntimeObject = self.get('start')!
+      const end: RuntimeObject = self.get('end')!
+      const step: RuntimeObject = self.get('step')!
 
-      assertNumber(start)
-      assertNumber(end)
-      assertNumber(step)
+      start.assertIsNumber()
+      end.assertIsNumber()
+      step.assertIsNumber()
 
       const values = []
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
@@ -433,13 +436,13 @@ export default {
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const start = self.get('start')!
-      const end = self.get('end')!
-      const step = self.get('step')!
+      const start: RuntimeObject = self.get('start')!
+      const end: RuntimeObject = self.get('end')!
+      const step: RuntimeObject = self.get('step')!
 
-      assertNumber(start)
-      assertNumber(end)
-      assertNumber(step)
+      start.assertIsNumber()
+      end.assertIsNumber()
+      step.assertIsNumber()
 
       const values = []
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
@@ -536,13 +539,13 @@ export default {
     },
 
     'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
 
@@ -550,14 +553,14 @@ export default {
     },
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(days)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      days.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -571,14 +574,14 @@ export default {
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(months)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      months.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -595,14 +598,14 @@ export default {
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(years)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      years.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -620,14 +623,14 @@ export default {
     },
 
     'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(days)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      days.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -640,14 +643,14 @@ export default {
     },
 
     'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(months)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      months.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -661,14 +664,14 @@ export default {
     },
 
     'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
-      assertNumber(years)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      years.assertIsNumber()
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
 
@@ -688,21 +691,21 @@ export default {
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const ownDay = self.get('day')!
-      const ownMonth = self.get('month')!
-      const ownYear = self.get('year')!
+      const ownDay: RuntimeObject = self.get('day')!
+      const ownMonth: RuntimeObject = self.get('month')!
+      const ownYear: RuntimeObject = self.get('year')!
 
-      const otherDay = other.get('day')!
-      const otherMonth = other.get('month')!
-      const otherYear = other.get('year')!
+      const otherDay: RuntimeObject = other.get('day')!
+      const otherMonth: RuntimeObject = other.get('month')!
+      const otherYear: RuntimeObject = other.get('year')!
 
-      assertNumber(ownDay)
-      assertNumber(ownMonth)
-      assertNumber(ownYear)
+      ownDay.assertIsNumber()
+      ownMonth.assertIsNumber()
+      ownYear.assertIsNumber()
 
-      assertNumber(otherDay)
-      assertNumber(otherMonth)
-      assertNumber(otherYear)
+      otherDay.assertIsNumber()
+      otherMonth.assertIsNumber()
+      otherYear.assertIsNumber()
 
       const msPerDay = 1000 * 60 * 60 * 24
       const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
@@ -729,21 +732,21 @@ export default {
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      const otherDay = other.get('day')!
-      const otherMonth = other.get('month')!
-      const otherYear = other.get('year')!
+      const otherDay: RuntimeObject = other.get('day')!
+      const otherMonth: RuntimeObject = other.get('month')!
+      const otherYear: RuntimeObject = other.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
 
-      assertNumber(otherDay)
-      assertNumber(otherMonth)
-      assertNumber(otherYear)
+      otherDay.assertIsNumber()
+      otherMonth.assertIsNumber()
+      otherYear.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
@@ -754,21 +757,21 @@ export default {
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const day = self.get('day')!
-      const month = self.get('month')!
-      const year = self.get('year')!
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      const otherDay = other.get('day')!
-      const otherMonth = other.get('month')!
-      const otherYear = other.get('year')!
+      const otherDay: RuntimeObject = other.get('day')!
+      const otherMonth: RuntimeObject = other.get('month')!
+      const otherYear: RuntimeObject = other.get('year')!
 
-      assertNumber(day)
-      assertNumber(month)
-      assertNumber(year)
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
 
-      assertNumber(otherDay)
-      assertNumber(otherMonth)
-      assertNumber(otherYear)
+      otherDay.assertIsNumber()
+      otherMonth.assertIsNumber()
+      otherYear.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
@@ -777,9 +780,9 @@ export default {
     },
 
     'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const year = self.get('year')!
+      const year: RuntimeObject = self.get('year')!
 
-      assertNumber(year)
+      year.assertIsNumber()
 
       const value = new Date(year.innerValue, 1, 29)
       evaluation.currentFrame().pushOperand(value.getDate() === 29 ? TRUE_ID : FALSE_ID)
