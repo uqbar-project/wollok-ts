@@ -88,6 +88,7 @@ export type Instruction
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name, initFields: boolean }
+  | { kind: 'INIT_NAMED', argumentNames: List<Name> } // TODO: Test!
   | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
   | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
   | { kind: 'INTERRUPT', interruption: Interruption }
@@ -106,6 +107,7 @@ export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDIT
 export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStart })
 export const INIT = (arity: number, lookupStart: Name, initFields: boolean): Instruction =>
   ({ kind: 'INIT', arity, lookupStart, initFields })
+export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const IF_THEN_ELSE = (thenHandler: List<Instruction>, elseHandler: List<Instruction>): Instruction =>
   ({ kind: 'IF_THEN_ELSE', thenHandler, elseHandler })
 export const TRY_CATCH_ALWAYS = (body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction>): Instruction =>
@@ -189,14 +191,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
         if (node.value.kind === 'Singleton') {
           if ((node.value.superCall.args as any[]).some(arg => arg.is('NamedArgument'))) {
+            const args = node.value.superCall.args as List<NamedArgument>
             return [
+              ...args.flatMap(({ value }) => compile(environment)(value)),
               INSTANTIATE(node.value.fullyQualifiedName()),
+              INIT_NAMED(args.map(({ name }) => name)),
               INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
-              ...(node.value.superCall.args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
-                DUP,
-                ...compile(environment)(value),
-                SET(name),
-              ]),
             ]
           } else {
             return [
@@ -236,13 +236,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const fqn = node.instantiated.target<Entity>().fullyQualifiedName()
 
         if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
+          const args = node.args as List<NamedArgument>
+
           return [
+            ...args.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(fqn),
-            ...(node.args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
-              DUP,
-              ...compile(environment)(value),
-              SET(name),
-            ]),
+            INIT_NAMED(args.map(({ name }) => name)),
             INIT(0, fqn, true),
           ]
         } else {
@@ -535,6 +534,16 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         }
       })()
 
+      case 'INIT_NAMED': return (() => {
+        const selfId = evaluation.currentFrame().popOperand()
+        const self = evaluation.instance(selfId)
+
+        for (const name of [...instruction.argumentNames].reverse())
+          self.set(name, evaluation.currentFrame().popOperand())
+
+        evaluation.currentFrame().pushOperand(selfId)
+      })()
+
       // TODO: Don't use lambdas, extract to functions so we can just use switch
       case 'IF_THEN_ELSE': return (() => {
         const check = evaluation.currentFrame().popOperand()
@@ -651,15 +660,12 @@ const buildEvaluation = (environment: Environment): Evaluation => {
       instructions: [
         ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
           if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
+            const argList = args as List<NamedArgument>
             return [
+              ...argList.flatMap(({ value }) => compile(environment)(value)),
               PUSH(id),
+              INIT_NAMED(argList.map(({ name }) => name)),
               INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
-              ...(args as List<NamedArgument>).flatMap(({ name, value }: NamedArgument) => [
-                DUP,
-                ...compile(environment)(value),
-                SET(name),
-              ]),
-              PUSH(id),
             ]
           } else {
             return [
