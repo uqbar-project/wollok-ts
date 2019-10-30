@@ -515,7 +515,7 @@ export default {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.get('<toString>') ?.id ?? evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`))
+      evaluation.currentFrame().pushOperand(self.get('<toString>')?.id ?? evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`))
     },
   },
 

@@ -51,7 +51,9 @@ export interface Evaluation {
   createInstance(module: Name, baseInnerValue?: any): Id
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id): Id
+  // TODO: mover a Frame?
   suspend(until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id): void
+  // TODO: mover a Frame?
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
 }
@@ -506,13 +508,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
         evaluation.suspend('return', [
-          ...instruction.initFields ? [
-            ...unitializedFields.flatMap(({ value: v, name }: Field) => [
-              LOAD('self'),
-              ...compile(environment)(v),
-              SET(name),
-            ]),
-          ] : [],
           ...ownSuperclass || !constructor.baseCall.callsSuper ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
             LOAD('self'),
@@ -526,6 +521,18 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('self'),
           INTERRUPT('return'),
         ], evaluation.createContext(self.id, locals))
+
+        if (instruction.initFields) {
+          evaluation.suspend('return', [
+            ...unitializedFields.flatMap(field => [
+              LOAD('self'),
+              ...compile(environment)(field.value),
+              SET(field.name),
+            ]),
+            LOAD('self'),
+            INTERRUPT('return'),
+          ], self.id)
+        }
       })()
 
       // TODO: Don't use lambdas, extract to functions so we can just use switch
