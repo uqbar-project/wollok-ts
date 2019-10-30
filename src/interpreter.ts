@@ -17,6 +17,10 @@ export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
   innerValue?: string | number | boolean | Id[]
+
+  context(): Context
+  get(field: Name): RuntimeObject | undefined
+  set(field: Name, valueId: Id): void
 }
 
 export interface Frame {
@@ -375,16 +379,18 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'GET': return (() => {
         const selfId = evaluation.currentFrame().popOperand()
-        const value = evaluation.context(selfId).locals[instruction.name]
-        if (!value) throw new Error(`Access to undefined field "${evaluation.instance(selfId).module}>>${instruction.name}"`)
-        currentFrame.pushOperand(value)
+        const self = evaluation.instance(selfId)
+        const value = self.get(instruction.name)
+        if (!value) throw new Error(`Access to undefined field "${self.module}>>${instruction.name}"`)
+        currentFrame.pushOperand(value.id)
       })()
-
 
       case 'SET': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
         const selfId = evaluation.currentFrame().popOperand()
-        evaluation.context(selfId).locals[instruction.name] = valueId
+        const self = evaluation.instance(selfId)
+
+        self.set(instruction.name, valueId)
       })()
 
       case 'SWAP': return (() => {
@@ -497,8 +503,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'INIT': return (() => {
         const selfId = evaluation.currentFrame().popOperand()
-        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
         const self = evaluation.instance(selfId)
+        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
 
         // TODO: Add to Filler a method for doing this and just call it ?
@@ -506,8 +512,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ...module.fields(),
           ...fields,
         ], [] as Field[])
-        const selfLocals = evaluation.context(selfId).locals
-        const unitializedFields = allFields.filter(field => !selfLocals[field.name])
+        const unitializedFields = allFields.filter(field => !self.get(field.name))
 
         const constructor = lookupStart.lookupConstructor(instruction.arity)
         const ownSuperclass = lookupStart.superclassNode()

@@ -45,7 +45,7 @@ export default {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
+      const selfLocals = self.context().locals
       evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', `${self.module}[${keys(selfLocals).map(key =>
         `${key} = ${selfLocals[key]}`
       ).join(', ')}]`))
@@ -404,10 +404,9 @@ export default {
 
   Range: {
     forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const start = evaluation.instance(selfLocals.start)
-      const end = evaluation.instance(selfLocals.end)
-      const step = evaluation.instance(selfLocals.step)
+      const start = self.get('start')!
+      const end = self.get('end')!
+      const step = self.get('step')!
 
       assertNumber(start)
       assertNumber(end)
@@ -434,10 +433,9 @@ export default {
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const start = evaluation.instance(selfLocals.start)
-      const end = evaluation.instance(selfLocals.end)
-      const step = evaluation.instance(selfLocals.step)
+      const start = self.get('start')!
+      const end = self.get('end')!
+      const step = self.get('step')!
 
       assertNumber(start)
       assertNumber(end)
@@ -514,34 +512,33 @@ export default {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      evaluation.currentFrame().pushOperand(selfLocals['<toString>']
-        ? selfLocals['<toString>']
-        : evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`)
-      )
+      evaluation.currentFrame().pushOperand(self.get('<toString>') ?.id ?? evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`))
     },
   },
 
   // TODO: No need to save the inner value here. Can just use the fields.
   Date: {
     'initialize': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const today = new Date(new Date().setHours(0, 0, 0, 0))
-      const selfLocals = evaluation.context(self.id).locals
-      if (!selfLocals.day || selfLocals.day === NULL_ID)
-        selfLocals.day = evaluation.createInstance('wollok.lang.Number', today.getDate())
-      if (!selfLocals.month || selfLocals.month === NULL_ID)
-        selfLocals.month = evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1)
-      if (!selfLocals.year || selfLocals.year === NULL_ID)
-        selfLocals.year = evaluation.createInstance('wollok.lang.Number', today.getFullYear())
+      const day = self.get('day')
+      const month = self.get('month')
+      const year = self.get('year')
+
+      const today = new Date()
+
+      if (!day || day.id === NULL_ID)
+        self.set('day', evaluation.createInstance('wollok.lang.Number', today.getDate()))
+      if (!month || month.id === NULL_ID)
+        self.set('month', evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1))
+      if (!year || year.id === NULL_ID)
+        self.set('year', evaluation.createInstance('wollok.lang.Number', today.getFullYear()))
 
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -553,10 +550,9 @@ export default {
     },
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -564,21 +560,20 @@ export default {
       assertNumber(days)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -586,25 +581,23 @@ export default {
       assertNumber(months)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
 
       while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
         value.setDate(value.getDate() - 1)
 
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -612,7 +605,6 @@ export default {
       assertNumber(years)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
 
@@ -620,18 +612,17 @@ export default {
         value.setDate(value.getDate() - 1)
       }
 
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -639,21 +630,19 @@ export default {
       assertNumber(days)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -661,21 +650,20 @@ export default {
       assertNumber(months)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
 
     'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -683,7 +671,6 @@ export default {
       assertNumber(years)
 
       const instance = evaluation.instance(evaluation.createInstance(self.module))
-      const instanceLocals = evaluation.context(instance.id).locals
 
       const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
 
@@ -691,9 +678,9 @@ export default {
         value.setDate(value.getDate() - 1)
       }
 
-      instanceLocals.day = evaluation.createInstance('wollok.lang.Number', value.getDate())
-      instanceLocals.month = evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)
-      instanceLocals.year = evaluation.createInstance('wollok.lang.Number', value.getFullYear())
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
 
       evaluation.currentFrame().pushOperand(instance.id)
     },
@@ -701,15 +688,13 @@ export default {
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const selfLocals = evaluation.context(self.id).locals
-      const ownDay = evaluation.instance(selfLocals.day)
-      const ownMonth = evaluation.instance(selfLocals.month)
-      const ownYear = evaluation.instance(selfLocals.year)
+      const ownDay = self.get('day')!
+      const ownMonth = self.get('month')!
+      const ownYear = self.get('year')!
 
-      const otherLocals = evaluation.context(other.id).locals
-      const otherDay = evaluation.instance(otherLocals.day)
-      const otherMonth = evaluation.instance(otherLocals.month)
-      const otherYear = evaluation.instance(otherLocals.year)
+      const otherDay = other.get('day')!
+      const otherMonth = other.get('month')!
+      const otherYear = other.get('year')!
 
       assertNumber(ownDay)
       assertNumber(ownMonth)
@@ -728,16 +713,13 @@ export default {
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
 
-      const selfLocals = evaluation.context(self.id).locals
-      const otherLocals = evaluation.context(other.id).locals
+      const day = self.get('day')!.innerValue
+      const month = self.get('month')!.innerValue
+      const year = self.get('year')!.innerValue
 
-      const day = evaluation.instance(selfLocals.day).innerValue
-      const month = evaluation.instance(selfLocals.month).innerValue
-      const year = evaluation.instance(selfLocals.year).innerValue
-
-      const otherDay = evaluation.instance(otherLocals.day).innerValue
-      const otherMonth = evaluation.instance(otherLocals.month).innerValue
-      const otherYear = evaluation.instance(otherLocals.year).innerValue
+      const otherDay = other.get('day')!.innerValue
+      const otherMonth = other.get('month')!.innerValue
+      const otherYear = other.get('year')!.innerValue
 
       const answer = day === otherDay && month === otherMonth && year === otherYear
 
@@ -747,16 +729,13 @@ export default {
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const selfLocals = evaluation.context(self.id).locals
-      const otherLocals = evaluation.context(other.id).locals
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
-
-      const otherDay = evaluation.instance(otherLocals.day)
-      const otherMonth = evaluation.instance(otherLocals.month)
-      const otherYear = evaluation.instance(otherLocals.year)
+      const otherDay = other.get('day')!
+      const otherMonth = other.get('month')!
+      const otherYear = other.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -775,16 +754,13 @@ export default {
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const selfLocals = evaluation.context(self.id).locals
-      const otherLocals = evaluation.context(other.id).locals
+      const day = self.get('day')!
+      const month = self.get('month')!
+      const year = self.get('year')!
 
-      const day = evaluation.instance(selfLocals.day)
-      const month = evaluation.instance(selfLocals.month)
-      const year = evaluation.instance(selfLocals.year)
-
-      const otherDay = evaluation.instance(otherLocals.day)
-      const otherMonth = evaluation.instance(otherLocals.month)
-      const otherYear = evaluation.instance(otherLocals.year)
+      const otherDay = other.get('day')!
+      const otherMonth = other.get('month')!
+      const otherYear = other.get('year')!
 
       assertNumber(day)
       assertNumber(month)
@@ -801,8 +777,7 @@ export default {
     },
 
     'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = evaluation.context(self.id).locals
-      const year = evaluation.instance(selfLocals.year)
+      const year = self.get('year')!
 
       assertNumber(year)
 

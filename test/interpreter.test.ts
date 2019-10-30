@@ -254,6 +254,7 @@ describe('Wollok Interpreter', () => {
         const instruction = GET('x')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
+          2: RuntimeObject('2', 'wollok.lang.Object'),
         }, {
           0: { parent: '', locals: {} },
           1: { parent: '0', locals: { x: '2' } },
@@ -265,6 +266,7 @@ describe('Wollok Interpreter', () => {
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
             1: RuntimeObject('1', 'wollok.lang.Object'),
+            2: RuntimeObject('2', 'wollok.lang.Object'),
           }, {
             0: { parent: '', locals: {} },
             1: { parent: '0', locals: { x: '2' } },

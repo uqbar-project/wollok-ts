@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Instruction, Interruption, Locals, RuntimeObject } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -294,17 +294,61 @@ export function Linked(environmentData: Partial<Environment>) {
 // RUNTIME
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+export const Frame = (obj: Partial<FrameType>): FrameType => {
+  const frame = { ...obj } as FrameType
+
+  assign(frame, {
+
+    popOperand(this: FrameType): Id {
+      const response = this.operandStack.pop()
+      if (!response) throw new RangeError('Popped empty operand stack')
+      return response
+    },
+
+    pushOperand(this: FrameType, id: Id) {
+      this.operandStack.push(id)
+    },
+
+  })
+
+  return frame
+}
+
+export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<RuntimeObjectType>) => {
+  const runtimeObject = { ...obj } as RuntimeObjectType
+
+  assign(runtimeObject, {
+    context(this: RuntimeObjectType): Context {
+      return evaluation.context(this.id)
+    },
+
+    get(this: RuntimeObjectType, field: Name): RuntimeObjectType | undefined {
+      const id = this.context().locals[field]
+      return id ? evaluation.instance(id) : undefined
+    },
+
+    set(this: RuntimeObjectType, field: Name, valueId: Id): void {
+      this.context().locals[field] = valueId
+    },
+
+  })
+
+  return runtimeObject
+}
+
 export const Evaluation = (obj: Partial<EvaluationType>) => {
-  const evaluation = obj as EvaluationType
+  const evaluation = { ...obj } as EvaluationType
 
   assign(evaluation, {
+    instances: mapObject(RuntimeObject(evaluation), obj.instances!),
+    frameStack: obj.frameStack!.map(Frame),
 
     currentFrame(this: EvaluationType): FrameType {
       return last(this.frameStack)!
     },
 
 
-    instance(this: EvaluationType, id: Id): RuntimeObject {
+    instance(this: EvaluationType, id: Id): RuntimeObjectType {
       const response = this.instances[id]
       if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
       return response
@@ -330,7 +374,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = uuid()
       }
 
-      this.instances[id] = { id, module, innerValue }
+      this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
 
       this.createContext(this.currentFrame().context, { self: id }, id)
 
@@ -365,9 +409,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       if (!nextFrame) {
         const value = this.instance(valueId)
-        const valueLocals = this.context(valueId).locals
         const message = interruption === 'exception'
-          ? `${value.module}: ${valueLocals.message && this.instance(valueLocals.message).innerValue || value.innerValue}`
+          ? `${value.module}: ${value.get('message') ?.innerValue ?? value.innerValue}`
           : ''
 
         throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
@@ -378,8 +421,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
     copy(this: EvaluationType): EvaluationType {
-      return {
+      return Evaluation({
         ...this,
+        // TODO: replace reduces with mapObject?
         instances: keys(this.instances).reduce((instanceClones, id) => ({
           ...instanceClones,
           [id]: { ...this.instance(id) },
@@ -393,30 +437,10 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           operandStack: [...frame.operandStack],
           resume: [...frame.resume],
         })),
-      }
+      })
     },
 
   })
 
   return evaluation
-}
-
-export const Frame = (obj: Partial<FrameType>): FrameType => {
-  const frame = { ...obj } as FrameType
-
-  assign(frame, {
-
-    popOperand(this: FrameType): Id {
-      const response = this.operandStack.pop()
-      if (!response) throw new RangeError('Popped empty operand stack')
-      return response
-    },
-
-    pushOperand(this: FrameType, id: Id) {
-      this.operandStack.push(id)
-    },
-
-  })
-
-  return frame
 }
