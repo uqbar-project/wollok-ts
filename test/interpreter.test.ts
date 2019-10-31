@@ -857,7 +857,7 @@ describe('Wollok Interpreter', () => {
           ],
           baseCall: { callsSuper: true, args: [] },
         })(Return()) as ConstructorNode
-        const instruction = INIT(2, 'wollok.lang.Object', false)
+        const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
           2: RuntimeObject('2', 'wollok.lang.Object'),
@@ -903,7 +903,7 @@ describe('Wollok Interpreter', () => {
         X.superclassNode = () => environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
         X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
 
-        const instruction = INIT(0, 'X', true)
+        const instruction = INIT(0, 'X')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'X'),
         }, {
@@ -934,7 +934,7 @@ describe('Wollok Interpreter', () => {
                 ...compile(environment)(f2.value),
                 SET(f2.name),
                 LOAD('self'),
-                INIT(0, 'wollok.lang.Object', false),
+                INIT(0, 'wollok.lang.Object'),
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
                 INTERRUPT('return'),
@@ -954,7 +954,7 @@ describe('Wollok Interpreter', () => {
           baseCall: { callsSuper: true, args: [] },
         })(Return()) as ConstructorNode
 
-        const instruction = INIT(3, 'wollok.lang.Object', false)
+        const instruction = INIT(3, 'wollok.lang.Object')
 
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -998,7 +998,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the constructor is not found', async () => {
-        const instruction = INIT(2, 'wollok.lang.Object', true)
+        const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(
@@ -1013,7 +1013,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the current operand stack length is < arity + 1', async () => {
         const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode
 
-        const instruction = INIT(2, 'wollok.lang.Object', true)
+        const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(
@@ -1028,7 +1028,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if there is no instance with the given id', async () => {
         const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode
 
-        const instruction = INIT(2, 'wollok.lang.Object', true)
+        const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(

@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Class, Describe, Entity, Environment, Expression, Field, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 const { assign } = Object
 
@@ -87,7 +87,7 @@ export type Instruction
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
-  | { kind: 'INIT', arity: number, lookupStart: Name, initFields: boolean }
+  | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> } // TODO: Test!
   | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
   | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
@@ -105,8 +105,8 @@ export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ k
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStart })
-export const INIT = (arity: number, lookupStart: Name, initFields: boolean): Instruction =>
-  ({ kind: 'INIT', arity, lookupStart, initFields })
+export const INIT = (arity: number, lookupStart: Name): Instruction =>
+  ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const IF_THEN_ELSE = (thenHandler: List<Instruction>, elseHandler: List<Instruction>): Instruction =>
   ({ kind: 'IF_THEN_ELSE', thenHandler, elseHandler })
@@ -196,13 +196,14 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
               ...args.flatMap(({ value }) => compile(environment)(value)),
               INSTANTIATE(node.value.fullyQualifiedName()),
               INIT_NAMED(args.map(({ name }) => name)),
-              INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
+              INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName()),
             ]
           } else {
             return [
               ...(node.value.superCall.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
               INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT(node.value.superCall.args.length, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
+              INIT_NAMED([]),
+              INIT(node.value.superCall.args.length, node.value.superCall.superclass.target<Class>().fullyQualifiedName()),
             ]
           }
         }
@@ -210,7 +211,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         return [
           ...(node.value.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
           INSTANTIATE(node.value.instantiated.name, []),
-          INIT(node.value.args.length, node.value.instantiated.name, false),
+          INIT_NAMED([]),
+          INIT(node.value.args.length, node.value.instantiated.name),
         ]
       })()
 
@@ -242,13 +244,14 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             ...args.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(fqn),
             INIT_NAMED(args.map(({ name }) => name)),
-            INIT(0, fqn, true),
+            INIT(0, fqn),
           ]
         } else {
           return [
             ...(node.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(fqn),
-            INIT(node.args.length, fqn, true),
+            INIT_NAMED([]),
+            INIT(node.args.length, fqn),
           ]
         }
       })()
@@ -485,14 +488,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const self = evaluation.instance(selfId)
         const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
-
-        // TODO: Add to Filler a method for doing this and just call it ?
-        const allFields = environment.getNodeByFQN<Module>(self.module).hierarchy().reduce((fields, module) => [
-          ...module.fields(),
-          ...fields,
-        ], [] as Field[])
-        const unitializedFields = allFields.filter(field => !self.get(field.name))
-
         const constructor = lookupStart.lookupConstructor(instruction.arity)
         const ownSuperclass = lookupStart.superclassNode()
 
@@ -513,7 +508,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             INIT(
               constructor.baseCall.args.length,
               constructor.baseCall.callsSuper ? ownSuperclass!.fullyQualifiedName() : instruction.lookupStart,
-              false
             ),
           ] : [],
           ...compile(environment)(...constructor.body.sentences),
@@ -521,17 +515,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           INTERRUPT('return'),
         ], evaluation.createContext(self.id, locals))
 
-        if (instruction.initFields) {
-          evaluation.suspend('return', [
-            ...unitializedFields.flatMap(field => [
-              LOAD('self'),
-              ...compile(environment)(field.value),
-              SET(field.name),
-            ]),
-            LOAD('self'),
-            INTERRUPT('return'),
-          ], self.id)
-        }
       })()
 
       case 'INIT_NAMED': return (() => {
@@ -541,7 +524,22 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, evaluation.currentFrame().popOperand())
 
-        evaluation.currentFrame().pushOperand(selfId)
+        const unitializedFields = environment
+          .getNodeByFQN<Module>(self.module)
+          .hierarchy()
+          .flatMap(module => module.fields())
+          .filter(field => !self.get(field.name))
+
+        evaluation.suspend('return', [
+          ...unitializedFields.flatMap(field => [
+            LOAD('self'),
+            ...compile(environment)(field.value),
+            SET(field.name),
+          ]),
+          LOAD('self'),
+          INTERRUPT('return'),
+        ], self.id)
+
       })()
 
       // TODO: Don't use lambdas, extract to functions so we can just use switch
@@ -665,13 +663,14 @@ const buildEvaluation = (environment: Environment): Evaluation => {
               ...argList.flatMap(({ value }) => compile(environment)(value)),
               PUSH(id),
               INIT_NAMED(argList.map(({ name }) => name)),
-              INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
+              INIT(0, superclass.target<Class>().fullyQualifiedName()),
             ]
           } else {
             return [
               ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
               PUSH(id),
-              INIT(args.length, superclass.target<Class>().fullyQualifiedName(), true),
+              INIT_NAMED([]),
+              INIT(args.length, superclass.target<Class>().fullyQualifiedName()),
             ]
           }
         }),
