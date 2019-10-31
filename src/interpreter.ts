@@ -514,7 +514,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('self'),
           INTERRUPT('return'),
         ], evaluation.createContext(self.id, locals))
-
       })()
 
       case 'INIT_NAMED': return (() => {
