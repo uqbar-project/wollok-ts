@@ -86,7 +86,7 @@ export type Instruction
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
-  | { kind: 'INIT_NAMED', argumentNames: List<Name> } // TODO: Test!
+  | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
   | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
   | { kind: 'INTERRUPT', interruption: Interruption }
@@ -509,7 +509,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       })()
 
-      // TODO: Don't use lambdas, extract to functions so we can just use switch
       case 'IF_THEN_ELSE': return (() => {
         const check = evaluation.currentFrame().popOperand()
 

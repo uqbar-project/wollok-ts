@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { restore, stub } from 'sinon'
 import { Class, Constructor, Evaluation, Field, Frame, Literal, Method, Package, Parameter, Reference, Return, RuntimeObject } from '../src/builders'
-import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, IF_THEN_ELSE, INHERITS, INIT, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, step, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
+import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, IF_THEN_ELSE, INHERITS, INIT, INIT_NAMED, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, step, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Module, Package as PackageNode } from '../src/model'
 import { interpreterAssertions } from './assertions'
@@ -777,7 +777,6 @@ describe('Wollok Interpreter', () => {
           f2
         ) as ClassNode
         X.superclassNode = () => environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
-        X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
 
         const instruction = INIT(0, 'X')
         const evaluation = Evaluation(environment, {
@@ -913,70 +912,138 @@ describe('Wollok Interpreter', () => {
     })
 
 
-    describe('IF_THEN_ELSE', () => {
+    describe('INIT_NAMED', () => {
 
-      it('should pop a boolean from the operand stack and push a frame to evaluate the then clause if it is true', async () => {
-        const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
-        const evaluation = Evaluation(environment, {}, {
-          1: { parent: '', locals: {} },
-        })(
-          Frame({ context: '1', operandStack: [TRUE_ID], instructions: [instruction] }),
-        )
+      it('should pop the instance and arguments and initialize all fields', async () => {
+        const f1 = Field('f1', { value: Literal(5) }) as FieldNode
+        const f2 = Field('f2', { value: Literal(null) }) as FieldNode
+        const f3 = Field('f3', { value: Literal(7) }) as FieldNode
+        const f4 = Field('f4', { value: Literal(null) }) as FieldNode
+        const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
+          f1,
+          f2,
+          f3,
+          f4,
+        ) as ClassNode
+        X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
 
-
-        evaluation.should.be.stepped().into(
-          Evaluation(environment, {}, {
-            1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: {} },
-          })(
-            Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
-            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
-          )
-        )
-      })
-
-      it('should pop a boolean from the operand stack and push a frame to evaluate the else clause if it is false', async () => {
-        const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
-        const evaluation = Evaluation(environment, {}, {
-          1: { parent: '', locals: {} },
-        })(
-          Frame({ context: '1', operandStack: [FALSE_ID], instructions: [instruction] }),
-        )
-
-        evaluation.should.be.stepped().into(
-          Evaluation(environment, {}, {
-            1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: {} },
-          })(
-            Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
-            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
-          )
-        )
-      })
-
-      it('should raise an error if the given id does not belong to a boolean', async () => {
-
-        const instruction = IF_THEN_ELSE([], [])
+        const instruction = INIT_NAMED(['f1', 'f2'])
         const evaluation = Evaluation(environment, {
-          1: RuntimeObject('1', 'wollok.lang.Object'),
+          1: RuntimeObject('1', 'X'),
+          2: RuntimeObject('2', 'wollok.lang.Object'),
+          3: RuntimeObject('3', 'wollok.lang.Object'),
+        }, {
+          0: { parent: '', locals: {} },
+          1: { parent: '0', locals: {} },
         })(
-          Frame({ operandStack: ['1'], instructions: [instruction, instruction, instruction] }),
+          Frame({ context: '0', operandStack: ['3', '2', '1'], instructions: [instruction] }),
+        )
+
+        const getNodeByFQNStub = stub(evaluation.environment, 'getNodeByFQN')
+        getNodeByFQNStub.withArgs('X').returns(X)
+        getNodeByFQNStub.callThrough()
+
+        evaluation.should.be.stepped().into(
+          Evaluation(environment, {
+            1: RuntimeObject('1', 'X'),
+            2: RuntimeObject('2', 'wollok.lang.Object'),
+            3: RuntimeObject('3', 'wollok.lang.Object'),
+          }, {
+            0: { parent: '', locals: {} },
+            1: { parent: '0', locals: { f1: '3', f2: '2' } },
+          })(
+            Frame({
+              context: '1', operandStack: [], instructions: [
+                ...compile(environment)(f3.value),
+                STORE('f3', true),
+                ...compile(environment)(f4.value),
+                STORE('f4', true),
+                LOAD('self'),
+                INTERRUPT('return'),
+              ],
+            }),
+            Frame({ context: '0', resume: ['return'], operandStack: [], instructions: [instruction], nextInstruction: 1 }),
+          )
+        )
+      })
+
+      it('should raise an error if there is no instance with the given id', async () => {
+        const instruction = INIT_NAMED([])
+        const evaluation = Evaluation(environment, {}, {
+          0: { parent: '', locals: {} },
+        })(
+          Frame({ context: '0', operandStack: ['1'], instructions: [instruction] }),
         )
 
         expect(() => step({})(evaluation)).to.throw()
       })
+    }),
 
-      it('should raise an error if the current operand stack is empty', async () => {
 
-        const instruction = IF_THEN_ELSE([], [])
-        const evaluation = Evaluation(environment, {})(
-          Frame({ instructions: [instruction, instruction, instruction] }),
-        )
+      describe('IF_THEN_ELSE', () => {
 
-        expect(() => step({})(evaluation)).to.throw()
+        it('should pop a boolean from the operand stack and push a frame to evaluate the then clause if it is true', async () => {
+          const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
+          const evaluation = Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+          })(
+            Frame({ context: '1', operandStack: [TRUE_ID], instructions: [instruction] }),
+          )
+
+
+          evaluation.should.be.stepped().into(
+            Evaluation(environment, {}, {
+              1: { parent: '', locals: {} },
+              new_id_0: { parent: '1', locals: {} },
+            })(
+              Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
+              Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
+            )
+          )
+        })
+
+        it('should pop a boolean from the operand stack and push a frame to evaluate the else clause if it is false', async () => {
+          const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
+          const evaluation = Evaluation(environment, {}, {
+            1: { parent: '', locals: {} },
+          })(
+            Frame({ context: '1', operandStack: [FALSE_ID], instructions: [instruction] }),
+          )
+
+          evaluation.should.be.stepped().into(
+            Evaluation(environment, {}, {
+              1: { parent: '', locals: {} },
+              new_id_0: { parent: '1', locals: {} },
+            })(
+              Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
+              Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
+            )
+          )
+        })
+
+        it('should raise an error if the given id does not belong to a boolean', async () => {
+
+          const instruction = IF_THEN_ELSE([], [])
+          const evaluation = Evaluation(environment, {
+            1: RuntimeObject('1', 'wollok.lang.Object'),
+          })(
+            Frame({ operandStack: ['1'], instructions: [instruction, instruction, instruction] }),
+          )
+
+          expect(() => step({})(evaluation)).to.throw()
+        })
+
+        it('should raise an error if the current operand stack is empty', async () => {
+
+          const instruction = IF_THEN_ELSE([], [])
+          const evaluation = Evaluation(environment, {})(
+            Frame({ instructions: [instruction, instruction, instruction] }),
+          )
+
+          expect(() => step({})(evaluation)).to.throw()
+        })
+
       })
-
-    })
 
     describe('TRY_CATCH_ALWAYS', () => {
 
