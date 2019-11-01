@@ -225,6 +225,7 @@ export interface Method<S extends Stage = Final> extends BaseNode<S> {
   readonly body?: Body<S>
 
   parent: Linkable<S, () => Module<S>>
+  matchesSignature(name: Name, arity: number): boolean
 }
 
 export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
@@ -234,6 +235,7 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
   readonly baseCall: Fillable<S, { callsSuper: boolean, args: List<Expression<S>> }>
 
   parent: Linkable<S, () => Class<S>>
+  matchesSignature(arity: number): boolean
 }
 
 export interface Fixture<S extends Stage = Final> extends BaseNode<S> {

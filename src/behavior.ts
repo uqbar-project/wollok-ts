@@ -133,6 +133,22 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
     fixtures(this: Describe<RawStage>) { return this.members.filter(member => member.is('Fixture')) },
   })
 
+  if (node.is('Method')) assign(node, {
+    matchesSignature(this: Method<RawStage>, name: Name, arity: number) {
+      return this.name === name && (
+        this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+        this.parameters.length === arity
+      )
+    },
+  })
+
+  if (node.is('Constructor')) assign(node, {
+    matchesSignature(this: Constructor<RawStage>, arity: number) {
+      return this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+        this.parameters.length === arity
+    },
+  })
+
   return node
 }
 
@@ -231,12 +247,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
       lookupMethod: cached(function (this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
         for (const module of this.hierarchy()) {
-          const found = module.methods().find(member =>
-            (!!member.body || member.isNative) && member.name === name && (
-              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-              member.parameters.length === arity
-            )
-          )
+          const found = module.methods().find(member => (!!member.body || member.isNative) && member.matchesSignature(name, arity))
           if (found) return found
         }
         return undefined
@@ -250,11 +261,7 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        return this.constructors().find(member =>
-          // TODO: extract method matches(name, arity) or something like that for constructors and methods
-          member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-          member.parameters.length === arity
-        ) ?? this.superclassNode()?.lookupConstructor(arity)
+        return this.constructors().find(member => member.matchesSignature(arity)) ?? this.superclassNode()?.lookupConstructor(arity)
       }),
     })
 
