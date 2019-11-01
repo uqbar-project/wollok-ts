@@ -79,8 +79,6 @@ export type Instruction
   = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
-  | { kind: 'GET', name: Name }
-  | { kind: 'SET', name: Name }
   | { kind: 'SWAP' }
   | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
@@ -97,8 +95,6 @@ export type Instruction
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
-export const GET = (name: Name): Instruction => ({ kind: 'GET', name })
-export const SET = (name: Name): Instruction => ({ kind: 'SET', name })
 export const SWAP: Instruction = { kind: 'SWAP' }
 export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
@@ -132,18 +128,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       ])()
 
 
-      case 'Assignment': return (() =>
-        node.variable.target().is('Field')
-          ? [
-            LOAD('self'),
-            ...compile(environment)(node.value),
-            SET(node.variable.name),
-          ]
-          : [
-            ...compile(environment)(node.value),
-            STORE(node.variable.name, true),
-          ]
-      )()
+      case 'Assignment': return (() => [
+        ...compile(environment)(node.value),
+        STORE(node.variable.name, true),
+      ])()
 
       case 'Self': return (() => [
         LOAD('self'),
@@ -152,11 +140,6 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
       case 'Reference': return (() => {
         const target = node.target()
-
-        if (target.is('Field')) return [
-          LOAD('self'),
-          GET(node.name),
-        ]
 
         if (target.is('Variable') && target.parent().is('Package')) return [
           LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
@@ -344,12 +327,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'STORE': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
         const currentContext = evaluation.context(currentFrame.context)
+
         let context: Context | undefined = currentContext
         if (instruction.lookup) {
           while (context && !(instruction.name in context.locals)) {
             context = context.parent ? evaluation.context(context.parent) : undefined
           }
         }
+
         (context ?? currentContext).locals[instruction.name] = valueId
       })()
 
@@ -358,22 +343,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         currentFrame.pushOperand(instruction.id)
       })()
 
-
-      case 'GET': return (() => {
-        const selfId = evaluation.currentFrame().popOperand()
-        const self = evaluation.instance(selfId)
-        const value = self.get(instruction.name)
-        if (!value) throw new Error(`Access to undefined field "${self.module}>>${instruction.name}"`)
-        currentFrame.pushOperand(value.id)
-      })()
-
-      case 'SET': return (() => {
-        const valueId = evaluation.currentFrame().popOperand()
-        const selfId = evaluation.currentFrame().popOperand()
-        const self = evaluation.instance(selfId)
-
-        self.set(instruction.name, valueId)
-      })()
 
       case 'SWAP': return (() => {
         const a = evaluation.currentFrame().popOperand()
@@ -531,9 +500,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         evaluation.suspend('return', [
           ...unitializedFields.flatMap(field => [
-            LOAD('self'),
             ...compile(environment)(field.value),
-            SET(field.name),
+            STORE(field.name, false),
           ]),
           LOAD('self'),
           INTERRUPT('return'),

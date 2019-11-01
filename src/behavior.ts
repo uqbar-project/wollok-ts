@@ -254,7 +254,7 @@ export function Linked(environmentData: Partial<Environment>) {
           // TODO: extract method matches(name, arity) or something like that for constructors and methods
           member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
           member.parameters.length === arity
-        ) ?? this.superclassNode() ?.lookupConstructor(arity)
+        ) ?? this.superclassNode()?.lookupConstructor(arity)
       }),
     })
 
@@ -392,9 +392,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = uuid()
       }
 
-      this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
+      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
 
-      this.createContext(this.currentFrame().context, { self: id }, id)
+      if (!this.contexts[id]) this.createContext(this.currentFrame().context, { self: id }, id)
 
       return id
     },
@@ -406,7 +406,6 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return response
     },
 
-    // TODO: accept id for context so we can use same id for instances
     createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid()): Id {
       this.contexts[id] = { parent, locals }
       return id
@@ -428,7 +427,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       if (!nextFrame) {
         const value = this.instance(valueId)
         const message = interruption === 'exception'
-          ? `${value.module}: ${value.get('message') ?.innerValue ?? value.innerValue}`
+          ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
           : ''
 
         throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
