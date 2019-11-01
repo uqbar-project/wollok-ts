@@ -768,7 +768,7 @@ describe('Wollok Interpreter', () => {
         )
       })
 
-      it('prepends supercall and, if initFields is set to true, the initialization of fields to the constructor call', async () => {
+      it('prepends supercall to the constructor call', async () => {
         const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode
@@ -803,10 +803,6 @@ describe('Wollok Interpreter', () => {
             Frame({
               context: 'new_id_0',
               instructions: [
-                ...compile(environment)(f1.value),
-                STORE(f1.name, true),
-                ...compile(environment)(f2.value),
-                STORE(f2.name, true),
                 LOAD('self'),
                 INIT(0, 'wollok.lang.Object'),
                 ...compile(environment)(...constructor.body.sentences),

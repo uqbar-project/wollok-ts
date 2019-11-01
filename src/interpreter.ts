@@ -501,7 +501,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         evaluation.suspend('return', [
           ...unitializedFields.flatMap(field => [
             ...compile(environment)(field.value),
-            STORE(field.name, false),
+            STORE(field.name, true),
           ]),
           LOAD('self'),
           INTERRUPT('return'),
