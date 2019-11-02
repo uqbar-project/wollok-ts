@@ -1,6 +1,6 @@
 import { last, zipObj } from '../extensions'
 import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
-import log from '../log'
+import logger from '../log'
 import { Id, Module, Singleton } from '../model'
 
 const { random, floor, ceil } = Math
@@ -456,27 +456,16 @@ export default {
   },
 
   Closure: {
-    // TODO: improve once contexts are reified.
-    initialize: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.innerValue = last(evaluation.frameStack.slice(0, -2))!.context
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
-
+    // TODO: can we avoid this primitive and just call the apply in the parent context somehow?
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
+      const argIds = args.map(arg => arg ? arg.id : VOID_ID)
       const apply = evaluation
         .environment
         .getNodeByFQN<Singleton>(self.module)
-        .methods()
-        .find(({ name }) => name === '<apply>')!
-      const argIds = args.map(arg => arg ? arg.id : VOID_ID)
-      const parameterNames = apply.parameters.map(({ name }) => name)
-      const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
+        .lookupMethod('<apply>', args.length)
 
-      if (
-        hasVarArg && args.length < apply.parameters.length - 1 ||
-        !hasVarArg && args.length !== apply.parameters.length
-      ) {
-        log.warn('Method not found:', self.module, '>> <apply> /', args.length)
+      if (!apply) {
+        logger.warn('Method not found:', self.module, '>> <apply> /', args.length)
 
         const messageNotUnderstood = evaluation.environment
           .getNodeByFQN<Module>(self.module)
@@ -496,6 +485,9 @@ export default {
         return
       }
 
+      const parameterNames = apply.parameters.map(({ name }) => name)
+      const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
+
       let locals: Locals
       if (hasVarArg) {
         const restId = evaluation.createInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1))
@@ -511,7 +503,7 @@ export default {
         ...compile(evaluation.environment)(...apply.body!.sentences),
         PUSH(VOID_ID),
         INTERRUPT('return'),
-      ], evaluation.createContext(self.innerValue as Id, locals))
+      ], evaluation.createContext(evaluation.context(self.id).parent, locals))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {

@@ -397,7 +397,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const method = environment.getNodeByFQN<Module>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
-
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
           const messageNotUnderstood = environment.getNodeByFQN<Module>(self.module).lookupMethod('messageNotUnderstood', 2)!
@@ -415,7 +414,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         } else {
 
           if (method.isNative) {
-
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
             const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
             const native: NativeFunction = fqn.split('.').reduce((current, name) => {
@@ -429,9 +427,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             })
 
             native(self, ...args)(evaluation)
-
           } else {
-
             const parameterNames = method.parameters.map(({ name }) => name)
             const locals: Locals = method.parameters.some(({ isVarArg }) => isVarArg)
               ? {
