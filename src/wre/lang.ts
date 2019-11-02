@@ -1,7 +1,5 @@
-import { last, zipObj } from '../extensions'
-import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
-import logger from '../log'
-import { Id, Module } from '../model'
+import { CALL, Evaluation, FALSE_ID, INTERRUPT, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { Id } from '../model'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
@@ -456,46 +454,13 @@ export default {
   },
 
   Closure: {
-    // TODO: can we avoid this primitive and just call the apply in the parent context somehow?
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      const argIds = args.map(arg => arg ? arg.id : VOID_ID)
-      const module = evaluation.environment.getNodeByFQN<Module>(self.module)
-      const apply = module.lookupMethod('<apply>', args.length)
-
-      if (!apply) {
-        logger.warn('Method not found:', self.module, '>> <apply> /', args.length)
-
-        const messageNotUnderstood = module.lookupMethod('messageNotUnderstood', 2)!
-        const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
-        const argsId = evaluation.createInstance('wollok.lang.List', argIds)
-
-        evaluation.suspend('return',
-          compile(evaluation.environment)(...messageNotUnderstood.body!.sentences),
-          evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, {
-            ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
-            self: self.id,
-          })
-        )
-
-        return
-      }
-
-      const parameterNames = apply.parameters.map(({ name }) => name)
-      const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
-
-      const locals = hasVarArg
-        ? {
-          ...zipObj(parameterNames.slice(0, -1), argIds),
-          [last(apply.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1)),
-        }
-        : { ...zipObj(parameterNames, argIds) }
-
       evaluation.suspend('return', [
-        ...compile(evaluation.environment)(...apply.body!.sentences),
-        PUSH(VOID_ID),
+        PUSH(self.id),
+        ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
+        CALL('<apply>', args.length, false),
         INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(self.id).parent, locals))
-
+      ], evaluation.createContext(self.id))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {

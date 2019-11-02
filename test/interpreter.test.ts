@@ -509,6 +509,49 @@ describe('Wollok Interpreter', () => {
         )
       })
 
+      it('should run method ignoring the receivers context if useReceiverContext is false', async () => {
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode
+        const instruction = CALL('m', 2, false)
+        const evaluation = Evaluation(environment, {
+          1: RuntimeObject('1', 'wollok.lang.Object'),
+          2: RuntimeObject('2', 'wollok.lang.Object'),
+          3: RuntimeObject('3', 'wollok.lang.Object'),
+        }, {
+          0: { parent: '', locals: {} },
+          1: { parent: '0', locals: {} },
+          2: { parent: '0', locals: {} },
+          3: { parent: '0', locals: {} },
+        })(
+          Frame({ context: '0', operandStack: ['3', '2', '1'], instructions: [instruction] }),
+        )
+
+        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+
+
+        evaluation.should.be.stepped().into(
+          Evaluation(environment, {
+            1: RuntimeObject('1', 'wollok.lang.Object'),
+            2: RuntimeObject('2', 'wollok.lang.Object'),
+            3: RuntimeObject('3', 'wollok.lang.Object'),
+          }, {
+            0: { parent: '', locals: {} },
+            1: { parent: '0', locals: {} },
+            2: { parent: '0', locals: {} },
+            3: { parent: '0', locals: {} },
+            new_id_0: { parent: '0', locals: { p1: '2', p2: '1' } },
+          })(
+            Frame({
+              context: 'new_id_0', instructions: [
+                ...compile(environment)(...method.body!.sentences),
+                PUSH(VOID_ID),
+                INTERRUPT('return'),
+              ],
+            }),
+            Frame({ context: '0', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+          )
+        )
+      })
+
       it('if method has a varargs parameter, should group all trailing arguments as a single array argument', async () => {
         const method = Method('m', {
           parameters: [

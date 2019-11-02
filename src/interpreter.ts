@@ -84,7 +84,7 @@ export type Instruction
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }
-  | { kind: 'CALL', message: Name, arity: number, lookupStart?: Name }
+  | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
@@ -100,7 +100,8 @@ export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
-export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStart })
+export const CALL = (message: Name, arity: number, useReceiverContext: boolean = true, lookupStart?: Name): Instruction =>
+  ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
 export const INIT = (arity: number, lookupStart: Name): Instruction =>
   ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
@@ -212,7 +213,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         return [
           LOAD('self'),
           ...node.args.flatMap(arg => compile(environment)(arg)),
-          CALL(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName()),
+          CALL(currentMethod.name, node.args.length, true, currentMethod.parent().fullyQualifiedName()),
         ]
       })()
 
@@ -442,7 +443,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               INTERRUPT('return'),
-            ], evaluation.createContext(self.id, locals))
+            ], evaluation.createContext(instruction.useReceiverContext ? selfId : evaluation.context(selfId).parent, locals))
           }
         }
       })()
