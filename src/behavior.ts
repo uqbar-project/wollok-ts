@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
+import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Interruption, RuntimeObject } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -27,6 +28,7 @@ function cached<N extends { id?: Id }, R>(f: (this: N, ...args: any[]) => R, cac
 }
 
 // TODO: Test all behaviors
+// TODO: Can we type these so they relate to the types on the model?
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // RAW
@@ -128,7 +130,23 @@ export function Raw<N extends Node<RawStage>>(obj: Partial<N>): N {
     tests(this: Describe<RawStage>) { return this.members.filter(member => member.is('Test')) },
     methods(this: Describe<RawStage>) { return this.members.filter(member => member.is('Method')) },
     variables(this: Describe<RawStage>) { return this.members.filter(member => member.is('Variable')) },
-    fixture(this: Describe<RawStage>) { return this.members.find(member => member.is('Fixture')) },
+    fixtures(this: Describe<RawStage>) { return this.members.filter(member => member.is('Fixture')) },
+  })
+
+  if (node.is('Method')) assign(node, {
+    matchesSignature(this: Method<RawStage>, name: Name, arity: number) {
+      return this.name === name && (
+        this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+        this.parameters.length === arity
+      )
+    },
+  })
+
+  if (node.is('Constructor')) assign(node, {
+    matchesSignature(this: Constructor<RawStage>, arity: number) {
+      return this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+        this.parameters.length === arity
+    },
   })
 
   return node
@@ -229,12 +247,7 @@ export function Linked(environmentData: Partial<Environment>) {
 
       lookupMethod: cached(function (this: Module<LinkedStage>, name: Name, arity: number): Method<LinkedStage> | undefined {
         for (const module of this.hierarchy()) {
-          const found = module.methods().find(member =>
-            (!!member.body || member.isNative) && member.name === name && (
-              member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-              member.parameters.length === arity
-            )
-          )
+          const found = module.methods().find(member => (!!member.body || member.isNative) && member.matchesSignature(name, arity))
           if (found) return found
         }
         return undefined
@@ -248,11 +261,7 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        return this.constructors().find(member =>
-          // TODO: extract method matches(name, arity) or something like that for constructors and methods
-          member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
-          member.parameters.length === arity
-        ) ?? this.superclassNode() ?.lookupConstructor(arity)
+        return this.constructors().find(member => member.matchesSignature(arity)) ?? this.superclassNode()?.lookupConstructor(arity)
       }),
     })
 
@@ -292,20 +301,84 @@ export function Linked(environmentData: Partial<Environment>) {
 // RUNTIME
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+export const Frame = (obj: Partial<FrameType>): FrameType => {
+  const frame = { ...obj } as FrameType
+
+  assign(frame, {
+
+    popOperand(this: FrameType): Id {
+      const response = this.operandStack.pop()
+      if (!response) throw new RangeError('Popped empty operand stack')
+      return response
+    },
+
+    pushOperand(this: FrameType, id: Id) {
+      this.operandStack.push(id)
+    },
+
+  })
+
+  return frame
+}
+
+export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<RuntimeObjectType>) => {
+  const runtimeObject = { ...obj } as RuntimeObjectType
+
+  const assertIs = (instance: RuntimeObjectType, module: Name, innerValueType: string) => {
+    if (instance.module !== module)
+      throw new TypeError(`Expected an instance of ${module} but got a ${instance.module} instead`)
+    if (typeof obj.innerValue !== innerValueType)
+      throw new TypeError(`Malformed Runtime Object: invalid inner value ${instance.innerValue} for ${module} instance`)
+  }
+
+  assign(runtimeObject, {
+    context(this: RuntimeObjectType): Context {
+      return evaluation.context(this.id)
+    },
+
+    get(this: RuntimeObjectType, field: Name): RuntimeObjectType | undefined {
+      const id = this.context().locals[field]
+      return id ? evaluation.instance(id) : undefined
+    },
+
+    set(this: RuntimeObjectType, field: Name, valueId: Id): void {
+      this.context().locals[field] = valueId
+    },
+
+    assertIsNumber(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.Number', 'number') },
+
+    assertIsString(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.String', 'string') },
+
+    assertIsBoolean(this: RuntimeObjectType) { assertIs(this, 'wollok.lang.Boolean', 'boolean') },
+
+    assertIsCollection(this: RuntimeObjectType) {
+      if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
+        throw new TypeError('Malformed Runtime Object: Collection inner value should be a List<Id>')
+    },
+
+  })
+
+  return runtimeObject
+}
+
 export const Evaluation = (obj: Partial<EvaluationType>) => {
-  const evaluation = obj as EvaluationType
+  const evaluation = { ...obj } as EvaluationType
 
   assign(evaluation, {
+    instances: mapObject(RuntimeObject(evaluation), obj.instances!),
+    frameStack: obj.frameStack!.map(Frame),
 
     currentFrame(this: EvaluationType): FrameType {
       return last(this.frameStack)!
     },
 
-    instance(this: EvaluationType, id: Id): RuntimeObject {
+
+    instance(this: EvaluationType, id: Id): RuntimeObjectType {
       const response = this.instances[id]
       if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
       return response
     },
+
 
     createInstance(this: EvaluationType, module: Name, baseInnerValue?: any): Id {
       let id: Id
@@ -326,8 +399,29 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = uuid()
       }
 
-      this.instances[id] = { id, module, fields: {}, innerValue }
+      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
+
+      if (!this.contexts[id]) this.createContext(this.currentFrame().context, { self: id }, id)
+
       return id
+    },
+
+
+    context(this: EvaluationType, id: Id): Context {
+      const response = this.contexts[id]
+      if (!response) throw new RangeError(`Access to undefined context "${id}"`)
+      return response
+    },
+
+    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid()): Id {
+      this.contexts[id] = { parent, locals }
+      return id
+    },
+
+
+    suspend(this: EvaluationType, until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id) {
+      this.currentFrame().resume.push(...isArray(until) ? until : [until])
+      this.frameStack.push(build.Frame({ context, instructions }))
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
@@ -340,7 +434,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       if (!nextFrame) {
         const value = this.instance(valueId)
         const message = interruption === 'exception'
-          ? `${value.module}: ${value.fields.message && this.instance(value.fields.message).innerValue || value.innerValue}`
+          ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
           : ''
 
         throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
@@ -351,42 +445,26 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
     copy(this: EvaluationType): EvaluationType {
-      return {
+      return Evaluation({
         ...this,
-        instances: keys(this.instances).reduce((instanceClones, name) => ({
+        // TODO: replace reduces with mapObject?
+        instances: keys(this.instances).reduce((instanceClones, id) => ({
           ...instanceClones,
-          [name]: { ...this.instance(name), fields: { ...this.instance(name).fields } },
+          [id]: { ...this.instance(id) },
+        }), {}),
+        contexts: keys(this.contexts).reduce((contextClones, id) => ({
+          ...contextClones,
+          [id]: { ...this.context(id), locals: { ...this.context(id).locals } },
         }), {}),
         frameStack: this.frameStack.map(frame => ({
           ...frame,
-          locals: { ...frame.locals },
           operandStack: [...frame.operandStack],
           resume: [...frame.resume],
         })),
-      }
+      })
     },
 
   })
 
   return evaluation
-}
-
-export const Frame = (obj: Partial<FrameType>): FrameType => {
-  const frame = { ...obj } as FrameType
-
-  assign(frame, {
-
-    popOperand(this: FrameType): Id {
-      const response = this.operandStack.pop()
-      if (!response) throw new RangeError('Popped empty operand stack')
-      return response
-    },
-
-    pushOperand(this: FrameType, id: Id) {
-      this.operandStack.push(id)
-    },
-
-  })
-
-  return frame
 }

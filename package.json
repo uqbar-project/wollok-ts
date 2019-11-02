@@ -29,22 +29,22 @@
     "uuid": "^3.3.3"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.2",
+    "@types/chai": "^4.2.4",
     "@types/command-line-args": "^5.0.0",
     "@types/mocha": "^5.2.7",
-    "@types/sinon": "^7.0.13",
+    "@types/sinon": "^7.5.0",
     "@types/uuid": "^3.4.5",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chalk": "^2.4.2",
     "command-line-args": "^5.1.1",
     "globby": "^10.0.1",
-    "mocha": "^6.2.0",
+    "mocha": "^6.2.2",
     "simple-git": "^1.126.0",
-    "sinon": "^7.4.2",
+    "sinon": "^7.5.0",
     "ts-mock-imports": "^1.2.6",
     "ts-node": "8.4.1",
     "tslint": "^5.20.0",
-    "typescript": "^3.7.0-dev.20191002"
+    "typescript": "^3.7.1-rc"
   }
 }

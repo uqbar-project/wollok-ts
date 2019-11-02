@@ -44,16 +44,15 @@ const runAll = async () => {
   } else log.info('Will use local version of tests.')
 
   log.start('Reading tests')
-  const testFiles = globby.sync(ARGS.files, { cwd: 'test/sanity/test/sanity' })
-  const nonSkipedTestFiles = testFiles.map(testFile => ({
+  const testFiles = globby.sync(ARGS.files, { cwd: 'test/sanity/test/sanity' }).map(testFile => ({
     name: basename(testFile),
     content: readFileSync(join(SANITY_TESTS_FOLDER, 'test', 'sanity', testFile), 'utf8'),
   }))
   log.done('Reading tests')
-  log.info(`Will run tests from ${nonSkipedTestFiles.length} file(s)`)
+  log.info(`Will run tests from ${testFiles.length} file(s)`)
 
   log.start('Building environment')
-  const environment = buildEnvironment(nonSkipedTestFiles)
+  const environment = buildEnvironment(testFiles)
   log.done('Building environment')
 
   log.start('Running tests')

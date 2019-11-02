@@ -14,7 +14,6 @@ const DEFAULT_CONSTRUCTOR: Constructor<Filled> = buildConstructor({
   baseCall: { callsSuper: true, args: [] },
 })() as Constructor<Filled>
 
-
 const filledPropertyAccessors = (transformed: Module<Filled>) => {
   const overridesGeter = (field: Field<Filled>) => transformed.methods()
     .some(method => method.name === field.name && method.parameters.length === 0)
