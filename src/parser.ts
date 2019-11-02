@@ -20,7 +20,6 @@ const INFIX_OPERATORS = [
   ['===', '!==', '==', '!='],
   ['>=', '<=', '>', '<'],
   ['..<', '>..', '..', '->', '>>>', '>>', '<<<', '<<', '<=>', '<>', '?:'],
-  ['**'], // TODO: remove this line
   ['+', '-'],
   ['*', '/'],
   ['**', '%'],
@@ -69,6 +68,13 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
       members: entity.sepBy(optional(_)),
     }).thru(sourced).skip(optional(_))
   )
+}
+
+const operator = (operatorsNames: string[]): Parser<string> => {
+  const operators = [...operatorsNames]
+  operators.sort()
+  const operatorParsersOrderedByName = operators.reverse().map(key)
+  return alt(...operatorParsersOrderedByName)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -251,7 +257,7 @@ export const field: Parser<Field<Raw>> = lazy(() =>
 
 export const method: Parser<Method<Raw>> = lazy(() => seqMap(
   key('override').result(true).fallback(false),
-  key('method').then(alt(name, ...OPERATORS.map(key))),
+  key('method').then(alt(name, operator(OPERATORS))),
   parameters,
   alt(
     key('=').then(
@@ -302,16 +308,16 @@ export const returnSentence: Parser<Return<Raw>> = lazy(() =>
 export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
   seqMap(
     reference,
-    alt(...ASSIGNATION_OPERATORS.map(key)),
+    operator(ASSIGNATION_OPERATORS),
     expression,
-    (variable, operator, value) => buildAssignment(
+    (variable, assignation, value) => buildAssignment(
       variable,
-      operator === '='
+      assignation === '='
         ? value
         : buildSend(
           variable,
-          operator.slice(0, -1),
-          LAZY_OPERATORS.includes(operator.slice(0, -1)) ? [makeClosure([], [value])] : [value]
+          assignation.slice(0, -1),
+          LAZY_OPERATORS.includes(assignation.slice(0, -1)) ? [makeClosure([], [value])] : [value]
         ),
     )
   ).thru(sourced)
@@ -421,7 +427,7 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
 
 export const operation: Parser<Expression<Raw>> = lazy(() => {
   const prefixOperation = seqMap(
-    seq(index, alt(...PREFIX_OPERATORS.map(key))).many(),
+    seq(index, operator(PREFIX_OPERATORS)).many(),
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
@@ -437,7 +443,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     return seqMap(
       index,
       argument,
-      seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
+      seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
         buildSend(
           receiver,

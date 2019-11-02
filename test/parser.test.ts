@@ -1360,6 +1360,13 @@ describe('Wollok parser', () => {
           'args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.args.0').tracedTo(23, 24)
     })
 
+    describe('**', () => {
+      it('has more precedence than *', () => {
+        'a * b ** c'.should.be.parsedBy(parser).into(
+          Send(Reference('a'), '*',
+            [Send(Reference('b'), '**', [Reference('c')])]))
+      })
+    })
 
   })
 
