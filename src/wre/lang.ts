@@ -1,7 +1,7 @@
 import { last, zipObj } from '../extensions'
-import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, Locals, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, compile, Evaluation, FALSE_ID, INTERRUPT, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import logger from '../log'
-import { Id, Module, Singleton } from '../model'
+import { Id, Module } from '../model'
 
 const { random, floor, ceil } = Math
 const { keys } = Object
