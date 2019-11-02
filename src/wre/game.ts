@@ -1,5 +1,3 @@
-import * as build from '../builders'
-import { last } from '../extensions'
 import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
@@ -11,10 +9,15 @@ import { Id } from '../model'
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      if (!self.fields.visuals) {
-        self.fields.visuals = evaluation.createInstance('wollok.lang.List', [])
+      if (!self.get('visuals')) {
+        self.set('visuals', evaluation.createInstance('wollok.lang.List', []))
       }
-      evaluation.instance(self.fields.visuals).innerValue.push(positionable.id)
+
+      const visuals: RuntimeObject = self.get('visuals')!
+
+      visuals.assertIsCollection()
+
+      visuals.innerValue.push(positionable.id)
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
@@ -31,24 +34,22 @@ export default {
     },
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-      if (self.fields.visuals) {
-        const visuals = evaluation.instance(self.fields.visuals)
-        visuals.innerValue = visuals.innerValue.filter((id: Id) => id !== visual.id)
+      const visuals = self.get('visuals')
+      if (visuals) {
+        (visuals as any).assertCollection()
+        visuals.innerValue = (visuals.innerValue as Id[]).filter((id: Id) => id !== visual.id)
       }
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      last(evaluation.frameStack)!.resume.push('return')
-      evaluation.frameStack.push(build.Frame({
-        instructions: [
-          PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
-          PUSH(event.id),
-          PUSH(action.id),
-          CALL('addHandler', 2),
-          INTERRUPT('return'),
-        ],
-      }))
+      evaluation.suspend('return', [
+        PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
+        PUSH(event.id),
+        PUSH(action.id),
+        CALL('addHandler', 2),
+        INTERRUPT('return'),
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -84,31 +85,30 @@ export default {
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
+      // TODO: Add behavior for runtime objects to read and write fields
       if (title) {
-        self.fields.title = title.id
+        self.set('title', title.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.title)
+      } else evaluation.currentFrame().pushOperand(self.get('title') ?.id ?? VOID_ID)
     },
 
     width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
       if (width) {
-        self.fields.width = width.id
+        self.set('width', width.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.width)
+      } else evaluation.currentFrame().pushOperand(self.get('width') ?.id ?? VOID_ID)
     },
 
     height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
       if (height) {
-        self.fields.height = height.id
+        self.set('height', height.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.height)
+      } else evaluation.currentFrame().pushOperand(self.get('height') ?.id ?? VOID_ID)
     },
 
-    ground: (self: RuntimeObject, image: RuntimeObject) => (evaluation: Evaluation) => {
-      if (image) {
-        self.fields.ground = image.id
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.fields.ground)
+    ground: (self: RuntimeObject, ground: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('ground', ground.id)
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {

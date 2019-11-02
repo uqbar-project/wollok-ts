@@ -1507,8 +1507,6 @@ class Range {
  */
 class Closure {
 
-  override method initialize() native
-
   method apply(args...) native
 
   /** Answers a string representation of this closure object */

@@ -138,8 +138,8 @@ export interface Describe<S extends Stage = Final> extends BaseEntity<S> {
 
   tests: () => List<Test<S>>
   methods: () => List<Method<S>>
-  fields: () => List<Field<S>>
-  fixture: () => Fixture<S> | undefined
+  variables: () => List<Variable<S>>
+  fixtures: () => List<Fixture<S>>
   parent: Linkable<S, () => Package<S>>
   lookupMethod: Linkable<S, (name: Name, arity: number) => Method<Linked> | undefined>
 }
@@ -225,6 +225,7 @@ export interface Method<S extends Stage = Final> extends BaseNode<S> {
   readonly body?: Body<S>
 
   parent: Linkable<S, () => Module<S>>
+  matchesSignature(name: Name, arity: number): boolean
 }
 
 export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
@@ -234,6 +235,7 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
   readonly baseCall: Fillable<S, { callsSuper: boolean, args: List<Expression<S>> }>
 
   parent: Linkable<S, () => Class<S>>
+  matchesSignature(arity: number): boolean
 }
 
 export interface Fixture<S extends Stage = Final> extends BaseNode<S> {

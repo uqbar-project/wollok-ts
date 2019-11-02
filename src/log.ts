@@ -6,7 +6,7 @@ import { Id, Name } from './model'
 const columns = (process.stdout && process.stdout.columns) || 80
 const { clear, log: writeLine } = console
 const { assign, keys } = Object
-const { yellow, redBright, blueBright, cyan, greenBright, magenta, underline, italic, bold } = chalk
+const { yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold } = chalk
 
 export enum LogLevel {
   NONE,
@@ -27,7 +27,6 @@ type Logger = {
   start: (title: string) => void,
   done: (title: string) => void,
   separator: (title?: string) => void,
-  evaluation: (evaluation: Evaluation) => void,
   step: (evaluation: Evaluation) => void,
   resetStep: () => void,
   clear: () => void,
@@ -45,7 +44,6 @@ const logger: Logger = {
   start: () => { },
   done: () => { },
   separator: () => { },
-  evaluation: () => { },
   step: () => { },
   resetStep: () => { },
   clear: () => { },
@@ -61,7 +59,6 @@ const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
     if (val === undefined) return ''
     if (['string', 'boolean', 'number', 'null'].includes(typeof val)) return `(${val})`
     if (val instanceof Array) return `(${val.map(e => typeof e === 'string' ? stringifyId(evaluation)(e) : '?').join(', ')})`
-    if (val instanceof Date) return `(${val.getDate()}/${val.getMonth() + 1}/${val.getFullYear()})`
     return ''
   }
   return magenta(id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)
@@ -88,36 +85,6 @@ const stringifyInstruction = (evaluation: Evaluation) => (instruction: Instructi
   return `${instruction.kind}(${args.join(', ')})`
 }
 
-const stringifyEvaluation = (evaluation: Evaluation) => {
-  return [
-    hr(),
-    [...evaluation.frameStack].reverse().map((frame) =>
-      [
-        bold('Instructions:'),
-        frame.instructions.map((instruction, i) =>
-          i === frame.nextInstruction - 1
-            ? underline(stringifyInstruction(evaluation)(instruction))
-            : stringifyInstruction(evaluation)(instruction)
-        ).join(', '),
-
-        bold('\nOperand Stack:'),
-        frame.operandStack.map(stringifyId(evaluation)).join(', '),
-
-        bold('\nLocals:'),
-        keys(frame.locals).map(key => `${stringifyModule(evaluation)(key)}: ${stringifyId(evaluation)(frame.locals[key])}`).join(', '),
-
-        bold('\nResume:'),
-        frame.resume,
-      ].join('\n')
-    ).join(`\n${hr()}\n`),
-    hr(),
-  ].join('\n')
-
-  // `┌${hr(frameWidth)}┐`,
-  // `├${hr(frameWidth)}┤`,
-  // '└' + '┘'
-}
-
 const consoleLogger: Logger = {
   info: (...args) => writeLine(blueBright.bold('[INFO]: '), ...args),
 
@@ -133,8 +100,6 @@ const consoleLogger: Logger = {
     ? bold(`${hr()}\n ${title}\n${hr()}`)
     : `${hr()}`
   )),
-
-  evaluation: evaluation => writeLine(stringifyEvaluation(evaluation)),
 
   step: evaluation => {
     const { instructions, nextInstruction, operandStack } = last(evaluation.frameStack)!
