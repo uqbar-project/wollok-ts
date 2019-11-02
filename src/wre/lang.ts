@@ -459,22 +459,17 @@ export default {
     // TODO: can we avoid this primitive and just call the apply in the parent context somehow?
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
       const argIds = args.map(arg => arg ? arg.id : VOID_ID)
-      const apply = evaluation
-        .environment
-        .getNodeByFQN<Singleton>(self.module)
-        .lookupMethod('<apply>', args.length)
+      const module = evaluation.environment.getNodeByFQN<Module>(self.module)
+      const apply = module.lookupMethod('<apply>', args.length)
 
       if (!apply) {
         logger.warn('Method not found:', self.module, '>> <apply> /', args.length)
 
-        const messageNotUnderstood = evaluation.environment
-          .getNodeByFQN<Module>(self.module)
-          .lookupMethod('messageNotUnderstood', 2)!
+        const messageNotUnderstood = module.lookupMethod('messageNotUnderstood', 2)!
         const nameId = evaluation.createInstance('wollok.lang.String', 'apply')
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-        evaluation.suspend(
-          'return',
+        evaluation.suspend('return',
           compile(evaluation.environment)(...messageNotUnderstood.body!.sentences),
           evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, {
             ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
@@ -488,22 +483,19 @@ export default {
       const parameterNames = apply.parameters.map(({ name }) => name)
       const hasVarArg = apply.parameters.some(parameter => parameter.isVarArg)
 
-      let locals: Locals
-      if (hasVarArg) {
-        const restId = evaluation.createInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1))
-        locals = {
+      const locals = hasVarArg
+        ? {
           ...zipObj(parameterNames.slice(0, -1), argIds),
-          [last(apply.parameters)!.name]: restId,
+          [last(apply.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(apply.parameters.length - 1)),
         }
-      } else {
-        locals = { ...zipObj(parameterNames, argIds) }
-      }
+        : { ...zipObj(parameterNames, argIds) }
 
       evaluation.suspend('return', [
         ...compile(evaluation.environment)(...apply.body!.sentences),
         PUSH(VOID_ID),
         INTERRUPT('return'),
       ], evaluation.createContext(evaluation.context(self.id).parent, locals))
+
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
