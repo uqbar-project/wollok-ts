@@ -56,10 +56,6 @@ export default {
            /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
-    onTick: (_self: RuntimeObject, _ms: RuntimeObject, _name: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
-    },
-
     removeTickEvent: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
            /*TODO: */ throw new ReferenceError('To be implemented')
     },

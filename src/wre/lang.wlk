@@ -1923,6 +1923,7 @@ class BadParameterException inherits Exception {
 
 object io {
   const eventHandlers = new Dictionary()
+  const timeHandlers = new Dictionary()
   var eventQueue = []
 
   method queueEvent(event) {
@@ -1935,11 +1936,18 @@ object io {
     eventHandlers.get(event).add(callback)
   }
 
-  method flushEvents() {
+  method addTimeHandler(event, callback) {
+    if (!timeHandlers.containsKey(event)) timeHandlers.put(event, [])
+    timeHandlers.get(event).add(callback)
+  }
+
+  method flushEvents(time) {
     const currentEvents = eventQueue.copy()
     eventQueue = []
     currentEvents.forEach{ event =>
       eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
     }
+
+    timeHandlers.values().flatten().forEach{ callback => callback.apply(time) }
   }
 }

@@ -74,7 +74,10 @@ object game {
 	 * Example:
 	 *     	game.onTick(5000, "pepitaMoving", { => pepita.position().x(0.randomUpTo(4)) })
 	 */
-	method onTick(milliseconds, name, action) native
+	method onTick(milliseconds, name, action) {
+		var times = 0
+		io.addTimeHandler(name, { time => if (time.div(milliseconds) > times)  { action.apply(); times+=1 } })
+	}
 	 
 	/**
 	 * Remove a tick event created with onTick message
