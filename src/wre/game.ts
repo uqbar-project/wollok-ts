@@ -36,8 +36,9 @@ export default {
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
       if (visuals) {
-        (visuals as any).assertCollection()
-        visuals.innerValue = (visuals.innerValue as Id[]).filter((id: Id) => id !== visual.id)
+        const currentVisuals: RuntimeObject = visuals!
+        currentVisuals.assertIsCollection()
+        currentVisuals.innerValue = currentVisuals.innerValue.filter((id: Id) => id !== visual.id)
       }
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
