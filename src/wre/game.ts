@@ -1,5 +1,7 @@
+import { interpret } from '..'
 import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
+import wreNatives from './wre.natives'
 
 // TODO: tests
 
@@ -22,15 +24,15 @@ export default {
     },
 
     addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     addVisualCharacter: (_self: RuntimeObject, _positionable: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     addVisualCharacterIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
@@ -54,31 +56,49 @@ export default {
     },
 
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     removeTickEvent: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
-    getObjectsIn: (_self: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      const { sendMessage } = interpret(evaluation.environment, wreNatives)
+      const visuals = self.get('visuals')
+      if (visuals) {
+        // TODO: Validate visuals
+      }
+      const inPosition = (id: Id) => {
+        const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
+        sendMessage('position', id)(evaluation)
+        const visualPosition = evaluation.instances[currentFrame.operandStack.pop()!]
+        return  position.get('x') === visualPosition.get('x')
+        &&      position.get('y') === visualPosition.get('y')
+      }
+      const currentVisuals: RuntimeObject = visuals!
+      currentVisuals.assertIsCollection()
+      const result = evaluation.createInstance('wollok.lang.List', [])
+      const wResult: RuntimeObject = evaluation.instance(result)
+      wResult.assertIsCollection()
+      wResult.innerValue = currentVisuals.innerValue.filter(inPosition)
+      evaluation.currentFrame().pushOperand(result)
     },
 
     say: (_self: RuntimeObject, _visual: RuntimeObject, _message: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     colliders: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
@@ -109,27 +129,27 @@ export default {
     },
 
     boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     hideAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     showAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     errorReporter: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     sound: (_self: RuntimeObject, _audioFile: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     doStart: (_self: RuntimeObject, _isRepl: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      /*TODO: */ throw new ReferenceError('To be implemented')
     },
   },
 }
