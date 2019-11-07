@@ -64,7 +64,11 @@ object game {
 	 * Example:
 	 *     game.whenCollideDo(pepita, { comida => pepita.comer(comida) })
 	 */	
-	method whenCollideDo(visual, action) native
+	method whenCollideDo(visual, action) {
+		io.addTimeHandler(visual.identity(), { time => 
+			self.colliders(visual).forEach({it => action.apply(it)})
+		})		
+	}
 
 	/**
 	 * Adds a block with a specific name that will be executed every n milliseconds.
@@ -111,7 +115,7 @@ object game {
 	/**
 	 * Returns all objects that are in same position of given object.
 	 */	
-	method colliders(visual) native
+	method colliders(visual) = self.getObjectsIn(visual.position()).filter({it => it != visual})
 
     /**
      * Returns the unique object that is in same position of given object.

@@ -55,10 +55,6 @@ export default {
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
-    whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
-    },
-
     removeTickEvent: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
       /*TODO: */ throw new ReferenceError('To be implemented')
     },
@@ -90,10 +86,6 @@ export default {
     },
 
     clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
-    },
-
-    colliders: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
       /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
