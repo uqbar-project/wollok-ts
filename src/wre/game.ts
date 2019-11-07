@@ -81,8 +81,9 @@ export default {
       evaluation.currentFrame().pushOperand(result)
     },
 
-    say: (_self: RuntimeObject, _visual: RuntimeObject, _message: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
+    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('dialog', message.id)
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
