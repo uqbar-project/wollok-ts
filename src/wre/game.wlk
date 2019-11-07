@@ -80,7 +80,8 @@ object game {
 	 */
 	method onTick(milliseconds, name, action) {
 		var times = 0
-		io.addTimeHandler(name, { time => if (time.div(milliseconds) > times)  { action.apply(); times+=1 } })
+		const initTime = io.currentTime()
+		io.addTimeHandler(name, { time => if ((time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
 	}
 	 
 	/**

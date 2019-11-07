@@ -1926,6 +1926,7 @@ object io {
   const eventHandlers = new Dictionary()
   const timeHandlers = new Dictionary()
   var eventQueue = []
+  var property currentTime = 0
 
   method queueEvent(event) {
     eventQueue.add(event)
@@ -1962,5 +1963,6 @@ object io {
     }
 
     timeHandlers.values().flatten().forEach{ callback => callback.apply(time) }
+    currentTime = time
   }
 }
