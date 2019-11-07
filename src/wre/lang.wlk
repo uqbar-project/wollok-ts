@@ -1949,6 +1949,11 @@ object io {
     timeHandlers.remove(event)
   }
 
+  method clear() {
+    eventHandlers.clear()
+    timeHandlers.clear()
+  }
+
   method flushEvents(time) {
     const currentEvents = eventQueue.copy()
     eventQueue = []

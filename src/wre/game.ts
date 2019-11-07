@@ -82,8 +82,15 @@ export default {
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
-    clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
+    clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.suspend('return', [
+        PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
+        CALL('clear', 0),
+        INTERRUPT('return'),
+      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+
+      self.set('visuals', evaluation.createInstance('wollok.lang.List', []))
+      evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
     stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
