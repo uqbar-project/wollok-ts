@@ -1922,6 +1922,7 @@ class BadParameterException inherits Exception {
 }
 
 object io {
+  // TODO: merge handlers?
   const eventHandlers = new Dictionary()
   const timeHandlers = new Dictionary()
   var eventQueue = []
@@ -1930,15 +1931,22 @@ object io {
     eventQueue.add(event)
   }
 
-  // TODO: removeHandler
-  method addHandler(event, callback) {
+  method addEventHandler(event, callback) {
     if (!eventHandlers.containsKey(event)) eventHandlers.put(event, [])
     eventHandlers.get(event).add(callback)
+  }
+
+  method removeEventHandler(event) {
+    eventHandlers.remove(event)
   }
 
   method addTimeHandler(event, callback) {
     if (!timeHandlers.containsKey(event)) timeHandlers.put(event, [])
     timeHandlers.get(event).add(callback)
+  }
+
+  method removeTimeHandler(event) {
+    timeHandlers.remove(event)
   }
 
   method flushEvents(time) {

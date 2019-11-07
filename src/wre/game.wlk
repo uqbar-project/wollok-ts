@@ -89,7 +89,9 @@ object game {
 	 * Example:
 	 *      game.removeTickEvent("pepitaMoving")
 	 */ 
-	method removeTickEvent(name) native
+	method removeTickEvent(name) {
+		io.removeTimeHandler(name)
+	}
 	
 	/**
 	 * Returns all objects in given position.

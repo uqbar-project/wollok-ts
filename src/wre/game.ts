@@ -50,13 +50,9 @@ export default {
         PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
         PUSH(event.id),
         PUSH(action.id),
-        CALL('addHandler', 2),
+        CALL('addEventHandler', 2),
         INTERRUPT('return'),
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
-    },
-
-    removeTickEvent: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
