@@ -804,6 +804,8 @@ describe('Wollok Interpreter', () => {
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
+                CALL('initialize', 0),
+                LOAD('self'),
                 INTERRUPT('return'),
               ],
             }),
@@ -849,6 +851,8 @@ describe('Wollok Interpreter', () => {
                 LOAD('self'),
                 INIT(0, 'wollok.lang.Object'),
                 ...compile(environment)(...constructor.body.sentences),
+                LOAD('self'),
+                CALL('initialize', 0),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -901,6 +905,8 @@ describe('Wollok Interpreter', () => {
               context: 'new_id_1',
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
+                LOAD('self'),
+                CALL('initialize', 0),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -994,7 +1000,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             0: { parent: '', locals: {} },
-            1: { parent: '0', locals: { f1: '3', f2: '2' } },
+            1: { parent: '0', locals: { f1: '3', f2: '2', f3: VOID_ID, f4: VOID_ID } },
           })(
             Frame({
               context: '1', operandStack: [], instructions: [

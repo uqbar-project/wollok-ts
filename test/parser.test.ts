@@ -1399,14 +1399,14 @@ describe('Wollok parser', () => {
 
     it('should parse the negation of a reference with the "!" operator', () => {
       '!a'.should.be.parsedBy(parser).into(
-        Send(Reference('a'), '!_', [])
+        Send(Reference('a'), 'negate', [])
       ).and.be.tracedTo(0, 2)
         .and.have.nested.property('receiver').tracedTo(1, 2)
     })
 
     it('should parse negation with chained "!" operators', () => {
       '!!!a'.should.be.parsedBy(parser).into(
-        Send(Send(Send(Reference('a'), '!_', []), '!_', []), '!_', [])
+        Send(Send(Send(Reference('a'), 'negate', []), 'negate', []), 'negate', [])
       ).and.be.tracedTo(0, 4)
         .and.have.nested.property('receiver').tracedTo(1, 4)
         .and.also.have.nested.property('receiver.receiver').tracedTo(2, 4)
@@ -1415,7 +1415,7 @@ describe('Wollok parser', () => {
 
     it('should parse arithmetic operators in prefix operations', () => {
       '-1'.should.be.parsedBy(parser).into(
-        Send((Literal(1)), '-_', [])
+        Send((Literal(1)), 'invert', [])
       ).and.be.tracedTo(0, 2)
         .and.have.nested.property('receiver').tracedTo(1, 2)
     })

@@ -13,7 +13,7 @@ const Collections = {
     self.assertIsCollection()
 
     evaluation.suspend('return', [
-      ...[...self.innerValue].flatMap((id: Id) => [
+      ...self.innerValue.flatMap((id: Id) => [
         PUSH(predicate.id),
         PUSH(id),
         CALL('apply', 1, false),
@@ -154,8 +154,8 @@ export default {
     },
 
     // TODO:
-    instanceVariables: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    instanceVariables: (_self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.List', []))
     },
 
     // TODO:
@@ -360,9 +360,11 @@ export default {
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsCollection()
-      other.assertIsCollection()
 
       if (self.module !== other.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
+
+      other.assertIsCollection()
+
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame().pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame().pushOperand(TRUE_ID)
 
@@ -392,11 +394,9 @@ export default {
 
       evaluation.suspend('return', [
         PUSH(self.id),
-        CALL('copy', 0),
-        DUP,
+        CALL('newInstance', 0),
         STORE('<answer>', false),
-        CALL('clear', 0),
-        ...[...self.innerValue.slice(1)].flatMap((id: Id) => [
+        ...self.innerValue.flatMap((id: Id) => [
           LOAD('<answer>'),
           PUSH(id),
           CALL('contains', 1),
@@ -1215,7 +1215,7 @@ export default {
       const month: RuntimeObject = self.get('month')!
       const year: RuntimeObject = self.get('year')!
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(`${day.innerValue}/${month.innerValue}/${year.innerValue}`))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', `${month.innerValue}/${day.innerValue}/${year.innerValue}`))
     },
 
   },
