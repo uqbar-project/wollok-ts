@@ -13,6 +13,7 @@ const ARGS = commandLineArgs([
   { name: 'files', alias: 'f', multiple: true, defaultOption: true, defaultValue: '**/*.@(wlk|wtest)' },
 ])
 
+// TODO: use mocha to run this ?
 
 enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
 
