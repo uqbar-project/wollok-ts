@@ -15,7 +15,8 @@ const WRE = Package('wollok')(
     Class('Closure', { superclass: Reference('wollok.lang.Object') })(),
     Class('String', { superclass: Reference('wollok.lang.Object') })(),
     Class('List', { superclass: Reference('wollok.lang.Object') })()
-  )
+  ),
+  Package('lib')(),
 ) as unknown as PackageNode<Filled>
 
 const environment = link([WRE])
@@ -251,7 +252,7 @@ describe('Wollok Interpreter', () => {
     describe('SWAP', () => {
 
       it('should swap the top two operands of the stack', async () => {
-        const instruction = SWAP
+        const instruction = SWAP()
         const evaluation = Evaluation(environment, {})(
           Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
@@ -266,7 +267,7 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the current operand stack has length < 2', async () => {
 
-        const instruction = SWAP
+        const instruction = SWAP()
         const evaluation = Evaluation(environment, {})(
           Frame({ operandStack: ['1'], instructions: [instruction] }),
         )

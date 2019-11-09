@@ -219,6 +219,17 @@ describe('Wollok parser', () => {
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
       })
 
+      it('should parse literal objects that inherit from a class referenced with a FQN', () => {
+        'object inherits p.D {}'.should.be.parsedBy(parser).into(
+          Literal(
+            Singleton(undefined, {
+              superCall: { superclass: Reference('p.D'), args: [] },
+            })()
+          )
+        ).and.be.tracedTo(0, 22)
+          .and.have.nested.property('value.superCall.superclass').tracedTo(16, 19)
+      })
+
       it('should parse literal objects that inherit from a class with explicit builders', () => {
         'object inherits D(5) {}'.should.be.parsedBy(parser).into(
           Literal(
@@ -655,6 +666,15 @@ describe('Wollok parser', () => {
         .and.have.nested.property('superclass').tracedTo(17, 18)
     })
 
+    it('should parse classes that inherit from other class referenced with their FQN', () => {
+      'class C inherits p.D {}'.should.be.parsedBy(parser).into(
+        Class('C',
+          { superclass: Reference('p.D') }
+        )()
+      ).and.be.tracedTo(0, 23)
+        .and.have.nested.property('superclass').tracedTo(17, 20)
+    })
+
     it('should parse classes that inherit from other class and have a mixin', () => {
       'class C inherits D mixed with M {}'.should.be.parsedBy(parser).into(
         Class('C',
@@ -801,6 +821,17 @@ describe('Wollok parser', () => {
       ).and.be.tracedTo(0, 35)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
         .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
+    })
+
+    it('should parse objects that inherit from a class and have a mixin referenced by a FQN', () => {
+      'object O inherits D mixed with p.M {}'.should.be.parsedBy(parser).into(
+        Singleton('O', {
+          superCall: { superclass: Reference('D'), args: [] },
+          mixins: [Reference('p.M')],
+        })()
+      ).and.be.tracedTo(0, 37)
+        .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
+        .and.also.have.nested.property('mixins.0').tracedTo(31, 34)
     })
 
     it('should parse objects that inherit from a class and have multiple mixins', () => {

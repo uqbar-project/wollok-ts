@@ -12,7 +12,11 @@ type Optionals<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof
 
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
-const PREFIX_OPERATORS = ['!', '-', '+']
+const PREFIX_OPERATORS: Record<Name, Name> = {
+  '!': 'negate',
+  '-': 'invert',
+  '+': 'plus',
+}
 const LAZY_OPERATORS = ['||', '&&']
 const INFIX_OPERATORS = [
   ['||'],
@@ -25,7 +29,7 @@ const INFIX_OPERATORS = [
   ['*', '/'],
   ['**', '%'],
 ]
-const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS.map(op => `${op}_`))
+const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], keys(PREFIX_OPERATORS).map(op => PREFIX_OPERATORS[op]))
 
 // TODO: Resolve this without effect
 let SOURCE_FILE: string | undefined
@@ -76,6 +80,12 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
+
+const fullyQualifiedReference: Parser<Reference<Raw>> = lazy(() =>
+  node('Reference')({
+    name: name.sepBy1(key('.')).tieWith('.'),
+  }).thru(sourced)
+)
 
 export const reference: Parser<Reference<Raw>> = lazy(() =>
   node('Reference')({
@@ -134,9 +144,7 @@ export const entity: Parser<Entity<Raw>> = lazy(() => alt(
 
 export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
-    entity: node('Reference')({
-      name: name.sepBy1(key('.')).tieWith('.'),
-    }).thru(sourced),
+    entity: fullyQualifiedReference,
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
@@ -177,13 +185,13 @@ export const testEntity: Parser<Test<Raw>> = lazy(() =>
 )
 
 const mixinLinearization = lazy(() =>
-  key('mixed with').then(reference.sepBy1(key('and'))).map(mixins => mixins.reverse())
+  key('mixed with').then(fullyQualifiedReference.sepBy1(key('and'))).map(mixins => mixins.reverse())
 )
 
 export const classEntity: Parser<Class<Raw>> = lazy(() =>
   key('class').then(node('Class')({
     name,
-    superclass: optional(key('inherits').then(reference)),
+    superclass: optional(key('inherits').then(fullyQualifiedReference)),
     mixins: mixinLinearization.fallback([]),
     members: classMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
@@ -191,7 +199,7 @@ export const classEntity: Parser<Class<Raw>> = lazy(() =>
 
 export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
   const superCall = key('inherits').then(seqMap(
-    reference,
+    fullyQualifiedReference,
     alt(unamedArguments, namedArguments, of([])),
     (superclass, args) => ({ superclass, args }))
   )
@@ -421,11 +429,11 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
 
 export const operation: Parser<Expression<Raw>> = lazy(() => {
   const prefixOperation = seqMap(
-    seq(index, alt(...PREFIX_OPERATORS.map(key))).many(),
+    seq(index, alt(...keys(PREFIX_OPERATORS).map(key))).many(),
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      buildSend(receiver, `${message}_`, [], { source: { start, end } })
+      buildSend(receiver, PREFIX_OPERATORS[message], [], { source: { start, end } })
       , initial)
   )
 

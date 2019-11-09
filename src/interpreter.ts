@@ -79,7 +79,8 @@ export type Instruction
   = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
-  | { kind: 'SWAP' }
+  | { kind: 'POP' } // TODO: test
+  | { kind: 'SWAP', distance: number } // TODO: test with parameters
   | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
   | { kind: 'INHERITS', module: Name }
@@ -95,7 +96,8 @@ export type Instruction
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
-export const SWAP: Instruction = { kind: 'SWAP' }
+export const POP: Instruction = ({ kind: 'POP' })
+export const SWAP = (distance: number = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
@@ -175,11 +177,11 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
         if (node.value.kind === 'Singleton') {
           if ((node.value.superCall.args as any[]).some(arg => arg.is('NamedArgument'))) {
-            const args = node.value.superCall.args as List<NamedArgument>
+            const supercallArgs = node.value.superCall.args as List<NamedArgument>
             return [
-              ...args.flatMap(({ value }) => compile(environment)(value)),
+              ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
               INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT_NAMED(args.map(({ name }) => name)),
+              INIT_NAMED(supercallArgs.map(({ name }) => name)),
               INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName()),
             ]
           } else {
@@ -192,11 +194,18 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           }
         }
 
+        const args = node.value.args as List<Expression>
+
         return [
-          ...(node.value.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
           INSTANTIATE(node.value.instantiated.name, []),
           INIT_NAMED([]),
-          INIT(node.value.args.length, node.value.instantiated.name),
+          INIT(0, node.value.instantiated.name),
+          ...args.flatMap(arg => [
+            DUP,
+            ...compile(environment)(arg),
+            CALL('add', 1),
+            POP,
+          ]),
         ]
       })()
 
@@ -345,11 +354,18 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
 
+      case 'POP': return (() => {
+        currentFrame.popOperand()
+      })()
+
+
       case 'SWAP': return (() => {
-        const a = evaluation.currentFrame().popOperand()
-        const b = evaluation.currentFrame().popOperand()
+        const a = currentFrame.popOperand()
+        const bs = new Array(instruction.distance).fill(null).map(() => evaluation.currentFrame().popOperand()).reverse()
+        const c = currentFrame.popOperand()
         currentFrame.pushOperand(a)
-        currentFrame.pushOperand(b)
+        bs.forEach(b => currentFrame.pushOperand(b))
+        currentFrame.pushOperand(c)
       })()
 
       case 'DUP': return (() => {
@@ -371,13 +387,12 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         )
       })()
 
-      // TODO: can't we just use IF_ELSE instead?
       case 'CONDITIONAL_JUMP': return (() => {
         const check = evaluation.currentFrame().popOperand()
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-          throw new Error(`Invalid jump count ${instruction.count}`)
+          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
 
         currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
       })()
@@ -478,6 +493,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           ] : [],
           ...compile(environment)(...constructor.body.sentences),
           LOAD('self'),
+          CALL('initialize', 0),
+          LOAD('self'),
           INTERRUPT('return'),
         ], evaluation.createContext(self.id, locals))
       })()
@@ -486,24 +503,25 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const selfId = evaluation.currentFrame().popOperand()
         const self = evaluation.instance(selfId)
 
-        for (const name of [...instruction.argumentNames].reverse())
-          self.set(name, evaluation.currentFrame().popOperand())
-
-        const unitializedFields = environment
+        const fields = environment
           .getNodeByFQN<Module>(self.module)
           .hierarchy()
           .flatMap(module => module.fields())
-          .filter(field => !self.get(field.name))
+
+        for (const field of fields)
+          self.set(field.name, VOID_ID)
+
+        for (const name of [...instruction.argumentNames].reverse())
+          self.set(name, evaluation.currentFrame().popOperand())
 
         evaluation.suspend('return', [
-          ...unitializedFields.flatMap(field => [
+          ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
             ...compile(environment)(field.value),
             STORE(field.name, true),
           ]),
           LOAD('self'),
           INTERRUPT('return'),
         ], self.id)
-
       })()
 
       case 'IF_THEN_ELSE': return (() => {
@@ -742,14 +760,21 @@ export default (environment: Environment, natives: {}) => ({
       const describeEvaluation = initializedEvaluation.copy()
       const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
 
+      log.info(`Running describe ${describe.fullyQualifiedName()}`)
+
       describeEvaluation.suspend([], compile(describeEvaluation.environment)(
         ...describe.variables(),
         ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
       ), describeEvaluation.instance(describeId).id)
 
-      stepAll(natives)(describeEvaluation)
+      try {
+        stepAll(natives)(describeEvaluation)
+        runTests(describe.tests(), describeEvaluation)
+      } catch (error) {
+        log.error(`Failed! Error during initialization of describe ${describe.fullyQualifiedName()}`)
+        log.error(error)
+      }
 
-      runTests(describe.tests(), describeEvaluation)
     })
 
     log.done('Running describes')
