@@ -27,4 +27,4 @@ const fetchLanguage = async () => {
   log.done('Obtaining the Wollok Language specification')
 }
 
-if (false) fetchLanguage()
+fetchLanguage()
