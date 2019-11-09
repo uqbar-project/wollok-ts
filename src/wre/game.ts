@@ -8,6 +8,26 @@ import wreNatives from './wre.natives'
 // TODO:
 // tslint:disable:variable-name
 
+const pushVoid = (evaluation: Evaluation) => {
+  evaluation.currentFrame().pushOperand(VOID_ID)
+}
+
+const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
+  evaluation.currentFrame().pushOperand(self.get(key) ?.id ?? VOID_ID)
+}
+
+const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
+  self.set(key, value.id)
+  pushVoid(evaluation)
+}
+
+const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (evaluation: Evaluation) => {
+  if (value)
+    set(self, key, value)(evaluation)
+  else
+    get(self, key)(evaluation)
+}
+
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
@@ -20,7 +40,7 @@ export default {
       visuals.assertIsCollection()
 
       visuals.innerValue.push(positionable.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      pushVoid(evaluation)
     },
 
     addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -77,10 +97,7 @@ export default {
       evaluation.currentFrame().pushOperand(result)
     },
 
-    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
-      visual.set('dialog', message.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
+    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => set(visual, 'message', message),
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.suspend('return', [
@@ -97,36 +114,15 @@ export default {
       /*TODO: */ throw new ReferenceError('To be implemented')
     },
 
-    title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
-      // TODO: Add behavior for runtime objects to read and write fields
-      if (title) {
-        self.set('title', title.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('title') ?.id ?? VOID_ID)
-    },
+    title: (self: RuntimeObject, title?: RuntimeObject) => property(self, 'title', title),
 
-    width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
-      if (width) {
-        self.set('width', width.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('width') ?.id ?? VOID_ID)
-    },
+    width: (self: RuntimeObject, width?: RuntimeObject) => property(self, 'width', width),
 
-    height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
-      if (height) {
-        self.set('height', height.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('height') ?.id ?? VOID_ID)
-    },
+    height: (self: RuntimeObject, height?: RuntimeObject) => property(self, 'height', height),
 
-    ground: (self: RuntimeObject, ground: RuntimeObject) => (evaluation: Evaluation) => {
-      self.set('ground', ground.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
+    ground: (self: RuntimeObject, ground: RuntimeObject) => set(self, 'ground', ground),
 
-    boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {
-      /*TODO: */ throw new ReferenceError('To be implemented')
-    },
+    boardGround: (self: RuntimeObject, boardGround: RuntimeObject) => set(self, 'boardGround', boardGround),
 
     hideAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
       /*TODO: */ throw new ReferenceError('To be implemented')
