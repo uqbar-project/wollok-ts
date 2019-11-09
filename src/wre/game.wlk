@@ -93,6 +93,14 @@ object game {
 	method removeTickEvent(name) {
 		io.removeTimeHandler(name)
 	}
+
+	method schedule(milliseconds, action) {
+		const name = action.identity()
+		self.onTick(milliseconds, name, {
+			action.apply()
+			self.removeTickEvent(name)
+		})
+	}
 	
 	/**
 	 * Returns all objects in given position.
