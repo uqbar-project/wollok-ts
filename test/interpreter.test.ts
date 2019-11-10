@@ -15,7 +15,8 @@ const WRE = Package('wollok')(
     Class('Closure', { superclass: Reference('wollok.lang.Object') })(),
     Class('String', { superclass: Reference('wollok.lang.Object') })(),
     Class('List', { superclass: Reference('wollok.lang.Object') })()
-  )
+  ),
+  Package('lib')(),
 ) as unknown as PackageNode<Filled>
 
 const environment = link([WRE])
@@ -251,7 +252,7 @@ describe('Wollok Interpreter', () => {
     describe('SWAP', () => {
 
       it('should swap the top two operands of the stack', async () => {
-        const instruction = SWAP
+        const instruction = SWAP()
         const evaluation = Evaluation(environment, {})(
           Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
@@ -266,7 +267,7 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the current operand stack has length < 2', async () => {
 
-        const instruction = SWAP
+        const instruction = SWAP()
         const evaluation = Evaluation(environment, {})(
           Frame({ operandStack: ['1'], instructions: [instruction] }),
         )
@@ -803,6 +804,8 @@ describe('Wollok Interpreter', () => {
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
                 LOAD('self'),
+                CALL('initialize', 0),
+                LOAD('self'),
                 INTERRUPT('return'),
               ],
             }),
@@ -848,6 +851,8 @@ describe('Wollok Interpreter', () => {
                 LOAD('self'),
                 INIT(0, 'wollok.lang.Object'),
                 ...compile(environment)(...constructor.body.sentences),
+                LOAD('self'),
+                CALL('initialize', 0),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -900,6 +905,8 @@ describe('Wollok Interpreter', () => {
               context: 'new_id_1',
               instructions: [
                 ...compile(environment)(...constructor.body.sentences),
+                LOAD('self'),
+                CALL('initialize', 0),
                 LOAD('self'),
                 INTERRUPT('return'),
               ],
@@ -993,7 +1000,7 @@ describe('Wollok Interpreter', () => {
             3: RuntimeObject('3', 'wollok.lang.Object'),
           }, {
             0: { parent: '', locals: {} },
-            1: { parent: '0', locals: { f1: '3', f2: '2' } },
+            1: { parent: '0', locals: { f1: '3', f2: '2', f3: VOID_ID, f4: VOID_ID } },
           })(
             Frame({
               context: '1', operandStack: [], instructions: [

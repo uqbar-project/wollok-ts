@@ -401,7 +401,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
 
-      if (!this.contexts[id]) this.createContext(this.currentFrame().context, { self: id }, id)
+      if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? '', { self: id }, id)
 
       return id
     },
@@ -430,6 +430,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
         this.frameStack.pop()
         nextFrame = last(this.frameStack)
       } while (nextFrame && !nextFrame.resume.includes(interruption))
+      // TODO: Is it OK to drop the last frame? Shouldn't then the currentFrame() be optional?
 
       if (!nextFrame) {
         const value = this.instance(valueId)
