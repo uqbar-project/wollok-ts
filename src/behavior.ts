@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -380,23 +380,25 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    createInstance(this: EvaluationType, module: Name, baseInnerValue?: any): Id {
+    createInstance(this: EvaluationType, module: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
       let id: Id
       let innerValue = baseInnerValue
 
       switch (module) {
         case 'wollok.lang.Number':
+          if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
           const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
           id = 'N!' + stringValue
           innerValue = Number(stringValue)
           break
 
         case 'wollok.lang.String':
+          if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
           id = 'S!' + innerValue
           break
 
         default:
-          id = uuid()
+          id = defaultId
       }
 
       if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })

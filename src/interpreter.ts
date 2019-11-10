@@ -3,8 +3,6 @@ import { last, zipObj } from './extensions'
 import log from './log'
 import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
-const { assign } = Object
-
 export type Locals = Record<Name, Id>
 
 export interface Context {
@@ -12,7 +10,7 @@ export interface Context {
   readonly locals: Locals
 }
 
-type InnerValue = string | number | Id[]
+export type InnerValue = string | number | Id[]
 export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
@@ -48,7 +46,7 @@ export interface Evaluation {
 
   currentFrame(): Frame
   instance(id: Id): RuntimeObject
-  createInstance(module: Name, baseInnerValue?: any): Id
+  createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id): Id
   // TODO: mover a Frame?
@@ -603,22 +601,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
   const globalConstants = environment.descendants<Variable>('Variable').filter(node => node.parent().is('Package'))
   const globalSingletons = environment.descendants<Singleton>('Singleton').filter(node => !!node.name)
 
-  // TODO: Can we do this using createInstance instead?
-  const instances = [
-    { id: NULL_ID, module: 'wollok.lang.Object', fields: {} },
-    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {} },
-    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {} },
-    ...globalSingletons.map(module => ({
-      id: module.id,
-      module: module.fullyQualifiedName(),
-      fields: {},
-    })),
-  ]
-
-  const evaluation = build.Evaluation(
-    environment,
-    instances.reduce((all, instance) => ({ ...all, [instance.id]: instance }), {}),
-  )()
+  const evaluation = build.Evaluation(environment)()
 
   const globalContext = evaluation.createContext('', {
     null: NULL_ID,
@@ -628,36 +611,34 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
   })
 
-  // TODO: use createInstance and createContext
-  instances.forEach(instance => {
-    assign(instance, { context: evaluation.createContext(globalContext, { self: instance.id }, instance.id) })
-  })
+  evaluation.frameStack.push(build.Frame({
+    context: globalContext,
+    instructions: [
+      ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }) => {
+        if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
+          const argList = args as List<NamedArgument>
+          return [
+            ...argList.flatMap(({ value }) => compile(environment)(value)),
+            PUSH(id),
+            INIT_NAMED(argList.map(({ name }) => name)),
+            INIT(0, superclass.target<Class>().fullyQualifiedName()),
+          ]
+        } else {
+          return [
+            ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
+            PUSH(id),
+            INIT_NAMED([]),
+            INIT(args.length, superclass.target<Class>().fullyQualifiedName()),
+          ]
+        }
+      }),
+    ],
+  }))
 
-  evaluation.frameStack.push(
-    build.Frame({
-      context: globalContext,
-      instructions: [
-        ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }: Singleton) => {
-          if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
-            const argList = args as List<NamedArgument>
-            return [
-              ...argList.flatMap(({ value }) => compile(environment)(value)),
-              PUSH(id),
-              INIT_NAMED(argList.map(({ name }) => name)),
-              INIT(0, superclass.target<Class>().fullyQualifiedName()),
-            ]
-          } else {
-            return [
-              ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
-              PUSH(id),
-              INIT_NAMED([]),
-              INIT(args.length, superclass.target<Class>().fullyQualifiedName()),
-            ]
-          }
-        }),
-      ],
-    })
-  )
+  evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)
+  evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)
+  evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID)
+  for (const module of globalSingletons) evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id)
 
   return evaluation
 }

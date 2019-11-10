@@ -631,15 +631,15 @@ describe('Wollok Interpreter', () => {
             '2': RuntimeObject('2', 'wollok.lang.Object'),
             '3': RuntimeObject('3', 'wollok.lang.Object'),
             'S!m': RuntimeObject('S!m', 'wollok.lang.String', 'm'),
-            'new_id_0': RuntimeObject('new_id_0', 'wollok.lang.List', ['2', '1']),
+            'new_id_1': RuntimeObject('new_id_1', 'wollok.lang.List', ['2', '1']),
           }, {
             '1': { parent: '', locals: {} },
             'S!m': { parent: '1', locals: { self: 'S!m' } },
-            'new_id_0': { parent: '1', locals: { self: 'new_id_0' } },
-            'new_id_1': { parent: '3', locals: { name: 'S!m', parameters: 'new_id_0' } },
+            'new_id_1': { parent: '1', locals: { self: 'new_id_1' } },
+            'new_id_2': { parent: '3', locals: { name: 'S!m', parameters: 'new_id_1' } },
           })(
             Frame({
-              context: 'new_id_1',
+              context: 'new_id_2',
               instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
             }),
             Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
