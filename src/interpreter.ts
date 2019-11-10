@@ -12,10 +12,11 @@ export interface Context {
   readonly locals: Locals
 }
 
+type InnerValue = string | number | Id[]
 export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
-  innerValue?: string | number | boolean | Id[]
+  innerValue?: InnerValue
 
   context(): Context
   get(field: Name): RuntimeObject | undefined
@@ -23,7 +24,6 @@ export interface RuntimeObject {
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number }
   assertIsString(): asserts this is RuntimeObject & { innerValue: string }
-  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: boolean }
   assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] }
 }
 
@@ -82,7 +82,7 @@ export type Instruction
   | { kind: 'POP' } // TODO: test
   | { kind: 'SWAP', distance: number } // TODO: test with parameters
   | { kind: 'DUP' }
-  | { kind: 'INSTANTIATE', module: Name, innerValue?: any }
+  | { kind: 'INSTANTIATE', module: Name, innerValue?: InnerValue }
   | { kind: 'INHERITS', module: Name }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
@@ -99,7 +99,7 @@ export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const POP: Instruction = ({ kind: 'POP' })
 export const SWAP = (distance: number = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
-export const INSTANTIATE = (module: Name, innerValue?: any): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
+export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, useReceiverContext: boolean = true, lookupStart?: Name): Instruction =>
@@ -605,9 +605,9 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   // TODO: Can we do this using createInstance instead?
   const instances = [
-    { id: NULL_ID, module: 'wollok.lang.Object', fields: {}, innerValue: null },
-    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: true },
-    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {}, innerValue: false },
+    { id: NULL_ID, module: 'wollok.lang.Object', fields: {} },
+    { id: TRUE_ID, module: 'wollok.lang.Boolean', fields: {} },
+    { id: FALSE_ID, module: 'wollok.lang.Boolean', fields: {} },
     ...globalSingletons.map(module => ({
       id: module.id,
       module: module.fullyQualifiedName(),

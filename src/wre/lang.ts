@@ -828,8 +828,6 @@ export default {
   Boolean: {
 
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
-
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
       evaluation.suspend('return', [
@@ -840,8 +838,6 @@ export default {
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
-
       if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
       evaluation.suspend('return', [
@@ -852,23 +848,19 @@ export default {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.id === TRUE_ID ? 'true' : 'false'))
     },
 
     'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.id === TRUE_ID ? 'true' : 'false'))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame().pushOperand(self.id === other.id ? TRUE_ID : FALSE_ID)
     },
 
     'negate': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue ? FALSE_ID : TRUE_ID)
+      evaluation.currentFrame().pushOperand(self.id === TRUE_ID ? FALSE_ID : TRUE_ID)
     },
   },
 
