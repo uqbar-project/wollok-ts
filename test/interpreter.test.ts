@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { restore, stub } from 'sinon'
 import { Class, Constructor, Evaluation, Field, Frame, Literal, Method, Package, Parameter, Reference, Return, RuntimeObject } from '../src/builders'
-import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, IF_THEN_ELSE, INHERITS, INIT, INIT_NAMED, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, step, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
+import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, INHERITS, INIT, INIT_NAMED, INSTANTIATE, Instruction, INTERRUPT, LOAD, NativeFunction, PUSH, RESUME_INTERRUPTION, step, STORE, SWAP, TRUE_ID, TRY_CATCH_ALWAYS, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Module, Package as PackageNode } from '../src/model'
 import { interpreterAssertions } from './assertions'
@@ -1030,14 +1030,14 @@ describe('Wollok Interpreter', () => {
     }),
 
 
-      describe('IF_THEN_ELSE', () => {
+      describe('TRY_CATCH_ALWAYS', () => {
 
-        it('should pop a boolean from the operand stack and push a frame to evaluate the then clause if it is true', async () => {
-          const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
+        it('should create three nested frames to handle the given try, catch and always instruction sequences', async () => {
+          const instruction = TRY_CATCH_ALWAYS([PUSH('5')], [PUSH('7')], [PUSH('9')]) as Extract<Instruction, { kind: 'TRY_CATCH_ALWAYS' }>
           const evaluation = Evaluation(environment, {}, {
             1: { parent: '', locals: {} },
           })(
-            Frame({ context: '1', operandStack: [TRUE_ID], instructions: [instruction] }),
+            Frame({ context: '1', instructions: [instruction] }),
           )
 
 
@@ -1045,107 +1045,42 @@ describe('Wollok Interpreter', () => {
             Evaluation(environment, {}, {
               1: { parent: '', locals: {} },
               new_id_0: { parent: '1', locals: {} },
+              new_id_1: { parent: 'new_id_0', locals: {} },
+              new_id_2: { parent: 'new_id_1', locals: {} },
             })(
-              Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.thenHandler, INTERRUPT('result')] }),
+              Frame({
+                context: 'new_id_2',
+                instructions: [
+                  PUSH(VOID_ID),
+                  ...instruction.body,
+                  INTERRUPT('result'),
+                ],
+              }),
+              Frame({
+                context: 'new_id_1',
+                resume: ['exception'],
+                instructions: [
+                  STORE('<exception>', false),
+                  ...instruction.catchHandler,
+                  LOAD('<exception>'),
+                  INTERRUPT('exception'),
+                ],
+              }),
+              Frame({
+                context: 'new_id_0',
+                resume: ['exception', 'return', 'result'],
+                instructions: [
+                  STORE('<previous_interruption>', false),
+                  ...instruction.alwaysHandler,
+                  LOAD('<previous_interruption>'),
+                  RESUME_INTERRUPTION,
+                ],
+              }),
               Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
             )
           )
         })
-
-        it('should pop a boolean from the operand stack and push a frame to evaluate the else clause if it is false', async () => {
-          const instruction = IF_THEN_ELSE([PUSH('5')], [PUSH('7')]) as Extract<Instruction, { kind: 'IF_THEN_ELSE' }>
-          const evaluation = Evaluation(environment, {}, {
-            1: { parent: '', locals: {} },
-          })(
-            Frame({ context: '1', operandStack: [FALSE_ID], instructions: [instruction] }),
-          )
-
-          evaluation.should.be.stepped().into(
-            Evaluation(environment, {}, {
-              1: { parent: '', locals: {} },
-              new_id_0: { parent: '1', locals: {} },
-            })(
-              Frame({ context: 'new_id_0', instructions: [PUSH(VOID_ID), ...instruction.elseHandler, INTERRUPT('result')] }),
-              Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
-            )
-          )
-        })
-
-        it('should raise an error if the given id does not belong to a boolean', async () => {
-
-          const instruction = IF_THEN_ELSE([], [])
-          const evaluation = Evaluation(environment, {
-            1: RuntimeObject('1', 'wollok.lang.Object'),
-          })(
-            Frame({ operandStack: ['1'], instructions: [instruction, instruction, instruction] }),
-          )
-
-          expect(() => step({})(evaluation)).to.throw()
-        })
-
-        it('should raise an error if the current operand stack is empty', async () => {
-
-          const instruction = IF_THEN_ELSE([], [])
-          const evaluation = Evaluation(environment, {})(
-            Frame({ instructions: [instruction, instruction, instruction] }),
-          )
-
-          expect(() => step({})(evaluation)).to.throw()
-        })
-
       })
-
-    describe('TRY_CATCH_ALWAYS', () => {
-
-      it('should create three nested frames to handle the given try, catch and always instruction sequences', async () => {
-        const instruction = TRY_CATCH_ALWAYS([PUSH('5')], [PUSH('7')], [PUSH('9')]) as Extract<Instruction, { kind: 'TRY_CATCH_ALWAYS' }>
-        const evaluation = Evaluation(environment, {}, {
-          1: { parent: '', locals: {} },
-        })(
-          Frame({ context: '1', instructions: [instruction] }),
-        )
-
-
-        evaluation.should.be.stepped().into(
-          Evaluation(environment, {}, {
-            1: { parent: '', locals: {} },
-            new_id_0: { parent: '1', locals: {} },
-            new_id_1: { parent: 'new_id_0', locals: {} },
-            new_id_2: { parent: 'new_id_1', locals: {} },
-          })(
-            Frame({
-              context: 'new_id_2',
-              instructions: [
-                PUSH(VOID_ID),
-                ...instruction.body,
-                INTERRUPT('result'),
-              ],
-            }),
-            Frame({
-              context: 'new_id_1',
-              resume: ['exception'],
-              instructions: [
-                STORE('<exception>', false),
-                ...instruction.catchHandler,
-                LOAD('<exception>'),
-                INTERRUPT('exception'),
-              ],
-            }),
-            Frame({
-              context: 'new_id_0',
-              resume: ['exception', 'return', 'result'],
-              instructions: [
-                STORE('<previous_interruption>', false),
-                ...instruction.alwaysHandler,
-                LOAD('<previous_interruption>'),
-                RESUME_INTERRUPTION,
-              ],
-            }),
-            Frame({ context: '1', resume: ['result'], instructions: [instruction], nextInstruction: 1 }),
-          )
-        )
-      })
-    })
 
 
     describe('INTERRUPT', () => {

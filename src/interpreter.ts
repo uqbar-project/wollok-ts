@@ -27,7 +27,7 @@ export interface RuntimeObject {
 
 export interface Frame {
   readonly instructions: List<Instruction>
-  readonly context: Id
+  context: Id
   nextInstruction: number
   operandStack: Id[]
   resume: Interruption[]
@@ -78,6 +78,8 @@ export type Instruction
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
   | { kind: 'POP' } // TODO: test
+  | { kind: 'PUSH_CONTEXT' } // TODO: test
+  | { kind: 'POP_CONTEXT' } // TODO: test
   | { kind: 'SWAP', distance: number } // TODO: test with parameters
   | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: InnerValue }
@@ -86,7 +88,6 @@ export type Instruction
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
-  | { kind: 'IF_THEN_ELSE', thenHandler: List<Instruction>, elseHandler: List<Instruction> }
   | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
   | { kind: 'INTERRUPT', interruption: Interruption }
   | { kind: 'RESUME_INTERRUPTION' }
@@ -95,6 +96,8 @@ export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instru
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const POP: Instruction = ({ kind: 'POP' })
+export const PUSH_CONTEXT: Instruction = ({ kind: 'PUSH_CONTEXT' })
+export const POP_CONTEXT: Instruction = ({ kind: 'POP_CONTEXT' })
 export const SWAP = (distance: number = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
@@ -105,8 +108,6 @@ export const CALL = (message: Name, arity: number, useReceiverContext: boolean =
 export const INIT = (arity: number, lookupStart: Name): Instruction =>
   ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
-export const IF_THEN_ELSE = (thenHandler: List<Instruction>, elseHandler: List<Instruction>): Instruction =>
-  ({ kind: 'IF_THEN_ELSE', thenHandler, elseHandler })
 export const TRY_CATCH_ALWAYS = (body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction>): Instruction =>
   ({ kind: 'TRY_CATCH_ALWAYS', body, catchHandler, alwaysHandler })
 export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: 'INTERRUPT', interruption })
@@ -248,10 +249,22 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       })()
 
 
-      case 'If': return (() => [
-        ...compile(environment)(node.condition),
-        IF_THEN_ELSE(compile(environment)(...node.thenBody.sentences), compile(environment)(...node.elseBody.sentences)),
-      ])()
+      case 'If': return (() => {
+        const compiledThen = compile(environment)(...node.thenBody.sentences)
+        const thenClause = compiledThen.length ? compiledThen : [PUSH(VOID_ID)]
+        const compiledElse = compile(environment)(...node.elseBody.sentences)
+        const elseClause = compiledElse.length ? compiledElse : [PUSH(VOID_ID)]
+        return [
+          ...compile(environment)(node.condition),
+          PUSH_CONTEXT,
+          CONDITIONAL_JUMP(thenClause.length + 2),
+          ...thenClause,
+          PUSH(FALSE_ID),
+          CONDITIONAL_JUMP(elseClause.length),
+          ...elseClause,
+          POP_CONTEXT,
+        ]
+      })()
 
 
       case 'Throw': return (() => [
@@ -354,6 +367,16 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'POP': return (() => {
         currentFrame.popOperand()
+      })()
+
+
+      case 'PUSH_CONTEXT': return (() => {
+        currentFrame.context = evaluation.createContext(currentFrame.context)
+      })()
+
+
+      case 'POP_CONTEXT': return (() => {
+        currentFrame.context = evaluation.context(currentFrame.context).parent
       })()
 
 
@@ -520,19 +543,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('self'),
           INTERRUPT('return'),
         ], self.id)
-      })()
-
-      case 'IF_THEN_ELSE': return (() => {
-        const check = evaluation.currentFrame().popOperand()
-
-        if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
-
-        // TODO: instead of this, use new instructions for pushing and poping new contexts
-        evaluation.suspend('result', [
-          PUSH(VOID_ID),
-          ...check === TRUE_ID ? instruction.thenHandler : instruction.elseHandler,
-          INTERRUPT('result'),
-        ], evaluation.createContext(currentFrame.context))
       })()
 
 

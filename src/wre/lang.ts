@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, IF_THEN_ELSE, INSTANTIATE, INTERRUPT, LOAD, NULL_ID, POP, PUSH, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, INTERRUPT, LOAD, NULL_ID, POP, PUSH, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 const { random, floor, ceil } = Math
@@ -305,15 +305,15 @@ export default {
           PUSH(id),
           PUSH(self.innerValue[0]),
           CALL('apply', 2, false),
-          IF_THEN_ELSE([
-            LOAD('<lessers>'),
-            PUSH(id),
-            CALL('add', 1),
-          ], [
-            LOAD('<biggers>'),
-            PUSH(id),
-            CALL('add', 1),
-          ]),
+          CONDITIONAL_JUMP(5),
+          LOAD('<lessers>'),
+          PUSH(id),
+          CALL('add', 1),
+          PUSH(FALSE_ID),
+          CONDITIONAL_JUMP(3),
+          LOAD('<biggers>'),
+          PUSH(id),
+          CALL('add', 1),
         ]),
         LOAD('<lessers>'),
         PUSH(closure.id),
