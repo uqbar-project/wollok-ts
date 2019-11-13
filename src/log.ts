@@ -107,13 +107,14 @@ const consoleLogger: Logger = {
 
     const stepTabulation = evaluation.frameStack.length - 1
 
-    let tabulationReturn = 0
-    if (instruction.kind === 'INTERRUPT') {
-      const returns = [...evaluation.frameStack].reverse().findIndex(({ resume }) => resume.includes(instruction.interruption))
-      tabulationReturn = returns === -1 ? stepTabulation : returns
-    }
+    const tabulationReturn = 0
+    // TODO: fix
+    // if (instruction.kind === 'INTERRUPT') {
+    //   const returns = [...evaluation.frameStack].reverse().findIndex(({ resume }) => resume.includes(instruction.interruption))
+    //   tabulationReturn = returns === -1 ? stepTabulation : returns
+    // }
 
-    const tabulation = instruction.kind === 'INTERRUPT'
+    const tabulation = false && instruction.kind === 'INTERRUPT'
       ? '│'.repeat(stepTabulation - tabulationReturn) + '└' + '─'.repeat(tabulationReturn - 1)
       : '│'.repeat(stepTabulation)
 

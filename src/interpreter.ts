@@ -8,6 +8,7 @@ export type Locals = Record<Name, Id>
 export interface Context {
   readonly parent: Id
   readonly locals: Locals
+  readonly exceptionHandlerIndex?: number
 }
 
 export type InnerValue = string | number | Id[]
@@ -36,7 +37,7 @@ export interface Frame {
   pushOperand(id: Id): void
 }
 
-export type Interruption = 'return' | 'exception' | 'result'
+export type Interruption = 'return' | 'exception'
 
 export interface Evaluation {
   readonly environment: Environment
@@ -48,7 +49,7 @@ export interface Evaluation {
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
   context(id: Id): Context
-  createContext(parent: Id, locals?: Locals, id?: Id): Id
+  createContext(parent: Id, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
   // TODO: mover a Frame?
   suspend(until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id): void
   // TODO: mover a Frame?
@@ -78,7 +79,7 @@ export type Instruction
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
   | { kind: 'POP' } // TODO: test
-  | { kind: 'PUSH_CONTEXT' } // TODO: test
+  | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number } // TODO: test
   | { kind: 'POP_CONTEXT' } // TODO: test
   | { kind: 'SWAP', distance: number } // TODO: test with parameters
   | { kind: 'DUP' }
@@ -88,15 +89,13 @@ export type Instruction
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
-  | { kind: 'TRY_CATCH_ALWAYS', body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction> }
   | { kind: 'INTERRUPT', interruption: Interruption }
-  | { kind: 'RESUME_INTERRUPTION' }
 
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
 export const POP: Instruction = ({ kind: 'POP' })
-export const PUSH_CONTEXT: Instruction = ({ kind: 'PUSH_CONTEXT' })
+export const PUSH_CONTEXT = (exceptionHandlerIndexDelta?: number): Instruction => ({ kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta })
 export const POP_CONTEXT: Instruction = ({ kind: 'POP_CONTEXT' })
 export const SWAP = (distance: number = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
@@ -108,11 +107,7 @@ export const CALL = (message: Name, arity: number, useReceiverContext: boolean =
 export const INIT = (arity: number, lookupStart: Name): Instruction =>
   ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
-export const TRY_CATCH_ALWAYS = (body: List<Instruction>, catchHandler: List<Instruction>, alwaysHandler: List<Instruction>): Instruction =>
-  ({ kind: 'TRY_CATCH_ALWAYS', body, catchHandler, alwaysHandler })
 export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: 'INTERRUPT', interruption })
-export const RESUME_INTERRUPTION: Instruction = ({ kind: 'RESUME_INTERRUPTION' })
-
 
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => {
@@ -256,7 +251,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const elseClause = compiledElse.length ? compiledElse : [PUSH(VOID_ID)]
         return [
           ...compile(environment)(node.condition),
-          PUSH_CONTEXT,
+          PUSH_CONTEXT(),
           CONDITIONAL_JUMP(thenClause.length + 2),
           ...thenClause,
           PUSH(FALSE_ID),
@@ -273,29 +268,57 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       ])()
 
 
-      case 'Try': return (() => [
-        TRY_CATCH_ALWAYS(
-          compile(environment)(...node.body.sentences),
+      case 'Try': return (() => {
+        const clause = compile(environment)(...node.body.sentences)
+        const always = compile(environment)(...node.always.sentences)
+        const catches = node.catches.flatMap(({ parameter, parameterType, body }) => {
+          const handler = compile(environment)(...body.sentences)
+          return [
+            LOAD('<exception>'),
+            INHERITS(parameterType.target<Module>().fullyQualifiedName()),
+            CONDITIONAL_JUMP(handler.length + 6),
+            LOAD('<exception>'),
+            STORE(parameter.name, false),
+            PUSH(VOID_ID),
+            ...handler,
+            STORE('<result>', true),
+            PUSH(FALSE_ID),
+            STORE('<exception>', true),
+          ]
+        })
 
-          node.catches.flatMap(({ parameter, parameterType, body }) => {
-            const compiledCatch: List<Instruction> = [
-              PUSH(VOID_ID),
-              LOAD('<exception>'),
-              STORE(parameter.name, false),
-              ...compile(environment)(...body.sentences),
-              INTERRUPT('result'),
-            ]
-            return [
-              LOAD('<exception>'),
-              INHERITS(parameterType.target<Module>().fullyQualifiedName()),
-              CONDITIONAL_JUMP(compiledCatch.length),
-              ...compiledCatch,
-            ]
-          }),
+        return [
+          PUSH_CONTEXT(),
+          PUSH(FALSE_ID),
+          STORE('<exception>', false),
+          PUSH(VOID_ID),
+          STORE('<result>', false),
 
-          compile(environment)(...node.always.sentences)
-        ),
-      ])()
+          PUSH_CONTEXT(clause.length + 5),
+          PUSH(VOID_ID), // TODO: Won't this break if we asume expressions only push 1 to the stack?
+          ...clause,
+          STORE('<result>', true),
+          POP_CONTEXT,
+          PUSH(FALSE_ID),
+          CONDITIONAL_JUMP(catches.length + 2),
+
+          PUSH_CONTEXT(catches.length + 1),
+          ...catches,
+          POP_CONTEXT,
+
+          PUSH_CONTEXT(),
+          ...always,
+          POP_CONTEXT,
+          LOAD('<exception>'),
+          INHERITS('wollok.lang.Exception'),
+          CONDITIONAL_JUMP(2),
+          LOAD('<exception>'),
+          INTERRUPT('exception'),
+          LOAD('<result>'),
+
+          POP_CONTEXT,
+        ]
+      })()
     }
   })
 
@@ -335,11 +358,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          evaluation.suspend('result', [
+          evaluation.suspend([], [
             ...instruction.lazyInitialization,
             DUP,
             STORE(instruction.name, true),
-            INTERRUPT('result'),
+            INTERRUPT('return'),
           ], currentFrame.context)
         }
       })()
@@ -371,7 +394,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'PUSH_CONTEXT': return (() => {
-        currentFrame.context = evaluation.createContext(currentFrame.context)
+        currentFrame.context = evaluation.createContext(
+          currentFrame.context,
+          undefined,
+          undefined,
+          instruction.exceptionHandlerIndexDelta
+            ? currentFrame.nextInstruction + instruction.exceptionHandlerIndexDelta
+            : undefined
+        )
       })()
 
 
@@ -546,43 +576,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
 
-      case 'TRY_CATCH_ALWAYS': return (() => {
-        evaluation.suspend('result', [
-          STORE('<previous_interruption>', false),
-          ...instruction.alwaysHandler,
-          LOAD('<previous_interruption>'),
-          RESUME_INTERRUPTION,
-        ], evaluation.createContext(currentFrame.context))
-
-        evaluation.suspend(['exception', 'return', 'result'], [
-          STORE('<exception>', false),
-          ...instruction.catchHandler,
-          LOAD('<exception>'),
-          INTERRUPT('exception'),
-        ], evaluation.createContext(evaluation.currentFrame().context))
-
-        evaluation.suspend('exception', [
-          PUSH(VOID_ID),
-          ...instruction.body,
-          INTERRUPT('result'),
-        ], evaluation.createContext(evaluation.currentFrame().context))
-      })()
-
-
       case 'INTERRUPT': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
         evaluation.interrupt(instruction.interruption, valueId)
       })()
 
-
-      case 'RESUME_INTERRUPTION': return (() => {
-        const allInterruptions: Interruption[] = ['exception', 'return', 'result']
-        if (currentFrame.resume.length !== allInterruptions.length - 1) throw new Error('Interruption to resume cannot be inferred')
-        const lastInterruption = allInterruptions.find(interruption => !currentFrame.resume.includes(interruption))!
-
-        const valueId = evaluation.currentFrame().popOperand()
-        evaluation.interrupt(lastInterruption, valueId)
-      })()
     }
 
   } catch (error) {

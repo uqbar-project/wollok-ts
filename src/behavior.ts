@@ -415,8 +415,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return response
     },
 
-    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid()): Id {
-      this.contexts[id] = { parent, locals }
+    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+      this.contexts[id] = { parent, locals, exceptionHandlerIndex }
       return id
     },
 
@@ -427,24 +427,36 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
-      let nextFrame
-      do {
+      if (interruption === 'exception') {
+
+        let currentContext = this.context(this.currentFrame().context)
+
+        while (currentContext.exceptionHandlerIndex === undefined) {
+          if (currentContext.parent) { // TODO: Add id to frame so we can stop there instead of reaching bottom
+            this.currentFrame().context = currentContext.parent
+            currentContext = this.context(currentContext.parent)
+          } else {
+            this.frameStack.pop()
+
+            if (!this.frameStack.length) {
+              const value = this.instance(valueId)
+              const message = interruption === 'exception'
+                ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
+                : ''
+
+              throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
+            }
+
+            currentContext = this.context(this.currentFrame().context)
+          }
+        }
+        this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex
+        this.currentFrame().context = currentContext.parent
+        this.context(this.currentFrame().context).locals['<exception>'] = valueId
+      } else if (interruption === 'return') {
         this.frameStack.pop()
-        nextFrame = last(this.frameStack)
-      } while (nextFrame && !nextFrame.resume.includes(interruption))
-      // TODO: Is it OK to drop the last frame? Shouldn't then the currentFrame() be optional?
-
-      if (!nextFrame) {
-        const value = this.instance(valueId)
-        const message = interruption === 'exception'
-          ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
-          : ''
-
-        throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
-      }
-
-      nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
-      nextFrame.pushOperand(valueId)
+        this.currentFrame().pushOperand(valueId)
+      } else throw new Error('Whaaaaaaaaaaat???')
     },
 
     copy(this: EvaluationType): EvaluationType {
