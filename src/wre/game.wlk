@@ -354,7 +354,7 @@ object keyboard {
 
 	method a() = new Key(keyCodes = ["KeyA"])
 
-	method alt() = new Key(keyCodes = ["AltRight", "AltLeft"])
+	method alt() = new Key(keyCodes = ["Alt", "AltRight", "AltLeft"])
 
 	method b() = new Key(keyCodes = ["KeyB"])
 
@@ -362,7 +362,7 @@ object keyboard {
 
 	method c() = new Key(keyCodes = ["KeyC"])
 
-	method control() = new Key(keyCodes = ["ControlLeft", "ControlRight"])
+	method control() = new Key(keyCodes = ["Control", "ControlLeft", "ControlRight"])
 
 	method d() = new Key(keyCodes = ["KeyD"])
 
@@ -414,7 +414,7 @@ object keyboard {
 
 	method s() = new Key(keyCodes = ["KeyS"])
 
-	method shift() = new Key(keyCodes = ["ShiftLeft", "ShiftRight"])
+	method shift() = new Key(keyCodes = ["Shift", "ShiftLeft", "ShiftRight"])
 
 	method slash() = new Key(keyCodes = ["Slash"])
 
