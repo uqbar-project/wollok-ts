@@ -97,7 +97,19 @@ export default {
       evaluation.currentFrame().pushOperand(result)
     },
 
-    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => set(visual, 'message', message),
+    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
+      const io = evaluation.environment.getNodeByFQN('wollok.lang.io').id
+      const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
+      const { sendMessage } = interpret(evaluation.environment, wreNatives)
+      sendMessage('currentTime', io)(evaluation)
+      const wCurrentTime: RuntimeObject = evaluation.instances[currentFrame.operandStack.pop()!]
+      wCurrentTime.assertIsNumber()
+      const currentTime = wCurrentTime.innerValue
+      const messageTimeId = evaluation.createInstance('wollok.lang.Number', currentTime + 2 * 1000)
+      const messageTime = evaluation.instance(messageTimeId)
+      set(visual, 'message', message)(evaluation)
+      set(visual, 'messageTime', messageTime)(evaluation)
+    },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.suspend('return', [
