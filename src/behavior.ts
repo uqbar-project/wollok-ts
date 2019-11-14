@@ -423,40 +423,45 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
     suspend(this: EvaluationType, until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id) {
       this.currentFrame().resume.push(...isArray(until) ? until : [until])
-      this.frameStack.push(build.Frame({ context, instructions }))
+      this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
+      // const validateFrameStackNotEmpty = () => {
+      //   if (!this.frameStack.length) {
+      //     const value = this.instance(valueId)
+      //     const message = interruption === 'exception'
+      //       ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
+      //       : ''
+
+      //     throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
+      //   }
+      // }
+
+      // validateFrameStackNotEmpty()
+
       if (interruption === 'exception') {
 
         let currentContext = this.context(this.currentFrame().context)
-
         while (currentContext.exceptionHandlerIndex === undefined) {
-          if (currentContext.parent) { // TODO: Add id to frame so we can stop there instead of reaching bottom
-            this.currentFrame().context = currentContext.parent
-            currentContext = this.context(currentContext.parent)
-          } else {
+          if (this.currentFrame().context === this.currentFrame().id) {
             this.frameStack.pop()
-
-            if (!this.frameStack.length) {
-              const value = this.instance(valueId)
-              const message = interruption === 'exception'
-                ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
-                : ''
-
-              throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
-            }
-
-            currentContext = this.context(this.currentFrame().context)
+            // validateFrameStackNotEmpty()
+          } else {
+            this.currentFrame().context = currentContext.parent
           }
+
+          currentContext = this.context(this.currentFrame().context)
         }
-        this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex
+
+        this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
         this.currentFrame().context = currentContext.parent
         this.context(this.currentFrame().context).locals['<exception>'] = valueId
-      } else if (interruption === 'return') {
+
+      } else {
         this.frameStack.pop()
         this.currentFrame().pushOperand(valueId)
-      } else throw new Error('Whaaaaaaaaaaat???')
+      }
     },
 
     copy(this: EvaluationType): EvaluationType {

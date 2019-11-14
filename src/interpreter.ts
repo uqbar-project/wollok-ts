@@ -27,6 +27,7 @@ export interface RuntimeObject {
 }
 
 export interface Frame {
+  readonly id: Id
   readonly instructions: List<Instruction>
   context: Id
   nextInstruction: number
@@ -342,6 +343,14 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
+
+        // tslint:disable:no-console
+        if (instruction.name === 'parameters') {
+          console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+          console.log(JSON.stringify(evaluation.currentFrame()))
+          console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        }
+
         function resolve(name: Name, contextId: Id): Id | undefined {
           const context = evaluation.context(contextId)
           const reponse = context.locals[name]
@@ -477,9 +486,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
             })
           )
-
         } else {
-
           if (method.isNative) {
             log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
             const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
