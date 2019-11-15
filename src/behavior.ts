@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
@@ -425,8 +425,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    // tslint:disable-next-line:variable-name
-    interrupt(this: EvaluationType, _interruption: Interruption, valueId: Id) {
+    interrupt(this: EvaluationType, valueId: Id) {
       let currentContext = this.context(this.currentFrame().context)
       while (currentContext.exceptionHandlerIndex === undefined) {
         if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
@@ -455,7 +454,6 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
         frameStack: this.frameStack.map(frame => ({
           ...frame,
           operandStack: [...frame.operandStack],
-          resume: [...frame.resume],
         })),
       })
     },

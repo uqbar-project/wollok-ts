@@ -257,7 +257,6 @@ export const Evaluation = (
 export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
   nextInstruction: 0,
   instructions: [],
-  resume: [],
   operandStack: [],
   ...payload,
 })

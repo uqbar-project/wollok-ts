@@ -33,13 +33,10 @@ export interface Frame {
   context: Id
   nextInstruction: number
   operandStack: Id[]
-  resume: Interruption[]
 
   popOperand(): Id
   pushOperand(id: Id): void
 }
-
-export type Interruption = 'exception'
 
 export interface Evaluation {
   readonly environment: Environment
@@ -55,7 +52,7 @@ export interface Evaluation {
   // TODO: mover a Frame?
   suspend(instructions: List<Instruction>, context: Id): void
   // TODO: mover a Frame?
-  interrupt(interruption: Interruption, valueId: Id): void
+  interrupt(exception: Id): void
   copy(): Evaluation
 }
 
@@ -92,8 +89,8 @@ export type Instruction
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
-  | { kind: 'INTERRUPT', interruption: Interruption }
-  | { kind: 'RETURN' }
+  | { kind: 'INTERRUPT' } // TODO: revisit tests
+  | { kind: 'RETURN' } // TODO: test
 
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
@@ -112,7 +109,7 @@ export const CALL = (message: Name, arity: number, useReceiverContext: boolean =
 export const INIT = (arity: number, lookupStart: Name): Instruction =>
   ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
-export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: 'INTERRUPT', interruption })
+export const INTERRUPT: Instruction = ({ kind: 'INTERRUPT' })
 export const RETURN: Instruction = ({ kind: 'RETURN' })
 
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
@@ -269,7 +266,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
       case 'Throw': return (() => [
         ...compile(environment)(node.exception),
-        INTERRUPT('exception'),
+        INTERRUPT,
       ])()
 
 
@@ -317,7 +314,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           INHERITS('wollok.lang.Exception'),
           CONDITIONAL_JUMP(2),
           LOAD('<exception>'),
-          INTERRUPT('exception'),
+          INTERRUPT,
           LOAD('<result>'),
 
           POP_CONTEXT,
@@ -585,8 +582,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'INTERRUPT': return (() => {
-        const valueId = evaluation.currentFrame().popOperand()
-        evaluation.interrupt(instruction.interruption, valueId)
+        const exception = evaluation.currentFrame().popOperand()
+        evaluation.interrupt(exception)
       })()
 
       case 'RETURN': return (() => {
@@ -599,7 +596,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
   } catch (error) {
     log.error(error)
-    evaluation.interrupt('exception', evaluation.createInstance('wollok.lang.EvaluationError', error))
+    evaluation.interrupt(evaluation.createInstance('wollok.lang.EvaluationError', error))
   }
 
 }

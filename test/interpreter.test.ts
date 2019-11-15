@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { restore, stub } from 'sinon'
 import { Class, Constructor, Evaluation, Field, Frame, Literal, Method, Package, Parameter, Reference, Return, RuntimeObject } from '../src/builders'
-import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, INHERITS, INIT, INIT_NAMED, INSTANTIATE, INTERRUPT, LOAD, NativeFunction, PUSH, step, STORE, SWAP, TRUE_ID, VOID_ID } from '../src/interpreter'
+import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, INHERITS, INIT, INIT_NAMED, INSTANTIATE, LOAD, NativeFunction, PUSH, RETURN, step, STORE, SWAP, TRUE_ID, VOID_ID } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Module, Package as PackageNode } from '../src/model'
 import { interpreterAssertions } from './assertions'
@@ -505,7 +505,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -548,7 +548,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '0', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '0', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -597,7 +597,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', operandStack: ['5'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -642,7 +642,7 @@ describe('Wollok Interpreter', () => {
               context: 'new_id_2',
               instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
             }),
-            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -809,7 +809,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -857,7 +857,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -911,7 +911,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '1', operandStack: ['5'], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -1012,7 +1012,7 @@ describe('Wollok Interpreter', () => {
                 RETURN,
               ],
             }),
-            Frame({ context: '0', resume: ['return'], operandStack: [], instructions: [instruction], nextInstruction: 1 }),
+            Frame({ context: '0', operandStack: [], instructions: [instruction], nextInstruction: 1 }),
           )
         )
       })
@@ -1040,8 +1040,8 @@ describe('Wollok Interpreter', () => {
         })(
           Frame({ operandStack: ['1'], instructions: [instruction] }),
           Frame({}),
-          Frame({ resume: ['return'], operandStack: ['2'] }),
-          Frame({ resume: ['return', 'exception'] }),
+          Frame({ operandStack: ['2'] }),
+          Frame({}),
         )
 
 
@@ -1050,7 +1050,7 @@ describe('Wollok Interpreter', () => {
             1: RuntimeObject('1', 'wollok.lang.Object'),
           })(
             Frame({ operandStack: ['2', '1'] }),
-            Frame({ resume: ['return', 'exception'] }),
+            Frame({}),
           )
         )
       })
@@ -1060,7 +1060,7 @@ describe('Wollok Interpreter', () => {
         const instruction = RETURN
         const evaluation = Evaluation(environment, {})(
           Frame({}),
-          Frame({ resume: ['return'], instructions: [instruction] }),
+          Frame({ instructions: [instruction] }),
         )
 
         expect(() => step({})(evaluation)).to.throw()
@@ -1073,7 +1073,7 @@ describe('Wollok Interpreter', () => {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(
           Frame({ operandStack: ['1'], instructions: [instruction] }),
-          Frame({ resume: ['exception'] }),
+          Frame({}),
         )
 
         expect(() => step({})(evaluation)).to.throw()
