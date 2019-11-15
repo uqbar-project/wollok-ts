@@ -21,16 +21,18 @@ export default {
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
+    // TODO:
     addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     addVisualCharacter: (_self: RuntimeObject, _positionable: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
     addVisualCharacterIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
@@ -43,7 +45,7 @@ export default {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
         PUSH(event.id),
         PUSH(action.id),
@@ -52,36 +54,44 @@ export default {
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
+    // TODO:
     whenCollideDo: (_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     onTick: (_self: RuntimeObject, _ms: RuntimeObject, _name: RuntimeObject, _action: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     removeTickEvent: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     getObjectsIn: (_self: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     say: (_self: RuntimeObject, _visual: RuntimeObject, _message: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     colliders: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => (evaluation: Evaluation) => {
@@ -89,21 +99,21 @@ export default {
       if (title) {
         self.set('title', title.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('title') ?.id ?? VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.get('title')?.id ?? VOID_ID)
     },
 
     width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
       if (width) {
         self.set('width', width.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('width') ?.id ?? VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.get('width')?.id ?? VOID_ID)
     },
 
     height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
       if (height) {
         self.set('height', height.id)
         evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('height') ?.id ?? VOID_ID)
+      } else evaluation.currentFrame().pushOperand(self.get('height')?.id ?? VOID_ID)
     },
 
     ground: (self: RuntimeObject, ground: RuntimeObject) => (evaluation: Evaluation) => {
@@ -111,28 +121,34 @@ export default {
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
+    // TODO:
     boardGround: (_self: RuntimeObject, _image: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     hideAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     showAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     errorReporter: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     sound: (_self: RuntimeObject, _audioFile: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
 
+    // TODO:
     doStart: (_self: RuntimeObject, _isRepl: RuntimeObject) => (_evaluation: Evaluation) => {
-           /*TODO: */ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
   },
 }

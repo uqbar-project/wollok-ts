@@ -52,7 +52,7 @@ export interface Evaluation {
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
   // TODO: mover a Frame?
-  suspend(until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id): void
+  suspend(instructions: List<Instruction>, context: Id): void
   // TODO: mover a Frame?
   interrupt(interruption: Interruption, valueId: Id): void
   copy(): Evaluation
@@ -359,7 +359,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          evaluation.suspend([], [
+          evaluation.suspend([
             ...instruction.lazyInitialization,
             DUP,
             STORE(instruction.name, true),
@@ -479,7 +479,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
           evaluation.suspend(
-            'return',
             compile(environment)(...messageNotUnderstood.body!.sentences),
             evaluation.createContext(self.id, {
               ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
@@ -511,7 +510,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
                 ...zipObj(parameterNames, argIds),
               }
 
-            evaluation.suspend('return', [
+            evaluation.suspend([
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               INTERRUPT('return'),
@@ -539,7 +538,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           }
           : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
-        evaluation.suspend('return', [
+        evaluation.suspend([
           ...ownSuperclass || !constructor.baseCall.callsSuper ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
             LOAD('self'),
@@ -571,7 +570,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, evaluation.currentFrame().popOperand())
 
-        evaluation.suspend('return', [
+        evaluation.suspend([
           ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
             ...compile(environment)(field.value),
             STORE(field.name, true),
@@ -661,7 +660,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
   const context = evaluation.createContext(evaluation.currentFrame().context)
 
-  evaluation.suspend([], instructions, context)
+  evaluation.suspend(instructions, context)
 
   stepAll(natives)(evaluation)
 
@@ -682,7 +681,7 @@ export default (environment: Environment, natives: {}) => ({
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.length
 
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(receiver),
       ...args.map(PUSH),
       CALL(message, args.length),
@@ -757,7 +756,7 @@ export default (environment: Environment, natives: {}) => ({
 
       log.info(`Running describe ${describe.fullyQualifiedName()}`)
 
-      describeEvaluation.suspend([], compile(describeEvaluation.environment)(
+      describeEvaluation.suspend(compile(describeEvaluation.environment)(
         ...describe.variables(),
         ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
       ), describeEvaluation.instance(describeId).id)

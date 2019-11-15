@@ -421,35 +421,17 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    suspend(this: EvaluationType, until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id) {
-      this.currentFrame().resume.push(...isArray(until) ? until : [until])
+    suspend(this: EvaluationType, instructions: List<Instruction>, context: Id) {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
     interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
-      // const validateFrameStackNotEmpty = () => {
-      //   if (!this.frameStack.length) {
-      //     const value = this.instance(valueId)
-      //     const message = interruption === 'exception'
-      //       ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
-      //       : ''
-
-      //     throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
-      //   }
-      // }
-
-      // validateFrameStackNotEmpty()
-
       if (interruption === 'exception') {
 
         let currentContext = this.context(this.currentFrame().context)
         while (currentContext.exceptionHandlerIndex === undefined) {
-          if (this.currentFrame().context === this.currentFrame().id) {
-            this.frameStack.pop()
-            // validateFrameStackNotEmpty()
-          } else {
-            this.currentFrame().context = currentContext.parent
-          }
+          if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
+          else this.currentFrame().context = currentContext.parent
 
           currentContext = this.context(this.currentFrame().context)
         }

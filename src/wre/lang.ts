@@ -12,7 +12,7 @@ const Collections = {
   findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation) => {
     self.assertIsCollection()
 
-    evaluation.suspend('return', [
+    evaluation.suspend([
       ...self.innerValue.flatMap((id: Id) => [
         PUSH(predicate.id),
         PUSH(id),
@@ -37,7 +37,7 @@ const Collections = {
   fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
     self.assertIsCollection()
 
-    evaluation.suspend('return', [
+    evaluation.suspend([
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
         PUSH(closure.id),
         PUSH(id),
@@ -54,7 +54,7 @@ const Collections = {
   filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
     self.assertIsCollection()
 
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(self.id),
       CALL('copy', 0),
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
@@ -73,7 +73,7 @@ const Collections = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation) => {
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(self.id),
       CALL('max', 0, true, self.module),
       INTERRUPT('return'),
@@ -101,7 +101,7 @@ const Collections = {
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation) => {
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
       CALL('join', separator ? 1 : 0, true, self.module),
@@ -110,7 +110,7 @@ const Collections = {
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation) => {
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(self.id),
       PUSH(value.id),
       CALL('contains', 1, true, self.module),
@@ -119,7 +119,7 @@ const Collections = {
   },
 
   equals: (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-    evaluation.suspend('return', [
+    evaluation.suspend([
       PUSH(self.id),
       PUSH(other.id),
       CALL('==', 1),
@@ -223,7 +223,7 @@ export default {
     'findOrElse': Collections.findOrElse,
 
     'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         PUSH(element.id),
         CALL('contains', 1),
@@ -259,7 +259,7 @@ export default {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame().pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame().pushOperand(TRUE_ID)
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         ...[...self.innerValue].reverse().flatMap((id: Id) => [
           PUSH(other.id),
           PUSH(id),
@@ -293,7 +293,7 @@ export default {
 
       if (self.innerValue.length < 2) return evaluation.currentFrame().pushOperand(self.id)
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<lessers>', false),
@@ -367,7 +367,7 @@ export default {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame().pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame().pushOperand(TRUE_ID)
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         CALL('first', 0),
         PUSH(other.id),
@@ -391,7 +391,7 @@ export default {
     'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsCollection()
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<answer>', false),
@@ -425,7 +425,7 @@ export default {
       if (key.id === NULL_ID) throw new TypeError('key')
       if (value.id === NULL_ID) throw new TypeError('value')
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         PUSH(key.id),
         CALL('remove', 1),
@@ -444,7 +444,7 @@ export default {
 
       keys.assertIsCollection()
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         ...keys.innerValue.flatMap((id, index) => [
           PUSH(key.id),
           PUSH(id),
@@ -465,7 +465,7 @@ export default {
 
       keys.assertIsCollection()
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         ...keys.innerValue.flatMap((id, index) => [
           PUSH(key.id),
           PUSH(id),
@@ -516,7 +516,7 @@ export default {
       const keyList = [...keys.innerValue].reverse()
       const valueList = [...values.innerValue].reverse()
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         ...keyList.flatMap((key, index) => [
           PUSH(closure.id),
           PUSH(key),
@@ -829,7 +829,7 @@ export default {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
       if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(closure.id),
         CALL('apply', 0, false),
         INTERRUPT('return'),
@@ -839,7 +839,7 @@ export default {
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
       if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(closure.id),
         CALL('apply', 0, false),
         INTERRUPT('return'),
@@ -883,7 +883,7 @@ export default {
 
       const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
-      evaluation.suspend('return', [
+      evaluation.suspend([
         ...valueIds.flatMap((id: Id) => [
           PUSH(closure.id),
           PUSH(id),
@@ -918,7 +918,7 @@ export default {
   Closure: {
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
+      evaluation.suspend([
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
