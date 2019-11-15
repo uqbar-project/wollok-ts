@@ -1,4 +1,4 @@
-import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
+import { CALL, Evaluation, PUSH, RETURN, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 // TODO: tests
@@ -50,7 +50,7 @@ export default {
         PUSH(event.id),
         PUSH(action.id),
         CALL('addHandler', 2),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 

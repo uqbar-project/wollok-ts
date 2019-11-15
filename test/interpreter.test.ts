@@ -502,7 +502,7 @@ describe('Wollok Interpreter', () => {
               context: 'new_id_0', instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -545,7 +545,7 @@ describe('Wollok Interpreter', () => {
               context: 'new_id_0', instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '0', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -594,7 +594,7 @@ describe('Wollok Interpreter', () => {
               instructions: [
                 ...compile(environment)(...method.body!.sentences),
                 PUSH(VOID_ID),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -806,7 +806,7 @@ describe('Wollok Interpreter', () => {
                 LOAD('self'),
                 CALL('initialize', 0),
                 LOAD('self'),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -854,7 +854,7 @@ describe('Wollok Interpreter', () => {
                 LOAD('self'),
                 CALL('initialize', 0),
                 LOAD('self'),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '1', resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -908,7 +908,7 @@ describe('Wollok Interpreter', () => {
                 LOAD('self'),
                 CALL('initialize', 0),
                 LOAD('self'),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '1', operandStack: ['5'], resume: ['return'], instructions: [instruction], nextInstruction: 1 }),
@@ -1009,7 +1009,7 @@ describe('Wollok Interpreter', () => {
                 ...compile(environment)(f4.value),
                 STORE('f4', true),
                 LOAD('self'),
-                INTERRUPT('return'),
+                RETURN,
               ],
             }),
             Frame({ context: '0', resume: ['return'], operandStack: [], instructions: [instruction], nextInstruction: 1 }),
@@ -1034,7 +1034,7 @@ describe('Wollok Interpreter', () => {
     describe('INTERRUPT', () => {
 
       it('should pop a value and push it on the first frame that resumes the given interruption, dropping the rest', async () => {
-        const instruction = INTERRUPT('return')
+        const instruction = RETURN
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(
@@ -1057,7 +1057,7 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the current operand stack is empty', async () => {
 
-        const instruction = INTERRUPT('return')
+        const instruction = RETURN
         const evaluation = Evaluation(environment, {})(
           Frame({}),
           Frame({ resume: ['return'], instructions: [instruction] }),
@@ -1068,7 +1068,7 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if no frame resumes the interruption', async () => {
 
-        const instruction = INTERRUPT('return')
+        const instruction = RETURN
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
         })(

@@ -12,6 +12,7 @@ export interface Context {
 }
 
 export type InnerValue = string | number | Id[]
+
 export interface RuntimeObject {
   readonly id: Id
   readonly module: Name
@@ -38,7 +39,7 @@ export interface Frame {
   pushOperand(id: Id): void
 }
 
-export type Interruption = 'return' | 'exception'
+export type Interruption = 'exception'
 
 export interface Evaluation {
   readonly environment: Environment
@@ -92,6 +93,7 @@ export type Instruction
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'INTERRUPT', interruption: Interruption }
+  | { kind: 'RETURN' }
 
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
@@ -111,6 +113,7 @@ export const INIT = (arity: number, lookupStart: Name): Instruction =>
   ({ kind: 'INIT', arity, lookupStart })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const INTERRUPT = (interruption: Interruption): Instruction => ({ kind: 'INTERRUPT', interruption })
+export const RETURN: Instruction = ({ kind: 'RETURN' })
 
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => {
@@ -124,7 +127,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         ...node.value
           ? compile(environment)(node.value)
           : [PUSH(VOID_ID)],
-        INTERRUPT('return'),
+        RETURN,
       ])()
 
 
@@ -363,7 +366,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             ...instruction.lazyInitialization,
             DUP,
             STORE(instruction.name, true),
-            INTERRUPT('return'),
+            RETURN,
           ], currentFrame.context)
         }
       })()
@@ -513,7 +516,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             evaluation.suspend([
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
-              INTERRUPT('return'),
+              RETURN,
             ], evaluation.createContext(instruction.useReceiverContext ? selfId : evaluation.context(selfId).parent, locals))
           }
         }
@@ -551,7 +554,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           LOAD('self'),
           CALL('initialize', 0),
           LOAD('self'),
-          INTERRUPT('return'),
+          RETURN,
         ], evaluation.createContext(self.id, locals))
       })()
 
@@ -576,7 +579,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
             STORE(field.name, true),
           ]),
           LOAD('self'),
-          INTERRUPT('return'),
+          RETURN,
         ], self.id)
       })()
 
@@ -584,6 +587,12 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       case 'INTERRUPT': return (() => {
         const valueId = evaluation.currentFrame().popOperand()
         evaluation.interrupt(instruction.interruption, valueId)
+      })()
+
+      case 'RETURN': return (() => {
+        const valueId = evaluation.currentFrame().popOperand()
+        evaluation.frameStack.pop()
+        evaluation.currentFrame().pushOperand(valueId)
       })()
 
     }
@@ -685,7 +694,7 @@ export default (environment: Environment, natives: {}) => ({
       PUSH(receiver),
       ...args.map(PUSH),
       CALL(message, args.length),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(receiver))
 
     // TODO: stepAll?

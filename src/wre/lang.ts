@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, INTERRUPT, JUMP, LOAD, NULL_ID, POP, PUSH, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 const { random, floor, ceil } = Math
@@ -19,11 +19,11 @@ const Collections = {
         CALL('apply', 1, false),
         CONDITIONAL_JUMP(2),
         PUSH(id),
-        INTERRUPT('return'),
+        RETURN,
       ]),
       PUSH(continuation.id),
       CALL('apply', 0, false),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -47,7 +47,7 @@ const Collections = {
         SWAP(),
         CALL('apply', 2, false),
       ]),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -68,7 +68,7 @@ const Collections = {
         CALL('remove', 1),
         POP,
       ]),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -76,7 +76,7 @@ const Collections = {
     evaluation.suspend([
       PUSH(self.id),
       CALL('max', 0, true, self.module),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -105,7 +105,7 @@ const Collections = {
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
       CALL('join', separator ? 1 : 0, true, self.module),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -114,7 +114,7 @@ const Collections = {
       PUSH(self.id),
       PUSH(value.id),
       CALL('contains', 1, true, self.module),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -123,7 +123,7 @@ const Collections = {
       PUSH(self.id),
       PUSH(other.id),
       CALL('==', 1),
-      INTERRUPT('return'),
+      RETURN,
     ], evaluation.createContext(self.id))
   },
 
@@ -233,7 +233,7 @@ export default {
         PUSH(element.id),
         CALL('unsafeAdd', 1),
         PUSH(VOID_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -267,10 +267,10 @@ export default {
           DUP,
           CALL('negate', 0),
           CONDITIONAL_JUMP(1),
-          INTERRUPT('return'),
+          RETURN,
         ]),
         PUSH(TRUE_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -331,7 +331,7 @@ export default {
         PUSH(self.id),
         LOAD('<biggers>'),
         CALL('addAll', 1),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -376,7 +376,7 @@ export default {
         DUP,
         CALL('negate', 0),
         CONDITIONAL_JUMP(1),
-        INTERRUPT('return'),
+        RETURN,
         PUSH(self.id),
         INSTANTIATE('wollok.lang.Number', 1),
         CALL('subList', 1),
@@ -384,7 +384,7 @@ export default {
         INSTANTIATE('wollok.lang.Number', 1),
         CALL('subList', 1),
         CALL('==', 1),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -406,7 +406,7 @@ export default {
           CALL('add', 1),
         ]),
         LOAD('<answer>'),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -435,7 +435,7 @@ export default {
         LOAD('<values>'),
         PUSH(value.id),
         CALL('add', 1),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -453,10 +453,10 @@ export default {
           LOAD('<values>'),
           INSTANTIATE('wollok.lang.Number', index),
           CALL('get', 1),
-          INTERRUPT('return'),
+          RETURN,
         ]),
         PUSH(NULL_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -494,7 +494,7 @@ export default {
           CALL('remove', 1),
         ]),
         PUSH(VOID_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -524,7 +524,7 @@ export default {
           CALL('apply', 2, false),
         ]),
         PUSH(VOID_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
@@ -832,7 +832,7 @@ export default {
       evaluation.suspend([
         PUSH(closure.id),
         CALL('apply', 0, false),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
@@ -842,7 +842,7 @@ export default {
       evaluation.suspend([
         PUSH(closure.id),
         CALL('apply', 0, false),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
     },
 
@@ -890,7 +890,7 @@ export default {
           CALL('apply', 1, false),
         ]),
         PUSH(VOID_ID),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
     },
 
@@ -922,7 +922,7 @@ export default {
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 

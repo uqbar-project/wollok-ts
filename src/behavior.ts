@@ -425,25 +425,19 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
-      if (interruption === 'exception') {
+    // tslint:disable-next-line:variable-name
+    interrupt(this: EvaluationType, _interruption: Interruption, valueId: Id) {
+      let currentContext = this.context(this.currentFrame().context)
+      while (currentContext.exceptionHandlerIndex === undefined) {
+        if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
+        else this.currentFrame().context = currentContext.parent
 
-        let currentContext = this.context(this.currentFrame().context)
-        while (currentContext.exceptionHandlerIndex === undefined) {
-          if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
-          else this.currentFrame().context = currentContext.parent
-
-          currentContext = this.context(this.currentFrame().context)
-        }
-
-        this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
-        this.currentFrame().context = currentContext.parent
-        this.context(this.currentFrame().context).locals['<exception>'] = valueId
-
-      } else {
-        this.frameStack.pop()
-        this.currentFrame().pushOperand(valueId)
+        currentContext = this.context(this.currentFrame().context)
       }
+
+      this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
+      this.currentFrame().context = currentContext.parent
+      this.context(this.currentFrame().context).locals['<exception>'] = valueId
     },
 
     copy(this: EvaluationType): EvaluationType {
