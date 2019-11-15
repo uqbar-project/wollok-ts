@@ -45,7 +45,7 @@ export default {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.suspend([
+      evaluation.pushFrame([
         PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
         PUSH(event.id),
         PUSH(action.id),

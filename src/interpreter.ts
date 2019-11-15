@@ -49,10 +49,8 @@ export interface Evaluation {
   createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
-  // TODO: mover a Frame?
-  suspend(instructions: List<Instruction>, context: Id): void
-  // TODO: mover a Frame?
-  interrupt(exception: Id): void
+  pushFrame(instructions: List<Instruction>, context: Id): void
+  raise(exception: Id): void
   copy(): Evaluation
 }
 
@@ -359,7 +357,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          evaluation.suspend([
+          evaluation.pushFrame([
             ...instruction.lazyInitialization,
             DUP,
             STORE(instruction.name, true),
@@ -478,7 +476,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
-          evaluation.suspend(
+          evaluation.pushFrame(
             compile(environment)(...messageNotUnderstood.body!.sentences),
             evaluation.createContext(self.id, {
               ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]),
@@ -510,7 +508,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
                 ...zipObj(parameterNames, argIds),
               }
 
-            evaluation.suspend([
+            evaluation.pushFrame([
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               RETURN,
@@ -538,7 +536,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           }
           : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
-        evaluation.suspend([
+        evaluation.pushFrame([
           ...ownSuperclass || !constructor.baseCall.callsSuper ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
             LOAD('self'),
@@ -570,7 +568,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, evaluation.currentFrame().popOperand())
 
-        evaluation.suspend([
+        evaluation.pushFrame([
           ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
             ...compile(environment)(field.value),
             STORE(field.name, true),
@@ -583,7 +581,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'INTERRUPT': return (() => {
         const exception = evaluation.currentFrame().popOperand()
-        evaluation.interrupt(exception)
+        evaluation.raise(exception)
       })()
 
       case 'RETURN': return (() => {
@@ -596,7 +594,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
   } catch (error) {
     log.error(error)
-    evaluation.interrupt(evaluation.createInstance('wollok.lang.EvaluationError', error))
+    evaluation.raise(evaluation.createInstance('wollok.lang.EvaluationError', error))
   }
 
 }
@@ -666,7 +664,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
   const context = evaluation.createContext(evaluation.currentFrame().context)
 
-  evaluation.suspend(instructions, context)
+  evaluation.pushFrame(instructions, context)
 
   stepAll(natives)(evaluation)
 
@@ -687,7 +685,7 @@ export default (environment: Environment, natives: {}) => ({
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.length
 
-    evaluation.suspend([
+    evaluation.pushFrame([
       PUSH(receiver),
       ...args.map(PUSH),
       CALL(message, args.length),
@@ -762,7 +760,7 @@ export default (environment: Environment, natives: {}) => ({
 
       log.info(`Running describe ${describe.fullyQualifiedName()}`)
 
-      describeEvaluation.suspend(compile(describeEvaluation.environment)(
+      describeEvaluation.pushFrame(compile(describeEvaluation.environment)(
         ...describe.variables(),
         ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
       ), describeEvaluation.instance(describeId).id)

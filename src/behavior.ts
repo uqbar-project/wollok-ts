@@ -421,11 +421,11 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    suspend(this: EvaluationType, instructions: List<Instruction>, context: Id) {
+    pushFrame(this: EvaluationType, instructions: List<Instruction>, context: Id) {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    interrupt(this: EvaluationType, valueId: Id) {
+    raise(this: EvaluationType, valueId: Id) {
       let currentContext = this.context(this.currentFrame().context)
       while (currentContext.exceptionHandlerIndex === undefined) {
         if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
