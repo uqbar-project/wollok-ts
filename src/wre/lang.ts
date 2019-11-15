@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, INTERRUPT, LOAD, NULL_ID, POP, PUSH, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, INTERRUPT, JUMP, LOAD, NULL_ID, POP, PUSH, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 const { random, floor, ceil } = Math
@@ -305,12 +305,11 @@ export default {
           PUSH(id),
           PUSH(self.innerValue[0]),
           CALL('apply', 2, false),
-          CONDITIONAL_JUMP(5),
+          CONDITIONAL_JUMP(4),
           LOAD('<lessers>'),
           PUSH(id),
           CALL('add', 1),
-          PUSH(FALSE_ID),
-          CONDITIONAL_JUMP(3),
+          JUMP(3),
           LOAD('<biggers>'),
           PUSH(id),
           CALL('add', 1),

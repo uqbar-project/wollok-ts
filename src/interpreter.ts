@@ -86,6 +86,7 @@ export type Instruction
   | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: InnerValue }
   | { kind: 'INHERITS', module: Name }
+  | { kind: 'JUMP', count: number } // TODO: test
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
@@ -102,6 +103,7 @@ export const SWAP = (distance: number = 0): Instruction => ({ kind: 'SWAP', dist
 export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
+export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, useReceiverContext: boolean = true, lookupStart?: Name): Instruction =>
   ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
@@ -253,10 +255,9 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         return [
           ...compile(environment)(node.condition),
           PUSH_CONTEXT(),
-          CONDITIONAL_JUMP(thenClause.length + 2),
+          CONDITIONAL_JUMP(thenClause.length + 1),
           ...thenClause,
-          PUSH(FALSE_ID),
-          CONDITIONAL_JUMP(elseClause.length),
+          JUMP(elseClause.length),
           ...elseClause,
           POP_CONTEXT,
         ]
@@ -295,13 +296,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           PUSH(VOID_ID),
           STORE('<result>', false),
 
-          PUSH_CONTEXT(clause.length + 5),
+          PUSH_CONTEXT(clause.length + 4),
           PUSH(VOID_ID), // TODO: Won't this break if we asume expressions only push 1 to the stack?
           ...clause,
           STORE('<result>', true),
           POP_CONTEXT,
-          PUSH(FALSE_ID),
-          CONDITIONAL_JUMP(catches.length + 2),
+          JUMP(catches.length + 2),
 
           PUSH_CONTEXT(catches.length + 1),
           ...catches,
@@ -343,14 +343,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
-
-        // tslint:disable:no-console
-        if (instruction.name === 'parameters') {
-          console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-          console.log(JSON.stringify(evaluation.currentFrame()))
-          console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        }
-
         function resolve(name: Name, contextId: Id): Id | undefined {
           const context = evaluation.context(contextId)
           const reponse = context.locals[name]
@@ -445,6 +437,13 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         currentFrame.pushOperand(
           environment.getNodeByFQN<Module>(self.module).inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
         )
+      })()
+
+      case 'JUMP': return (() => {
+        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
+
+        currentFrame.nextInstruction += instruction.count
       })()
 
       case 'CONDITIONAL_JUMP': return (() => {
