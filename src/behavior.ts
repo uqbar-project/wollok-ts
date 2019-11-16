@@ -429,7 +429,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    raise(this: EvaluationType, valueId: Id) {
+    raise(this: EvaluationType, exception: Id) {
       let currentContext = this.context(this.currentFrame().context)
       while (currentContext.exceptionHandlerIndex === undefined) {
         if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
@@ -440,7 +440,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
       this.currentFrame().context = currentContext.parent
-      this.context(this.currentFrame().context).locals['<exception>'] = valueId
+      this.context(this.currentFrame().context).locals['<exception>'] = exception
     },
 
     copy(this: EvaluationType): EvaluationType {
