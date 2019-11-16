@@ -76,20 +76,20 @@ export type Instruction
   = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id: Id }
-  | { kind: 'POP' } // TODO: test
-  | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number } // TODO: test
-  | { kind: 'POP_CONTEXT' } // TODO: test
-  | { kind: 'SWAP', distance: number } // TODO: test with parameters
+  | { kind: 'POP' }
+  | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number }
+  | { kind: 'POP_CONTEXT' }
+  | { kind: 'SWAP', distance: number }
   | { kind: 'DUP' }
   | { kind: 'INSTANTIATE', module: Name, innerValue?: InnerValue }
   | { kind: 'INHERITS', module: Name }
-  | { kind: 'JUMP', count: number } // TODO: test
+  | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
-  | { kind: 'INTERRUPT' } // TODO: revisit tests
-  | { kind: 'RETURN' } // TODO: test
+  | { kind: 'INTERRUPT' }
+  | { kind: 'RETURN' }
 
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
