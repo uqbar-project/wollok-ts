@@ -325,13 +325,17 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
   const runtimeObject = { ...obj } as RuntimeObjectType
 
   const assertIs = (instance: RuntimeObjectType, module: Name, innerValueType: string) => {
-    if (instance.module !== module)
-      throw new TypeError(`Expected an instance of ${module} but got a ${instance.module} instead`)
+    if (instance.moduleFQN !== module)
+      throw new TypeError(`Expected an instance of ${module} but got a ${instance.moduleFQN} instead`)
     if (typeof obj.innerValue !== innerValueType)
       throw new TypeError(`Malformed Runtime Object: invalid inner value ${instance.innerValue} for ${module} instance`)
   }
 
   assign(runtimeObject, {
+    module(this: RuntimeObjectType): Module {
+      return evaluation.environment.getNodeByFQN<Module>(this.moduleFQN)
+    },
+
     context(this: RuntimeObjectType): Context {
       return evaluation.context(this.id)
     },
@@ -380,11 +384,11 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    createInstance(this: EvaluationType, module: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
+    createInstance(this: EvaluationType, moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
       let id: Id
       let innerValue = baseInnerValue
 
-      switch (module) {
+      switch (moduleFQN) {
         case 'wollok.lang.Number':
           if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
           const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
@@ -401,7 +405,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = defaultId
       }
 
-      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
+      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, moduleFQN, innerValue })
 
       if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? '', { self: id }, id)
 

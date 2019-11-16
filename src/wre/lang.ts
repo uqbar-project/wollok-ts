@@ -75,7 +75,7 @@ const Collections = {
   max: (self: RuntimeObject) => (evaluation: Evaluation) => {
     evaluation.pushFrame([
       PUSH(self.id),
-      CALL('max', 0, true, self.module),
+      CALL('max', 0, true, self.moduleFQN),
       RETURN,
     ], evaluation.createContext(self.id))
   },
@@ -104,7 +104,7 @@ const Collections = {
     evaluation.pushFrame([
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
-      CALL('join', separator ? 1 : 0, true, self.module),
+      CALL('join', separator ? 1 : 0, true, self.moduleFQN),
       RETURN,
     ], evaluation.createContext(self.id))
   },
@@ -113,7 +113,7 @@ const Collections = {
     evaluation.pushFrame([
       PUSH(self.id),
       PUSH(value.id),
-      CALL('contains', 1, true, self.module),
+      CALL('contains', 1, true, self.moduleFQN),
       RETURN,
     ], evaluation.createContext(self.id))
   },
@@ -169,11 +169,11 @@ export default {
     },
 
     kindName: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.moduleFQN))
     },
 
     className: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.moduleFQN))
     },
 
     generateDoesNotUnderstandMessage:
@@ -254,7 +254,7 @@ export default {
       self.assertIsCollection()
       other.assertIsCollection()
 
-      if (self.module !== other.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
+      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame().pushOperand(FALSE_ID)
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame().pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame().pushOperand(TRUE_ID)
 
@@ -356,7 +356,7 @@ export default {
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsCollection()
 
-      if (self.module !== other.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
+      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame().pushOperand(FALSE_ID)
 
       other.assertIsCollection()
 
@@ -540,7 +540,7 @@ export default {
       const decimalPosition = num.indexOf('.')
 
       evaluation.currentFrame().pushOperand(decimalPosition >= 0
-        ? evaluation.createInstance(self.module, Number(num.slice(0, decimalPosition + 1)))
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
         : self.id
       )
     },
@@ -554,7 +554,7 @@ export default {
       const decimalPosition = num.indexOf('.')
 
       evaluation.currentFrame().pushOperand(decimalPosition >= 0
-        ? evaluation.createInstance(self.module, Number(num.slice(0, decimalPosition + 1)))
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
         : self.id
       )
     },
@@ -567,21 +567,21 @@ export default {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue - other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue * other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -589,21 +589,21 @@ export default {
       other.assertIsNumber()
       if (other.innerValue === 0) throw new RangeError('other')
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue / other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue ** other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue % other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue % other.innerValue))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -628,13 +628,13 @@ export default {
       self.assertIsNumber()
 
       if (self.innerValue > 0) evaluation.currentFrame().pushOperand(self.id)
-      else evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
+      else evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, -self.innerValue))
     },
 
     'invert': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, -self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
@@ -643,7 +643,7 @@ export default {
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       evaluation.currentFrame().pushOperand(
-        evaluation.createInstance(self.module, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue))
+        evaluation.createInstance(self.moduleFQN, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue))
       )
     },
 
@@ -656,7 +656,7 @@ export default {
       const decimalPosition = num.indexOf('.')
 
       evaluation.currentFrame().pushOperand(decimalPosition >= 0
-        ? evaluation.createInstance(self.module, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
         : self.id
       )
     },
@@ -666,7 +666,7 @@ export default {
       other.assertIsNumber()
 
       evaluation.currentFrame().pushOperand(
-        evaluation.createInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue)
+        evaluation.createInstance(self.moduleFQN, random() * (other.innerValue - self.innerValue) + self.innerValue)
       )
     },
 
@@ -676,7 +676,7 @@ export default {
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, gcd(self.innerValue, other.innerValue)))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, gcd(self.innerValue, other.innerValue)))
     },
 
     'isInteger': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -700,7 +700,7 @@ export default {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -742,25 +742,25 @@ export default {
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toLowerCase()))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toUpperCase()))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.trim()))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.trim()))
     },
 
     'reverse': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.split('').reverse().join('')))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.split('').reverse().join('')))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -793,7 +793,7 @@ export default {
       }
 
       const value = self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue as number)
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, value))
     },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
@@ -802,7 +802,7 @@ export default {
       replacement.assertIsString()
 
       const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
+      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.moduleFQN, value))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -946,7 +946,7 @@ export default {
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
+      if (other.moduleFQN !== self.moduleFQN) return evaluation.currentFrame().pushOperand(FALSE_ID)
 
       const day = self.get('day')!.innerValue
       const month = self.get('month')!.innerValue
@@ -971,7 +971,7 @@ export default {
       year.assertIsNumber()
       days.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
       instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
@@ -992,7 +992,7 @@ export default {
       year.assertIsNumber()
       months.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
 
@@ -1016,7 +1016,7 @@ export default {
       year.assertIsNumber()
       years.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
 
@@ -1055,7 +1055,7 @@ export default {
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const ownDay: RuntimeObject = self.get('day')!
       const ownMonth: RuntimeObject = self.get('month')!
@@ -1089,7 +1089,7 @@ export default {
       year.assertIsNumber()
       days.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
       instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
@@ -1109,7 +1109,7 @@ export default {
       year.assertIsNumber()
       months.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
       instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
@@ -1130,7 +1130,7 @@ export default {
       year.assertIsNumber()
       years.assertIsNumber()
 
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
       const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
 
@@ -1146,7 +1146,7 @@ export default {
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const day: RuntimeObject = self.get('day')!
       const month: RuntimeObject = self.get('month')!
@@ -1171,7 +1171,7 @@ export default {
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const day: RuntimeObject = self.get('day')!
       const month: RuntimeObject = self.get('month')!

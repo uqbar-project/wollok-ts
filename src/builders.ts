@@ -261,9 +261,9 @@ export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
   ...payload,
 })
 
-export const RuntimeObject = (id: Id, module: Name, innerValue?: string | number | boolean | Id[]): RuntimeObjectType =>
+export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | boolean | Id[]): RuntimeObjectType =>
   ({
     id,
-    module,
+    moduleFQN,
     innerValue,
   } as RuntimeObjectType)

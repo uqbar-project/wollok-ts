@@ -15,10 +15,11 @@ export type InnerValue = string | number | Id[]
 
 export interface RuntimeObject {
   readonly id: Id
-  readonly module: Name
+  readonly moduleFQN: Name
   innerValue?: InnerValue
 
   context(): Context
+  module(): Module
   get(field: Name): RuntimeObject | undefined
   set(field: Name, valueId: Id): void
 
@@ -435,7 +436,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const selfId = evaluation.currentFrame().popOperand()
         const self = evaluation.instance(selfId)
         currentFrame.pushOperand(
-          environment.getNodeByFQN<Module>(self.module).inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
+          self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
         )
       })()
 
@@ -463,18 +464,18 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const self = evaluation.instance(selfId)
         let lookupStart: Name
         if (instruction.lookupStart) {
-          const ownHierarchy = environment.getNodeByFQN<Module>(self.module).hierarchy().map(module => module.fullyQualifiedName())
+          const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
           const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
           lookupStart = ownHierarchy[start + 1]
         } else {
-          lookupStart = self.module
+          lookupStart = self.moduleFQN
         }
         const method = environment.getNodeByFQN<Module>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
-          const messageNotUnderstood = environment.getNodeByFQN<Module>(self.module).lookupMethod('messageNotUnderstood', 2)!
+          const messageNotUnderstood = self.module().lookupMethod('messageNotUnderstood', 2)!
           const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
           const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
@@ -559,10 +560,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const selfId = evaluation.currentFrame().popOperand()
         const self = evaluation.instance(selfId)
 
-        const fields = environment
-          .getNodeByFQN<Module>(self.module)
-          .hierarchy()
-          .flatMap(module => module.fields())
+        const fields = self.module().hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
           self.set(field.name, VOID_ID)
