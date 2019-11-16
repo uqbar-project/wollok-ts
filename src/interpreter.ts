@@ -253,10 +253,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         return [
           ...compile(environment)(node.condition),
           PUSH_CONTEXT(),
-          CONDITIONAL_JUMP(thenClause.length + 1),
-          ...thenClause,
-          JUMP(elseClause.length),
+          CONDITIONAL_JUMP(elseClause.length + 1),
           ...elseClause,
+          JUMP(thenClause.length),
+          ...thenClause,
           POP_CONTEXT,
         ]
       })()
@@ -276,6 +276,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           return [
             LOAD('<exception>'),
             INHERITS(parameterType.target<Module>().fullyQualifiedName()),
+            CALL('negate', 0),
             CONDITIONAL_JUMP(handler.length + 6),
             LOAD('<exception>'),
             STORE(parameter.name, false),
@@ -310,6 +311,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           POP_CONTEXT,
           LOAD('<exception>'),
           INHERITS('wollok.lang.Exception'),
+          CALL('negate', 0),
           CONDITIONAL_JUMP(2),
           LOAD('<exception>'),
           INTERRUPT,
@@ -451,7 +453,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
           throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
 
-        currentFrame.nextInstruction += check === FALSE_ID ? instruction.count : 0
+        currentFrame.nextInstruction += check === TRUE_ID ? instruction.count : 0
       })()
 
 
