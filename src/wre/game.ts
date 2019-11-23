@@ -44,14 +44,14 @@ export default {
       evaluation.currentFrame().pushOperand(VOID_ID)
     },
 
-    whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
+    whenKeyPressedDo: (self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.pushFrame([
         PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
         PUSH(event.id),
         PUSH(action.id),
         CALL('addHandler', 2),
         RETURN,
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+      ], evaluation.createContext(self.id))
     },
 
     // TODO:

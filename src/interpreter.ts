@@ -6,7 +6,7 @@ import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Mod
 export type Locals = Record<Name, Id>
 
 export interface Context {
-  readonly parent: Id
+  readonly parent: Id | undefined
   readonly locals: Locals
   readonly exceptionHandlerIndex?: number
 }
@@ -410,7 +410,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'POP_CONTEXT': return (() => {
-        currentFrame.context = evaluation.context(currentFrame.context).parent
+        const next = evaluation.context(currentFrame.context).parent
+
+        if (!next) throw new Error('Popped root context')
+
+        currentFrame.context = next
       })()
 
 
@@ -520,7 +524,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               RETURN,
-            ], evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent, locals))
+            ], evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
           }
         }
       })()

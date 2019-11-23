@@ -827,7 +827,7 @@ export default {
         PUSH(closure.id),
         CALL('apply', 0, false),
         RETURN,
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+      ], evaluation.createContext(self.id))
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
@@ -837,7 +837,7 @@ export default {
         PUSH(closure.id),
         CALL('apply', 0, false),
         RETURN,
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+      ], evaluation.createContext(self.id))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -885,7 +885,7 @@ export default {
         ]),
         PUSH(VOID_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
+      ], evaluation.createContext(self.id))
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {

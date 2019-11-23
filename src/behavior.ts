@@ -433,10 +433,15 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       let currentContext = this.context(this.currentFrame().context)
       while (currentContext.exceptionHandlerIndex === undefined) {
         if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
-        else this.currentFrame().context = currentContext.parent
+        else {
+          if (!currentContext.parent) throw new Error('Reached the root context before reaching the current frame. This should not happen!')
+          this.currentFrame().context = currentContext.parent
+        }
 
         currentContext = this.context(this.currentFrame().context)
       }
+
+      if (!currentContext.parent) throw new Error('Popped root context')
 
       this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
       this.currentFrame().context = currentContext.parent
