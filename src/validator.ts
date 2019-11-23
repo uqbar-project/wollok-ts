@@ -2,6 +2,7 @@
 // No imports of local references
 // No siblings with the same name
 // No global mutable vars
+// No modules named wollok
 
 import { Literal } from './builders'
 import {

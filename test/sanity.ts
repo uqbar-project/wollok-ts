@@ -1,7 +1,7 @@
 import commandLineArgs from 'command-line-args'
 import { readFileSync } from 'fs'
 import globby from 'globby'
-import { basename, join } from 'path'
+import { join } from 'path'
 import { buildEnvironment } from '../src'
 import interpreter from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
@@ -22,9 +22,9 @@ const runAll = async () => {
   log.separator('RUN ALL TESTS')
 
   log.start('Reading tests')
-  const testFiles = globby.sync(ARGS.files, { cwd: SANITY_TESTS_FOLDER }).map(testFile => ({
-    name: basename(testFile),
-    content: readFileSync(join(SANITY_TESTS_FOLDER, testFile), 'utf8'),
+  const testFiles = globby.sync(ARGS.files, { cwd: SANITY_TESTS_FOLDER }).map(name => ({
+    name,
+    content: readFileSync(join(SANITY_TESTS_FOLDER, name), 'utf8'),
   }))
   log.done('Reading tests')
   log.info(`Will run tests from ${testFiles.length} file(s)`)

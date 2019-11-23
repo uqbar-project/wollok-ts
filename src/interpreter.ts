@@ -51,7 +51,7 @@ export interface Evaluation {
   context(id: Id): Context
   createContext(parent: Id, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
   pushFrame(instructions: List<Instruction>, context: Id): void
-  raise(exception: Id): void
+  raise(exceptionId: Id): void
   copy(): Evaluation
 }
 
@@ -66,7 +66,9 @@ export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
 export const LAZY_ID = '<lazy>'
 
+// TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
+export const MAX_STACK_SIZE = 1000
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
@@ -460,8 +462,11 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'CALL': return (() => {
         const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
-        const selfId = evaluation.currentFrame().popOperand()
-        const self = evaluation.instance(selfId)
+        const self = evaluation.instance(evaluation.currentFrame().popOperand())
+
+        if (evaluation.frameStack.length >= MAX_STACK_SIZE)
+          return evaluation.raise(evaluation.createInstance('wollok.lang.StackOverflowException'))
+
         let lookupStart: Name
         if (instruction.lookupStart) {
           const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
@@ -515,7 +520,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               ...compile(environment)(...method.body!.sentences),
               PUSH(VOID_ID),
               RETURN,
-            ], evaluation.createContext(instruction.useReceiverContext ? selfId : evaluation.context(selfId).parent, locals))
+            ], evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent, locals))
           }
         }
       })()
@@ -591,7 +596,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
     }
-
   } catch (error) {
     log.error(error)
     evaluation.raise(evaluation.createInstance('wollok.lang.EvaluationError', error))
@@ -664,6 +668,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
   const context = evaluation.createContext(evaluation.currentFrame().context)
 
+  // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.pushFrame(instructions, context)
 
   stepAll(natives)(evaluation)

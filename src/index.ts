@@ -1,3 +1,4 @@
+import { dirname, sep } from 'path'
 import * as behavior from './behavior'
 import * as build from './builders'
 import fill from './filler'
@@ -10,7 +11,14 @@ import wre from './wre/wre.json'
 
 
 function buildEnvironment(files: { name: string, content: string }[]): Environment {
-  return link(files.map(({ name, content }) => fill(parse.file(name).tryParse(content))), behavior.Linked(wre as any))
+  return link(files.map(({ name, content }) => {
+    try {
+      const filePackage = fill(parse.file(name).tryParse(content))
+      return dirname(name).split(sep).reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
+    } catch (error) {
+      throw new Error(`Failed to parse ${name}: ${error.message}`)
+    }
+  }), behavior.Linked(wre as any))
 }
 
 export * from './model'
