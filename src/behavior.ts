@@ -407,7 +407,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, moduleFQN, innerValue })
 
-      if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? '', { self: id }, id)
+      if (!this.contexts[id]) this.createContext(this.currentFrame().context, { self: id }, id)
 
       return id
     },
@@ -419,7 +419,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return response
     },
 
-    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+    createContext(this: EvaluationType, parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
       this.contexts[id] = { parent, locals, exceptionHandlerIndex }
       return id
     },

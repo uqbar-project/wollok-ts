@@ -6,7 +6,7 @@ import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Mod
 export type Locals = Record<Name, Id>
 
 export interface Context {
-  readonly parent: Id | undefined
+  readonly parent: Id | null
   readonly locals: Locals
   readonly exceptionHandlerIndex?: number
 }
@@ -49,7 +49,7 @@ export interface Evaluation {
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
   context(id: Id): Context
-  createContext(parent: Id, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
+  createContext(parent: Id | null, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
   pushFrame(instructions: List<Instruction>, context: Id): void
   raise(exceptionId: Id): void
   copy(): Evaluation
@@ -628,7 +628,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = build.Evaluation(environment)()
 
-  const globalContext = evaluation.createContext('', {
+  const globalContext = evaluation.createContext(null, {
     null: NULL_ID,
     true: TRUE_ID,
     false: FALSE_ID,
