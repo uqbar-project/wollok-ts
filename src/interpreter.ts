@@ -66,6 +66,8 @@ export const TRUE_ID = 'true'
 export const FALSE_ID = 'false'
 export const LAZY_ID = '<lazy>'
 
+export const ROOT_CONTEXT_ID = 'root'
+
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
 export const MAX_STACK_SIZE = 1000
@@ -350,7 +352,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           const context = evaluation.context(contextId)
           const reponse = context.locals[name]
           if (reponse) return reponse
-          if (!context.parent) return undefined
+          if (context.parent === null) return undefined
           return resolve(name, context.parent)
         }
 
@@ -379,7 +381,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         let context: Context | undefined = currentContext
         if (instruction.lookup) {
           while (context && !(instruction.name in context.locals)) {
-            context = context.parent ? evaluation.context(context.parent) : undefined
+            context = context.parent === null ? undefined : evaluation.context(context.parent)
           }
         }
 
@@ -634,7 +636,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     false: FALSE_ID,
     ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
-  })
+  }, ROOT_CONTEXT_ID)
 
   evaluation.frameStack.push(build.Frame({
     context: globalContext,
