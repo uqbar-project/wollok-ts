@@ -35,11 +35,8 @@ const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => 
   const root = context.environment().getNodeById<Entity<Linked>>(context.scope[start])
 
   if (rest.length) {
-    if (!root.is('Package')) {
-      // tslint:disable-next-line:no-console
-      console.log({ root, parent: root.parent() })
+    if (!root.is('Package'))
       throw new Error(`Trying to resolve ${qualifiedName} from non-package root`)
-    }
 
     return (root as Package<Linked>).getNodeByQN<Module<Linked>>(rest)
   } else {
@@ -49,7 +46,12 @@ const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => 
 
 const scopeContribution = (contributor: Node<Linked>): Scope => {
   if (contributor.is('Import')) {
-    const referenced = resolve(contributor.parent(), contributor.entity.name)
+    let referenced
+    try {
+      referenced = resolve(contributor.parent(), contributor.entity.name)
+    } catch (e) {
+      throw new Error(`Importing unresolved entity ${contributor.entity.name}`)
+    }
 
     return {
       ...contributor.isGeneric
@@ -103,8 +105,8 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 const assignScopes = (environment: Environment<Linked>) => {
   const globalScope = assign({},
     ...environment.children().map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lang').children().map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lib').children().map(scopeContribution)
+    ...environment.getNodeByFQN<Package>('wollok.lang').members.map(scopeContribution),
+    ...environment.getNodeByFQN<Package>('wollok.lib').members.map(scopeContribution)
   )
 
   function propagateScopeAssignment(

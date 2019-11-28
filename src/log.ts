@@ -119,7 +119,7 @@ const consoleLogger: Logger = {
       : '│'.repeat(stepTabulation)
 
     consoleLogger.debug(
-      `${('0000' + stepCount++).slice(-4)}<${evaluation.currentFrame().context.slice(24)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
+      `${('0000' + stepCount++).slice(-4)}<${evaluation.currentFrame()?.context?.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
       `[${operandStack.map(stringifyId(evaluation)).join(', ')}]`
     )
 

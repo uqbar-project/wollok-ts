@@ -22,6 +22,7 @@ const runAll = async () => {
   log.separator('RUN ALL TESTS')
 
   log.start('Reading tests')
+  // TODO: This causes tests with imports to fail when runned alone, cause the imports are not included.
   const testFiles = globby.sync(ARGS.files, { cwd: SANITY_TESTS_FOLDER }).map(name => ({
     name,
     content: readFileSync(join(SANITY_TESTS_FOLDER, name), 'utf8'),

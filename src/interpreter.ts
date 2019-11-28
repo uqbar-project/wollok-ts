@@ -6,6 +6,7 @@ import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Mod
 export type Locals = Record<Name, Id>
 
 export interface Context {
+  readonly id: Id
   readonly parent: Id | null
   readonly locals: Locals
   readonly exceptionHandlerIndex?: number
@@ -45,7 +46,7 @@ export interface Evaluation {
   instances: Record<Id, RuntimeObject>
   contexts: Record<Id, Context> // TODO: GC contexts
 
-  currentFrame(): Frame
+  currentFrame(): Frame | undefined
   instance(id: Id): RuntimeObject
   createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
   context(id: Id): Context
@@ -144,12 +145,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       case 'Reference': return (() => {
         const target = node.target()
 
-        if (target.is('Variable') && target.parent().is('Package')) return [
-          LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
-        ]
-
         if (target.is('Module')) return [
           LOAD(target.fullyQualifiedName()),
+        ]
+
+        if (target.is('Variable') && target.parent().is('Package')) return [
+          LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
         ]
 
         return [
@@ -375,7 +376,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'STORE': return (() => {
-        const valueId = evaluation.currentFrame().popOperand()
+        const valueId = currentFrame.popOperand()
         const currentContext = evaluation.context(currentFrame.context)
 
         let context: Context | undefined = currentContext
@@ -422,7 +423,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
       case 'SWAP': return (() => {
         const a = currentFrame.popOperand()
-        const bs = new Array(instruction.distance).fill(null).map(() => evaluation.currentFrame().popOperand()).reverse()
+        const bs = new Array(instruction.distance).fill(null).map(() => currentFrame.popOperand()).reverse()
         const c = currentFrame.popOperand()
         currentFrame.pushOperand(a)
         bs.forEach(b => currentFrame.pushOperand(b))
@@ -430,7 +431,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
       case 'DUP': return (() => {
-        const a = evaluation.currentFrame().popOperand()
+        const a = currentFrame.popOperand()
         currentFrame.pushOperand(a)
         currentFrame.pushOperand(a)
       })()
@@ -441,7 +442,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
       case 'INHERITS': return (() => {
-        const selfId = evaluation.currentFrame().popOperand()
+        const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
         currentFrame.pushOperand(
           self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
@@ -456,7 +457,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
       case 'CONDITIONAL_JUMP': return (() => {
-        const check = evaluation.currentFrame().popOperand()
+        const check = currentFrame.popOperand()
 
         if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
@@ -467,8 +468,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'CALL': return (() => {
-        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
-        const self = evaluation.instance(evaluation.currentFrame().popOperand())
+        const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
+        const self = evaluation.instance(currentFrame.popOperand())
 
         if (evaluation.frameStack.length >= MAX_STACK_SIZE)
           return evaluation.raise(evaluation.createInstance('wollok.lang.StackOverflowException'))
@@ -533,14 +534,24 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'INIT': return (() => {
-        const selfId = evaluation.currentFrame().popOperand()
+        const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
-        const argIds = Array.from({ length: instruction.arity }, () => evaluation.currentFrame().popOperand()).reverse()
+        const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
         const constructor = lookupStart.lookupConstructor(instruction.arity)
-        const ownSuperclass = lookupStart.superclassNode()
 
-        if (!constructor) throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
+        if (!constructor) {
+          if (instruction.arity === 0) {
+            return evaluation.pushFrame([
+              LOAD('self'),
+              CALL('initialize', 0),
+              LOAD('self'),
+              RETURN,
+            ], evaluation.createContext(self.id))
+          }
+
+          throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
+        }
 
         const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
           ? {
@@ -550,13 +561,17 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           }
           : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
+        const constructorClass = constructor.parent()
+
         evaluation.pushFrame([
-          ...ownSuperclass || !constructor.baseCall.callsSuper ? [
+          ...constructor.baseCall && constructorClass.superclassNode() ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
             LOAD('self'),
             INIT(
               constructor.baseCall.args.length,
-              constructor.baseCall.callsSuper ? ownSuperclass!.fullyQualifiedName() : instruction.lookupStart,
+              constructor.baseCall.callsSuper
+                ? constructorClass.superclassNode()!.fullyQualifiedName()
+                : constructorClass.fullyQualifiedName()
             ),
           ] : [],
           ...compile(environment)(...constructor.body.sentences),
@@ -568,7 +583,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
       })()
 
       case 'INIT_NAMED': return (() => {
-        const selfId = evaluation.currentFrame().popOperand()
+        const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
 
         const fields = self.module().hierarchy().flatMap(module => module.fields())
@@ -577,7 +592,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
           self.set(field.name, VOID_ID)
 
         for (const name of [...instruction.argumentNames].reverse())
-          self.set(name, evaluation.currentFrame().popOperand())
+          self.set(name, currentFrame.popOperand())
 
         evaluation.pushFrame([
           ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
@@ -591,20 +606,27 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
 
       case 'INTERRUPT': return (() => {
-        const exception = evaluation.currentFrame().popOperand()
+        const exception = currentFrame.popOperand()
         evaluation.raise(exception)
       })()
 
       case 'RETURN': return (() => {
-        const valueId = evaluation.currentFrame().popOperand()
+        const valueId = currentFrame.popOperand()
         evaluation.frameStack.pop()
-        evaluation.currentFrame().pushOperand(valueId)
+
+        const next = evaluation.currentFrame()
+
+        if (!next) throw new Error('Returning from last frame')
+
+        next.pushOperand(valueId)
       })()
 
     }
   } catch (error) {
     log.error(error)
-    evaluation.raise(evaluation.createInstance('wollok.lang.EvaluationError', error))
+    if (evaluation.currentFrame())
+      evaluation.raise(evaluation.createInstance('wollok.lang.EvaluationError', error))
+    else throw error
   }
 
 }
@@ -613,7 +635,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
   const takeStep = step(natives)
   // TODO: add done() message to check instructions pending
-  while (evaluation.currentFrame().nextInstruction < evaluation.currentFrame().instructions.length) {
+  while (evaluation.currentFrame()!.nextInstruction < evaluation.currentFrame()!.instructions.length) {
     log.step(evaluation)
     takeStep(evaluation)
   }
@@ -630,7 +652,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = build.Evaluation(environment)()
 
-  const globalContext = evaluation.createContext(null, {
+  const rootContext = evaluation.createContext(null, {
     null: NULL_ID,
     true: TRUE_ID,
     false: FALSE_ID,
@@ -639,7 +661,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
   }, ROOT_CONTEXT_ID)
 
   evaluation.frameStack.push(build.Frame({
-    context: globalContext,
+    context: rootContext,
     instructions: [
       ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }) => {
         if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
@@ -672,7 +694,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
   const instructions = compile(evaluation.environment)(...sentences)
-  const context = evaluation.createContext(evaluation.currentFrame().context)
+  const context = evaluation.createContext(evaluation.currentFrame()?.context ?? ROOT_CONTEXT_ID)
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.pushFrame(instructions, context)
@@ -730,6 +752,7 @@ export default (environment: Environment, natives: {}) => ({
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)
     stepAll(natives)(initializedEvaluation)
+    initializedEvaluation.frameStack.pop()
     log.done('Initializing Evaluation')
 
     let total = 0

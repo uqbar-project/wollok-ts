@@ -18,7 +18,7 @@ export default {
       visuals.assertIsCollection()
 
       visuals.innerValue.push(positionable.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
 
     // TODO:
@@ -41,7 +41,7 @@ export default {
         (visuals as any).assertCollection()
         visuals.innerValue = (visuals.innerValue as Id[]).filter((id: Id) => id !== visual.id)
       }
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
 
     whenKeyPressedDo: (self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
@@ -98,27 +98,27 @@ export default {
       // TODO: Add behavior for runtime objects to read and write fields
       if (title) {
         self.set('title', title.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('title')?.id ?? VOID_ID)
+        evaluation.currentFrame()!.pushOperand(VOID_ID)
+      } else evaluation.currentFrame()!.pushOperand(self.get('title')?.id ?? VOID_ID)
     },
 
     width: (self: RuntimeObject, width?: RuntimeObject) => (evaluation: Evaluation) => {
       if (width) {
         self.set('width', width.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('width')?.id ?? VOID_ID)
+        evaluation.currentFrame()!.pushOperand(VOID_ID)
+      } else evaluation.currentFrame()!.pushOperand(self.get('width')?.id ?? VOID_ID)
     },
 
     height: (self: RuntimeObject, height?: RuntimeObject) => (evaluation: Evaluation) => {
       if (height) {
         self.set('height', height.id)
-        evaluation.currentFrame().pushOperand(VOID_ID)
-      } else evaluation.currentFrame().pushOperand(self.get('height')?.id ?? VOID_ID)
+        evaluation.currentFrame()!.pushOperand(VOID_ID)
+      } else evaluation.currentFrame()!.pushOperand(self.get('height')?.id ?? VOID_ID)
     },
 
     ground: (self: RuntimeObject, ground: RuntimeObject) => (evaluation: Evaluation) => {
       self.set('ground', ground.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
 
     // TODO:

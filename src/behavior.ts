@@ -1,11 +1,11 @@
 import { v4 as uuid } from 'uuid'
 import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Locals, ROOT_CONTEXT_ID, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
-const { values, assign, keys } = Object
+const { values, assign } = Object
 
 const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
@@ -261,7 +261,9 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        return this.constructors().find(member => member.matchesSignature(arity)) ?? this.superclassNode()?.lookupConstructor(arity)
+        return this.constructors().find(member => member.matchesSignature(arity)) ?? (
+          this.constructors().length ? undefined : this.superclassNode()?.lookupConstructor(arity)
+        )
       }),
     })
 
@@ -357,7 +359,7 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
 
     assertIsCollection(this: RuntimeObjectType) {
       if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
-        throw new TypeError('Malformed Runtime Object: Collection inner value should be a List<Id>')
+        throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
     },
 
   })
@@ -372,8 +374,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     instances: mapObject(RuntimeObject(evaluation), obj.instances!),
     frameStack: obj.frameStack!.map(Frame),
 
-    currentFrame(this: EvaluationType): FrameType {
-      return last(this.frameStack)!
+    currentFrame(this: EvaluationType): FrameType | undefined {
+      return last(this.frameStack)
     },
 
 
@@ -407,7 +409,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
 
       if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, moduleFQN, innerValue })
 
-      if (!this.contexts[id]) this.createContext(this.currentFrame().context, { self: id }, id)
+      if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
 
       return id
     },
@@ -420,7 +422,7 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
     createContext(this: EvaluationType, parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
-      this.contexts[id] = { parent, locals, exceptionHandlerIndex }
+      this.contexts[id] = { id, parent, locals, exceptionHandlerIndex }
       return id
     },
 
@@ -429,37 +431,42 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    raise(this: EvaluationType, exception: Id) {
-      let currentContext = this.context(this.currentFrame().context)
+    raise(this: EvaluationType, exceptionId: Id) {
+      let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
+      const exception = this.instance(exceptionId)
+
+      const visited = []
+
       while (currentContext.exceptionHandlerIndex === undefined) {
-        if (this.currentFrame().context === this.currentFrame().id) this.frameStack.pop()
-        else {
-          if (!currentContext.parent) throw new Error('Reached the root context before reaching the current frame. This should not happen!')
-          this.currentFrame().context = currentContext.parent
+        const currentFrame = this.currentFrame()
+
+        if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+
+        if (currentFrame.context === currentFrame.id) {
+          this.frameStack.pop()
+          if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+        } else {
+          if (!currentContext.parent) throw new Error(`Reached the root context ${JSON.stringify(currentContext)} before reaching the current frame ${currentFrame.id}. This should not happen!`)
+          currentFrame.context = currentContext.parent
         }
 
-        currentContext = this.context(this.currentFrame().context)
+        currentContext = this.context(this.currentFrame()!.context)
+        visited.push(currentContext)
       }
 
       if (!currentContext.parent) throw new Error('Popped root context')
+      if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
 
-      this.currentFrame().nextInstruction = currentContext.exceptionHandlerIndex!
-      this.currentFrame().context = currentContext.parent
-      this.context(this.currentFrame().context).locals['<exception>'] = exception
+      this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
+      this.currentFrame()!.context = currentContext.parent
+      this.context(this.currentFrame()!.context).locals['<exception>'] = exceptionId
     },
 
     copy(this: EvaluationType): EvaluationType {
       return Evaluation({
         ...this,
-        // TODO: replace reduces with mapObject?
-        instances: keys(this.instances).reduce((instanceClones, id) => ({
-          ...instanceClones,
-          [id]: { ...this.instance(id) },
-        }), {}),
-        contexts: keys(this.contexts).reduce((contextClones, id) => ({
-          ...contextClones,
-          [id]: { ...this.context(id), locals: { ...this.context(id).locals } },
-        }), {}),
+        instances: mapObject(instance => ({ ...instance }), this.instances),
+        contexts: mapObject(context => ({ ...context, locals: { ...context.locals } }), this.contexts),
         frameStack: this.frameStack.map(frame => ({
           ...frame,
           operandStack: [...frame.operandStack],
