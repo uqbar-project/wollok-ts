@@ -16,7 +16,6 @@ const ARGS = commandLineArgs([
 // TODO: Don't skip
 const SKIPPED = globby.sync([
   'game/**',
-  // 'language/constructors/**',
 ], { cwd: SANITY_TESTS_FOLDER })
 
 // TODO: use mocha to run this ?
