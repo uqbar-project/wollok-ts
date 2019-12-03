@@ -555,9 +555,6 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         const constructorClass = constructor.parent()
 
-        // tslint:disable-next-line:no-console
-        console.log(`## ${constructorClass.name}/${constructor.parameters.length} has baseCall: ${constructor.baseCall}`)
-
         evaluation.pushFrame([
           ...constructor.baseCall && constructorClass.superclassNode() ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),

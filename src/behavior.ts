@@ -264,16 +264,7 @@ export function Linked(environmentData: Partial<Environment>) {
         const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
         const ownConstructor = this.constructors().find(member => member.matchesSignature(arity))
 
-        // tslint:disable:no-console
-        console.log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ searching constructor ${this.fullyQualifiedName()}/${arity}`)
-
-        if (ownConstructor) {
-          console.log(`found constructor ${this.fullyQualifiedName()}/${ownConstructor.parameters.length}`)
-          console.log(`is default? ${!isNotDefaultConstructor(ownConstructor)}`)
-          return ownConstructor
-        }
-
-        console.log(`could not find own constructor ${this.fullyQualifiedName()}/${arity} from a list of ${this.constructors().filter(isNotDefaultConstructor).length}`)
+        if (ownConstructor) return ownConstructor
 
         return this.constructors().filter(isNotDefaultConstructor).length
           ? undefined
