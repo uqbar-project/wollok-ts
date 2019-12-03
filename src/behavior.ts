@@ -261,9 +261,23 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        return this.constructors().find(member => member.matchesSignature(arity)) ?? (
-          this.constructors().length ? undefined : this.superclassNode()?.lookupConstructor(arity)
-        )
+        const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
+        const ownConstructor = this.constructors().find(member => member.matchesSignature(arity))
+
+        // tslint:disable:no-console
+        console.log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ searching constructor ${this.fullyQualifiedName()}/${arity}`)
+
+        if (ownConstructor) {
+          console.log(`found constructor ${this.fullyQualifiedName()}/${ownConstructor.parameters.length}`)
+          console.log(`is default? ${!isNotDefaultConstructor(ownConstructor)}`)
+          return ownConstructor
+        }
+
+        console.log(`could not find own constructor ${this.fullyQualifiedName()}/${arity} from a list of ${this.constructors().filter(isNotDefaultConstructor).length}`)
+
+        return this.constructors().filter(isNotDefaultConstructor).length
+          ? undefined
+          : this.superclassNode()?.lookupConstructor(arity)
       }),
     })
 

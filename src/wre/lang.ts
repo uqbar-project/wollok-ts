@@ -118,16 +118,6 @@ const Collections = {
     ], evaluation.createContext(self.id))
   },
 
-  equals: (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-    evaluation.pushFrame([
-      PUSH(self.id),
-      PUSH(other.id),
-      CALL('==', 1),
-      RETURN,
-    ], evaluation.createContext(self.id))
-  },
-
-
 }
 
 export default {
@@ -248,13 +238,12 @@ export default {
 
     'contains': Collections.contains,
 
-    'equals': Collections.equals,
-
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+
       self.assertIsCollection()
       other.assertIsCollection()
 
-      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
 
@@ -350,8 +339,6 @@ export default {
     'clear': Collections.clear,
 
     'join': Collections.join,
-
-    'equals': Collections.equals,
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsCollection()
@@ -460,12 +447,8 @@ export default {
       keys.assertIsCollection()
 
       evaluation.pushFrame([
-        ...keys.innerValue.flatMap((id, index) => [
-          PUSH(key.id),
-          PUSH(id),
-          CALL('!=', 1),
-          CONDITIONAL_JUMP(index === 0 ? 10 : 12),
-          ...index === 0
+        ...keys.innerValue.flatMap((id, index) => {
+          const valuesUpToIndex = index === 0
             ? [
               LOAD('<values>'),
               CALL('newInstance', 0),
@@ -475,18 +458,25 @@ export default {
               INSTANTIATE('wollok.lang.Number', 0),
               INSTANTIATE('wollok.lang.Number', index - 1),
               CALL('subList', 2),
-            ],
+            ]
 
-          LOAD('<values>'),
-          INSTANTIATE('wollok.lang.Number', index + 1),
-          CALL('subList', 1),
-          CALL('+', 1),
-          STORE('<values>', false),
+          return [
+            PUSH(key.id),
+            PUSH(id),
+            CALL('!=', 1),
+            CONDITIONAL_JUMP(valuesUpToIndex.length + 8),
+            ...valuesUpToIndex,
+            LOAD('<values>'),
+            INSTANTIATE('wollok.lang.Number', index + 1),
+            CALL('subList', 1),
+            CALL('+', 1),
+            STORE('<values>', true),
 
-          LOAD('<keys>'),
-          PUSH(id),
-          CALL('remove', 1),
-        ]),
+            LOAD('<keys>'),
+            PUSH(id),
+            CALL('remove', 1),
+          ]
+        }),
         PUSH(VOID_ID),
         RETURN,
       ], evaluation.createContext(self.id))
@@ -833,7 +823,27 @@ export default {
       ], evaluation.createContext(self.id))
     },
 
+    'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
+
+      evaluation.pushFrame([
+        PUSH(closure.id),
+        CALL('apply', 0),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
+
+      evaluation.pushFrame([
+        PUSH(closure.id),
+        CALL('apply', 0),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
       if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
       evaluation.pushFrame([
@@ -885,6 +895,7 @@ export default {
           PUSH(closure.id),
           PUSH(id),
           CALL('apply', 1),
+          POP,
         ]),
         PUSH(VOID_ID),
         RETURN,

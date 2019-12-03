@@ -79,9 +79,8 @@ export default {
       throw new ReferenceError('To be implemented')
     },
 
-    // TODO:
-    clear: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('visuals', evaluation.createInstance('wollok.lang.List', []))
     },
 
     // TODO:

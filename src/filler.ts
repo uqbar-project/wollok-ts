@@ -86,5 +86,10 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
       parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
     }),
 
+    Constructor: (transformed) => ({
+      ...transformed,
+      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
+    }),
+
   }) as any
 )

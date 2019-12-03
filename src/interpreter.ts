@@ -91,7 +91,7 @@ export type Instruction
   | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
-  | { kind: 'INIT', arity: number, lookupStart: Name }
+  | { kind: 'INIT', arity: number, lookupStart: Name, optional?: boolean }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'INTERRUPT' }
   | { kind: 'RETURN' }
@@ -110,8 +110,8 @@ export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, useReceiverContext: boolean = true, lookupStart?: Name): Instruction =>
   ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
-export const INIT = (arity: number, lookupStart: Name): Instruction =>
-  ({ kind: 'INIT', arity, lookupStart })
+export const INIT = (arity: number, lookupStart: Name, optional: boolean = false): Instruction =>
+  ({ kind: 'INIT', arity, lookupStart, optional })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const INTERRUPT: Instruction = ({ kind: 'INTERRUPT' })
 export const RETURN: Instruction = ({ kind: 'RETURN' })
@@ -183,7 +183,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
               ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
               INSTANTIATE(node.value.fullyQualifiedName()),
               INIT_NAMED(supercallArgs.map(({ name }) => name)),
-              INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName()),
+              INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
             ]
           } else {
             return [
@@ -238,7 +238,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             ...args.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(fqn),
             INIT_NAMED(args.map(({ name }) => name)),
-            INIT(0, fqn),
+            INIT(0, fqn, true),
           ]
         } else {
           return [
@@ -541,16 +541,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
         const constructor = lookupStart.lookupConstructor(instruction.arity)
 
         if (!constructor) {
-          if (instruction.arity === 0) {
-            return evaluation.pushFrame([
-              LOAD('self'),
-              CALL('initialize', 0),
-              LOAD('self'),
-              RETURN,
-            ], evaluation.createContext(self.id))
-          }
-
-          throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
+          if (instruction.optional) return evaluation.currentFrame()?.pushOperand(selfId)
+          else throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
         }
 
         const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
@@ -563,6 +555,9 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
 
         const constructorClass = constructor.parent()
 
+        // tslint:disable-next-line:no-console
+        console.log(`## ${constructorClass.name}/${constructor.parameters.length} has baseCall: ${constructor.baseCall}`)
+
         evaluation.pushFrame([
           ...constructor.baseCall && constructorClass.superclassNode() ? [
             ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
@@ -571,7 +566,8 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               constructor.baseCall.args.length,
               constructor.baseCall.callsSuper
                 ? constructorClass.superclassNode()!.fullyQualifiedName()
-                : constructorClass.fullyQualifiedName()
+                : constructorClass.fullyQualifiedName(),
+              true,
             ),
           ] : [],
           ...compile(environment)(...constructor.body.sentences),
@@ -670,7 +666,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
             ...argList.flatMap(({ value }) => compile(environment)(value)),
             PUSH(id),
             INIT_NAMED(argList.map(({ name }) => name)),
-            INIT(0, superclass.target<Class>().fullyQualifiedName()),
+            INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
           ]
         } else {
           return [

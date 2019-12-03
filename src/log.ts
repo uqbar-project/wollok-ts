@@ -61,7 +61,7 @@ const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
     if (val instanceof Array) return `(${val.map(e => typeof e === 'string' ? stringifyId(evaluation)(e) : '?').join(', ')})`
     return ''
   }
-  return magenta(id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)
+  return magenta(id && id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)
 }
 
 const stringifyModule = (evaluation: Evaluation) => (name: Name): string => {

@@ -456,7 +456,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
         buildSend(
           receiver,
-          message,
+          message.trim(),
           LAZY_OPERATORS.includes(message)
             ? [makeClosure([], args)]
             : args,
