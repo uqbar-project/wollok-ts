@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
 export type Locals = Record<Name, Id>
 
@@ -116,12 +116,19 @@ export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: '
 export const INTERRUPT: Instruction = ({ kind: 'INTERRUPT' })
 export const RETURN: Instruction = ({ kind: 'RETURN' })
 
+const compileExpressionClause = (environment: Environment) => ({ sentences }: Body): List<Instruction> =>
+  sentences.length ? sentences.flatMap((sentence, index) => [
+    ...compile(environment)(sentence),
+    ...index < sentences.length - 1 ? [POP] : [],
+  ]) : [PUSH(VOID_ID)]
+
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => {
     switch (node.kind) {
       case 'Variable': return (() => [
         ...compile(environment)(node.value),
         STORE(node.name, false),
+        PUSH(VOID_ID),
       ])()
 
       case 'Return': return (() => [
@@ -135,6 +142,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       case 'Assignment': return (() => [
         ...compile(environment)(node.value),
         STORE(node.variable.name, true),
+        PUSH(VOID_ID),
       ])()
 
       case 'Self': return (() => [
@@ -252,10 +260,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
       case 'If': return (() => {
-        const compiledThen = compile(environment)(...node.thenBody.sentences)
-        const thenClause = compiledThen.length ? compiledThen : [PUSH(VOID_ID)]
-        const compiledElse = compile(environment)(...node.elseBody.sentences)
-        const elseClause = compiledElse.length ? compiledElse : [PUSH(VOID_ID)]
+        const thenClause = compileExpressionClause(environment)(node.thenBody)
+        const elseClause = compileExpressionClause(environment)(node.elseBody)
         return [
           ...compile(environment)(node.condition),
           PUSH_CONTEXT(),
@@ -275,18 +281,20 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
       case 'Try': return (() => {
-        const clause = compile(environment)(...node.body.sentences)
-        const always = compile(environment)(...node.always.sentences)
+        const clause = compileExpressionClause(environment)(node.body)
+        const always = [
+          ...compileExpressionClause(environment)(node.always),
+          POP,
+        ]
         const catches = node.catches.flatMap(({ parameter, parameterType, body }) => {
-          const handler = compile(environment)(...body.sentences)
+          const handler = compileExpressionClause(environment)(body)
           return [
             LOAD('<exception>'),
             INHERITS(parameterType.target<Module>().fullyQualifiedName()),
             CALL('negate', 0),
-            CONDITIONAL_JUMP(handler.length + 6),
+            CONDITIONAL_JUMP(handler.length + 5),
             LOAD('<exception>'),
             STORE(parameter.name, false),
-            PUSH(VOID_ID),
             ...handler,
             STORE('<result>', true),
             PUSH(FALSE_ID),
@@ -301,8 +309,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           PUSH(VOID_ID),
           STORE('<result>', false),
 
-          PUSH_CONTEXT(clause.length + 4),
-          PUSH(VOID_ID), // TODO: Won't this break if we asume expressions only push 1 to the stack?
+          PUSH_CONTEXT(clause.length + 3),
           ...clause,
           STORE('<result>', true),
           POP_CONTEXT,

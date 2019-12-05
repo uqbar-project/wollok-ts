@@ -53,12 +53,12 @@ describe('Wollok filler', () => {
   })
 
   it('fills in default base call for Constructors', () => {
-    fill(Constructor()()).baseCall.should.be.filledInto(
+    fill(Constructor()()).baseCall!.should.be.filledInto(
       { callsSuper: true, args: [] }
     )
 
     const baseCall = { callsSuper: false, args: [] }
-    fill(Constructor({ baseCall })()).baseCall.should.be.filledInto(baseCall)
+    fill(Constructor({ baseCall })()).baseCall!.should.be.filledInto(baseCall)
   })
 
   it('fills in null as default initial value for Variables', () => {
