@@ -470,7 +470,10 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     copy(this: EvaluationType): EvaluationType {
       return Evaluation({
         ...this,
-        instances: mapObject(instance => ({ ...instance }), this.instances),
+        instances: mapObject(instance => ({
+          ...instance,
+          innerValue: isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
+        }), this.instances),
         contexts: mapObject(context => ({ ...context, locals: { ...context.locals } }), this.contexts),
         frameStack: this.frameStack.map(frame => ({
           ...frame,

@@ -514,7 +514,7 @@ export const step = (natives: {}) => (evaluation: Evaluation) => {
               return next
             }, natives as any)
             const args = argIds.map(id => {
-              if (id === VOID_ID) throw new Error('reference to void argument')
+              if (id === VOID_ID) throw new Error('Reference to void argument')
               return evaluation.instances[id]
             })
 
