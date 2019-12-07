@@ -48,4 +48,9 @@ const runAll = async () => {
   process.exit(total - passed)
 }
 
-runAll()
+try {
+  runAll()
+} catch (error) {
+  log.error(error)
+  process.exit(1)
+}
