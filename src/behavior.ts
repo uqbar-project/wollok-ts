@@ -261,11 +261,11 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
         const ownConstructor = this.constructors().find(member => member.matchesSignature(arity))
 
         if (ownConstructor) return ownConstructor
 
+        const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
         return this.constructors().filter(isNotDefaultConstructor).length
           ? undefined
           : this.superclassNode()?.lookupConstructor(arity)

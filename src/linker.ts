@@ -103,10 +103,10 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 }
 
 const assignScopes = (environment: Environment<Linked>) => {
+  const globalPackages = ['wollok.lang', 'wollok.lib']
   const globalScope = assign({},
     ...environment.children().map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lang').members.map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lib').members.map(scopeContribution)
+    ...globalPackages.flatMap(name => environment.getNodeByFQN<Package>(name).members.map(scopeContribution)),
   )
 
   function propagateScopeAssignment(
