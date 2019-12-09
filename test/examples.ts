@@ -1,3 +1,5 @@
+// TODO: Refactor to avoid repetition with sanity run
+
 import commandLineArgs from 'command-line-args'
 import { readFileSync } from 'fs'
 import globby from 'globby'
@@ -7,31 +9,25 @@ import interpreter from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
 import natives from '../src/wre/wre.natives'
 
-const SANITY_TESTS_FOLDER = join('language', 'test', 'sanity')
+const EXAMPLE_TESTS_FOLDER = join('language', 'test', 'examples')
 const ARGS = commandLineArgs([
   { name: 'verbose', alias: 'v', type: Boolean, defaultValue: false },
   { name: 'files', alias: 'f', multiple: true, defaultOption: true, defaultValue: '**/*.@(wlk|wtest)' },
 ])
-
-// TODO: Don't skip
-const SKIPPED = globby.sync([
-  'game/**',
-], { cwd: SANITY_TESTS_FOLDER })
 
 // TODO: use mocha to run this ?
 enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
 
 const runAll = async () => {
   log.clear()
-  log.separator('RUN ALL TESTS')
+  log.separator('RUN ALL EXAMPLES')
 
   log.start('Reading tests')
   // TODO: This causes tests with imports to fail when runned alone, cause the imports are not included.
-  const testFiles = globby.sync(ARGS.files, { cwd: SANITY_TESTS_FOLDER })
-    .filter(name => !SKIPPED.includes(name))
+  const testFiles = globby.sync(ARGS.files, { cwd: EXAMPLE_TESTS_FOLDER })
     .map(name => ({
       name,
-      content: readFileSync(join(SANITY_TESTS_FOLDER, name), 'utf8'),
+      content: readFileSync(join(EXAMPLE_TESTS_FOLDER, name), 'utf8'),
     }))
   log.done('Reading tests')
   log.info(`Will run tests from ${testFiles.length} file(s)`)
@@ -47,7 +43,7 @@ const runAll = async () => {
   log.done('Running tests')
 
   enableLogs(LogLevel.SUCCESS);
-  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests on ${testFiles.length} test files. ${SKIPPED.length} files skipped.`)
+  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests on ${testFiles.length} test files.`)
 
   process.exit(total - passed)
 }

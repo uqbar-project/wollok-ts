@@ -17,15 +17,6 @@ describe('Wollok filler', () => {
     fill(Class('C', { superclass })()).superclass!.should.be.filledInto(superclass)
   })
 
-  it('fills in default constructor for classes with no constructor', () => {
-    fill(Class('C')()).members[0].should.be.filledInto(
-      Constructor({ baseCall: { args: [], callsSuper: true } })()
-    )
-
-    const constructor = Constructor({ baseCall: { args: [], callsSuper: false } })()
-    fill(Class('C')(constructor)).members.should.be.filledInto([constructor])
-  })
-
   it('fills non overrided accessors for properties', () => {
     fill(Class('C')(Field('p', { isProperty: true }))).methods().should.be.filledInto([
       Method('p')(Return(Reference('p'))),
@@ -53,12 +44,12 @@ describe('Wollok filler', () => {
   })
 
   it('fills in default base call for Constructors', () => {
-    fill(Constructor()()).baseCall.should.be.filledInto(
+    fill(Constructor()()).baseCall!.should.be.filledInto(
       { callsSuper: true, args: [] }
     )
 
     const baseCall = { callsSuper: false, args: [] }
-    fill(Constructor({ baseCall })()).baseCall.should.be.filledInto(baseCall)
+    fill(Constructor({ baseCall })()).baseCall!.should.be.filledInto(baseCall)
   })
 
   it('fills in null as default initial value for Variables', () => {

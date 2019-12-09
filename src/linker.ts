@@ -28,23 +28,34 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // TODO: Use reference target passing a custom scope instead?
-const resolve = (context: Node<Linked>, qualifiedName: Name): Module<Linked> => {
+const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => {
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
   const [start, rest] = divideOn('.')(qualifiedName)
   const root = context.environment().getNodeById<Entity<Linked>>(context.scope[start])
 
-  return rest.length
-    ? (root as Package<Linked>).getNodeByQN<Module<Linked>>(rest)
-    : root as Module<Linked>
+  if (rest.length) {
+    if (!root.is('Package'))
+      throw new Error(`Trying to resolve ${qualifiedName} from non-package root`)
+
+    return (root as Package<Linked>).getNodeByQN<Module<Linked>>(rest)
+  } else {
+    return root
+  }
 }
 
 const scopeContribution = (contributor: Node<Linked>): Scope => {
   if (contributor.is('Import')) {
-    const referenced = resolve(contributor.parent(), contributor.entity.name)
+    let referenced
+    try {
+      referenced = resolve(contributor.parent(), contributor.entity.name)
+    } catch (e) {
+      throw new Error(`Importing unresolved entity ${contributor.entity.name}`)
+    }
+
     return {
       ...contributor.isGeneric
-        ? assign({}, ...referenced.children().map(scopeContribution))
+        ? assign({}, ...(referenced as Package).members.map(scopeContribution))
         : scopeContribution(referenced),
     }
   }
@@ -73,7 +84,7 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 
       if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixinsScope
 
-      const superclass = resolve(module, module.is('Class') ? module.superclass!.name : module.superCall.superclass.name)
+      const superclass = resolve(module, module.is('Class') ? module.superclass!.name : module.superCall.superclass.name) as Module
       const superclassScope = assign({}, ...superclass.children().map(scopeContribution))
 
       return {
@@ -92,10 +103,10 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 }
 
 const assignScopes = (environment: Environment<Linked>) => {
+  const globalPackages = ['wollok.lang', 'wollok.lib']
   const globalScope = assign({},
     ...environment.children().map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lang').children().map(scopeContribution),
-    ...environment.getNodeByFQN<Package>('wollok.lib').children().map(scopeContribution)
+    ...globalPackages.flatMap(name => environment.getNodeByFQN<Package>(name).members.map(scopeContribution)),
   )
 
   function propagateScopeAssignment(
@@ -103,15 +114,16 @@ const assignScopes = (environment: Environment<Linked>) => {
     scope: Scope,
     includeInheritedNames: boolean,
     propagateOn: (child: Node<Linked>) => boolean,
+    n: number = 0,
   ) {
     (node as any).scope = scope
     const innerScope = scopeWithin(includeInheritedNames)(node)
 
     for (const child of node.children())
-      if (propagateOn(child)) propagateScopeAssignment(child, innerScope, includeInheritedNames, propagateOn)
+      if (propagateOn(child)) propagateScopeAssignment(child, innerScope, includeInheritedNames, propagateOn, n + 1)
   }
 
-  propagateScopeAssignment(environment, globalScope, false, child => child.is('Entity'))
+  propagateScopeAssignment(environment, globalScope, false, node => node.is('Entity'))
   propagateScopeAssignment(environment, environment.scope, true, () => true)
 }
 
@@ -129,7 +141,7 @@ export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment
   // TODO: Move this to validations so it becomes fail-resilient
   environment.forEach({
     Reference: node => {
-      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name}`) }
+      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} in ${node.source?.file}`) }
     },
   })
 

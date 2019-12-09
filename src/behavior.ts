@@ -1,11 +1,11 @@
 import { v4 as uuid } from 'uuid'
 import * as build from './builders'
 import { divideOn, last, mapObject } from './extensions'
-import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Interruption, Locals, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Context, DECIMAL_PRECISION, Evaluation as EvaluationType, Frame as FrameType, InnerValue, Instruction, Locals, ROOT_CONTEXT_ID, RuntimeObject as RuntimeObjectType } from './interpreter'
 import { Category, Class, Constructor, Describe, Entity, Environment, Filled as FilledStage, Id, Kind, Linked as LinkedStage, List, Method, Module, Name, Node, Package, Raw as RawStage, Reference, Singleton, Stage } from './model'
 
 const { isArray } = Array
-const { values, assign, keys } = Object
+const { values, assign } = Object
 
 const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
@@ -261,7 +261,14 @@ export function Linked(environmentData: Partial<Environment>) {
       },
 
       lookupConstructor: cached(function (this: Class<LinkedStage>, arity: number): Constructor<LinkedStage> | undefined {
-        return this.constructors().find(member => member.matchesSignature(arity)) ?? this.superclassNode()?.lookupConstructor(arity)
+        const ownConstructor = this.constructors().find(member => member.matchesSignature(arity))
+
+        if (ownConstructor) return ownConstructor
+
+        const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
+        return this.constructors().filter(isNotDefaultConstructor).length
+          ? undefined
+          : this.superclassNode()?.lookupConstructor(arity)
       }),
     })
 
@@ -325,13 +332,17 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
   const runtimeObject = { ...obj } as RuntimeObjectType
 
   const assertIs = (instance: RuntimeObjectType, module: Name, innerValueType: string) => {
-    if (instance.module !== module)
-      throw new TypeError(`Expected an instance of ${module} but got a ${instance.module} instead`)
+    if (instance.moduleFQN !== module)
+      throw new TypeError(`Expected an instance of ${module} but got a ${instance.moduleFQN} instead`)
     if (typeof obj.innerValue !== innerValueType)
       throw new TypeError(`Malformed Runtime Object: invalid inner value ${instance.innerValue} for ${module} instance`)
   }
 
   assign(runtimeObject, {
+    module(this: RuntimeObjectType): Module {
+      return evaluation.environment.getNodeByFQN<Module>(this.moduleFQN)
+    },
+
     context(this: RuntimeObjectType): Context {
       return evaluation.context(this.id)
     },
@@ -353,7 +364,7 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
 
     assertIsCollection(this: RuntimeObjectType) {
       if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
-        throw new TypeError('Malformed Runtime Object: Collection inner value should be a List<Id>')
+        throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
     },
 
   })
@@ -368,8 +379,8 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     instances: mapObject(RuntimeObject(evaluation), obj.instances!),
     frameStack: obj.frameStack!.map(Frame),
 
-    currentFrame(this: EvaluationType): FrameType {
-      return last(this.frameStack)!
+    currentFrame(this: EvaluationType): FrameType | undefined {
+      return last(this.frameStack)
     },
 
 
@@ -380,11 +391,11 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
 
-    createInstance(this: EvaluationType, module: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
+    createInstance(this: EvaluationType, moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
       let id: Id
       let innerValue = baseInnerValue
 
-      switch (module) {
+      switch (moduleFQN) {
         case 'wollok.lang.Number':
           if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
           const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
@@ -401,9 +412,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
           id = defaultId
       }
 
-      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, module, innerValue })
+      if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, moduleFQN, innerValue })
 
-      if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? '', { self: id }, id)
+      if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
 
       return id
     },
@@ -415,54 +426,58 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       return response
     },
 
-    createContext(this: EvaluationType, parent: Id, locals: Locals = {}, id: Id = uuid()): Id {
-      this.contexts[id] = { parent, locals }
+    createContext(this: EvaluationType, parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+      this.contexts[id] = { id, parent, locals, exceptionHandlerIndex }
       return id
     },
 
 
-    suspend(this: EvaluationType, until: Interruption | List<Interruption>, instructions: List<Instruction>, context: Id) {
-      this.currentFrame().resume.push(...isArray(until) ? until : [until])
-      this.frameStack.push(build.Frame({ context, instructions }))
+    pushFrame(this: EvaluationType, instructions: List<Instruction>, context: Id) {
+      this.frameStack.push(build.Frame({ id: context, context, instructions }))
     },
 
-    interrupt(this: EvaluationType, interruption: Interruption, valueId: Id) {
-      let nextFrame
-      do {
-        this.frameStack.pop()
-        nextFrame = last(this.frameStack)
-      } while (nextFrame && !nextFrame.resume.includes(interruption))
-      // TODO: Is it OK to drop the last frame? Shouldn't then the currentFrame() be optional?
+    raise(this: EvaluationType, exceptionId: Id) {
+      let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
+      const exception = this.instance(exceptionId)
 
-      if (!nextFrame) {
-        const value = this.instance(valueId)
-        const message = interruption === 'exception'
-          ? `${value.module}: ${value.get('message')?.innerValue ?? value.innerValue}`
-          : ''
+      const visited = []
 
-        throw new Error(`Unhandled "${interruption}" interruption: [${valueId}] ${message}`)
+      while (currentContext.exceptionHandlerIndex === undefined) {
+        const currentFrame = this.currentFrame()
+
+        if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+
+        if (currentFrame.context === currentFrame.id) {
+          this.frameStack.pop()
+          if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+        } else {
+          if (!currentContext.parent) throw new Error(`Reached the root context ${JSON.stringify(currentContext)} before reaching the current frame ${currentFrame.id}. This should not happen!`)
+          currentFrame.context = currentContext.parent
+        }
+
+        currentContext = this.context(this.currentFrame()!.context)
+        visited.push(currentContext)
       }
 
-      nextFrame.resume = nextFrame.resume.filter(elem => elem !== interruption)
-      nextFrame.pushOperand(valueId)
+      if (!currentContext.parent) throw new Error('Popped root context')
+      if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+
+      this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
+      this.currentFrame()!.context = currentContext.parent
+      this.context(this.currentFrame()!.context).locals['<exception>'] = exceptionId
     },
 
     copy(this: EvaluationType): EvaluationType {
       return Evaluation({
         ...this,
-        // TODO: replace reduces with mapObject?
-        instances: keys(this.instances).reduce((instanceClones, id) => ({
-          ...instanceClones,
-          [id]: { ...this.instance(id) },
-        }), {}),
-        contexts: keys(this.contexts).reduce((contextClones, id) => ({
-          ...contextClones,
-          [id]: { ...this.context(id), locals: { ...this.context(id).locals } },
-        }), {}),
+        instances: mapObject(instance => ({
+          ...instance,
+          innerValue: isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
+        }), this.instances),
+        contexts: mapObject(context => ({ ...context, locals: { ...context.locals } }), this.contexts),
         frameStack: this.frameStack.map(frame => ({
           ...frame,
           operandStack: [...frame.operandStack],
-          resume: [...frame.resume],
         })),
       })
     },
