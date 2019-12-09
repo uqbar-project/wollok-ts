@@ -49,6 +49,21 @@ You might also want to copy the following configurations to your user settings (
   "editor.foldingStrategy": "indentation",
 ```
 
+### Node
+
+You need to install [node](https://nodejs.org/es/) > 11, which provides VM environment, and [nvm - Node Version Manager](https://github.com/nvm-sh/nvm). Before anything make sure you'll use the right version of node by running this command:
+
+```bash
+nvm use
+```
+
+Expected output is the node version that will be used, for example:
+
+```bash
+Found '/home/dodain/workspace/wollok-dev/wollok-ts/.nvmrc' with version <v11.15.0>
+Now using node v11.15.0 (npm v6.7.0)
+```
+
 ### NPM
 
 You will also need to install [NPM](https://www.npmjs.com/). If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
