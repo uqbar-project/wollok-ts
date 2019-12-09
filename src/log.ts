@@ -53,7 +53,7 @@ const hr = (size: number = columns) => '─'.repeat(size)
 
 const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
   const instance = evaluation.instances[id]
-  const module = instance ? stringifyModule(evaluation)(instance.module) : ''
+  const module = instance ? stringifyModule(evaluation)(instance.moduleFQN) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
     if (val === undefined) return ''
@@ -61,7 +61,7 @@ const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
     if (val instanceof Array) return `(${val.map(e => typeof e === 'string' ? stringifyId(evaluation)(e) : '?').join(', ')})`
     return ''
   }
-  return magenta(id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)
+  return magenta(id && id.includes('-') ? `${module}#${id.slice(24)}${valueDescription()}` : id)
 }
 
 const stringifyModule = (evaluation: Evaluation) => (name: Name): string => {
@@ -107,18 +107,19 @@ const consoleLogger: Logger = {
 
     const stepTabulation = evaluation.frameStack.length - 1
 
-    let tabulationReturn = 0
-    if (instruction.kind === 'INTERRUPT') {
-      const returns = [...evaluation.frameStack].reverse().findIndex(({ resume }) => resume.includes(instruction.interruption))
-      tabulationReturn = returns === -1 ? stepTabulation : returns
-    }
+    const tabulationReturn = 0
+    // TODO: fix
+    // if (instruction.kind === 'INTERRUPT') {
+    //   const returns = [...evaluation.frameStack].reverse().findIndex(({ resume }) => resume.includes(instruction.interruption))
+    //   tabulationReturn = returns === -1 ? stepTabulation : returns
+    // }
 
-    const tabulation = instruction.kind === 'INTERRUPT'
+    const tabulation = false && instruction.kind === 'INTERRUPT'
       ? '│'.repeat(stepTabulation - tabulationReturn) + '└' + '─'.repeat(tabulationReturn - 1)
       : '│'.repeat(stepTabulation)
 
     consoleLogger.debug(
-      `Step ${('0000' + stepCount++).slice(-4)}: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
+      `${('0000' + stepCount++).slice(-4)}<${evaluation.currentFrame()?.context?.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
       `[${operandStack.map(stringifyId(evaluation)).join(', ')}]`
     )
 

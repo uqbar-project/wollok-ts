@@ -1,4 +1,5 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import { basename } from 'path'
 import { Raw as RawBehavior } from './behavior'
 import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
@@ -17,10 +18,10 @@ const PREFIX_OPERATORS: Record<Name, Name> = {
   '-': 'invert',
   '+': 'plus',
 }
-const LAZY_OPERATORS = ['||', '&&']
+const LAZY_OPERATORS = ['||', 'or ', '&&', 'and ']
 const INFIX_OPERATORS = [
-  ['||'],
-  ['&&'],
+  ['||', 'or '],
+  ['&&', 'and '],
   ['===', '!==', '==', '!='],
   ['>=', '<=', '>', '<'],
   ['..<', '>..', '..', '->', '>>>', '>>', '<<<', '<<', '<=>', '<>', '?:'],
@@ -67,7 +68,7 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName
   return lazy(() =>
     node('Package')({
-      name: of(fileName.split('.')[0]),
+      name: of(basename(fileName).split('.')[0]),
       imports: importEntity.sepBy(optional(_)).skip(optional(_)),
       members: entity.sepBy(optional(_)),
     }).thru(sourced).skip(optional(_))
@@ -363,9 +364,9 @@ export const superExpression: Parser<Super<Raw>> = lazy(() =>
 
 export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = lazy(() =>
   alt(
-    key('new').then(
+    key('new ').then(
       seqMap(
-        reference,
+        fullyQualifiedReference,
         alt(unamedArguments, namedArguments),
         // TODO: Convince the world we need a single linearization syntax
         (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
@@ -376,9 +377,9 @@ export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = la
       )
     ),
 
-    key('new').then(
+    key('new ').then(
       node('New')({
-        instantiated: reference,
+        instantiated: fullyQualifiedReference,
         args: alt(unamedArguments, namedArguments),
       })
     ).thru(sourced),
@@ -455,7 +456,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
         buildSend(
           receiver,
-          message,
+          message.trim(),
           LAZY_OPERATORS.includes(message)
             ? [makeClosure([], args)]
             : args,
@@ -478,9 +479,10 @@ export const literal: Parser<Literal<Raw>> = lazy(() =>
     closureLiteral,
     node('Literal')({
       value: alt(
-        key('null').result(null),
-        key('true').result(true),
-        key('false').result(false),
+        // TODO: improve the idea of key. When is the trimming necesary?
+        _.then(string('null')).notFollowedBy(name).result(null),
+        _.then(string('true')).notFollowedBy(name).result(true),
+        _.then(string('false')).notFollowedBy(name).result(false),
         regex(/-?\d+(\.\d+)?/).map(Number),
         expression.sepBy(key(',')).wrap(key('['), key(']')).map(elems => ListOf(...elems)),
         expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(elems => SetOf(...elems)),
