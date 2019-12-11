@@ -3,6 +3,8 @@ import { last, zipObj } from './extensions'
 import log from './log'
 import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
+const { round } = Math
+
 export type Locals = Record<Name, Id>
 
 export interface Context {
@@ -705,6 +707,12 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   return currentFrame.operandStack.length ? evaluation.instances[currentFrame.popOperand()] : null
 }
 
+interface TestResult {
+  error?: Error,
+  duration: number,
+  evaluation: Evaluation,
+}
+
 // TODO: Refactor this interface
 export default (environment: Environment, natives: {}) => ({
 
@@ -744,10 +752,9 @@ export default (environment: Environment, natives: {}) => ({
     log.success('Done!')
   },
 
-  runTests: (): [number, number] => {
-    // TODO: create extension function to divide array based on condition
+  runTests: (): Record<Name, TestResult> => {
     const describes = environment.descendants<Describe>('Describe')
-    const freeTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
+    const isolatedTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = buildEvaluation(environment)
@@ -755,44 +762,37 @@ export default (environment: Environment, natives: {}) => ({
     initializedEvaluation.frameStack.pop()
     log.done('Initializing Evaluation')
 
-    let total = 0
-    let passed = 0
-    const runTests = ((tests: List<Test>, baseEvaluation: Evaluation) => {
-      const testsCount = tests.length
-      total += testsCount
-      log.separator()
-      tests.forEach((test, i) => {
-        const n = i + 1
-        const evaluation = baseEvaluation.copy()
+    const runTest = (test: Test, baseEvaluation: Evaluation): TestResult => {
+      log.resetStep()
+      log.info(`Running test ${test.fullyQualifiedName()}`)
 
-        log.resetStep()
-        log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-        log.start(test.name)
+      const evaluation = baseEvaluation.copy()
+      let error: Error | undefined
 
-        try {
-          run(evaluation, natives, test.body.sentences)
-          passed++
-          log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-        } catch (error) {
-          log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-          log.error(error)
-        }
+      const before = process.hrtime()
 
-        log.done(test.name)
-        log.separator()
-      })
-    })
+      try {
+        run(evaluation, natives, test.body.sentences)
+      } catch (e) {
+        error = e
+      }
 
-    log.start('Running free tests')
-    runTests(freeTests, initializedEvaluation)
-    log.done('Running free tests')
+      const delta = process.hrtime(before)
 
-    log.start('Running describes')
+      return {
+        evaluation,
+        error,
+        duration: round(delta[0] * 1e3 + delta[1] / 1e6),
+      }
+    }
+
+    const results: Record<Name, TestResult> = {}
+
+    isolatedTests.forEach(test => results[test.fullyQualifiedName()] = runTest(test, initializedEvaluation))
+
     describes.forEach((describe: Describe) => {
       const describeEvaluation = initializedEvaluation.copy()
       const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
-
-      log.info(`Running describe ${describe.fullyQualifiedName()}`)
 
       describeEvaluation.pushFrame(compile(describeEvaluation.environment)(
         ...describe.variables(),
@@ -801,17 +801,23 @@ export default (environment: Environment, natives: {}) => ({
 
       try {
         stepAll(natives)(describeEvaluation)
-        runTests(describe.tests(), describeEvaluation)
       } catch (error) {
-        log.error(`Failed! Error during initialization of describe ${describe.fullyQualifiedName()}`)
-        log.error(error)
+        describe.tests().forEach(test =>
+          results[test.fullyQualifiedName()] = {
+            error,
+            duration: 0,
+            evaluation: describeEvaluation,
+          }
+        )
+
+        return
       }
+
+      describe.tests().forEach(test => results[test.fullyQualifiedName()] = runTest(test, describeEvaluation))
 
     })
 
-    log.done('Running describes')
-
-    return [passed, total]
+    return results
   },
 
 })

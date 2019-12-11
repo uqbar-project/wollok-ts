@@ -9,6 +9,8 @@ import interpreter from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
 import natives from '../src/wre/wre.natives'
 
+const { keys, values } = Object
+
 const EXAMPLE_TESTS_FOLDER = join('language', 'test', 'examples')
 const ARGS = commandLineArgs([
   { name: 'verbose', alias: 'v', type: Boolean, defaultValue: false },
@@ -38,7 +40,9 @@ const runAll = async () => {
 
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
-  const [passed, total] = await runTests()
+  const results = runTests()
+  const total = keys(results).length
+  const passed = values(results).filter(({ error }) => !error).length
   log.separator('Results')
   log.done('Running tests')
 
