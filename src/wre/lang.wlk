@@ -1923,9 +1923,9 @@ class BadParameterException inherits Exception {
 
 object io {
   // TODO: merge handlers?
-  const eventHandlers = new Dictionary()
-  const timeHandlers = new Dictionary()
-  var eventQueue = []
+  const property eventHandlers = new Dictionary()
+  const property timeHandlers = new Dictionary()
+  var property eventQueue = []
   var property currentTime = 0
 
   method queueEvent(event) {

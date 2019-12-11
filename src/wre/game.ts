@@ -8,8 +8,14 @@ import wreNatives from './wre.natives'
 // TODO:
 // tslint:disable:variable-name
 
-const pushVoid = (evaluation: Evaluation) => {
-  evaluation.currentFrame().pushOperand(VOID_ID)
+const newList = (evaluation: Evaluation) => evaluation.createInstance('wollok.lang.List', [])
+
+const returnValue = (evaluation: Evaluation, id: Id) => {
+  evaluation.currentFrame().pushOperand(id)
+}
+
+const returnVoid = (evaluation: Evaluation) => {
+  returnValue(evaluation, VOID_ID)
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
@@ -18,7 +24,7 @@ const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
   self.set(key, value.id)
-  pushVoid(evaluation)
+  returnVoid(evaluation)
 }
 
 const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (evaluation: Evaluation) => {
@@ -28,19 +34,26 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
     get(self, key)(evaluation)
 }
 
+
+const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
+  const { sendMessage } = interpret(evaluation.environment, wreNatives)
+  const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
+  sendMessage('position', id)(evaluation)
+  const visualPosition = evaluation.instances[currentFrame.operandStack.pop()!]
+  return  position.get('x') === visualPosition.get('x')
+  &&      position.get('y') === visualPosition.get('y')
+}
+
 export default {
   game: {
     addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
       if (!self.get('visuals')) {
-        self.set('visuals', evaluation.createInstance('wollok.lang.List', []))
+        self.set('visuals', newList(evaluation))
       }
-
       const visuals: RuntimeObject = self.get('visuals')!
-
       visuals.assertIsCollection()
-
       visuals.innerValue.push(positionable.id)
-      pushVoid(evaluation)
+      returnVoid(evaluation)
     },
 
     addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
@@ -58,11 +71,11 @@ export default {
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
       if (visuals) {
-        const currentVisuals: RuntimeObject = visuals!
+        const currentVisuals: RuntimeObject = visuals
         currentVisuals.assertIsCollection()
         currentVisuals.innerValue = currentVisuals.innerValue.filter((id: Id) => id !== visual.id)
       }
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      returnVoid(evaluation)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
@@ -76,25 +89,17 @@ export default {
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
-      const { sendMessage } = interpret(evaluation.environment, wreNatives)
       const visuals = self.get('visuals')
-      if (visuals) {
-        // TODO: Validate visuals
+      const result = newList(evaluation)
+      if (!visuals) {
+        return returnValue(evaluation, result)
       }
-      const inPosition = (id: Id) => {
-        const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
-        sendMessage('position', id)(evaluation)
-        const visualPosition = evaluation.instances[currentFrame.operandStack.pop()!]
-        return  position.get('x') === visualPosition.get('x')
-        &&      position.get('y') === visualPosition.get('y')
-      }
-      const currentVisuals: RuntimeObject = visuals!
+      const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      const result = evaluation.createInstance('wollok.lang.List', [])
       const wResult: RuntimeObject = evaluation.instance(result)
       wResult.assertIsCollection()
-      wResult.innerValue = currentVisuals.innerValue.filter(inPosition)
-      evaluation.currentFrame().pushOperand(result)
+      wResult.innerValue = currentVisuals.innerValue.filter(samePosition(evaluation, position))
+      returnValue(evaluation, result)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
@@ -118,8 +123,8 @@ export default {
         INTERRUPT('return'),
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
 
-      self.set('visuals', evaluation.createInstance('wollok.lang.List', []))
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      self.set('visuals', newList(evaluation))
+      returnVoid(evaluation)
     },
 
     stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {

@@ -128,10 +128,10 @@ object game {
 	 */	
 	method colliders(visual) = self.getObjectsIn(visual.position()).filter({it => it != visual})
 
-    /**
-     * Returns the unique object that is in same position of given object.
-     */	
-    method uniqueCollider(visual) = self.colliders(visual).uniqueElement()
+	/**
+	 * Returns the unique object that is in same position of given object.
+	 */	
+	method uniqueCollider(visual) = self.colliders(visual).uniqueElement()
 
 	/**
 	 * Stops render the board and finish the game.
