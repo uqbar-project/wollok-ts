@@ -34,6 +34,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
     get(self, key)(evaluation)
 }
 
+const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
 const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
   const { sendMessage } = interpret(evaluation.environment, wreNatives)
@@ -80,7 +81,7 @@ export default {
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.suspend('return', [
-        PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
+        PUSH(io(evaluation)),
         PUSH(event.id),
         PUSH(action.id),
         CALL('addEventHandler', 2),
@@ -103,10 +104,9 @@ export default {
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
-      const io = evaluation.environment.getNodeByFQN('wollok.lang.io').id
       const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
       const { sendMessage } = interpret(evaluation.environment, wreNatives)
-      sendMessage('currentTime', io)(evaluation)
+      sendMessage('currentTime', io(evaluation))(evaluation)
       const wCurrentTime: RuntimeObject = evaluation.instances[currentFrame.operandStack.pop()!]
       wCurrentTime.assertIsNumber()
       const currentTime = wCurrentTime.innerValue
@@ -118,7 +118,7 @@ export default {
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
       evaluation.suspend('return', [
-        PUSH(evaluation.environment.getNodeByFQN('wollok.lang.io').id),
+        PUSH(io(evaluation)),
         CALL('clear', 0),
         INTERRUPT('return'),
       ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))

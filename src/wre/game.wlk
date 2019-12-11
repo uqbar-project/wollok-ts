@@ -1,3 +1,5 @@
+import wollok.io.*
+
 /**
   * Wollok Game main object 
   */

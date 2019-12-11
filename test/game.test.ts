@@ -6,7 +6,7 @@ import natives from '../src/wre/wre.natives'
 
 should()
 
-describe.only('Wollok Game', () => {
+describe('Wollok Game', () => {
 
   it('addVisual', () => {
     const evaluation = runGame()
@@ -126,6 +126,7 @@ const runGame = (content: string = '') => {
   const gameProgram = {
     name: 'game.wpgm',
     content: `
+    import wollok.io.*
     import wollok.game.*
 
     object closureMock {

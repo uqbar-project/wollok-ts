@@ -13,6 +13,7 @@ log('Building WRE...')
 log('\tParsing...')
 const rawWRE = Package('wollok')(
   file('lang').tryParse(readFileSync(`${WRE_PATH}/lang.wlk`, 'utf8')),
+  file('io').tryParse(readFileSync(`${WRE_PATH}/io.wlk`, 'utf8')),
   file('game').tryParse(readFileSync(`${WRE_PATH}/game.wlk`, 'utf8')),
 )
 
