@@ -1,5 +1,3 @@
-import wollok.io.*
-
 /**
   * Wollok Game main object 
   */
@@ -66,11 +64,7 @@ object game {
 	 * Example:
 	 *     game.whenCollideDo(pepita, { comida => pepita.comer(comida) })
 	 */	
-	method whenCollideDo(visual, action) {
-		io.addTimeHandler(visual.identity(), { time => 
-			self.colliders(visual).forEach({it => action.apply(it)})
-		})		
-	}
+	method whenCollideDo(visual, action) native
 
 	/**
 	 * Adds a block with a specific name that will be executed every n milliseconds.
@@ -80,29 +74,18 @@ object game {
 	 * Example:
 	 *     	game.onTick(5000, "pepitaMoving", { => pepita.position().x(0.randomUpTo(4)) })
 	 */
-	method onTick(milliseconds, name, action) {
-		var times = 0
-		const initTime = io.currentTime()
-		io.addTimeHandler(name, { time => if ((time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
-	}
+	method onTick(milliseconds, name, action) native
 	 
+
+	method schedule(milliseconds, action) native
+
 	/**
 	 * Remove a tick event created with onTick message
 	 *
 	 * Example:
 	 *      game.removeTickEvent("pepitaMoving")
 	 */ 
-	method removeTickEvent(name) {
-		io.removeTimeHandler(name)
-	}
-
-	method schedule(milliseconds, action) {
-		const name = action.identity()
-		self.onTick(milliseconds, name, {
-			action.apply()
-			self.removeTickEvent(name)
-		})
-	}
+	method removeTickEvent(name) native
 	
 	/**
 	 * Returns all objects in given position.
@@ -128,7 +111,7 @@ object game {
 	/**
 	 * Returns all objects that are in same position of given object.
 	 */	
-	method colliders(visual) = self.getObjectsIn(visual.position()).filter({it => it != visual})
+	method colliders(visual) native
 
 	/**
 	 * Returns the unique object that is in same position of given object.

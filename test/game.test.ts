@@ -20,8 +20,8 @@ describe('Wollok Game', () => {
 
   it('say', () => {
     const evaluation = runGame('game.say(visual, "Hi!")')
-    visual(evaluation).get('message')!.innerValue!.should.be.eq('Hi!')
-    visual(evaluation).get('messageTime')!.innerValue!.should.be.eq(2000)
+    visualObject(evaluation).get('message')!.innerValue!.should.be.eq('Hi!')
+    visualObject(evaluation).get('messageTime')!.innerValue!.should.be.eq(2000)
   })
 
   it('clear', () => {
@@ -112,7 +112,7 @@ describe('Wollok Game', () => {
 
 })
 
-const visual = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('game.visual').id)
+const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('game.visual').id)
 
 const visuals = (evaluation: Evaluation) => {
   const wVisuals: RuntimeObject = evaluation

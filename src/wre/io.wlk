@@ -42,4 +42,5 @@ object io {
     timeHandlers.values().flatten().forEach{ callback => callback.apply(time) }
     currentTime = time
   }
+
 }

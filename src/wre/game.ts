@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { CALL, Evaluation, INTERRUPT, PUSH, RuntimeObject, VOID_ID } from '../interpreter'
+import { Evaluation, RuntimeObject, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 import wreNatives from './wre.natives'
 
@@ -33,6 +33,15 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
   else
     get(self, key)(evaluation)
 }
+
+const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage: boolean = true) => (message: string, ...params: string[]) => 
+  (evaluation: Evaluation) => {
+    const { sendMessage } = interpret(evaluation.environment, wreNatives)
+    sendMessage(message, receiver(evaluation), ...params)(evaluation)
+    if (voidMessage) returnVoid(evaluation)
+  }
+
+const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
@@ -79,15 +88,20 @@ export default {
       returnVoid(evaluation)
     },
 
-    whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
-        PUSH(io(evaluation)),
-        PUSH(event.id),
-        PUSH(action.id),
-        CALL('addEventHandler', 2),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
-    },
+    whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(io)('addEventHandler', event.id, action.id),
+
+    whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(mirror)('whenCollideDo', visual.id, action.id),
+
+    onTick: (_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(mirror)('onTick', milliseconds.id, name.id, action.id),
+
+    schedule: (_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(mirror)('schedule', milliseconds.id, action.id),
+
+    removeTickEvent: (_self: RuntimeObject, event: RuntimeObject) =>
+      redirectTo(io)('removeTimeHandler', event.id),
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
@@ -117,15 +131,14 @@ export default {
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
-        PUSH(io(evaluation)),
-        CALL('clear', 0),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
-
+      const { sendMessage } = interpret(evaluation.environment, wreNatives)
+      sendMessage('clear', io(evaluation))(evaluation)
       self.set('visuals', newList(evaluation))
       returnVoid(evaluation)
     },
+
+    colliders: (_self: RuntimeObject, visual: RuntimeObject) =>
+      redirectTo(mirror, false)('colliders', visual.id),
 
     stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
       /*TODO: */ throw new ReferenceError('To be implemented')
