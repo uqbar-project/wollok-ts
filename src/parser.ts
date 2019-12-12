@@ -1,4 +1,5 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import { basename } from 'path'
 import { Raw as RawBehavior } from './behavior'
 import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
 import { last } from './extensions'
@@ -12,20 +13,23 @@ type Optionals<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof
 
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
-const PREFIX_OPERATORS = ['!', '-', '+']
-const LAZY_OPERATORS = ['||', '&&']
+const PREFIX_OPERATORS: Record<Name, Name> = {
+  '!': 'negate',
+  '-': 'invert',
+  '+': 'plus',
+}
+const LAZY_OPERATORS = ['||', 'or ', '&&', 'and ']
 const INFIX_OPERATORS = [
-  ['||'],
-  ['&&'],
+  ['||', 'or '],
+  ['&&', 'and '],
   ['===', '!==', '==', '!='],
   ['>=', '<=', '>', '<'],
   ['..<', '>..', '..', '->', '>>>', '>>', '<<<', '<<', '<=>', '<>', '?:'],
-  ['**'], // TODO: remove this line
   ['+', '-'],
   ['*', '/'],
   ['**', '%'],
 ]
-const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], PREFIX_OPERATORS.map(op => `${op}_`))
+const OPERATORS = INFIX_OPERATORS.reduce((all, ops) => [...all, ...ops], keys(PREFIX_OPERATORS).map(op => PREFIX_OPERATORS[op]))
 
 // TODO: Resolve this without effect
 let SOURCE_FILE: string | undefined
@@ -64,11 +68,18 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName
   return lazy(() =>
     node('Package')({
-      name: of(fileName.split('.')[0]),
+      name: of(basename(fileName).split('.')[0]),
       imports: importEntity.sepBy(optional(_)).skip(optional(_)),
       members: entity.sepBy(optional(_)),
     }).thru(sourced).skip(optional(_))
   )
+}
+
+const operator = (operatorsNames: string[]): Parser<string> => {
+  const operators = [...operatorsNames]
+  operators.sort()
+  const operatorParsersOrderedByName = operators.reverse().map(key)
+  return alt(...operatorParsersOrderedByName)
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -76,6 +87,12 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
+
+const fullyQualifiedReference: Parser<Reference<Raw>> = lazy(() =>
+  node('Reference')({
+    name: name.sepBy1(key('.')).tieWith('.'),
+  }).thru(sourced)
+)
 
 export const reference: Parser<Reference<Raw>> = lazy(() =>
   node('Reference')({
@@ -134,9 +151,7 @@ export const entity: Parser<Entity<Raw>> = lazy(() => alt(
 
 export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
-    entity: node('Reference')({
-      name: name.sepBy1(key('.')).tieWith('.'),
-    }).thru(sourced),
+    entity: fullyQualifiedReference,
     isGeneric: maybeString('.*'),
   })).thru(sourced).skip(optional(alt(key(';'), _)))
 )
@@ -177,13 +192,13 @@ export const testEntity: Parser<Test<Raw>> = lazy(() =>
 )
 
 const mixinLinearization = lazy(() =>
-  key('mixed with').then(reference.sepBy1(key('and'))).map(mixins => mixins.reverse())
+  key('mixed with').then(fullyQualifiedReference.sepBy1(key('and'))).map(mixins => mixins.reverse())
 )
 
 export const classEntity: Parser<Class<Raw>> = lazy(() =>
   key('class').then(node('Class')({
     name,
-    superclass: optional(key('inherits').then(reference)),
+    superclass: optional(key('inherits').then(fullyQualifiedReference)),
     mixins: mixinLinearization.fallback([]),
     members: classMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced)
@@ -191,7 +206,7 @@ export const classEntity: Parser<Class<Raw>> = lazy(() =>
 
 export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
   const superCall = key('inherits').then(seqMap(
-    reference,
+    fullyQualifiedReference,
     alt(unamedArguments, namedArguments, of([])),
     (superclass, args) => ({ superclass, args }))
   )
@@ -251,7 +266,7 @@ export const field: Parser<Field<Raw>> = lazy(() =>
 
 export const method: Parser<Method<Raw>> = lazy(() => seqMap(
   key('override').result(true).fallback(false),
-  key('method').then(alt(name, ...OPERATORS.map(key))),
+  key('method').then(alt(name, operator(OPERATORS))),
   parameters,
   alt(
     key('=').then(
@@ -302,16 +317,16 @@ export const returnSentence: Parser<Return<Raw>> = lazy(() =>
 export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
   seqMap(
     reference,
-    alt(...ASSIGNATION_OPERATORS.map(key)),
+    operator(ASSIGNATION_OPERATORS),
     expression,
-    (variable, operator, value) => buildAssignment(
+    (variable, assignation, value) => buildAssignment(
       variable,
-      operator === '='
+      assignation === '='
         ? value
         : buildSend(
           variable,
-          operator.slice(0, -1),
-          LAZY_OPERATORS.includes(operator.slice(0, -1)) ? [makeClosure([], [value])] : [value]
+          assignation.slice(0, -1),
+          LAZY_OPERATORS.includes(assignation.slice(0, -1)) ? [makeClosure([], [value])] : [value]
         ),
     )
   ).thru(sourced)
@@ -349,9 +364,9 @@ export const superExpression: Parser<Super<Raw>> = lazy(() =>
 
 export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = lazy(() =>
   alt(
-    key('new').then(
+    key('new ').then(
       seqMap(
-        reference,
+        fullyQualifiedReference,
         alt(unamedArguments, namedArguments),
         // TODO: Convince the world we need a single linearization syntax
         (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
@@ -362,9 +377,9 @@ export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = la
       )
     ),
 
-    key('new').then(
+    key('new ').then(
       node('New')({
-        instantiated: reference,
+        instantiated: fullyQualifiedReference,
         args: alt(unamedArguments, namedArguments),
       })
     ).thru(sourced),
@@ -421,11 +436,11 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
 
 export const operation: Parser<Expression<Raw>> = lazy(() => {
   const prefixOperation = seqMap(
-    seq(index, alt(...PREFIX_OPERATORS.map(key))).many(),
+    seq(index, operator(keys(PREFIX_OPERATORS))).many(),
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      buildSend(receiver, `${message}_`, [], { source: { start, end } })
+      buildSend(receiver, PREFIX_OPERATORS[message], [], { source: { start, end } })
       , initial)
   )
 
@@ -437,11 +452,11 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     return seqMap(
       index,
       argument,
-      seq(alt(...INFIX_OPERATORS[precedenceLevel].map(key)), argument.times(1), index).many(),
+      seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
         buildSend(
           receiver,
-          message,
+          message.trim(),
           LAZY_OPERATORS.includes(message)
             ? [makeClosure([], args)]
             : args,
@@ -464,9 +479,10 @@ export const literal: Parser<Literal<Raw>> = lazy(() =>
     closureLiteral,
     node('Literal')({
       value: alt(
-        key('null').result(null),
-        key('true').result(true),
-        key('false').result(false),
+        // TODO: improve the idea of key. When is the trimming necesary?
+        _.then(string('null')).notFollowedBy(name).result(null),
+        _.then(string('true')).notFollowedBy(name).result(true),
+        _.then(string('false')).notFollowedBy(name).result(false),
         regex(/-?\d+(\.\d+)?/).map(Number),
         expression.sepBy(key(',')).wrap(key('['), key(']')).map(elems => ListOf(...elems)),
         expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(elems => SetOf(...elems)),

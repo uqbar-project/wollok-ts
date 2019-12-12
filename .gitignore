@@ -1,5 +1,6 @@
 .vscode
 dist
+language
 perf
 *.tgz
 node_modules

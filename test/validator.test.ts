@@ -15,7 +15,8 @@ const WRE = fill(Package('wollok')(
   Package('lang')(
     Class('Object')(),
     Class('Closure')()
-  )
+  ),
+  Package('lib')(),
 ))
 
 describe('Wollok Validations', () => {

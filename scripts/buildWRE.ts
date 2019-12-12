@@ -1,30 +1,48 @@
 import { readFileSync, writeFileSync } from 'fs'
+import { sync as listFiles } from 'globby'
+import { join, sep as pathSeparator } from 'path'
 import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
+import log, { enableLogs, LogLevel } from '../src/log'
 import { file } from '../src/parser'
 
-const { log } = console
+const WRE_SRC_PATH = 'language/src'
+const WRE_TARGET_PATH = 'src/wre'
 
-const WRE_PATH = 'src/wre'
+enableLogs(LogLevel.INFO)
 
-log('Building WRE...')
+log.start('Building WRE')
 
-log('\tParsing...')
-const rawWRE = Package('wollok')(
-  file('lang').tryParse(readFileSync(`${WRE_PATH}/lang.wlk`, 'utf8')),
-  file('io').tryParse(readFileSync(`${WRE_PATH}/io.wlk`, 'utf8')),
-  file('game').tryParse(readFileSync(`${WRE_PATH}/game.wlk`, 'utf8')),
-  file('gameMirror').tryParse(readFileSync(`${WRE_PATH}/gameMirror.wlk`, 'utf8')),
+const targetRawWRE = Package('wollok')(
+  file('io').tryParse(readFileSync(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
+  file('gameMirror').tryParse(readFileSync(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
 )
 
-log('\tFilling...')
-const filledWRE = fill(rawWRE)
+const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
 
-log('\tLinking...')
-const wre = link([filledWRE])
+log.start('\tParsing...')
+const rawWRE = sourceFiles.map(sourceFile => {
+  const sourceFilePath = sourceFile.split(pathSeparator)
+  const sourceFileName = sourceFilePath.splice(-1)[0].split('.')[0]
+  return sourceFilePath.reduce(
+    (node, path) => Package(path)(node),
+    file(sourceFileName).tryParse(readFileSync(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8'))
+  )
+})
 
-log('\tSaving...')
-writeFileSync(`${WRE_PATH}/wre.json`, JSON.stringify(wre))
+log.done('\tParsing...')
 
-log('Done.')
+log.start('\tFilling...')
+const filledWRE = [...rawWRE, targetRawWRE].map(fill)
+log.done('\tFilling...')
+
+log.start('\tLinking...')
+const wre = link([...filledWRE])
+log.done('\tLinking...')
+
+log.start('\tSaving...')
+writeFileSync(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, undefined, 2))
+log.done('\tSaving...')
+
+log.done('Building WRE')

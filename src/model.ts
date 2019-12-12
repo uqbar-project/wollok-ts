@@ -232,7 +232,7 @@ export interface Constructor<S extends Stage = Final> extends BaseNode<S> {
   readonly kind: 'Constructor'
   readonly parameters: List<Parameter<S>>
   readonly body: Body<S>
-  readonly baseCall: Fillable<S, { callsSuper: boolean, args: List<Expression<S>> }>
+  readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
 
   parent: Linkable<S, () => Class<S>>
   matchesSignature(arity: number): boolean

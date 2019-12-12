@@ -1,150 +1,577 @@
-import { CALL, Evaluation, FALSE_ID, INTERRUPT, NULL_ID, PUSH, RuntimeObject, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 
 const { random, floor, ceil } = Math
-const { keys } = Object
 const { UTC } = Date
 
 // TODO:
 // tslint:disable:variable-name
 
-// TODO: tests
+const Collections = {
+
+  findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    evaluation.pushFrame([
+      ...self.innerValue.flatMap((id: Id) => [
+        PUSH(predicate.id),
+        PUSH(id),
+        CALL('apply', 1),
+        CALL('negate', 0),
+        CONDITIONAL_JUMP(2),
+        PUSH(id),
+        RETURN,
+      ]),
+      PUSH(continuation.id),
+      CALL('apply', 0),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+  add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    self.innerValue.push(element.id)
+    evaluation.currentFrame()!.pushOperand(VOID_ID)
+  },
+
+  fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    evaluation.pushFrame([
+      ...[...self.innerValue].reverse().flatMap((id: Id) => [
+        PUSH(closure.id),
+        PUSH(id),
+      ]),
+      PUSH(initialValue.id),
+      ...self.innerValue.flatMap(() => [
+        SWAP(),
+        CALL('apply', 2),
+      ]),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+  filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    evaluation.pushFrame([
+      PUSH(self.id),
+      CALL('copy', 0),
+      ...[...self.innerValue].reverse().flatMap((id: Id) => [
+        DUP,
+        PUSH(closure.id),
+        PUSH(id),
+        CALL('apply', 1),
+        CONDITIONAL_JUMP(3),
+        PUSH(id),
+        CALL('remove', 1),
+        POP,
+      ]),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+  max: (self: RuntimeObject) => (evaluation: Evaluation) => {
+    evaluation.pushFrame([
+      PUSH(self.id),
+      CALL('max', 0, true, self.moduleFQN),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+  remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
+    evaluation.currentFrame()!.pushOperand(VOID_ID)
+  },
+
+  size: (self: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
+  },
+
+  clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+    self.assertIsCollection()
+
+    self.innerValue.splice(0, self.innerValue.length)
+    evaluation.currentFrame()!.pushOperand(VOID_ID)
+  },
+
+  join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation) => {
+    evaluation.pushFrame([
+      PUSH(self.id),
+      ...separator ? [PUSH(separator.id)] : [],
+      CALL('join', separator ? 1 : 0, true, self.moduleFQN),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+  contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation) => {
+    evaluation.pushFrame([
+      PUSH(self.id),
+      PUSH(value.id),
+      CALL('contains', 1, true, self.moduleFQN),
+      RETURN,
+    ], evaluation.createContext(self.id))
+  },
+
+}
 
 export default {
 
   Exception: {
+
+    // TODO:
     getFullStackTrace: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
+
+    // TODO:
     getStackTrace: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
+      throw new ReferenceError('To be implemented')
     },
+
   },
+
 
   Object: {
 
-    '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.id === other.id ? TRUE_ID : FALSE_ID)
+    identity: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', self.id))
     },
 
-    'identity': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.id))
+    // TODO:
+    instanceVariables: (_self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.List', []))
     },
 
-    'kindName': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
+    // TODO:
+    instanceVariableFor: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
+      throw new ReferenceError('To be implemented')
     },
 
-    'className': (self: RuntimeObject) => (evaluation: Evaluation) => {
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.module))
+    // TODO:
+    resolve: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation) => {
+      throw new ReferenceError('To be implemented')
     },
 
-    'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const selfLocals = self.context().locals
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', `${self.module}[${keys(selfLocals).map(key =>
-        `${key} = ${selfLocals[key]}`
-      ).join(', ')}]`))
+    kindName: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', self.moduleFQN))
     },
+
+    className: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', self.moduleFQN))
+    },
+
+    generateDoesNotUnderstandMessage:
+      (_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject) =>
+        (evaluation: Evaluation) => {
+          target.assertIsString()
+          messageName.assertIsString()
+          parametersSize.assertIsNumber()
+
+          const argsText = new Array(parametersSize.innerValue).fill(null).map((_, i) => `arg ${i}`)
+          const text = `${target.innerValue} does not undersand ${messageName.innerValue}(${argsText})`
+
+          evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', text))
+        },
+
+    checkNotNull: (_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
+      message.assertIsString()
+
+      if (value.id === NULL_ID) throw new TypeError(message.innerValue)
+      else evaluation.currentFrame()!.pushOperand(VOID_ID)
+    },
+
   },
+
 
   Collection: {
 
-    initialize: (self: RuntimeObject, ) => (evaluation: Evaluation) => {
-      self.innerValue = self.innerValue || []
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
+    findOrElse: Collections.findOrElse,
 
-    fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsCollection()
-
-      evaluation.suspend('return', [
-        ...[...self.innerValue].reverse().flatMap((id: Id) => [
-          PUSH(closure.id),
-          PUSH(id),
-        ]),
-        PUSH(initialValue.id),
-        ...self.innerValue.flatMap(() => [
-          SWAP,
-          CALL('apply', 2),
-        ]),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
-    },
-
-    add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsCollection()
-
-      self.innerValue.push(element.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
-
-    remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsCollection()
-
-      self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
-
-    size: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsCollection()
-
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
-    },
-
-    clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsCollection()
-
-      self.innerValue.splice(0, self.innerValue.length)
-      evaluation.currentFrame().pushOperand(VOID_ID)
-    },
   },
+
+
+  Set: {
+
+    'anyOne': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsCollection()
+
+      evaluation.currentFrame()!.pushOperand(self.innerValue[floor(random() * self.innerValue.length)])
+    },
+
+    'fold': Collections.fold,
+
+    'filter': Collections.filter,
+
+    'max': Collections.max,
+
+    'findOrElse': Collections.findOrElse,
+
+    'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.pushFrame([
+        PUSH(self.id),
+        PUSH(element.id),
+        CALL('contains', 1),
+        CONDITIONAL_JUMP(3),
+        PUSH(self.id),
+        PUSH(element.id),
+        CALL('unsafeAdd', 1),
+        PUSH(VOID_ID),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'unsafeAdd': Collections.add,
+
+    'remove': Collections.remove,
+
+    'size': Collections.size,
+
+    'clear': Collections.clear,
+
+    'join': Collections.join,
+
+    'contains': Collections.contains,
+
+    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+
+      self.assertIsCollection()
+      other.assertIsCollection()
+
+      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+      if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
+
+      evaluation.pushFrame([
+        ...[...self.innerValue].reverse().flatMap((id: Id) => [
+          PUSH(other.id),
+          PUSH(id),
+          CALL('contains', 1),
+          DUP,
+          CONDITIONAL_JUMP(1),
+          RETURN,
+        ]),
+        PUSH(TRUE_ID),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+  },
+
 
   List: {
 
-    get: (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
+    'get': (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsCollection()
       index.assertIsNumber()
 
       const valueId = self.innerValue[index.innerValue]
       if (!valueId) throw new RangeError('index')
-      evaluation.currentFrame().pushOperand(valueId)
+      evaluation.currentFrame()!.pushOperand(valueId)
+    },
+
+    'sortBy': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsCollection()
+
+      if (self.innerValue.length < 2) return evaluation.currentFrame()!.pushOperand(self.id)
+
+      evaluation.pushFrame([
+        PUSH(self.id),
+        CALL('newInstance', 0),
+        STORE('<lessers>', false),
+        PUSH(self.id),
+        CALL('newInstance', 0),
+        STORE('<biggers>', false),
+        ...[...self.innerValue.slice(1)].flatMap((id: Id) => [
+          PUSH(closure.id),
+          PUSH(id),
+          PUSH(self.innerValue[0]),
+          CALL('apply', 2),
+          CONDITIONAL_JUMP(2),
+          LOAD('<biggers>'),
+          JUMP(1),
+          LOAD('<lessers>'),
+          PUSH(id),
+          CALL('add', 1),
+        ]),
+        LOAD('<lessers>'),
+        PUSH(closure.id),
+        CALL('sortBy', 1),
+        LOAD('<biggers>'),
+        PUSH(closure.id),
+        CALL('sortBy', 1),
+        PUSH(self.id),
+        CALL('clear', 0),
+        PUSH(self.id),
+        LOAD('<lessers>'),
+        CALL('addAll', 1),
+        PUSH(self.id),
+        PUSH(self.innerValue[0]),
+        CALL('add', 1),
+        PUSH(self.id),
+        LOAD('<biggers>'),
+        CALL('addAll', 1),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'filter': Collections.filter,
+
+    'contains': Collections.contains,
+
+    'max': Collections.max,
+
+    'fold': Collections.fold,
+
+    'findOrElse': Collections.findOrElse,
+
+    'add': Collections.add,
+
+    'remove': Collections.remove,
+
+    'size': Collections.size,
+
+    'clear': Collections.clear,
+
+    'join': Collections.join,
+
+    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsCollection()
+
+      if (self.moduleFQN !== other.moduleFQN) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+
+      other.assertIsCollection()
+
+      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+      if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
+
+      evaluation.pushFrame([
+        PUSH(self.id),
+        CALL('first', 0),
+        PUSH(other.id),
+        CALL('first', 0),
+        CALL('==', 1),
+        DUP,
+        CONDITIONAL_JUMP(1),
+        RETURN,
+        PUSH(self.id),
+        INSTANTIATE('wollok.lang.Number', 1),
+        CALL('subList', 1),
+        PUSH(other.id),
+        INSTANTIATE('wollok.lang.Number', 1),
+        CALL('subList', 1),
+        CALL('==', 1),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsCollection()
+
+      evaluation.pushFrame([
+        PUSH(self.id),
+        CALL('newInstance', 0),
+        STORE('<answer>', false),
+        ...self.innerValue.flatMap((id: Id) => [
+          LOAD('<answer>'),
+          PUSH(id),
+          CALL('contains', 1),
+          CONDITIONAL_JUMP(3),
+          LOAD('<answer>'),
+          PUSH(id),
+          CALL('add', 1),
+        ]),
+        LOAD('<answer>'),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+  },
+
+  Dictionary: {
+
+    initialize: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
+      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
+
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
+    },
+
+    put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation) => {
+      if (key.id === NULL_ID) throw new TypeError('key')
+      if (value.id === NULL_ID) throw new TypeError('value')
+
+      evaluation.pushFrame([
+        PUSH(self.id),
+        PUSH(key.id),
+        CALL('remove', 1),
+        LOAD('<keys>'),
+        PUSH(key.id),
+        CALL('add', 1),
+        LOAD('<values>'),
+        PUSH(value.id),
+        CALL('add', 1),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    basicGet: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation) => {
+      const keys: RuntimeObject = self.get('<keys>')!
+
+      keys.assertIsCollection()
+
+      evaluation.pushFrame([
+        ...keys.innerValue.flatMap((id, index) => [
+          PUSH(key.id),
+          PUSH(id),
+          CALL('!=', 1),
+          CONDITIONAL_JUMP(4),
+          LOAD('<values>'),
+          INSTANTIATE('wollok.lang.Number', index),
+          CALL('get', 1),
+          RETURN,
+        ]),
+        PUSH(NULL_ID),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    remove: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation) => {
+      const keys: RuntimeObject = self.get('<keys>')!
+
+      keys.assertIsCollection()
+
+      evaluation.pushFrame([
+        ...keys.innerValue.flatMap((id, index) => {
+          const valuesUpToIndex = index === 0
+            ? [
+              LOAD('<values>'),
+              CALL('newInstance', 0),
+            ]
+            : [
+              LOAD('<values>'),
+              INSTANTIATE('wollok.lang.Number', 0),
+              INSTANTIATE('wollok.lang.Number', index - 1),
+              CALL('subList', 2),
+            ]
+
+          return [
+            PUSH(key.id),
+            PUSH(id),
+            CALL('!=', 1),
+            CONDITIONAL_JUMP(valuesUpToIndex.length + 8),
+            ...valuesUpToIndex,
+            LOAD('<values>'),
+            INSTANTIATE('wollok.lang.Number', index + 1),
+            CALL('subList', 1),
+            CALL('+', 1),
+            STORE('<values>', true),
+
+            LOAD('<keys>'),
+            PUSH(id),
+            CALL('remove', 1),
+          ]
+        }),
+        PUSH(VOID_ID),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    keys: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(self.get('<keys>')!.id)
+    },
+
+    values: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(self.get('<values>')!.id)
+    },
+
+    forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      const keys: RuntimeObject = self.get('<keys>')!
+      const values: RuntimeObject = self.get('<values>')!
+
+      keys.assertIsCollection()
+      values.assertIsCollection()
+
+      const keyList = [...keys.innerValue].reverse()
+      const valueList = [...values.innerValue].reverse()
+
+      evaluation.pushFrame([
+        ...keyList.flatMap((key, index) => [
+          PUSH(closure.id),
+          PUSH(key),
+          PUSH(valueList[index]),
+          CALL('apply', 2),
+        ]),
+        PUSH(VOID_ID),
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
+      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
+
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
 
   },
 
   Number: {
-    '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
-    },
 
-    '-_': (self: RuntimeObject) => (evaluation: Evaluation) => {
+    'coerceToInteger': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
+      const num = self.innerValue.toString()
+      const decimalPosition = num.indexOf('.')
+
+      evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
+        : self.id
+      )
+    },
+
+    'coerceToPositiveInteger': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsNumber()
+
+      if (self.innerValue < 0) throw new RangeError('self')
+
+      const num = self.innerValue.toString()
+      const decimalPosition = num.indexOf('.')
+
+      evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
+        : self.id
+      )
+    },
+
+    '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue - other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue * other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -152,60 +579,52 @@ export default {
       other.assertIsNumber()
       if (other.innerValue === 0) throw new RangeError('other')
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue / other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue ** other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue % other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue % other.innerValue))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', `${self.innerValue}`))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', `${self.innerValue}`))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
-    },
-
-    '>=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsNumber()
-      other.assertIsNumber()
-
-      evaluation.currentFrame().pushOperand(self.innerValue >= other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
-    },
-
-    '<=': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsNumber()
-      other.assertIsNumber()
-
-      evaluation.currentFrame().pushOperand(self.innerValue <= other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'abs': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsNumber()
 
-      if (self.innerValue > 0) evaluation.currentFrame().pushOperand(self.id)
-      else evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, -self.innerValue))
+      if (self.innerValue > 0) evaluation.currentFrame()!.pushOperand(self.id)
+      else evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, -self.innerValue))
+    },
+
+    'invert': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsNumber()
+
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, -self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation) => {
@@ -213,8 +632,8 @@ export default {
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      evaluation.currentFrame().pushOperand(
-        evaluation.createInstance(self.module, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue))
+      evaluation.currentFrame()!.pushOperand(
+        evaluation.createInstance(self.moduleFQN, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue))
       )
     },
 
@@ -226,8 +645,8 @@ export default {
       const num = self.innerValue.toString()
       const decimalPosition = num.indexOf('.')
 
-      evaluation.currentFrame().pushOperand(decimalPosition >= 0
-        ? evaluation.createInstance(self.module, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
+      evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
+        ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
         : self.id
       )
     },
@@ -236,40 +655,55 @@ export default {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame().pushOperand(
-        evaluation.createInstance(self.module, random() * (other.innerValue - self.innerValue) + self.innerValue)
+      evaluation.currentFrame()!.pushOperand(
+        evaluation.createInstance(self.moduleFQN, random() * (other.innerValue - self.innerValue) + self.innerValue)
       )
+    },
+
+    'gcd': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsNumber()
+      other.assertIsNumber()
+
+      const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
+
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, gcd(self.innerValue, other.innerValue)))
+    },
+
+    'isInteger': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsNumber()
+
+      evaluation.currentFrame()!.pushOperand(self.innerValue % 1 === 0 ? TRUE_ID : FALSE_ID)
     },
 
   },
 
 
   String: {
+
     'length': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', self.innerValue.length))
     },
 
     'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
-      other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue + other.innerValue))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(self.innerValue.startsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue.startsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(self.innerValue.endsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue.endsWith(other.innerValue) ? TRUE_ID : FALSE_ID)
     },
 
     'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -280,7 +714,7 @@ export default {
 
       if (value < 0) throw new RangeError('other')
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
@@ -291,58 +725,68 @@ export default {
 
       if (value < 0) throw new RangeError('other')
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', value))
     },
 
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toLowerCase()))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.toUpperCase()))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, self.innerValue.trim()))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.trim()))
+    },
+
+    'reverse': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.assertIsString()
+
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, self.innerValue.split('').reverse().join('')))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue < other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue > other.innerValue ? TRUE_ID : FALSE_ID)
     },
 
     'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame().pushOperand(self.innerValue.indexOf(other.innerValue) >= 0 ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue.indexOf(other.innerValue) >= 0 ? TRUE_ID : FALSE_ID)
     },
 
     'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) => (evaluation: Evaluation) => {
       self.assertIsString()
       startIndex.assertIsNumber()
+
+      if (startIndex.innerValue < 0) throw new RangeError('startIndex')
+
       if (endIndex) {
         const endIndexInstance: RuntimeObject = endIndex
         endIndexInstance.assertIsNumber()
+        if (endIndexInstance.innerValue < 0) throw new RangeError('endIndex')
       }
 
       const value = self.innerValue.slice(startIndex.innerValue, endIndex && endIndex.innerValue as number)
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, value))
     },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation) => {
@@ -351,59 +795,83 @@ export default {
       replacement.assertIsString()
 
       const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
-      evaluation.currentFrame().pushOperand(evaluation.createInstance(self.module, value))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, value))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.id)
+      evaluation.currentFrame()!.pushOperand(self.id)
+    },
+
+    'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(self.id)
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
     },
   },
 
   Boolean: {
+
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
+      if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      if (self.id === FALSE_ID) return evaluation.currentFrame().pushOperand(self.id)
-
-      evaluation.suspend('return', [
+      evaluation.pushFrame([
         PUSH(closure.id),
         CALL('apply', 0),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
+
+      evaluation.pushFrame([
+        PUSH(closure.id),
+        CALL('apply', 0),
+        RETURN,
+      ], evaluation.createContext(self.id))
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
+      if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      if (self.id === TRUE_ID) return evaluation.currentFrame().pushOperand(self.id)
-
-      evaluation.suspend('return', [
+      evaluation.pushFrame([
         PUSH(closure.id),
         CALL('apply', 0),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent))
+        RETURN,
+      ], evaluation.createContext(self.id))
+    },
+
+    'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
+      if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
+
+      evaluation.pushFrame([
+        PUSH(closure.id),
+        CALL('apply', 0),
+        RETURN,
+      ], evaluation.createContext(self.id))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      self.assertIsBoolean()
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', self.id === TRUE_ID ? 'true' : 'false'))
+    },
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.String', self.innerValue.toString()))
+    'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', self.id === TRUE_ID ? 'true' : 'false'))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue === other.innerValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(self.id === other.id ? TRUE_ID : FALSE_ID)
     },
 
-    '!_': (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.innerValue ? FALSE_ID : TRUE_ID)
+    'negate': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      evaluation.currentFrame()!.pushOperand(self.id === TRUE_ID ? FALSE_ID : TRUE_ID)
     },
   },
 
   Range: {
+
     forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation) => {
       const start: RuntimeObject = self.get('start')!
       const end: RuntimeObject = self.get('end')!
@@ -422,15 +890,16 @@ export default {
 
       const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
-      evaluation.suspend('return', [
+      evaluation.pushFrame([
         ...valueIds.flatMap((id: Id) => [
           PUSH(closure.id),
           PUSH(id),
           CALL('apply', 1),
+          POP,
         ]),
         PUSH(VOID_ID),
-        INTERRUPT('return'),
-      ], evaluation.createContext(evaluation.context(evaluation.currentFrame().context).parent, { self: closure.id }))
+        RETURN,
+      ], evaluation.createContext(self.id))
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -449,27 +918,30 @@ export default {
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
         for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', values[floor(random() * values.length)]))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', values[floor(random() * values.length)]))
     },
+
   },
 
   Closure: {
+
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => {
-      evaluation.suspend('return', [
+      evaluation.pushFrame([
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
-        INTERRUPT('return'),
+        RETURN,
       ], evaluation.createContext(self.id))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      evaluation.currentFrame().pushOperand(self.get('<toString>')?.id ?? evaluation.createInstance('wollok.lang.String', `Closure#${self.id}`))
+      evaluation.currentFrame()!.pushOperand(self.get('<toString>')?.id ?? evaluation.createInstance('wollok.lang.String', `Closure#${self.id} `))
     },
+
   },
 
-  // TODO: No need to save the inner value here. Can just use the fields.
   Date: {
+
     'initialize': (self: RuntimeObject) => (evaluation: Evaluation) => {
       const day = self.get('day')
       const month = self.get('month')
@@ -484,7 +956,102 @@ export default {
       if (!year || year.id === NULL_ID)
         self.set('year', evaluation.createInstance('wollok.lang.Number', today.getFullYear()))
 
-      evaluation.currentFrame().pushOperand(VOID_ID)
+      evaluation.currentFrame()!.pushOperand(VOID_ID)
+    },
+
+    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
+      if (other.moduleFQN !== self.moduleFQN) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
+
+      const day = self.get('day')!.innerValue
+      const month = self.get('month')!.innerValue
+      const year = self.get('year')!.innerValue
+
+      const otherDay = other.get('day')!.innerValue
+      const otherMonth = other.get('month')!.innerValue
+      const otherYear = other.get('year')!.innerValue
+
+      const answer = day === otherDay && month === otherMonth && year === otherYear
+
+      evaluation.currentFrame()!.pushOperand(answer ? TRUE_ID : FALSE_ID)
+    },
+
+    'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
+
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      days.assertIsNumber()
+
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
+
+      evaluation.currentFrame()!.pushOperand(instance.id)
+    },
+
+    'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
+
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      months.assertIsNumber()
+
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
+
+      const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
+
+      while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
+        value.setDate(value.getDate() - 1)
+
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
+      evaluation.currentFrame()!.pushOperand(instance.id)
+    },
+
+    'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
+
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      years.assertIsNumber()
+
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
+
+      const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
+
+      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
+        value.setDate(value.getDate() - 1)
+      }
+
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
+      evaluation.currentFrame()!.pushOperand(instance.id)
+    },
+
+    'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      const year: RuntimeObject = self.get('year')!
+
+      year.assertIsNumber()
+
+      const value = new Date(year.innerValue, 1, 29)
+      evaluation.currentFrame()!.pushOperand(value.getDate() === 29 ? TRUE_ID : FALSE_ID)
     },
 
     'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation) => {
@@ -498,147 +1065,11 @@ export default {
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
 
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', value.getDay()))
-    },
-
-    'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      days.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-
-      evaluation.currentFrame().pushOperand(instance.id)
-    },
-
-    'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      months.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
-
-      while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
-        value.setDate(value.getDate() - 1)
-
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-      evaluation.currentFrame().pushOperand(instance.id)
-    },
-
-    'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      years.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
-
-      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
-        value.setDate(value.getDate() - 1)
-      }
-
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-      evaluation.currentFrame().pushOperand(instance.id)
-    },
-
-    'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      days.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-      evaluation.currentFrame().pushOperand(instance.id)
-    },
-
-    'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      months.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-
-      evaluation.currentFrame().pushOperand(instance.id)
-    },
-
-    'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      years.assertIsNumber()
-
-      const instance = evaluation.instance(evaluation.createInstance(self.module))
-
-      const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
-
-      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
-        value.setDate(value.getDate() - 1)
-      }
-
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
-
-      evaluation.currentFrame().pushOperand(instance.id)
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', value.getDay()))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const ownDay: RuntimeObject = self.get('day')!
       const ownMonth: RuntimeObject = self.get('month')!
@@ -659,27 +1090,77 @@ export default {
       const msPerDay = 1000 * 60 * 60 * 24
       const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
       const otherUTC = UTC(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
-      evaluation.currentFrame().pushOperand(evaluation.createInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', floor((ownUTC - otherUTC) / msPerDay)))
     },
 
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) return evaluation.currentFrame().pushOperand(FALSE_ID)
+    'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
 
-      const day = self.get('day')!.innerValue
-      const month = self.get('month')!.innerValue
-      const year = self.get('year')!.innerValue
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      days.assertIsNumber()
 
-      const otherDay = other.get('day')!.innerValue
-      const otherMonth = other.get('month')!.innerValue
-      const otherYear = other.get('year')!.innerValue
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
 
-      const answer = day === otherDay && month === otherMonth && year === otherYear
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
 
-      evaluation.currentFrame().pushOperand(answer ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(instance.id)
+    },
+
+    'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
+
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      months.assertIsNumber()
+
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
+
+      const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
+
+      evaluation.currentFrame()!.pushOperand(instance.id)
+    },
+
+    'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
+      const year: RuntimeObject = self.get('year')!
+
+      day.assertIsNumber()
+      month.assertIsNumber()
+      year.assertIsNumber()
+      years.assertIsNumber()
+
+      const instance = evaluation.instance(evaluation.createInstance(self.moduleFQN))
+
+      const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
+
+      if (years.innerValue > 0 && value.getDate() !== day.innerValue) {
+        value.setDate(value.getDate() - 1)
+      }
+
+      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
+      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
+      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+
+      evaluation.currentFrame()!.pushOperand(instance.id)
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const day: RuntimeObject = self.get('day')!
       const month: RuntimeObject = self.get('month')!
@@ -700,11 +1181,11 @@ export default {
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
 
-      evaluation.currentFrame().pushOperand(value < otherValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(value < otherValue ? TRUE_ID : FALSE_ID)
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation) => {
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.moduleFQN !== self.moduleFQN) throw new TypeError('other')
 
       const day: RuntimeObject = self.get('day')!
       const month: RuntimeObject = self.get('month')!
@@ -725,32 +1206,17 @@ export default {
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
 
-      evaluation.currentFrame().pushOperand(value > otherValue ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(value > otherValue ? TRUE_ID : FALSE_ID)
     },
 
-    'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation) => {
+    'shortDescription': (self: RuntimeObject) => (evaluation: Evaluation) => {
+      const day: RuntimeObject = self.get('day')!
+      const month: RuntimeObject = self.get('month')!
       const year: RuntimeObject = self.get('year')!
 
-      year.assertIsNumber()
-
-      const value = new Date(year.innerValue, 1, 29)
-      evaluation.currentFrame().pushOperand(value.getDate() === 29 ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', `${month.innerValue}/${day.innerValue}/${year.innerValue}`))
     },
 
   },
 
-  console: {
-    println: (_self: RuntimeObject, _obj: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-    },
-    readLine: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-    },
-    readInt: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-    },
-    newline: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-          /* TODO:*/ throw new ReferenceError('To be implemented')
-    },
-  },
 }

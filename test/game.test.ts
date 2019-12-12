@@ -1,6 +1,6 @@
 import { should } from 'chai'
-import { RuntimeObject } from '../dist/interpreter'
 import { buildEnvironment } from '../src'
+import { RuntimeObject } from '../src/interpreter'
 import interpreter, { Evaluation } from '../src/interpreter'
 import natives from '../src/wre/wre.natives'
 
@@ -124,32 +124,34 @@ const visuals = (evaluation: Evaluation) => {
 
 const runGame = (content: string = '') => {
   const gameProgram = {
-    name: 'game.wpgm',
+    name: 'game',
     content: `
-    import wollok.io.*
-    import wollok.game.*
+      import wollok.io.*
+      import wollok.game.*
 
-    object closureMock {
-      var property calledCount = 0
-      method called() = calledCount > 0
-      method apply(args...) { calledCount += 1 }
-    }
+      object closureMock {
+        var property calledCount = 0
+        method called() = calledCount > 0
+        method apply(args...) { calledCount += 1 }
+      }
 
-    class Visual {
-      method position() = game.origin()
-    }
+      class Visual {
+        method position() = game.origin()
+      }
 
-    object visual inherits Visual { }
+      object visual inherits Visual { }
 
-    program gameTest {
-      game.addVisual(visual)
-      ${content}
-    }
+      program gameTest {
+        game.addVisual(visual)
+        ${content}
+      }
     `,
   }
   const environment = buildEnvironment([gameProgram])
   const { runProgram, buildEvaluation } = interpreter(environment, natives)
   const evaluation = buildEvaluation()
+  // tslint:disable-next-line: no-console
+  console.log(evaluation.instances)
   runProgram('game.gameTest', evaluation)
   return evaluation
 }

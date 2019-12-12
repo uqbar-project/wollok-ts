@@ -257,14 +257,13 @@ export const Evaluation = (
 export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
   nextInstruction: 0,
   instructions: [],
-  resume: [],
   operandStack: [],
   ...payload,
 })
 
-export const RuntimeObject = (id: Id, module: Name, innerValue?: string | number | boolean | Id[]): RuntimeObjectType =>
+export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | boolean | Id[]): RuntimeObjectType =>
   ({
     id,
-    module,
+    moduleFQN,
     innerValue,
   } as RuntimeObjectType)

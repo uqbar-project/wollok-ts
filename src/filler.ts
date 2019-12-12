@@ -14,6 +14,7 @@ const DEFAULT_CONSTRUCTOR: Constructor<Filled> = buildConstructor({
   baseCall: { callsSuper: true, args: [] },
 })() as Constructor<Filled>
 
+
 const filledPropertyAccessors = (transformed: Module<Filled>) => {
   const overridesGeter = (field: Field<Filled>) => transformed.methods()
     .some(method => method.name === field.name && method.parameters.length === 0)
@@ -40,7 +41,7 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
       ...transformed,
       superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
       members: [
-        ...transformed.members.some(member => member.kind === 'Constructor') ? [] : [DEFAULT_CONSTRUCTOR],
+        ...transformed.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
         ...transformed.members,
         ...filledPropertyAccessors(transformed),
       ],
@@ -65,11 +66,6 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
       value: transformed.value ?? NULL,
     }),
 
-    Constructor: (transformed) => ({
-      ...transformed,
-      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
-    }),
-
     Variable: (transformed) => ({
       ...transformed,
       value: transformed.value ?? NULL,
@@ -88,6 +84,11 @@ export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<Ki
     Catch: (transformed) => ({
       ...transformed,
       parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
+    }),
+
+    Constructor: (transformed) => ({
+      ...transformed,
+      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
     }),
 
   }) as any
