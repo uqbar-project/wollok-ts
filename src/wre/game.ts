@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, RuntimeObject, VOID_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter';
 import { Id } from '../model'
 import wreNatives from './wre.natives'
 
@@ -8,7 +8,7 @@ import wreNatives from './wre.natives'
 // TODO:
 // tslint:disable:variable-name
 
-const newList = (evaluation: Evaluation) => evaluation.createInstance('wollok.lang.List', [])
+const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
 
 const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
@@ -45,33 +45,43 @@ const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('
 
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
-const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
+const getPosition = (id: Id) => (evaluation: Evaluation) => {
+  const position = evaluation.instance(id).get('position')
+  if (position) return position
   const { sendMessage } = interpret(evaluation.environment, wreNatives)
   const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
   sendMessage('position', id)(evaluation)
-  const visualPosition = evaluation.instances[currentFrame.operandStack.pop()!]
+  return evaluation.instances[currentFrame.operandStack.pop()!]
+}
+
+const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
+  const visualPosition = getPosition(id)(evaluation)
   return  position.get('x') === visualPosition.get('x')
   &&      position.get('y') === visualPosition.get('y')
 }
 
+const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+  if (!self.get('visuals')) {
+    self.set('visuals', newList(evaluation))
+  }
+  const visuals: RuntimeObject = self.get('visuals')!
+  visuals.assertIsCollection()
+  visuals.innerValue.push(visual.id)
+}
+
 export default {
   game: {
-    addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      if (!self.get('visuals')) {
-        self.set('visuals', newList(evaluation))
-      }
-      const visuals: RuntimeObject = self.get('visuals')!
-      visuals.assertIsCollection()
-      visuals.innerValue.push(positionable.id)
+    addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
     },
 
-    // TODO:
-    addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('position', position.id)
+      addVisual(self, visual)(evaluation)
+      returnVoid(evaluation)
     },
 
-    // TODO:
     addVisualCharacter: (_self: RuntimeObject, _positionable: RuntimeObject) => (_evaluation: Evaluation) => {
       throw new ReferenceError('To be implemented')
     },
@@ -105,17 +115,21 @@ export default {
     removeTickEvent: (_self: RuntimeObject, event: RuntimeObject) =>
       redirectTo(io)('removeTimeHandler', event.id),
 
-    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+    allVisuals: (self: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
-      const result = newList(evaluation)
-      if (!visuals) {
-        return returnValue(evaluation, result)
-      }
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      const wResult: RuntimeObject = evaluation.instance(result)
-      wResult.assertIsCollection()
-      wResult.innerValue = currentVisuals.innerValue.filter(samePosition(evaluation, position))
+      const result = newList(evaluation, ...currentVisuals.innerValue)
+      returnValue(evaluation, result)
+    },
+
+    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      const result = newList(evaluation, ...currentVisuals.innerValue.filter(samePosition(evaluation, position)))
       returnValue(evaluation, result)
     },
 
@@ -152,9 +166,9 @@ export default {
 
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject) => set(self, 'boardGround', boardGround),
 
-    // TODO:
-    stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    stop: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('running', FALSE_ID)
+      returnVoid(evaluation)
     },
 
     // TODO:
@@ -177,9 +191,9 @@ export default {
       throw new ReferenceError('To be implemented')
     },
 
-    // TODO:
-    doStart: (_self: RuntimeObject, _isRepl: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('running', TRUE_ID)
+      returnVoid(evaluation)
     },
   },
 }
