@@ -6,7 +6,7 @@ import natives from '../src/wre/wre.natives'
 
 should()
 
-describe.skip('Wollok Game', () => {
+describe('Wollok Game', () => {
 
   it('addVisual', () => {
     const evaluation = runGame()
@@ -112,7 +112,7 @@ describe.skip('Wollok Game', () => {
 
 })
 
-const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('game.visual').id)
+const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('test.game.visual').id)
 
 const visuals = (evaluation: Evaluation) => {
   const wVisuals: RuntimeObject = evaluation
@@ -124,7 +124,7 @@ const visuals = (evaluation: Evaluation) => {
 
 const runGame = (content: string = '') => {
   const gameProgram = {
-    name: 'game',
+    name: 'test/game.wpgm',
     content: `
       import wollok.io.*
       import wollok.game.*
@@ -150,8 +150,6 @@ const runGame = (content: string = '') => {
   const environment = buildEnvironment([gameProgram])
   const { runProgram, buildEvaluation } = interpreter(environment, natives)
   const evaluation = buildEvaluation()
-  // tslint:disable-next-line: no-console
-  console.log(evaluation.instances)
-  runProgram('game.gameTest', evaluation)
+  runProgram('test.game.gameTest', evaluation)
   return evaluation
 }
