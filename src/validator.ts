@@ -42,7 +42,7 @@ type HaveArgs = Method<Linked> | Constructor<Linked>
 type notEmpty = Program<Linked> | Test<Linked> | Method<Linked>
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
-  ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
+  ((lastParameter(member2)?.isVarArg && member1.parameters.length >= member2.parameters.length)
     || member2.parameters.length === member1.parameters.length) && member1 !== member2
 
 const matchingConstructors =
@@ -53,7 +53,7 @@ const matchingSignatures =
   (list: ReadonlyArray<ClassMember<Linked>>, member: Method<Linked>) =>
     list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
 
-const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
+const isNotEmpty = (node: notEmpty) => node.body?.sentences.length !== 0
 
 const isNotAbstractClass = (node: Class<Linked>) =>
   node.members.some(member => member.is('Method') && isNotEmpty(member))
@@ -71,7 +71,7 @@ export const validations = {
   ),
 
   onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
-    node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
+    node.parameters.findIndex(parameter => parameter.isVarArg) + 1 === (node.parameters.length)
   ),
 
   nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
@@ -80,7 +80,7 @@ export const validations = {
     'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
     'null', 'false', 'true', '=>'].includes(node.name)),
 
-  hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
+  hasCatchOrAlways: error<Try<Linked>>(t => t.catches?.length > 0 || t.always?.sentences.length > 0 && t.body?.sentences.length > 0),
 
   singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().kind === 'Package') && node.name !== undefined),
 
@@ -98,7 +98,7 @@ export const validations = {
     )),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
-    !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+    !!node.body  && !(node.body.sentences.length === 1 && node.body.sentences[0].kind === 'Super')),
 
   testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
 
@@ -198,3 +198,11 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     ]
   }, [])
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// EXTRA FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const hasParameters = (member: HaveArgs) => member.parameters.length > 0
+
+const lastParameter = (member: HaveArgs) => hasParameters(member) ? member.parameters[member.parameters.length - 1] : undefined
