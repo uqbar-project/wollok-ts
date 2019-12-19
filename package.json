@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "wollokVersion": "2.0.0",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
@@ -19,7 +19,8 @@
     "test:sanity": "node -r ts-node/register ./test/sanity.ts",
     "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
-    "postpublish": "git tag v$npm_package_version && git push --tags"
+    "postpublish": "git tag v$npm_package_version && git push --tags",
+    "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.0",
