@@ -713,8 +713,48 @@ interface TestResult {
   evaluation: Evaluation,
 }
 
+function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResult {
+  log.resetStep()
+
+  if (test.parent().is('Describe')) {
+    const describe = test.parent() as Describe
+    const describeInstanceId = evaluation.createInstance(describe.fullyQualifiedName())
+
+    evaluation.pushFrame(compile(evaluation.environment)(
+      ...describe.variables(),
+      ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
+    ), describeInstanceId)
+
+    try {
+      stepAll(natives)(evaluation)
+    } catch (error) {
+      return {
+        error,
+        duration: 0,
+        evaluation,
+      }
+    }
+  }
+
+  let error: Error | undefined
+
+  const before = process.hrtime()
+  try {
+    run(evaluation, natives, test.body.sentences)
+  } catch (e) {
+    error = e
+  }
+  const delta = process.hrtime(before)
+
+  return {
+    evaluation,
+    error,
+    duration: round(delta[0] * 1e3 + delta[1] / 1e6),
+  }
+}
+
 // TODO: Refactor this interface
-export default (environment: Environment, natives: {}) => ({
+export default (environment: Environment, natives: Natives) => ({
 
   buildEvaluation: () => buildEvaluation(environment),
 
@@ -752,72 +792,19 @@ export default (environment: Environment, natives: {}) => ({
     log.success('Done!')
   },
 
-  runTests: (): Record<Name, TestResult> => {
-    const describes = environment.descendants<Describe>('Describe')
-    const isolatedTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
+  runTest: (evaluation: Evaluation, test: Test): TestResult => runTest(evaluation, natives, test),
 
+  runTests: (tests: List<Test>): Record<Name, TestResult> => {
     log.start('Initializing Evaluation')
-    const initializedEvaluation = buildEvaluation(environment)
-    stepAll(natives)(initializedEvaluation)
-    initializedEvaluation.frameStack.pop()
+    const evaluation = buildEvaluation(environment)
+    stepAll(natives)(evaluation)
+    evaluation.frameStack.pop()
     log.done('Initializing Evaluation')
 
-    const runTest = (test: Test, baseEvaluation: Evaluation): TestResult => {
-      log.resetStep()
-      log.info(`Running test ${test.fullyQualifiedName()}`)
-
-      const evaluation = baseEvaluation.copy()
-      let error: Error | undefined
-
-      const before = process.hrtime()
-
-      try {
-        run(evaluation, natives, test.body.sentences)
-      } catch (e) {
-        error = e
-      }
-
-      const delta = process.hrtime(before)
-
-      return {
-        evaluation,
-        error,
-        duration: round(delta[0] * 1e3 + delta[1] / 1e6),
-      }
-    }
-
-    const results: Record<Name, TestResult> = {}
-
-    isolatedTests.forEach(test => results[test.fullyQualifiedName()] = runTest(test, initializedEvaluation))
-
-    describes.forEach((describe: Describe) => {
-      const describeEvaluation = initializedEvaluation.copy()
-      const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
-
-      describeEvaluation.pushFrame(compile(describeEvaluation.environment)(
-        ...describe.variables(),
-        ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
-      ), describeEvaluation.instance(describeId).id)
-
-      try {
-        stepAll(natives)(describeEvaluation)
-      } catch (error) {
-        describe.tests().forEach(test =>
-          results[test.fullyQualifiedName()] = {
-            error,
-            duration: 0,
-            evaluation: describeEvaluation,
-          }
-        )
-
-        return
-      }
-
-      describe.tests().forEach(test => results[test.fullyQualifiedName()] = runTest(test, describeEvaluation))
-
-    })
-
-    return results
+    return zipObj(
+      tests.map(test => test.fullyQualifiedName()),
+      tests.map(test => runTest(evaluation.copy(), natives, test))
+    )
   },
 
 })
