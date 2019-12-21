@@ -70,8 +70,8 @@ export const validations = {
     /^[a-z]$/.test(node.name[0])
   ),
 
-  onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
-    node.parameters.findIndex(parameter => parameter.isVarArg) + 1 === (node.parameters.length)
+  onlyLastParameterIsVarArg: error<Method<Linked>>(method =>
+    !hasVarArg(method) || method.parameters.findIndex(parameter => parameter.isVarArg) + 1 === (method.parameters.length)
   ),
 
   nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
@@ -97,8 +97,8 @@ export const validations = {
     .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member)
     )),
 
-  methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
-    !!node.body  && !(node.body.sentences.length === 1 && node.body.sentences[0].kind === 'Super')),
+  methodNotOnlyCallToSuper: warning<Method<Linked>>(method =>
+    method.isNative || !(method.body?.sentences.length === 1 && method.body?.sentences[0].is('Super'))),
 
   testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
 
@@ -115,7 +115,7 @@ export const validations = {
 
 
   dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
-    node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
+    call => call.message !== '==' || (call.args[0] === Literal(true) || call.args[0] === Literal(false))
   ),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
@@ -206,3 +206,5 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 const hasParameters = (member: HaveArgs) => member.parameters.length > 0
 
 const lastParameter = (member: HaveArgs) => hasParameters(member) ? member.parameters[member.parameters.length - 1] : undefined
+
+const hasVarArg = (member: HaveArgs) => lastParameter(member)?.isVarArg || false
