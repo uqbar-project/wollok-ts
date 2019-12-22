@@ -5,6 +5,7 @@
 // No modules named wollok
 
 import { Literal } from './builders'
+import { last } from './extensions'
 import {
   Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
   Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
@@ -20,14 +21,17 @@ export interface Problem {
   readonly code: Code
   readonly level: Level
   readonly node: Node<Linked>
+  readonly values: string[]
 }
 
-const problem = (level: Level) => <N extends Node<Linked>>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
+const problem = (level: Level) => <N extends Node<Linked>>
+  (condition: (node: N) => boolean, values: (node: N) => string[] = () => []) => (node: N, code: Code): Problem | null => (
   !condition(node) ? {
     level,
     code,
     node,
-  } : null
+    values: values(node),
+  } : null)
 
 const warning = problem('Warning')
 
@@ -42,7 +46,7 @@ type HaveArgs = Method<Linked> | Constructor<Linked>
 type notEmpty = Program<Linked> | Test<Linked> | Method<Linked>
 
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
-  ((lastParameter(member2)?.isVarArg && member1.parameters.length >= member2.parameters.length)
+  ((hasVarArg(member2) && member1.parameters.length >= member2.parameters.length)
     || member2.parameters.length === member1.parameters.length) && member1 !== member2
 
 const matchingConstructors =
@@ -82,27 +86,28 @@ export const validations = {
 
   hasCatchOrAlways: error<Try<Linked>>(t => t.catches?.length > 0 || t.always?.sentences.length > 0 && t.body?.sentences.length > 0),
 
-  singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().kind === 'Package') && node.name !== undefined),
+  singletonIsNotUnnamed: error<Singleton<Linked>>(
+    node => (node.parent().kind === 'Package') && node.name !== undefined,
+    node => [node.name || '']
+  ),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
   fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent()
     .methods().every(({ name }) => name !== node.name)),
 
-  methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
-    .every(member => member.is('Method') && !matchingSignatures(node.members, member)
-    )),
+  methodsHaveDistinctSignatures: error<Class<Linked>>(clazz => clazz.methods()
+    .every(method => !matchingSignatures(clazz.members, method))
+  ),
 
   constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent().members
-    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member)
-    )),
+    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member))
+  ),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(method =>
     method.isNative || !(method.body?.sentences.length === 1 && method.body?.sentences[0].is('Super'))),
 
-  testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
-
-  programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
+  containerIsNotEmpty: warning<Test<Linked> | Program<Linked>>(node => isNotEmpty(node)),
 
   instantiationIsNotAbstractClass: error<New<Linked>>(node =>
     isNotAbstractClass(node.instantiated.target())),
@@ -147,8 +152,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     methodsHaveDistinctSignatures,
     constructorsHaveDistinctArity,
     methodNotOnlyCallToSuper,
-    programIsNotEmpty,
-    testIsNotEmpty,
+    containerIsNotEmpty,
     instantiationIsNotAbstractClass,
     selfIsNotInAProgram,
     notAssignToItself,
@@ -165,8 +169,8 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Body: {},
     Catch: {},
     Package: {},
-    Program: { programIsNotEmpty },
-    Test: { testIsNotEmpty },
+    Program: { containerIsNotEmpty },
+    Test: { containerIsNotEmpty },
     Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
     Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
     Mixin: { nameIsPascalCase },
@@ -203,8 +207,6 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 // EXTRA FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const hasParameters = (member: HaveArgs) => member.parameters.length > 0
+// const hasParameters = (member: HaveArgs) => member.parameters.length > 0
 
-const lastParameter = (member: HaveArgs) => hasParameters(member) ? member.parameters[member.parameters.length - 1] : undefined
-
-const hasVarArg = (member: HaveArgs) => lastParameter(member)?.isVarArg || false
+const hasVarArg = (member: HaveArgs) => last(member.parameters)?.isVarArg || false

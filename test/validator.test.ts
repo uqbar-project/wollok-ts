@@ -1,4 +1,5 @@
 import { should, use } from 'chai'
+import { buildEnvironment, validate } from '../src'
 import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
@@ -567,12 +568,12 @@ describe('Wollok Validations', () => {
         ),
       ] as PackageNode<Filled>[])
 
-      const { testIsNotEmpty } = validations
+      const { containerIsNotEmpty } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
       const emptyTest = packageExample.members[0] as TestNode<Linked>
 
       it('should not pass when test is empty', () => {
-        emptyTest.should.not.pass(testIsNotEmpty)
+        emptyTest.should.not.pass(containerIsNotEmpty)
       })
     })
   })
@@ -715,6 +716,26 @@ describe('Wollok Validations', () => {
       it('should not pass when return is in a constructor', () => {
         returnInConstructor.should.not.pass(noReturnStatementInConstructor)
       })
+    })
+  })
+
+  describe('Library Healthy Tests', () => {
+    const file: { name: string, content: string } = {
+      name: 'zarlanga.wlk',
+      content: '',
+    }
+    const environment = buildEnvironment([file])
+    const problems = validate(environment).map(
+      ({ code, node }) => ({
+        code,
+        file: node.source?.file,
+        line: node.source?.start.line,
+        offset: node.source?.start.offset,
+      })
+    )
+
+    it('should pass without validation errors', () => {
+      problems.should.equal([], 'Wollok Core Libraries has errors: ' + JSON.stringify(problems))
     })
   })
 })
