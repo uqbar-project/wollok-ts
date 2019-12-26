@@ -537,35 +537,6 @@ describe('Wollok Validations', () => {
   })
 
   describe('Fields', () => {
-    describe('Field name different from method names', () => {
-      const environment = link([
-        WRE,
-        Package('p')(
-          Class('c')(
-            Field('m'),
-            Field('a'),
-            Method('m')(),
-          ),
-
-        ),
-      ] as PackageNode<Filled>[])
-
-      const { fieldNameDifferentFromTheMethods } = validations
-
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const fieldWithSameNameAsMethod = classExample.members[0] as FieldNode<Linked>
-      const fieldWithDifferentNameFromMethods = classExample.members[1] as FieldNode<Linked>
-
-      it('should pass when field name is different from method names', () => {
-        fieldWithDifferentNameFromMethods.should.pass(fieldNameDifferentFromTheMethods)
-      })
-
-      it('should not pass when field name is a method name', () => {
-        fieldWithSameNameAsMethod.should.not.pass(fieldNameDifferentFromTheMethods)
-      })
-    })
-
     describe('Not assign to itself in variable declaration', () => {
       const environment = link([
         WRE,
@@ -619,7 +590,6 @@ describe('Wollok Validations', () => {
   })
 
   describe('Packages', () => {
-
     /*
     it('duplicatedPackageName', () => {
       const environment = link([
@@ -628,12 +598,9 @@ describe('Wollok Validations', () => {
         Package('p')(),
         Package('c')(),
       ])
-
       const { notDuplicatedPackageName } = validations
-
       const packageExample = environment.members[1] as PackageNode<Linked>
       const packageExample2 = environment.members[3] as PackageNode<Linked>
-
       assert.ok(!!notDuplicatedPackageName(packageExample, 'duplicatedPackageName'))
       assert.ok(!notDuplicatedPackageName(packageExample2, 'duplicatedPackageName'))
     })*/
