@@ -108,8 +108,12 @@ export const validations = {
   ),
 
   nameIsCamelCase: warning<
-    Parameter<Linked> | Singleton<Linked> | Variable<Linked>
+    Singleton<Linked>
   >(node => node.name !== undefined && /^[a-z]$/.test(node.name[0])),
+
+  referenceNameIsValid: warning<
+    Parameter<Linked> | Variable<Linked>
+  >(node => node.name !== undefined && /^[a-z\_]$/.test(node.name[0])),
 
   onlyLastParameterIsVarArg: error<Method<Linked>>(method => {
     const varArgIndex = method.parameters.findIndex(parameter => parameter.isVarArg)
@@ -124,14 +128,6 @@ export const validations = {
   >(
     node =>
       ![
-        '.',
-        ',',
-        '(',
-        ')',
-        ';',
-        '_',
-        '{',
-        '}',
         'import',
         'package',
         'program',
@@ -143,7 +139,6 @@ export const validations = {
         'mixin',
         'var',
         'const',
-        '=',
         'override',
         'method',
         'native',
@@ -158,12 +153,9 @@ export const validations = {
         'try',
         'then always',
         'catch',
-        ':',
-        '+',
         'null',
         'false',
         'true',
-        '=>',
       ].includes(node.name)
   ),
 
@@ -236,7 +228,7 @@ export const validations = {
   dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
     call =>
       call.message !== '==' ||
-      call.args[0] === Literal(true) || call.args[0] === Literal(false)
+      (call.message === '==' && call.args[0] !== Literal(true) && call.args[0] !== Literal(false))
   ),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
@@ -257,6 +249,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
   const {
     nameIsPascalCase,
     nameIsCamelCase,
+    referenceNameIsValid,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
     hasCatchOrAlways,
@@ -281,7 +274,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
       [code: string]: (n: NodeOfKind<K, Linked>, c: Code) => Problem | null
     }
   } = {
-    Parameter: { nameIsCamelCase },
+    Parameter: { referenceNameIsValid },
     NamedArgument: {},
     Import: {},
     Body: {},
@@ -302,7 +295,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
       nameIsNotKeyword,
       methodNotOnlyCallToSuper,
     },
-    Variable: { nameIsCamelCase, nameIsNotKeyword },
+    Variable: { referenceNameIsValid, nameIsNotKeyword },
     Return: { noReturnStatementInConstructor },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
