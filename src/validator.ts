@@ -93,8 +93,10 @@ const matchingSignatures = (
 
 const isNotEmpty = (node: notEmpty) => node.body?.sentences.length !== 0
 
-const isNotAbstractClass = (node: Class<Linked>) =>
-  node.members.some(member => member.is('Method') && isNotEmpty(member))
+const isNotAbstractClass = (clazz: Class<Linked>) => {
+  const methods = clazz.methods()
+  return (methods.length === 0) || methods.some(method => isNotEmpty(method))
+}
 
 const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) =>
   error<N>((node: N) => !node.closestAncestor(kind))
@@ -180,12 +182,13 @@ export const validations = {
     node => !node.variable.name.includes('.')
   ),
 
-  fieldNameDifferentFromTheMethods: error<Field<Linked>>(node =>
-    node
-      .parent()
-      .methods()
-      .every(({ name }) => name !== node.name)
-  ),
+  // TODO: Remove this validation?
+  // fieldNameDifferentFromTheMethods: error<Field<Linked>>(field =>
+  //   field
+  //     .parent()
+  //     .methods()
+  //     .every(({ name }) => name !== field.name)
+  // ),
 
   methodsHaveDistinctSignatures: error<Class<Linked>>(clazz =>
     clazz.methods().every(method => !matchingSignatures(clazz.members, method))
@@ -259,7 +262,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     hasCatchOrAlways,
     singletonIsNotUnnamed,
     nonAsignationOfFullyQualifiedReferences,
-    fieldNameDifferentFromTheMethods,
+    // fieldNameDifferentFromTheMethods,
     methodsHaveDistinctSignatures,
     constructorsHaveDistinctArity,
     methodNotOnlyCallToSuper,
@@ -291,7 +294,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Mixin: { nameIsPascalCase },
     Constructor: { constructorsHaveDistinctArity },
     Field: {
-      fieldNameDifferentFromTheMethods,
+      // fieldNameDifferentFromTheMethods,
       notAssignToItselfInVariableDeclaration,
     },
     Method: {
