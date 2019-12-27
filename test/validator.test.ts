@@ -383,6 +383,33 @@ describe('Wollok Validations', () => {
         methodWithOnlyCallToSuper.should.not.pass(methodNotOnlyCallToSuper)
       })
     })
+
+    describe('Methods with different signatures', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m')(),
+            Method('m', {
+              parameters: [Parameter('param')],
+            })(),
+          ),
+        ),
+      ] as PackageNode<Filled>[])
+
+      const { methodsHaveDistinctSignatures } = validations
+
+      const packageExample = environment.members[0] as PackageNode<Linked>
+      const classExample = packageExample.members[0] as ClassNode<Linked>
+      const methodMNoParameter = classExample.members[0] as MethodNode<Linked>
+      const methodM1Parameter = classExample.members[1] as MethodNode<Linked>
+
+      it('should not confuse methods with different parameters', () => {
+        methodMNoParameter.should.pass(methodsHaveDistinctSignatures)
+        methodM1Parameter.should.pass(methodsHaveDistinctSignatures)
+      })
+    })
+
   })
 
   describe('Assignments', () => {
