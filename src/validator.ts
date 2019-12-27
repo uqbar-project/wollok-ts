@@ -76,9 +76,9 @@ const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   member1 !== member2
 
 const matchingConstructors = (
-  list: ReadonlyArray<ClassMember<Linked>>,
-  member: Constructor<Linked>
-) => list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
+  constructors: ReadonlyArray<ClassMember<Linked>>,
+  constructor: Constructor<Linked>
+) => constructors.some(c => c.kind === 'Constructor' && canBeCalledWithArgs(c, constructor))
 
 const matchingSignatures = (
   methods: ReadonlyArray<ClassMember<Linked>>,
@@ -178,13 +178,12 @@ export const validations = {
     clazz.methods().every(method => !matchingSignatures(clazz.members, method))
   ),
 
-  constructorsHaveDistinctArity: error<Constructor<Linked>>(node =>
-    node
+  constructorsHaveDistinctArity: error<Constructor<Linked>>(constructor =>
+    constructor
       .parent()
-      .members.every(
-        member =>
-          member.is('Constructor') &&
-          !matchingConstructors(node.parent().members, member)
+      .constructors().every(
+        constructor =>
+          !matchingConstructors(constructor.parent().members, constructor)
       )
   ),
 

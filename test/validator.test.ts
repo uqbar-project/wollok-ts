@@ -298,6 +298,11 @@ describe('Wollok Validations', () => {
               parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
             })()
           ),
+          Class('c4')(
+            Constructor({
+              parameters: [Parameter('a'), Parameter('b')],
+            })(),
+          ),
         ),
       ] as PackageNode<Filled>[])
 
@@ -311,6 +316,9 @@ describe('Wollok Validations', () => {
       const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as ClassNode<Linked>
       const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0] as ConstructorNode<Linked>
 
+      const classWithSingleConstructor = packageExample.members[3] as ClassNode<Linked>
+      const singleConstructor = classWithSingleConstructor.members[0] as ConstructorNode<Linked>
+
       const { constructorsHaveDistinctArity } = validations
 
       it('should pass when constructors have distinct arity', () => {
@@ -323,6 +331,10 @@ describe('Wollok Validations', () => {
 
       it('should not pass when constructors can be called with the same amount of arguments', () => {
         conflictingArityWithVarArgConstructor.should.not.pass(constructorsHaveDistinctArity)
+      })
+
+      it('should pass when single constructor defined', () => {
+        singleConstructor.should.pass(constructorsHaveDistinctArity)
       })
     })
   })
