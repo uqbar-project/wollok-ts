@@ -166,8 +166,7 @@ export const validations = {
   ),
 
   singletonIsNotUnnamed: error<Singleton<Linked>>(
-    singleton => isClosure(singleton) || !!singleton.name,
-    node => [node.name || '']
+    singleton => singleton.parent().is('Literal') || !!singleton.name,
   ),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(
@@ -178,12 +177,12 @@ export const validations = {
     clazz.methods().every(method => !matchingSignatures(clazz.members, method))
   ),
 
-  constructorsHaveDistinctArity: error<Constructor<Linked>>(constructor =>
-    constructor
+  constructorsHaveDistinctArity: error<Constructor<Linked>>(originalConstructor =>
+    originalConstructor
       .parent()
       .constructors().every(
         constructor =>
-          !matchingConstructors(constructor.parent().members, constructor)
+          !matchingConstructors(originalConstructor.parent().members, constructor)
       )
   ),
 
@@ -322,6 +321,3 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 
 const hasVarArg = (member: HaveArgs) =>
   last(member.parameters)?.isVarArg || false
-
-const isClosure = (singleton: Singleton<Linked>) =>
-  !singleton.parent().is('Package')

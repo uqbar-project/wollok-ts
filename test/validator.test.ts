@@ -698,6 +698,10 @@ describe('Wollok Validations', () => {
       const comparisonAgainstTrue = (methodExample.body!.sentences[0] as ReturnNode<Linked>).value as SendNode<Linked>
 
       it('should not pass when comparing against true literal', () => {
+        comparisonAgainstTrue.message.should.equal('==')
+        const elTrue = Literal(true)
+        // @ts-ignore
+        comparisonAgainstTrue.args[0].value.should.equal(elTrue.value)
         comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
       })
     })
@@ -781,7 +785,7 @@ describe('Wollok Validations', () => {
     )
 
     it('should pass without validation errors', () => {
-      problems.should.equal([], 'Wollok Core Libraries has errors: ' + JSON.stringify(problems))
+      problems.should.deep.equal([], 'Wollok Core Libraries has errors: ' + JSON.stringify(problems))
     })
   })
 })
