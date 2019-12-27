@@ -3,7 +3,6 @@
 // No siblings with the same name
 // No global mutable vars
 // No modules named wollok
-import { Literal } from './builders'
 import { last } from './extensions'
 import {
   Assignment,
@@ -218,7 +217,7 @@ export const validations = {
   dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
     call =>
       call.message !== '==' ||
-      (call.message === '==' && call.args[0] !== Literal(true) && call.args[0] !== Literal(false))
+      (call.message === '==' && !(call.args[0].is('Literal') && [true, false].includes(call.args[0].value as boolean)))
   ),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
