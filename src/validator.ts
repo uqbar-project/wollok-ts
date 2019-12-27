@@ -81,14 +81,14 @@ const matchingConstructors = (
 ) => list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
 
 const matchingSignatures = (
-  list: ReadonlyArray<ClassMember<Linked>>,
-  member: Method<Linked>
+  methods: ReadonlyArray<ClassMember<Linked>>,
+  method: Method<Linked>
 ) =>
-  list.some(
+  methods.some(
     m =>
       m.kind === 'Method' &&
-      m.name === member.name &&
-      canBeCalledWithArgs(m, member)
+      m.name === method.name &&
+      canBeCalledWithArgs(m, method)
   )
 
 const isNotEmpty = (node: notEmpty) => node.body?.sentences.length !== 0
@@ -109,7 +109,7 @@ export const validations = {
 
   nameIsCamelCase: warning<
     Singleton<Linked>
-  >(node => node.name !== undefined && /^[a-z]$/.test(node.name[0])),
+  >(node => !node.name || /^[a-z]$/.test(node.name[0])),
 
   referenceNameIsValid: warning<
     Parameter<Linked> | Variable<Linked>
@@ -166,21 +166,13 @@ export const validations = {
   ),
 
   singletonIsNotUnnamed: error<Singleton<Linked>>(
-    node => node.parent().kind === 'Package' && node.name !== undefined,
+    singleton => isClosure(singleton) || !!singleton.name,
     node => [node.name || '']
   ),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(
     node => !node.variable.name.includes('.')
   ),
-
-  // TODO: Remove this validation?
-  // fieldNameDifferentFromTheMethods: error<Field<Linked>>(field =>
-  //   field
-  //     .parent()
-  //     .methods()
-  //     .every(({ name }) => name !== field.name)
-  // ),
 
   methodsHaveDistinctSignatures: error<Class<Linked>>(clazz =>
     clazz.methods().every(method => !matchingSignatures(clazz.members, method))
@@ -255,7 +247,6 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     hasCatchOrAlways,
     singletonIsNotUnnamed,
     nonAsignationOfFullyQualifiedReferences,
-    // fieldNameDifferentFromTheMethods,
     methodsHaveDistinctSignatures,
     constructorsHaveDistinctArity,
     methodNotOnlyCallToSuper,
@@ -287,7 +278,6 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Mixin: { nameIsPascalCase },
     Constructor: { constructorsHaveDistinctArity },
     Field: {
-      // fieldNameDifferentFromTheMethods,
       notAssignToItselfInVariableDeclaration,
     },
     Method: {
@@ -333,3 +323,6 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 
 const hasVarArg = (member: HaveArgs) =>
   last(member.parameters)?.isVarArg || false
+
+const isClosure = (singleton: Singleton<Linked>) =>
+  !singleton.parent().is('Package')
