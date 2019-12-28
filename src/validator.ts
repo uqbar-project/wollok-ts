@@ -217,7 +217,7 @@ export const validations = {
   dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
     call =>
       call.message !== '==' ||
-      (call.message === '==' && !(call.args[0].is('Literal') && [true, false].includes(call.args[0].value as boolean)))
+      !(call.args[0].is('Literal') && [true, false].includes(call.args[0].value as boolean))
   ),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
