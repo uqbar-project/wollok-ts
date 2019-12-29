@@ -102,14 +102,15 @@ const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) =>
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {
-  nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(
+  nameBeginsWithUppercase: warning<Mixin<Linked> | Class<Linked>>(
     (node => /^[A-Z]$/.test(node.name[0])),
     (node => [node.name])
   ),
 
-  nameIsCamelCase: warning<
-    Singleton<Linked>
-  >(node => !node.name || /^[a-z]$/.test(node.name[0])),
+  nameBeginsWithLowercase: warning<Singleton<Linked>>(
+    (node => !node.name || /^[a-z]$/.test(node.name[0])),
+    (node => [node.name || ''])
+  ),
 
   referenceNameIsValid: warning<
     Parameter<Linked> | Variable<Linked>
@@ -124,7 +125,7 @@ export const validations = {
   }),
 
   nameIsNotKeyword: error<
-    Reference<Linked> | Method<Linked> | Variable<Linked>
+    Reference<Linked> | Method<Linked> | Variable<Linked> | Class<Linked> | Singleton<Linked>
   >(
     node =>
       ![
@@ -156,7 +157,7 @@ export const validations = {
         'null',
         'false',
         'true',
-      ].includes(node.name)
+      ].includes(node.name || '')
   ),
 
   hasCatchOrAlways: error<Try<Linked>>(
@@ -237,8 +238,8 @@ export const validations = {
 
 export default (target: Node<Linked>): ReadonlyArray<Problem> => {
   const {
-    nameIsPascalCase,
-    nameIsCamelCase,
+    nameBeginsWithUppercase: nameIsPascalCase,
+    nameBeginsWithLowercase: nameIsCamelCase,
     referenceNameIsValid,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
@@ -271,8 +272,8 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Package: {},
     Program: { containerIsNotEmpty },
     Test: { containerIsNotEmpty },
-    Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
-    Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
+    Class: { nameIsPascalCase, methodsHaveDistinctSignatures, nameIsNotKeyword },
+    Singleton: { nameIsCamelCase, singletonIsNotUnnamed, nameIsNotKeyword },
     Mixin: { nameIsPascalCase },
     Constructor: { constructorsHaveDistinctArity },
     Field: {
