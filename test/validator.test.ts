@@ -145,7 +145,7 @@ describe('Wollok Validations', () => {
 
   describe('Classes', () => {
 
-    describe('Name is in PascalCase', () => {
+    describe('Name is in Uppercase', () => {
       const environment = link([
         WRE,
         Package('p')(
@@ -156,15 +156,15 @@ describe('Wollok Validations', () => {
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classWithLowercaseName = packageExample.members[0] as ClassNode<Linked>
-      const classWithPascalCaseName = packageExample.members[1] as ClassNode<Linked>
-      const { nameIsPascalCase } = validations
+      const classWithUppercaseName = packageExample.members[1] as ClassNode<Linked>
+      const { nameBeginsWithUppercase } = validations
 
-      it('should pass when name is in PascalCase', () => {
-        classWithPascalCaseName.should.pass(nameIsPascalCase)
+      it('should pass when name begins with uppercase', () => {
+        classWithUppercaseName.should.pass(nameBeginsWithUppercase)
       })
 
-      it('should not pass when name is not in PascalCase', () => {
-        classWithLowercaseName.should.not.pass(nameIsPascalCase)
+      it('should not pass when name begins with lowercase', () => {
+        classWithLowercaseName.should.not.pass(nameBeginsWithUppercase)
       })
     })
 
@@ -545,7 +545,7 @@ describe('Wollok Validations', () => {
   })
 
   describe('Parameters', () => {
-    describe('Name is camelCase', () => {
+    describe('Name is lowercase', () => {
       const environment = link([
         WRE,
         Package('p')(
@@ -557,7 +557,7 @@ describe('Wollok Validations', () => {
         ),
       ] as PackageNode<Filled>[])
 
-      const { nameIsCamelCase } = validations
+      const { nameBeginsWithLowercase } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = packageExample.members[0] as ClassNode<Linked>
@@ -566,11 +566,11 @@ describe('Wollok Validations', () => {
       const lowercaseParameter = methodExample.parameters[1] as ParameterNode<Linked>
 
       it('should pass when name is a lowercase letter', () => {
-        lowercaseParameter.should.pass(nameIsCamelCase)
+        lowercaseParameter.should.pass(nameBeginsWithLowercase)
       })
 
       it('should not pass when name is an uppercase letter', () => {
-        uppercaseParameter.should.not.pass(nameIsCamelCase)
+        uppercaseParameter.should.not.pass(nameBeginsWithLowercase)
       })
     })
   })
