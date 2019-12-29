@@ -157,7 +157,8 @@ export const validations = {
         'null',
         'false',
         'true',
-      ].includes(node.name || '')
+      ].includes(node.name || ''),
+    (node => [node.name || '']),
   ),
 
   hasCatchOrAlways: error<Try<Linked>>(
