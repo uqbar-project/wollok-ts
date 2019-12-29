@@ -102,8 +102,9 @@ const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) =>
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {
-  nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
-    /^[A-Z]$/.test(node.name[0])
+  nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(
+    (node => /^[A-Z]$/.test(node.name[0])),
+    (node => [node.name])
   ),
 
   nameIsCamelCase: warning<
