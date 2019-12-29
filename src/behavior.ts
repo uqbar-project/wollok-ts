@@ -208,7 +208,7 @@ export function Linked(environmentData: Partial<Environment>) {
           ? this.name || `${this.superCall.superclass.target<Module>().fullyQualifiedName()}#${this.id}`
           : this.name.replace(/\.#/g, '')
 
-        return parent.is('Package')
+        return parent.is('Package') || parent.is('Describe')
           ? `${parent.fullyQualifiedName()}.${label}`
           : label
       },
