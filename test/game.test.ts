@@ -1,8 +1,10 @@
 import { should } from 'chai'
 import { buildEnvironment } from '../src'
-import { RuntimeObject } from '../src/interpreter'
+import { Natives, RuntimeObject } from '../src/interpreter'
 import interpreter, { Evaluation } from '../src/interpreter'
-import natives from '../src/wre/wre.natives'
+import wreNatives from '../src/wre/wre.natives'
+
+const natives = wreNatives as Natives
 
 should()
 
