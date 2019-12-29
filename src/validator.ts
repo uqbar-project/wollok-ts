@@ -239,8 +239,8 @@ export const validations = {
 
 export default (target: Node<Linked>): ReadonlyArray<Problem> => {
   const {
-    nameBeginsWithUppercase: nameIsPascalCase,
-    nameBeginsWithLowercase: nameIsCamelCase,
+    nameBeginsWithUppercase,
+    nameBeginsWithLowercase,
     referenceNameIsValid,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
@@ -273,9 +273,9 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Package: {},
     Program: { containerIsNotEmpty },
     Test: { containerIsNotEmpty },
-    Class: { nameIsPascalCase, methodsHaveDistinctSignatures, nameIsNotKeyword },
-    Singleton: { nameIsCamelCase, singletonIsNotUnnamed, nameIsNotKeyword },
-    Mixin: { nameIsPascalCase },
+    Class: { nameBeginsWithUppercase, methodsHaveDistinctSignatures, nameIsNotKeyword },
+    Singleton: { nameBeginsWithLowercase, singletonIsNotUnnamed, nameIsNotKeyword },
+    Mixin: { nameBeginsWithUppercase },
     Constructor: { constructorsHaveDistinctArity },
     Field: {
       notAssignToItselfInVariableDeclaration,
