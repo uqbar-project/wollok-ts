@@ -119,7 +119,7 @@ export const validations = {
         end: {
           ...end,
           offset: node.name.length + nodeOffset,
-        }
+        },
       }
     })
   ),
@@ -352,5 +352,5 @@ const emptySource: () => Source = () => ({
     offset: 0,
     line: 0,
     column: 0,
-  }
+  },
 })

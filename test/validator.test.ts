@@ -765,7 +765,7 @@ describe('Wollok Validations', () => {
     })
   })
 
-  describe('Library Healthy Tests', () => {
+  describe('Wollok Core Library Health', () => {
     const file: { name: string, content: string } = {
       name: 'zarlanga.wlk',
       content: '',
