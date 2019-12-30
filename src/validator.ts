@@ -24,12 +24,12 @@ import {
   Self,
   Send,
   Singleton,
+  Source,
   Super,
   Test,
   Try,
   Variable,
 } from './model'
-
 
 const { keys } = Object
 
@@ -41,11 +41,13 @@ export interface Problem {
   readonly level: Level
   readonly node: Node<Linked>
   readonly values: string[]
+  readonly source: Source
 }
 
 const problem = (level: Level) => <N extends Node<Linked>>(
   condition: (node: N) => boolean,
-  values: (node: N) => string[] = () => []
+  values: (node: N) => string[] = () => [],
+  source: (node: N) => Source = (node) => ({ start: node.source!.start, end: node.source!.end, file: node.source!.file }),
 ) => (node: N, code: Code): Problem | null =>
     !condition(node)
       ? {
@@ -53,6 +55,7 @@ const problem = (level: Level) => <N extends Node<Linked>>(
         code,
         node,
         values: values(node),
+        source: node.source ? source(node) : emptySource(),
       }
       : null
 
@@ -104,7 +107,21 @@ const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) =>
 export const validations = {
   nameBeginsWithUppercase: warning<Mixin<Linked> | Class<Linked>>(
     (node => /^[A-Z]$/.test(node.name[0])),
-    (node => [node.name])
+    (node => [node.name]),
+    (node => {
+      const nodeOffset = node.kind.length + 1
+      const { start, end } = node.source!
+      return {
+        start: {
+          ...start,
+          offset: nodeOffset,
+        },
+        end: {
+          ...end,
+          offset: node.name.length + nodeOffset,
+        }
+      }
+    })
   ),
 
   nameBeginsWithLowercase: warning<Singleton<Linked>>(
@@ -323,3 +340,17 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
 
 const hasVarArg = (member: HaveArgs) =>
   last(member.parameters)?.isVarArg || false
+
+
+const emptySource: () => Source = () => ({
+  start: {
+    offset: 0,
+    line: 0,
+    column: 0,
+  },
+  end: {
+    offset: 0,
+    line: 0,
+    column: 0,
+  }
+})
