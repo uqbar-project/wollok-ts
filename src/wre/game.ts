@@ -64,7 +64,8 @@ const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: E
   }
   const visuals: RuntimeObject = self.get('visuals')!
   visuals.assertIsCollection()
-  visuals.innerValue.push(visual.id)
+  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.moduleFQN)
+  else visuals.innerValue.push(visual.id)
 }
 
 const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
