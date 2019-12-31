@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID, NULL_ID } from '../interpreter';
 import { Id, Module } from '../model'
 import wreNatives from './wre.natives'
 
@@ -39,6 +39,10 @@ const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage: b
     if (voidMessage) returnVoid(evaluation)
   }
 
+const checkNotNull = (obj: RuntimeObject, name: string) => {
+  if (obj.id === NULL_ID) throw new TypeError(name)
+}
+
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
@@ -74,6 +78,7 @@ const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Eval
 export default {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      checkNotNull(visual, 'visual')
       const message = 'position' // TODO
       if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
       addVisual(self, visual)(evaluation)
@@ -81,6 +86,8 @@ export default {
     },
 
     addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      checkNotNull(visual, 'visual')
+      checkNotNull(position, 'position')
       visual.set('position', position.id)
       addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
