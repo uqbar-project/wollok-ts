@@ -1,9 +1,7 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter';
-import { Id } from '../model'
+import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Id, Module } from '../model'
 import wreNatives from './wre.natives'
-
-// TODO: tests
 
 // TODO:
 // tslint:disable:variable-name
@@ -19,7 +17,7 @@ const returnVoid = (evaluation: Evaluation) => {
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.currentFrame()!.pushOperand(self.get(key) ?.id ?? VOID_ID)
+  evaluation.currentFrame()!.pushOperand(self.get(key)?.id ?? VOID_ID)
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -56,8 +54,8 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
 
 const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
   const visualPosition = getPosition(id)(evaluation)
-  return  position.get('x') === visualPosition.get('x')
-  &&      position.get('y') === visualPosition.get('y')
+  return position.get('x') === visualPosition.get('x')
+    && position.get('y') === visualPosition.get('y')
 }
 
 const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
@@ -69,9 +67,14 @@ const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: E
   visuals.innerValue.push(visual.id)
 }
 
+const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
+  evaluation.environment.getNodeByFQN<Module>(self.moduleFQN).lookupMethod(message, 0)
+
 export default {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      const message = 'position'
+      if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
       addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
     },

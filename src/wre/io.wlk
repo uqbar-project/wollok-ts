@@ -1,3 +1,4 @@
+//TODO: Move to language?
 object io {
   // TODO: merge handlers
   const property eventHandlers = new Dictionary()

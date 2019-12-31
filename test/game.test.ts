@@ -29,6 +29,7 @@ describe('Wollok Game', () => {
     visuals(evaluation).should.have.length(0)
   })
 
+  // TODO: Move these to .wtest
   describe('io events', () => {
 
     it('whenKeyPressedDo', () => {

@@ -1,7 +1,7 @@
 import wollok.io.*
 import wollok.game.*
 
-//TODO: Move to native
+//TODO: Move to language?
 object gameMirror {
 
   method whenCollideDo(visual, action) {
