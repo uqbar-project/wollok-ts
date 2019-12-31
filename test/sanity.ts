@@ -15,7 +15,7 @@ const ARGS = commandLineArgs([
 
 // TODO: Don't skip
 const SKIPPED = globby.sync([
-  'game/**',
+  'game/game*',
 ], { cwd: SANITY_TESTS_FOLDER })
 
 // TODO: use mocha to run this ?
@@ -42,14 +42,18 @@ const runAll = async () => {
 
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
-  const [passed, total] = await runTests()
-  log.separator('Results')
+  const [passed, total, errors] = runTests()
   log.done('Running tests')
 
-  enableLogs(LogLevel.SUCCESS);
-  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests on ${testFiles.length} test files. ${SKIPPED.length} files skipped.`)
+  log.separator('Results');
 
-  process.exit(total - passed)
+  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests on ${testFiles.length} test files. ${SKIPPED.length} files skipped.`)
+  if (errors.length) {
+    log.error(`${errors.length} error(s) found:`)
+    errors.forEach(err => log.error(`  ${err}`))
+  }
+
+  process.exit(errors.length ? 1 : total - passed)
 }
 
 try {

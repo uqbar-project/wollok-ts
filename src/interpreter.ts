@@ -744,7 +744,7 @@ export default (environment: Environment, natives: {}) => ({
     log.success('Done!')
   },
 
-  runTests: (): [number, number] => {
+  runTests: (): [number, number, string[]] => {
     // TODO: create extension function to divide array based on condition
     const describes = environment.descendants<Describe>('Describe')
     const freeTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
@@ -757,6 +757,7 @@ export default (environment: Environment, natives: {}) => ({
 
     let total = 0
     let passed = 0
+    const errors: string[] = []
     const runTests = ((tests: List<Test>, baseEvaluation: Evaluation) => {
       const testsCount = tests.length
       total += testsCount
@@ -803,7 +804,9 @@ export default (environment: Environment, natives: {}) => ({
         stepAll(natives)(describeEvaluation)
         runTests(describe.tests(), describeEvaluation)
       } catch (error) {
-        log.error(`Failed! Error during initialization of describe ${describe.fullyQualifiedName()}`)
+        const message = `Error during initialization of describe ${describe.fullyQualifiedName()}`
+        errors.push(message)
+        log.error(`Failed! ${message}`)
         log.error(error)
       }
 
@@ -811,7 +814,7 @@ export default (environment: Environment, natives: {}) => ({
 
     log.done('Running describes')
 
-    return [passed, total]
+    return [passed, total, errors]
   },
 
 })
