@@ -74,7 +74,7 @@ const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Eval
 export default {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-      const message = 'position'
+      const message = 'position' // TODO
       if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
       addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
@@ -126,6 +126,14 @@ export default {
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue)
       returnValue(evaluation, result)
+    },
+
+    hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, FALSE_ID)
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      returnValue(evaluation, currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID)
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
