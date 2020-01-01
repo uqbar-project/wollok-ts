@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, RuntimeObject, TRUE_ID, VOID_ID, NULL_ID } from '../interpreter';
+import { Evaluation, FALSE_ID, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id, Module } from '../model'
 import wreNatives from './wre.natives'
 
@@ -172,8 +172,18 @@ export default {
       returnVoid(evaluation)
     },
 
-    colliders: (_self: RuntimeObject, visual: RuntimeObject) =>
-      redirectTo(mirror, false)('colliders', visual.id),
+    colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      const position = getPosition(visual.id)(evaluation)
+      const result = newList(evaluation, ...currentVisuals.innerValue
+        .filter(samePosition(evaluation, position))
+        .filter(id => id !== visual.id)
+      )
+      returnValue(evaluation, result)
+    },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => property(self, 'title', title),
 

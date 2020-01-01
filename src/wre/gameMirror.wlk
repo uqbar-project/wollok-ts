@@ -23,7 +23,5 @@ object gameMirror {
 			io.removeTimeHandler(name)
 		})
 	}
-
-  method colliders(visual) = game.getObjectsIn(visual.position()).filter({it => it != visual})
-
+	
 }
