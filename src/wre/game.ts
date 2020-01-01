@@ -116,6 +116,9 @@ export default {
     whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) =>
       redirectTo(mirror)('whenCollideDo', visual.id, action.id),
 
+    onCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(mirror)('onCollideDo', visual.id, action.id),
+
     onTick: (_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject) =>
       redirectTo(mirror)('onTick', milliseconds.id, name.id, action.id),
 

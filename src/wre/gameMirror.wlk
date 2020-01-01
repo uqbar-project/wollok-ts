@@ -18,6 +18,15 @@ object gameMirror {
 		})
   }
 
+  method onCollideDo(visual, action) {
+		var lastColliders = []
+    io.addTimeHandler(visual.identity(), { time => 
+			const colliders = game.colliders(visual)
+			colliders.forEach({ it => if (!lastColliders.contains(it)) action.apply(it) })
+			lastColliders = colliders
+		})
+  }
+
 	method onTick(milliseconds, name, action) {
 		var times = 0
 		const initTime = io.currentTime()

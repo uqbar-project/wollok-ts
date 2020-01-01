@@ -71,13 +71,57 @@ describe.only('Wollok Game', () => {
         `)
       })
 
-      it('many', () => {
+      it('many times', () => {
         runGame(`
-        game.whenCollideDo(visual, closureMock)
-        game.addVisual(new Visual())
-        io.flushEvents(0)
-        io.flushEvents(1)
-        assert.equals(2, closureMock.calledCount())
+          game.whenCollideDo(visual, closureMock)
+          game.addVisual(new Visual())
+          io.flushEvents(0)
+          io.flushEvents(1)
+          assert.equals(2, closureMock.calledCount())
+        `)
+      })
+    })
+
+    describe('onCollideDo', () => {
+
+      it('never', () => {
+        runGame(`
+          game.onCollideDo(visual, closureMock)
+          io.flushEvents(0)
+          assert.notThat(closureMock.called())
+        `)
+      })
+
+      it('once', () => {
+        runGame(`
+          game.onCollideDo(visual, closureMock)
+          game.addVisual(new Visual())
+          io.flushEvents(0)
+          assert.that(closureMock.called())
+        `)
+      })
+
+      it('only once in same collision', () => {
+        runGame(`
+          game.onCollideDo(visual, closureMock)
+          game.addVisual(new Visual())
+          io.flushEvents(0)
+          io.flushEvents(1)
+          assert.equals(1, closureMock.calledCount())
+        `)
+      })
+
+      it('many times in many collisions', () => {
+        runGame(`
+          game.onCollideDo(visual, closureMock)
+          const collider = new Visual()
+          game.addVisual(collider)
+          io.flushEvents(0)
+          collider.position(game.at(1, 1))
+          io.flushEvents(1)
+          collider.position(game.origin())
+          io.flushEvents(2)
+          assert.equals(2, closureMock.calledCount())
         `)
       })
     })
@@ -100,7 +144,7 @@ describe.only('Wollok Game', () => {
         `)
       })
 
-      it('many', () => {
+      it('many times', () => {
         runGame(`
           game.onTick(1000, "", closureMock)
           io.flushEvents(1000)
