@@ -6,7 +6,7 @@ import natives from '../src/wre/wre.natives'
 
 should()
 
-describe('Wollok Game', () => {
+describe.only('Wollok Game', () => {
 
   it('addVisual', () => {
     const evaluation = runGame()
@@ -32,6 +32,16 @@ describe('Wollok Game', () => {
   // TODO: Move these to .wtest
   describe('io events', () => {
 
+    it.skip('addVisualCharacter', () => {
+      runGame(`
+        const character = new Visual()
+        game.addVisualCharacter(character)
+        io.queueEvent(["keydown", "KeyUp"])
+        io.flushEvents(0)
+        assert.equals(game.at(0, 1), character.position())
+      `)
+    })
+
     it('whenKeyPressedDo', () => {
       runGame(`
         const event = ["keydown", "KeyA"]
@@ -42,13 +52,34 @@ describe('Wollok Game', () => {
       `)
     })
 
-    it('whenCollideDo', () => {
-      runGame(`
+    describe('whenCollideDo', () => {
+
+      it('never', () => {
+        runGame(`
+          game.whenCollideDo(visual, closureMock)
+          io.flushEvents(0)
+          assert.notThat(closureMock.called())
+        `)
+      })
+
+      it('once', () => {
+        runGame(`
+          game.whenCollideDo(visual, closureMock)
+          game.addVisual(new Visual())
+          io.flushEvents(0)
+          assert.that(closureMock.called())
+        `)
+      })
+
+      it('many', () => {
+        runGame(`
         game.whenCollideDo(visual, closureMock)
         game.addVisual(new Visual())
         io.flushEvents(0)
-        assert.that(closureMock.called())
-      `)
+        io.flushEvents(1)
+        assert.equals(2, closureMock.calledCount())
+        `)
+      })
     })
 
     describe('onTick', () => {
@@ -106,11 +137,8 @@ describe('Wollok Game', () => {
           assert.equals(1, closureMock.calledCount())
         `)
       })
-
     })
-
   })
-
 })
 
 const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('test.game.visual').id)
@@ -137,7 +165,7 @@ const runGame = (content: string = '') => {
       }
 
       class Visual {
-        method position() = game.origin()
+        var property position = game.origin()
       }
 
       object visual inherits Visual { }
