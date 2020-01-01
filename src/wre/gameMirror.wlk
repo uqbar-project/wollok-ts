@@ -6,7 +6,7 @@ object gameMirror {
 
   method whenCollideDo(visual, action) {
     io.addTimeHandler(visual.identity(), { time => 
-			self.colliders(visual).forEach({it => action.apply(it)})
+			game.colliders(visual).forEach({it => action.apply(it)})
 		})
   }
 
