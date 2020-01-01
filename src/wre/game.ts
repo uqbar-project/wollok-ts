@@ -200,19 +200,19 @@ export default {
       returnVoid(evaluation)
     },
 
-    // TODO:
-    hideAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    hideAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('showAttributes', FALSE_ID)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    showAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    showAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('showAttributes', TRUE_ID)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    errorReporter: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    errorReporter: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('errorReporter', visual.id)
+      returnVoid(evaluation)
     },
 
     // TODO:
