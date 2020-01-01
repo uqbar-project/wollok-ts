@@ -13,10 +13,7 @@ const ARGS = commandLineArgs([
   { name: 'files', alias: 'f', multiple: true, defaultOption: true, defaultValue: '**/*.@(wlk|wtest)' },
 ])
 
-// TODO: Don't skip
-const SKIPPED = globby.sync([
-  'game/game*',
-], { cwd: SANITY_TESTS_FOLDER })
+const SKIPPED: string[] = []
 
 // TODO: use mocha to run this ?
 enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
