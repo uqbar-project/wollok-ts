@@ -93,13 +93,12 @@ export default {
       returnVoid(evaluation)
     },
 
-    addVisualCharacter: (_self: RuntimeObject, _positionable: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
-    },
+    addVisualCharacter: (_self: RuntimeObject, visual: RuntimeObject) =>
+      redirectTo(mirror)('addVisualCharacter', visual.id),
 
-    addVisualCharacterIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
-    },
+
+    addVisualCharacterIn: (_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => 
+      redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
