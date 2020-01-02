@@ -97,7 +97,7 @@ export default {
       redirectTo(mirror)('addVisualCharacter', visual.id),
 
 
-    addVisualCharacterIn: (_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => 
+    addVisualCharacterIn: (_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) =>
       redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
