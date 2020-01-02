@@ -12,11 +12,12 @@
   "scripts": {
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
-    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples",
+    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples && npm run test:natives",
     "test:lint": "tslint --project .",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
-    "test:examples": "node -r ts-node/register ./test/examples.ts",
     "test:sanity": "node -r ts-node/register ./test/sanity.ts",
+    "test:examples": "node -r ts-node/register ./test/examples.ts",
+    "test:natives": "node -r ts-node/register ./test/natives.ts",
     "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags"
