@@ -6,7 +6,7 @@ import natives from '../src/wre/wre.natives'
 
 should()
 
-describe.only('Wollok Game', () => {
+describe('Wollok Game', () => {
 
   it('addVisual', () => {
     const evaluation = runGame()
