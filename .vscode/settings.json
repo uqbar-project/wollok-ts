@@ -1,0 +1,8 @@
+{
+  "mochaExplorer.files": "test/**/*.test.ts",
+  "mochaExplorer.require": "ts-node/register",
+  "mochaExplorer.ui": "bdd",
+  "mochaExplorer.logpanel": true,
+  "mochaExplorer.nodePath": "default",
+  "typescript.tsdk": "node_modules/typescript/lib",
+}

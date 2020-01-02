@@ -1,7 +1,7 @@
 {
   "name": "wollok-ts",
-  "version": "2.0.0",
-  "wollokVersion": "2.0.0",
+  "version": "2.0.1",
+  "wollokVersion": "2.0.1",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",
@@ -18,7 +18,8 @@
     "test:examples": "mocha -t 5000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha -t 5000 -r ts-node/register --root language/test/sanity test/wtest.ts",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
-    "postpublish": "git tag v$npm_package_version && git push --tags"
+    "postpublish": "git tag v$npm_package_version && git push --tags",
+    "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.0",
@@ -40,7 +41,7 @@
     "ts-mock-imports": "^1.2.6",
     "ts-node": "8.4.1",
     "tslint": "^5.20.1",
-    "typescript": "^3.7.3",
+    "typescript": "^3.7.4",
     "yargs": "^15.0.2"
   }
 }

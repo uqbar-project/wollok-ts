@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+
 import { Linked as LinkedBehavior } from './behavior'
 import { Environment as buildEnvironment, Package as buildPackage } from './builders'
 import { divideOn } from './extensions'
