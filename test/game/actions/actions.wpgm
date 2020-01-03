@@ -1,0 +1,24 @@
+import wollok.game.*
+
+object visual {
+  method position() = game.origin()
+}
+
+program addVisual {
+  game.addVisual(visual)
+}
+
+program removeVisual {
+  game.addVisual(visual)
+  game.removeVisual(visual)
+}
+
+program say {
+  game.addVisual(visual)
+  game.say(visual, "Hi!")
+}
+
+program clear {
+  game.addVisual(visual)
+  game.clear()
+}
