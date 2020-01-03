@@ -1,4 +1,4 @@
 import { join } from 'path'
-import { runAllTests } from './runner'
+import { runAllTestsIn } from './runner'
 
-runAllTests(join('test', 'game'))
+runAllTestsIn(join('test', 'game'))

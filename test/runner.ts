@@ -7,34 +7,38 @@ import interpreter from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
 import natives from '../src/wre/wre.natives'
 
-const ARGS = commandLineArgs([
-  { name: 'verbose', alias: 'v', type: Boolean, defaultValue: false },
-  { name: 'files', alias: 'f', multiple: true, defaultOption: true, defaultValue: '**/*.@(wlk|wtest)' },
-])
-
-const SKIPPED: string[] = []
-
-// TODO: use mocha to run this ?
-enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
-
-const runAll = (cwd: string, skip: string[] = []) => {
-  log.clear()
-  log.separator('RUN ALL TESTS')
-
-  log.start('Reading tests')
+const buildEnvironmentFrom = (pattern: string, cwd: string, skip: string[] = []) => {
+  log.start('Reading files')
   // TODO: This causes tests with imports to fail when runned alone, cause the imports are not included.
-  const testFiles = globby.sync(ARGS.files, { cwd })
+  const testFiles = globby.sync(pattern, { cwd })
     .filter(name => !skip.includes(name))
     .map(name => ({
       name,
       content: readFileSync(join(cwd, name), 'utf8'),
     }))
-  log.done('Reading tests')
-  log.info(`Will run tests from ${testFiles.length} file(s)`)
+  log.done('Reading files')
+  log.info(`Read ${testFiles.length} file(s). ${skip.length} files skipped.`)
 
   log.start('Building environment')
   const environment = buildEnvironment(testFiles)
   log.done('Building environment')
+
+  return environment
+}
+
+const runAllTestFiles = (cwd: string, skip: string[] = []) => {
+  log.clear()
+  log.separator('RUN ALL TESTS')
+
+  const ARGS = commandLineArgs([
+    { name: 'verbose', alias: 'v', type: Boolean, defaultValue: false },
+    { name: 'files', alias: 'f', multiple: true, defaultOption: true, defaultValue: '**/*.@(wlk|wtest)' },
+  ])
+
+  // TODO: use mocha to run this ?
+  enableLogs(ARGS.verbose ? LogLevel.DEBUG : LogLevel.INFO)
+
+  const environment = buildEnvironmentFrom(ARGS.files, cwd, skip)
 
   log.start('Running tests')
   const { runTests } = interpreter(environment, natives)
@@ -43,7 +47,7 @@ const runAll = (cwd: string, skip: string[] = []) => {
 
   log.separator('Results');
 
-  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests on ${testFiles.length} test files. ${SKIPPED.length} files skipped.`)
+  (total === passed ? log.success : log.error)(`Passed ${passed}/${total} tests.`)
   if (errors.length) {
     log.error(`${errors.length} error(s) found:`)
     errors.forEach(err => log.error(`  ${err}`))
@@ -52,11 +56,26 @@ const runAll = (cwd: string, skip: string[] = []) => {
   process.exit(errors.length ? 1 : total - passed)
 }
 
-export const runAllTests = (cwd: string, skip: string[] = []) => {
+export const runAllTestsIn = (cwd: string, skip: string[] = []) => {
   try {
-    runAll(cwd, skip)
+    runAllTestFiles(cwd, skip)
   } catch (error) {
     log.error(error)
     process.exit(1)
   }
+}
+
+export const runProgramIn = (cwd: string, programFQN: string) => {
+  log.clear()
+  log.separator(`RUN PROGRAM ${programFQN}`)
+
+  const environment = buildEnvironmentFrom('**/*.wpgm', cwd)
+
+  log.start('Running program')
+  const { runProgram, buildEvaluation } = interpreter(environment, natives)
+  const evaluation = buildEvaluation()
+  runProgram(programFQN, evaluation)
+  log.start('Running program')
+
+  return evaluation
 }
