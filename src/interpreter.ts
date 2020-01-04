@@ -3,6 +3,8 @@ import { last, zipObj } from './extensions'
 import log from './log'
 import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
 
+const { round } = Math
+
 export type Locals = Record<Name, Id>
 
 export interface Context {
@@ -705,8 +707,54 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   return currentFrame.operandStack.length ? evaluation.instances[currentFrame.popOperand()] : null
 }
 
+interface TestResult {
+  error?: Error,
+  duration: number,
+  evaluation: Evaluation,
+}
+
+function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResult {
+  log.resetStep()
+
+  if (test.parent().is('Describe')) {
+    const describe = test.parent() as Describe
+    const describeInstanceId = evaluation.createInstance(describe.fullyQualifiedName())
+
+    evaluation.pushFrame(compile(evaluation.environment)(
+      ...describe.variables(),
+      ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
+    ), describeInstanceId)
+
+    try {
+      stepAll(natives)(evaluation)
+    } catch (error) {
+      return {
+        error,
+        duration: 0,
+        evaluation,
+      }
+    }
+  }
+
+  let error: Error | undefined
+
+  const before = process.hrtime()
+  try {
+    run(evaluation, natives, test.body.sentences)
+  } catch (e) {
+    error = e
+  }
+  const delta = process.hrtime(before)
+
+  return {
+    evaluation,
+    error,
+    duration: round(delta[0] * 1e3 + delta[1] / 1e6),
+  }
+}
+
 // TODO: Refactor this interface
-export default (environment: Environment, natives: {}) => ({
+export default (environment: Environment, natives: Natives) => ({
 
   buildEvaluation: () => buildEvaluation(environment),
 
@@ -744,77 +792,19 @@ export default (environment: Environment, natives: {}) => ({
     log.success('Done!')
   },
 
-  runTests: (): [number, number, string[]] => {
-    // TODO: create extension function to divide array based on condition
-    const describes = environment.descendants<Describe>('Describe')
-    const freeTests = environment.descendants<Test>('Test').filter(node => !node.parent().is('Describe'))
+  runTest: (evaluation: Evaluation, test: Test): TestResult => runTest(evaluation, natives, test),
 
+  runTests: (tests: List<Test>): Record<Name, TestResult> => {
     log.start('Initializing Evaluation')
-    const initializedEvaluation = buildEvaluation(environment)
-    stepAll(natives)(initializedEvaluation)
-    initializedEvaluation.frameStack.pop()
+    const evaluation = buildEvaluation(environment)
+    stepAll(natives)(evaluation)
+    evaluation.frameStack.pop()
     log.done('Initializing Evaluation')
 
-    let total = 0
-    let passed = 0
-    const errors: string[] = []
-    const runTests = ((tests: List<Test>, baseEvaluation: Evaluation) => {
-      const testsCount = tests.length
-      total += testsCount
-      log.separator()
-      tests.forEach((test, i) => {
-        const n = i + 1
-        const evaluation = baseEvaluation.copy()
-
-        log.resetStep()
-        log.info('Running test', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-        log.start(test.name)
-
-        try {
-          run(evaluation, natives, test.body.sentences)
-          passed++
-          log.success('Passed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-        } catch (error) {
-          log.error('Failed!', n, '/', testsCount, ':', test.source && test.source.file, '>>', test.name)
-          log.error(error)
-        }
-
-        log.done(test.name)
-        log.separator()
-      })
-    })
-
-    log.start('Running free tests')
-    runTests(freeTests, initializedEvaluation)
-    log.done('Running free tests')
-
-    log.start('Running describes')
-    describes.forEach((describe: Describe) => {
-      const describeEvaluation = initializedEvaluation.copy()
-      const describeId = describeEvaluation.createInstance(describe.fullyQualifiedName())
-
-      log.info(`Running describe ${describe.fullyQualifiedName()}`)
-
-      describeEvaluation.pushFrame(compile(describeEvaluation.environment)(
-        ...describe.variables(),
-        ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
-      ), describeEvaluation.instance(describeId).id)
-
-      try {
-        stepAll(natives)(describeEvaluation)
-        runTests(describe.tests(), describeEvaluation)
-      } catch (error) {
-        const message = `Error during initialization of describe ${describe.fullyQualifiedName()}`
-        errors.push(message)
-        log.error(`Failed! ${message}`)
-        log.error(error)
-      }
-
-    })
-
-    log.done('Running describes')
-
-    return [passed, total, errors]
+    return zipObj(
+      tests.map(test => test.fullyQualifiedName()),
+      tests.map(test => runTest(evaluation.copy(), natives, test))
+    )
   },
 
 })

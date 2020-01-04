@@ -1,7 +1,7 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id, Module } from '../model'
-import wreNatives from './wre.natives'
+import natives from './wre.natives'
 
 // TODO:
 // tslint:disable:variable-name
@@ -34,7 +34,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
 
 const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage: boolean = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
-    const { sendMessage } = interpret(evaluation.environment, wreNatives)
+    const { sendMessage } = interpret(evaluation.environment, natives as Natives)
     sendMessage(message, receiver(evaluation), ...params)(evaluation)
     if (voidMessage) returnVoid(evaluation)
   }
@@ -50,7 +50,7 @@ const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('woll
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = evaluation.instance(id).get('position')
   if (position) return position
-  const { sendMessage } = interpret(evaluation.environment, wreNatives)
+  const { sendMessage } = interpret(evaluation.environment, natives as Natives)
   const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
   sendMessage('position', id)(evaluation)
   return evaluation.instances[currentFrame.operandStack.pop()!]
@@ -156,7 +156,7 @@ export default {
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation) => {
       const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
-      const { sendMessage } = interpret(evaluation.environment, wreNatives)
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
       sendMessage('currentTime', io(evaluation))(evaluation)
       const wCurrentTime: RuntimeObject = evaluation.instances[currentFrame.operandStack.pop()!]
       wCurrentTime.assertIsNumber()
@@ -168,7 +168,7 @@ export default {
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation) => {
-      const { sendMessage } = interpret(evaluation.environment, wreNatives)
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
       sendMessage('clear', io(evaluation))(evaluation)
       self.set('visuals', newList(evaluation))
       returnVoid(evaluation)

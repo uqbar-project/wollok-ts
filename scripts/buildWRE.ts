@@ -14,6 +14,7 @@ enableLogs(LogLevel.INFO)
 
 log.start('Building WRE')
 
+// TODO: Can we move this to lang? See wollok-language/issues/48
 const targetRawWRE = Package('wollok')(
   file('io').tryParse(readFileSync(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
   file('gameMirror').tryParse(readFileSync(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
