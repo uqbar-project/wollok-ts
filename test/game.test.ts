@@ -6,26 +6,25 @@ import { runProgramIn } from './runner'
 
 should()
 
+const gameTest = (programName: string, cb: (evaluation: Evaluation) => void) =>
+  it(programName, () => cb(runGame(programName)))
+
 describe('Actions', () => {
 
-  it('addVisual', () => {
-    const evaluation = runGame('addVisual')
+  gameTest('addVisual', (evaluation) => {
     visuals(evaluation).should.have.length(1)
   })
 
-  it('removeVisual', () => {
-    const evaluation = runGame('removeVisual')
+  gameTest('removeVisual', (evaluation) => {
     visuals(evaluation).should.have.length(0)
   })
 
-  it('say', () => {
-    const evaluation = runGame('say')
+  gameTest('say', (evaluation) => {
     visualObject(evaluation).get('message')!.innerValue!.should.be.eq('Hi!')
     visualObject(evaluation).get('messageTime')!.innerValue!.should.be.eq(2000)
   })
 
-  it('clear', () => {
-    const evaluation = runGame('clear')
+  gameTest('clear', (evaluation) => {
     visuals(evaluation).should.have.length(0)
   })
 
