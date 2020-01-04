@@ -2,9 +2,10 @@ import { should } from 'chai'
 import { join } from 'path'
 import { RuntimeObject } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
-import { runProgramIn } from './runner'
+import { buildInterpreter } from './runner'
 
 should()
+const { time, timeEnd } = console
 
 const gameTest = (programName: string, cb: (evaluation: Evaluation) => void) =>
   it(programName, () => cb(runGame(programName)))
@@ -44,3 +45,16 @@ const visuals = (evaluation: Evaluation) => {
 
 const runGame = (programName: string) =>
   runProgramIn(join('test', 'game'), `${basePackage}.${programName}`)
+
+const runProgramIn = (cwd: string, programFQN: string) => {
+  const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', cwd)
+
+  time('Running program')
+
+  const evaluation = buildEvaluation()
+  runProgram(programFQN, evaluation)
+
+  timeEnd('Running program')
+
+  return evaluation
+}
