@@ -1,5 +1,4 @@
 import { assert } from 'chai'
-import globby from 'globby'
 import { basename } from 'path'
 import yargs from 'yargs'
 import interpreter, { Evaluation, Natives } from '../src/interpreter'
@@ -25,12 +24,6 @@ const ARGUMENTS = yargs
   .argv
 
 
-// TODO: Don't skip
-const SKIPPED = globby.sync([
-  'game/**',
-], { cwd: ARGUMENTS.root })
-
-
 function registerTests(evaluation: Evaluation, nodes: List<Node>) {
   nodes.forEach(node => {
 
@@ -52,7 +45,7 @@ describe(basename(ARGUMENTS.root), () => {
 
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root, SKIPPED)
+  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
 
   time('Initializing Evaluation')
 
