@@ -31,7 +31,7 @@ describe('Actions', () => {
 
 })
 
-const basePackage = 'actions.actions'
+const basePackage = 'actions'
 
 const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
