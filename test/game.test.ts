@@ -5,12 +5,15 @@ import { Evaluation } from '../src/interpreter'
 import { buildInterpreter } from './runner'
 
 should()
-const { time, timeEnd } = console
 
-const gameTest = (programName: string, cb: (evaluation: Evaluation) => void) =>
-  it(programName, () => cb(runGame(programName)))
+const basePackage = 'actions'
 
-describe('Actions', () => {
+describe.only('Actions', () => {
+
+  const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', join('test', 'game'))
+
+  const gameTest = (programName: string, cb: (evaluation: Evaluation) => void) =>
+    it(programName, () => cb(runGame(programName)))
 
   gameTest('addVisual', (evaluation) => {
     visuals(evaluation).should.have.length(1)
@@ -29,9 +32,15 @@ describe('Actions', () => {
     visuals(evaluation).should.have.length(0)
   })
 
-})
+  const runGame = (programName: string) => runGameProgram(`${basePackage}.${programName}`)
 
-const basePackage = 'actions'
+  const runGameProgram = (programFQN: string) => {
+    const evaluation = buildEvaluation()
+    runProgram(programFQN, evaluation)
+    return evaluation
+  }
+
+})
 
 const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
@@ -41,20 +50,4 @@ const visuals = (evaluation: Evaluation) => {
     .get('visuals')!
   wVisuals.assertIsCollection()
   return wVisuals.innerValue
-}
-
-const runGame = (programName: string) =>
-  runProgramIn(join('test', 'game'), `${basePackage}.${programName}`)
-
-const runProgramIn = (cwd: string, programFQN: string) => {
-  const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', cwd)
-
-  time('Running program')
-
-  const evaluation = buildEvaluation()
-  runProgram(programFQN, evaluation)
-
-  timeEnd('Running program')
-
-  return evaluation
 }
