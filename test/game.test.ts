@@ -8,7 +8,7 @@ should()
 
 const basePackage = 'actions'
 
-describe.only('Actions', () => {
+describe(basePackage, () => {
 
   const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', join('test', 'game'))
 
