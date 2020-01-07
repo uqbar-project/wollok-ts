@@ -1,0 +1,50 @@
+import wollok.io.*
+
+object closureMock {
+  const property calls = []
+  method calledCount() = calls.size()
+  method called() = self.calledCount() > 0
+  method calledWith(args...) = calls.contains(args)
+  method apply(args...) { calls.add(args) }
+}
+
+describe 'flush events' {
+
+  test 'should clear event queue' {
+    io.queueEvent('')
+    io.flushEvents(0)
+    assert.equals([], io.eventQueue())
+  }
+
+  test 'should apply event handlers' {
+    io.queueEvent('EVENT')
+    io.addEventHandler('EVENT', closureMock)
+    io.flushEvents(0)
+    assert.that(closureMock.called())
+  }
+
+  test 'should not apply event handlers' {
+    io.queueEvent('EVENT')
+    io.addEventHandler('OTHER', closureMock)
+    io.flushEvents(0)
+    assert.notThat(closureMock.called())
+  }
+
+  test 'should apply all time handlers' {
+    io.addTimeHandler('A', closureMock)
+    io.addTimeHandler('B', closureMock)
+    io.flushEvents(0)
+    assert.equals(2, closureMock.calledCount())
+  }
+
+  test 'should apply time handlers with new time' {
+    io.addTimeHandler('', closureMock)
+    io.flushEvents(10)
+    assert.that(closureMock.calledWith(10))
+  }
+
+  test 'should update current time' {
+    io.flushEvents(100)
+    assert.equals(100, io.currentTime())
+  }
+}

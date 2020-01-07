@@ -13,38 +13,40 @@ class Visual {
 
 object visual inherits Visual { }
 
-describe 'Game events' {
+describe 'events' {
 
   fixture {
     game.addVisual(visual)
   }
 
-  // SKIP: until key code unification
-  // test 'addVisualCharacter' {
-  //   const character = new Visual()
-  //   game.addVisualCharacter(character)
-  //   io.queueEvent(["keydown", "KeyUp"])
-  //   io.flushEvents(0)
-  //   assert.equals(game.at(0, 1), character.position())
-  // }
-
-  test 'whenKeyPressedDo' {
-    const event = ["keydown", "KeyA"]
-    game.whenKeyPressedDo(event, closureMock) // TODO: replace after key code unification
-    // keyboard.a().onPressDo(closureMock)
-    io.queueEvent(event) // TODO: Test io object
+  test 'addVisualCharacter should be moved with arrow keys' {
+    const character = new Visual()
+    game.addVisualCharacter(character)
+    // Simulate
+    io.queueEvent(["keydown", "KeyUp"])
     io.flushEvents(0)
-    assert.that(closureMock.called())
+
+    // SKIP: until key code unification
+    // assert.equals(game.at(0, 1), character.position())
+  }
+
+  test 'whenKeyPressedDo should add event handler' {
+    const event = ["keydown", "KeyA"]
+    
+    // TODO: replace after key code unification
+    game.whenKeyPressedDo(event, closureMock) 
+    // keyboard.a().onPressDo(closureMock)
+
+    assert.that(io.eventHandlersFor(event).contains(closureMock))
   }
   
-  test 'clear should clear event listeners' {
+  test 'clear should clear event handlers' {
     const event = ["keydown"]
     game.whenKeyPressedDo(event, closureMock)
     game.clear()
-    io.queueEvent(event)
-    io.flushEvents(0)
-    assert.notThat(closureMock.called())
+    assert.notThat(io.eventHandlersFor(event).contains(closureMock))
   }
+  
 
   test 'whenCollideDo never called' {
     game.whenCollideDo(visual, closureMock)
