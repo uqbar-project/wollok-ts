@@ -14,6 +14,12 @@ enableLogs(LogLevel.INFO)
 
 log.start('Building WRE')
 
+// TODO: Can we move this to lang? See wollok-language/issues/48
+const targetRawWRE = Package('wollok')(
+  file('io').tryParse(readFileSync(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
+  file('gameMirror').tryParse(readFileSync(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
+)
+
 const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
 
 log.start('\tParsing...')
@@ -25,10 +31,11 @@ const rawWRE = sourceFiles.map(sourceFile => {
     file(sourceFileName).tryParse(readFileSync(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8'))
   )
 })
+
 log.done('\tParsing...')
 
 log.start('\tFilling...')
-const filledWRE = rawWRE.map(fill)
+const filledWRE = [...rawWRE, targetRawWRE].map(fill)
 log.done('\tFilling...')
 
 log.start('\tLinking...')
