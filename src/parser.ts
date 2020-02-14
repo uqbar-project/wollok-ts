@@ -1,9 +1,76 @@
-import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, {
+  alt,
+  index,
+  lazy,
+  makeSuccess,
+  notFollowedBy,
+  of,
+  Parser,
+  regex,
+  seq,
+  seqMap,
+  seqObj,
+  string,
+  whitespace,
+} from 'parsimmon'
 import { basename } from 'path'
+
 import { Raw as RawBehavior } from './behavior'
-import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
+import {
+  Assignment as buildAssignment,
+  Body as buildBody,
+  Closure as buildClosure,
+  ListOf,
+  Literal as buildLiteral,
+  Method as buildMethod,
+  Return as buildReturn,
+  Send as buildSend,
+  SetOf,
+  Singleton as buildSingleton,
+} from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import {
+  Assignment,
+  Body,
+  Catch,
+  Class,
+  ClassMember,
+  Constructor,
+  Describe,
+  DescribeMember,
+  Entity,
+  Expression,
+  Field,
+  Fixture,
+  If,
+  Import,
+  Kind,
+  List,
+  Literal,
+  Method,
+  Mixin,
+  Name,
+  NamedArgument,
+  New,
+  NodeOfKind,
+  ObjectMember,
+  Package,
+  Parameter,
+  Program,
+  Raw,
+  Reference,
+  Return,
+  Self,
+  Send,
+  Sentence,
+  Singleton,
+  Source,
+  Super,
+  Test,
+  Throw,
+  Try,
+  Variable,
+} from './model'
 
 const { keys } = Object
 

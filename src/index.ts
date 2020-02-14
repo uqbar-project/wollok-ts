@@ -12,7 +12,7 @@ import wre from './wre/wre.json'
 
 const wollokCoreLibraries = behavior.Linked(wre as any)
 
-function buildEnvironment(files: { name: string, content: string }[]): Environment {
+function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = wollokCoreLibraries): Environment {
   return link(files.map(({ name, content }) => {
     try {
       const filePackage = fill(parse.file(name).tryParse(content))
@@ -20,7 +20,7 @@ function buildEnvironment(files: { name: string, content: string }[]): Environme
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }
-  }), wollokCoreLibraries)
+  }), baseEnvironment)
 }
 
 export * from './model'
