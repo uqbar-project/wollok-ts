@@ -7,7 +7,7 @@ import { Category, Class, Constructor, Describe, Entity, Environment, Filled as 
 const { isArray } = Array
 const { values, assign } = Object
 
-const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
+export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 
 const NODE_CACHE = new Map<Id, Node<LinkedStage>>()
