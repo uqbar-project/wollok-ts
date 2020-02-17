@@ -2,18 +2,26 @@ import { Index } from 'parsimmon'
 import { divideOn, mapObject } from './extensions'
 
 const { isArray } = Array
-const { values } = Object
+const { values, assign } = Object
 
 
 export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
 
+export type Payload<T> = { [P in PayloadKey<T>]: T[P] }
+type PayloadKey<T> = { [K in keyof T]:
+  K extends 'kind' ? never :
+  T[K] extends Function ? never :
+  undefined extends T[K] ? never :
+  K
+}[keyof T]
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CACHE
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
+export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
 function cached(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
   const originalMethod = descriptor.value
@@ -84,13 +92,19 @@ export type Node<S extends Stage = Final>
   | Environment<S>
 
 
-abstract class BasicNode<S extends Stage> {
+abstract class $Node<S extends Stage> {
   readonly stage?: S
 
-  abstract readonly kind: any
-  abstract readonly id: Linkable<S, Id>
-  abstract readonly scope: Linkable<S, Scope>
-  abstract readonly source?: Source
+  abstract readonly kind: Kind
+
+  readonly id!: Linkable<S, Id>
+  readonly scope!: Linkable<S, Scope>
+  readonly source?: Source
+
+
+  constructor(payload: Payload<$Node<S>>) {
+    assign(this, payload)
+  }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return this.kind === kindOrCategory
@@ -182,58 +196,38 @@ abstract class BasicNode<S extends Stage> {
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export class Parameter<S extends Stage = Final> extends BasicNode<S> {
+export class Parameter<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Parameter'
+  readonly name!: Name
+  readonly isVarArg!: boolean
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly isVarArg: boolean,
-  ) { super() }
+  constructor(payload: Payload<Parameter<S>>) { super(payload) }
 }
 
 
-export class NamedArgument<S extends Stage = Final> extends BasicNode<S> {
+export class NamedArgument<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'NamedArgument'
+  readonly name!: Name
+  readonly value!: Expression<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly value: Expression<S>,
-  ) { super() }
+  constructor(payload: Payload<NamedArgument<S>>) { super(payload) }
 }
 
 
-export class Import<S extends Stage = Final> extends BasicNode<S> {
+export class Import<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Import'
+  readonly entity!: Reference<S>
+  readonly isGeneric!: boolean
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly entity: Reference<S>,
-    readonly isGeneric: boolean,
-  ) { super() }
+  constructor(payload: Payload<Import<S>>) { super(payload) }
 }
 
 
-export class Body<S extends Stage = Final> extends BasicNode<S> {
+export class Body<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Body'
+  readonly sentences!: List<Sentence<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly sentences: List<Sentence<S>>,
-  ) { super() }
+  constructor(payload: Payload<Body<S>>) { super(payload) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -249,7 +243,8 @@ export type Entity<S extends Stage = Final>
   | Variable<S>
 
 
-abstract class BaseEntity<S extends Stage> extends BasicNode<S> {
+abstract class $Entity<S extends Stage> extends $Node<S> {
+  abstract readonly name: Name | undefined
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
@@ -268,18 +263,13 @@ abstract class BaseEntity<S extends Stage> extends BasicNode<S> {
 }
 
 
-export class Package<S extends Stage = Final> extends BaseEntity<S> {
+export class Package<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Package'
+  readonly name!: Name
+  readonly imports!: List<Import<S>>
+  readonly members!: List<Entity<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly imports: List<Import<S>>,
-    readonly members: List<Entity<S>>,
-  ) { super() }
+  constructor(data: Payload<Package<S>>) { super(data) }
 
   @cached
   getNodeByQN<R extends Linked, N extends Node<R>>(this: Package<R>, qualifiedName: Name): N {
@@ -295,52 +285,34 @@ export class Package<S extends Stage = Final> extends BaseEntity<S> {
 }
 
 
-export class Program<S extends Stage = Final> extends BaseEntity<S> {
+export class Program<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Program'
+  readonly name!: Name
+  readonly body!: Body<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly body: Body<S>,
-  ) { super() }
+  constructor(data: Payload<Program<S>>) { super(data) }
 }
 
 
-export class Test<S extends Stage = Final> extends BaseEntity<S> {
+export class Test<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Test'
+  readonly name!: Name
+  readonly body!: Body<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: string,
-    readonly body: Body<S>,
-  ) { super() }
+  constructor(data: Payload<Test<S>>) { super(data) }
 }
 
 
-export class Describe<S extends Stage = Final> extends BaseEntity<S> {
+export class Describe<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Describe'
+  readonly name!: Name
+  readonly members!: List<DescribeMember<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: string,
-    readonly members: List<DescribeMember<S>>,
-  ) { super() }
+  constructor(data: Payload<Describe<S>>) { super(data) }
 
   tests(): List<Test<S>> { return this.members.filter((member): member is Test<S> => member.is('Test')) }
-
   methods(): List<Method<S>> { return this.members.filter((member): member is Method<S> => member.is('Method')) }
-
   variables(): List<Variable<S>> { return this.members.filter((member): member is Variable<S> => member.is('Variable')) }
-
   fixtures(): List<Fixture<S>> { return this.members.filter((member): member is Fixture<S> => member.is('Fixture')) }
 
   @cached
@@ -355,18 +327,13 @@ export class Describe<S extends Stage = Final> extends BaseEntity<S> {
 }
 
 
-export class Variable<S extends Stage = Final> extends BaseEntity<S> {
+export class Variable<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Variable'
+  readonly name!: Name
+  readonly isReadOnly!: boolean
+  readonly value!: Fillable<S, Expression<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly isReadOnly: boolean,
-    readonly value: Fillable<S, Expression<S>>,
-  ) { super() }
+  constructor(data: Payload<Variable<S>>) { super(data) }
 
   // TODO: Evitar?
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
@@ -380,12 +347,12 @@ export class Variable<S extends Stage = Final> extends BaseEntity<S> {
 
 export type Module<S extends Stage = Final> = Class<S> | Singleton<S> | Mixin<S>
 
-abstract class BasicModule<S extends Stage> extends BaseEntity<S> {
+abstract class $Module<S extends Stage> extends $Entity<S> {
+  abstract members: List<ClassMember<S> | DescribeMember<S>>
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
-
-  abstract members: List<ClassMember<S> | DescribeMember<S>>
 
   methods(): List<Method<S>> { return this.members.filter((member): member is Method<S> => member.is('Method')) }
 
@@ -423,20 +390,15 @@ abstract class BasicModule<S extends Stage> extends BaseEntity<S> {
 }
 
 
-export class Class<S extends Stage = Final> extends BasicModule<S> {
+export class Class<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Class'
+  readonly name!: Name
+  readonly mixins!: List<Reference<S>>
+  readonly members!: List<ClassMember<S>>
+  // TODO: rename this and rename superclassNode to superclass (in Singleton too)
+  readonly superclass!: Fillable<S, Reference<S> | null>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly mixins: List<Reference<S>>,
-    readonly members: List<ClassMember<S>>,
-    // TODO: rename this and rename superclassNode to superclass (in Singleton too)
-    readonly superclass: Fillable<S, Reference<S> | null>,
-  ) { super() }
+  constructor(data: Payload<Class<S>>) { super(data) }
 
   constructors(): List<Constructor<S>> { return this.members.filter<Constructor<S>>((member): member is Constructor<S> => member.is('Constructor')) }
 
@@ -459,23 +421,17 @@ export class Class<S extends Stage = Final> extends BasicModule<S> {
 }
 
 
-export class Singleton<S extends Stage = Final> extends BasicModule<S> {
+export class Singleton<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Singleton'
+  readonly name: Name | undefined
+  readonly mixins!: List<Reference<S>>
+  readonly members!: List<ObjectMember<S>>
+  readonly superCall!: Fillable<S, {
+    superclass: Reference<S>,
+    args: List<Expression<S>> | List<NamedArgument<S>>
+  }>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name | undefined,
-    readonly mixins: List<Reference<S>>,
-    readonly members: List<ObjectMember<S>>,
-    readonly superCall: Fillable<S, {
-      superclass: Reference<S>,
-      args: List<Expression<S>> | List<NamedArgument<S>>
-    }>,
-  ) { super() }
-
+  constructor(data: Payload<Singleton<S>>) { super(data) }
 
   superclassNode<R extends Linked>(this: Module<R>): Class<R>
   superclassNode<R extends Linked>(this: Singleton<R>): Class<R> {
@@ -484,18 +440,13 @@ export class Singleton<S extends Stage = Final> extends BasicModule<S> {
 }
 
 
-export class Mixin<S extends Stage = Final> extends BasicModule<S> {
+export class Mixin<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Mixin'
+  readonly name!: Name
+  readonly mixins!: List<Reference<S>>
+  readonly members!: List<ObjectMember<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly mixins: List<Reference<S>>,
-    readonly members: List<ObjectMember<S>>,
-  ) { super() }
+  constructor(data: Payload<Mixin<S>>) { super(data) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -507,36 +458,26 @@ export type ClassMember<S extends Stage = Final> = Constructor<S> | ObjectMember
 export type DescribeMember<S extends Stage = Final> = Variable<S> | Fixture<S> | Test<S> | Method<S>
 
 
-export class Field<S extends Stage = Final> extends BasicNode<S> {
+export class Field<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Field'
+  readonly name!: Name
+  readonly isReadOnly!: boolean
+  readonly isProperty!: boolean
+  readonly value!: Fillable<S, Expression<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly isReadOnly: boolean,
-    readonly isProperty: boolean,
-    readonly value: Fillable<S, Expression<S>>,
-  ) { super() }
+  constructor(data: Payload<Field<S>>) { super(data) }
 }
 
 
-export class Method<S extends Stage = Final> extends BasicNode<S> {
+export class Method<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Method'
+  readonly name!: Name
+  readonly isOverride!: boolean
+  readonly isNative!: boolean // TODO: Represent abstractness and nativeness as body types?
+  readonly parameters!: List<Parameter<S>>
+  readonly body?: Body<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-    readonly isOverride: boolean,
-    readonly isNative: boolean, // TODO: Represent abstractness and nativeness as body types?
-    readonly parameters: List<Parameter<S>>,
-    readonly body?: Body<S>,
-  ) { super() }
+  constructor(data: Payload<Method<S>>) { super(data) }
 
   matchesSignature(name: Name, arity: number): boolean {
     return this.name === name && (
@@ -547,18 +488,13 @@ export class Method<S extends Stage = Final> extends BasicNode<S> {
 
 }
 
-export class Constructor<S extends Stage = Final> extends BasicNode<S> {
+export class Constructor<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Constructor'
+  readonly parameters!: List<Parameter<S>>
+  readonly body!: Body<S>
+  readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly parameters: List<Parameter<S>>,
-    readonly body: Body<S>,
-    readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> },
-  ) { super() }
+  constructor(data: Payload<Constructor<S>>) { super(data) }
 
   matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
     return this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
@@ -567,16 +503,11 @@ export class Constructor<S extends Stage = Final> extends BasicNode<S> {
 }
 
 
-export class Fixture<S extends Stage = Final> extends BasicNode<S> {
+export class Fixture<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Fixture'
+  readonly body!: Body<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly body: Body<S>,
-  ) { super() }
+  constructor(data: Payload<Fixture<S>>) { super(data) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -586,37 +517,27 @@ export class Fixture<S extends Stage = Final> extends BasicNode<S> {
 export type Sentence<S extends Stage = Final> = Variable<S> | Return<S> | Assignment<S> | Expression<S>
 
 
-abstract class BasicSentence<S extends Stage> extends BasicNode<S> {
+abstract class $Sentence<S extends Stage> extends $Node<S> {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
   }
 }
 
 
-export class Return<S extends Stage = Final> extends BasicSentence<S> {
+export class Return<S extends Stage = Final> extends $Sentence<S> {
   readonly kind = 'Return'
+  readonly value?: Expression<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly value?: Expression<S>,
-  ) { super() }
+  constructor(data: Payload<Return<S>>) { super(data) }
 }
 
 
-export class Assignment<S extends Stage = Final> extends BasicSentence<S> {
+export class Assignment<S extends Stage = Final> extends $Sentence<S> {
   readonly kind = 'Assignment'
+  readonly variable!: Reference<S>
+  readonly value!: Expression<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly variable: Reference<S>,
-    readonly value: Expression<S>,
-  ) { super() }
+  constructor(data: Payload<Assignment<S>>) { super(data) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -634,23 +555,18 @@ export type Expression<S extends Stage = Final>
   | Throw<S>
   | Try<S>
 
-abstract class BasicExpression<S extends Stage> extends BasicNode<S> {
+abstract class $Expression<S extends Stage> extends $Node<S> {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return kindOrCategory === 'Expression' || super.is(kindOrCategory)
   }
 }
 
 
-export class Reference<S extends Stage = Final> extends BasicExpression<S> {
+export class Reference<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Reference'
+  readonly name!: Name
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly name: Name,
-  ) { super() }
+  constructor(data: Payload<Reference<S>>) { super(data) }
 
   @cached
   target<N extends Node<C>, C extends Linked>(this: Reference<C>): N {
@@ -662,128 +578,84 @@ export class Reference<S extends Stage = Final> extends BasicExpression<S> {
 }
 
 
-export class Self<S extends Stage = Final> extends BasicExpression<S> {
+export class Self<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Self'
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-  ) { super() }
+  constructor(data: Payload<Self<S>>) { super(data) }
 }
 
 
 export type LiteralValue<S extends Stage = Final> = number | string | boolean | null | New<S> | Singleton<S>
-export class Literal<S extends Stage = Final, T extends LiteralValue<S> = LiteralValue<S>> extends BasicExpression<S> {
+export class Literal<S extends Stage = Final, T extends LiteralValue<S> = LiteralValue<S>> extends $Expression<S> {
   readonly kind = 'Literal'
+  readonly value!: T
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly value: T
-  ) { super() }
+  constructor(data: Payload<Literal<S, T>>) { super(data) }
 }
 
 
-export class Send<S extends Stage = Final> extends BasicExpression<S> {
+export class Send<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Send'
+  readonly receiver!: Expression<S>
+  readonly message!: Name
+  readonly args!: List<Expression<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly receiver: Expression<S>,
-    readonly message: Name,
-    readonly args: List<Expression<S>>,
-  ) { super() }
+  constructor(data: Payload<Send<S>>) { super(data) }
 }
 
 
-export class Super<S extends Stage = Final> extends BasicExpression<S> {
+export class Super<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Super'
+  readonly args!: List<Expression<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly args: List<Expression<S>>,
-  ) { super() }
+  constructor(data: Payload<Super<S>>) { super(data) }
 }
 
 
-export class New<S extends Stage = Final> extends BasicExpression<S> {
+export class New<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'New'
+  readonly instantiated!: Reference<S>
+  readonly args!: List<Expression<S>> | List<NamedArgument<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly instantiated: Reference<S>,
-    readonly args: List<Expression<S>> | List<NamedArgument<S>>,
-  ) { super() }
+  constructor(data: Payload<New<S>>) { super(data) }
 }
 
 
-export class If<S extends Stage = Final> extends BasicExpression<S> {
+export class If<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'If'
+  readonly condition!: Expression<S>
+  readonly thenBody!: Body<S>
+  readonly elseBody!: Fillable<S, Body<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly condition: Expression<S>,
-    readonly thenBody: Body<S>,
-    readonly elseBody: Fillable<S, Body<S>>,
-  ) { super() }
+  constructor(data: Payload<If<S>>) { super(data) }
 }
 
 
-export class Throw<S extends Stage = Final> extends BasicExpression<S> {
+export class Throw<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Throw'
+  readonly exception!: Expression<S>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly exception: Expression<S>,
-  ) { super() }
+  constructor(data: Payload<Throw<S>>) { super(data) }
 }
 
 
-export class Try<S extends Stage = Final> extends BasicExpression<S> {
+export class Try<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Try'
+  readonly body!: Body<S>
+  readonly catches!: List<Catch<S>>
+  readonly always!: Fillable<S, Body<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly body: Body<S>,
-    readonly catches: List<Catch<S>>,
-    readonly always: Fillable<S, Body<S>>,
-  ) { super() }
+  constructor(data: Payload<Try<S>>) { super(data) }
 }
 
 
-export class Catch<S extends Stage = Final> extends BasicExpression<S> {
+export class Catch<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Catch'
+  readonly parameter!: Parameter<S>
+  readonly body!: Body<S>
+  readonly parameterType!: Fillable<S, Reference<S>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: Source | undefined,
-
-    readonly parameter: Parameter<S>,
-    readonly body: Body<S>,
-    readonly parameterType: Fillable<S, Reference<S>>,
-  ) { super() }
+  constructor(data: Payload<Catch<S>>) { super(data) }
 }
 
 
@@ -791,16 +663,11 @@ export class Catch<S extends Stage = Final> extends BasicExpression<S> {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export class Environment<S extends Stage = Final> extends BasicNode<S> {
+export class Environment<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Environment'
+  readonly members!: Linkable<S, List<Package<S>>>
 
-  constructor(
-    readonly id: Linkable<S, Id>,
-    readonly scope: Linkable<S, Scope>,
-    readonly source: undefined,
-
-    readonly members: Linkable<S, List<Package<S>>>,
-  ) { super() }
+  constructor(data: Payload<Environment<S>>) { super(data) }
 
   @cached
   getNodeById<R extends Linked, N extends Node<R>>(this: Environment<R>, _id: Id): N {
