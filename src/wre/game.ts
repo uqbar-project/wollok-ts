@@ -1,14 +1,12 @@
 import { interpret } from '..'
-import { Evaluation, Natives, RuntimeObject, VOID_ID } from '../interpreter'
-import { Id } from '../model'
+import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Id, Module } from '../model'
 import natives from './wre.natives'
-
-// TODO: tests
 
 // TODO:
 // tslint:disable:variable-name
 
-const newList = (evaluation: Evaluation) => evaluation.createInstance('wollok.lang.List', [])
+const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
 
 const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
@@ -19,7 +17,7 @@ const returnVoid = (evaluation: Evaluation) => {
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.currentFrame()!.pushOperand(self.get(key) ?.id ?? VOID_ID)
+  evaluation.currentFrame()!.pushOperand(self.get(key)?.id ?? VOID_ID)
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -41,44 +39,66 @@ const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage: b
     if (voidMessage) returnVoid(evaluation)
   }
 
+const checkNotNull = (obj: RuntimeObject, name: string) => {
+  if (obj.id === NULL_ID) throw new TypeError(name)
+}
+
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
-const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
+const getPosition = (id: Id) => (evaluation: Evaluation) => {
+  const position = evaluation.instance(id).get('position')
+  if (position) return position
   const { sendMessage } = interpret(evaluation.environment, natives as Natives)
   const currentFrame = evaluation.frameStack[evaluation.frameStack.length - 1]
   sendMessage('position', id)(evaluation)
-  const visualPosition = evaluation.instances[currentFrame.operandStack.pop()!]
-  return  position.get('x') === visualPosition.get('x')
-  &&      position.get('y') === visualPosition.get('y')
+  return evaluation.instances[currentFrame.operandStack.pop()!]
 }
+
+const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
+  const visualPosition = getPosition(id)(evaluation)
+  return position.get('x') === visualPosition.get('x')
+    && position.get('y') === visualPosition.get('y')
+}
+
+const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+  if (!self.get('visuals')) {
+    self.set('visuals', newList(evaluation))
+  }
+  const visuals: RuntimeObject = self.get('visuals')!
+  visuals.assertIsCollection()
+  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.moduleFQN)
+  else visuals.innerValue.push(visual.id)
+}
+
+const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
+  evaluation.environment.getNodeByFQN<Module>(self.moduleFQN).lookupMethod(message, 0)
 
 export default {
   game: {
-    addVisual: (self: RuntimeObject, positionable: RuntimeObject) => (evaluation: Evaluation) => {
-      if (!self.get('visuals')) {
-        self.set('visuals', newList(evaluation))
-      }
-      const visuals: RuntimeObject = self.get('visuals')!
-      visuals.assertIsCollection()
-      visuals.innerValue.push(positionable.id)
+    addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      checkNotNull(visual, 'visual')
+      const message = 'position' // TODO
+      if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
+      addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
     },
 
-    // TODO:
-    addVisualIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      checkNotNull(visual, 'visual')
+      checkNotNull(position, 'position')
+      visual.set('position', position.id)
+      addVisual(self, visual)(evaluation)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    addVisualCharacter: (_self: RuntimeObject, _positionable: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
-    },
+    addVisualCharacter: (_self: RuntimeObject, visual: RuntimeObject) =>
+      redirectTo(mirror)('addVisualCharacter', visual.id),
 
-    addVisualCharacterIn: (_self: RuntimeObject, _element: RuntimeObject, _position: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
-    },
+
+    addVisualCharacterIn: (_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) =>
+      redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
@@ -96,6 +116,9 @@ export default {
     whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) =>
       redirectTo(mirror)('whenCollideDo', visual.id, action.id),
 
+    onCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) =>
+      redirectTo(mirror)('onCollideDo', visual.id, action.id),
+
     onTick: (_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject) =>
       redirectTo(mirror)('onTick', milliseconds.id, name.id, action.id),
 
@@ -105,17 +128,29 @@ export default {
     removeTickEvent: (_self: RuntimeObject, event: RuntimeObject) =>
       redirectTo(io)('removeTimeHandler', event.id),
 
-    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+    allVisuals: (self: RuntimeObject) => (evaluation: Evaluation) => {
       const visuals = self.get('visuals')
-      const result = newList(evaluation)
-      if (!visuals) {
-        return returnValue(evaluation, result)
-      }
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      const wResult: RuntimeObject = evaluation.instance(result)
-      wResult.assertIsCollection()
-      wResult.innerValue = currentVisuals.innerValue.filter(samePosition(evaluation, position))
+      const result = newList(evaluation, ...currentVisuals.innerValue)
+      returnValue(evaluation, result)
+    },
+
+    hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, FALSE_ID)
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      returnValue(evaluation, currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID)
+    },
+
+    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      const result = newList(evaluation, ...currentVisuals.innerValue.filter(samePosition(evaluation, position)))
       returnValue(evaluation, result)
     },
 
@@ -139,8 +174,18 @@ export default {
       returnVoid(evaluation)
     },
 
-    colliders: (_self: RuntimeObject, visual: RuntimeObject) =>
-      redirectTo(mirror, false)('colliders', visual.id),
+    colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      const visuals = self.get('visuals')
+      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      const currentVisuals: RuntimeObject = visuals
+      currentVisuals.assertIsCollection()
+      const position = getPosition(visual.id)(evaluation)
+      const result = newList(evaluation, ...currentVisuals.innerValue
+        .filter(samePosition(evaluation, position))
+        .filter(id => id !== visual.id)
+      )
+      returnValue(evaluation, result)
+    },
 
     title: (self: RuntimeObject, title?: RuntimeObject) => property(self, 'title', title),
 
@@ -152,24 +197,24 @@ export default {
 
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject) => set(self, 'boardGround', boardGround),
 
-    // TODO:
-    stop: (_self: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    stop: (self: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('running', FALSE_ID)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    hideAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    hideAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('showAttributes', FALSE_ID)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    showAttributes: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    showAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      visual.set('showAttributes', TRUE_ID)
+      returnVoid(evaluation)
     },
 
-    // TODO:
-    errorReporter: (_self: RuntimeObject, _visual: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    errorReporter: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('errorReporter', visual.id)
+      returnVoid(evaluation)
     },
 
     // TODO:
@@ -177,9 +222,9 @@ export default {
       throw new ReferenceError('To be implemented')
     },
 
-    // TODO:
-    doStart: (_self: RuntimeObject, _isRepl: RuntimeObject) => (_evaluation: Evaluation) => {
-      throw new ReferenceError('To be implemented')
+    doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation) => {
+      self.set('running', TRUE_ID)
+      returnVoid(evaluation)
     },
   },
 }

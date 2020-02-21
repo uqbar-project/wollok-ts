@@ -1,3 +1,4 @@
+//TODO: Move to language?
 object io {
   // TODO: merge handlers
   const property eventHandlers = new Dictionary()
@@ -9,22 +10,30 @@ object io {
     eventQueue.add(event)
   }
 
-  method addEventHandler(event, callback) {
+  method eventHandlersFor(event) {
     if (!eventHandlers.containsKey(event)) eventHandlers.put(event, [])
-    eventHandlers.get(event).add(callback)
+    return eventHandlers.get(event)
+  }
+
+  method addEventHandler(event, callback) {
+    self.eventHandlersFor(event).add(callback)
   }
 
   method removeEventHandler(event) {
     eventHandlers.remove(event)
   }
 
-  method addTimeHandler(event, callback) {
-    if (!timeHandlers.containsKey(event)) timeHandlers.put(event, [])
-    timeHandlers.get(event).add(callback)
+  method timeHandlers(name) { 
+    if (!timeHandlers.containsKey(name)) timeHandlers.put(name, [])
+    return timeHandlers.get(name)
   }
 
-  method removeTimeHandler(event) {
-    timeHandlers.remove(event)
+  method addTimeHandler(name, callback) {
+    self.timeHandlers(name).add(callback)
+  }
+
+  method removeTimeHandler(name) {
+    timeHandlers.remove(name)
   }
 
   method clear() {

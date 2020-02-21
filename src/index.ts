@@ -16,7 +16,8 @@ function buildEnvironment(files: { name: string, content: string }[], baseEnviro
   return link(files.map(({ name, content }) => {
     try {
       const filePackage = fill(parse.file(name).tryParse(content))
-      return dirname(name).split(sep).reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
+      const folderPackages = name.includes(sep) ? dirname(name).split(sep) : []
+      return folderPackages.reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }

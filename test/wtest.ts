@@ -1,13 +1,11 @@
 import { assert } from 'chai'
-import { readFileSync } from 'fs'
-import globby from 'globby'
-import { basename, join } from 'path'
+import { basename } from 'path'
 import yargs from 'yargs'
-import { buildEnvironment } from '../src'
 import interpreter, { Evaluation, Natives } from '../src/interpreter'
 import { enableLogs, LogLevel } from '../src/log'
 import { List, Node } from '../src/model'
 import natives from '../src/wre/wre.natives'
+import { buildInterpreter } from './runner'
 
 const { fail } = assert
 const { time, timeEnd } = console
@@ -24,12 +22,6 @@ const ARGUMENTS = yargs
     description: 'Path to the root test folder',
   })
   .argv
-
-
-// TODO: Don't skip
-const SKIPPED = globby.sync([
-  'game/**',
-], { cwd: ARGUMENTS.root })
 
 
 function registerTests(evaluation: Evaluation, nodes: List<Node>) {
@@ -53,28 +45,10 @@ describe(basename(ARGUMENTS.root), () => {
 
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  time('Reading tests')
-
-  const testFiles = globby.sync('**/*.@(wlk|wtest)', { cwd: ARGUMENTS.root })
-    .filter(name => !SKIPPED.includes(name))
-    .map(name => ({
-      name,
-      content: readFileSync(join(ARGUMENTS.root, name), 'utf8'),
-    }))
-
-  timeEnd('Reading tests')
-
-
-  time('Building environment')
-
-  const environment = buildEnvironment(testFiles)
-
-  timeEnd('Building environment')
-
+  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
 
   time('Initializing Evaluation')
 
-  const { stepAll, buildEvaluation } = interpreter(environment, natives as Natives)
   const baseEvaluation = buildEvaluation()
   stepAll(baseEvaluation)
   baseEvaluation.frameStack.pop()

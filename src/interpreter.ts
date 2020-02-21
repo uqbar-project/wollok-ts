@@ -707,7 +707,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   return currentFrame.operandStack.length ? evaluation.instances[currentFrame.popOperand()] : null
 }
 
-interface TestResult {
+export interface TestResult {
   error?: Error,
   duration: number,
   evaluation: Evaluation,

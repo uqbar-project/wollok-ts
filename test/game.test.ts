@@ -1,157 +1,53 @@
 import { should } from 'chai'
-import { buildEnvironment } from '../src'
-import { Natives, RuntimeObject } from '../src/interpreter'
-import interpreter, { Evaluation } from '../src/interpreter'
-import wreNatives from '../src/wre/wre.natives'
-
-const natives = wreNatives as Natives
+import { join } from 'path'
+import { RuntimeObject } from '../src/interpreter'
+import { Evaluation } from '../src/interpreter'
+import { buildInterpreter } from './runner'
 
 should()
 
-describe('Wollok Game', () => {
+const basePackage = 'actions'
 
-  it('addVisual', () => {
-    const evaluation = runGame()
+describe(basePackage, () => {
+
+  const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', join('test', 'game'))
+
+  const gameTest = (programName: string, cb: (evaluation: Evaluation) => void) =>
+    it(programName, () => cb(runGame(programName)))
+
+  gameTest('addVisual', (evaluation) => {
     visuals(evaluation).should.have.length(1)
   })
 
-  it('removeVisual', () => {
-    const evaluation = runGame('game.removeVisual(visual)')
+  gameTest('removeVisual', (evaluation) => {
     visuals(evaluation).should.have.length(0)
   })
 
-  it('say', () => {
-    const evaluation = runGame('game.say(visual, "Hi!")')
+  gameTest('say', (evaluation) => {
     visualObject(evaluation).get('message')!.innerValue!.should.be.eq('Hi!')
     visualObject(evaluation).get('messageTime')!.innerValue!.should.be.eq(2000)
   })
 
-  it('clear', () => {
-    const evaluation = runGame('game.clear()')
+  gameTest('clear', (evaluation) => {
     visuals(evaluation).should.have.length(0)
   })
 
-  describe('io events', () => {
+  const runGame = (programName: string) => runGameProgram(`${basePackage}.${programName}`)
 
-    it('whenKeyPressedDo', () => {
-      runGame(`
-        const event = ["keydown", "KeyA"]
-        game.whenKeyPressedDo(event, closureMock)
-        io.queueEvent(event)
-        io.flushEvents(0)
-        assert.that(closureMock.called())
-      `)
-    })
-
-    it('whenCollideDo', () => {
-      runGame(`
-        game.whenCollideDo(visual, closureMock)
-        game.addVisual(new Visual())
-        io.flushEvents(0)
-        assert.that(closureMock.called())
-      `)
-    })
-
-    describe('onTick', () => {
-
-      it('never', () => {
-        runGame(`
-          game.onTick(1000, "", closureMock)
-          io.flushEvents(999)
-          assert.notThat(closureMock.called())
-        `)
-      })
-
-      it('once', () => {
-        runGame(`
-          game.onTick(1000, "", closureMock)
-          io.flushEvents(1000)
-          assert.that(closureMock.called())
-        `)
-      })
-
-      it('many', () => {
-        runGame(`
-          game.onTick(1000, "", closureMock)
-          io.flushEvents(1000)
-          io.flushEvents(2000)
-          assert.equals(2, closureMock.calledCount())
-        `)
-      })
-    })
-
-    it('removeTickEvent', () => {
-      runGame(`
-        game.onTick(1000, "event", closureMock)
-        game.removeTickEvent("event")
-        io.flushEvents(1000)
-        assert.notThat(closureMock.called())
-      `)
-    })
-
-    describe('schedule', () => {
-
-      it('once', () => {
-        runGame(`
-          game.schedule(1000, closureMock)
-          io.flushEvents(1000)
-          assert.that(closureMock.called())
-        `)
-      })
-
-      it('only once', () => {
-        runGame(`
-          game.schedule(1000, closureMock)
-          io.flushEvents(1000)
-          io.flushEvents(2000)
-          assert.equals(1, closureMock.calledCount())
-        `)
-      })
-
-    })
-
-  })
+  const runGameProgram = (programFQN: string) => {
+    const evaluation = buildEvaluation()
+    runProgram(programFQN, evaluation)
+    return evaluation
+  }
 
 })
 
-const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('test.game.visual').id)
+const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
 const visuals = (evaluation: Evaluation) => {
   const wVisuals: RuntimeObject = evaluation
     .instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
     .get('visuals')!
   wVisuals.assertIsCollection()
-  return wVisuals.innerValue!
-}
-
-const runGame = (content: string = '') => {
-  const gameProgram = {
-    name: 'test/game.wpgm',
-    content: `
-      import wollok.io.*
-      import wollok.game.*
-
-      object closureMock {
-        var property calledCount = 0
-        method called() = calledCount > 0
-        method apply(args...) { calledCount += 1 }
-      }
-
-      class Visual {
-        method position() = game.origin()
-      }
-
-      object visual inherits Visual { }
-
-      program gameTest {
-        game.addVisual(visual)
-        ${content}
-      }
-    `,
-  }
-  const environment = buildEnvironment([gameProgram])
-  const { runProgram, buildEvaluation } = interpreter(environment, natives)
-  const evaluation = buildEvaluation()
-  runProgram('test.game.gameTest', evaluation)
-  return evaluation
+  return wVisuals.innerValue
 }
