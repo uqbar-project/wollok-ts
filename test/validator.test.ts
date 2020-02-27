@@ -6,6 +6,7 @@ import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Con
 import { validations } from '../src/validator'
 import { validatorAssertions } from './assertions'
 
+
 use(validatorAssertions)
 should()
 

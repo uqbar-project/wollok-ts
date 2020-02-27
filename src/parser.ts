@@ -1,16 +1,10 @@
 import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
 import { basename } from 'path'
-import { Raw as RawBehavior } from './behavior'
-import { Assignment as buildAssignment, Body as buildBody, Closure as buildClosure, ListOf, Literal as buildLiteral, Method as buildMethod, Return as buildReturn, Send as buildSend, SetOf, Singleton as buildSingleton } from './builders'
+import { asNode, Closure as buildClosure } from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Payload, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
-
-
-type Methods<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T]
-type Optionals<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof T]
-
 
 const ASSIGNATION_OPERATORS = ['=', '+=', '-=', '*=', '/=', '%=', '||=', '&&=']
 const PREFIX_OPERATORS: Record<Name, Name> = {
@@ -38,6 +32,8 @@ let SOURCE_FILE: string | undefined
 // PARSERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+// TODO: Rename to match node casing
+
 const comment = regex(/\/\*(.|[\r\n])*?\*\//).or(regex(/\/\/.*/))
 const _ = comment.or(whitespace).many()
 const key = (str: string) => string(str).trim(_)
@@ -47,15 +43,11 @@ const maybeString = (str: string) => string(str).atMost(1).map(([head]) => !!hea
 const node = <
   K extends Kind,
   N extends NodeOfKind<K, Raw> = NodeOfKind<K, Raw>,
-  P extends { [F in keyof N]: Parser<N[F]> } = { [F in keyof N]: Parser<N[F]> },
-  M extends Omit<P, 'kind' | Optionals<N> | Methods<N>> = Omit<P, 'kind' | Optionals<N> | Methods<N>>,
-  O extends Partial<Pick<P, Optionals<N>>> = Partial<Pick<P, Optionals<N>>>,
-  C extends M & O = M & O,
-  >(kind: K) => (fieldParserSeq: C): Parser<N> => {
-    const subparsers = keys(fieldParserSeq).map(fieldName => [fieldName, fieldParserSeq[fieldName as keyof C]] as any)
+  P extends { [F in keyof Payload<N>]: Parser<Payload<N>[F]> } = { [F in keyof Payload<N>]: Parser<Payload<N>[F]> },
+  >(kind: K) => (fieldParserSeq: P): Parser<N> => {
+    const subparsers = keys(fieldParserSeq).map(fieldName => [fieldName, fieldParserSeq[fieldName as keyof P]] as any)
     return (subparsers.length ? seqObj<P>(...subparsers) : of({}))
-      .map(payload => ({ kind, ...payload as any }))
-      .map(data => RawBehavior<N>(data))
+      .map(payload => asNode<N>({ kind, ...payload } as any))
   }
 
 const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
@@ -234,7 +226,12 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
     objectMember.sepBy(optional(_)).wrap(key('{'), key('}')),
 
     ({ singletonName, superCall: call, mixins }, members) =>
-      buildSingleton(singletonName, { superCall: call, mixins })(...members)
+      new Singleton<Raw>({
+        name: singletonName,
+        superCall: call,
+        mixins,
+        members,
+      })
   )).thru(sourced)
 })
 
@@ -271,7 +268,10 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
   alt(
     key('=').then(
       expression.map(value => ({
-        isNative: false, body: { ...buildBody(buildReturn(value)), source: value.source },
+        isNative: false, body: new Body<Raw>({
+          sentences: [new Return<Raw>({ value })],
+          source: value.source,
+        }),
       }))
     ),
     key('native').result({ isNative: true, body: undefined }),
@@ -279,7 +279,7 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
     of({ isNative: false, body: undefined })
   ),
   (isOverride, methodName, methodParameters, { isNative, body: methodBody }) =>
-    buildMethod(methodName, { isOverride, parameters: methodParameters, isNative, body: methodBody })()
+    new Method<Raw>({ name: methodName, isOverride, parameters: methodParameters, isNative, body: methodBody })
 ).thru(sourced))
 
 export const constructor: Parser<Constructor<Raw>> = lazy(() =>
@@ -319,16 +319,17 @@ export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
     reference,
     operator(ASSIGNATION_OPERATORS),
     expression,
-    (variable, assignation, value) => buildAssignment(
-      variable,
-      assignation === '='
-        ? value
-        : buildSend(
-          variable,
-          assignation.slice(0, -1),
-          LAZY_OPERATORS.includes(assignation.slice(0, -1)) ? [makeClosure([], [value])] : [value]
-        ),
-    )
+    (variable, assignation, value) =>
+      new Assignment<Raw>({
+        variable,
+        value: assignation === '='
+          ? value
+          : new Send<Raw>({
+            receiver: variable,
+            message: assignation.slice(0, -1),
+            args: LAZY_OPERATORS.includes(assignation.slice(0, -1)) ? [makeClosure([], [value])] : [value],
+          }),
+      })
   ).thru(sourced)
 )
 
@@ -370,10 +371,13 @@ export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = la
         alt(unamedArguments, namedArguments),
         // TODO: Convince the world we need a single linearization syntax
         (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
-        (superclass, args, mixins) => buildLiteral(buildSingleton(undefined, {
-          superCall: { superclass, args },
-          mixins,
-        })())
+        (superclass, args, mixins) => new Literal<Raw>({
+          value: new Singleton({
+            superCall: { superclass, args },
+            mixins,
+            members: [],
+          }),
+        })
       )
     ),
 
@@ -429,7 +433,7 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      buildSend(receiver, message, args, { source: { start, end } })
+      new Send({ receiver, message, args, source: { start, end } })
       , initial) as Send<Raw>
   )
 )
@@ -440,7 +444,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      buildSend(receiver, PREFIX_OPERATORS[message], [], { source: { start, end } })
+      new Send({ receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end } })
       , initial)
   )
 
@@ -454,14 +458,14 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
       argument,
       seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
       (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-        buildSend(
+        new Send({
           receiver,
-          message.trim(),
-          LAZY_OPERATORS.includes(message)
+          message: message.trim(),
+          args: LAZY_OPERATORS.includes(message)
             ? [makeClosure([], args)]
             : args,
-          { source: { start, end } }
-        )
+          source: { start, end },
+        })
         , initial)
     )
   }
@@ -484,8 +488,12 @@ export const literal: Parser<Literal<Raw>> = lazy(() =>
         _.then(string('true')).notFollowedBy(name).result(true),
         _.then(string('false')).notFollowedBy(name).result(false),
         regex(/-?\d+(\.\d+)?/).map(Number),
-        expression.sepBy(key(',')).wrap(key('['), key(']')).map(elems => ListOf(...elems)),
-        expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(elems => SetOf(...elems)),
+        expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
+          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.List' }), args })
+        ),
+        expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args =>
+          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.Set' }), args })
+        ),
         stringLiteral,
         singletonEntity,
       ),
@@ -537,8 +545,8 @@ const makeClosure = (closureParameters: List<Parameter<Raw>>, rawSentences: List
   Literal<Raw, Singleton<Raw>> => {
 
   const sentences: List<Sentence<Raw>> = rawSentences.some(s => s.is('Return')) || (rawSentences.length && !last(rawSentences)!.is('Expression'))
-    ? [...rawSentences, buildReturn()]
-    : [...rawSentences.slice(0, -1), buildReturn(last(rawSentences) as Expression<Raw>)]
+    ? [...rawSentences, new Return<Raw>({})]
+    : [...rawSentences.slice(0, -1), new Return<Raw>({ value: last(rawSentences) as Expression<Raw> })]
 
   return buildClosure(toString, ...closureParameters)(...sentences)
 }

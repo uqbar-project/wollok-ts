@@ -6,6 +6,7 @@ import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Module, Package as PackageNode } from '../src/model'
 import { interpreterAssertions } from './assertions'
 
+
 should()
 use(interpreterAssertions)
 
@@ -614,7 +615,7 @@ describe('Wollok Interpreter', () => {
     describe('CALL', () => {
 
       it('should pop the arguments and receiver from the operand stack and create a new frame for the method body', () => {
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -650,7 +651,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should run method ignoring the receivers context if useReceiverContext is false', () => {
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
         const instruction = CALL('m', 2, false)
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -698,7 +699,7 @@ describe('Wollok Interpreter', () => {
             Parameter('p1'),
             Parameter('p2', { isVarArg: true }),
           ],
-        })(Return(Literal(5))) as MethodNode
+        })(Return(Literal(5))) as MethodNode<any>
         const instruction = CALL('m', 3)
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -748,7 +749,7 @@ describe('Wollok Interpreter', () => {
             Parameter('name'),
             Parameter('parameters', { isVarArg: true }),
           ],
-        })(Return(Literal(5))) as MethodNode
+        })(Return(Literal(5))) as MethodNode<any>
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -792,7 +793,7 @@ describe('Wollok Interpreter', () => {
           isNative: true, body: undefined, parameters: [
             Parameter('p1'), Parameter('p2'),
           ],
-        })() as MethodNode
+        })() as MethodNode<any>
 
         const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
@@ -826,7 +827,7 @@ describe('Wollok Interpreter', () => {
           isNative: true, body: undefined, parameters: [
             Parameter('p1'), Parameter('p2', { isVarArg: true }),
           ],
-        })() as MethodNode
+        })() as MethodNode<any>
 
         const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
 
@@ -859,7 +860,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the current operand stack length is < arity + 1', () => {
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
 
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
@@ -874,7 +875,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if there is no instance with the given id', () => {
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
 
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
@@ -889,7 +890,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the method is native but the native is missing', () => {
-        const method = Method('m', { isNative: true, body: undefined })() as MethodNode
+        const method = Method('m', { isNative: true, body: undefined })() as MethodNode<any>
 
         const instruction = CALL('m', 0)
         const evaluation = Evaluation(environment, {
@@ -915,7 +916,7 @@ describe('Wollok Interpreter', () => {
             Parameter('p2'),
           ],
           baseCall: { callsSuper: true, args: [] },
-        })(Return()) as ConstructorNode
+        })(Return()) as ConstructorNode<any>
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -927,9 +928,9 @@ describe('Wollok Interpreter', () => {
           Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }),
         )
 
-        const object = environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
+        const object = environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
         object.lookupConstructor = () => constructor
-        constructor.parent = () => object
+        constructor.parent = () => object as any
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
@@ -957,14 +958,14 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should prepends supercall to the constructor call', () => {
-        const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode
+        const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode<any>
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode
         const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
           f1,
           f2
-        ) as ClassNode
-        X.superclassNode = () => environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
+        ) as ClassNode<any>
+        X.superclassNode = () => environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
 
         const instruction = INIT(0, 'X')
         const evaluation = Evaluation(environment, {
@@ -979,7 +980,7 @@ describe('Wollok Interpreter', () => {
         getNodeByFQNStub.withArgs('X').returns(X)
         getNodeByFQNStub.callThrough()
         X.lookupConstructor = () => constructor
-        constructor.parent = () => X
+        constructor.parent = () => X as any
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {
@@ -1012,7 +1013,7 @@ describe('Wollok Interpreter', () => {
             Parameter('p1'),
             Parameter('p2', { isVarArg: true }),
           ],
-        })(Return()) as ConstructorNode
+        })(Return()) as ConstructorNode<any>
 
         const instruction = INIT(3, 'wollok.lang.Object')
 
@@ -1033,9 +1034,9 @@ describe('Wollok Interpreter', () => {
           Frame({ id: '0', context: '0', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }),
         )
 
-        const object = environment.getNodeByFQN<ClassNode>('wollok.lang.Object')
+        const object = environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
         object.lookupConstructor = () => constructor
-        constructor.parent = () => object
+        constructor.parent = () => object as any
 
 
         evaluation.should.be.stepped().into(
@@ -1086,7 +1087,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the current operand stack length is < arity + 1', () => {
-        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode
+        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode<any>
 
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
@@ -1101,7 +1102,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if there is no instance with the given id', () => {
-        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode
+        const constructor = Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })() as ConstructorNode<any>
 
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, {
@@ -1130,7 +1131,7 @@ describe('Wollok Interpreter', () => {
           f2,
           f3,
           f4,
-        ) as ClassNode
+        ) as ClassNode<any>
         X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
 
         const instruction = INIT_NAMED(['f1', 'f2'])

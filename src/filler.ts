@@ -1,18 +1,19 @@
-import { Filled as FilledBehavior } from './behavior'
-import { Body as buildBody, Constructor as buildConstructor, getter, Literal as buildLiteral, Reference as buildReference, setter } from './builders'
-import { Body, Constructor, Field, Filled, KindOf, Literal, Method, Module, Node, NodeOfKind, Raw, Reference } from './model'
+import { getter, setter } from './builders'
+import { Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
 
-const OBJECT_CLASS: Reference<Filled> = buildReference('wollok.lang.Object') as Reference<Filled>
+const OBJECT_CLASS: Reference<Filled> = new Reference({ name: 'wollok.lang.Object' })
 
-const EXCEPTION_CLASS: Reference<Filled> = buildReference('wollok.lang.Exception') as Reference<Filled>
+const EXCEPTION_CLASS: Reference<Filled> = new Reference({ name: 'wollok.lang.Exception' })
 
-const NULL: Literal<Filled> = buildLiteral(null) as Literal<Filled>
+const NULL: Literal<Filled> = new Literal({ value: null })
 
-const EMPTY_BODY: Body<Filled> = buildBody() as Body<Filled>
+const EMPTY_BODY: Body<Filled> = new Body({ sentences: [] })
 
-const DEFAULT_CONSTRUCTOR: Constructor<Filled> = buildConstructor({
+const DEFAULT_CONSTRUCTOR: Constructor<Filled> = new Constructor({
+  parameters: [],
+  body: EMPTY_BODY,
   baseCall: { callsSuper: true, args: [] },
-})() as Constructor<Filled>
+})
 
 
 const filledPropertyAccessors = (transformed: Module<Filled>) => {
@@ -35,61 +36,59 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
   return [...propertyGetters, ...propertySetters]
 }
 
-export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<KindOf<N>, Filled>>(
-  (rawNode as Node<Filled>).transform<Filled, Node<Filled>>({
-    Class: (transformed) => ({
-      ...transformed,
-      superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
-      members: [
-        ...transformed.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
-        ...transformed.members,
-        ...filledPropertyAccessors(transformed),
-      ],
-    }),
+export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => rawNode.transform<K, Filled>({
+  Class: (transformed) => new Class({
+    ...transformed,
+    superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
+    members: [
+      ...transformed.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
+      ...transformed.members,
+      ...filledPropertyAccessors(transformed),
+    ],
+  }),
 
-    Mixin: (transformed) => ({
-      ...transformed,
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-    }),
+  Mixin: (transformed) => new Mixin({
+    ...transformed,
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+  }),
 
-    Singleton: (transformed) => ({
-      ...transformed,
-      superCall: transformed.superCall ?? {
-        superclass: OBJECT_CLASS,
-        args: [],
-      },
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-    }),
+  Singleton: (transformed) => new Singleton({
+    ...transformed,
+    superCall: transformed.superCall ?? {
+      superclass: OBJECT_CLASS,
+      args: [],
+    },
+    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+  }),
 
-    Field: (transformed) => ({
-      ...transformed,
-      value: transformed.value ?? NULL,
-    }),
+  Field: (transformed) => new Field({
+    ...transformed,
+    value: transformed.value ?? NULL,
+  }),
 
-    Variable: (transformed) => ({
-      ...transformed,
-      value: transformed.value ?? NULL,
-    }),
+  Variable: (transformed) => new Variable({
+    ...transformed,
+    value: transformed.value ?? NULL,
+  }),
 
-    If: (transformed) => ({
-      ...transformed,
-      elseBody: transformed.elseBody ?? EMPTY_BODY,
-    }),
+  If: (transformed) => new If({
+    ...transformed,
+    elseBody: transformed.elseBody ?? EMPTY_BODY,
+  }),
 
-    Try: (transformed) => ({
-      ...transformed,
-      always: transformed.always ?? EMPTY_BODY,
-    }),
+  Try: (transformed) => new Try<Filled>({
+    ...transformed,
+    always: transformed.always ?? EMPTY_BODY,
+  }),
 
-    Catch: (transformed) => ({
-      ...transformed,
-      parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
-    }),
+  Catch: (transformed) => new Catch({
+    ...transformed,
+    parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
+  }),
 
-    Constructor: (transformed) => ({
-      ...transformed,
-      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
-    }),
+  Constructor: (transformed) => new Constructor({
+    ...transformed,
+    baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
+  }),
 
-  }) as any
-)
+})

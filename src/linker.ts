@@ -1,6 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { Linked as LinkedBehavior } from './behavior'
-import { Environment as buildEnvironment, Package as buildPackage } from './builders'
+import { asNode } from './builders'
 import { divideOn } from './extensions'
 import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
@@ -18,7 +17,10 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
   return existent
     ? [
       ...members.filter(member => member !== existent),
-      buildPackage(existent.name, existent)(...isolated.members.reduce(mergePackage, existent.members)) as Package<Filled>,
+      new Package({
+        ...existent,
+        members: isolated.members.reduce(mergePackage, existent.members),
+      }),
     ]
     : [...members, isolated]
 }
@@ -32,13 +34,13 @@ const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => 
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
   const [start, rest] = divideOn('.')(qualifiedName)
-  const root = context.environment().getNodeById<Entity<Linked>>(context.scope[start])
+  const root = context.environment().getNodeById<Entity>(context.scope[start])
 
   if (rest.length) {
     if (!root.is('Package'))
       throw new Error(`Trying to resolve ${qualifiedName} from non-package root`)
 
-    return (root as Package<Linked>).getNodeByQN<Module<Linked>>(rest)
+    return (root as Package<Linked>).getNodeByQN<Module>(rest)
   } else {
     return root
   }
@@ -131,10 +133,14 @@ const assignScopes = (environment: Environment<Linked>) => {
 // LINKER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (newPackages: List<Package<Filled>>, baseEnvironment: Environment = buildEnvironment()): Environment => {
+export default (
+  newPackages: List<Package<Filled>>,
+  baseEnvironment: Environment = new Environment({ members: [], id: '', scope: {} })
+): Environment => {
   // TODO: Would it make life easier if we used fqn where possible as id?
-  const environment = LinkedBehavior(buildEnvironment(...newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>)
-    .transform<Linked, Environment>(node => ({ ...node, id: uuid() })))
+  const environment = new Environment<Filled>({
+    members: newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
+  }).transform<'Environment', Linked>(node => asNode({ ...node, id: uuid() }))
 
   assignScopes(environment)
 

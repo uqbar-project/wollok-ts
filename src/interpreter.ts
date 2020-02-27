@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Method, Module, Name, NamedArgument, Program, Sentence, Singleton, Test, Variable } from './model'
+import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test } from './model'
 
 const { round } = Math
 
@@ -229,7 +229,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
       case 'Super': return (() => {
-        const currentMethod = node.closestAncestor<Method>('Method')!
+        const currentMethod = node.closestAncestor('Method')!
         return [
           LOAD('self'),
           ...node.args.flatMap(arg => compile(environment)(arg)),
@@ -649,8 +649,8 @@ export const stepAll = (natives: {}) => (evaluation: Evaluation) => {
 
 const buildEvaluation = (environment: Environment): Evaluation => {
 
-  const globalConstants = environment.descendants<Variable>('Variable').filter(node => node.parent().is('Package'))
-  const globalSingletons = environment.descendants<Singleton>('Singleton').filter(node => !!node.name)
+  const globalConstants = environment.descendants('Variable').filter(node => node.parent().is('Package'))
+  const globalSingletons = environment.descendants('Singleton').filter(node => !!node.name)
 
   const evaluation = build.Evaluation(environment)()
 
