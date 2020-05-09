@@ -79,7 +79,7 @@ module.exports = {
             {
                 'argsIgnorePattern': '^_',
             }
-        ]
+        ],
     },
 
     overrides: [
