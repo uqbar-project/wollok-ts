@@ -13,15 +13,15 @@ declare global {
   export namespace Chai {
 
     interface Assertion {
-      also: Assertion;
-      parsedBy(parser: Parser<any>): Assertion;
-      into(expected: {}): Assertion;
-      tracedTo(start: number, end: number): Assertion;
-      linkedInto(expected: Package<Raw>[]): Assertion;
-      filledInto(expected: any): Assertion;
-      target(node: Node<Linked>): Assertion;
-      pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion;
-      stepped(natives?: {}): Assertion;
+      also: Assertion
+      parsedBy(parser: Parser<any>): Assertion
+      into(expected: {}): Assertion
+      tracedTo(start: number, end: number): Assertion
+      linkedInto(expected: Package<Raw>[]): Assertion
+      filledInto(expected: any): Assertion
+      target(node: Node<Linked>): Assertion
+      pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion
+      stepped(natives?: {}): Assertion
     }
 
   }

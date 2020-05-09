@@ -80,6 +80,19 @@ module.exports = {
                 'argsIgnorePattern': '^_',
             }
         ],
+        '@typescript-eslint/member-delimiter-style': [
+            'error',
+            {
+                multiline: {
+                    delimiter: 'none',
+                    requireLast: true,
+                },
+                singleline: {
+                    delimiter: 'comma',
+                    requireLast: false,
+                },
+            }
+        ]
     },
 
     overrides: [
