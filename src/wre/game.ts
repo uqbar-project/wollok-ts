@@ -32,7 +32,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
     get(self, key)(evaluation)
 }
 
-const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage: boolean = true) => (message: string, ...params: string[]) =>
+const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
     const { sendMessage } = interpret(evaluation.environment, natives as Natives)
     sendMessage(message, receiver(evaluation), ...params)(evaluation)

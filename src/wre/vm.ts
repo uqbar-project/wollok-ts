@@ -4,7 +4,7 @@ export default {
 
   runtime: {
 
-    isInteractive: () => (evaluation: Evaluation) => {
+    isInteractive: () => (evaluation: Evaluation): void => {
       evaluation.currentFrame()!.pushOperand(FALSE_ID)
     },
 

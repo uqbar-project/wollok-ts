@@ -521,7 +521,7 @@ describe('Wollok Interpreter', () => {
 
         evaluation.should.be.stepped().into(
           Evaluation(environment, {})(
-            Frame({ nextInstruction: 3, instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')], }),
+            Frame({ nextInstruction: 3, instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')] }),
           )
         )
       })
