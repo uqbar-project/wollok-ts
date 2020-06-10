@@ -1,5 +1,4 @@
 import { dirname, sep } from 'path'
-import * as behavior from './behavior'
 import * as build from './builders'
 import fill from './filler'
 import interpret, { Evaluation } from './interpreter'
@@ -18,12 +17,11 @@ function buildEnvironment(files: { name: string, content: string }[]): Environme
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }
-  }), behavior.Linked(wre as any))
+  }), build.fromJSON<Environment>(wre))
 }
 
 export * from './model'
 export {
-  behavior,
   Evaluation,
   buildEnvironment,
   build,

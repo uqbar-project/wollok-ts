@@ -2,7 +2,7 @@ import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, re
 import { basename } from 'path'
 import { asNode, Closure as buildClosure } from './builders'
 import { last } from './extensions'
-import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, NodeOfKind, ObjectMember, Package, Parameter, Payload, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Source, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Catch, Class, ClassMember, Constructor, Describe, DescribeMember, Entity, Expression, Field, Fixture, If, Import, Kind, List, Literal, Method, Mixin, Name, NamedArgument, New, Node, NodeOfKind, ObjectMember, Package, Parameter, Payload, Program, Raw, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 const { keys } = Object
 
@@ -50,11 +50,13 @@ const node = <
       .map(payload => asNode<N>({ kind, ...payload } as any))
   }
 
-const sourced = <T>(parser: Parser<T>): Parser<T & { source: Source }> => seq(
+const sourced = <T extends Node<Raw>>(parser: Parser<T>): Parser<T> => seq(
   optional(_).then(index),
   parser,
   index
-).map(([start, payload, end]) => ({ ...payload as any, source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }))
+).map(([start, payload, end]) => payload.copy<Node<Raw>>({
+  source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} },
+}) as T)
 
 export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName

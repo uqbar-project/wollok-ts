@@ -17,21 +17,20 @@ export type Payload<T> = Omit<
   'kind' | 'stage'
 >
 
+export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CACHE
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
-
-function cached(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod = descriptor.value
-  descriptor.value = function () {
-    const args = arguments
-    const key = `${propertyKey}(${args})`
-    const cachedResponse = target.cache?.[key]
+  descriptor.value = function (this: any) {
+    const key = `${propertyKey}(${[...arguments]})`
+    const cachedResponse = this.cache?.[key]
     if (cachedResponse) return cachedResponse
-    const result = originalMethod.apply(this, args)
-    target.cache = { ...target.cache, [key]: result }
+    const result = originalMethod.apply(this, arguments)
+    this.cache = { ...this.cache, [key]: result }
     return result
   }
 }
@@ -101,12 +100,14 @@ abstract class $Node<S extends Stage> {
   readonly source?: Source
 
 
-  constructor(payload: {}) {
-    assign(this, payload)
-  }
+  constructor(payload: {}) { assign(this, payload) }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return this.kind === kindOrCategory
+  }
+
+  copy<N extends Node<S>>(delta: Partial<Payload<N>>): N {
+    return new (this.constructor as any)({ ...this, ...delta, cache: {} })
   }
 
   // TODO: type node-by-node like parent?
@@ -115,11 +116,15 @@ abstract class $Node<S extends Stage> {
     const extractChildren = (owner: any): List<N> => {
       if (isNode<S>(owner)) return [owner as N]
       if (isArray(owner)) return owner.flatMap(extractChildren)
-      if (owner instanceof Object) return values(owner).flatMap(extractChildren)
+      if (owner instanceof Object) {
+        const { cache: _, ...cachelessOwner } = owner
+        return values(cachelessOwner).flatMap(extractChildren)
+      }
       return []
     }
 
-    return values(this).flatMap(extractChildren)
+    const { cache, ...cachelessThis } = this as any
+    return values(cachelessThis).flatMap(extractChildren)
   }
 
   parent<R extends Linked>(this: Module<R> | Describe<R>): Package<R>
@@ -128,9 +133,10 @@ abstract class $Node<S extends Stage> {
   parent<R extends Linked>(this: Node<R>): Node<R>
   @cached
   parent(): never {
-    throw new Error(`Missing parent in cache for node ${this.id}`)
+    throw new Error(`Missing parent in cache for node ${this.id} cache: ${Object.keys((this as any).cache)}`)
   }
 
+  @cached
   environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no environment') }
 
   descendants<Q extends Kind | Category>(this: Node<S>, kindOrCategory?: Q): List<NodeOfKindOrCategory<Q, S>> {
@@ -169,8 +175,8 @@ abstract class $Node<S extends Stage> {
       if (typeof value === 'function') return value
       if (isArray(value)) return value.map(applyTransform)
       if (isNode<S>(value)) return typeof tx === 'function'
-        ? mapObject(applyTransform, tx(value as any))
-        : (tx[value.kind] as any ?? ((n: any) => n))(mapObject(applyTransform, value))
+        ? value.copy(mapObject(applyTransform, tx(value as any)))
+        : (tx[value.kind] as any ?? ((n: any) => n))(value.copy(mapObject(applyTransform, value)))
       if (value instanceof Object) return mapObject(applyTransform, value)
       return value
     }
@@ -280,7 +286,7 @@ export class Package<S extends Stage = Final> extends $Entity<S> {
     if (id) return this.environment().getNodeById(id)
     return qualifiedName.split('.').reduce((current: Node<R>, step) => {
       const next = current.children().find(child => child.is('Entity') && child.name === step)
-      if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+      if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name} among ${JSON.stringify(current.children())}`)
       return next
     }, this) as N
   }

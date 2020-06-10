@@ -1,5 +1,4 @@
 import { v4 as uuid } from 'uuid'
-import { asNode } from './builders'
 import { divideOn } from './extensions'
 import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Package, Scope } from './model'
 
@@ -135,12 +134,24 @@ const assignScopes = (environment: Environment<Linked>) => {
 
 export default (
   newPackages: List<Package<Filled>>,
-  baseEnvironment: Environment = new Environment({ members: [], id: '', scope: {} })
+  baseEnvironment?: Environment<Linked>,
 ): Environment => {
   // TODO: Would it make life easier if we used fqn where possible as id?
-  const environment = new Environment<Filled>({
-    members: newPackages.reduce(mergePackage, baseEnvironment.members) as List<Package<Linked>>,
-  }).transform<'Environment', Linked>(node => asNode({ ...node, id: uuid() }))
+  const environment = new Environment<Linked>({
+    id: uuid(),
+    scope: {},
+    members: newPackages
+      .reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package<Linked>>,
+  }).transform<'Environment', Linked>(node => node.copy({ id: uuid() }))
+
+  environment.forEach((node, parent) => {
+    // TODO: Either add cache to node interface or use fillable external caché
+    const n = node as any
+    if (!n.cache) n.cache = {}
+    n.cache['parent()'] = parent;
+    (environment as any).cache[`getNodeById(${node.id})`] = node
+    n.cache['environment()'] = environment
+  })
 
   assignScopes(environment)
 
