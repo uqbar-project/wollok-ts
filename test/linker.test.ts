@@ -1,6 +1,5 @@
 import { expect, should, use } from 'chai'
-import { Linked as LinkedBehavior } from '../src/behavior'
-import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable } from '../src/builders'
+import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable, fromJSON } from '../src/builders'
 import link from '../src/linker'
 import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
@@ -11,7 +10,7 @@ should()
 use(linkerAssertions)
 // TODO: Split uber-tests into smaller tests with clearer descriptions
 // TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
-const WRE: Environment = LinkedBehavior(wre as any)
+const WRE: Environment = fromJSON<Environment>(wre)
 
 describe('Wollok linker', () => {
 

@@ -101,15 +101,16 @@ abstract class $Node<S extends Stage> {
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
 
-  readonly #cache: Cache = new Map()
+  // readonly #cache: Cache = new Map()
   // TODO:
-  // tslint:disable-next-line:no-unused-expression
-  _cache(): Cache { return this.#cache }
+  _cache(): Cache { throw new Error("uninitialized cache") }
 
-
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  constructor(payload: {}) { assign(this, payload) }
-
+  constructor(payload: {}) {
+    const cache = new Map()
+    this._cache = () => cache
+    assign(this, payload)
+  }
+ 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return this.kind === kindOrCategory
   }
