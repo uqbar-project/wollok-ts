@@ -4,10 +4,10 @@ import { divideOn, mapObject } from './extensions'
 const { isArray } = Array
 const { values, assign } = Object
 
-
 export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
+export type Cache = Map<string, any>
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
@@ -24,13 +24,13 @@ export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && o
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-  const originalMethod = descriptor.value
-  descriptor.value = function (this: any) {
+  const originalMethod: Function = descriptor.value
+  descriptor.value = function (this: Node) {
     const key = `${propertyKey}(${[...arguments]})`
-    const cachedResponse = this.cache?.[key]
-    if (cachedResponse) return cachedResponse
+    // TODO: Could we optimize this if we avoid returning undefined in cache methods?
+    if (this._cache().has(key)) return this._cache().get(key)
     const result = originalMethod.apply(this, arguments)
-    this.cache = { ...this.cache, [key]: result }
+    this._cache().set(key, result)
     return result
   }
 }
@@ -99,6 +99,11 @@ abstract class $Node<S extends Stage> {
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
 
+  readonly #cache: Cache = new Map()
+  // TODO:
+  // tslint:disable-next-line:no-unused-expression
+  _cache(): Cache { return this.#cache }
+
 
   constructor(payload: {}) { assign(this, payload) }
 
@@ -107,7 +112,7 @@ abstract class $Node<S extends Stage> {
   }
 
   copy<N extends Node<S>>(delta: Partial<Payload<N>>): N {
-    return new (this.constructor as any)({ ...this, ...delta, cache: {} })
+    return new (this.constructor as any)({ ...this, ...delta })
   }
 
   // TODO: type node-by-node like parent?
@@ -116,15 +121,11 @@ abstract class $Node<S extends Stage> {
     const extractChildren = (owner: any): List<N> => {
       if (isNode<S>(owner)) return [owner as N]
       if (isArray(owner)) return owner.flatMap(extractChildren)
-      if (owner instanceof Object) {
-        const { cache: _, ...cachelessOwner } = owner
-        return values(cachelessOwner).flatMap(extractChildren)
-      }
+      if (owner instanceof Object) return values(owner).flatMap(extractChildren)
       return []
     }
 
-    const { cache, ...cachelessThis } = this as any
-    return values(cachelessThis).flatMap(extractChildren)
+    return values(this).flatMap(extractChildren)
   }
 
   parent<R extends Linked>(this: Module<R> | Describe<R>): Package<R>
@@ -133,7 +134,7 @@ abstract class $Node<S extends Stage> {
   parent<R extends Linked>(this: Node<R>): Node<R>
   @cached
   parent(): never {
-    throw new Error(`Missing parent in cache for node ${this.id} cache: ${Object.keys((this as any).cache)}`)
+    throw new Error(`Missing parent in cache for node ${this.id}`)
   }
 
   @cached
@@ -442,7 +443,7 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
 
   constructor(data: Payload<Singleton<S>>) { super(data) }
 
-  superclassNode<R extends Linked>(this: Module<R>): Class<R>
+  superclassNode<R extends Linked>(this: Module<R>): Class<R> | null
   superclassNode<R extends Linked>(this: Singleton<R>): Class<R> {
     return this.superCall.superclass.target()
   }

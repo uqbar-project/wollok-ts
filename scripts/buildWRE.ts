@@ -36,7 +36,7 @@ const wre = link([...filledWRE])
 log.done('\tLinking...')
 
 log.start('\tSaving...')
-writeFileSync(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, (k, v) => k === 'cache' ? undefined : v, 2))
+writeFileSync(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, undefined, 2))
 log.done('\tSaving...')
 
 log.done('Building WRE')

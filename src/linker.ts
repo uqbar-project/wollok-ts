@@ -145,12 +145,11 @@ export default (
   }).transform<'Environment', Linked>(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
-    // TODO: Either add cache to node interface or use fillable external caché
-    const n = node as any
-    if (!n.cache) n.cache = {}
-    n.cache['parent()'] = parent;
-    (environment as any).cache[`getNodeById(${node.id})`] = node
-    n.cache['environment()'] = environment
+    node._cache()
+      .set('parent()', parent)
+      .set('environment()', environment)
+
+    environment._cache().set(`getNodeById(${node.id})`, node)
   })
 
   assignScopes(environment)
