@@ -26,9 +26,11 @@ export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && o
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
   descriptor.value = function (this: Node) {
+    // eslint-disable-next-line prefer-rest-params
     const key = `${propertyKey}(${[...arguments]})`
     // TODO: Could we optimize this if we avoid returning undefined in cache methods?
     if (this._cache().has(key)) return this._cache().get(key)
+    // eslint-disable-next-line prefer-rest-params
     const result = originalMethod.apply(this, arguments)
     this._cache().set(key, result)
     return result
@@ -105,6 +107,7 @@ abstract class $Node<S extends Stage> {
   _cache(): Cache { return this.#cache }
 
 
+  // eslint-disable-next-line @typescript-eslint/ban-types
   constructor(payload: {}) { assign(this, payload) }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {

@@ -115,7 +115,7 @@ const assignScopes = (environment: Environment<Linked>) => {
     scope: Scope,
     includeInheritedNames: boolean,
     propagateOn: (child: Node<Linked>) => boolean,
-    n: number = 0,
+    n = 0,
   ) {
     (node as any).scope = scope
     const innerScope = scopeWithin(includeInheritedNames)(node)

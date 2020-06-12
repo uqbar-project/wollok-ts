@@ -5,10 +5,8 @@
 // No modules named wollok
 
 import { Literal } from './builders'
-import {
-  Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
-  Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable
-} from './model'
+import { Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
+  Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable } from './model'
 import { Kind } from './model'
 
 const { keys } = Object
@@ -159,7 +157,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
   } = validations
 
   const problemsByKind: { [K in Kind]: { [code: string]: (n: NodeOfKind<K, Linked>, c: Code) => Problem | null } } = {
-    Parameter: { nameIsCamelCase, },
+    Parameter: { nameIsCamelCase },
     NamedArgument: {},
     Import: {},
     Body: {},

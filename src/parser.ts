@@ -54,9 +54,7 @@ const sourced = <T extends Node<Raw>>(parser: Parser<T>): Parser<T> => seq(
   optional(_).then(index),
   parser,
   index
-).map(([start, payload, end]) => payload.copy<Node<Raw>>({
-  source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} },
-}) as T)
+).map(([start, payload, end]) => payload.copy<Node<Raw>>({ source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }) as T)
 
 export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName
@@ -83,15 +81,11 @@ const operator = (operatorsNames: string[]): Parser<string> => {
 export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 
 const fullyQualifiedReference: Parser<Reference<Raw>> = lazy(() =>
-  node('Reference')({
-    name: name.sepBy1(key('.')).tieWith('.'),
-  }).thru(sourced)
+  node('Reference')({ name: name.sepBy1(key('.')).tieWith('.') }).thru(sourced)
 )
 
 export const reference: Parser<Reference<Raw>> = lazy(() =>
-  node('Reference')({
-    name,
-  }).thru(sourced)
+  node('Reference')({ name }).thru(sourced)
 )
 
 export const parameter: Parser<Parameter<Raw>> = lazy(() =>
@@ -117,15 +111,11 @@ export const namedArguments: Parser<List<NamedArgument<Raw>>> = lazy(() =>
 )
 
 export const body: Parser<Body<Raw>> = lazy(() =>
-  node('Body')({
-    sentences: sentence.skip(optional(alt(key(';'), _))).many(),
-  }).wrap(key('{'), string('}')).thru(sourced)
+  node('Body')({ sentences: sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), string('}')).thru(sourced)
 )
 
 export const singleExpressionBody: Parser<Body<Raw>> = lazy(() =>
-  node('Body')({
-    sentences: sentence.times(1),
-  }).thru(sourced)
+  node('Body')({ sentences: sentence.times(1) }).thru(sourced)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -173,9 +163,7 @@ export const describeEntity: Parser<Describe<Raw>> = lazy(() =>
 )
 
 export const fixtureEntity: Parser<Fixture<Raw>> = lazy(() =>
-  key('fixture').then(node('Fixture')({
-    body,
-  })).thru(sourced)
+  key('fixture').then(node('Fixture')({ body })).thru(sourced)
 )
 
 export const testEntity: Parser<Test<Raw>> = lazy(() =>
@@ -281,7 +269,9 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
     of({ isNative: false, body: undefined })
   ),
   (isOverride, methodName, methodParameters, { isNative, body: methodBody }) =>
-    new Method<Raw>({ name: methodName, isOverride, parameters: methodParameters, isNative, body: methodBody })
+    new Method<Raw>({
+      name: methodName, isOverride, parameters: methodParameters, isNative, body: methodBody, 
+    })
 ).thru(sourced))
 
 export const constructor: Parser<Constructor<Raw>> = lazy(() =>
@@ -311,9 +301,7 @@ export const variableSentence: Parser<Variable<Raw>> = lazy(() =>
 )
 
 export const returnSentence: Parser<Return<Raw>> = lazy(() =>
-  key('return').then(node('Return')({
-    value: optional(expression),
-  })).thru(sourced)
+  key('return').then(node('Return')({ value: optional(expression) })).thru(sourced)
 )
 
 export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
@@ -359,9 +347,7 @@ export const selfExpression: Parser<Self<Raw>> = lazy(() =>
 
 export const superExpression: Parser<Super<Raw>> = lazy(() =>
   key('super').then(
-    node('Super')({
-      args: unamedArguments,
-    })
+    node('Super')({ args: unamedArguments })
   ).thru(sourced)
 )
 
@@ -435,8 +421,10 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
       index
     ).atLeast(1),
     (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      new Send({ receiver, message, args, source: { start, end } })
-      , initial) as Send<Raw>
+      new Send({
+        receiver, message, args, source: { start, end }, 
+      })
+    , initial) as Send<Raw>
   )
 )
 
@@ -446,8 +434,10 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     alt(sendExpression, primaryExpression),
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      new Send({ receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end } })
-      , initial)
+      new Send({
+        receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end }, 
+      })
+    , initial)
   )
 
   const infixOperation = (precedenceLevel: number): Parser<Expression<Raw>> => {
@@ -468,7 +458,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
             : args,
           source: { start, end },
         })
-        , initial)
+      , initial)
     )
   }
 

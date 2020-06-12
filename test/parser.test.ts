@@ -17,16 +17,16 @@ describe('Wollok parser', () => {
     it('multiline comments should be ignored in between tokens', () => {
       `/*some comment*/import /* some
       comment */ p`.should.be.parsedBy(parser).into(
-        Import(Reference('p'))
-      ).and.be.tracedTo(16, 49)
+          Import(Reference('p'))
+        ).and.be.tracedTo(16, 49)
         .and.have.nested.property('entity').tracedTo(48, 49)
     })
 
     it('line comments should be ignored at the end of line', () => {
       `import //some comment
       p`.should.be.parsedBy(parser).into(
-        Import(Reference('p'))
-      ).and.be.tracedTo(0, 29)
+          Import(Reference('p'))
+        ).and.be.tracedTo(0, 29)
         .and.have.nested.property('entity').tracedTo(28, 29)
     })
 
@@ -211,9 +211,7 @@ describe('Wollok parser', () => {
       it('should parse literal objects that inherit from a class', () => {
         'object inherits D {}'.should.be.parsedBy(parser).into(
           Literal(
-            Singleton(undefined, {
-              superCall: { superclass: Reference('D'), args: [] },
-            })()
+            Singleton(undefined, { superCall: { superclass: Reference('D'), args: [] } })()
           )
         ).and.be.tracedTo(0, 20)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
@@ -222,9 +220,7 @@ describe('Wollok parser', () => {
       it('should parse literal objects that inherit from a class referenced with a FQN', () => {
         'object inherits p.D {}'.should.be.parsedBy(parser).into(
           Literal(
-            Singleton(undefined, {
-              superCall: { superclass: Reference('p.D'), args: [] },
-            })()
+            Singleton(undefined, { superCall: { superclass: Reference('p.D'), args: [] } })()
           )
         ).and.be.tracedTo(0, 22)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 19)
@@ -233,9 +229,7 @@ describe('Wollok parser', () => {
       it('should parse literal objects that inherit from a class with explicit builders', () => {
         'object inherits D(5) {}'.should.be.parsedBy(parser).into(
           Literal(
-            Singleton(undefined, {
-              superCall: { superclass: Reference('D'), args: [Literal(5)] },
-            })()
+            Singleton(undefined, { superCall: { superclass: Reference('D'), args: [Literal(5)] } })()
           )
         ).and.be.tracedTo(0, 23)
           .and.have.nested.property('value.superCall.superclass').tracedTo(16, 17)
@@ -272,9 +266,7 @@ describe('Wollok parser', () => {
       it('should parse literal objects that have multiple mixins', () => {
         'object mixed with M and N {}'.should.be.parsedBy(parser).into(
           Literal(
-            Singleton(undefined, {
-              mixins: [Reference('N'), Reference('M')],
-            })()
+            Singleton(undefined, { mixins: [Reference('N'), Reference('M')] })()
           )
         ).and.be.tracedTo(0, 28)
           .and.have.nested.property('value.mixins.0').tracedTo(24, 25)
@@ -454,9 +446,7 @@ describe('Wollok parser', () => {
 
     it('should parse non empty packages', () => {
       'import p import q class C {}'.should.be.parsedBy(parser).into(
-        Package('foo', {
-          imports: [Import(Reference('p')), Import(Reference('q'))],
-        })(Class('C')())
+        Package('foo', { imports: [Import(Reference('p')), Import(Reference('q'))] })(Class('C')())
       ).and.be.tracedTo(0, 28)
         .and.have.nested.property('imports.0').tracedTo(0, 8)
         .and.also.have.nested.property('imports.1').tracedTo(9, 17)
@@ -777,18 +767,14 @@ describe('Wollok parser', () => {
 
     it('should parse objects that inherits from a class', () => {
       'object O inherits D {}'.should.be.parsedBy(parser).into(
-        Singleton('O', {
-          superCall: { superclass: Reference('D'), args: [] },
-        })()
+        Singleton('O', { superCall: { superclass: Reference('D'), args: [] } })()
       ).and.be.tracedTo(0, 22)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
     })
 
     it('should parse objects that inherit from a class with explicit builders', () => {
       'object O inherits D(5) {}'.should.be.parsedBy(parser).into(
-        Singleton('O', {
-          superCall: { superclass: Reference('D'), args: [Literal(5)] },
-        })()
+        Singleton('O', { superCall: { superclass: Reference('D'), args: [Literal(5)] } })()
       ).and.be.tracedTo(0, 25)
         .and.have.nested.property('superCall.superclass').tracedTo(18, 19)
         .and.also.have.nested.property('superCall.args.0').tracedTo(20, 21)
@@ -848,9 +834,7 @@ describe('Wollok parser', () => {
 
     it('should parse objects thats have multiple mixins ', () => {
       'object O mixed with M and N {}'.should.be.parsedBy(parser).into(
-        Singleton('O', {
-          mixins: [Reference('N'), Reference('M')],
-        })()
+        Singleton('O', { mixins: [Reference('N'), Reference('M')] })()
       ).and.be.tracedTo(0, 30)
         .and.have.nested.property('mixins.0').tracedTo(26, 27)
         .and.also.have.nested.property('mixins.1').tracedTo(20, 21)
@@ -903,9 +887,7 @@ describe('Wollok parser', () => {
 
     it('should parse var declaration and asignation', () => {
       'var v = 5'.should.be.parsedBy(parser).into(
-        Field('v', {
-          value: Literal(5),
-        })
+        Field('v', { value: Literal(5) })
       ).and.be.tracedTo(0, 9)
         .and.have.nested.property('value').tracedTo(8, 9)
 
@@ -913,9 +895,7 @@ describe('Wollok parser', () => {
 
     it('should parse const declaration', () => {
       'const v'.should.be.parsedBy(parser).into(
-        Field('v', {
-          isReadOnly: true,
-        })
+        Field('v', { isReadOnly: true })
       ).and.be.tracedTo(0, 7)
     })
 
@@ -931,9 +911,7 @@ describe('Wollok parser', () => {
 
     it('should parse properties', () => {
       'var property v'.should.be.parsedBy(parser).into(
-        Field('v', {
-          isProperty: true,
-        })
+        Field('v', { isProperty: true })
       ).and.be.tracedTo(0, 14)
     })
 
@@ -979,9 +957,7 @@ describe('Wollok parser', () => {
 
     it('should parse methods that have two parameters  ', () => {
       'method m(p, q) {}'.should.be.parsedBy(parser).into(
-        Method('m', {
-          parameters: [Parameter('p'), Parameter('q')],
-        })()
+        Method('m', { parameters: [Parameter('p'), Parameter('q')] })()
       ).and.be.tracedTo(0, 17)
         .and.have.nested.property('parameters.0').tracedTo(9, 10)
         .and.also.have.nested.property('parameters.1').tracedTo(12, 13)
@@ -989,11 +965,7 @@ describe('Wollok parser', () => {
 
     it('should parse methods that have vararg parameters', () => {
       'method m(p, q...) {}'.should.be.parsedBy(parser).into(
-        Method('m', {
-          parameters: [Parameter('p'), Parameter('q', {
-            isVarArg: true,
-          })],
-        })()
+        Method('m', { parameters: [Parameter('p'), Parameter('q', { isVarArg: true })] })()
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('parameters.0').tracedTo(9, 10)
         .and.also.have.nested.property('parameters.1').tracedTo(12, 16)
@@ -1017,9 +989,7 @@ describe('Wollok parser', () => {
 
     it('should parse override methods', () => {
       'override method m() {}'.should.be.parsedBy(parser).into(
-        Method('m', {
-          isOverride: true,
-        })()
+        Method('m', { isOverride: true })()
       ).and.be.tracedTo(0, 22)
     })
 
@@ -1066,9 +1036,7 @@ describe('Wollok parser', () => {
 
     it('should parse constructors with explicit builder ', () => {
       'constructor(p, q) {}'.should.be.parsedBy(parser).into(
-        Constructor({
-          parameters: [Parameter('p'), Parameter('q')],
-        })()
+        Constructor({ parameters: [Parameter('p'), Parameter('q')] })()
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('parameters.0').tracedTo(12, 13)
         .and.also.have.nested.property('parameters.1').tracedTo(15, 16)
@@ -1076,11 +1044,7 @@ describe('Wollok parser', () => {
 
     it('should parse constructors with explicit builder with vararg parameters', () => {
       'constructor(p, q...) {}'.should.be.parsedBy(parser).into(
-        Constructor({
-          parameters: [Parameter('p'), Parameter('q', {
-            isVarArg: true,
-          })],
-        })()
+        Constructor({ parameters: [Parameter('p'), Parameter('q', { isVarArg: true })] })()
       ).and.be.tracedTo(0, 23)
         .and.have.nested.property('parameters.0').tracedTo(12, 13)
         .and.also.have.nested.property('parameters.1').tracedTo(15, 19)
@@ -1169,18 +1133,14 @@ describe('Wollok parser', () => {
 
     it('should parse var asignation', () => {
       'var v = 5'.should.be.parsedBy(parser).into(
-        Variable('v', {
-          value: Literal(5),
-        })
+        Variable('v', { value: Literal(5) })
       ).and.be.tracedTo(0, 9)
         .and.have.nested.property('value').tracedTo(8, 9)
     })
 
     it('should parse const declaration', () => {
       'const v'.should.be.parsedBy(parser).into(
-        Variable('v', {
-          isReadOnly: true,
-        })
+        Variable('v', { isReadOnly: true })
       ).and.be.tracedTo(0, 7)
     })
 
@@ -1783,9 +1743,7 @@ describe('Wollok parser', () => {
 
     it('should parse try expressions with a "then always" body', () => {
       'try x then always a'.should.be.parsedBy(parser).into(
-        Try([Reference('x')], {
-          always: [Reference('a')],
-        })
+        Try([Reference('x')], { always: [Reference('a')] })
       ).and.be.tracedTo(0, 19)
         .and.have.nested.property('body').tracedTo(4, 5)
         .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
@@ -1796,9 +1754,7 @@ describe('Wollok parser', () => {
 
     it('should parse try expressions with a "then always" curly-braced body', () => {
       'try x then always{a}'.should.be.parsedBy(parser).into(
-        Try([Reference('x')], {
-          always: [Reference('a')],
-        })
+        Try([Reference('x')], { always: [Reference('a')] })
       ).and.be.tracedTo(0, 20)
         .and.have.nested.property('body').tracedTo(4, 5)
         .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)

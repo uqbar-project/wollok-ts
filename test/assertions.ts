@@ -131,7 +131,7 @@ export const linkerAssertions = ({ Assertion }: any) => {
 
 export const validatorAssertions = ({ Assertion }: any) => {
 
-  Assertion.addMethod('pass', function <N extends Node<Linked>>(this: any, validation: (node: N, code: string) => Problem | null) {
+  Assertion.addMethod('pass', function <N extends Node<Linked>> (this: any, validation: (node: N, code: string) => Problem | null) {
     this.assert(
       validation(this._obj, '') === null,
       'expected node to pass validation',

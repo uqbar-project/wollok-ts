@@ -331,7 +331,7 @@ export const Frame = (obj: Partial<FrameType>): FrameType => {
   return frame
 }
 
-export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<RuntimeObjectType>) => {
+export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<RuntimeObjectType>): RuntimeObjectType => {
   const runtimeObject = { ...obj } as RuntimeObjectType
 
   const assertIs = (instance: RuntimeObjectType, module: Name, innerValueType: string) => {
@@ -375,7 +375,7 @@ export const RuntimeObject = (evaluation: EvaluationType) => (obj: Partial<Runti
   return runtimeObject
 }
 
-export const Evaluation = (obj: Partial<EvaluationType>) => {
+export const Evaluation = (obj: Partial<EvaluationType>): EvaluationType => {
   const evaluation = { ...obj } as EvaluationType
 
   assign(evaluation, {
@@ -399,20 +399,20 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
       let innerValue = baseInnerValue
 
       switch (moduleFQN) {
-        case 'wollok.lang.Number':
-          if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
-          const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-          id = 'N!' + stringValue
-          innerValue = Number(stringValue)
-          break
+      case 'wollok.lang.Number':
+        if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
+        const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+        id = 'N!' + stringValue
+        innerValue = Number(stringValue)
+        break
 
-        case 'wollok.lang.String':
-          if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
-          id = 'S!' + innerValue
-          break
+      case 'wollok.lang.String':
+        if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
+        id = 'S!' + innerValue
+        break
 
-        default:
-          id = defaultId
+      default:
+        id = defaultId
       }
 
       if (!this.instances[id]) this.instances[id] = RuntimeObject(this)({ id, moduleFQN, innerValue })
@@ -430,7 +430,9 @@ export const Evaluation = (obj: Partial<EvaluationType>) => {
     },
 
     createContext(this: EvaluationType, parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
-      this.contexts[id] = { id, parent, locals, exceptionHandlerIndex }
+      this.contexts[id] = {
+        id, parent, locals, exceptionHandlerIndex,
+      }
       return id
     },
 

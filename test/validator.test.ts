@@ -72,14 +72,10 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('C',
-            {
-              superclass: Reference('program'),
-            }
+            { superclass: Reference('program') }
           )(),
           Class('C2',
-            {
-              superclass: Reference('C'),
-            }
+            { superclass: Reference('C') }
           )(),
           Class('program')(),
         ),
@@ -133,39 +129,23 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('classExample')(
-            Method('m', {
-              parameters: [Parameter('a'), Parameter('b')],
-            })(),
-            Method('m', {
-              parameters: [Parameter('c'), Parameter('d')],
-            })(),
+            Method('m', { parameters: [Parameter('a'), Parameter('b')] })(),
+            Method('m', { parameters: [Parameter('c'), Parameter('d')] })(),
           ),
 
           Class('classExample2')(
-            Method('m', {
-              parameters: [Parameter('a')],
-            })(),
-            Method('m', {
-              parameters: [Parameter('c'), Parameter('d')],
-            })(),
+            Method('m', { parameters: [Parameter('a')] })(),
+            Method('m', { parameters: [Parameter('c'), Parameter('d')] })(),
           ),
 
           Class('classExample3')(
-            Method('m', {
-              parameters: [Parameter('a'), Parameter('b')],
-            })(),
-            Method('m', {
-              parameters: [Parameter('q', { isVarArg: true })],
-            })(),
+            Method('m', { parameters: [Parameter('a'), Parameter('b')] })(),
+            Method('m', { parameters: [Parameter('q', { isVarArg: true })] })(),
           ),
 
           Class('classExample4')(
-            Method('m', {
-              parameters: [Parameter('a'), Parameter('b')],
-            })(),
-            Method('m', {
-              parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
-            })(),
+            Method('m', { parameters: [Parameter('a'), Parameter('b')] })(),
+            Method('m', { parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })] })(),
           ),
 
         ),
@@ -233,30 +213,16 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('c')(
-            Constructor({
-              parameters: [Parameter('p'), Parameter('q')],
-            })(),
-            Constructor({
-              parameters: [Parameter('k'), Parameter('l')],
-            })()
+            Constructor({ parameters: [Parameter('p'), Parameter('q')] })(),
+            Constructor({ parameters: [Parameter('k'), Parameter('l')] })()
           ),
           Class('c2')(
-            Constructor({
-              parameters: [Parameter('p'), Parameter('q')],
-            })(),
-            Constructor({
-              parameters: [Parameter('q', {
-                isVarArg: true,
-              })],
-            })()
+            Constructor({ parameters: [Parameter('p'), Parameter('q')] })(),
+            Constructor({ parameters: [Parameter('q', { isVarArg: true })] })()
           ),
           Class('c3')(
-            Constructor({
-              parameters: [Parameter('a'), Parameter('b')],
-            })(),
-            Constructor({
-              parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })],
-            })()
+            Constructor({ parameters: [Parameter('a'), Parameter('b')] })(),
+            Constructor({ parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })] })()
           ),
         ),
       ] as PackageNode<Filled>[])
@@ -294,12 +260,8 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('C')(
-            Method('m', {
-              parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')],
-            })(),
-            Method('m2', {
-              parameters: [Parameter('c'), Parameter('q', { isVarArg: true })],
-            })()),
+            Method('m', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')] })(),
+            Method('m2', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true })] })()),
         ),
       ] as PackageNode<Filled>[])
 
@@ -427,9 +389,7 @@ describe('Wollok Validations', () => {
               })
             ),
             Method('m3')(
-              Try([Reference('p')], {
-                always: [Reference('p')],
-              })
+              Try([Reference('p')], { always: [Reference('p')] })
             )
           ),
         ),
@@ -471,9 +431,7 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('C')(
-            Method('m', {
-              parameters: [Parameter('C'), Parameter('k')],
-            })()
+            Method('m', { parameters: [Parameter('C'), Parameter('k')] })()
           ),
         ),
       ] as PackageNode<Filled>[])
@@ -531,12 +489,8 @@ describe('Wollok Validations', () => {
         WRE,
         Package('p')(
           Class('c')(
-            Field('v', {
-              value: Reference('v'),
-            }),
-            Field('b', {
-              value: Reference('a'),
-            }),
+            Field('v', { value: Reference('v') }),
+            Field('b', { value: Reference('a') }),
             Field('a'),
           ),
         ),

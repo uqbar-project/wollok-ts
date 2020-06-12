@@ -6,7 +6,9 @@ import { Id, Name } from './model'
 const columns = (process.stdout && process.stdout.columns) || 80
 const { clear, log: writeLine } = console
 const { assign, keys } = Object
-const { yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold } = chalk
+const {
+  yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold, 
+} = chalk
 
 export enum LogLevel {
   NONE,
@@ -114,6 +116,7 @@ const consoleLogger: Logger = {
     //   tabulationReturn = returns === -1 ? stepTabulation : returns
     // }
 
+    // eslint-disable-next-line no-constant-condition
     const tabulation = false && instruction.kind === 'INTERRUPT'
       ? '│'.repeat(stepTabulation - tabulationReturn) + '└' + '─'.repeat(tabulationReturn - 1)
       : '│'.repeat(stepTabulation)
@@ -143,7 +146,7 @@ const consoleLogger: Logger = {
   clear,
 }
 
-export const enableLogs = (level: LogLevel = LogLevel.DEBUG) => {
+export const enableLogs = (level: LogLevel = LogLevel.DEBUG): void => {
   if (level === LogLevel.NONE) return
 
   assign(logger, consoleLogger)
