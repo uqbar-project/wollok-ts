@@ -20,7 +20,9 @@ export interface Problem {
   readonly node: Node<Linked>
 }
 
-const problem = (level: Level) => <N extends Node<Linked>>(condition: (node: N) => boolean) => (node: N, code: Code): Problem | null =>
+export type Validation<N extends Node<Linked>> = (node: N, code: Code) => Problem | null
+
+const problem = (level: Level) => <N extends Node<Linked>>(condition: (node: N) => boolean): Validation<N> => (node, code) =>
   !condition(node) ? {
     level,
     code,
@@ -59,7 +61,7 @@ const isNotAbstractClass = (node: Class<Linked>) =>
 const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.closestAncestor(kind))
 
 // TODO: Why are we exporting this as a single object?
-export const validations = {
+export const validations: any = {
   nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
     /^[A-Z]$/.test(node.name[0])
   ),

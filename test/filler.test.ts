@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Constructor, Field, If, Literal, Method, Parameter, Reference, Return, Singleton, Try, Variable } from '../src/builders'
+import { Catch, Class, Constructor, Field, If, Literal, Parameter, Reference, Singleton, Try, Variable, getter, setter } from '../src/builders'
 import fill from '../src/filler'
 import { fillerAssertions } from './assertions'
 
@@ -20,8 +20,8 @@ describe('Wollok filler', () => {
 
   it('fills non overrided accessors for properties', () => {
     fill(Class('C')(Field('p', { isProperty: true }))).methods().should.be.filledInto([
-      Method('p')(Return(Reference('p'))),
-      Method('p', { parameters: [Parameter('value')] })(Assignment(Reference('p'), Reference('value'))),
+      getter('p'),
+      setter('p'),
     ])
 
     const constructor = Constructor({ baseCall: { args: [], callsSuper: false } })()

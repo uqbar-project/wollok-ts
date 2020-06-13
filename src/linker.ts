@@ -145,10 +145,8 @@ export default (
   }).transform<'Environment', Linked>(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
-    node._cache()
-      .set('parent()', parent)
-      .set('environment()', environment)
-
+    if(parent) node._cache().set('parent()', parent)
+    node._cache().set('environment()', environment)
     environment._cache().set(`getNodeById(${node.id})`, node)
   })
 

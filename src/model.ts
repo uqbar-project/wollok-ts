@@ -101,11 +101,11 @@ abstract class $Node<S extends Stage> {
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
 
-  // readonly #cache: Cache = new Map()
   // TODO:
-  _cache(): Cache { throw new Error("uninitialized cache") }
+  // readonly #cache: Cache = new Map()
+  _cache(): Cache { throw new Error('uninitialized cache') }
 
-  constructor(payload: {}) {
+  constructor(payload: Record<string, unknown>) {
     const cache = new Map()
     this._cache = () => cache
     assign(this, payload)

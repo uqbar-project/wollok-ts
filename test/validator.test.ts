@@ -574,8 +574,8 @@ describe('Wollok Validations', () => {
       const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value!
       const classExample = (packageExample.members[1] as ClassNode<Linked>)
       const methodExample = classExample.members[0] as MethodNode<Linked>
-      const selfInMethod = methodExample.body!.sentences[0]
-
+      const selfInMethod = (methodExample.body!.sentences[0] as ReturnNode).value!
+      
       it('should pass when self is in a method', () => {
         selfInMethod.should.pass(selfIsNotInAProgram)
       })

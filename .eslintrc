@@ -1,7 +1,11 @@
 {
-  "root": true,
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
   "ignorePatterns": [
-    "**/*.js"
+    "**/*.js",
+    "dist/**"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
@@ -10,54 +14,78 @@
   "plugins": [
     "@typescript-eslint"
   ],
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
+  "root": true,
   "rules": {
-    "for-direction": "off",
-    "no-case-declarations": "off",
-    "no-inner-declarations": "off",
-    "indent": [
+    "@typescript-eslint/ban-types": [
+      "error",
+      {
+        "extendDefaults": true,
+        "types": {
+          "Function": false
+        }
+      }
+    ],
+    "@typescript-eslint/explicit-module-boundary-types": [
       "warn",
-      2
+      {
+        "allowArgumentsExplicitlyTypedAsAny": true
+      }
+    ],
+    "@typescript-eslint/no-empty-function": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-namespace": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-this-alias": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "@typescript-eslint/no-unsafe-call": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "ignoreRestSiblings": true,
+        "vars": "all"
+      }
+    ],
+    "@typescript-eslint/quotes": [
+      "warn",
+      "single"
+    ],
+    "@typescript-eslint/semi": [
+      "warn",
+      "never"
+    ],
+    "array-bracket-spacing": [
+      "warn",
+      "never"
     ],
     "comma-dangle": [
       "warn",
       {
         "arrays": "always-multiline",
-        "objects": "always-multiline",
-        "imports": "always-multiline",
         "exports": "always-multiline",
-        "functions": "only-multiline"
+        "functions": "only-multiline",
+        "imports": "always-multiline",
+        "objects": "always-multiline"
       }
     ],
     "eol-last": [
       "warn",
       "never"
     ],
-    "space-before-function-paren": [
+    "for-direction": "off",
+    "indent": [
       "warn",
-      {
-        "anonymous": "always",
-        "named": "never",
-        "asyncArrow": "always"
-      }
+      2
     ],
-    "padding-line-between-statements": [
-      "warn",
-      {
-        "blankLine": "never",
-        "prev": "import",
-        "next": "import"
-      }
-    ],
+    "no-case-declarations": "off",
     "no-console": [
       "warn"
     ],
     "no-constant-condition": [
       "warn"
     ],
+    "no-inner-declarations": "off",
     "no-multiple-empty-lines": [
       "warn",
       {
@@ -68,18 +96,18 @@
     "object-curly-newline": [
       "warn",
       {
-        "ObjectExpression": {
-          "multiline": true,
-          "minProperties": 4
-        },
-        "ObjectPattern": {
-          "multiline": true,
-          "minProperties": 4
+        "ExportDeclaration": {
+          "minProperties": 4,
+          "multiline": true
         },
         "ImportDeclaration": "never",
-        "ExportDeclaration": {
-          "multiline": true,
-          "minProperties": 4
+        "ObjectExpression": {
+          "minProperties": 4,
+          "multiline": true
+        },
+        "ObjectPattern": {
+          "minProperties": 4,
+          "multiline": true
         }
       }
     ],
@@ -87,47 +115,21 @@
       "warn",
       "always"
     ],
-    "array-bracket-spacing": [
-      "warn",
-      "never"
-    ],
-    "@typescript-eslint/quotes": [
-      "warn",
-      "single"
-    ],
-    "@typescript-eslint/semi": [
-      "warn",
-      "never"
-    ],
-    "@typescript-eslint/no-unused-vars": [
+    "padding-line-between-statements": [
       "warn",
       {
-        "vars": "all",
-        "args": "after-used",
-        "ignoreRestSiblings": true,
-        "argsIgnorePattern": "^_"
+        "blankLine": "never",
+        "next": "import",
+        "prev": "import"
       }
     ],
-    "@typescript-eslint/explicit-module-boundary-types": [
+    "space-before-function-paren": [
       "warn",
       {
-        "allowArgumentsExplicitlyTypedAsAny": true
+        "anonymous": "always",
+        "asyncArrow": "always",
+        "named": "never"
       }
-    ],
-    "@typescript-eslint/ban-types": [
-      "error",
-      {
-        "types": {
-          "Function": false
-        },
-        "extendDefaults": true
-      }
-    ],
-    "@typescript-eslint/no-unsafe-assignment": "off",
-    "@typescript-eslint/no-unsafe-call": "off",
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-non-null-assertion": "off",
-    "@typescript-eslint/no-empty-function": "off",
-    "@typescript-eslint/no-this-alias": "off"
+    ]
   }
 }

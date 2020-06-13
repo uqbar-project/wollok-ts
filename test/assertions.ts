@@ -3,30 +3,27 @@ import { formatError, Parser } from 'parsimmon'
 import { ImportMock } from 'ts-mock-imports'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
-import { step } from '../src/interpreter'
+import { step, Natives } from '../src/interpreter'
 import link from '../src/linker'
 import { Linked, Node, Package, Raw, Reference } from '../src/model'
-import { Problem } from '../src/validator'
+import { Validation } from '../src/validator'
 
 declare global {
-
   export namespace Chai {
-
     interface Assertion {
       also: Assertion
       parsedBy(parser: Parser<any>): Assertion
-      into(expected: {}): Assertion
+      into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
       linkedInto(expected: Package<Raw>[]): Assertion
       filledInto(expected: any): Assertion
       target(node: Node<Linked>): Assertion
-      pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion
-      stepped(natives?: {}): Assertion
+      pass<N extends Node<Linked>>(validation: Validation<N>): Assertion
+      stepped(natives?: Natives): Assertion
     }
-
   }
-
 }
+
 
 // TODO: Improve these
 const dropKeys = (...keys: string[]) => (obj: any) =>
@@ -40,18 +37,20 @@ const dropMethods = (target: any) =>
 // ALSO
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const also = ({ Assertion }: any, { flag }: any) => {
-  Assertion.overwriteMethod('property', (base: any) => {
+export const also: Chai.ChaiPlugin = ({ Assertion }, { flag }) => {
+  Assertion.overwriteMethod('property', base => {
     return function (this: any) {
       if (!flag(this, 'objectBeforePropertyChain')) {
         flag(this, 'objectBeforePropertyChain', this._obj)
       }
 
+      //TODO:
+      // eslint-disable-next-line prefer-rest-params
       base.apply(this, arguments)
     }
   })
 
-  Assertion.addProperty('also', function (this: any) {
+  Assertion.addProperty('also', function () {
     this._obj = flag(this, 'objectBeforePropertyChain')
   })
 }
@@ -60,13 +59,14 @@ export const also = ({ Assertion }: any, { flag }: any) => {
 // PARSER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const parserAssertions = ({ Assertion }: any, conf: any) => {
-  also({ Assertion }, conf)
+export const parserAssertions: Chai.ChaiPlugin = ({ Assertion, ...rest }, conf) => {
+  also({ Assertion, ...rest }, conf)
 
-  Assertion.addMethod('parsedBy', function (this: any, parser: Parser<any>) {
-    const result = parser.parse(this._obj)
+  Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
+    // TODO:
+    const result: any = parser.parse(this._obj);
 
-    this.assert(
+    (this as any).assert(
       result.status,
       !result.status && formatError(this._obj, result),
       'expected parser to fail for input #{this}'
@@ -75,12 +75,12 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
     if (result.status) this._obj = result.value
   })
 
-  Assertion.addMethod('into', function (this: any, expected: any) {
+  Assertion.addMethod('into', function (expected: any) {
     const unsourced = dropKeys('source')
     new Assertion(unsourced(this._obj)).to.deep.equal(unsourced(expected))
   })
 
-  Assertion.addMethod('tracedTo', function (this: any, start: number, end: number) {
+  Assertion.addMethod('tracedTo', function (start: number, end: number) {
     new Assertion(this._obj)
       .to.have.nested.property('source.start.offset', start).and.also
       .to.have.nested.property('source.end.offset', end)
@@ -92,9 +92,9 @@ export const parserAssertions = ({ Assertion }: any, conf: any) => {
 // FILLER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const fillerAssertions = ({ Assertion }: any) => {
+export const fillerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('filledInto', function (this: any, expected: any) {
+  Assertion.addMethod('filledInto', function (expected: any) {
     new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
 
@@ -103,21 +103,22 @@ export const fillerAssertions = ({ Assertion }: any) => {
 // LINKER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const linkerAssertions = ({ Assertion }: any) => {
+export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('linkedInto', function (this: any, expected: Package<Raw>[]) {
+  Assertion.addMethod('linkedInto', function (expected: Package<Raw>[]) {
     const dropLinkedFields = dropKeys('id', 'scope')
     const actualEnvironment = link(this._obj)
     const expectedEnvironment = Environment(...expected as any)
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })
 
-  Assertion.addMethod('target', function (this: any, node: Node<Linked>) {
+  Assertion.addMethod('target', function (node: Node<Linked>) {
     const reference: Reference<Linked> = this._obj
 
-    if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
+    if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`);
 
-    this.assert(
+    // TODO:
+    (this as any).assert(
       this._obj.target().id === node.id,
       `expected reference ${reference.name} to target ${node.kind} ${(node as any).name} ${node.id} but found ${reference.target().kind} ${reference.target<any>().name} ${reference.target().id} instead`,
       `expected reference ${reference.name} to not target node ${node.kind} ${(node as any).name} ${node.id}`,
@@ -129,10 +130,11 @@ export const linkerAssertions = ({ Assertion }: any) => {
 // VALIDATOR ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const validatorAssertions = ({ Assertion }: any) => {
+export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('pass', function <N extends Node<Linked>> (this: any, validation: (node: N, code: string) => Problem | null) {
-    this.assert(
+  Assertion.addMethod('pass', function (validation: Validation<Node<Linked>>) {
+    // TODO:
+    (this as any).assert(
       validation(this._obj, '') === null,
       'expected node to pass validation',
       'expected node to not pass validation'
@@ -144,10 +146,10 @@ export const validatorAssertions = ({ Assertion }: any) => {
 // INTERPRETER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
-  also({ Assertion }, conf)
+export const interpreterAssertions: Chai.ChaiPlugin = ({ Assertion, ...rest }, conf) => {
+  also({ Assertion, ...rest }, conf)
 
-  Assertion.addMethod('stepped', function (this: any, natives: {} = {}) {
+  Assertion.addMethod('stepped', function (this: Chai.AssertionStatic, natives: Natives = {}) {
     let n = 0
     const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
     try {
@@ -158,7 +160,7 @@ export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
 
   })
 
-  Assertion.addMethod('into', function (this: any, expected: any) {
+  Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
     new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
 }

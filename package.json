@@ -18,7 +18,6 @@
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
     "test:examples": "mocha -t 5000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha -t 5000 -r ts-node/register --root language/test/sanity test/wtest.ts",
-    "profile": "node --prof -r ts-node/register -e 'const mocha = new (require(\"mocha\"))({timeout: 6000}); mocha.addFile(\"test/wtest.ts\"); mocha.run()' root= --root language/test/sanity",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags"
   },
