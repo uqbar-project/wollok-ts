@@ -14,7 +14,7 @@ type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[
 export type Payload<T> = Omit<
   Pick<T, Exclude<AttributeKeys<T>, OptionalKeys<T>>> &
   Partial<Pick<T, AttributeKeys<T> & OptionalKeys<T>>>,
-  'kind' | 'stage'
+  'kind' | '_stage'
 >
 
 export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
@@ -56,15 +56,20 @@ export type Linkable<S extends Stage, T> = Stageable<S, Linked, T>
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Kind = Node['kind']
+
 export type KindOf<N extends Node<any>> = N['kind']
+
 export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression'
+
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
+
 export type NodeOfCategory<C extends Category, S extends Stage> =
   C extends 'Entity' ? Entity<S> :
   C extends 'Module' ? Module<S> :
   C extends 'Sentence' ? Sentence<S> :
   C extends 'Expression' ? Expression<S> :
   never
+
 export type NodeOfKindOrCategory<Q extends Kind | Category, S extends Stage> =
   Q extends Kind ? NodeOfKind<Q, S> :
   Q extends Category ? NodeOfCategory<Q, S> :
@@ -81,7 +86,6 @@ export type Scope = Record<Name, Id>
 
 export type Node<S extends Stage = Final>
   = Parameter<S>
-  | Self<S>
   | NamedArgument<S>
   | Import<S>
   | Body<S>
@@ -92,15 +96,15 @@ export type Node<S extends Stage = Final>
   | Sentence<S>
   | Environment<S>
 
+
 abstract class $Node<S extends Stage> {
-  readonly stage?: S
+  protected readonly _stage?: S
 
   abstract readonly kind: Kind
 
   readonly id!: Linkable<S, Id>
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
-
   
   // TODO: Replace with #cache once TS version is updated
   // readonly #cache: Cache = new Map()
@@ -116,15 +120,14 @@ abstract class $Node<S extends Stage> {
     return this.kind === kindOrCategory
   }
 
-  copy<N extends Node<S>>(delta: Partial<Payload<N>>): N {
+  copy(delta: Partial<Payload<this>>): this {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
-  // TODO: type node-by-node like parent?
   @cached
-  children<N extends Node<S> = Node<S>>(): List<N> {
-    const extractChildren = (owner: any): List<N> => {
-      if (isNode<S>(owner)) return [owner as N]
+  children(): List<Node<S>> {
+    const extractChildren = (owner: any): List<Node<S>> => {
+      if (isNode<S>(owner)) return [owner]
       if (isArray(owner)) return owner.flatMap(extractChildren)
       if (owner instanceof Object) return values(owner).flatMap(extractChildren)
       return []
@@ -141,22 +144,26 @@ abstract class $Node<S extends Stage> {
   parent(): never {
     throw new Error(`Missing parent in cache for node ${this.id}`)
   }
-
-  @cached
-  environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no environment') }
-
+  
   descendants<Q extends Kind | Category>(this: Node<S>, kindOrCategory?: Q): List<NodeOfKindOrCategory<Q, S>> {
     const pending: Node<S>[] = []
-    const response: NodeOfKindOrCategory<Q, S>[] = []
+    const response: Node<S>[] = []
     let next: Node<S> | undefined = this
     do {
-      const children = next!.children<NodeOfKindOrCategory<Q, S>>()
-      response.push(...kindOrCategory ? children.filter(child => child.is(kindOrCategory)) : children)
+      const children = next!.children()
+      response.push(
+        ...kindOrCategory
+          ? children.filter(child => child.is(kindOrCategory))
+          : children
+      )
       pending.push(...children)
       next = pending.shift()
     } while (next)
-    return response
+    return response as unknown as List<NodeOfKindOrCategory<Q, S>>
   }
+
+  @cached
+  environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no environment') }
 
   forEach(
     this: Node<S>,
@@ -689,15 +696,13 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
   @cached
   getNodeByFQN<N extends Node<R>, R extends Linked = Final>(this: Environment<R>, fullyQualifiedName: Name): N {
     const [start, rest] = divideOn('.')(fullyQualifiedName)
-    const root = this.children<Package<R>>().find(child => child.name === start)
+    const root = this.members.find(child => child.name === start)
     if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return rest ? root.getNodeByQN(rest) : root as N
   }
 
 }
 
-
 // TODO:  CLASSES FIXES
 //   - target type parameters (?)
-//   - Avoid casting on is() calls and fix implementation
 //   - Mixin-pattern for abstract classes to fix Variable case

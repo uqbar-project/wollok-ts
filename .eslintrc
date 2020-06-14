@@ -84,7 +84,7 @@
     "for-direction": "off",
     "function-paren-newline": [
       "warn",
-      "multiline"
+      "multiline-arguments"
     ],
     "function-call-argument-newline": [
       "warn",

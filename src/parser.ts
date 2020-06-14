@@ -54,7 +54,7 @@ const sourced = <T extends Node<Raw>>(parser: Parser<T>): Parser<T> => seq(
   optional(_).then(index),
   parser,
   index
-).map(([start, payload, end]) => payload.copy<Node<Raw>>({ source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }) as T)
+).map(([start, payload, end]) => payload.copy({ source: { start, end, ...SOURCE_FILE ? { file: SOURCE_FILE } : {} } }) as T)
 
 export const file = (fileName: string): Parser<Package<Raw>> => {
   SOURCE_FILE = fileName
