@@ -4,6 +4,7 @@ import log from './log'
 import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test } from './model'
 
 const { round } = Math
+const { isArray } = Array
 
 export type Locals = Record<Name, Id>
 
@@ -12,23 +13,6 @@ export interface Context {
   readonly parent: Id | null
   readonly locals: Locals
   readonly exceptionHandlerIndex?: number
-}
-
-export type InnerValue = string | number | Id[]
-
-export interface RuntimeObject {
-  readonly id: Id
-  readonly moduleFQN: Name
-  innerValue?: InnerValue
-
-  context(): Context
-  module(): Module
-  get(field: Name): RuntimeObject | undefined
-  set(field: Name, valueId: Id): void
-
-  assertIsNumber(): asserts this is RuntimeObject & { innerValue: number }
-  assertIsString(): asserts this is RuntimeObject & { innerValue: string }
-  assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] }
 }
 
 export interface Frame {
@@ -74,6 +58,65 @@ export const ROOT_CONTEXT_ID = 'root'
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
 export const MAX_STACK_SIZE = 1000
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// RUNTIME
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export type InnerValue = string | number | Id[]
+
+export class RuntimeObject {
+  constructor(
+    evaluation: Evaluation,
+    public readonly moduleFQN: Name,
+    public readonly id: Id,
+    public innerValue?: InnerValue
+  ) { this.evaluation = () => evaluation }
+
+  copy(evaluation: Evaluation): RuntimeObject {
+    return new RuntimeObject(
+      evaluation,
+      this.moduleFQN,
+      this.id,
+      isArray(this.innerValue) ? [...this.innerValue] : this.innerValue
+    )
+  }
+
+  // TODO: Replace with #evaluation once TS version is updated
+  protected evaluation(): Evaluation { throw new Error('Uninitialized evaluation') }
+
+  context(): Context {
+    return this.evaluation().context(this.id)
+  }
+      
+  module(): Module {
+    return this.evaluation().environment.getNodeByFQN<Module>(this.moduleFQN)
+  }
+
+  get(field: Name): RuntimeObject | undefined {
+    const id = this.context().locals[field]
+    return id ? this.evaluation().instance(id) : undefined
+  }
+
+  set(field: Name, valueId: Id): void {
+    this.context().locals[field] = valueId
+  }
+
+  assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
+  assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
+  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.Boolean', 'boolean') }
+  assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] } {
+    if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
+      throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
+  }
+
+  protected assertIs(module: Name, innerValueType: string): void {
+    if (this.moduleFQN !== module)
+      throw new TypeError(`Expected an instance of ${module} but got a ${this.moduleFQN} instead`)
+    if (typeof this.innerValue !== innerValueType)
+      throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${module} instance`)
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INSTRUCTIONS
@@ -457,9 +500,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
     case 'INHERITS': return (() => {
       const selfId = currentFrame.popOperand()
       const self = evaluation.instance(selfId)
-      currentFrame.pushOperand(
-        self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID
-      )
+      currentFrame.pushOperand(self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID)
     })()
 
     case 'JUMP': return (() => {

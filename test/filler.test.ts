@@ -10,9 +10,7 @@ use(fillerAssertions)
 describe('Wollok filler', () => {
 
   it('fills in wollok.lang.Object as default superclass for Classes', () => {
-    fill(Class('C')()).superclass!.should.be.filledInto(
-      Reference('wollok.lang.Object')
-    )
+    fill(Class('C')()).superclass!.should.be.filledInto(Reference('wollok.lang.Object'))
 
     const superclass = Reference('foo')
     fill(Class('C', { superclass })()).superclass!.should.be.filledInto(superclass)
@@ -29,9 +27,7 @@ describe('Wollok filler', () => {
   })
 
   it('fills in wollok.lang.Object as default superclass for Singletons', () => {
-    fill(Singleton('S')()).superCall.should.be.filledInto(
-      { superclass: Reference('wollok.lang.Object'), args: [] }
-    )
+    fill(Singleton('S')()).superCall.should.be.filledInto({ superclass: Reference('wollok.lang.Object'), args: [] })
 
     const superCall = { superclass: Reference('foo'), args: [] }
     fill(Singleton('S', { superCall })()).superCall.should.be.filledInto(superCall)
@@ -45,9 +41,7 @@ describe('Wollok filler', () => {
   })
 
   it('fills in default base call for Constructors', () => {
-    fill(Constructor()()).baseCall!.should.be.filledInto(
-      { callsSuper: true, args: [] }
-    )
+    fill(Constructor()()).baseCall!.should.be.filledInto({ callsSuper: true, args: [] })
 
     const baseCall = { callsSuper: false, args: [] }
     fill(Constructor({ baseCall })()).baseCall!.should.be.filledInto(baseCall)

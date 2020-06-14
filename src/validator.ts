@@ -63,22 +63,54 @@ const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N
 // TODO: Why are we exporting this as a single object?
 export const validations: any = {
   nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
-    /^[A-Z]$/.test(node.name[0])
-  ),
+    /^[A-Z]$/.test(node.name[0])),
 
   nameIsCamelCase: warning<Parameter<Linked> | Singleton<Linked> | Variable<Linked>>(node => node.name !== undefined &&
-    /^[a-z]$/.test(node.name[0])
-  ),
+    /^[a-z]$/.test(node.name[0])),
 
   onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
-    node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)
-  ),
+    node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)),
 
-  nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.', ',', '(', ')', ';', '_', '{', '}',
-    'import', 'package', 'program', 'test', 'mixed with', 'class', 'inherits', 'object', 'mixin',
-    'var', 'const', '=', 'override', 'method', 'native', 'constructor',
-    'self', 'super', 'new', 'if', 'else', 'return', 'throw', 'try', 'then always', 'catch', ':', '+',
-    'null', 'false', 'true', '=>'].includes(node.name)),
+  nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.',
+    ',',
+    '(',
+    ')',
+    ';',
+    '_',
+    '{',
+    '}',
+    'import',
+    'package',
+    'program',
+    'test',
+    'mixed with',
+    'class',
+    'inherits',
+    'object',
+    'mixin',
+    'var',
+    'const',
+    '=',
+    'override',
+    'method',
+    'native',
+    'constructor',
+    'self',
+    'super',
+    'new',
+    'if',
+    'else',
+    'return',
+    'throw',
+    'try',
+    'then always',
+    'catch',
+    ':',
+    '+',
+    'null',
+    'false',
+    'true',
+    '=>'].includes(node.name)),
 
   hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
@@ -90,12 +122,10 @@ export const validations: any = {
     .methods().every(({ name }) => name !== node.name)),
 
   methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
-    .every(member => member.is('Method') && !matchingSignatures(node.members, member)
-    )),
+    .every(member => member.is('Method') && !matchingSignatures(node.members, member))),
 
   constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent().members
-    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member)
-    )),
+    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member))),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
     !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
@@ -110,13 +140,10 @@ export const validations: any = {
   notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
 
   notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
-    !(node.value!.is('Reference') && node.value!.name === node.name)
-  ),
+    !(node.value!.is('Reference') && node.value!.name === node.name)),
 
 
-  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
-    node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))
-  ),
+  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
   selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),

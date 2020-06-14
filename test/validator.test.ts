@@ -71,10 +71,12 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Class('C',
+          Class(
+            'C',
             { superclass: Reference('program') }
           )(),
-          Class('C2',
+          Class(
+            'C2',
             { superclass: Reference('C') }
           )(),
           Class('program')(),
@@ -258,11 +260,10 @@ describe('Wollok Validations', () => {
     describe('Only last parameter is var arg', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Method('m', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')] })(),
-            Method('m2', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true })] })()),
-        ),
+        Package('p')(Class('C')(
+          Method('m', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')] })(),
+          Method('m2', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true })] })()
+        )),
       ] as PackageNode<Filled>[])
 
       const { onlyLastParameterIsVarArg } = validations
@@ -285,10 +286,9 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Class('C')(
-            Method('m')(),
-          ),
-          Class('C2',
+          Class('C')(Method('m')()),
+          Class(
+            'C2',
             { superclass: Reference('C') }
           )(Method('m')(Super())),
 
@@ -312,13 +312,11 @@ describe('Wollok Validations', () => {
     describe('Non assignation of fully qualified references', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Field('a'),
-            Field('b'),
-            Method('m')(Assignment(Reference('p.C'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
-          )
-        ),
+        Package('p')(Class('C')(
+          Field('a'),
+          Field('b'),
+          Method('m')(Assignment(Reference('p.C'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
+        )),
       ] as PackageNode<Filled>[])
 
 
@@ -343,13 +341,11 @@ describe('Wollok Validations', () => {
     describe('Not assign to itself', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Field('a'),
-            Field('b'),
-            Method('m')(Assignment(Reference('a'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
-          )
-        ),
+        Package('p')(Class('C')(
+          Field('a'),
+          Field('b'),
+          Method('m')(Assignment(Reference('a'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
+        )),
       ] as PackageNode<Filled>[])
 
 
@@ -378,21 +374,15 @@ describe('Wollok Validations', () => {
 
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Method('m')(Try([Reference('p')], { always: [] })),
-            Method('m2')(
-              Try([Reference('p')], {
-                catches: [
-                  Catch(Parameter('e'))(Reference('p')),
-                ],
-              })
-            ),
-            Method('m3')(
-              Try([Reference('p')], { always: [Reference('p')] })
-            )
-          ),
-        ),
+        Package('p')(Class('C')(
+          Method('m')(Try([Reference('p')], { always: [] })),
+          Method('m2')(Try([Reference('p')], {
+            catches: [
+              Catch(Parameter('e'))(Reference('p')),
+            ],
+          })),
+          Method('m3')(Try([Reference('p')], { always: [Reference('p')] }))
+        )),
       ] as PackageNode<Filled>[])
 
       const { hasCatchOrAlways } = validations
@@ -429,11 +419,7 @@ describe('Wollok Validations', () => {
     describe('Name is camelCase', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Method('m', { parameters: [Parameter('C'), Parameter('k')] })()
-          ),
-        ),
+        Package('p')(Class('C')(Method('m', { parameters: [Parameter('C'), Parameter('k')] })())),
       ] as PackageNode<Filled>[])
 
       const { nameIsCamelCase } = validations
@@ -458,14 +444,11 @@ describe('Wollok Validations', () => {
     describe('Field name different from method names', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('c')(
-            Field('m'),
-            Field('a'),
-            Method('m')(),
-          ),
-
-        ),
+        Package('p')(Class('c')(
+          Field('m'),
+          Field('a'),
+          Method('m')(),
+        )),
       ] as PackageNode<Filled>[])
 
       const { fieldNameDifferentFromTheMethods } = validations
@@ -487,13 +470,11 @@ describe('Wollok Validations', () => {
     describe('Not assign to itself in variable declaration', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('c')(
-            Field('v', { value: Reference('v') }),
-            Field('b', { value: Reference('a') }),
-            Field('a'),
-          ),
-        ),
+        Package('p')(Class('c')(
+          Field('v', { value: Reference('v') }),
+          Field('b', { value: Reference('a') }),
+          Field('a'),
+        )),
       ] as PackageNode<Filled>[])
 
       const { notAssignToItselfInVariableDeclaration } = validations
@@ -517,9 +498,7 @@ describe('Wollok Validations', () => {
     describe('Test is not empty', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Test('t')()
-        ),
+        Package('p')(Test('t')()),
       ] as PackageNode<Filled>[])
 
       const { testIsNotEmpty } = validations
@@ -558,12 +537,8 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Program('pr')(
-            Return(Self())
-          ),
-          Class('C')(
-            Method('m')(Return(Self()))
-          )
+          Program('pr')(Return(Self())),
+          Class('C')(Method('m')(Return(Self())))
         ),
       ] as PackageNode<Filled>[])
 
@@ -590,12 +565,10 @@ describe('Wollok Validations', () => {
     describe('Do not compare against true or false', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('C')(
-            Field('d'),
-            Method('m')(Return(Send(Reference('d'), '==', [Literal(true)])))
-          )
-        ),
+        Package('p')(Class('C')(
+          Field('d'),
+          Method('m')(Return(Send(Reference('d'), '==', [Literal(true)])))
+        )),
       ] as PackageNode<Filled>[])
 
       const { dontCompareAgainstTrueOrFalse } = validations
@@ -615,12 +588,10 @@ describe('Wollok Validations', () => {
     describe('No super in constructor body', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('c')(
-            Constructor()(Super()),
-            Method('m')(Super()),
-          )
-        ),
+        Package('p')(Class('c')(
+          Constructor()(Super()),
+          Method('m')(Super()),
+        )),
       ] as PackageNode<Filled>[])
 
       const { noSuperInConstructorBody } = validations
@@ -646,12 +617,10 @@ describe('Wollok Validations', () => {
     describe('No return statement in constructor', () => {
       const environment = link([
         WRE,
-        Package('p')(
-          Class('c')(
-            Constructor()(Return(Literal('a'))),
-            Method('m')(Return(Literal('a'))),
-          )
-        ),
+        Package('p')(Class('c')(
+          Constructor()(Return(Literal('a'))),
+          Method('m')(Return(Literal('a'))),
+        )),
       ] as PackageNode<Filled>[])
 
       const { noReturnStatementInConstructor } = validations

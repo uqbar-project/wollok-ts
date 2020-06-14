@@ -100,8 +100,7 @@ const consoleLogger: Logger = {
 
   separator: title => writeLine(greenBright(title
     ? bold(`${hr()}\n ${title}\n${hr()}`)
-    : `${hr()}`
-  )),
+    : `${hr()}`)),
 
   step: evaluation => {
     const { instructions, nextInstruction, operandStack } = last(evaluation.frameStack)!

@@ -285,12 +285,18 @@ export const Evaluation = (
   instances: Record<Id, RuntimeObjectType> = {},
   contexts: Record<Id, Context> = {}
 ) =>
-  (...frameStack: FrameType[]): EvaluationType => EvaluationBehavior({
-    environment,
-    instances,
-    contexts,
-    frameStack: [...frameStack].reverse(),
-  })
+  (...frameStack: FrameType[]): EvaluationType => {
+    const evaluation = EvaluationBehavior({
+      environment,
+      instances,
+      contexts,
+      frameStack: [...frameStack].reverse(),
+    })
+
+    evaluation.instances = mapObject(instance => instance.copy(evaluation), evaluation.instances)
+
+    return evaluation
+  }
 
 export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
   nextInstruction: 0,
@@ -299,9 +305,10 @@ export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
   ...payload,
 })
 
-export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | boolean | Id[]): RuntimeObjectType =>
-  ({
-    id,
+export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
+  new RuntimeObjectType(
+    undefined as any,
     moduleFQN,
+    id,
     innerValue,
-  } as RuntimeObjectType)
+  )

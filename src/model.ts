@@ -101,7 +101,8 @@ abstract class $Node<S extends Stage> {
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
 
-  // TODO:
+  
+  // TODO: Replace with #cache once TS version is updated
   // readonly #cache: Cache = new Map()
   _cache(): Cache { throw new Error('uninitialized cache') }
 
@@ -172,10 +173,8 @@ abstract class $Node<S extends Stage> {
     tx: ((node: Node<R>) => Node<R>) |
       Partial<{ [K in Kind]: (node: NodeOfKind<K, R>) => NodeOfKind<K, R> }>
   ): NodeOfKind<Q, R>
-  transform<R extends Stage = S>(
-    tx: ((node: Node<R>) => Node<R>) |
-      Partial<{ [K in Kind]: (node: NodeOfKind<K, R>) => NodeOfKind<K, R> }>
-  ): NodeOfKind<this['kind'], R> {
+  transform<R extends Stage = S>(tx: ((node: Node<R>) => Node<R>) |
+      Partial<{ [K in Kind]: (node: NodeOfKind<K, R>) => NodeOfKind<K, R> }>): NodeOfKind<this['kind'], R> {
     const applyTransform = (value: any): any => {
       if (typeof value === 'function') return value
       if (isArray(value)) return value.map(applyTransform)
@@ -335,8 +334,7 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
       (!!member.body || member.isNative) && member.name === name && (
         member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
         member.parameters.length === arity
-      )
-    )
+      ))
   }
 }
 

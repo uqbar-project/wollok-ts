@@ -63,8 +63,7 @@ export const file = (fileName: string): Parser<Package<Raw>> => {
       name: of(basename(fileName).split('.')[0]),
       imports: importEntity.sepBy(optional(_)).skip(optional(_)),
       members: entity.sepBy(optional(_)),
-    }).thru(sourced).skip(optional(_))
-  )
+    }).thru(sourced).skip(optional(_)))
 }
 
 const operator = (operatorsNames: string[]): Parser<string> => {
@@ -81,42 +80,34 @@ const operator = (operatorsNames: string[]): Parser<string> => {
 export const name: Parser<Name> = regex(/[a-zA-Z_][a-zA-Z0-9_]*/)
 
 const fullyQualifiedReference: Parser<Reference<Raw>> = lazy(() =>
-  node('Reference')({ name: name.sepBy1(key('.')).tieWith('.') }).thru(sourced)
-)
+  node('Reference')({ name: name.sepBy1(key('.')).tieWith('.') }).thru(sourced))
 
 export const reference: Parser<Reference<Raw>> = lazy(() =>
-  node('Reference')({ name }).thru(sourced)
-)
+  node('Reference')({ name }).thru(sourced))
 
 export const parameter: Parser<Parameter<Raw>> = lazy(() =>
   node('Parameter')({
     name,
     isVarArg: maybeString('...'),
-  }).thru(sourced)
-)
+  }).thru(sourced))
 
 export const parameters: Parser<List<Parameter<Raw>>> = lazy(() =>
-  parameter.sepBy(key(',')).wrap(key('('), key(')'))
-)
+  parameter.sepBy(key(',')).wrap(key('('), key(')')))
 
 export const unamedArguments: Parser<List<Expression<Raw>>> = lazy(() =>
-  expression.sepBy(key(',')).wrap(key('('), key(')'))
-)
+  expression.sepBy(key(',')).wrap(key('('), key(')')))
 
 export const namedArguments: Parser<List<NamedArgument<Raw>>> = lazy(() =>
   node('NamedArgument')({
     name,
     value: key('=').then(expression),
-  }).thru(sourced).sepBy(key(',')).wrap(key('('), key(')'))
-)
+  }).thru(sourced).sepBy(key(',')).wrap(key('('), key(')')))
 
 export const body: Parser<Body<Raw>> = lazy(() =>
-  node('Body')({ sentences: sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), string('}')).thru(sourced)
-)
+  node('Body')({ sentences: sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), string('}')).thru(sourced))
 
 export const singleExpressionBody: Parser<Body<Raw>> = lazy(() =>
-  node('Body')({ sentences: sentence.times(1) }).thru(sourced)
-)
+  node('Body')({ sentences: sentence.times(1) }).thru(sourced))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // ENTITIES
@@ -137,45 +128,38 @@ export const importEntity: Parser<Import<Raw>> = lazy(() =>
   key('import').then(node('Import')({
     entity: fullyQualifiedReference,
     isGeneric: maybeString('.*'),
-  })).thru(sourced).skip(optional(alt(key(';'), _)))
-)
+  })).thru(sourced).skip(optional(alt(key(';'), _))))
 
 export const packageEntity: Parser<Package<Raw>> = lazy(() =>
   key('package').then(node('Package')({
     name: name.skip(key('{')),
     imports: importEntity.sepBy(optional(_)).skip(optional(_)),
     members: entity.sepBy(optional(_)).skip(key('}')),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 export const programEntity: Parser<Program<Raw>> = lazy(() =>
   key('program').then(node('Program')({
     name,
     body,
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 export const describeEntity: Parser<Describe<Raw>> = lazy(() =>
   key('describe').then(node('Describe')({
     name: stringLiteral,
     members: describeMember.sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 export const fixtureEntity: Parser<Fixture<Raw>> = lazy(() =>
-  key('fixture').then(node('Fixture')({ body })).thru(sourced)
-)
+  key('fixture').then(node('Fixture')({ body })).thru(sourced))
 
 export const testEntity: Parser<Test<Raw>> = lazy(() =>
   key('test').then(node('Test')({
     name: stringLiteral,
     body,
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 const mixinLinearization = lazy(() =>
-  key('mixed with').then(fullyQualifiedReference.sepBy1(key('and'))).map(mixins => mixins.reverse())
-)
+  key('mixed with').then(fullyQualifiedReference.sepBy1(key('and'))).map(mixins => mixins.reverse()))
 
 export const classEntity: Parser<Class<Raw>> = lazy(() =>
   key('class').then(node('Class')({
@@ -183,15 +167,14 @@ export const classEntity: Parser<Class<Raw>> = lazy(() =>
     superclass: optional(key('inherits').then(fullyQualifiedReference)),
     mixins: mixinLinearization.fallback([]),
     members: classMember.sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
   const superCall = key('inherits').then(seqMap(
     fullyQualifiedReference,
     alt(unamedArguments, namedArguments, of([])),
-    (superclass, args) => ({ superclass, args }))
-  )
+    (superclass, args) => ({ superclass, args })
+  ))
 
   return key('object').then(seqMap(
     alt(
@@ -230,8 +213,7 @@ export const mixinEntity: Parser<Mixin<Raw>> = lazy(() =>
     name,
     mixins: mixinLinearization.fallback([]),
     members: alt(method, field).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
@@ -248,22 +230,19 @@ export const field: Parser<Field<Raw>> = lazy(() =>
     isProperty: optional(key('property')).map(val => !!val),
     name,
     value: optional(key('=').then(expression)),
-  }).thru(sourced)
-)
+  }).thru(sourced))
 
 export const method: Parser<Method<Raw>> = lazy(() => seqMap(
   key('override').result(true).fallback(false),
   key('method').then(alt(name, operator(OPERATORS))),
   parameters,
   alt(
-    key('=').then(
-      expression.map(value => ({
-        isNative: false, body: new Body<Raw>({
-          sentences: [new Return<Raw>({ value })],
-          source: value.source,
-        }),
-      }))
-    ),
+    key('=').then(expression.map(value => ({
+      isNative: false, body: new Body<Raw>({
+        sentences: [new Return<Raw>({ value })],
+        source: value.source,
+      }),
+    }))),
     key('native').result({ isNative: true, body: undefined }),
     body.map(methodBody => ({ isNative: false, body: methodBody })),
     of({ isNative: false, body: undefined })
@@ -280,11 +259,10 @@ export const constructor: Parser<Constructor<Raw>> = lazy(() =>
     baseCall: optional(key('=').then(seqMap(
       alt(key('self').result(false), key('super').result(true)),
       unamedArguments,
-      (callsSuper, args) => ({ callsSuper, args }))
-    )),
+      (callsSuper, args) => ({ callsSuper, args })
+    ))),
     body: body.or(node('Body')({ sentences: of([]) })),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
@@ -297,12 +275,10 @@ export const variableSentence: Parser<Variable<Raw>> = lazy(() =>
     isReadOnly: alt(key('var').result(false), key('const').result(true)),
     name,
     value: optional(key('=').then(expression)),
-  }).thru(sourced)
-)
+  }).thru(sourced))
 
 export const returnSentence: Parser<Return<Raw>> = lazy(() =>
-  key('return').then(node('Return')({ value: optional(expression) })).thru(sourced)
-)
+  key('return').then(node('Return')({ value: optional(expression) })).thru(sourced))
 
 export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
   seqMap(
@@ -320,8 +296,7 @@ export const assignmentSentence: Parser<Assignment<Raw>> = lazy(() =>
             args: LAZY_OPERATORS.includes(assignation.slice(0, -1)) ? [makeClosure([], [value])] : [value],
           }),
       })
-  ).thru(sourced)
-)
+  ).thru(sourced))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // EXPRESSIONS
@@ -342,73 +317,56 @@ export const primaryExpression: Parser<Expression<Raw>> = lazy(() => alt(
 ))
 
 export const selfExpression: Parser<Self<Raw>> = lazy(() =>
-  key('self').then(node('Self')({})).thru(sourced)
-)
+  key('self').then(node('Self')({})).thru(sourced))
 
 export const superExpression: Parser<Super<Raw>> = lazy(() =>
-  key('super').then(
-    node('Super')({ args: unamedArguments })
-  ).thru(sourced)
-)
+  key('super').then(node('Super')({ args: unamedArguments })).thru(sourced))
 
 export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = lazy(() =>
   alt(
-    key('new ').then(
-      seqMap(
-        fullyQualifiedReference,
-        alt(unamedArguments, namedArguments),
-        // TODO: Convince the world we need a single linearization syntax
-        (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
-        (superclass, args, mixins) => new Literal<Raw>({
-          value: new Singleton({
-            superCall: { superclass, args },
-            mixins,
-            members: [],
-          }),
-        })
-      )
-    ),
-
-    key('new ').then(
-      node('New')({
-        instantiated: fullyQualifiedReference,
-        args: alt(unamedArguments, namedArguments),
+    key('new ').then(seqMap(
+      fullyQualifiedReference,
+      alt(unamedArguments, namedArguments),
+      // TODO: Convince the world we need a single linearization syntax
+      (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
+      (superclass, args, mixins) => new Literal<Raw>({
+        value: new Singleton({
+          superCall: { superclass, args },
+          mixins,
+          members: [],
+        }),
       })
-    ).thru(sourced),
-  )
-)
+    )),
+
+    key('new ').then(node('New')({
+      instantiated: fullyQualifiedReference,
+      args: alt(unamedArguments, namedArguments),
+    })).thru(sourced),
+  ))
 
 export const ifExpression: Parser<If<Raw>> = lazy(() =>
-  key('if').then(
-    node('If')({
-      condition: expression.wrap(key('('), key(')')),
-      thenBody: alt(body, singleExpressionBody),
-      elseBody: optional(key('else').then(alt(body, singleExpressionBody))),
-    })
-  ).thru(sourced)
-)
+  key('if').then(node('If')({
+    condition: expression.wrap(key('('), key(')')),
+    thenBody: alt(body, singleExpressionBody),
+    elseBody: optional(key('else').then(alt(body, singleExpressionBody))),
+  })).thru(sourced))
 
 export const throwExpression: Parser<Throw<Raw>> = lazy(() =>
-  key('throw').then(
-    node('Throw')({ exception: expression })
-  ).thru(sourced)
-)
+  key('throw').then(node('Throw')({ exception: expression })).thru(sourced))
 
 export const tryExpression: Parser<Try<Raw>> = lazy(() =>
   key('try').then(node('Try')({
     body: alt(body, singleExpressionBody),
     catches: catchClause.many(),
     always: optional(key('then always').then(alt(body, singleExpressionBody))),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 export const catchClause: Parser<Catch<Raw>> = lazy(() =>
   key('catch').then(node('Catch')({
     parameter,
     parameterType: optional(key(':').then(reference)),
     body: alt(body, singleExpressionBody),
-  })).thru(sourced)
-)
+  })).thru(sourced))
 
 // TODO: change type to Parser<Expression<Raw>>
 export const sendExpression: Parser<Send<Raw>> = lazy(() =>
@@ -420,24 +378,27 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
       alt(unamedArguments, closureLiteral.thru(sourced).times(1)),
       index
     ).atLeast(1),
-    (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-      new Send({
-        receiver, message, args, source: { start, end }, 
-      })
-    , initial) as Send<Raw>
-  )
-)
+    (start, initial, calls) => calls.reduce(
+      (receiver, [message, args, end]) =>
+        new Send({
+          receiver, message, args, source: { start, end }, 
+        })
+      , initial
+    ) as Send<Raw>
+  ))
 
 export const operation: Parser<Expression<Raw>> = lazy(() => {
   const prefixOperation = seqMap(
     seq(index, operator(keys(PREFIX_OPERATORS))).many(),
     alt(sendExpression, primaryExpression),
     index,
-    (calls, initial, end) => calls.reduceRight<Expression<Raw>>((receiver, [start, message]) =>
-      new Send({
-        receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end }, 
-      })
-    , initial)
+    (calls, initial, end) => calls.reduceRight<Expression<Raw>>(
+      (receiver, [start, message]) =>
+        new Send({
+          receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end }, 
+        })
+      , initial
+    )
   )
 
   const infixOperation = (precedenceLevel: number): Parser<Expression<Raw>> => {
@@ -449,22 +410,23 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
       index,
       argument,
       seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
-      (start, initial, calls) => calls.reduce((receiver, [message, args, end]) =>
-        new Send({
-          receiver,
-          message: message.trim(),
-          args: LAZY_OPERATORS.includes(message)
-            ? [makeClosure([], args)]
-            : args,
-          source: { start, end },
-        })
-      , initial)
+      (start, initial, calls) => calls.reduce(
+        (receiver, [message, args, end]) =>
+          new Send({
+            receiver,
+            message: message.trim(),
+            args: LAZY_OPERATORS.includes(message)
+              ? [makeClosure([], args)]
+              : args,
+            source: { start, end },
+          })
+        , initial
+      )
     )
   }
 
   return infixOperation(0)
-}
-)
+})
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // LITERALS
@@ -481,17 +443,14 @@ export const literal: Parser<Literal<Raw>> = lazy(() =>
         _.then(string('false')).notFollowedBy(name).result(false),
         regex(/-?\d+(\.\d+)?/).map(Number),
         expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
-          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.List' }), args })
-        ),
+          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.List' }), args })),
         expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args =>
-          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.Set' }), args })
-        ),
+          new New<Raw>({ instantiated: new Reference<Raw>({ name: 'wollok.lang.Set' }), args })),
         stringLiteral,
         singletonEntity,
       ),
     })
-  ).thru(sourced)
-)
+  ).thru(sourced))
 
 const stringLiteral: Parser<string> = lazy(() => {
   const escapedChar = alt(
@@ -525,8 +484,7 @@ const closureLiteral: Parser<Literal<Raw, Singleton<Raw>>> = lazy(() => {
   ).wrap(key('{'), key('}'))
 
   return closure.mark().chain(({ start, end, value: [ps, b] }) => Parsimmon((input: string, i: number) =>
-    makeSuccess(i, makeClosure(ps, b, input.slice(start.offset, end.offset)))
-  ))
+    makeSuccess(i, makeClosure(ps, b, input.slice(start.offset, end.offset)))))
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

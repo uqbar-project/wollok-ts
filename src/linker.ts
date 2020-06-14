@@ -11,8 +11,7 @@ const { assign } = Object
 const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): List<Entity<Filled>> => {
   if (!isolated.is('Package')) return [...members.filter(({ name }) => name !== isolated.name), isolated]
   const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
-    member.is('Package') && member.name === isolated.name
-  )
+    member.is('Package') && member.name === isolated.name)
   return existent
     ? [
       ...members.filter(member => member !== existent),
@@ -80,8 +79,7 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 
       const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
       const mixinsScope: Scope = assign({}, ...mixins.flatMap(mixin =>
-        mixin.children().map(scopeContribution)
-      ))
+        mixin.children().map(scopeContribution)))
 
       if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixinsScope
 
@@ -105,7 +103,8 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
 
 const assignScopes = (environment: Environment<Linked>) => {
   const globalPackages = ['wollok.lang', 'wollok.lib']
-  const globalScope = assign({},
+  const globalScope = assign(
+    {},
     ...environment.children().map(scopeContribution),
     ...globalPackages.flatMap(name => environment.getNodeByFQN<Package>(name).members.map(scopeContribution)),
   )

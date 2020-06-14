@@ -527,8 +527,7 @@ export default {
 
       evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
         ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
-        : self.id
-      )
+        : self.id)
     },
 
     'coerceToPositiveInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -541,8 +540,7 @@ export default {
 
       evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
         ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + 1)))
-        : self.id
-      )
+        : self.id)
     },
 
     '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -628,9 +626,7 @@ export default {
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      evaluation.currentFrame()!.pushOperand(
-        evaluation.createInstance(self.moduleFQN, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue))
-      )
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -643,17 +639,14 @@ export default {
 
       evaluation.currentFrame()!.pushOperand(decimalPosition >= 0
         ? evaluation.createInstance(self.moduleFQN, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
-        : self.id
-      )
+        : self.id)
     },
 
     'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(
-        evaluation.createInstance(self.moduleFQN, random() * (other.innerValue - self.innerValue) + self.innerValue)
-      )
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance(self.moduleFQN, random() * (other.innerValue - self.innerValue) + self.innerValue))
     },
 
     'gcd': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {

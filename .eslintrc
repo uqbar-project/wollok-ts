@@ -25,7 +25,6 @@
         }
       }
     ],
-    "arrow-spacing": "warn",
     "@typescript-eslint/explicit-module-boundary-types": [
       "warn",
       {
@@ -60,6 +59,7 @@
       "warn",
       "never"
     ],
+    "arrow-spacing": "warn",
     "comma-dangle": [
       "warn",
       {
@@ -70,11 +70,30 @@
         "objects": "always-multiline"
       }
     ],
+    "comma-spacing": [
+      "warn",
+      {
+        "after": true,
+        "before": false
+      }
+    ],
     "eol-last": [
       "warn",
       "never"
     ],
     "for-direction": "off",
+    "function-paren-newline": [
+      "warn",
+      "multiline"
+    ],
+    "function-call-argument-newline": [
+      "warn",
+      "consistent"
+    ],
+    "array-element-newline": [
+      "warn",
+      "consistent"
+    ],
     "indent": [
       "warn",
       2
