@@ -1,4 +1,4 @@
-import { mapObject } from './extensions'
+import { mapObject, keys } from './extensions'
 import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType } from './interpreter'
 import * as Model from './model'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
@@ -291,12 +291,12 @@ export const Evaluation = (
     const evaluation = new EvaluationType(
       environment,
       [...frameStack].reverse(),
-      instances,
-      contexts,
+      new Map(),
+      new Map(keys(contexts).map(key => [key, contexts[key]])),
     )
 
     // TODO: Improve this
-    evaluation.instances = mapObject(instance => instance.copy(evaluation), evaluation.instances)
+    mapObject((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)), instances)
 
     return evaluation
   }

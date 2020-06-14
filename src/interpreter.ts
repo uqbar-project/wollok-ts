@@ -1,5 +1,5 @@
 import * as build from './builders'
-import { last, zipObj, mapObject } from './extensions'
+import { last, zipObj } from './extensions'
 import log from './log'
 import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test } from './model'
 import { v4 as uuid } from 'uuid'
@@ -43,19 +43,18 @@ export const MAX_STACK_SIZE = 1000
 // TODO: Can some of the evaluation operations be delegated better?
 // TODO: Should we parameterize the evaluation in the behavior of RuntimeObjects instead?
 
-// TODO: Use Map instead of Record
 export class Evaluation {
   constructor(
     readonly environment: Environment,
     public frameStack: Frame[], // TODO: Make protected?
-    public instances: Record<Id, RuntimeObject>, // TODO: Make protected?
-    protected contexts: Record<Id, Context>, // TODO: GC contexts
+    public instances: Map<Id, RuntimeObject>, // TODO: Make protected?
+    protected contexts: Map<Id, Context>, // TODO: GC contexts
   ){ }
   
   currentFrame(): Frame | undefined { return last(this.frameStack) }
 
   instance(id: Id): RuntimeObject {
-    const response = this.instances[id]
+    const response = this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
   }
@@ -82,22 +81,22 @@ export class Evaluation {
       id = defaultId
     }
 
-    if (!this.instances[id]) this.instances[id] = new RuntimeObject(this, moduleFQN, id, innerValue)
+    if (!this.instances.has(id)) this.instances.set(id, new RuntimeObject(this, moduleFQN, id, innerValue))
 
-    if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
+    if (!this.contexts.has(id)) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
 
     return id
   }
 
 
   context(id: Id): Context {
-    const response = this.contexts[id]
+    const response = this.contexts.get(id)
     if (!response) throw new RangeError(`Access to undefined context "${id}"`)
     return response
   }
 
   createContext(parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
-    this.contexts[id] = { id, parent, locals, exceptionHandlerIndex }
+    this.contexts.set(id, { id, parent, locals, exceptionHandlerIndex })
     return id
   }
 
@@ -145,11 +144,12 @@ export class Evaluation {
     const evaluation = new Evaluation(
       this.environment,
       this.frameStack.map(frame => frame.copy()),
-      { ...this.instances },
-      mapObject(context => ({ ...context, locals: { ...context.locals } }), this.contexts),
+      new Map(),
+      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: { ...context.locals } }])),
     )
 
-    evaluation.instances = mapObject(instance => instance.copy(evaluation), evaluation.instances)
+    // TODO: Improve this
+    this.instances.forEach((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)))
 
     return evaluation
   }
