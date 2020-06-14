@@ -1,12 +1,12 @@
 import { expect, should, use } from 'chai'
 import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable, fromJSON } from '../src/builders'
 import link from '../src/linker'
-import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode,  Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 
 
-should()
+should() 
 use(linkerAssertions)
 // TODO: Split uber-tests into smaller tests with clearer descriptions
 // TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
@@ -35,7 +35,7 @@ describe('Wollok linker', () => {
         Package('C')(
           Class('B', { superclass: Reference('Object') })(),
         ),
-      ])
+      ] as unknown as List<PackageNode>)
     })
 
     it('should merge same name packages into a single package', () => {
@@ -43,7 +43,7 @@ describe('Wollok linker', () => {
         ...WRE.members,
         Package('A')(
           Class('X', { superclass: Reference('Object') })()
-        ),
+        ), 
         Package('A')(
           Class('Y', { superclass: Reference('Object') })()
         ),
@@ -59,7 +59,7 @@ describe('Wollok linker', () => {
         Package('B')(
           Class('X', { superclass: Reference('Object') })(),
         ),
-      ])
+      ] as unknown as List<PackageNode>)
     })
 
     it('should recursively merge same name packages into a single package', () => {
@@ -91,7 +91,7 @@ describe('Wollok linker', () => {
             ),
           ),
         ),
-      ])
+      ] as unknown as List<PackageNode>)
     })
 
     it('should replace old entities prioritizing right to left', () => {
@@ -109,7 +109,7 @@ describe('Wollok linker', () => {
         Package('p')(
           Class('C')(Field('y')),
         ),
-      ])
+      ] as unknown as List<PackageNode>)
     })
 
   })

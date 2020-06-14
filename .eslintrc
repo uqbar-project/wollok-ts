@@ -25,6 +25,7 @@
         }
       }
     ],
+    "arrow-spacing": "warn",
     "@typescript-eslint/explicit-module-boundary-types": [
       "warn",
       {
