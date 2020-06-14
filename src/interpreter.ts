@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test } from './model'
+import { Node, Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test, Variable, Singleton } from './model'
 import { v4 as uuid } from 'uuid'
 
 const { round } = Math
@@ -804,8 +804,8 @@ export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
 
 const buildEvaluation = (environment: Environment): Evaluation => {
 
-  const globalConstants = environment.descendants('Variable').filter(node => node.parent().is('Package'))
-  const globalSingletons = environment.descendants('Singleton').filter(node => !!node.name)
+  const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
+  const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
 
   const evaluation = build.Evaluation(environment)()
 

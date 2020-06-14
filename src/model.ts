@@ -145,25 +145,22 @@ abstract class $Node<S extends Stage> {
     throw new Error(`Missing parent in cache for node ${this.id}`)
   }
   
-  descendants<Q extends Kind | Category>(this: Node<S>, kindOrCategory?: Q): List<NodeOfKindOrCategory<Q, S>> {
+  @cached
+  descendants(this: Node<S>): List<Node<S>> {
     const pending: Node<S>[] = []
     const response: Node<S>[] = []
     let next: Node<S> | undefined = this
     do {
       const children = next!.children()
-      response.push(
-        ...kindOrCategory
-          ? children.filter(child => child.is(kindOrCategory))
-          : children
-      )
+      response.push(...children)
       pending.push(...children)
       next = pending.shift()
     } while (next)
-    return response as unknown as List<NodeOfKindOrCategory<Q, S>>
+    return response
   }
 
   @cached
-  environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no environment') }
+  environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no Environment') }
 
   forEach(
     this: Node<S>,
