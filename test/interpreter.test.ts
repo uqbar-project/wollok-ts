@@ -37,9 +37,7 @@ describe('Wollok Interpreter', () => {
         const instruction = LOAD('x')
         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { x: '1' } } })(Frame({ context: '1', operandStack: ['2'], instructions: [instruction] }))
 
-        evaluation.should.be.stepped().into(Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { x: '1' } } })(Frame({
-          context: '1', operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1, 
-        })))
+        evaluation.should.be.stepped().into(Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { x: '1' } } })(Frame({ context: '1', operandStack: ['2', '1'], instructions: [instruction], nextInstruction: 1 })))
       })
 
       it('if the local is missing in the current frame, it should search it through the frame stack', () => {
@@ -63,9 +61,7 @@ describe('Wollok Interpreter', () => {
           3: { id: '3', parent: '2', locals: { x: '1' } },
           4: { id: '4', parent: '3', locals: {} },
         })(
-          Frame({
-            context: '4', operandStack: ['1'], instructions: [instruction], nextInstruction: 1, 
-          }),
+          Frame({ context: '4', operandStack: ['1'], instructions: [instruction], nextInstruction: 1 }),
           Frame({ context: '3' }),
           Frame({ context: '2' }),
           Frame({ context: '1' }),
@@ -220,32 +216,22 @@ describe('Wollok Interpreter', () => {
 
       it('should create a new, empty context for the current frame', () => {
         const instruction = PUSH_CONTEXT()
-        const evaluation = Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { a: '2' } } })(Frame({
-          id: '1', context: '1', operandStack: [], instructions: [instruction], 
-        }))
+        const evaluation = Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { a: '2' } } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
 
         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
           1: { id: '1', parent: '', locals: { a: '2' } },
           new_id_0: { id: 'new_id_0', parent: '1', locals: {} },
-        })(Frame({
-          id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1, 
-        })))
+        })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
       })
 
       it('if argument is provided, should set an exception handler index for the context based on the instruction position', () => {
         const instruction = PUSH_CONTEXT(2)
-        const evaluation = Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { a: '2' } } })(Frame({
-          id: '1', context: '1', operandStack: [], instructions: [instruction], 
-        }))
+        const evaluation = Evaluation(environment, {}, { 1: { id: '1', parent: '', locals: { a: '2' } } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
 
         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
           1: { id: '1', parent: '', locals: { a: '2' } },
-          new_id_0: {
-            id: 'new_id_0', parent: '1', locals: {}, exceptionHandlerIndex: 3, 
-          },
-        })(Frame({
-          id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1, 
-        })))
+          new_id_0: { id: 'new_id_0', parent: '1', locals: {}, exceptionHandlerIndex: 3 },
+        })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
       })
 
     })
@@ -259,16 +245,12 @@ describe('Wollok Interpreter', () => {
         const evaluation = Evaluation(environment, {}, {
           1: { id: '1', parent: '', locals: { a: '2' } },
           2: { id: '2', parent: '1', locals: {} },
-        })(Frame({
-          id: '2', context: '2', operandStack: [], instructions: [instruction], 
-        }))
+        })(Frame({ id: '2', context: '2', operandStack: [], instructions: [instruction] }))
 
         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
           1: { id: '1', parent: '', locals: { a: '2' } },
           2: { id: '2', parent: '1', locals: {} },
-        })(Frame({
-          id: '2', context: '1', operandStack: [], instructions: [instruction], nextInstruction: 1, 
-        })))
+        })(Frame({ id: '2', context: '1', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
       })
 
     })
@@ -339,9 +321,7 @@ describe('Wollok Interpreter', () => {
         evaluation.should.be.stepped().into(Evaluation(environment, { new_id_0: RuntimeObject('new_id_0', 'wollok.lang.Object') }, {
           1: { id: '1', parent: '', locals: {} },
           new_id_0: { id: 'new_id_0', parent: '1', locals: { self: 'new_id_0' } },
-        })(Frame({
-          context: '1', operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1, 
-        })))
+        })(Frame({ context: '1', operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1 })))
       })
 
     })
@@ -570,9 +550,7 @@ describe('Wollok Interpreter', () => {
               RETURN,
             ],
           }),
-          Frame({
-            context: '1', operandStack: ['5'], instructions: [instruction], nextInstruction: 1, 
-          }),
+          Frame({ context: '1', operandStack: ['5'], instructions: [instruction], nextInstruction: 1 }),
         ))
       })
 
@@ -765,9 +743,7 @@ describe('Wollok Interpreter', () => {
         X.superclassNode = () => environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
 
         const instruction = INIT(0, 'X')
-        const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'X') }, { 0: { id: '0', parent: null, locals: {} } })(Frame({
-          id: '0', context: '0', operandStack: ['1'], instructions: [instruction], 
-        }))
+        const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'X') }, { 0: { id: '0', parent: null, locals: {} } })(Frame({ id: '0', context: '0', operandStack: ['1'], instructions: [instruction] }))
 
         const getNodeByFQNStub = stub(evaluation.environment, 'getNodeByFQN')
         getNodeByFQNStub.withArgs('X').returns(X)
@@ -792,9 +768,7 @@ describe('Wollok Interpreter', () => {
               RETURN,
             ],
           }),
-          Frame({
-            id: '0', context: '0', instructions: [instruction], nextInstruction: 1, 
-          }),
+          Frame({ id: '0', context: '0', instructions: [instruction], nextInstruction: 1 }),
         ))
       })
 
@@ -821,9 +795,7 @@ describe('Wollok Interpreter', () => {
           3: { id: '3', parent: '0', locals: {} },
           4: { id: '4', parent: '0', locals: {} },
           5: { id: '5', parent: '0', locals: {} },
-        })(Frame({
-          id: '0', context: '0', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction], 
-        }))
+        })(Frame({ id: '0', context: '0', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
 
         const object = environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
         object.lookupConstructor = () => constructor
@@ -858,9 +830,7 @@ describe('Wollok Interpreter', () => {
               RETURN,
             ],
           }),
-          Frame({
-            id: '0', context: '0', operandStack: ['5'], instructions: [instruction], nextInstruction: 1, 
-          }),
+          Frame({ id: '0', context: '0', operandStack: ['5'], instructions: [instruction], nextInstruction: 1 }),
         ))
       })
 
@@ -933,11 +903,7 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
         }, {
           0: { id: '0', parent: '', locals: {} },
-          1: {
-            id: '1', parent: '0', locals: {
-              f1: '3', f2: '2', f3: VOID_ID, f4: VOID_ID, 
-            }, 
-          },
+          1: { id: '1', parent: '0', locals: { f1: '3', f2: '2', f3: VOID_ID, f4: VOID_ID } },
         })(
           Frame({
             id: '1', context: '1', operandStack: [], instructions: [
@@ -949,9 +915,7 @@ describe('Wollok Interpreter', () => {
               RETURN,
             ],
           }),
-          Frame({
-            context: '0', operandStack: [], instructions: [instruction], nextInstruction: 1, 
-          }),
+          Frame({ context: '0', operandStack: [], instructions: [instruction], nextInstruction: 1 }),
         ))
       })
 
@@ -973,15 +937,11 @@ describe('Wollok Interpreter', () => {
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') }, {
           3: { id: '3', parent: '4', locals: {} },
           4: { id: '4', parent: '5', locals: {} },
-          5: {
-            id: '5', parent: '6', locals: {}, exceptionHandlerIndex: 2, 
-          },
+          5: { id: '5', parent: '6', locals: {}, exceptionHandlerIndex: 2 },
           6: { id: '6', parent: '', locals: {} },
           7: { id: '7', parent: '', locals: {} },
         })(
-          Frame({
-            id: '3', context: '3', operandStack: ['1'], instructions: [instruction], 
-          }),
+          Frame({ id: '3', context: '3', operandStack: ['1'], instructions: [instruction] }),
           Frame({ id: '4', context: '4' }),
           Frame({ id: '6', context: '5', instructions: [PUSH('1'), PUSH('2'), PUSH('3')] }),
           Frame({ id: '7', context: '7' }),
@@ -990,15 +950,11 @@ describe('Wollok Interpreter', () => {
         evaluation.should.be.stepped().into(Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') }, {
           3: { id: '3', parent: '4', locals: {} },
           4: { id: '4', parent: '5', locals: {} },
-          5: {
-            id: '5', parent: '6', locals: {}, exceptionHandlerIndex: 2, 
-          },
+          5: { id: '5', parent: '6', locals: {}, exceptionHandlerIndex: 2 },
           6: { id: '6', parent: '', locals: { '<exception>': '1' } },
           7: { id: '7', parent: '', locals: {} },
         })(
-          Frame({
-            id: '6', context: '6', instructions: [PUSH('1'), PUSH('2'), PUSH('3')], nextInstruction: 2, 
-          }),
+          Frame({ id: '6', context: '6', instructions: [PUSH('1'), PUSH('2'), PUSH('3')], nextInstruction: 2 }),
           Frame({ id: '7', context: '7' }),
         ))
 
@@ -1018,9 +974,7 @@ describe('Wollok Interpreter', () => {
           3: { id: '3', parent: '4', locals: {} },
           4: { id: '4', parent: '', locals: {} },
         })(
-          Frame({
-            id: '3', context: '3', operandStack: ['1'], instructions: [instruction], 
-          }),
+          Frame({ id: '3', context: '3', operandStack: ['1'], instructions: [instruction] }),
           Frame({ id: '4', context: '4' }),
         )
 
@@ -1044,9 +998,7 @@ describe('Wollok Interpreter', () => {
         3: { id: '3', parent: '4', locals: {} },
         4: { id: '4', parent: '', locals: {} },
       })(
-        Frame({
-          id: '3', context: '3', operandStack: ['1'], instructions: [instruction], 
-        }),
+        Frame({ id: '3', context: '3', operandStack: ['1'], instructions: [instruction] }),
         Frame({ id: '4', context: '4', operandStack: ['2'] }),
       )
 

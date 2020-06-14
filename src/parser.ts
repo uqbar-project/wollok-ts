@@ -248,9 +248,7 @@ export const method: Parser<Method<Raw>> = lazy(() => seqMap(
     of({ isNative: false, body: undefined })
   ),
   (isOverride, methodName, methodParameters, { isNative, body: methodBody }) =>
-    new Method<Raw>({
-      name: methodName, isOverride, parameters: methodParameters, isNative, body: methodBody, 
-    })
+    new Method<Raw>({ name: methodName, isOverride, parameters: methodParameters, isNative, body: methodBody })
 ).thru(sourced))
 
 export const constructor: Parser<Constructor<Raw>> = lazy(() =>
@@ -380,9 +378,7 @@ export const sendExpression: Parser<Send<Raw>> = lazy(() =>
     ).atLeast(1),
     (start, initial, calls) => calls.reduce(
       (receiver, [message, args, end]) =>
-        new Send({
-          receiver, message, args, source: { start, end }, 
-        })
+        new Send({ receiver, message, args, source: { start, end } })
       , initial
     ) as Send<Raw>
   ))
@@ -394,9 +390,7 @@ export const operation: Parser<Expression<Raw>> = lazy(() => {
     index,
     (calls, initial, end) => calls.reduceRight<Expression<Raw>>(
       (receiver, [start, message]) =>
-        new Send({
-          receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end }, 
-        })
+        new Send({ receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end } })
       , initial
     )
   )

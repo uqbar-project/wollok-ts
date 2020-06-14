@@ -1,7 +1,8 @@
 import * as build from './builders'
-import { last, zipObj } from './extensions'
+import { last, zipObj, mapObject } from './extensions'
 import log from './log'
 import { Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test } from './model'
+import { v4 as uuid } from 'uuid'
 
 const { round } = Math
 const { isArray } = Array
@@ -13,33 +14,6 @@ export interface Context {
   readonly parent: Id | null
   readonly locals: Locals
   readonly exceptionHandlerIndex?: number
-}
-
-export interface Frame {
-  readonly id: Id
-  readonly instructions: List<Instruction>
-  context: Id
-  nextInstruction: number
-  operandStack: Id[]
-
-  popOperand(): Id
-  pushOperand(id: Id): void
-}
-
-export interface Evaluation {
-  readonly environment: Environment
-  frameStack: Frame[]
-  instances: Record<Id, RuntimeObject>
-  contexts: Record<Id, Context> // TODO: GC contexts
-
-  currentFrame(): Frame | undefined
-  instance(id: Id): RuntimeObject
-  createInstance(module: Name, baseInnerValue?: InnerValue, id?: Id): Id
-  context(id: Id): Context
-  createContext(parent: Id | null, locals?: Locals, id?: Id, exceptionHandlerIndex?: number): Id
-  pushFrame(instructions: List<Instruction>, context: Id): void
-  raise(exceptionId: Id): void
-  copy(): Evaluation
 }
 
 export type NativeFunction = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
@@ -63,7 +37,154 @@ export const MAX_STACK_SIZE = 1000
 // RUNTIME
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+// TODO: Implement single argument constructors instead ?
+// TODO: Do all these fields still need to be public ?
+// TODO: Do all these fields still need to be an argument in the constructor ?
+// TODO: Can some of the evaluation operations be delegated better?
+// TODO: Should we parameterize the evaluation in the behavior of RuntimeObjects instead?
+
+// TODO: Use Map instead of Record
+export class Evaluation {
+  constructor(
+    readonly environment: Environment,
+    public frameStack: Frame[], // TODO: Make protected?
+    public instances: Record<Id, RuntimeObject>, // TODO: Make protected?
+    protected contexts: Record<Id, Context>, // TODO: GC contexts
+  ){ }
+  
+  currentFrame(): Frame | undefined { return last(this.frameStack) }
+
+  instance(id: Id): RuntimeObject {
+    const response = this.instances[id]
+    if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
+    return response
+  }
+
+  // TODO: Move these validations to the RuntimeObject constructor?
+  createInstance(moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
+    let id: Id
+    let innerValue = baseInnerValue
+
+    switch (moduleFQN) {
+    case 'wollok.lang.Number':
+      if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
+      const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+      id = 'N!' + stringValue
+      innerValue = Number(stringValue)
+      break
+
+    case 'wollok.lang.String':
+      if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
+      id = 'S!' + innerValue
+      break
+
+    default:
+      id = defaultId
+    }
+
+    if (!this.instances[id]) this.instances[id] = new RuntimeObject(this, moduleFQN, id, innerValue)
+
+    if (!this.contexts[id]) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
+
+    return id
+  }
+
+
+  context(id: Id): Context {
+    const response = this.contexts[id]
+    if (!response) throw new RangeError(`Access to undefined context "${id}"`)
+    return response
+  }
+
+  createContext(parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+    this.contexts[id] = { id, parent, locals, exceptionHandlerIndex }
+    return id
+  }
+
+  pushFrame(instructions: List<Instruction>, context: Id): void {
+    if (this.frameStack.length >= MAX_STACK_SIZE)
+      return this.raise(this.createInstance('wollok.lang.StackOverflowException'))
+
+    this.frameStack.push(build.Frame({ id: context, context, instructions }))
+  }
+
+  popFrame(): Frame | undefined { return this.frameStack.pop() }
+
+  raise(exceptionId: Id): void{
+    let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
+    const exception = this.instance(exceptionId)
+
+    const visited = []
+
+    while (currentContext.exceptionHandlerIndex === undefined) {
+      const currentFrame = this.currentFrame()
+
+      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+
+      if (currentFrame.context === currentFrame.id) {
+        this.frameStack.pop()
+        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+      } else {
+        if (!currentContext.parent) throw new Error(`Reached the root context ${JSON.stringify(currentContext)} before reaching the current frame ${currentFrame.id}. This should not happen!`)
+        currentFrame.context = currentContext.parent
+      }
+
+      currentContext = this.context(this.currentFrame()!.context)
+      visited.push(currentContext)
+    }
+
+    if (!currentContext.parent) throw new Error('Popped root context')
+    if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+
+      this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
+      this.currentFrame()!.context = currentContext.parent
+      this.context(this.currentFrame()!.context).locals['<exception>'] = exceptionId
+  }
+
+  copy(): Evaluation {
+    const evaluation = new Evaluation(
+      this.environment,
+      this.frameStack.map(frame => frame.copy()),
+      { ...this.instances },
+      mapObject(context => ({ ...context, locals: { ...context.locals } }), this.contexts),
+    )
+
+    evaluation.instances = mapObject(instance => instance.copy(evaluation), evaluation.instances)
+
+    return evaluation
+  }
+
+}
+
+
+export class Frame {
+  constructor(
+    readonly id: Id,
+    readonly instructions: List<Instruction>,
+    public context: Id,
+    public nextInstruction: number,
+    public operandStack: Id[],
+  ){}
+
+  copy(): Frame {
+    return new Frame(this.id, this.instructions, this.context, this.nextInstruction, [...this.operandStack])
+  }
+
+  popOperand(): Id {
+    const response = this.operandStack.pop()
+    if (!response) throw new RangeError('Popped empty operand stack')
+    return response
+  }
+
+  pushOperand(id: Id): void {
+    this.operandStack.push(id)
+  }
+
+}
+
+
 export type InnerValue = string | number | Id[]
+
 
 export class RuntimeObject {
   constructor(
@@ -72,7 +193,7 @@ export class RuntimeObject {
     public readonly id: Id,
     public innerValue?: InnerValue
   ) { this.evaluation = () => evaluation }
-
+    
   copy(evaluation: Evaluation): RuntimeObject {
     return new RuntimeObject(
       evaluation,
@@ -154,13 +275,9 @@ export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', modu
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, useReceiverContext = true, lookupStart?: Name): Instruction =>
-  ({
-    kind: 'CALL', message, arity, useReceiverContext, lookupStart, 
-  })
+  ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
 export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction =>
-  ({
-    kind: 'INIT', arity, lookupStart, optional, 
-  })
+  ({ kind: 'INIT', arity, lookupStart, optional })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const INTERRUPT: Instruction = ({ kind: 'INTERRUPT' })
 export const RETURN: Instruction = ({ kind: 'RETURN' })
@@ -525,9 +642,6 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
       const self = evaluation.instance(currentFrame.popOperand())
 
-      if (evaluation.frameStack.length >= MAX_STACK_SIZE)
-        return evaluation.raise(evaluation.createInstance('wollok.lang.StackOverflowException'))
-
       let lookupStart: Name
       if (instruction.lookupStart) {
         const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
@@ -560,7 +674,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           }, natives as any)
           const args = argIds.map(id => {
             if (id === VOID_ID) throw new Error('Reference to void argument')
-            return evaluation.instances[id]
+            return evaluation.instance(id)
           })
 
           native(self, ...args)(evaluation)
@@ -655,7 +769,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
     case 'RETURN': return (() => {
       const valueId = currentFrame.popOperand()
-      evaluation.frameStack.pop()
+      evaluation.popFrame()
 
       const next = evaluation.currentFrame()
 
@@ -744,8 +858,13 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
   stepAll(natives)(evaluation)
 
-  const currentFrame = evaluation.frameStack.pop()!
-  return currentFrame.operandStack.length ? evaluation.instances[currentFrame.popOperand()] : null
+  const currentFrame = evaluation.popFrame()!
+  if(currentFrame.operandStack.length) {
+    const topOperand = currentFrame.popOperand()
+    if(topOperand !== VOID_ID) return evaluation.instance(topOperand)
+  }
+  return null
+
 }
 
 interface TestResult {
@@ -840,7 +959,7 @@ export default (environment: Environment, natives: Natives) => ({
     log.start('Initializing Evaluation')
     const evaluation = buildEvaluation(environment)
     stepAll(natives)(evaluation)
-    evaluation.frameStack.pop()
+    evaluation.popFrame()
     log.done('Initializing Evaluation')
 
     return zipObj(

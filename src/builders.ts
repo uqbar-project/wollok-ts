@@ -1,4 +1,3 @@
-import { Evaluation as EvaluationBehavior, Frame as FrameBehavior } from './behavior'
 import { mapObject } from './extensions'
 import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType } from './interpreter'
 import * as Model from './model'
@@ -7,6 +6,9 @@ import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Cla
 const { isArray } = Array
 
 type BuildPayload<T> = Partial<Payload<T>>
+
+// TODO: Be able to build nodes on different stages
+// TODO: Maybe we don't need these if we make constructors a bit better with defaults and stuff?
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
@@ -286,24 +288,26 @@ export const Evaluation = (
   contexts: Record<Id, Context> = {}
 ) =>
   (...frameStack: FrameType[]): EvaluationType => {
-    const evaluation = EvaluationBehavior({
+    const evaluation = new EvaluationType(
       environment,
+      [...frameStack].reverse(),
       instances,
       contexts,
-      frameStack: [...frameStack].reverse(),
-    })
+    )
 
+    // TODO: Improve this
     evaluation.instances = mapObject(instance => instance.copy(evaluation), evaluation.instances)
 
     return evaluation
   }
 
-export const Frame = (payload: Partial<FrameType>): FrameType => FrameBehavior({
-  nextInstruction: 0,
-  instructions: [],
-  operandStack: [],
-  ...payload,
-})
+export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
+    payload.id!,
+    payload.instructions ?? [],
+    payload.context!,
+    payload.nextInstruction ?? 0,
+    payload.operandStack ?? [],
+)
 
 export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
   new RuntimeObjectType(

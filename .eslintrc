@@ -122,11 +122,9 @@
         },
         "ImportDeclaration": "never",
         "ObjectExpression": {
-          "minProperties": 4,
           "multiline": true
         },
         "ObjectPattern": {
-          "minProperties": 4,
           "multiline": true
         }
       }
