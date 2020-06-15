@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Node, Body, Class, Describe, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Method } from './model'
+import { is, Node, Body, Class, Describe, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton } from './model'
 import { v4 as uuid } from 'uuid'
 
 const { round } = Math
@@ -351,20 +351,21 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       ]
 
       if (node.value.kind === 'Singleton') {
-        if ((node.value.superCall.args as any[]).some(arg => arg.is('NamedArgument'))) {
+        if (node.value.superCall.args.some(is('NamedArgument'))) {
           const supercallArgs = node.value.superCall.args as List<NamedArgument>
           return [
             ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED(supercallArgs.map(({ name }) => name)),
-            INIT(0, node.value.superCall.superclassRef.target<'Class'>().fullyQualifiedName(), true),
+            INIT(0, node.value.superclass().fullyQualifiedName(), true),
           ]
         } else {
+          const supercallArgs = node.value.superCall.args as List<Expression>
           return [
-            ...(node.value.superCall.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
+            ...supercallArgs.flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED([]),
-            INIT(node.value.superCall.args.length, node.value.superCall.superclassRef.target<'Class'>().fullyQualifiedName()),
+            INIT(node.value.superCall.args.length, node.value.superclass().fullyQualifiedName()),
           ]
         }
       }
@@ -393,7 +394,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     case 'Super': return (() => {
-      const currentMethod = node.ancestors().find((node): node is Method => node.is('Method'))!
+      const currentMethod = node.ancestors().find(is('Method'))!
       return [
         LOAD('self'),
         ...node.args.flatMap(arg => compile(environment)(arg)),
@@ -820,21 +821,22 @@ const buildEvaluation = (environment: Environment): Evaluation => {
   evaluation.frameStack.push(build.Frame({
     context: rootContext,
     instructions: [
-      ...globalSingletons.flatMap(({ id, superCall: { superclassRef: superclass, args } }) => {
-        if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
-          const argList = args as List<NamedArgument>
+      ...globalSingletons.flatMap(singleton => {
+        if (singleton.superCall.args.some(is('NamedArgument'))) {
+          const args = singleton.superCall.args as List<NamedArgument>
           return [
-            ...argList.flatMap(({ value }) => compile(environment)(value)),
-            PUSH(id),
-            INIT_NAMED(argList.map(({ name }) => name)),
-            INIT(0, superclass.target<'Class'>().fullyQualifiedName(), true),
+            ...args.flatMap(({ value }) => compile(environment)(value)),
+            PUSH(singleton.id),
+            INIT_NAMED(args.map(({ name }) => name)),
+            INIT(0, singleton.superclass().fullyQualifiedName(), true),
           ]
         } else {
+          const args = singleton.superCall.args as List<Expression>
           return [
-            ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
-            PUSH(id),
+            ...args.flatMap(arg => compile(environment)(arg)),
+            PUSH(singleton.id),
             INIT_NAMED([]),
-            INIT(args.length, superclass.target<'Class'>().fullyQualifiedName()),
+            INIT(args.length, singleton.superclass().fullyQualifiedName()),
           ]
         }
       }),

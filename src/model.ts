@@ -19,6 +19,11 @@ export type Payload<T> = Omit<
 
 export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
+export const is = <Q extends Kind | Category>(kindOrCategory: Q) =>
+  <S extends Stage>(node: Node<S>): node is NodeOfKindOrCategory<Q, S> =>
+    node.is(kindOrCategory)
+
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CACHE
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -327,10 +332,10 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
 
   constructor(data: Payload<Describe<S>>) { super(data) }
 
-  tests(): List<Test<S>> { return this.members.filter((member): member is Test<S> => member.is('Test')) }
-  methods(): List<Method<S>> { return this.members.filter((member): member is Method<S> => member.is('Method')) }
-  variables(): List<Variable<S>> { return this.members.filter((member): member is Variable<S> => member.is('Variable')) }
-  fixtures(): List<Fixture<S>> { return this.members.filter((member): member is Fixture<S> => member.is('Fixture')) }
+  tests(): List<Test<S>> { return this.members.filter(is('Test')) }
+  methods(): List<Method<S>> { return this.members.filter(is('Method')) }
+  variables(): List<Variable<S>> { return this.members.filter(is('Variable')) }
+  fixtures(): List<Fixture<S>> { return this.members.filter(is('Fixture')) }
 
   @cached
   lookupMethod<R extends Linked>(this: Describe<R>, name: Name, arity: number): Method<R> | undefined {
@@ -370,8 +375,8 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
 
-  methods(): List<Method<S>> { return this.members.filter((member): member is Method<S> => member.is('Method')) }
-  fields(): List<Field<S>> { return this.members.filter((member): member is Field<S> => member.is('Field')) }
+  methods(): List<Method<S>> { return this.members.filter(is('Method')) }
+  fields(): List<Field<S>> { return this.members.filter(is('Field')) }
 
   @cached
   hierarchy<R extends Linked>(this: Module<R>): List<Module<R>> {
@@ -414,7 +419,7 @@ export class Class<S extends Stage = Final> extends $Module<S> {
 
   constructor(data: Payload<Class<S>>) { super(data) }
 
-  constructors(): List<Constructor<S>> { return this.members.filter<Constructor<S>>((member): member is Constructor<S> => member.is('Constructor')) }
+  constructors(): List<Constructor<S>> { return this.members.filter<Constructor<S>>(is('Constructor')) }
 
   superclass<R extends Linked>(this: Module<R>): Class<R> | null
   superclass<R extends Linked>(this: Class<R>): Class<R> | null {
@@ -447,7 +452,8 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
 
   constructor(data: Payload<Singleton<S>>) { super(data) }
 
-  superclass<R extends Linked>(this: Module<R>): Class<R> | null
+  superclass<R extends Linked>(this: Singleton<R>): Class<R>
+  superclass<R extends Linked>(this: Module<R>): Class<R> | null 
   superclass<R extends Linked>(this: Singleton<R>): Class<R> {
     return this.superCall.superclassRef.target()
   }
@@ -702,5 +708,4 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
 //   - References could have an (optional ?) type parameter for the target
 //   - Mixin-pattern for abstract classes to fix Variable case
 //   - Scope como método cacheado en lugar de campo?
-//   - is function to prevent (x): x is T => x.is('T')
-//   - as function to use as safe cast instead of all the crapy casts in many methods
+//   - as function to use as safe cast instead of all the crapy casts in many methods ?
