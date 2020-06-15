@@ -141,7 +141,7 @@ export default (
     scope: {},
     members: newPackages
       .reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package<Linked>>,
-  }).transform<'Environment', Linked>(node => node.copy({ id: uuid() }))
+  }).transform(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
     if(parent) node._cache().set('parent()', parent)
@@ -152,10 +152,10 @@ export default (
   assignScopes(environment)
 
   // TODO: Move this to validations so it becomes fail-resilient
-  environment.forEach({
-    Reference: node => {
-      try { node.target() } catch (e) { throw new Error(`Unlinked reference to ${node.name} in ${node.source?.file}`) }
-    },
+  environment.forEach(node => {
+    if(node.is('Reference'))
+      try { node.target() }
+      catch (e) { throw new Error(`Unlinked reference to ${node.name} in ${node.source?.file}`) }
   })
 
   return environment

@@ -1,6 +1,6 @@
 import { List } from './model'
 
-export const keys = <T>(obj: T): (keyof T)[] => Object.keys(obj) as (keyof T)[]
+export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
 

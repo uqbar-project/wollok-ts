@@ -1,5 +1,5 @@
 import { Index } from 'parsimmon'
-import { divideOn, mapObject } from './extensions'
+import { keys, divideOn, mapObject } from './extensions'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -59,7 +59,7 @@ export type Kind = Node['kind']
 
 export type KindOf<N extends Node<any>> = N['kind']
 
-export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression'
+export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression' | 'Node'
 
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
@@ -68,6 +68,7 @@ export type NodeOfCategory<C extends Category, S extends Stage> =
   C extends 'Module' ? Module<S> :
   C extends 'Sentence' ? Sentence<S> :
   C extends 'Expression' ? Expression<S> :
+  C extends 'Node' ? Node<S> :
   never
 
 export type NodeOfKindOrCategory<Q extends Kind | Category, S extends Stage> =
@@ -117,7 +118,7 @@ abstract class $Node<S extends Stage> {
   }
  
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
-    return this.kind === kindOrCategory
+    return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
 
   copy(delta: Partial<Payload<this>>): this {
@@ -162,34 +163,29 @@ abstract class $Node<S extends Stage> {
   @cached
   environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no Environment') }
 
-  forEach(
-    this: Node<S>,
-    tx: ((node: Node<S>, parent?: Node<S>) => void) | Partial<{ [K in Kind]: (node: NodeOfKind<K, S>, parent?: Node<S>) => void }>,
-    parent?: Node<S>
-  ) {
-    if (typeof tx === 'function') tx(this, parent)
-    else tx[this.kind]?.(this as any, parent)
-
-    this.children().forEach(child => child.forEach(tx, this))
+  match<T>(this: Node<S>, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q, S>) => T }>): T {
+    const matched = keys(cases).find(key => this.is(key))
+    if(!matched) throw new Error(`Unmatched kind ${this.kind}`)
+    return (cases[matched] as (node: Node<S>) => T)(this)
   }
-
-  transform<Q extends Kind, R extends Stage = S>(
-    tx: ((node: Node<R>) => Node<R>) |
-      Partial<{ [K in Kind]: (node: NodeOfKind<K, R>) => NodeOfKind<K, R> }>
-  ): NodeOfKind<Q, R>
-  transform<R extends Stage = S>(tx: ((node: Node<R>) => Node<R>) |
-      Partial<{ [K in Kind]: (node: NodeOfKind<K, R>) => NodeOfKind<K, R> }>): NodeOfKind<this['kind'], R> {
+  
+  transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): NodeOfKind<this['kind'], R>
+  transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): Node<R>
+  transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>) {
     const applyTransform = (value: any): any => {
       if (typeof value === 'function') return value
       if (isArray(value)) return value.map(applyTransform)
-      if (isNode<S>(value)) return typeof tx === 'function'
-        ? value.copy(mapObject(applyTransform, tx(value as any)))
-        : (tx[value.kind] as any ?? ((n: any) => n))(value.copy(mapObject(applyTransform, value)))
+      if (isNode<S>(value)) return value.copy(mapObject(applyTransform, tx(value as any)))
       if (value instanceof Object) return mapObject(applyTransform, value)
       return value
     }
-
+  
     return applyTransform(this)
+  }
+
+  forEach(this: Node<S>, tx: (node: Node<S>, parent?: Node<S>) => void, parent?: Node<S>) {
+    tx(this, parent)
+    this.children().forEach(child => child.forEach(tx, this))
   }
 
   reduce<T>(this: Node<S>, tx: (acum: T, node: Node<S>) => T, initial: T): T {
@@ -703,3 +699,4 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
 // TODO:  CLASSES FIXES
 //   - target type parameters (?)
 //   - Mixin-pattern for abstract classes to fix Variable case
+//   - Scope como método cacheado en lugar de campo?

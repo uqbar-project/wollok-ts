@@ -1,5 +1,5 @@
 import { getter, setter } from './builders'
-import { Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
+import { Node, Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
 
 const OBJECT_CLASS: Reference<Filled> = new Reference({ name: 'wollok.lang.Object' })
 
@@ -16,14 +16,14 @@ const DEFAULT_CONSTRUCTOR: Constructor<Filled> = new Constructor({
 })
 
 
-const filledPropertyAccessors = (transformed: Module<Filled>) => {
-  const overridesGeter = (field: Field<Filled>) => transformed.methods()
+const filledPropertyAccessors = (node: Module<Filled>) => {
+  const overridesGeter = (field: Field<Filled>) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 0)
 
-  const overridesSeter = (field: Field<Filled>) => transformed.methods()
+  const overridesSeter = (field: Field<Filled>) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 1)
 
-  const propertyFields = transformed.fields().filter(field => field.isProperty)
+  const propertyFields = node.fields().filter(field => field.isProperty)
 
   const propertyGetters = propertyFields
     .filter(field => !overridesGeter(field))
@@ -36,59 +36,64 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
   return [...propertyGetters, ...propertySetters]
 }
 
-export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => rawNode.transform<K, Filled>({
-  Class: (transformed) => new Class({
-    ...transformed,
-    superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
-    members: [
-      ...transformed.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
-      ...transformed.members,
-      ...filledPropertyAccessors(transformed),
-    ],
-  }),
+export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => {
+  const result = rawNode.transform<Filled>(filledNode => filledNode.match<Node<Filled>>({
+    Class: node => new Class({
+      ...node,
+      superclass: node.name === 'Object' ? null : node.superclass ?? OBJECT_CLASS,
+      members: [
+        ...node.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
+        ...node.members,
+        ...filledPropertyAccessors(node),
+      ],
+    }),
 
-  Mixin: (transformed) => new Mixin({
-    ...transformed,
-    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-  }),
+    Mixin: node => new Mixin({
+      ...node,
+      members: [...node.members, ...filledPropertyAccessors(node)],
+    }),
 
-  Singleton: (transformed) => new Singleton({
-    ...transformed,
-    superCall: transformed.superCall ?? {
-      superclass: OBJECT_CLASS,
-      args: [],
-    },
-    members: [...transformed.members, ...filledPropertyAccessors(transformed)],
-  }),
+    Singleton: node => new Singleton({
+      ...node,
+      superCall: node.superCall ?? {
+        superclass: OBJECT_CLASS,
+        args: [],
+      },
+      members: [...node.members, ...filledPropertyAccessors(node)],
+    }),
 
-  Field: (transformed) => new Field({
-    ...transformed,
-    value: transformed.value ?? NULL,
-  }),
+    Field: node => new Field({
+      ...node,
+      value: node.value ?? NULL,
+    }),
 
-  Variable: (transformed) => new Variable({
-    ...transformed,
-    value: transformed.value ?? NULL,
-  }),
+    Variable: node => new Variable({
+      ...node,
+      value: node.value ?? NULL,
+    }),
 
-  If: (transformed) => new If({
-    ...transformed,
-    elseBody: transformed.elseBody ?? EMPTY_BODY,
-  }),
+    If: node => new If({
+      ...node,
+      elseBody: node.elseBody ?? EMPTY_BODY,
+    }),
 
-  Try: (transformed) => new Try<Filled>({
-    ...transformed,
-    always: transformed.always ?? EMPTY_BODY,
-  }),
+    Try: node => new Try<Filled>({
+      ...node,
+      always: node.always ?? EMPTY_BODY,
+    }),
 
-  Catch: (transformed) => new Catch({
-    ...transformed,
-    parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
-  }),
+    Catch: node => new Catch({
+      ...node,
+      parameterType: node.parameterType ?? EXCEPTION_CLASS,
+    }),
 
-  Constructor: (transformed) => new Constructor({
-    ...transformed,
-    baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
-  }),
+    Constructor: node => new Constructor({
+      ...node,
+      baseCall: node.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
+    }),
 
-})
+    Node: node => node,
+  })  )
+
+  return result as NodeOfKind<K, Filled>
+}
