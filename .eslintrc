@@ -82,10 +82,6 @@
       "never"
     ],
     "for-direction": "off",
-    "function-paren-newline": [
-      "warn",
-      "multiline-arguments"
-    ],
     "function-call-argument-newline": [
       "warn",
       "consistent"

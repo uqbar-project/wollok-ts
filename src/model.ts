@@ -45,10 +45,8 @@ export abstract class Filled extends Raw { protected readonly filledTag = 'Fille
 export abstract class Linked extends Filled { protected readonly linkedTag = 'Linked' }
 export type Final = Linked
 
-type Stageable<S extends Stage, C extends Stage, T> = S extends C ? T : T | undefined
-export type Fillable<S extends Stage, T> = Stageable<S, Filled, T>
-export type Linkable<S extends Stage, T> = Stageable<S, Linked, T>
-
+export type Fillable<S extends Stage, T> = S extends Filled ? T : T | undefined
+export type Linkable<S extends Stage, T> = S extends Linked ? T : T | undefined
 
 export type OnStage<N, S extends Stage> = N extends NodeOfKind<infer K, infer _> ? NodeOfKind<K, S> : never
 
@@ -162,6 +160,14 @@ abstract class $Node<S extends Stage> {
   }
 
   @cached
+  ancestors<R extends Linked>(this: Node<R>): List<Node<R>> {
+    try {
+      const parent = this.parent()
+      return [parent, ...parent.ancestors()]
+    } catch (_) { return [] }
+  }
+
+  @cached
   environment<R extends Linked>(this: Node<R>): Environment<R> { throw new Error('Unlinked node has no Environment') }
 
   match<T>(this: Node<S>, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q, S>) => T }>): T {
@@ -184,27 +190,23 @@ abstract class $Node<S extends Stage> {
     return applyTransform(this)
   }
 
-  forEach(this: Node<S>, tx: (node: Node<S>, parent?: Node<S>) => void, parent?: Node<S>) {
-    tx(this, parent)
-    this.children().forEach(child => child.forEach(tx, this))
+  forEach(this: Node<S>, tx: (node: Node<S>, parent?: Node<S>) => void): void {
+    this.reduce((_, node, parent) => {
+      tx(node, parent)
+      return undefined
+    }, undefined)
   }
 
-  reduce<T>(this: Node<S>, tx: (acum: T, node: Node<S>) => T, initial: T): T {
-    return this.children().reduce((acum, child) => child.reduce(tx, acum), tx(initial, this))
-  }
-
-  // TODO: would it be too slow to replace this with ancestors().find?
-  closestAncestor<R extends Linked, K extends Kind>(this: Node<R>, kind: K): NodeOfKind<K, R> | undefined {
-    let parent: Node<R>
-    try {
-      parent = this.parent()
-    } catch (_) { return undefined }
-
-    return parent.is(kind) ? parent as any : parent.closestAncestor(kind)
+  reduce<T>(this: Node<S>, tx: (acum: T, node: Node<S>, parent?: Node<S>) => T, initial: T): T {
+    const applyReduce = (acum: T, node: Node<S>, parent?: Node<S>): T =>
+      node.children().reduce((seed, child) => {
+        return applyReduce(seed, child, node)
+      }, tx(acum, node, parent))
+    
+    return applyReduce(initial, this)
   }
 
 }
-
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
@@ -267,13 +269,14 @@ abstract class $Entity<S extends Stage> extends $Node<S> {
   fullyQualifiedName<R extends Linked>(this: Entity<R>): Name {
     const parent = this.parent()
     const label = this.is('Singleton')
-      ? this.name || `${this.superCall.superclass.target<Module<R>, R>().fullyQualifiedName()}#${this.id}`
+      ? this.name || `${this.superCall.superclassRef.target<'Module'>().fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
 
     return parent.is('Package') || parent.is('Describe')
       ? `${parent.fullyQualifiedName()}.${label}`
       : label
   }
+
 }
 
 
@@ -286,14 +289,14 @@ export class Package<S extends Stage = Final> extends $Entity<S> {
   constructor(data: Payload<Package<S>>) { super(data) }
 
   @cached
-  getNodeByQN<N extends Node<R>, R extends Linked = Final>(this: Package<R>, qualifiedName: Name): N {
+  getNodeByQN<R extends Linked = Final>(this: Package<R>, qualifiedName: Name): Entity<R> {
     const [, id] = qualifiedName.split('#')
     if (id) return this.environment().getNodeById(id)
-    return qualifiedName.split('.').reduce((current: Node<R>, step) => {
-      const next = current.children().find(child => child.is('Entity') && child.name === step)
+    return qualifiedName.split('.').reduce((current: Entity<R>, step) => {
+      const next = current.children().find((child): child is Entity<R> => child.is('Entity') && child.name === step)
       if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name} among ${JSON.stringify(current.children())}`)
       return next
-    }, this) as N
+    }, this)
   }
 
 }
@@ -348,7 +351,7 @@ export class Variable<S extends Stage = Final> extends $Entity<S> {
 
   constructor(data: Payload<Variable<S>>) { super(data) }
 
-  // TODO: Evitar?
+  // TODO: Can we prevent repeating this here?
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return [this.kind, 'Sentence', 'Entity'].includes(kindOrCategory)
   }
@@ -368,7 +371,6 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
   }
 
   methods(): List<Method<S>> { return this.members.filter((member): member is Method<S> => member.is('Method')) }
-
   fields(): List<Field<S>> { return this.members.filter((member): member is Field<S> => member.is('Field')) }
 
   @cached
@@ -376,8 +378,8 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
     const hierarchyExcluding = (module: Module<R>, exclude: List<Id> = []): List<Module<R>> => {
       if (exclude.includes(module.id!)) return []
       const modules = [
-        ...module.mixins.map(mixin => mixin.target<Module<R>, R>()),
-        ...module.kind === 'Mixin' ? [] : module.superclassNode() ? [module.superclassNode()!] : [],
+        ...module.mixins.map(mixin => mixin.target<'Module', R>()),
+        ...module.kind === 'Mixin' ? [] : module.superclass() ? [module.superclass()!] : [],
       ]
       return modules.reduce(({ mods, exs }, mod) => (
         { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
@@ -408,16 +410,15 @@ export class Class<S extends Stage = Final> extends $Module<S> {
   readonly name!: Name
   readonly mixins!: List<Reference<S>>
   readonly members!: List<ClassMember<S>>
-  // TODO: rename this and rename superclassNode to superclass (in Singleton too)
-  readonly superclass!: Fillable<S, Reference<S> | null>
+  readonly superclassRef!: Fillable<S, Reference<S> | null>
 
   constructor(data: Payload<Class<S>>) { super(data) }
 
   constructors(): List<Constructor<S>> { return this.members.filter<Constructor<S>>((member): member is Constructor<S> => member.is('Constructor')) }
 
-  superclassNode<R extends Linked>(this: Module<R>): Class<R> | null
-  superclassNode<R extends Linked>(this: Class<R>): Class<R> | null {
-    return this.superclass?.target<Class<R>, R>() ?? null
+  superclass<R extends Linked>(this: Module<R>): Class<R> | null
+  superclass<R extends Linked>(this: Class<R>): Class<R> | null {
+    return this.superclassRef?.target<'Class', R>() ?? null
   }
 
   @cached
@@ -429,7 +430,7 @@ export class Class<S extends Stage = Final> extends $Module<S> {
     const isNotDefaultConstructor = (constructor: Constructor<R>) => constructor.body.sentences.length !== 0 || constructor.baseCall
     return this.constructors().filter(isNotDefaultConstructor).length
       ? undefined
-      : this.superclassNode?.()?.lookupConstructor?.(arity)
+      : this.superclass?.()?.lookupConstructor?.(arity)
   }
 }
 
@@ -440,15 +441,15 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
   readonly mixins!: List<Reference<S>>
   readonly members!: List<ObjectMember<S>>
   readonly superCall!: Fillable<S, {
-    superclass: Reference<S>,
+    superclassRef: Reference<S>,
     args: List<Expression<S>> | List<NamedArgument<S>>
   }>
 
   constructor(data: Payload<Singleton<S>>) { super(data) }
 
-  superclassNode<R extends Linked>(this: Module<R>): Class<R> | null
-  superclassNode<R extends Linked>(this: Singleton<R>): Class<R> {
-    return this.superCall.superclass.target()
+  superclass<R extends Linked>(this: Module<R>): Class<R> | null
+  superclass<R extends Linked>(this: Singleton<R>): Class<R> {
+    return this.superCall.superclassRef.target()
   }
 }
 
@@ -582,10 +583,10 @@ export class Reference<S extends Stage = Final> extends $Expression<S> {
   constructor(data: Payload<Reference<S>>) { super(data) }
 
   @cached
-  target<N extends Node<C>, C extends Linked = Final>(this: Reference<C>): N {
+  target<Q extends Kind | Category = 'Node', R extends Linked = Final>(this: Reference<R>): NodeOfKindOrCategory<Q, R> {
     const [start, rest] = divideOn('.')(this.name)
-    const root: Package<C> = this.environment().getNodeById(this.scope[start])
-    return rest.length ? root.getNodeByQN(rest) : root as N
+    const root: Package<R> = this.environment().getNodeById(this.scope[start])
+    return (rest.length ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<Q, R>
   }
 
 }
@@ -683,21 +684,23 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
   constructor(data: Payload<Environment<S>>) { super(data) }
 
   @cached
-  getNodeById<N extends Node<R>, R extends Linked = Final>(this: Environment<R>, _id: Id): N {
-    throw new Error(`Missing node in node cache with id ${_id}`)
+  getNodeById<Q extends Kind | Category, R extends Linked = Final>(this: Environment<R>, id: Id): NodeOfKindOrCategory<Q, R> {
+    throw new Error(`Missing node in node cache with id ${id}`)
   }
 
   @cached
-  getNodeByFQN<N extends Node<R>, R extends Linked = Final>(this: Environment<R>, fullyQualifiedName: Name): N {
+  getNodeByFQN<Q extends Kind | Category, R extends Linked = Final>(this: Environment<R>, fullyQualifiedName: Name): NodeOfKindOrCategory<Q, R> {
     const [start, rest] = divideOn('.')(fullyQualifiedName)
     const root = this.members.find(child => child.name === start)
     if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-    return rest ? root.getNodeByQN(rest) : root as N
+    return (rest ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<Q, R>
   }
 
 }
 
 // TODO:  CLASSES FIXES
-//   - target type parameters (?)
+//   - References could have an (optional ?) type parameter for the target
 //   - Mixin-pattern for abstract classes to fix Variable case
 //   - Scope como método cacheado en lugar de campo?
+//   - is function to prevent (x): x is T => x.is('T')
+//   - as function to use as safe cast instead of all the crapy casts in many methods

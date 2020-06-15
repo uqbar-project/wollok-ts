@@ -73,11 +73,11 @@ describe('Wollok Validations', () => {
         Package('p')(
           Class(
             'C',
-            { superclass: Reference('program') }
+            { superclassRef: Reference('program') }
           )(),
           Class(
             'C2',
-            { superclass: Reference('C') }
+            { superclassRef: Reference('C') }
           )(),
           Class('program')(),
         ),
@@ -86,10 +86,10 @@ describe('Wollok Validations', () => {
       const { nameIsNotKeyword } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = packageExample.members[0] as ClassNode<Linked>
-      const referenceWithKeywordName = classExample.superclass!
+      const referenceWithKeywordName = classExample.superclassRef!
 
       const classExample2 = packageExample.members[1] as ClassNode<Linked>
-      const referenceWithValidName = classExample2.superclass!
+      const referenceWithValidName = classExample2.superclassRef!
 
       it('should pass when name is not a keyword', () => {
         referenceWithValidName.should.pass(nameIsNotKeyword)
@@ -289,7 +289,7 @@ describe('Wollok Validations', () => {
           Class('C')(Method('m')()),
           Class(
             'C2',
-            { superclass: Reference('C') }
+            { superclassRef: Reference('C') }
           )(Method('m')(Super())),
 
         ),

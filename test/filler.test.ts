@@ -10,10 +10,10 @@ use(fillerAssertions)
 describe('Wollok filler', () => {
 
   it('fills in wollok.lang.Object as default superclass for Classes', () => {
-    fill(Class('C')()).superclass!.should.be.filledInto(Reference('wollok.lang.Object'))
+    fill(Class('C')()).superclassRef!.should.be.filledInto(Reference('wollok.lang.Object'))
 
-    const superclass = Reference('foo')
-    fill(Class('C', { superclass })()).superclass!.should.be.filledInto(superclass)
+    const superclassRef = Reference('foo')
+    fill(Class('C', { superclassRef })()).superclassRef!.should.be.filledInto(superclassRef)
   })
 
   it('fills non overrided accessors for properties', () => {
@@ -27,9 +27,9 @@ describe('Wollok filler', () => {
   })
 
   it('fills in wollok.lang.Object as default superclass for Singletons', () => {
-    fill(Singleton('S')()).superCall.should.be.filledInto({ superclass: Reference('wollok.lang.Object'), args: [] })
+    fill(Singleton('S')()).superCall.should.be.filledInto({ superclassRef: Reference('wollok.lang.Object'), args: [] })
 
-    const superCall = { superclass: Reference('foo'), args: [] }
+    const superCall = { superclassRef: Reference('foo'), args: [] }
     fill(Singleton('S', { superCall })()).superCall.should.be.filledInto(superCall)
   })
 

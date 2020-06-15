@@ -32,13 +32,13 @@ const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => 
   if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
 
   const [start, rest] = divideOn('.')(qualifiedName)
-  const root = context.environment().getNodeById<Entity>(context.scope[start])
+  const root = context.environment().getNodeById<'Entity'>(context.scope[start])
 
   if (rest.length) {
     if (!root.is('Package'))
       throw new Error(`Trying to resolve ${qualifiedName} from non-package root`)
 
-    return (root as Package<Linked>).getNodeByQN<Module>(rest)
+    return (root as Package<Linked>).getNodeByQN(rest)
   } else {
     return root
   }
@@ -81,9 +81,9 @@ const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): 
       const mixinsScope: Scope = assign({}, ...mixins.flatMap(mixin =>
         mixin.children().map(scopeContribution)))
 
-      if (module.is('Mixin') || (module.is('Class') && !module.superclass)) return mixinsScope
+      if (module.is('Mixin') || (module.is('Class') && !module.superclassRef)) return mixinsScope
 
-      const superclass = resolve(module, module.is('Class') ? module.superclass!.name : module.superCall.superclass.name) as Module
+      const superclass = resolve(module, module.is('Class') ? module.superclassRef!.name : module.superCall.superclassRef.name) as Module
       const superclassScope = assign({}, ...superclass.children().map(scopeContribution))
 
       return {
@@ -106,7 +106,7 @@ const assignScopes = (environment: Environment<Linked>) => {
   const globalScope = assign(
     {},
     ...environment.children().map(scopeContribution),
-    ...globalPackages.flatMap(name => environment.getNodeByFQN<Package>(name).members.map(scopeContribution)),
+    ...globalPackages.flatMap(name => environment.getNodeByFQN<'Package'>(name).members.map(scopeContribution)),
   )
 
   function propagateScopeAssignment(

@@ -164,7 +164,7 @@ const mixinLinearization = lazy(() =>
 export const classEntity: Parser<Class<Raw>> = lazy(() =>
   key('class').then(node('Class')({
     name,
-    superclass: optional(key('inherits').then(fullyQualifiedReference)),
+    superclassRef: optional(key('inherits').then(fullyQualifiedReference)),
     mixins: mixinLinearization.fallback([]),
     members: classMember.sepBy(optional(_)).wrap(key('{'), key('}')),
   })).thru(sourced))
@@ -173,7 +173,7 @@ export const singletonEntity: Parser<Singleton<Raw>> = lazy(() => {
   const superCall = key('inherits').then(seqMap(
     fullyQualifiedReference,
     alt(unamedArguments, namedArguments, of([])),
-    (superclass, args) => ({ superclass, args })
+    (superclassRef, args) => ({ superclassRef, args })
   ))
 
   return key('object').then(seqMap(
@@ -329,7 +329,7 @@ export const newExpression: Parser<New<Raw> | Literal<Raw, Singleton<Raw>>> = la
       (key('with').then(reference)).atLeast(1).map(mixins => [...mixins].reverse()),
       (superclass, args, mixins) => new Literal<Raw>({
         value: new Singleton({
-          superCall: { superclass, args },
+          superCall: { superclassRef: superclass, args },
           mixins,
           members: [],
         }),

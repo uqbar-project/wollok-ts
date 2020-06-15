@@ -3,7 +3,7 @@ import { restore, stub } from 'sinon'
 import { Class, Constructor, Evaluation, Field, Frame, Literal, Method, Package, Parameter, Reference, Return, RuntimeObject } from '../src/builders'
 import { CALL, compile, CONDITIONAL_JUMP, DUP, FALSE_ID, INHERITS, INIT, INIT_NAMED, INSTANTIATE, INTERRUPT, JUMP, LOAD, NativeFunction, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, step, STORE, SWAP, TRUE_ID, VOID_ID, ROOT_CONTEXT_ID } from '../src/interpreter'
 import link from '../src/linker'
-import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Module, Package as PackageNode } from '../src/model'
+import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Package as PackageNode } from '../src/model'
 import { interpreterAssertions } from './assertions'
 
 
@@ -13,9 +13,9 @@ use(interpreterAssertions)
 const WRE = Package('wollok')(
   Package('lang')(
     Class('Object')(),
-    Class('Closure', { superclass: Reference('wollok.lang.Object') })(),
-    Class('String', { superclass: Reference('wollok.lang.Object') })(),
-    Class('List', { superclass: Reference('wollok.lang.Object') })()
+    Class('Closure', { superclassRef: Reference('wollok.lang.Object') })(),
+    Class('String', { superclassRef: Reference('wollok.lang.Object') })(),
+    Class('List', { superclassRef: Reference('wollok.lang.Object') })()
   ),
   Package('lib')(),
 ) as unknown as PackageNode<Filled>
@@ -450,7 +450,7 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
         }, { 1: { id: '1', parent: '', locals: {} } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
         evaluation.should.be.stepped().into(Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -485,7 +485,7 @@ describe('Wollok Interpreter', () => {
           3: { id: '3', parent: '0', locals: {} },
         })(Frame({ context: '0', operandStack: ['3', '2', '1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
 
         evaluation.should.be.stepped().into(Evaluation(environment, {
@@ -526,7 +526,7 @@ describe('Wollok Interpreter', () => {
           5: RuntimeObject('5', 'wollok.lang.Object'),
         }, { 1: { id: '1', parent: '', locals: {} } })(Frame({ context: '1', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
 
         evaluation.should.be.stepped().into(Evaluation(environment, {
@@ -568,7 +568,7 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
         }, { 1: { id: '1', parent: '', locals: {} } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = (
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = (
           name => name === 'messageNotUnderstood' ? messageNotUnderstood : undefined
         )
 
@@ -610,8 +610,8 @@ describe('Wollok Interpreter', () => {
           4: RuntimeObject('4', 'wollok.lang.Object'),
         })(Frame({ operandStack: ['4', '3', '2', '1'], instructions: [instruction] }))
 
-        method.parent = () => evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object') as any
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        method.parent = () => evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object') as any
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
         evaluation.should.be.stepped({ wollok: { lang: { Object: { m: native } } } }).into(Evaluation(environment, {
           1: RuntimeObject('1', 'wollok.lang.Object'),
@@ -639,8 +639,8 @@ describe('Wollok Interpreter', () => {
           5: RuntimeObject('5', 'wollok.lang.Object'),
         })(Frame({ operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
 
-        method.parent = () => evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object') as any
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        method.parent = () => evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object') as any
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
 
         evaluation.should.be.stepped({ wollok: { lang: { Object: { m: native } } } }).into(Evaluation(environment, {
@@ -658,7 +658,7 @@ describe('Wollok Interpreter', () => {
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1', '1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -669,7 +669,7 @@ describe('Wollok Interpreter', () => {
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['2', '2', '2'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -680,7 +680,7 @@ describe('Wollok Interpreter', () => {
         const instruction = CALL('m', 0)
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1'], instructions: [instruction] }))
 
-        evaluation.environment.getNodeByFQN<Module>('wollok.lang.Object').lookupMethod = () => method
+        evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -705,7 +705,7 @@ describe('Wollok Interpreter', () => {
           3: RuntimeObject('3', 'wollok.lang.Object'),
         }, { 1: { id: '1', parent: '', locals: {} } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
 
-        const object = environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
+        const object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
         object.lookupConstructor = () => constructor
         constructor.parent = () => object as any
 
@@ -736,11 +736,11 @@ describe('Wollok Interpreter', () => {
         const constructor = Constructor({ baseCall: { callsSuper: true, args: [] } })(Return()) as ConstructorNode<any>
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode
         const f2 = Field('f1', { value: Literal(7) }) as FieldNode
-        const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
+        const X = Class('X', { superclassRef: environment.getNodeByFQN('wollok.lang.Object') as any })(
           f1,
           f2
         ) as ClassNode<any>
-        X.superclassNode = () => environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
+        X.superclass = () => environment.getNodeByFQN<'Class'>('wollok.lang.Object') as any
 
         const instruction = INIT(0, 'X')
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'X') }, { 0: { id: '0', parent: null, locals: {} } })(Frame({ id: '0', context: '0', operandStack: ['1'], instructions: [instruction] }))
@@ -797,7 +797,7 @@ describe('Wollok Interpreter', () => {
           5: { id: '5', parent: '0', locals: {} },
         })(Frame({ id: '0', context: '0', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
 
-        const object = environment.getNodeByFQN<ClassNode<any>>('wollok.lang.Object')
+        const object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
         object.lookupConstructor = () => constructor
         constructor.parent = () => object as any
 
@@ -838,7 +838,7 @@ describe('Wollok Interpreter', () => {
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1', '1', '1'], instructions: [instruction] }))
 
-        environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => undefined
+        environment.getNodeByFQN<'Class'>('wollok.lang.Object').lookupConstructor = () => undefined
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -849,7 +849,7 @@ describe('Wollok Interpreter', () => {
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1', '1'], instructions: [instruction] }))
 
-        environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => constructor
+        environment.getNodeByFQN<'Class'>('wollok.lang.Object').lookupConstructor = () => constructor
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -860,7 +860,7 @@ describe('Wollok Interpreter', () => {
         const instruction = INIT(2, 'wollok.lang.Object')
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1', '1', '2'], instructions: [instruction] }))
 
-        environment.getNodeByFQN<ClassNode>('wollok.lang.Object').lookupConstructor = () => constructor
+        environment.getNodeByFQN<'Class'>('wollok.lang.Object').lookupConstructor = () => constructor
 
         expect(() => step({})(evaluation)).to.throw()
       })
@@ -875,13 +875,13 @@ describe('Wollok Interpreter', () => {
         const f2 = Field('f2', { value: Literal(null) }) as FieldNode
         const f3 = Field('f3', { value: Literal(7) }) as FieldNode
         const f4 = Field('f4', { value: Literal(null) }) as FieldNode
-        const X = Class('X', { superclass: environment.getNodeByFQN('wollok.lang.Object') as any })(
+        const X = Class('X', { superclassRef: environment.getNodeByFQN('wollok.lang.Object') as any })(
           f1,
           f2,
           f3,
           f4,
         ) as ClassNode<any>
-        X.hierarchy = () => [X, environment.getNodeByFQN('wollok.lang.Object')]
+        X.hierarchy = () => [X, environment.getNodeByFQN<'Class'>('wollok.lang.Object')]
 
         const instruction = INIT_NAMED(['f1', 'f2'])
         const evaluation = Evaluation(environment, {

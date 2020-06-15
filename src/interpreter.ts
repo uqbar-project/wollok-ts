@@ -1,7 +1,7 @@
 import * as build from './builders'
 import { last, zipObj } from './extensions'
 import log from './log'
-import { Node, Body, Class, Describe, Entity, Environment, Expression, Id, List, Module, Name, NamedArgument, Program, Sentence, Test, Variable, Singleton } from './model'
+import { Node, Body, Class, Describe, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Method } from './model'
 import { v4 as uuid } from 'uuid'
 
 const { round } = Math
@@ -211,7 +211,7 @@ export class RuntimeObject {
   }
       
   module(): Module {
-    return this.evaluation().environment.getNodeByFQN<Module>(this.moduleFQN)
+    return this.evaluation().environment.getNodeByFQN<'Module'>(this.moduleFQN)
   }
 
   get(field: Name): RuntimeObject | undefined {
@@ -357,14 +357,14 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED(supercallArgs.map(({ name }) => name)),
-            INIT(0, node.value.superCall.superclass.target<Class>().fullyQualifiedName(), true),
+            INIT(0, node.value.superCall.superclassRef.target<'Class'>().fullyQualifiedName(), true),
           ]
         } else {
           return [
             ...(node.value.superCall.args as List<Expression>).flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED([]),
-            INIT(node.value.superCall.args.length, node.value.superCall.superclass.target<Class>().fullyQualifiedName()),
+            INIT(node.value.superCall.args.length, node.value.superCall.superclassRef.target<'Class'>().fullyQualifiedName()),
           ]
         }
       }
@@ -393,7 +393,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     case 'Super': return (() => {
-      const currentMethod = node.closestAncestor('Method')!
+      const currentMethod = node.ancestors().find((node): node is Method => node.is('Method'))!
       return [
         LOAD('self'),
         ...node.args.flatMap(arg => compile(environment)(arg)),
@@ -403,7 +403,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     case 'New': return (() => {
-      const fqn = node.instantiated.target<Entity>().fullyQualifiedName()
+      const fqn = node.instantiated.target<'Entity'>().fullyQualifiedName()
 
       if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
         const args = node.args as List<NamedArgument>
@@ -456,7 +456,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const handler = compileExpressionClause(environment)(body)
         return [
           LOAD('<exception>'),
-          INHERITS(parameterType.target<Module>().fullyQualifiedName()),
+          INHERITS(parameterType.target<'Module'>().fullyQualifiedName()),
           CALL('negate', 0),
           CONDITIONAL_JUMP(handler.length + 5),
           LOAD('<exception>'),
@@ -650,7 +650,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       } else {
         lookupStart = self.moduleFQN
       }
-      const method = environment.getNodeByFQN<Module>(lookupStart).lookupMethod(instruction.message, instruction.arity)
+      const method = environment.getNodeByFQN<'Module'>(lookupStart).lookupMethod(instruction.message, instruction.arity)
 
       if (!method) {
         log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
@@ -720,13 +720,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       const constructorClass = constructor.parent()
 
       evaluation.pushFrame([
-        ...constructor.baseCall && constructorClass.superclassNode() ? [
+        ...constructor.baseCall && constructorClass.superclass() ? [
           ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
           LOAD('self'),
           INIT(
             constructor.baseCall.args.length,
             constructor.baseCall.callsSuper
-              ? constructorClass.superclassNode()!.fullyQualifiedName()
+              ? constructorClass.superclass()!.fullyQualifiedName()
               : constructorClass.fullyQualifiedName(),
             true,
           ),
@@ -820,21 +820,21 @@ const buildEvaluation = (environment: Environment): Evaluation => {
   evaluation.frameStack.push(build.Frame({
     context: rootContext,
     instructions: [
-      ...globalSingletons.flatMap(({ id, superCall: { superclass, args } }) => {
+      ...globalSingletons.flatMap(({ id, superCall: { superclassRef: superclass, args } }) => {
         if ((args as any[]).some(arg => arg.is('NamedArgument'))) {
           const argList = args as List<NamedArgument>
           return [
             ...argList.flatMap(({ value }) => compile(environment)(value)),
             PUSH(id),
             INIT_NAMED(argList.map(({ name }) => name)),
-            INIT(0, superclass.target<Class>().fullyQualifiedName(), true),
+            INIT(0, superclass.target<'Class'>().fullyQualifiedName(), true),
           ]
         } else {
           return [
             ...(args as List<Expression>).flatMap(arg => compile(environment)(arg)),
             PUSH(id),
             INIT_NAMED([]),
-            INIT(args.length, superclass.target<Class>().fullyQualifiedName()),
+            INIT(args.length, superclass.target<'Class'>().fullyQualifiedName()),
           ]
         }
       }),
@@ -941,7 +941,7 @@ export default (environment: Environment, natives: Natives) => ({
   },
 
   runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
-    const programSentences = environment.getNodeByFQN<Program>(fullyQualifiedName).body.sentences
+    const programSentences = environment.getNodeByFQN<'Program'>(fullyQualifiedName).body.sentences
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = evaluation || buildEvaluation(environment)

@@ -43,7 +43,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
   const result = rawNode.transform<Filled>(filledNode => filledNode.match<Node<Filled>>({
     Class: node => new Class({
       ...node,
-      superclass: node.name === 'Object' ? null : node.superclass ?? OBJECT_CLASS,
+      superclassRef: node.name === 'Object' ? null : node.superclassRef ?? OBJECT_CLASS,
       members: [
         ...node.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
         ...node.members,
@@ -59,7 +59,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
     Singleton: node => new Singleton({
       ...node,
       superCall: node.superCall ?? {
-        superclass: OBJECT_CLASS,
+        superclassRef: OBJECT_CLASS,
         args: [],
       },
       members: [...node.members, ...filledPropertyAccessors(node)],

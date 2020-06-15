@@ -221,7 +221,7 @@ export const Closure = (toString?: string, ...parameters: ParameterNode<Raw>[]) 
   (...sentences: Sentence<Raw>[]): LiteralNode<Raw, SingletonNode<Raw>> =>
     new LiteralNode({
       value: new SingletonNode({
-        superCall: { superclass: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
+        superCall: { superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
         mixins: [],
         members: [
           new MethodNode({
