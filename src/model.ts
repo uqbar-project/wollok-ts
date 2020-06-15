@@ -25,13 +25,11 @@ export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && o
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: Node) {
-    // eslint-disable-next-line prefer-rest-params
-    const key = `${propertyKey}(${[...arguments]})`
+  descriptor.value = function (this: Node, ...args: any[]) {
+    const key = `${propertyKey}(${[...args]})`
     // TODO: Could we optimize this if we avoid returning undefined in cache methods?
     if (this._cache().has(key)) return this._cache().get(key)
-    // eslint-disable-next-line prefer-rest-params
-    const result = originalMethod.apply(this, arguments)
+    const result = originalMethod.apply(this, args)
     this._cache().set(key, result)
     return result
   }
@@ -50,6 +48,9 @@ export type Final = Linked
 type Stageable<S extends Stage, C extends Stage, T> = S extends C ? T : T | undefined
 export type Fillable<S extends Stage, T> = Stageable<S, Filled, T>
 export type Linkable<S extends Stage, T> = Stageable<S, Linked, T>
+
+
+export type OnStage<N, S extends Stage> = N extends NodeOfKind<infer K, infer _> ? NodeOfKind<K, S> : never
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
@@ -169,7 +170,7 @@ abstract class $Node<S extends Stage> {
     return (cases[matched] as (node: Node<S>) => T)(this)
   }
   
-  transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): NodeOfKind<this['kind'], R>
+  transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): OnStage<this, R>
   transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): Node<R>
   transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>) {
     const applyTransform = (value: any): any => {
