@@ -5,7 +5,7 @@ import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
 import log, { enableLogs, LogLevel } from '../src/log'
-import { file } from '../src/parser'
+import { File } from '../src/parser'
 
 const WRE_SRC_PATH = 'language/src'
 const WRE_TARGET_PATH = 'src/wre'
@@ -22,7 +22,7 @@ const rawWRE = sourceFiles.map(sourceFile => {
   const sourceFileName = sourceFilePath.splice(-1)[0].split('.')[0]
   return sourceFilePath.reduce(
     (node, path) => Package(path)(node),
-    file(sourceFileName).tryParse(readFileSync(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8'))
+    File(sourceFileName).tryParse(readFileSync(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8'))
   )
 })
 log.done('\tParsing...')

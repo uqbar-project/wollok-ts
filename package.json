@@ -24,6 +24,7 @@
   "dependencies": {
     "@types/parsimmon": "^1.10.2",
     "parsimmon": "^1.13.0",
+    "unraw": "^2.0.0",
     "uuid": "^3.4.0"
   },
   "devDependencies": {
