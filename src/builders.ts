@@ -1,7 +1,7 @@
-import { mapObject, keys } from './extensions'
+import { mapObject, keys, last } from './extensions'
 import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType } from './interpreter'
 import * as Model from './model'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { Source, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 const { isArray } = Array
 
@@ -217,30 +217,37 @@ export const Catch = (parameter: ParameterNode<Raw>, payload?: BuildPayload<Catc
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Closure = (toString?: string, ...parameters: ParameterNode<Raw>[]) =>
-  (...sentences: Sentence<Raw>[]): LiteralNode<Raw, SingletonNode<Raw>> =>
-    new LiteralNode({
-      value: new SingletonNode({
-        superCall: { superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
-        mixins: [],
-        members: [
-          new MethodNode({
-            name: '<apply>',
-            isOverride: false,
-            isNative: false,
-            parameters,
-            body: new BodyNode({ sentences }),
-          }),
-          ...toString ? [new FieldNode<Raw>({
-            name: '<toString>',
-            isReadOnly: true,
-            isProperty: false,
-            value: new LiteralNode({ value: toString }),
-          })] : [],
-        ],
-      }),
-    })
+export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, sentences?: List<Sentence<Raw>>, code?: string, source?: Source }): LiteralNode<Raw, SingletonNode<Raw>> => {
+  const initialSentences = (payload.sentences ?? []).slice(0, -1)
+  const lastSentence = last(payload.sentences ?? [])
+  const sentences =
+    lastSentence?.is('Expression') ? [...initialSentences, Return(lastSentence)] :
+    lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
+      [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
 
+  return new LiteralNode({
+    value: new SingletonNode({
+      superCall: { superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
+      mixins: [],
+      members: [
+        new MethodNode({
+          name: '<apply>',
+          isOverride: false,
+          isNative: false,
+          parameters: payload.parameters ?? [],
+          body: new BodyNode({ sentences: sentences ?? [] }),
+        }),
+        ...payload.code ? [new FieldNode<Raw>({
+          name: '<toString>',
+          isReadOnly: true,
+          isProperty: false,
+          value: new LiteralNode({ value: payload.code }),
+        })] : [],
+      ],
+    }),
+    source: payload.source,
+  })
+}
 
 export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode<Linked> => {
   return new EnvironmentNode<Linked>({ members, id: '', scope: {} })

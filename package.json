@@ -16,8 +16,8 @@
     "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples",
     "test:lint": "eslint '**/*.ts'",
     "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
-    "test:examples": "mocha -t 5000 -r ts-node/register --root language/test/examples test/wtest.ts",
-    "test:sanity": "mocha -t 5000 -r ts-node/register --root language/test/sanity test/wtest.ts",
+    "test:examples": "mocha -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
+    "test:sanity": "mocha -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags"
   },

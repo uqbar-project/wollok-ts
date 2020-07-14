@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
-import { Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable, fromJSON } from '../src/builders'
+import { Return, Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable, fromJSON } from '../src/builders'
 import link from '../src/linker'
-import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode,  Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Return as ReturnNode, Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode,  Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 
@@ -118,7 +118,10 @@ describe('Wollok linker', () => {
             Field('x', { value: Reference('x') }),
             Method('m1', { parameters: [Parameter('x')] })(
               Reference('x'),
-              Closure(undefined, Parameter('x'))(Reference('x'))
+              Closure({
+                parameters: [Parameter('x')],
+                sentences: [Return(Reference('x'))],
+              })
             ),
             Method('m2')(
               Variable('x', { value: Reference('x') }),
@@ -139,7 +142,7 @@ describe('Wollok linker', () => {
       const m1c = m1.body!.sentences[1] as LiteralNode<Linked, SingletonNode<Linked>>
       const m1cm = m1c.value.members[0] as MethodNode<Linked>
       const m1cmp = m1cm.parameters[0]
-      const m1cmr = m1cm.body!.sentences[0] as ReferenceNode<Linked>
+      const m1cmr =(m1cm.body!.sentences[0] as ReturnNode).value as ReferenceNode<Linked>
       const m2 = S.members[2] as MethodNode<Linked>
       const m2v = m2.body!.sentences[0] as VariableNode<Linked>
       const m2r = m2.body!.sentences[1] as ReferenceNode<Linked>

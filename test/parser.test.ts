@@ -256,52 +256,52 @@ describe('Wollok parser', () => {
     describe('Closure', () => {
 
       it('should parse empty closures', () => {
-        '{}'.should.be.parsedBy(parser).into(Closure('{}')(Return())).and.be.tracedTo(0, 2)
+        '{}'.should.be.parsedBy(parser).into(Closure({ code: '{}' })).and.be.tracedTo(0, 2)
       })
 
       it('should parse closures that do not receive parameters and returns nothing', () => {
-        '{ => }'.should.be.parsedBy(parser).into(Closure('{ => }')(Return())).and.be.tracedTo(0, 6)
+        '{ => }'.should.be.parsedBy(parser).into(Closure({ code: '{ => }' })).and.be.tracedTo(0, 6)
       })
 
       it('should parse closures without parameters', () => {
-        '{ a }'.should.be.parsedBy(parser).into(Closure('{ a }')(Return(Reference('a')))).and.be.tracedTo(0, 5)
+        '{ a }'.should.be.parsedBy(parser).into(Closure({ sentences: [Return(Reference('a'))], code: '{ a }' })).and.be.tracedTo(0, 5)
           .and.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(2, 3)
       })
 
       it('should parse closures with return in their body', () => {
-        '{ return a }'.should.be.parsedBy(parser).into(Closure('{ return a }')(Return(Reference('a')), Return())).and.be.tracedTo(0, 12)
+        '{ return a }'.should.be.parsedBy(parser).into(Closure({ sentences: [Return(Reference('a'))], code: '{ return a }' })).and.be.tracedTo(0, 12)
           .and.have.nested.property('value.members.0.body.sentences.0').tracedTo(2, 10)
           .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(9, 10)
       })
 
       it('should parse closure with parameters and no body', () => {
-        '{ a => }'.should.be.parsedBy(parser).into(Closure('{ a => }', Parameter('a'))(Return())).and.be.tracedTo(0, 8)
+        '{ a => }'.should.be.parsedBy(parser).into(Closure({ parameters:[Parameter('a')], code: '{ a => }' })).and.be.tracedTo(0, 8)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
       })
 
       it('should parse closures with parameters and body', () => {
-        '{ a => a }'.should.be.parsedBy(parser).into(Closure('{ a => a }', Parameter('a'))(Return(Reference('a')))).and.be.tracedTo(0, 10)
+        '{ a => a }'.should.be.parsedBy(parser).into(Closure({ parameters:[Parameter('a')], sentences:[Return(Reference('a'))], code: '{ a => a }' })).and.be.tracedTo(0, 10)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
           .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(7, 8)
 
       })
 
       it('should parse closures with multiple sentence separated by ";"', () => {
-        '{ a => a; b }'.should.be.parsedBy(parser).into(Closure('{ a => a; b }', Parameter('a'))(Reference('a'), Return(Reference('b')))).and.be.tracedTo(0, 13)
+        '{ a => a; b }'.should.be.parsedBy(parser).into(Closure({ parameters: [Parameter('a')], sentences:[Reference('a'), Return(Reference('b'))], code: '{ a => a; b }' })).and.be.tracedTo(0, 13)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
           .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
           .and.also.have.nested.property('value.members.0.body.sentences.1.value').tracedTo(10, 11)
       })
 
       it('should parse closures that receive two parameters and return the first one', () => {
-        '{ a,b => a }'.should.be.parsedBy(parser).into(Closure('{ a,b => a }', Parameter('a'), Parameter('b'))(Return(Reference('a')))).and.be.tracedTo(0, 12)
+        '{ a,b => a }'.should.be.parsedBy(parser).into(Closure({ parameters:[Parameter('a'), Parameter('b')], sentences:[Return(Reference('a'))], code: '{ a,b => a }' })).and.be.tracedTo(0, 12)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
           .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 5)
           .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(9, 10)
       })
 
       it('should parse closures with vararg parameters', () => {
-        '{ a,b... => a }'.should.be.parsedBy(parser).into(Closure('{ a,b... => a }', Parameter('a'), Parameter('b', { isVarArg: true }))(Return(Reference('a')))).and.be.tracedTo(0, 15)
+        '{ a,b... => a }'.should.be.parsedBy(parser).into(Closure({ parameters:[Parameter('a'), Parameter('b', { isVarArg: true })], sentences:[Return(Reference('a'))], code: '{ a,b... => a }' })).and.be.tracedTo(0, 15)
           .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
           .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 8)
           .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(12, 13)
@@ -841,7 +841,7 @@ describe('Wollok parser', () => {
     })
 
     it('should parse methods that have a closure as body', () => {
-      'method m() = { 5 }'.should.be.parsedBy(parser).into(Method('m')(Return(Closure('{ 5 }')(Return(Literal(5)))))).and.be.tracedTo(0, 18)
+      'method m() = { 5 }'.should.be.parsedBy(parser).into(Method('m')(Return(Closure({ sentences:[Return(Literal(5))], code: '{ 5 }' })))).and.be.tracedTo(0, 18)
         .and.have.nested.property('body').tracedTo(13, 18)
         .and.also.have.nested.property('body.sentences.0.value').tracedTo(13, 18)
     })
@@ -1046,7 +1046,7 @@ describe('Wollok parser', () => {
     })
 
     it('should parse ||= operation and wrap the argument in a closure', () => {
-      'a ||= b'.should.be.parsedBy(parser).into(Assignment(Reference('a'), Send(Reference('a'), '||', [Closure()(Return(Reference('b')))]))).and.be.tracedTo(0, 7)
+      'a ||= b'.should.be.parsedBy(parser).into(Assignment(Reference('a'), Send(Reference('a'), '||', [Closure({ sentences: [Return(Reference('b'))] })]))).and.be.tracedTo(0, 7)
         .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
@@ -1054,7 +1054,7 @@ describe('Wollok parser', () => {
     })
 
     it('should parse &&= operation', () => {
-      'a &&= b'.should.be.parsedBy(parser).into(Assignment(Reference('a'), Send(Reference('a'), '&&', [Closure()(Return(Reference('b')))]))).and.be.tracedTo(0, 7)
+      'a &&= b'.should.be.parsedBy(parser).into(Assignment(Reference('a'), Send(Reference('a'), '&&', [Closure({ sentences: [Return(Reference('b'))] })]))).and.be.tracedTo(0, 7)
         .and.have.nested.property('variable').tracedTo(0, 1)
         .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
     })
@@ -1097,17 +1097,25 @@ describe('Wollok parser', () => {
         Send(Reference('a'), '>', [Reference('b')]),
         '||',
         [
-          Closure()(Return(Send(
-            Reference('c'),
-            '&&',
-            [
-              Closure()(Return(Send(
-                Send(Reference('d'), '+', [Reference('e')]),
-                '==',
-                [Reference('f')]
-              ))),
-            ]
-          ))),
+          Closure({
+            sentences: [
+              Return(Send(
+                Reference('c'),
+                '&&',
+                [
+                  Closure({
+                    sentences: [
+                      Return(Send(
+                        Send(Reference('d'), '+', [Reference('e')]),
+                        '==',
+                        [Reference('f')]
+                      )),
+                    ],
+                  }),
+                ]
+              )),
+            ],
+          }),
         ]
       )).and.be.tracedTo(0, 24)
         .and.have.nested.property('receiver').tracedTo(0, 5)
@@ -1175,7 +1183,7 @@ describe('Wollok parser', () => {
     })
 
     it('should parse sending messages with a closure as an argument', () => {
-      'a.m{p => p}'.should.be.parsedBy(parser).into(Send(Reference('a'), 'm', [Closure('{p => p}', Parameter('p'))(Return(Reference('p')))])).and.be.tracedTo(0, 11)
+      'a.m{p => p}'.should.be.parsedBy(parser).into(Send(Reference('a'), 'm', [Closure({ parameters:[Parameter('p')], sentences:[Return(Reference('p'))], code: '{p => p}' } )])).and.be.tracedTo(0, 11)
         .and.have.nested.property('receiver').tracedTo(0, 1)
         .and.also.have.nested.property('args.0').tracedTo(3, 11)
         .and.also.have.nested.property('args.0.value.members.0.parameters.0').tracedTo(4, 5)
