@@ -39,8 +39,6 @@ const error = problem('Error')
 
 type HaveArgs = Method<Linked> | Constructor<Linked>
 
-type notEmpty = Program<Linked> | Test<Linked> | Method<Linked>
-
 const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
   ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
     || member2.parameters.length === member1.parameters.length) && member1 !== member2
@@ -53,7 +51,7 @@ const matchingSignatures =
   (list: ReadonlyArray<ClassMember<Linked>>, member: Method<Linked>) =>
     list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
 
-const isNotEmpty = (node: notEmpty) => node.body!.sentences.length !== 0
+const isNotEmpty = (node: Program<Linked> | Test<Linked> | Method<Linked>) => node.sentences().length !== 0
 
 const isNotAbstractClass = (node: Class<Linked>) =>
   node.members.some(member => member.is('Method') && isNotEmpty(member))
@@ -128,7 +126,8 @@ export const validations: any = {
     .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member))),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
-    !(node.body!.sentences.length === 1 && node.body!.sentences[0].kind === 'Super')),
+    !!node.sentences().length && !node.sentences().every(sentence => sentence.is('Super'))
+  ),
 
   testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
 

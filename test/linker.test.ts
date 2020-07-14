@@ -138,16 +138,16 @@ describe('Wollok linker', () => {
       const f = S.members[0] as FieldNode<Linked>
       const m1 = S.members[1] as MethodNode<Linked>
       const m1p = m1.parameters[0]
-      const m1r = m1.body!.sentences[0] as ReferenceNode<Linked>
-      const m1c = m1.body!.sentences[1] as LiteralNode<Linked, SingletonNode<Linked>>
+      const m1r = m1.sentences()[0] as ReferenceNode<Linked>
+      const m1c = m1.sentences()[1] as LiteralNode<Linked, SingletonNode<Linked>>
       const m1cm = m1c.value.members[0] as MethodNode<Linked>
       const m1cmp = m1cm.parameters[0]
-      const m1cmr =(m1cm.body!.sentences[0] as ReturnNode).value as ReferenceNode<Linked>
+      const m1cmr = (m1cm.sentences()[0] as ReturnNode).value as ReferenceNode<Linked>
       const m2 = S.members[2] as MethodNode<Linked>
-      const m2v = m2.body!.sentences[0] as VariableNode<Linked>
-      const m2r = m2.body!.sentences[1] as ReferenceNode<Linked>
+      const m2v = m2.sentences()[0] as VariableNode<Linked>
+      const m2r = m2.sentences()[1] as ReferenceNode<Linked>
       const m3 = S.members[3] as MethodNode<Linked>
-      const m3r = m3.body!.sentences[0] as ReferenceNode<Linked>
+      const m3r = m3.sentences()[0] as ReferenceNode<Linked>
       const C = p.members[1] as ClassNode<Linked>
 
       S.superCall.args[0].should.target(f)
@@ -179,8 +179,8 @@ describe('Wollok linker', () => {
       const My = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
-      const my = m.body!.sentences[1] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
+      const my = m.sentences()[1] as ReferenceNode<Linked>
 
       mx.should.target(Ax)
       my.should.target(My)
@@ -200,7 +200,7 @@ describe('Wollok linker', () => {
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
       const x = C.fields()[0]
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
 
       mx.should.target(x)
     })
@@ -220,7 +220,7 @@ describe('Wollok linker', () => {
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
       const x = C.fields()[0]
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
 
       mx.should.target(x)
     })
@@ -238,7 +238,7 @@ describe('Wollok linker', () => {
       const Mx = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
 
       mx.should.target(Mx)
     })
@@ -256,7 +256,7 @@ describe('Wollok linker', () => {
       const Mx = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
 
       mx.should.target(Mx)
     })
@@ -274,7 +274,7 @@ describe('Wollok linker', () => {
       const Bx = B.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.body!.sentences[0] as ReferenceNode<Linked>
+      const mx = m.sentences()[0] as ReferenceNode<Linked>
 
       mx.should.target(Bx)
     })

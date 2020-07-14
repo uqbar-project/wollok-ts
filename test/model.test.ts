@@ -8,7 +8,7 @@ describe('Wollok model', () => {
   describe('cache', () => {
 
     it('should be populated the first time the node is used', () => {
-      const method = new Method<Raw>({ name: 'm', isOverride: false, isNative: true, parameters: [] })
+      const method = new Method<Raw>({ name: 'm', body: 'native', isOverride: false, parameters: [] })
       // TODO: Use a raw method instead of casting
       const node = new Class<Raw>({ name: 'C', mixins: [], members: [method] }) as Class<Linked>
 
@@ -19,8 +19,8 @@ describe('Wollok model', () => {
     })
 
     it('should prevent a second call to the same method', () => {
-      const method = new Method<Raw>({ name: 'm1', isOverride: false, isNative: true, parameters: [] })
-      const otherMethod = new Method<Raw>({ name: 'm2', isOverride: false, isNative: true, parameters: [] })
+      const method = new Method<Raw>({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
+      const otherMethod = new Method<Raw>({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
       // TODO: Use a raw method instead of casting
       const node = new Class<Raw>({ name: 'C', mixins: [], members: [method] }) as Class<Linked>
 

@@ -549,7 +549,7 @@ describe('Wollok Validations', () => {
       const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value!
       const classExample = (packageExample.members[1] as ClassNode<Linked>)
       const methodExample = classExample.members[0] as MethodNode<Linked>
-      const selfInMethod = (methodExample.body!.sentences[0] as ReturnNode).value!
+      const selfInMethod = (methodExample.sentences()[0] as ReturnNode).value!
       
       it('should pass when self is in a method', () => {
         selfInMethod.should.pass(selfIsNotInAProgram)
@@ -576,7 +576,7 @@ describe('Wollok Validations', () => {
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = (packageExample.members[0] as ClassNode<Linked>)
       const methodExample = classExample.members[1] as MethodNode<Linked>
-      const comparisonAgainstTrue = (methodExample.body!.sentences[0] as ReturnNode<Linked>).value as SendNode<Linked>
+      const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode<Linked>).value as SendNode<Linked>
 
       it('should not pass when comparing against true literal', () => {
         comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
@@ -601,7 +601,7 @@ describe('Wollok Validations', () => {
       const constructorExample = classExample.members[0] as ConstructorNode<Linked>
       const superInConstructorBody = constructorExample.body.sentences[0] as SuperNode<Linked>
       const method = classExample.members[1] as MethodNode<Linked>
-      const superInMethodBody = method.body!.sentences[0] as SuperNode<Linked>
+      const superInMethodBody = method.sentences()[0] as SuperNode<Linked>
 
       it('should pass when super is in method body', () => {
         superInMethodBody.should.pass(noSuperInConstructorBody)
@@ -630,7 +630,7 @@ describe('Wollok Validations', () => {
       const constructorExample = classExample.members[0] as ConstructorNode<Linked>
       const returnInConstructor = constructorExample.body.sentences[0] as ReturnNode<Linked>
       const method = classExample.members[1] as MethodNode<Linked>
-      const returnInMethod = method.body!.sentences[0] as ReturnNode<Linked>
+      const returnInMethod = method.sentences()[0] as ReturnNode<Linked>
 
       it('should pass when return is in a method', () => {
         returnInMethod.should.pass(noReturnStatementInConstructor)

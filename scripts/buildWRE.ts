@@ -1,3 +1,4 @@
+// TODO: Use async fs once we can update TS version to one that allows root level await
 import { readFileSync, writeFileSync } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join, sep as pathSeparator } from 'path'

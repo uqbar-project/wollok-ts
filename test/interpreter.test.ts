@@ -462,7 +462,7 @@ describe('Wollok Interpreter', () => {
         })(
           Frame({
             id: 'new_id_0', context: 'new_id_0', instructions: [
-              ...compile(environment)(...method.body!.sentences),
+              ...compile(environment)(...method.sentences()),
               PUSH(VOID_ID),
               RETURN,
             ],
@@ -501,7 +501,7 @@ describe('Wollok Interpreter', () => {
         })(
           Frame({
             id: 'new_id_0', context: 'new_id_0', instructions: [
-              ...compile(environment)(...method.body!.sentences),
+              ...compile(environment)(...method.sentences()),
               PUSH(VOID_ID),
               RETURN,
             ],
@@ -545,7 +545,7 @@ describe('Wollok Interpreter', () => {
             id: 'new_id_1',
             context: 'new_id_1',
             instructions: [
-              ...compile(environment)(...method.body!.sentences),
+              ...compile(environment)(...method.sentences()),
               PUSH(VOID_ID),
               RETURN,
             ],
@@ -587,7 +587,7 @@ describe('Wollok Interpreter', () => {
           Frame({
             id: 'new_id_2',
             context: 'new_id_2',
-            instructions: compile(environment)(...messageNotUnderstood.body!.sentences),
+            instructions: compile(environment)(...messageNotUnderstood.sentences()),
           }),
           Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
         ))
@@ -595,7 +595,7 @@ describe('Wollok Interpreter', () => {
 
       it('if method is native, it should still pop the arguments and receiver and use them to call the native function', () => {
         const method = Method('m', {
-          isNative: true, body: undefined, parameters: [
+          body: 'native', parameters: [
             Parameter('p1'), Parameter('p2'),
           ],
         })() as MethodNode<any>
@@ -623,7 +623,7 @@ describe('Wollok Interpreter', () => {
 
       it('if method is native and has varargs the arguments are spread on the native instead of grouped in an array', () => {
         const method = Method('m', {
-          isNative: true, body: undefined, parameters: [
+          body: 'native', parameters: [
             Parameter('p1'), Parameter('p2', { isVarArg: true }),
           ],
         })() as MethodNode<any>
@@ -675,7 +675,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should raise an error if the method is native but the native is missing', () => {
-        const method = Method('m', { isNative: true, body: undefined })() as MethodNode<any>
+        const method = Method('m', { body: 'native' })() as MethodNode<any>
 
         const instruction = CALL('m', 0)
         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1'], instructions: [instruction] }))

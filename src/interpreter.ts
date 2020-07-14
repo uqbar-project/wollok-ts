@@ -661,11 +661,11 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
         evaluation.pushFrame(
-          compile(environment)(...messageNotUnderstood.body!.sentences),
+          compile(environment)(...messageNotUnderstood.sentences()),
           evaluation.createContext(self.id, { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]) })
         )
       } else {
-        if (method.isNative) {
+        if (method.body === 'native') {
           log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
           const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
           const native: NativeFunction = fqn.split('.').reduce((current, name) => {

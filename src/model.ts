@@ -313,6 +313,9 @@ export class Program<S extends Stage = Final> extends $Entity<S> {
   readonly body!: Body<S>
 
   constructor(data: Payload<Program<S>>) { super(data) }
+
+  @cached
+  sentences(): List<Sentence<S>> { return this.body.sentences }
 }
 
 
@@ -322,6 +325,9 @@ export class Test<S extends Stage = Final> extends $Entity<S> {
   readonly body!: Body<S>
 
   constructor(data: Payload<Test<S>>) { super(data) }
+
+  @cached
+  sentences(): List<Sentence<S>> { return this.body.sentences }
 }
 
 
@@ -340,7 +346,7 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
   @cached
   lookupMethod<R extends Linked>(this: Describe<R>, name: Name, arity: number): Method<R> | undefined {
     return this.methods().find(member =>
-      (!!member.body || member.isNative) && member.name === name && (
+      (!!member.body || member.body === 'native') && member.name === name && (
         member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
         member.parameters.length === arity
       ))
@@ -401,7 +407,7 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
   @cached
   lookupMethod<R extends Linked>(this: Module<R>, name: Name, arity: number): Method<R> | undefined {
     for (const module of this.hierarchy()) {
-      const found = module.methods().find(member => (!!member.body || member.isNative) && member.matchesSignature(name, arity))
+      const found = module.methods().find(member => (!!member.body || member.body === 'native') && member.matchesSignature(name, arity))
       if (found) return found
     }
     return undefined
@@ -493,12 +499,17 @@ export class Method<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Method'
   readonly name!: Name
   readonly isOverride!: boolean
-  readonly isNative!: boolean // TODO: Represent abstractness and nativeness as body types?
   readonly parameters!: List<Parameter<S>>
-  readonly body?: Body<S>
+  readonly body?: Body<S> | 'native'
 
   constructor(data: Payload<Method<S>>) { super(data) }
 
+  @cached
+  sentences(): List<Sentence<S>> {
+    return (!this.body || this.body === 'native') ? [] : this.body.sentences
+  }
+  
+  @cached
   matchesSignature(name: Name, arity: number): boolean {
     return this.name === name && (
       this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||

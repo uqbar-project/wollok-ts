@@ -136,7 +136,6 @@ export const Method = (name: Name, payload?: BuildPayload<MethodNode<Raw>>) =>
     return new MethodNode<Raw>({
       name,
       isOverride: false,
-      isNative: false,
       parameters: [],
       ...payload && 'body' in payload && body === undefined ? {} : { body: body || Body(...sentences) },
       ...otherPayload,
@@ -233,7 +232,6 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
         new MethodNode({
           name: '<apply>',
           isOverride: false,
-          isNative: false,
           parameters: payload.parameters ?? [],
           body: new BodyNode({ sentences: sentences ?? [] }),
         }),
@@ -259,7 +257,6 @@ export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode<
 
 export const getter = (name: Name): MethodNode<Filled> => new MethodNode({
   name,
-  isNative: false,
   isOverride: false,
   parameters: [],
   body: new BodyNode({
@@ -271,7 +268,6 @@ export const getter = (name: Name): MethodNode<Filled> => new MethodNode({
 
 export const setter = (name: Name): MethodNode<Filled> => new MethodNode({
   name,
-  isNative: false,
   isOverride: false,
   parameters: [new ParameterNode({ name: '<value>', isVarArg: false })],
   body: new BodyNode({
