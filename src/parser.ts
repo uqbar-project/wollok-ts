@@ -181,14 +181,27 @@ export const mixins = lazy(() =>
     .fallback([])
 )
 
-export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() =>
-  key('class').then(obj({
+export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => {
+  const member = alt<ConstructorNode<Raw>|FieldNode<Raw>|MethodNode<Raw>>(Constructor, Field, Method)
+  // const memberError = regex(/([^}]+?)(?=var|const|method|constructor)/, 1).mark().map(({ start, end, value }) =>
+  //   new Error(`ParseError: [${start}:${end}] Expected class member but found "${value}" instead`)
+  // )
+
+  return key('class').then(obj({
     name,
     superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
     mixins: mixins,
-    members: alt(Constructor, Field, Method).sepBy(optional(_)).wrap(key('{'), key('}')),
-  }))
-)
+    members: member.sepBy(optional(_)).wrap(key('{'), key('}')),
+    // members: alt(member, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  })) as any
+  //.map(payload => ({
+  // ...payload,
+  // members: payload.members.filter<ClassMember>(isNode),
+  // errors: [...payload.errors ??[], ...payload.members.filter(n => !isNode(n))].length
+  //   ? [...payload.errors ??[], ...payload.members.filter(n => !isNode(n))]
+  //   : undefined,
+  // }))
+})
 
 export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => 
   key('object').then(

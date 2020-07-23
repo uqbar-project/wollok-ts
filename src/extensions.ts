@@ -1,15 +1,13 @@
-import { List } from './model'
-
 export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
-export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
+export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
 
 export const divideOn = (separator: string) => (str: string): [string, string] => {
   const [head, ...tail] = str.split(separator)
   return [head, tail.join(separator)]
 }
 
-export const zipObj = (fieldNames: List<string>, fieldValues: List<any>): Record<string, any> => {
+export const zipObj = (fieldNames: ReadonlyArray<string>, fieldValues: ReadonlyArray<any>): Record<string, any> => {
   const response: any = {}
   for (let i = 0; i < fieldNames.length; i++) {
     response[fieldNames[i]] = fieldValues[i]

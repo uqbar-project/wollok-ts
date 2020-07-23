@@ -182,6 +182,15 @@ describe('Wollok parser', () => {
           .and.have.nested.property('superclassRef').tracedTo(17, 18)
           .and.also.have.nested.property('mixins.0').tracedTo(30, 31)
       })
+
+      // it('should recover from field parse error', () => {
+      //   'class C {var var1 vr var2 var var3}'.should.be.parsedBy(parser).into(
+      //     Class('C')(
+      //       Field('var1'),
+      //       Field('var3'),
+      //     )
+      //   )
+      // })
   
       it('should not parse "class" keyword without a body', () => {
         'class'.should.not.be.parsedBy(parser)

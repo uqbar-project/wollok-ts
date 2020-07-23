@@ -30,7 +30,7 @@ export const is = <Q extends Kind | Category>(kindOrCategory: Q) =>
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: Node, ...args: any[]) {
+  descriptor.value = function (this: {_cache(): Cache}, ...args: any[]) {
     const key = `${propertyKey}(${[...args]})`
     // TODO: Could we optimize this if we avoid returning undefined in cache methods?
     if (this._cache().has(key)) return this._cache().get(key)
@@ -110,6 +110,11 @@ abstract class $Node<S extends Stage> {
   readonly id!: Linkable<S, Id>
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
+  // TODO: Represent this better and, hopefully, avoid optionality?
+  // Errors don't convert to JSON. We need a field for the source, a description and likely to separate
+  // by cause, such as ParseError, LinkError, ...
+  // Are all of these ERROR errors, or can they be less severe?
+  readonly errors?: List<Error>
   
   // TODO: Replace with #cache once TS version is updated
   // readonly #cache: Cache = new Map()
