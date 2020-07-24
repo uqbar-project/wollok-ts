@@ -224,22 +224,22 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
     lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
       [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
 
-  return new LiteralNode({
-    value: new SingletonNode({
+  return new LiteralNode<Raw, SingletonNode<Raw>>({
+    value: new SingletonNode<Raw>({
       superCall: { superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
       mixins: [],
       members: [
-        new MethodNode({
+        new MethodNode<Raw>({
           name: '<apply>',
           isOverride: false,
           parameters: payload.parameters ?? [],
-          body: new BodyNode({ sentences: sentences ?? [] }),
+          body: new BodyNode<Raw>({ sentences: sentences ?? [] }),
         }),
         ...payload.code ? [new FieldNode<Raw>({
           name: '<toString>',
           isReadOnly: true,
           isProperty: false,
-          value: new LiteralNode({ value: payload.code }),
+          value: new LiteralNode<Raw>({ value: payload.code }),
         })] : [],
       ],
     }),
@@ -261,7 +261,7 @@ export const getter = (name: Name): MethodNode<Filled> => new MethodNode({
   parameters: [],
   body: new BodyNode({
     sentences: [
-      new ReturnNode({ value: new ReferenceNode({ name }) }),
+      new ReturnNode({ value: new ReferenceNode<Filled>({ name }) }),
     ],
   }),
 })
@@ -269,12 +269,12 @@ export const getter = (name: Name): MethodNode<Filled> => new MethodNode({
 export const setter = (name: Name): MethodNode<Filled> => new MethodNode({
   name,
   isOverride: false,
-  parameters: [new ParameterNode({ name: '<value>', isVarArg: false })],
+  parameters: [new ParameterNode<Filled>({ name: '<value>', isVarArg: false })],
   body: new BodyNode({
     sentences: [
-      new AssignmentNode({
-        variable: new ReferenceNode({ name }),
-        value: new ReferenceNode({ name: '<value>' }),
+      new AssignmentNode<Filled>({
+        variable: new ReferenceNode<Filled>({ name }),
+        value: new ReferenceNode<Filled>({ name: '<value>' }),
       }),
     ],
   }),

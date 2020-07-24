@@ -9,13 +9,17 @@ export type Id = string
 export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
-type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
-export type Payload<T> = Omit<
-  Pick<T, Exclude<AttributeKeys<T>, OptionalKeys<T>>> &
-  Partial<Pick<T, AttributeKeys<T> & OptionalKeys<T>>>,
-  'kind' | '_stage'
->
+type NonOptionalAttributeKeys<T> = {
+  [K in keyof T]-?:
+    K extends 'kind' ? never :
+    undefined extends T[K] ? never :
+    T[K] extends Function ? never :
+    K
+}[keyof T]
+export type Payload<T> = 
+  Pick<T, NonOptionalAttributeKeys<T>> &
+  Partial<Pick<T, OptionalKeys<T>>>
 
 export const isNode = <S extends Stage>(obj: any): obj is Node<S> => !!(obj && obj.kind)
 
