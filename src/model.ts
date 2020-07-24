@@ -130,7 +130,7 @@ abstract class $Node<S extends Stage> {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
 
-  copy(delta: Partial<Payload<this>>): this {
+  copy(delta: Record<string, unknown>): Node<S> {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
