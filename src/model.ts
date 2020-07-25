@@ -9,6 +9,14 @@ export type Id = string
 export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
+export type Scope = Record<Name, Id>
+
+export interface Source {
+  readonly file?: string
+  readonly start: Index
+  readonly end: Index
+}
+
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
 type NonOptionalAttributeKeys<T> = {
   [K in keyof T]-?:
@@ -64,13 +72,10 @@ export type OnStage<N, S extends Stage> = N extends NodeOfKind<infer K, infer _>
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Kind = Node['kind']
-
 export type KindOf<N extends Node<any>> = N['kind']
-
-export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression' | 'Node'
-
 export type NodeOfKind<K extends Kind, S extends Stage> = Extract<Node<S>, { kind: K }>
 
+export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression' | 'Node'
 export type NodeOfCategory<C extends Category, S extends Stage> =
   C extends 'Entity' ? Entity<S> :
   C extends 'Module' ? Module<S> :
@@ -83,15 +88,6 @@ export type NodeOfKindOrCategory<Q extends Kind | Category, S extends Stage> =
   Q extends Kind ? NodeOfKind<Q, S> :
   Q extends Category ? NodeOfCategory<Q, S> :
   never
-
-export interface Source {
-  readonly file?: string
-  readonly start: Index
-  readonly end: Index
-}
-
-export type Scope = Record<Name, Id>
-
 
 export type Node<S extends Stage = Final>
   = Parameter<S>
@@ -245,7 +241,7 @@ export class NamedArgument<S extends Stage = Final> extends $Node<S> {
 
 export class Import<S extends Stage = Final> extends $Node<S> {
   readonly kind = 'Import'
-  readonly entity!: Reference<S>
+  readonly entity!: Reference<'Entity', S>
   readonly isGeneric!: boolean
 
   constructor(payload: Payload<Import<S>>) { super(payload) }
@@ -282,7 +278,7 @@ abstract class $Entity<S extends Stage> extends $Node<S> {
   fullyQualifiedName<R extends Linked>(this: Entity<R>): Name {
     const parent = this.parent()
     const label = this.is('Singleton')
-      ? this.name || `${this.superCall.superclassRef.target<'Module'>().fullyQualifiedName()}#${this.id}`
+      ? this.name || `${this.superCall.superclassRef.target().fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
 
     return parent.is('Package') || parent.is('Describe')
@@ -397,7 +393,7 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
     const hierarchyExcluding = (module: Module<R>, exclude: List<Id> = []): List<Module<R>> => {
       if (exclude.includes(module.id!)) return []
       const modules = [
-        ...module.mixins.map(mixin => mixin.target<'Module', R>()),
+        ...module.mixins.map(mixin => mixin.target<R>()),
         ...module.kind === 'Mixin' ? [] : module.superclass() ? [module.superclass()!] : [],
       ]
       return modules.reduce(({ mods, exs }, mod) => (
@@ -427,9 +423,9 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
 export class Class<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Class'
   readonly name!: Name
-  readonly mixins!: List<Reference<S>>
+  readonly mixins!: List<Reference<'Mixin', S>>
   readonly members!: List<ClassMember<S>>
-  readonly superclassRef!: Fillable<S, Reference<S> | null>
+  readonly superclassRef!: Fillable<S, Reference<'Class', S> | null>
 
   constructor(data: Payload<Class<S>>) { super(data) }
 
@@ -437,7 +433,7 @@ export class Class<S extends Stage = Final> extends $Module<S> {
 
   superclass<R extends Linked>(this: Module<R>): Class<R> | null
   superclass<R extends Linked>(this: Class<R>): Class<R> | null {
-    return this.superclassRef?.target<'Class', R>() ?? null
+    return this.superclassRef?.target<R>() ?? null
   }
 
   @cached
@@ -457,10 +453,10 @@ export class Class<S extends Stage = Final> extends $Module<S> {
 export class Singleton<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Singleton'
   readonly name: Name | undefined
-  readonly mixins!: List<Reference<S>>
+  readonly mixins!: List<Reference<'Mixin', S>>
   readonly members!: List<ObjectMember<S>>
   readonly superCall!: Fillable<S, {
-    superclassRef: Reference<S>,
+    superclassRef: Reference<'Class', S>,
     args: List<Expression<S>> | List<NamedArgument<S>>
   }>
 
@@ -477,7 +473,7 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
 export class Mixin<S extends Stage = Final> extends $Module<S> {
   readonly kind = 'Mixin'
   readonly name!: Name
-  readonly mixins!: List<Reference<S>>
+  readonly mixins!: List<Reference<'Mixin', S>>
   readonly members!: List<ObjectMember<S>>
 
   constructor(data: Payload<Mixin<S>>) { super(data) }
@@ -573,7 +569,7 @@ export class Return<S extends Stage = Final> extends $Sentence<S> {
 
 export class Assignment<S extends Stage = Final> extends $Sentence<S> {
   readonly kind = 'Assignment'
-  readonly variable!: Reference<S>
+  readonly variable!: Reference<'Variable' | 'Field', S>
   readonly value!: Expression<S>
 
   constructor(data: Payload<Assignment<S>>) { super(data) }
@@ -584,7 +580,7 @@ export class Assignment<S extends Stage = Final> extends $Sentence<S> {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type Expression<S extends Stage = Final>
-  = Reference<S>
+  = Reference<'Field' | 'Variable'| 'Parameter' | 'NamedArgument' | 'Singleton', S>
   | Self<S>
   | Literal<S, LiteralValue<S>>
   | Send<S>
@@ -601,17 +597,17 @@ abstract class $Expression<S extends Stage> extends $Node<S> {
 }
 
 
-export class Reference<S extends Stage = Final> extends $Expression<S> {
+export class Reference<T extends Kind|Category, S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Reference'
   readonly name!: Name
 
-  constructor(data: Payload<Reference<S>>) { super(data) }
+  constructor(data: Payload<Reference<T, S>>) { super(data) }
 
   @cached
-  target<Q extends Kind | Category = 'Node', R extends Linked = Final>(this: Reference<R>): NodeOfKindOrCategory<Q, R> {
+  target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> {
     const [start, rest] = divideOn('.')(this.name)
     const root: Package<R> = this.environment().getNodeById(this.scope[start])
-    return (rest.length ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<Q, R>
+    return (rest.length ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<T, R>
   }
 
 }
@@ -653,7 +649,7 @@ export class Super<S extends Stage = Final> extends $Expression<S> {
 
 export class New<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'New'
-  readonly instantiated!: Reference<S>
+  readonly instantiated!: Reference<'Class', S>
   readonly args!: List<Expression<S>> | List<NamedArgument<S>>
 
   constructor(data: Payload<New<S>>) { super(data) }
@@ -692,7 +688,7 @@ export class Catch<S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Catch'
   readonly parameter!: Parameter<S>
   readonly body!: Body<S>
-  readonly parameterType!: Fillable<S, Reference<S>>
+  readonly parameterType!: Fillable<S, Reference<'Module', S>>
 
   constructor(data: Payload<Catch<S>>) { super(data) }
 }
@@ -724,7 +720,6 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
 }
 
 // TODO:  CLASSES FIXES
-//   - References could have an (optional ?) type parameter for the target
 //   - Mixin-pattern for abstract classes to fix Variable case
 //   - Scope como método cacheado en lugar de campo?
 //   - as function to use as safe cast instead of all the crapy casts in many methods ?

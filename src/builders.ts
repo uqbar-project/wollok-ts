@@ -1,7 +1,7 @@
 import { mapObject, keys, last } from './extensions'
 import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType } from './interpreter'
 import * as Model from './model'
-import { Source, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { Source, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Category, Kind } from './model'
 
 const { isArray } = Array
 
@@ -33,7 +33,7 @@ export function fromJSON<T>(json: any): T {
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Reference = (name: Name): ReferenceNode<Raw> => new ReferenceNode<Raw>({ name })
+export const Reference = <Q extends Kind|Category>(name: Name): ReferenceNode<Q, Raw> => new ReferenceNode<Q, Raw>({ name })
 
 export const Parameter = (name: Name, payload?: BuildPayload<ParameterNode<Raw>>): ParameterNode<Raw> => new ParameterNode<Raw>({
   name,
@@ -46,7 +46,7 @@ export const NamedArgument = (name: Name, value: Expression<Raw>): NamedArgument
   value,
 })
 
-export const Import = (reference: ReferenceNode<Raw>, payload?: BuildPayload<ImportNode<Raw>>): ImportNode<Raw> => new ImportNode<Raw>({
+export const Import = (reference: ReferenceNode<'Entity', Raw>, payload?: BuildPayload<ImportNode<Raw>>): ImportNode<Raw> => new ImportNode<Raw>({
   entity: reference,
   isGeneric: false,
   ...payload,
@@ -165,7 +165,7 @@ export const Variable = (name: Name, payload?: BuildPayload<VariableNode<Raw>>):
 
 export const Return = (value: Expression<Raw> | undefined = undefined): ReturnNode<Raw> => new ReturnNode<Raw>({ value })
 
-export const Assignment = (reference: ReferenceNode<Raw>, value: Expression<Raw>): AssignmentNode<Raw> =>
+export const Assignment = (reference: ReferenceNode<'Variable'|'Field', Raw>, value: Expression<Raw>): AssignmentNode<Raw> =>
   new AssignmentNode<Raw>({ variable: reference, value })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ export const Send = (receiver: Expression<Raw>, message: Name, args: List<Expres
 
 export const Super = (args: List<Expression<Raw>> = []): SuperNode<Raw> => new SuperNode<Raw>({ args })
 
-export const New = (className: ReferenceNode<Raw>, args: List<Expression<Raw>> | List<NamedArgumentNode<Raw>>): NewNode<Raw> =>
+export const New = (className: ReferenceNode<'Class', Raw>, args: List<Expression<Raw>> | List<NamedArgumentNode<Raw>>): NewNode<Raw> =>
   new NewNode<Raw>({ instantiated: className, args })
 
 export const If = (condition: Expression<Raw>, thenBody: List<Sentence<Raw>>, elseBody?: List<Sentence<Raw>>): IfNode<Raw> => new IfNode<Raw>({
@@ -261,7 +261,7 @@ export const getter = (name: Name): MethodNode<Filled> => new MethodNode({
   parameters: [],
   body: new BodyNode({
     sentences: [
-      new ReturnNode({ value: new ReferenceNode<Filled>({ name }) }),
+      new ReturnNode({ value: new ReferenceNode<'Field' | 'Variable' | 'Parameter' | 'NamedArgument' | 'Singleton', Filled>({ name }) }),
     ],
   }),
 })
@@ -273,8 +273,8 @@ export const setter = (name: Name): MethodNode<Filled> => new MethodNode({
   body: new BodyNode({
     sentences: [
       new AssignmentNode<Filled>({
-        variable: new ReferenceNode<Filled>({ name }),
-        value: new ReferenceNode<Filled>({ name: '<value>' }),
+        variable: new ReferenceNode<'Variable' | 'Field', Filled>({ name }),
+        value: new ReferenceNode<'Field' | 'Variable' | 'Parameter' | 'NamedArgument' | 'Singleton', Filled>({ name: '<value>' }),
       }),
     ],
   }),

@@ -404,7 +404,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     New: node => {
-      const fqn = node.instantiated.target<'Entity'>().fullyQualifiedName()
+      const fqn = node.instantiated.target().fullyQualifiedName()
 
       if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
         const args = node.args as List<NamedArgument>
@@ -457,7 +457,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const handler = compileExpressionClause(environment)(body)
         return [
           LOAD('<exception>'),
-          INHERITS(parameterType.target<'Module'>().fullyQualifiedName()),
+          INHERITS(parameterType.target().fullyQualifiedName()),
           CALL('negate', 0),
           CONDITIONAL_JUMP(handler.length + 5),
           LOAD('<exception>'),

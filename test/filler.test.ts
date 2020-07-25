@@ -12,7 +12,7 @@ describe('Wollok filler', () => {
   it('fills in wollok.lang.Object as default superclass for Classes', () => {
     fill(Class('C')()).superclassRef!.should.be.filledInto(Reference('wollok.lang.Object'))
 
-    const superclassRef = Reference('foo')
+    const superclassRef = Reference<'Class'>('foo')
     fill(Class('C', { superclassRef })()).superclassRef!.should.be.filledInto(superclassRef)
   })
 
@@ -29,7 +29,7 @@ describe('Wollok filler', () => {
   it('fills in wollok.lang.Object as default superclass for Singletons', () => {
     fill(Singleton('S')()).superCall.should.be.filledInto({ superclassRef: Reference('wollok.lang.Object'), args: [] })
 
-    const superCall = { superclassRef: Reference('foo'), args: [] }
+    const superCall = { superclassRef: Reference<'Class'>('foo'), args: [] }
     fill(Singleton('S', { superCall })()).superCall.should.be.filledInto(superCall)
   })
 
@@ -71,7 +71,7 @@ describe('Wollok filler', () => {
   it('fills in missing parameter type for Catches', () => {
     fill(Catch(Parameter('e'))()).parameterType.should.be.filledInto(Reference('wollok.lang.Exception'))
 
-    const parameterType = Reference('foo')
+    const parameterType = Reference<'Module'>('foo')
     fill(Catch(Parameter('e'), { parameterType })()).parameterType.should.be.filledInto(parameterType)
   })
 

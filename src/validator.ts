@@ -69,7 +69,7 @@ export const validations: any = {
   onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
     node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)),
 
-  nameIsNotKeyword: error<Reference<Linked> | Method<Linked> | Variable<Linked>>(node => !['.',
+  nameIsNotKeyword: error<Reference<any, Linked> | Method<Linked> | Variable<Linked>>(node => !['.',
     ',',
     '(',
     ')',

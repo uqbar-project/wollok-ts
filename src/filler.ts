@@ -1,9 +1,9 @@
 import { getter, setter } from './builders'
 import { Node, Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
 
-const OBJECT_CLASS: Reference<Filled> = new Reference({ name: 'wollok.lang.Object' })
+const OBJECT_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Object' })
 
-const EXCEPTION_CLASS: Reference<Filled> = new Reference({ name: 'wollok.lang.Exception' })
+const EXCEPTION_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Exception' })
 
 const NULL: Literal<Filled> = new Literal({ value: null })
 

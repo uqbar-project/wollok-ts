@@ -87,11 +87,11 @@ export const Import: Parser<ImportNode<Raw>> = node(ImportNode)(() =>
 
 export const name: Parser<Name> = regex(/[^\W\d]\w*/)
 
-export const FullyQualifiedReference: Parser<ReferenceNode<Raw>> = node(ReferenceNode)(() =>
+export const FullyQualifiedReference: Parser<ReferenceNode<any, Raw>> = node<ReferenceNode<any, Raw>>(ReferenceNode)(() =>
   obj({ name: name.sepBy1(key('.')).tieWith('.') })
 )
 
-export const Reference: Parser<ReferenceNode<Raw>> = node(ReferenceNode)(() =>
+export const Reference: Parser<ReferenceNode<any, Raw>> = node<ReferenceNode<any, Raw>>(ReferenceNode)(() =>
   obj({ name })
 )
 
@@ -448,9 +448,9 @@ export const Literal: Parser<LiteralNode<Raw>> = lazy(() => alt(
       _.then(string('false')).notFollowedBy(name).result(false),
       regex(/-?\d+(\.\d+)?/).map(Number),
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
-        new NewNode<Raw>({ instantiated: new ReferenceNode<Raw>({ name: 'wollok.lang.List' }), args })),
+        new NewNode<Raw>({ instantiated: new ReferenceNode<'Class', Raw>({ name: 'wollok.lang.List' }), args })),
       Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args =>
-        new NewNode<Raw>({ instantiated: new ReferenceNode<Raw>({ name: 'wollok.lang.Set' }), args })),
+        new NewNode<Raw>({ instantiated: new ReferenceNode<'Class', Raw>({ name: 'wollok.lang.Set' }), args })),
       stringLiteral,
       Singleton,
     ),
