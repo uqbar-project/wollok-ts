@@ -107,9 +107,8 @@ export type Node<S extends Stage = Final>
 
 
 abstract class $Node<S extends Stage> {
+  protected abstract readonly kind: Kind
   protected readonly _stage?: S
-
-  abstract readonly kind: Kind
 
   readonly id!: Linkable<S, Id>
   readonly scope!: Linkable<S, Scope>

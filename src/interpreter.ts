@@ -289,34 +289,34 @@ const compileExpressionClause = (environment: Environment) => ({ sentences }: Bo
   ]) : [PUSH(VOID_ID)]
 
 export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
-  sentences.flatMap(node => {
-    switch (node.kind) {
-    case 'Variable': return (() => [
+  sentences.flatMap(node => node.match({
+    Variable: node => [
       ...compile(environment)(node.value),
       STORE(node.name, false),
       PUSH(VOID_ID),
-    ])()
+    ],
 
-    case 'Return': return (() => [
+
+    Return: node => [
       ...node.value
         ? compile(environment)(node.value)
         : [PUSH(VOID_ID)],
       RETURN,
-    ])()
+    ],
 
 
-    case 'Assignment': return (() => [
+    Assignment: node => [
       ...compile(environment)(node.value),
       STORE(node.variable.name, true),
       PUSH(VOID_ID),
-    ])()
+    ],
 
-    case 'Self': return (() => [
+    Self: () => [
       LOAD('self'),
-    ])()
+    ],
 
 
-    case 'Reference': return (() => {
+    Reference: node => {
       const target = node.target()
 
       if (target.is('Module')) return [
@@ -330,10 +330,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       return [
         LOAD(node.name),
       ]
-    })()
+    },
 
 
-    case 'Literal': return (() => {
+    Literal: node => {
       if (node.value === null) return [
         PUSH(NULL_ID),
       ]
@@ -350,7 +350,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         INSTANTIATE('wollok.lang.String', node.value),
       ]
 
-      if (node.value.kind === 'Singleton') {
+      if (node.value.is('Singleton')) {
         if (node.value.superCall.args.some(is('NamedArgument'))) {
           const supercallArgs = node.value.superCall.args as List<NamedArgument>
           return [
@@ -383,27 +383,27 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           POP,
         ]),
       ]
-    })()
+    },
 
 
-    case 'Send': return (() => [
+    Send: node => [
       ...compile(environment)(node.receiver),
       ...node.args.flatMap(arg => compile(environment)(arg)),
       CALL(node.message, node.args.length),
-    ])()
+    ],
 
 
-    case 'Super': return (() => {
+    Super: node => {
       const currentMethod = node.ancestors().find(is('Method'))!
       return [
         LOAD('self'),
         ...node.args.flatMap(arg => compile(environment)(arg)),
         CALL(currentMethod.name, node.args.length, true, currentMethod.parent().fullyQualifiedName()),
       ]
-    })()
+    },
 
 
-    case 'New': return (() => {
+    New: node => {
       const fqn = node.instantiated.target<'Entity'>().fullyQualifiedName()
 
       if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
@@ -423,10 +423,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
           INIT(node.args.length, fqn),
         ]
       }
-    })()
+    },
 
 
-    case 'If': return (() => {
+    If: node => {
       const thenClause = compileExpressionClause(environment)(node.thenBody)
       const elseClause = compileExpressionClause(environment)(node.elseBody)
       return [
@@ -438,16 +438,16 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         ...thenClause,
         POP_CONTEXT,
       ]
-    })()
+    },
 
 
-    case 'Throw': return (() => [
+    Throw: node => [
       ...compile(environment)(node.exception),
       INTERRUPT,
-    ])()
+    ],
 
 
-    case 'Try': return (() => {
+    Try: node => {
       const clause = compileExpressionClause(environment)(node.body)
       const always = [
         ...compileExpressionClause(environment)(node.always),
@@ -499,9 +499,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
         POP_CONTEXT,
       ]
-    })()
-    }
-  })
+    },
+  }))
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // STEPS

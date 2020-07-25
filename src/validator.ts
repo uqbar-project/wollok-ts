@@ -45,11 +45,11 @@ const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
 
 const matchingConstructors =
   (list: ReadonlyArray<ClassMember<Linked>>, member: Constructor<Linked>) =>
-    list.some(m => m.kind === 'Constructor' && canBeCalledWithArgs(m, member))
+    list.some(m => m.is('Constructor') && canBeCalledWithArgs(m, member))
 
 const matchingSignatures =
   (list: ReadonlyArray<ClassMember<Linked>>, member: Method<Linked>) =>
-    list.some(m => m.kind === 'Method' && m.name === member.name && canBeCalledWithArgs(m, member))
+    list.some(m => m.is('Method') && m.name === member.name && canBeCalledWithArgs(m, member))
 
 const isNotEmpty = (node: Program<Linked> | Test<Linked> | Method<Linked>) => node.sentences().length !== 0
 
@@ -112,7 +112,7 @@ export const validations: any = {
 
   hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
-  singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().kind === 'Package') && node.name !== undefined),
+  singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().is('Package')) && node.name !== undefined),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
@@ -136,7 +136,7 @@ export const validations: any = {
   instantiationIsNotAbstractClass: error<New<Linked>>(node =>
     isNotAbstractClass(node.instantiated.target())),
 
-  notAssignToItself: error<Assignment<Linked>>(node => !(node.value.kind === 'Reference' && node.value.name === node.variable.name)),
+  notAssignToItself: error<Assignment<Linked>>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
 
   notAssignToItselfInVariableDeclaration: error<Field<Linked>>(node =>
     !(node.value!.is('Reference') && node.value!.name === node.name)),
