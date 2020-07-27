@@ -2,7 +2,7 @@ import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, re
 import { basename } from 'path'
 import unraw from 'unraw'
 import * as build from './builders'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, ClassMember, isNode, Problem, Source } from './model'
 
 const { keys, values } = Object
 
@@ -34,6 +34,10 @@ const ALL_OPERATORS = [
 
 // TODO: Resolve this without effect. Maybe moving the file to a field in Package?
 let SOURCE_FILE: string | undefined
+
+export class ParseError extends Problem {
+  constructor(public code: Name, public source: Source){ super() }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PARSERS
@@ -183,24 +187,22 @@ export const mixins = lazy(() =>
 
 export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => {
   const member = alt<ConstructorNode<Raw>|FieldNode<Raw>|MethodNode<Raw>>(Constructor, Field, Method)
-  // const memberError = regex(/([^}]+?)(?=var|const|method|constructor)/, 1).mark().map(({ start, end, value }) =>
-  //   new Error(`ParseError: [${start}:${end}] Expected class member but found "${value}" instead`)
-  // )
+  const memberError = regex(/([^}]+?)(?=var |const |method |constructor |})/, 1).mark().map(({ start, end }) =>
+    new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
+  )
 
   return key('class').then(obj({
     name,
     superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
     mixins: mixins,
-    members: member.sepBy(optional(_)).wrap(key('{'), key('}')),
-    // members: alt(member, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })) as any
-  //.map(payload => ({
-  // ...payload,
-  // members: payload.members.filter<ClassMember>(isNode),
-  // errors: [...payload.errors ??[], ...payload.members.filter(n => !isNode(n))].length
-  //   ? [...payload.errors ??[], ...payload.members.filter(n => !isNode(n))]
-  //   : undefined,
-  // }))
+    members: alt<ClassMember<Raw>|Problem>(member, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  })).map(payload => ({
+    ...payload,
+    members: payload.members.filter<ClassMember<Raw>>((member): member is ClassMember<Raw> => isNode(member)),
+    problems: payload.members.filter(n => !isNode(n)).filter<Error>((member): member is Error => !isNode(member)).length
+      ? payload.members.filter(n => !isNode(n)).filter<Error>((member): member is Error => !isNode(member))
+      : undefined,
+  }))
 })
 
 export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => 

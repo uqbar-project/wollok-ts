@@ -183,14 +183,49 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('mixins.0').tracedTo(30, 31)
       })
 
-      // it('should recover from field parse error', () => {
-      //   'class C {var var1 vr var2 var var3}'.should.be.parsedBy(parser).into(
-      //     Class('C')(
-      //       Field('var1'),
-      //       Field('var3'),
-      //     )
-      //   )
-      // })
+      it('should recover from member parse error', () => {
+        'class C {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 18, 26)
+          .into(
+            Class('C')(
+              Field('var1'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from intial member parse error', () => {
+        'class C {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 9, 17)
+          .into(
+            Class('C')(
+              Field('var2'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from final member parse error', () => {
+        'class C {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 27, 34)
+          .into(
+            Class('C')(
+              Field('var1'),
+              Field('var2'),
+            )
+          )
+      })
+
+      it('should recover from multiple member parse errors', () => {
+        'class C {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 9, 33)
+          .recoveringFrom('malformedMember', 42, 57)
+          .into(
+            Class('C')(
+              Field('var4')
+            )
+          )
+      })
   
       it('should not parse "class" keyword without a body', () => {
         'class'.should.not.be.parsedBy(parser)

@@ -17,6 +17,9 @@ export interface Source {
   readonly end: Index
 }
 
+// TODO: Unify with Validator's problems
+export class Problem { }
+
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
 type NonOptionalAttributeKeys<T> = {
   [K in keyof T]-?:
@@ -68,7 +71,7 @@ export type Linkable<S extends Stage, T> = S extends Linked ? T : T | undefined
 export type OnStage<N, S extends Stage> = N extends NodeOfKind<infer K, infer _> ? NodeOfKind<K, S> : never
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// NODES
+// KINDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Kind = Node['kind']
@@ -88,6 +91,10 @@ export type NodeOfKindOrCategory<Q extends Kind | Category, S extends Stage> =
   Q extends Kind ? NodeOfKind<Q, S> :
   Q extends Category ? NodeOfCategory<Q, S> :
   never
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// NODES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Node<S extends Stage = Final>
   = Parameter<S>
@@ -109,11 +116,7 @@ abstract class $Node<S extends Stage> {
   readonly id!: Linkable<S, Id>
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
-  // TODO: Represent this better and, hopefully, avoid optionality?
-  // Errors don't convert to JSON. We need a field for the source, a description and likely to separate
-  // by cause, such as ParseError, LinkError, ...
-  // Are all of these ERROR errors, or can they be less severe?
-  readonly errors?: List<Error>
+  readonly problems?: List<Problem>
   
   // TODO: Replace with #cache once TS version is updated
   // readonly #cache: Cache = new Map()

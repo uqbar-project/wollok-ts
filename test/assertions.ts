@@ -4,8 +4,10 @@ import uuid from 'uuid'
 import { Environment } from '../src/builders'
 import { step, Natives } from '../src/interpreter'
 import link from '../src/linker'
-import { Linked, Node, Package, Reference, List } from '../src/model'
+import { Name, Linked, Node, Package, Reference, List } from '../src/model'
 import { Validation } from '../src/validator'
+import { ParseError } from '../src/parser'
+
 
 declare global {
   export namespace Chai {
@@ -14,11 +16,16 @@ declare global {
       parsedBy(parser: Parser<any>): Assertion
       into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
+      recoveringFrom(code: Name, start: number, end: number): Assertion
       linkedInto(expected: List<Package>): Assertion
       filledInto(expected: any): Assertion
       target(node: Node): Assertion
       pass(validation: Validation<Node>): Assertion
       stepped(natives?: Natives): Assertion
+    }
+
+    interface ArrayAssertion {
+      be: Assertion
     }
   }
 }
@@ -58,9 +65,14 @@ export const also: Chai.ChaiPlugin = ({ Assertion }, { flag }) => {
 
 export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
   const { Assertion } = chai
+  const { flag } = utils
 
   also(chai, utils)
-  
+  chai.config.truncateThreshold = 0
+
+  chai.use(function (_chai, utils) {
+    utils.objDisplay = function (obj) { return '!!!'+ obj + '!!!' }
+  })
 
   Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
     const result = parser.parse(this._obj)
@@ -77,10 +89,15 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
   })
 
 
-  Assertion.addMethod('into', function (expected: any) {
-    const unsourced = dropKeys('source')
+  Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
+    const plucked = dropKeys('source', 'problems')
+    const expectedProblems = flag(this, 'expectedProblems') ?? []
+    const actualProblems = this._obj.problems?.map(({ code, source: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
 
-    new Assertion(unsourced(this._obj)).to.deep.equal(unsourced(expected))
+    new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
+    new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
+
+    new Assertion(plucked(this._obj)).to.deep.equal(plucked(expected))
   })
 
 
@@ -90,6 +107,10 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
       .to.have.nested.property('source.end.offset', end)
   })
 
+
+  Assertion.addMethod('recoveringFrom', function (this: Chai.AssertionStatic, code: Name, start: number, end: number) {
+    flag(this, 'expectedProblems', [...flag(this, 'expectedProblems') ?? [], { code, start, end }])
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
