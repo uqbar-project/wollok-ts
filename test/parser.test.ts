@@ -368,6 +368,51 @@ describe('Wollok parser', () => {
           .and.have.nested.property('mixins.0').tracedTo(26, 27)
           .and.also.have.nested.property('mixins.1').tracedTo(20, 21)
       })
+
+
+      it('should recover from member parse error', () => {
+        'object O {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 19, 27)
+          .into(
+            Singleton('O')(
+              Field('var1'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from intial member parse error', () => {
+        'object O {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 10, 18)
+          .into(
+            Singleton('O')(
+              Field('var2'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from final member parse error', () => {
+        'object O {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 28, 35)
+          .into(
+            Singleton('O')(
+              Field('var1'),
+              Field('var2'),
+            )
+          )
+      })
+
+      it('should recover from multiple member parse errors', () => {
+        'object O {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 10, 34)
+          .recoveringFrom('malformedMember', 43, 58)
+          .into(
+            Singleton('O')(
+              Field('var4')
+            )
+          )
+      })
   
       it('should not parse objects with a constructor', () => {
         'object O { constructor(){} }'.should.not.be.parsedBy(parser)
