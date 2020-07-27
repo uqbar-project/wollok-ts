@@ -573,6 +573,52 @@ describe('Wollok parser', () => {
           .and.have.nested.property('members.0').tracedTo(18, 30)
       })
     
+
+      it('should recover from member parse error', () => {
+        'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 26, 34)
+          .into(
+            Describe('name')(
+              Variable('var1'),
+              Variable('var3'),
+            )
+          )
+      })
+
+      it('should recover from intial member parse error', () => {
+        'describe "name" {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 17, 25)
+          .into(
+            Describe('name')(
+              Variable('var2'),
+              Variable('var3'),
+            )
+          )
+      })
+
+      it('should recover from final member parse error', () => {
+        'describe "name" {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 35, 42)
+          .into(
+            Describe('name')(
+              Variable('var1'),
+              Variable('var2'),
+            )
+          )
+      })
+
+      it('should recover from multiple member parse errors', () => {
+        'describe "name" {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 17, 41)
+          .recoveringFrom('malformedMember', 50, 65)
+          .into(
+            Describe('name')(
+              Variable('var4')
+            )
+          )
+      })
+
+
       it('should not parse describes with names that aren\'t a string', () => {
         'describe name { }'.should.not.be.parsedBy(parser)
       })

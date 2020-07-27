@@ -181,8 +181,8 @@ export const Program: Parser<ProgramNode<Raw>> = node(ProgramNode)(() =>
 export const Describe: Parser<DescribeNode<Raw>> = node(DescribeNode)(() =>
   key('describe').then(obj({
     name: stringLiteral,
-    members: alt(Variable, Fixture, Test, Method).sepBy(optional(_)).wrap(key('{'), key('}')),
-  }))
+    members: alt(Variable, Fixture, Test, Method).or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  })).map(recover)
 )
 
 export const Test: Parser<TestNode<Raw>> = node(TestNode)(() =>
@@ -192,60 +192,43 @@ export const Test: Parser<TestNode<Raw>> = node(TestNode)(() =>
   }))
 )
 
-export const mixins = lazy(() =>
+const mixins = lazy(() =>
   key('mixed with')
     .then(FullyQualifiedReference.sepBy1(key('and')))
     .map(_ => _.reverse())
     .fallback([])
 )
 
-export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => {
-  const member = alt<ConstructorNode<Raw>|FieldNode<Raw>|MethodNode<Raw>>(Constructor, Field, Method)
-  const memberError = regex(/([^}]+?)(?=var |const |method |constructor |})/, 1).mark().map(({ start, end }) =>
-    new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
-  )
+export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => key('class').then(obj({
+  name,
+  superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
+  mixins,
+  members: alt(Constructor, Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+})).map(recover))
 
-  return key('class').then(obj({
-    name,
-    superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
-    mixins: mixins,
-    members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).map(recover)
-})
+export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => key('object').then(obj({
+  name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)), 
+  superCall: optional(key('inherits').then(obj({
+    superclassRef: FullyQualifiedReference,
+    args: alt(unamedArguments, namedArguments).fallback([]),
+  }))),
+  mixins,
+  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+})).map(recover))
 
-export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => {
-  const member = alt<FieldNode<Raw>|MethodNode<Raw>>(Field, Method)
-  const memberError = regex(/([^}]+?)(?=var |const |method |constructor |})/, 1).mark().map(({ start, end }) =>
-    new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
-  )
-
-  return key('object').then(obj({
-    name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)), 
-    superCall: optional(key('inherits').then(obj({
-      superclassRef: FullyQualifiedReference,
-      args: alt(unamedArguments, namedArguments).fallback([]),
-    }))),
-    mixins: mixins,
-    members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).map(recover)
-})
-
-export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() => {
-  const member = alt<FieldNode<Raw>|MethodNode<Raw>>(Field, Method)
-  const memberError = regex(/([^}]+?)(?=var |const |method |constructor |})/, 1).mark().map(({ start, end }) =>
-    new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
-  )
-
-  return key('mixin').then(obj({
-    name,
-    mixins: mixins,
-    members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).map(recover)
-})
+export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() => key('mixin').then(obj({
+  name,
+  mixins,
+  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+})).map(recover))
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+const memberError = regex(/([^}]+?)(?=var |const |method |constructor |fixture |})/, 1).mark().map(({ start, end }) =>
+  new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
+)
 
 export const Field: Parser<FieldNode<Raw>> = node(FieldNode)(() =>
   obj({
