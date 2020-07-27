@@ -2,8 +2,8 @@ import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, re
 import { basename } from 'path'
 import unraw from 'unraw'
 import * as build from './builders'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, ClassMember, isNode, Problem, Source } from './model'
-import { mapObject } from './extensions'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source } from './model'
+import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
 const { isArray } = Array
@@ -41,6 +41,18 @@ export class ParseError extends Problem {
   constructor(public code: Name, public source: Source){ super() }
 }
 
+const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems : List<ParseError>} => {
+  const problems: ParseError[] = []
+  const purged = mapObject((value: any) => {
+    if(isArray(value)) {
+      const [newProblems, nonProblems] = discriminate<ParseError>((member): member is ParseError => member instanceof ParseError)(value)
+      problems.push(...newProblems)
+      return nonProblems
+    } else return value
+  }, recoverable)
+  return { ...purged, problems }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PARSERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -59,24 +71,14 @@ const comment = regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)
 
 const _ = comment.or(whitespace).many()
 
-const node = <N extends Node<Raw>>(constructor: new (payload: Payload<N>) => N) =>
-  (parser: () => Parser<{ [K in keyof Payload<N>]: Payload<N>[K] extends List<infer T> ? List<T | ParseError> : Payload<N>[K] }>) =>
-    seq(
-      optional(_).then(index),
-      lazy(parser),
-      index
-    ).map(([start, recoverablePayload, end]) => {
-
-      const problems: ParseError[] = []
-      const payload = mapObject((value: any) => {
-        if(isArray(value)) {
-          problems.push(...value.filter(member => member instanceof ParseError))
-          return value.filter(member => !(member instanceof ParseError))
-        } else return value
-      }, recoverablePayload)
-
-      return new constructor({ ...payload, problems, source: { start, end, file: SOURCE_FILE } })
-    })
+const node = <N extends Node<Raw>>(constructor: new (payload: Payload<N>) => N) => (parser: () => Parser<Payload<N>>) =>
+  seq(
+    optional(_).then(index),
+    lazy(parser),
+    index
+  ).map(([start, payload, end]) =>
+    new constructor({ ...payload, source: { start, end, file: SOURCE_FILE } })
+  )
 
 
 export const File = (fileName: string): Parser<PackageNode<Raw>> => {
@@ -208,7 +210,7 @@ export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => {
     superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
     mixins: mixins,
     members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  }))
+  })).map(recover)
 })
 
 export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => 
