@@ -275,6 +275,52 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('members.1').tracedTo(16, 28)
       })
   
+
+      it('should recover from member parse error', () => {
+        'mixin M {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 18, 26)
+          .into(
+            Mixin('M')(
+              Field('var1'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from intial member parse error', () => {
+        'mixin M {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 9, 17)
+          .into(
+            Mixin('M')(
+              Field('var2'),
+              Field('var3'),
+            )
+          )
+      })
+
+      it('should recover from final member parse error', () => {
+        'mixin M {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 27, 34)
+          .into(
+            Mixin('M')(
+              Field('var1'),
+              Field('var2'),
+            )
+          )
+      })
+
+      it('should recover from multiple member parse errors', () => {
+        'mixin M {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 9, 33)
+          .recoveringFrom('malformedMember', 42, 57)
+          .into(
+            Mixin('M')(
+              Field('var4')
+            )
+          )
+      })
+
+
       it('should not parse mixins with constructor', () => {
         'mixin M { constructor(){} }'.should.not.be.parsedBy(parser)
       })

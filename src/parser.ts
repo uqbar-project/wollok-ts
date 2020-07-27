@@ -219,26 +219,29 @@ export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => {
     new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
   )
 
-  return key('object').then(
-    obj({
-      name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)), 
-      superCall: optional(key('inherits').then(obj({
-        superclassRef: FullyQualifiedReference,
-        args: alt(unamedArguments, namedArguments).fallback([]),
-      }))),
-      mixins: mixins,
-      members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-    }).map(recover)
-  )
+  return key('object').then(obj({
+    name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)), 
+    superCall: optional(key('inherits').then(obj({
+      superclassRef: FullyQualifiedReference,
+      args: alt(unamedArguments, namedArguments).fallback([]),
+    }))),
+    mixins: mixins,
+    members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  })).map(recover)
 })
 
-export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() =>
-  key('mixin').then(obj({
+export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() => {
+  const member = alt<FieldNode<Raw>|MethodNode<Raw>>(Field, Method)
+  const memberError = regex(/([^}]+?)(?=var |const |method |constructor |})/, 1).mark().map(({ start, end }) =>
+    new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
+  )
+
+  return key('mixin').then(obj({
     name,
     mixins: mixins,
-    members: alt(Method, Field).sepBy(optional(_)).wrap(key('{'), key('}')),
-  }))
-)
+    members: member.or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  })).map(recover)
+})
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
