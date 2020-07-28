@@ -46,8 +46,8 @@ export const MAX_STACK_SIZE = 1000
 export class Evaluation {
   constructor(
     readonly environment: Environment,
-    protected frameStack: Frame[], // TODO: Make protected?
-    protected instances: Map<Id, RuntimeObject>, // TODO: Make protected?
+    protected frameStack: Frame[],
+    protected instances: Map<Id, RuntimeObject>,
     protected contexts: Map<Id, Context>, // TODO: GC contexts
   ){ }
   
