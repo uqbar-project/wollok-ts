@@ -299,7 +299,7 @@ export const Evaluation = (
     )
 
     // TODO: Improve this
-    mapObject((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)), instances)
+    mapObject((instance, key) => evaluation.setInstance(key, instance.copy(evaluation)), instances)
 
     return evaluation
   }
