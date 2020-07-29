@@ -46,17 +46,23 @@ export const MAX_STACK_SIZE = 1000
 export class Evaluation {
   constructor(
     readonly environment: Environment,
-    public frameStack: Frame[], // TODO: Make protected?
-    public instances: Map<Id, RuntimeObject>, // TODO: Make protected?
+    protected frameStack: Frame[],
+    protected instances: Map<Id, RuntimeObject>,
     protected contexts: Map<Id, Context>, // TODO: GC contexts
   ){ }
   
-  currentFrame(): Frame | undefined { return last(this.frameStack) }
-
   instance(id: Id): RuntimeObject {
     const response = this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
+  }
+
+  maybeInstance(id: Id): RuntimeObject | undefined {
+    return this.instances.get(id)
+  }
+
+  setInstance(id: Id, object: RuntimeObject): void{
+    this.instances.set(id, object)
   }
 
   // TODO: Move these validations to the RuntimeObject constructor?
@@ -88,7 +94,6 @@ export class Evaluation {
     return id
   }
 
-
   context(id: Id): Context {
     const response = this.contexts.get(id)
     if (!response) throw new RangeError(`Access to undefined context "${id}"`)
@@ -100,6 +105,18 @@ export class Evaluation {
     return id
   }
 
+  // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // STACK MANIPULATION
+  // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  //Return the top of the stack
+  currentFrame(): Frame | undefined { return last(this.frameStack) }
+
+  //Return the frame at the base of the stack
+  baseFrame(): Frame { return this.frameStack[0] }
+
+  stackDepth(): number { return this.frameStack.length }
+
   pushFrame(instructions: List<Instruction>, context: Id): void {
     if (this.frameStack.length >= MAX_STACK_SIZE)
       return this.raise(this.createInstance('wollok.lang.StackOverflowException'))
@@ -108,6 +125,7 @@ export class Evaluation {
   }
 
   popFrame(): Frame | undefined { return this.frameStack.pop() }
+
 
   raise(exceptionId: Id): void{
     let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
@@ -817,30 +835,27 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
   }, ROOT_CONTEXT_ID)
 
-  evaluation.frameStack.push(build.Frame({
-    context: rootContext,
-    instructions: [
-      ...globalSingletons.flatMap(singleton => {
-        if (singleton.superCall.args.some(is('NamedArgument'))) {
-          const args = singleton.superCall.args as List<NamedArgument>
-          return [
-            ...args.flatMap(({ value }) => compile(environment)(value)),
-            PUSH(singleton.id),
-            INIT_NAMED(args.map(({ name }) => name)),
-            INIT(0, singleton.superclass().fullyQualifiedName(), true),
-          ]
-        } else {
-          const args = singleton.superCall.args as List<Expression>
-          return [
-            ...args.flatMap(arg => compile(environment)(arg)),
-            PUSH(singleton.id),
-            INIT_NAMED([]),
-            INIT(args.length, singleton.superclass().fullyQualifiedName()),
-          ]
-        }
-      }),
-    ],
-  }))
+  evaluation.pushFrame([
+    ...globalSingletons.flatMap(singleton => {
+      if (singleton.superCall.args.some(is('NamedArgument'))) {
+        const args = singleton.superCall.args as List<NamedArgument>
+        return [
+          ...args.flatMap(({ value }) => compile(environment)(value)),
+          PUSH(singleton.id),
+          INIT_NAMED(args.map(({ name }) => name)),
+          INIT(0, singleton.superclass().fullyQualifiedName(), true),
+        ]
+      } else {
+        const args = singleton.superCall.args as List<Expression>
+        return [
+          ...args.flatMap(arg => compile(environment)(arg)),
+          PUSH(singleton.id),
+          INIT_NAMED([]),
+          INIT(args.length, singleton.superclass().fullyQualifiedName()),
+        ]
+      }
+    }),
+  ], rootContext)
 
   evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)
   evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)
@@ -926,7 +941,7 @@ export default (environment: Environment, natives: Natives) => ({
 
   sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
     const takeStep = step(natives)
-    const initialFrameCount = evaluation.frameStack.length
+    const initialFrameCount = evaluation.stackDepth()
 
     evaluation.pushFrame([
       PUSH(receiver),
@@ -938,7 +953,7 @@ export default (environment: Environment, natives: Natives) => ({
     // TODO: stepAll?
     do {
       takeStep(evaluation)
-    } while (evaluation.frameStack.length > initialFrameCount)
+    } while (evaluation.stackDepth() > initialFrameCount)
   },
 
   runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {

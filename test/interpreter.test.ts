@@ -600,7 +600,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<any>
 
-        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.baseFrame().operandStack.push(self.id + p1!.id + p2!.id) }
 
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
@@ -628,7 +628,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<any>
 
-        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.baseFrame().operandStack.push(self.id + p1!.id + p2!.id) }
 
         const instruction = CALL('m', 3)
         const evaluation = Evaluation(environment, {
