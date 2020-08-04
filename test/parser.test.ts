@@ -36,7 +36,7 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse elements with an unclosed multiline comment', () => {
-      'import p /* non closed comment'.should.not.be.parsedBy(parser)
+      'import p /* non-closed comment'.should.not.be.parsedBy(parser)
     })
 
   })
@@ -72,7 +72,7 @@ describe('Wollok parser', () => {
       ''.should.be.parsedBy(parser).into(Package('foo')()).and.be.tracedTo(0, 0)
     })
 
-    it('should parse non empty packages', () => {
+    it('should parse non-empty packages', () => {
       'import p import q class C {}'.should.be.parsedBy(parser).into(Package('foo', { imports: [Import(Reference('p')), Import(Reference('q'))] })(Class('C')())).and.be.tracedTo(0, 28)
         .and.have.nested.property('imports.0').tracedTo(0, 8)
         .and.also.have.nested.property('imports.1').tracedTo(9, 17)
@@ -99,7 +99,11 @@ describe('Wollok parser', () => {
         .and.have.nested.property('entity').tracedTo(7, 10)
     })
 
-    it('should not parse malformed imports', () => {
+    it('should not parse malformed import statements', () => {
+      'importp'.should.not.be.parsedBy(parser)
+    })
+
+    it('should not parse malformed import references', () => {
       'import p.*.q'.should.not.be.parsedBy(parser)
     })
 
@@ -131,9 +135,37 @@ describe('Wollok parser', () => {
 
       })
 
+
+      it('should recover from entity parse error', () => {
+        'package p { class A {} clazz B {} class C{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 23, 33)
+          .into(Package('p')(Class('A')(), Class('C')()))
+      })
+
+      it('should recover from intial member parse error', () => {
+        'package p { clazz A {} class B {} class C{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 12, 22)
+          .into(Package('p')(Class('B')(), Class('C')()))
+      })
+
+      it('should recover from final member parse error', () => {
+        'package p { class A {} class B {} clazz C{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 34, 43)
+          .into(Package('p')(Class('A')(), Class('B')()))
+      })
+
+      it('should recover from multiple member parse errors', () => {
+        'package p { clazz A {} clazz B {} class C{} clazz D{} clazz E{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 12, 33)
+          .recoveringFrom('malformedEntity', 44, 63)
+          .into(Package('p')(Class('C')()))
+      })
+
+
       it('should not parse packages without a body', () => {
         'package p'.should.not.be.parsedBy(parser)
       })
+  
     })
 
 
@@ -146,13 +178,13 @@ describe('Wollok parser', () => {
   
       it('should parse classes with a constructor', () => {
         'class C { constructor() {} }'.should.be.parsedBy(parser).into(Class('C')(Constructor()())).and.be.tracedTo(0, 28)
-          .and.have.nested.property('members.0').tracedTo(10, 26)
+          .and.have.nested.property('members.0').tracedTo(10, 27)
       })
   
       it('should parse classes with sentences', () => {
         'class C { var v method m(){} }'.should.be.parsedBy(parser).into(Class('C')(Field('v'), Method('m')())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
-          .and.also.have.nested.property('members.1').tracedTo(16, 28)
+          .and.also.have.nested.property('members.1').tracedTo(16, 29)
       })
   
       it('should parse classes that inherit from other class', () => {
@@ -185,7 +217,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'class C {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 26)
+          .recoveringFrom('malformedMember', 18, 25)
           .into(
             Class('C')(
               Field('var1'),
@@ -196,7 +228,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'class C {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 17)
+          .recoveringFrom('malformedMember', 9, 16)
           .into(
             Class('C')(
               Field('var2'),
@@ -218,7 +250,7 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'class C {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 33)
+          .recoveringFrom('malformedMember', 9, 32)
           .recoveringFrom('malformedMember', 42, 57)
           .into(
             Class('C')(
@@ -272,13 +304,13 @@ describe('Wollok parser', () => {
       it('should parse non-empty programs', () => {
         'mixin M { var v method m(){} }'.should.be.parsedBy(parser).into(Mixin('M')(Field('v'), Method('m')())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
-          .and.also.have.nested.property('members.1').tracedTo(16, 28)
+          .and.also.have.nested.property('members.1').tracedTo(16, 29)
       })
   
 
       it('should recover from member parse error', () => {
         'mixin M {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 26)
+          .recoveringFrom('malformedMember', 18, 25)
           .into(
             Mixin('M')(
               Field('var1'),
@@ -289,7 +321,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'mixin M {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 17)
+          .recoveringFrom('malformedMember', 9, 16)
           .into(
             Mixin('M')(
               Field('var2'),
@@ -311,7 +343,7 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'mixin M {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 33)
+          .recoveringFrom('malformedMember', 9, 32)
           .recoveringFrom('malformedMember', 42, 57)
           .into(
             Mixin('M')(
@@ -321,8 +353,9 @@ describe('Wollok parser', () => {
       })
 
 
-      it('should not parse mixins with constructor', () => {
-        'mixin M { constructor(){} }'.should.not.be.parsedBy(parser)
+      it('should not parse mixins with a constructor', () => {
+        'mixin M { constructor(){} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 10, 25)
       })
   
       it('should not parse "mixin" keyword without name and body', () => {
@@ -351,7 +384,7 @@ describe('Wollok parser', () => {
       it('should parse non-empty objects', () => {
         'object O  { var v method m(){} }'.should.be.parsedBy(parser).into(Singleton('O')(Field('v'), Method('m')())).and.be.tracedTo(0, 32)
           .and.have.nested.property('members.0').tracedTo(12, 17)
-          .and.also.have.nested.property('members.1').tracedTo(18, 30)
+          .and.also.have.nested.property('members.1').tracedTo(18, 31)
       })
   
       it('should parse objects that inherits from a class', () => {
@@ -418,7 +451,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'object O {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 19, 27)
+          .recoveringFrom('malformedMember', 19, 26)
           .into(
             Singleton('O')(
               Field('var1'),
@@ -429,7 +462,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'object O {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 18)
+          .recoveringFrom('malformedMember', 10, 17)
           .into(
             Singleton('O')(
               Field('var2'),
@@ -451,7 +484,7 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'object O {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 34)
+          .recoveringFrom('malformedMember', 10, 33)
           .recoveringFrom('malformedMember', 43, 58)
           .into(
             Singleton('O')(
@@ -461,7 +494,8 @@ describe('Wollok parser', () => {
       })
   
       it('should not parse objects with a constructor', () => {
-        'object O { constructor(){} }'.should.not.be.parsedBy(parser)
+        'object O { constructor(){} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 10, 25)
       })
   
       it('should not parse the "object" keyword without a body', () => {
@@ -554,13 +588,13 @@ describe('Wollok parser', () => {
     
       it('should parse describes with tests', () => {
         'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(Describe('name')(Test('foo')(), Test('bar')())).and.be.tracedTo(0, 47)
-          .and.have.nested.property('members.0').tracedTo(18, 31)
-          .and.also.have.nested.property('members.1').tracedTo(32, 45)
+          .and.have.nested.property('members.0').tracedTo(18, 32)
+          .and.also.have.nested.property('members.1').tracedTo(32, 46)
       })
     
       it('should parse describes with fixture', () => {
         'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(Describe('name')(Fixture()())).and.be.tracedTo(0, 30)
-          .and.have.nested.property('members.0').tracedTo(18, 28)
+          .and.have.nested.property('members.0').tracedTo(18, 29)
       })
     
       it('should parse describes with fields', () => {
@@ -570,13 +604,13 @@ describe('Wollok parser', () => {
     
       it('should parse describes with methods', () => {
         'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(Describe('name')(Method('m')())).and.be.tracedTo(0, 32)
-          .and.have.nested.property('members.0').tracedTo(18, 30)
+          .and.have.nested.property('members.0').tracedTo(18, 31)
       })
     
 
       it('should recover from member parse error', () => {
         'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 26, 34)
+          .recoveringFrom('malformedMember', 26, 33)
           .into(
             Describe('name')(
               Variable('var1'),
@@ -587,7 +621,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'describe "name" {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 17, 25)
+          .recoveringFrom('malformedMember', 17, 24)
           .into(
             Describe('name')(
               Variable('var2'),
@@ -609,7 +643,7 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'describe "name" {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 17, 41)
+          .recoveringFrom('malformedMember', 17, 40)
           .recoveringFrom('malformedMember', 50, 65)
           .into(
             Describe('name')(
@@ -1303,7 +1337,7 @@ describe('Wollok parser', () => {
         it('should parse "if" with "then" and "else" curly-braced body', () => {
           'if(a){x} else {y}'.should.be.parsedBy(parser).into(If(Reference('a'), [Reference('x')], [Reference('y')])).and.be.tracedTo(0, 17)
             .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(5, 8)
+            .and.also.have.nested.property('thenBody').tracedTo(5, 9)
             .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
             .and.also.have.nested.property('elseBody').tracedTo(14, 17)
             .and.also.have.nested.property('elseBody.sentences.0').tracedTo(15, 16)
@@ -1622,10 +1656,10 @@ describe('Wollok parser', () => {
             'object {}'.should.be.parsedBy(parser).into(Literal(Singleton()())).and.be.tracedTo(0, 9)
           })
 
-          it('should parse non empty literal objects', () => {
+          it('should parse non-empty literal objects', () => {
             'object { var v method m(){} }'.should.be.parsedBy(parser).into(Literal(Singleton()(Field('v'), Method('m')()))).and.be.tracedTo(0, 29)
               .and.have.nested.property('value.members.0').tracedTo(9, 14)
-              .and.also.have.nested.property('value.members.1').tracedTo(15, 27)
+              .and.also.have.nested.property('value.members.1').tracedTo(15, 28)
           })
 
           it('should parse literal objects that inherit from a class', () => {
@@ -1670,7 +1704,8 @@ describe('Wollok parser', () => {
           })
 
           it('should not parse literal objects with a constructor', () => {
-            'object { constructor(){} }'.should.not.be.parsedBy(parser)
+            'object { constructor(){} }'.should.be.parsedBy(parser)
+              .recoveringFrom('malformedMember', 8, 23)
           })
 
           it('should not parse the "object" keyword without a body', () => {

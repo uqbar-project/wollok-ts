@@ -1,4 +1,4 @@
-import Parsimmon, { alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename } from 'path'
 import unraw from 'unraw'
 import * as build from './builders'
@@ -16,11 +16,11 @@ const PREFIX_OPERATORS: Record<Name, Name> = {
 
 const ASSIGNATION_OPERATORS = ['=', '||=', '/=', '-=', '+=', '*=', '&&=', '%=']
 
-const LAZY_OPERATORS = ['||', '&&', 'or ', 'and ']
+const LAZY_OPERATORS = ['||', '&&', 'or', 'and']
 
 const INFIX_OPERATORS = [
-  ['||', 'or '],
-  ['&&', 'and '],
+  ['||', 'or'],
+  ['&&', 'and'],
   ['===', '==', '!==', '!='],
   ['>=', '>', '<=', '<'],
   ['?:', '>>>', '>>', '>..', '<>', '<=>', '<<<', '<<', '..<', '..', '->'],
@@ -40,6 +40,14 @@ let SOURCE_FILE: string | undefined
 export class ParseError extends Problem {
   constructor(public code: Name, public source: Source){ super() }
 }
+
+const error = (code: string) => (...safewords: string[]) =>
+  notFollowedBy(alt(...safewords.map(key))).then(alt(
+    seq(string('{'), takeWhile(c => c !== '}'), string('}')),
+    any
+  )).atLeast(1).mark().map(({ start, end }) =>
+    new ParseError(code, { start, end, file: SOURCE_FILE })
+  )
 
 const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems : List<ParseError>} => {
   const problems: ParseError[] = []
@@ -64,12 +72,15 @@ const optional = <T>(parser: Parser<T>) => parser.fallback(undefined)
 const obj = <T>(parsers: {[K in keyof T]: Parser<T[K]>}): Parser<T> =>
   seqObj<T>(...keys(parsers).map(fieldName => [fieldName, parsers[fieldName as keyof T]] as any))
   
-
-const key = (str: string) => string(str).trim(_)
+const key = (str: string) => (
+  str.match(/[\w ]+/)
+    ? string(str).notFollowedBy(regex(/\w/))
+    : string(str)
+).trim(optional(_))
 
 const comment = regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)
 
-const _ = comment.or(whitespace).many()
+const _ = comment.or(whitespace).atLeast(1)
 
 const node = <N extends Node<Raw>>(constructor: new (payload: Payload<N>) => N) => (parser: () => Parser<Payload<N>>) =>
   seq(
@@ -128,7 +139,7 @@ export const NamedArgument: Parser<NamedArgumentNode<Raw>> = node(NamedArgumentN
 )
 
 export const Body: Parser<BodyNode<Raw>> = node(BodyNode)(() =>
-  obj({ sentences: Sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), string('}'))
+  obj({ sentences: Sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), key('}'))
 )
 
 const inlineableBody: Parser<BodyNode<Raw>> = alt(
@@ -152,6 +163,8 @@ const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.m
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+const entityError = error('malformedEntity')('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const', '}')
+
 export const Entity: Parser<EntityNode<Raw>> = lazy(() => alt(
   Package,
   Class,
@@ -167,8 +180,8 @@ export const Package: Parser<PackageNode<Raw>> = node(PackageNode)(() =>
   key('package').then(obj({
     name: name.skip(key('{')),
     imports: Import.skip(optional(alt(key(';'), _))).many(),
-    members: Entity.sepBy(optional(_)).skip(key('}')),
-  }))
+    members: Entity.or(entityError).sepBy(optional(_)).skip(key('}')),
+  })).map(recover)
 )
 
 export const Program: Parser<ProgramNode<Raw>> = node(ProgramNode)(() =>
@@ -203,7 +216,7 @@ export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => key('class').
   name,
   superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
   mixins,
-  members: alt(Constructor, Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  members: alt(Constructor, Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 
 export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => key('object').then(obj({
@@ -226,9 +239,8 @@ export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() => key('mixin').
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const memberError = regex(/([^}]+?)(?=var |const |method |constructor |fixture |})/, 1).mark().map(({ start, end }) =>
-  new ParseError('malformedMember', { start, end, file: SOURCE_FILE })
-)
+const memberError = error('malformedMember')('method', 'fixture', 'var', 'const', 'test', 'describe', '}')
+const classMemberError = error('malformedMember')('method', 'constructor', 'var', 'const', '}')
 
 export const Field: Parser<FieldNode<Raw>> = node(FieldNode)(() =>
   obj({
@@ -338,7 +350,7 @@ export const Super: Parser<SuperNode<Raw>> = node(SuperNode)(() =>
 
 export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = alt(
   node<LiteralNode<Raw, SingletonNode<Raw>>>(LiteralNode)(() => 
-    key('new ').then(obj({
+    key('new').then(obj({
       value: node<SingletonNode<Raw>>(SingletonNode)(() => obj({
         superCall: obj({
           superclassRef: FullyQualifiedReference,
@@ -352,7 +364,7 @@ export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = 
   ),
 
   node<NewNode<Raw>>(NewNode)(() =>
-    key('new ').then(
+    key('new').then(
       obj({
         instantiated: FullyQualifiedReference,
         args: alt(unamedArguments, namedArguments),
@@ -444,9 +456,9 @@ export const Literal: Parser<LiteralNode<Raw>> = lazy(() => alt(
   closureLiteral,
   node(LiteralNode)(() => obj({
     value: alt(
-      _.then(string('null')).notFollowedBy(name).result(null),
-      _.then(string('true')).notFollowedBy(name).result(true),
-      _.then(string('false')).notFollowedBy(name).result(false),
+      key('null').result(null),
+      key('true').result(true),
+      key('false').result(false),
       regex(/-?\d+(\.\d+)?/).map(Number),
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
         new NewNode<Raw>({ instantiated: new ReferenceNode<'Class', Raw>({ name: 'wollok.lang.List' }), args })),

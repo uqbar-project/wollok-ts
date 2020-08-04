@@ -10,7 +10,7 @@ import { List, Node } from '../src/model'
 import natives from '../src/wre/wre.natives'
 
 const { fail } = assert
-const { time, timeEnd } = console
+const { time, timeEnd, log } = console
 
 const ARGUMENTS = yargs
   .option('verbose', {
@@ -70,6 +70,10 @@ describe(basename(ARGUMENTS.root), () => {
   const environment = buildEnvironment(testFiles)
 
   timeEnd('Building environment')
+
+  const problems = environment.reduce((problems, node) => [...problems, ...node.problems ?? []], [] as any[])
+  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems}`)
+  else log('No problems found building the environment!')
 
 
   time('Initializing Evaluation')
