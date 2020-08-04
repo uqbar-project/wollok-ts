@@ -600,7 +600,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<any>
 
-        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.baseFrame().operandStack.push(self.id + p1!.id + p2!.id) }
 
         const instruction = CALL('m', 2)
         const evaluation = Evaluation(environment, {
@@ -628,7 +628,7 @@ describe('Wollok Interpreter', () => {
           ],
         })() as MethodNode<any>
 
-        const native: NativeFunction = (self, p1, p2) => e => { e.frameStack[0].operandStack.push(self.id + p1!.id + p2!.id) }
+        const native: NativeFunction = (self, p1, p2) => e => { e.baseFrame().operandStack.push(self.id + p1!.id + p2!.id) }
 
         const instruction = CALL('m', 3)
         const evaluation = Evaluation(environment, {
@@ -983,50 +983,49 @@ describe('Wollok Interpreter', () => {
 
     })
 
+    describe('RETURN', () => {
+
+      const instruction = RETURN
+
+      it('should drop the current frame and push the top of its operand stack to the next active frame', () => {
+        const evaluation = Evaluation(environment, {
+          1: RuntimeObject('1', 'wollok.lang.Object'),
+          2: RuntimeObject('2', 'wollok.lang.Object'),
+        }, {
+          3: { id: '3', parent: '4', locals: {} },
+          4: { id: '4', parent: '', locals: {} },
+        })(
+          Frame({ id: '3', context: '3', operandStack: ['1'], instructions: [instruction] }),
+          Frame({ id: '4', context: '4', operandStack: ['2'] }),
+        )
+
+        evaluation.should.be.stepped().into(Evaluation(environment, {
+          1: RuntimeObject('1', 'wollok.lang.Object'),
+          2: RuntimeObject('2', 'wollok.lang.Object'),
+        }, {
+          3: { id: '3', parent: '4', locals: {} },
+          4: { id: '4', parent: '', locals: {} },
+        })(Frame({ id: '4', context: '4', operandStack: ['2', '1'] })))
+
+      })
+
+      it('should raise an error if the current operand stack is empty', () => {
+        const evaluation = Evaluation(environment, {})(
+          Frame({ instructions: [instruction] }),
+          Frame({}),
+        )
+
+        expect(() => step({})(evaluation)).to.throw()
+      })
+
+      it('should raise an error if the frame stack length is < 2', () => {
+        const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ instructions: [instruction], operandStack: ['1'] }))
+
+        expect(() => step({})(evaluation)).to.throw()
+      })
+
+    })
+
   })
-
-
-  describe('RETURN', () => {
-
-    const instruction = RETURN
-
-    it('should drop the current frame and push the top of its operand stack to the next active frame', () => {
-      const evaluation = Evaluation(environment, {
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      }, {
-        3: { id: '3', parent: '4', locals: {} },
-        4: { id: '4', parent: '', locals: {} },
-      })(
-        Frame({ id: '3', context: '3', operandStack: ['1'], instructions: [instruction] }),
-        Frame({ id: '4', context: '4', operandStack: ['2'] }),
-      )
-
-      evaluation.should.be.stepped().into(Evaluation(environment, {
-        1: RuntimeObject('1', 'wollok.lang.Object'),
-        2: RuntimeObject('2', 'wollok.lang.Object'),
-      }, {
-        3: { id: '3', parent: '4', locals: {} },
-        4: { id: '4', parent: '', locals: {} },
-      })(Frame({ id: '4', context: '4', operandStack: ['2', '1'] })))
-
-    })
-
-    it('should raise an error if the current operand stack is empty', () => {
-      const evaluation = Evaluation(environment, {})(
-        Frame({ instructions: [instruction] }),
-        Frame({}),
-      )
-
-      expect(() => step({})(evaluation)).to.throw()
-    })
-
-    it('should raise an error if the frame stack length is < 2', () => {
-      const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ instructions: [instruction], operandStack: ['1'] }))
-
-      expect(() => step({})(evaluation)).to.throw()
-    })
-
-  })
-
+  
 })

@@ -52,7 +52,7 @@ const logger: Logger = {
 const hr = (size: number = columns) => '─'.repeat(size)
 
 const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
-  const instance = evaluation.instances.get(id)
+  const instance = evaluation.maybeInstance(id)
   const module = instance ? stringifyModule(evaluation)(instance.moduleFQN) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
@@ -101,10 +101,10 @@ const consoleLogger: Logger = {
     : `${hr()}`)),
 
   step: evaluation => {
-    const { instructions, nextInstruction, operandStack } = last(evaluation.frameStack)!
+    const { instructions, nextInstruction, operandStack } = evaluation.currentFrame()!
     const instruction = instructions[nextInstruction]
 
-    const stepTabulation = evaluation.frameStack.length - 1
+    const stepTabulation = evaluation.stackDepth() - 1
 
     const tabulationReturn = 0
     // TODO: fix

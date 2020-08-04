@@ -81,7 +81,7 @@ describe(basename(ARGUMENTS.root), () => {
   const { stepAll, buildEvaluation } = interpreter(environment, natives as Natives)
   const baseEvaluation = buildEvaluation()
   stepAll(baseEvaluation)
-  baseEvaluation.frameStack.pop()
+  baseEvaluation.popFrame()
 
   timeEnd('Initializing Evaluation')
 
