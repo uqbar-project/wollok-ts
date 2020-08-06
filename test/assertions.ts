@@ -203,12 +203,11 @@ export const buildInterpreter = (pattern: string, cwd: string) => {
 
   const { time, timeEnd, log } = console
 
-  time('Reading tests')
+  time('Parsing files')
 
-  const files = globby.sync(pattern, { cwd })
-    .map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
+  const files = globby.sync(pattern, { cwd }).map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
 
-  timeEnd('Reading tests')
+  timeEnd('Parsing files')
 
 
   time('Building environment')

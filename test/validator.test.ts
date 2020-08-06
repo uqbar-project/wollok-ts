@@ -364,7 +364,7 @@ describe('Wollok Validations', () => {
 
       const { hasDistinctSignature } = validations
 
-      const packageExample = environment.members[0] as PackageNode<Linked>
+      const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = packageExample.members[0] as ClassNode<Linked>
       const methodMNoParameter = classExample.members[0] as MethodNode<Linked>
       const methodM1Parameter = classExample.members[1] as MethodNode<Linked>
@@ -684,11 +684,7 @@ describe('Wollok Validations', () => {
   })
 
   describe('Wollok Core Library Health', () => {
-    const file: { name: string, content: string } = {
-      name: 'zarlanga.wlk',
-      content: '',
-    }
-    const environment = buildEnvironment([file])
+    const environment = buildEnvironment([{ name: 'zarlanga.wlk', content: '' }])
     const problems = validate(environment).map(
       ({ code, node }) => ({
         code,

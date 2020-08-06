@@ -9,10 +9,12 @@ import validate from './validator'
 import wre from './wre/wre.json'
 
 function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(wre)): Environment {
+  
   return link(files.map(({ name, content }) => {
     try {
       const filePackage = fill(parse.File(name).tryParse(content))
-      return dirname(name).split(sep).reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
+      const dir = dirname(name)
+      return (dir === '.' ? [] : dir.split(sep)).reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }

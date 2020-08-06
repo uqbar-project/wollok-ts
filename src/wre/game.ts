@@ -172,6 +172,7 @@ export default {
     },
 
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
+      checkNotNull(visual, 'visual')
       const visuals = self.get('visuals')
       if (!visuals) return returnValue(evaluation, newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
