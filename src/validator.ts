@@ -4,9 +4,8 @@
 // No global mutable vars
 // No modules named wollok
 
-import { Literal } from './builders'
-import { Assignment, Class, ClassMember, Constructor, Field, Linked, Method,
-  Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable } from './model'
+import { Assignment, Class, Constructor, Field, Linked, Method,
+  Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable, is } from './model'
 import { Kind } from './model'
 
 const { keys } = Object
@@ -37,37 +36,21 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-type HaveArgs = Method<Linked> | Constructor<Linked>
-
-const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
-  ((member2.parameters[member2.parameters.length - 1].isVarArg && member1.parameters.length >= member2.parameters.length)
-    || member2.parameters.length === member1.parameters.length) && member1 !== member2
-
-const matchingConstructors =
-  (list: ReadonlyArray<ClassMember<Linked>>, member: Constructor<Linked>) =>
-    list.some(m => m.is('Constructor') && canBeCalledWithArgs(m, member))
-
-const matchingSignatures =
-  (list: ReadonlyArray<ClassMember<Linked>>, member: Method<Linked>) =>
-    list.some(m => m.is('Method') && m.name === member.name && canBeCalledWithArgs(m, member))
-
 const isNotEmpty = (node: Program<Linked> | Test<Linked> | Method<Linked>) => node.sentences().length !== 0
 
-const isNotAbstractClass = (node: Class<Linked>) =>
-  node.members.some(member => member.is('Method') && isNotEmpty(member))
-
-const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.ancestors().find(ancestor => ancestor.is(kind)))
+const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.source || !node.ancestors().some(is(kind)))
 
 // TODO: Why are we exporting this as a single object?
 export const validations: any = {
   nameIsPascalCase: warning<Mixin<Linked> | Class<Linked>>(node =>
-    /^[A-Z]$/.test(node.name[0])),
+    /^[A-Z]/.test(node.name)),
 
-  nameIsCamelCase: warning<Parameter<Linked> | Singleton<Linked> | Variable<Linked>>(node => node.name !== undefined &&
-    /^[a-z]$/.test(node.name[0])),
+  nameIsCamelCase: warning<Parameter<Linked> | Singleton<Linked> | Variable<Linked>>(node => /^[a-z_<]/.test(node.name ?? 'ok')),
 
-  onlyLastParameterIsVarArg: error<Method<Linked>>(node =>
-    node.parameters.findIndex(p => p.isVarArg) + 1 === (node.parameters.length)),
+  onlyLastParameterIsVarArg: error<Method<Linked>>(node => {
+    const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
+    return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
+  }),
 
   nameIsNotKeyword: error<Reference<any, Linked> | Method<Linked> | Variable<Linked>>(node => !['.',
     ',',
@@ -104,7 +87,6 @@ export const validations: any = {
     'then always',
     'catch',
     ':',
-    '+',
     'null',
     'false',
     'true',
@@ -112,29 +94,29 @@ export const validations: any = {
 
   hasCatchOrAlways: error<Try<Linked>>(t => t.catches.length > 0 || t.always.sentences.length > 0 && t.body.sentences.length > 0),
 
-  singletonIsNotUnnamed: error<Singleton<Linked>>(node => (node.parent().is('Package')) && node.name !== undefined),
+  hasNameWhenNecessary: error<Singleton<Linked>>(node => !node.parent().is('Package') || node.name !== undefined),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment<Linked>>(node => !node.variable.name.includes('.')),
 
-  fieldNameDifferentFromTheMethods: error<Field<Linked>>(node => node.parent()
-    .methods().every(({ name }) => name !== node.name)),
-
-  methodsHaveDistinctSignatures: error<Class<Linked>>(node => node.members
-    .every(member => member.is('Method') && !matchingSignatures(node.members, member))),
-
-  constructorsHaveDistinctArity: error<Constructor<Linked>>(node => node.parent().members
-    .every(member => member.is('Constructor') && !matchingConstructors(node.parent().members, member))),
+  hasDistinctSignature: error<Constructor<Linked> | Method<Linked>>(node => {
+    if(node.is('Constructor')) {
+      return node.parent().constructors().every(other => node === other || !other.matchesSignature(node.parameters.length))
+    } else {
+      return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+    }
+  }),
 
   methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
-    !!node.sentences().length && !node.sentences().every(sentence => sentence.is('Super'))
+    !node.sentences().length || !node.sentences().every(sentence =>
+      sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+    )
   ),
 
   testIsNotEmpty: warning<Test<Linked>>(node => isNotEmpty(node)),
 
   programIsNotEmpty: warning<Program<Linked>>(node => isNotEmpty(node)),
 
-  instantiationIsNotAbstractClass: error<New<Linked>>(node =>
-    isNotAbstractClass(node.instantiated.target())),
+  abstractsAreNotInstantiated: error<New<Linked>>(node => !node.instantiated.target().isAbstract()),
 
   notAssignToItself: error<Assignment<Linked>>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
 
@@ -142,7 +124,11 @@ export const validations: any = {
     !(node.value!.is('Reference') && node.value!.name === node.name)),
 
 
-  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(node => node.message === '==' && (node.args[0] === Literal(true) || node.args[0] === Literal(false))),
+  doesNotCheckEqualityAgainstBooleanLiterals: warning<Send<Linked>>(node => {
+    if(node.message !== '==') return true
+    const arg = node.args[0]
+    return !arg.is('Literal') || (arg.value !== true && arg.value !== false)
+  }),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
   selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),
@@ -167,19 +153,17 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
     hasCatchOrAlways,
-    singletonIsNotUnnamed,
+    hasNameWhenNecessary,
     nonAsignationOfFullyQualifiedReferences,
-    fieldNameDifferentFromTheMethods,
-    methodsHaveDistinctSignatures,
-    constructorsHaveDistinctArity,
+    hasDistinctSignature,
     methodNotOnlyCallToSuper,
     programIsNotEmpty,
     testIsNotEmpty,
-    instantiationIsNotAbstractClass,
+    abstractsAreNotInstantiated,
     selfIsNotInAProgram,
     notAssignToItself,
     notAssignToItselfInVariableDeclaration,
-    dontCompareAgainstTrueOrFalse,
+    doesNotCheckEqualityAgainstBooleanLiterals,
     noSuperInConstructorBody,
     noReturnStatementInConstructor,
   } = validations
@@ -193,20 +177,20 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Package: {},
     Program: { programIsNotEmpty },
     Test: { testIsNotEmpty },
-    Class: { nameIsPascalCase, methodsHaveDistinctSignatures },
-    Singleton: { nameIsCamelCase, singletonIsNotUnnamed },
+    Class: { nameIsPascalCase },
+    Singleton: { nameIsCamelCase, hasNameWhenNecessary },
     Mixin: { nameIsPascalCase },
-    Constructor: { constructorsHaveDistinctArity },
-    Field: { fieldNameDifferentFromTheMethods, notAssignToItselfInVariableDeclaration },
-    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, methodNotOnlyCallToSuper },
+    Constructor: { hasDistinctSignature },
+    Field: { notAssignToItselfInVariableDeclaration },
+    Method: { onlyLastParameterIsVarArg, hasDistinctSignature, nameIsNotKeyword, methodNotOnlyCallToSuper },
     Variable: { nameIsCamelCase, nameIsNotKeyword },
     Return: { noReturnStatementInConstructor },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
     Self: { selfIsNotInAProgram },
-    New: { instantiationIsNotAbstractClass },
+    New: { abstractsAreNotInstantiated },
     Literal: {},
-    Send: { dontCompareAgainstTrueOrFalse },
+    Send: { doesNotCheckEqualityAgainstBooleanLiterals },
     Super: { noSuperInConstructorBody },
     If: {},
     Throw: {},
@@ -220,6 +204,7 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     const checks = problemsByKind[node.kind] as { [code: string]: (n: Node<Linked>, c: Code) => Problem | null }
     return [
       ...found,
+      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target } as const)  ) ?? [],
       ...keys(checks).map(code => checks[code](node, code)!).filter(result => result !== null),
     ]
   }, [])

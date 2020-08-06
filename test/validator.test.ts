@@ -32,17 +32,17 @@ describe('Wollok Validations', () => {
         )),
       ])
 
-      const { singletonIsNotUnnamed } = validations
+      const { hasNameWhenNecessary } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
       const unnamedSingleton = packageExample.members[0] as SingletonNode<Linked>
       const namedSingleton = packageExample.members[1] as SingletonNode<Linked>
 
       it('should pass when singleton has a name', () => {
-        namedSingleton.should.pass(singletonIsNotUnnamed)
+        namedSingleton.should.pass(hasNameWhenNecessary)
       })
 
       it('should not pass when singleton has no name', () => {
-        unnamedSingleton.should.not.pass(singletonIsNotUnnamed)
+        unnamedSingleton.should.not.pass(hasNameWhenNecessary)
       })
     })
   })
@@ -146,7 +146,7 @@ describe('Wollok Validations', () => {
           ),
 
           Class('classExample4')(
-            Method('m', { parameters: [Parameter('a'), Parameter('b')] })(),
+            Method('m', { parameters: [Parameter('a')] })(),
             Method('m', { parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })] })(),
           ),
 
@@ -154,27 +154,27 @@ describe('Wollok Validations', () => {
       ] as PackageNode<Filled>[])
 
       const packageExample = environment.members[1] as PackageNode<Linked>
-      const classWithoutDistinctSignatures = packageExample.members[0] as ClassNode<Linked>
+      const classWithDuplicatedSignatures = packageExample.members[0] as ClassNode<Linked>
       const classWithDistinctSignatures = packageExample.members[1] as ClassNode<Linked>
-      const classWithoutDistinctSignaturesAndVarArg = packageExample.members[2] as ClassNode<Linked>
+      const classWithOverlappingVarArgSignature = packageExample.members[2] as ClassNode<Linked>
       const classWithDistinctSignaturesAndVarArg = packageExample.members[3] as ClassNode<Linked>
 
-      const { methodsHaveDistinctSignatures } = validations
+      const { hasDistinctSignature } = validations
 
       it('should pass when there is a method with the same name and different arity', () => {
-        classWithDistinctSignatures.should.pass(methodsHaveDistinctSignatures)
+        classWithDistinctSignatures.methods()[0].should.pass(hasDistinctSignature)
       })
 
       it('should pass when there is a method with the same name and cannot be called with the same amount of arguments', () => {
-        classWithDistinctSignaturesAndVarArg.should.pass(methodsHaveDistinctSignatures)
+        classWithDistinctSignaturesAndVarArg.methods()[0].should.pass(hasDistinctSignature)
       })
 
       it('should not pass when there is a method with the same name and arity', () => {
-        classWithoutDistinctSignatures.should.not.pass(methodsHaveDistinctSignatures)
+        classWithDuplicatedSignatures.methods()[0].should.not.pass(hasDistinctSignature)
       })
 
       it('should not pass when there is a method with the same name and can be called with the same amount of arguments', () => {
-        classWithoutDistinctSignaturesAndVarArg.should.not.pass(methodsHaveDistinctSignatures)
+        classWithOverlappingVarArgSignature.methods()[0].should.not.pass(hasDistinctSignature)
       })
     })
   })
@@ -185,7 +185,7 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Class('C')(Method('m')()),
+          Class('C')(Method('m', { body: undefined })()),
           Class('C2')(Method('m')(Literal(5))),
           Test('t')(New(Reference('C'), [])),
           Test('t')(New(Reference('C2'), [])),
@@ -196,14 +196,14 @@ describe('Wollok Validations', () => {
       const instantiationOfAbstractClass = (packageExample.members[2] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
       const instantiationOfConcreteClass = (packageExample.members[3] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
 
-      const { instantiationIsNotAbstractClass } = validations
+      const { abstractsAreNotInstantiated } = validations
 
       it('should pass when instantiating a concrete class', () => {
-        instantiationOfConcreteClass.should.pass(instantiationIsNotAbstractClass)
+        instantiationOfConcreteClass.should.pass(abstractsAreNotInstantiated)
       })
 
       it('should not pass when instantiating an abstract class', () => {
-        instantiationOfAbstractClass.should.not.pass(instantiationIsNotAbstractClass)
+        instantiationOfAbstractClass.should.not.pass(abstractsAreNotInstantiated)
       })
     })
   })
@@ -223,7 +223,7 @@ describe('Wollok Validations', () => {
             Constructor({ parameters: [Parameter('q', { isVarArg: true })] })()
           ),
           Class('c3')(
-            Constructor({ parameters: [Parameter('a'), Parameter('b')] })(),
+            Constructor({ parameters: [Parameter('a')] })(),
             Constructor({ parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })] })()
           ),
         ),
@@ -239,18 +239,18 @@ describe('Wollok Validations', () => {
       const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as ClassNode<Linked>
       const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0] as ConstructorNode<Linked>
 
-      const { constructorsHaveDistinctArity } = validations
+      const { hasDistinctSignature } = validations
 
       it('should pass when constructors have distinct arity', () => {
-        distinctArityWithVarArgConstructor.should.pass(constructorsHaveDistinctArity)
+        distinctArityWithVarArgConstructor.should.pass(hasDistinctSignature)
       })
 
       it('should not pass when constructors have the same arity', () => {
-        conflictingArityConstructor.should.not.pass(constructorsHaveDistinctArity)
+        conflictingArityConstructor.should.not.pass(hasDistinctSignature)
       })
 
       it('should not pass when constructors can be called with the same amount of arguments', () => {
-        conflictingArityWithVarArgConstructor.should.not.pass(constructorsHaveDistinctArity)
+        conflictingArityWithVarArgConstructor.should.not.pass(hasDistinctSignature)
       })
     })
   })
@@ -441,31 +441,6 @@ describe('Wollok Validations', () => {
   })
 
   describe('Fields', () => {
-    describe('Field name different from method names', () => {
-      const environment = link([
-        WRE,
-        Package('p')(Class('c')(
-          Field('m'),
-          Field('a'),
-          Method('m')(),
-        )),
-      ] as PackageNode<Filled>[])
-
-      const { fieldNameDifferentFromTheMethods } = validations
-
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const fieldWithSameNameAsMethod = classExample.members[0] as FieldNode<Linked>
-      const fieldWithDifferentNameFromMethods = classExample.members[1] as FieldNode<Linked>
-
-      it('should pass when field name is different from method names', () => {
-        fieldWithDifferentNameFromMethods.should.pass(fieldNameDifferentFromTheMethods)
-      })
-
-      it('should not pass when field name is a method name', () => {
-        fieldWithSameNameAsMethod.should.not.pass(fieldNameDifferentFromTheMethods)
-      })
-    })
 
     describe('Not assign to itself in variable declaration', () => {
       const environment = link([
@@ -537,8 +512,8 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(
-          Program('pr')(Return(Self())),
-          Class('C')(Method('m')(Return(Self())))
+          Program('pr')(Return(Self({ source: {} as any }))),
+          Class('C')(Method('m')(Return(Self({ source: {} as any }))))
         ),
       ] as PackageNode<Filled>[])
 
@@ -571,7 +546,7 @@ describe('Wollok Validations', () => {
         )),
       ] as PackageNode<Filled>[])
 
-      const { dontCompareAgainstTrueOrFalse } = validations
+      const { doesNotCheckEqualityAgainstBooleanLiterals } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = (packageExample.members[0] as ClassNode<Linked>)
@@ -579,7 +554,7 @@ describe('Wollok Validations', () => {
       const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode<Linked>).value as SendNode<Linked>
 
       it('should not pass when comparing against true literal', () => {
-        comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
+        comparisonAgainstTrue.should.not.pass(doesNotCheckEqualityAgainstBooleanLiterals)
       })
     })
   })
@@ -589,8 +564,8 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(Class('c')(
-          Constructor()(Super()),
-          Method('m')(Super()),
+          Constructor()(Super([], { source: {} as any })),
+          Method('m')(Super([], { source: {} as any })),
         )),
       ] as PackageNode<Filled>[])
 
@@ -618,8 +593,8 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(Class('c')(
-          Constructor()(Return(Literal('a'))),
-          Method('m')(Return(Literal('a'))),
+          Constructor()(Return(Literal('a'), { source: {} as any })),
+          Method('m')(Return(Literal('a'), { source: {} as any })),
         )),
       ] as PackageNode<Filled>[])
 

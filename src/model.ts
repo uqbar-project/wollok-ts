@@ -18,7 +18,7 @@ export interface Source {
 }
 
 // TODO: Unify with Validator's problems
-export class Problem { }
+export abstract class Problem { abstract code: Name }
 
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
 type NonOptionalAttributeKeys<T> = {
@@ -414,7 +414,7 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
   @cached
   lookupMethod<R extends Linked>(this: Module<R>, name: Name, arity: number): Method<R> | undefined {
     for (const module of this.hierarchy()) {
-      const found = module.methods().find(member => (!!member.body || member.body === 'native') && member.matchesSignature(name, arity))
+      const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
       if (found) return found
     }
     return undefined
@@ -449,6 +449,12 @@ export class Class<S extends Stage = Final> extends $Module<S> {
     return this.constructors().filter(isNotDefaultConstructor).length
       ? undefined
       : this.superclass?.()?.lookupConstructor?.(arity)
+  }
+
+  @cached
+  isAbstract<R extends Linked>(this: Class<R>): boolean {
+    const abstractMethods = this.hierarchy().flatMap(module => module.methods().filter(method => method.isAbstract()))
+    return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
 }
 
@@ -512,6 +518,8 @@ export class Method<S extends Stage = Final> extends $Node<S> {
 
   constructor(data: Payload<Method<S>>) { super(data) }
 
+  isAbstract(): boolean { return !this.body }
+
   @cached
   sentences(): List<Sentence<S>> {
     return (!this.body || this.body === 'native') ? [] : this.body.sentences
@@ -535,6 +543,7 @@ export class Constructor<S extends Stage = Final> extends $Node<S> {
 
   constructor(data: Payload<Constructor<S>>) { super(data) }
 
+  @cached
   matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
     return this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity

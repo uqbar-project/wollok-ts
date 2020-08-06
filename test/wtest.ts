@@ -8,6 +8,7 @@ import interpreter, { Evaluation, Natives } from '../src/interpreter'
 import { enableLogs, LogLevel } from '../src/log'
 import { List, Node } from '../src/model'
 import natives from '../src/wre/wre.natives'
+import validate from '../src/validator'
 
 const { fail } = assert
 const { time, timeEnd, log } = console
@@ -71,8 +72,8 @@ describe(basename(ARGUMENTS.root), () => {
 
   timeEnd('Building environment')
 
-  const problems = environment.reduce((problems, node) => [...problems, ...node.problems ?? []], [] as any[])
-  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems}`)
+  const problems = validate(environment)
+  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
   else log('No problems found building the environment!')
 
 

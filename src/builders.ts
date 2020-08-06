@@ -163,7 +163,7 @@ export const Variable = (name: Name, payload?: BuildPayload<VariableNode<Raw>>):
   ...payload,
 })
 
-export const Return = (value: Expression<Raw> | undefined = undefined): ReturnNode<Raw> => new ReturnNode<Raw>({ value })
+export const Return = (value: Expression<Raw> | undefined = undefined, payload?: BuildPayload<ReturnNode<Raw>>): ReturnNode<Raw> => new ReturnNode<Raw>({ ...payload, value })
 
 export const Assignment = (reference: ReferenceNode<'Variable'|'Field', Raw>, value: Expression<Raw>): AssignmentNode<Raw> =>
   new AssignmentNode<Raw>({ variable: reference, value })
@@ -172,7 +172,7 @@ export const Assignment = (reference: ReferenceNode<'Variable'|'Field', Raw>, va
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Self = (): SelfNode<Raw> => new SelfNode<Raw>({})
+export const Self = (payload?: BuildPayload<SelfNode<Raw>>): SelfNode<Raw> => new SelfNode<Raw>({ ...payload })
 
 export const Literal = (value: LiteralValue<Raw>): LiteralNode<Raw> => new LiteralNode<Raw, LiteralValue<Raw>>({ value })
 
@@ -184,7 +184,7 @@ export const Send = (receiver: Expression<Raw>, message: Name, args: List<Expres
     ...payload,
   })
 
-export const Super = (args: List<Expression<Raw>> = []): SuperNode<Raw> => new SuperNode<Raw>({ args })
+export const Super = (args: List<Expression<Raw>> = [], payload?: BuildPayload<SuperNode<Raw>>): SuperNode<Raw> => new SuperNode<Raw>({ ...payload, args })
 
 export const New = (className: ReferenceNode<'Class', Raw>, args: List<Expression<Raw>> | List<NamedArgumentNode<Raw>>): NewNode<Raw> =>
   new NewNode<Raw>({ instantiated: className, args })
