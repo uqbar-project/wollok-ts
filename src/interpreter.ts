@@ -883,7 +883,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
 }
 
-interface TestResult {
+export interface TestResult {
   error?: Error,
   duration: number,
   evaluation: Evaluation,

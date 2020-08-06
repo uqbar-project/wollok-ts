@@ -20,7 +20,8 @@
     "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
-    "postpublish": "git tag v$npm_package_version && git push --tags"
+    "postpublish": "git tag v$npm_package_version && git push --tags",
+    "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.2",

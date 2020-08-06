@@ -1,0 +1,146 @@
+import wollok.game.*
+import wollok.io.*
+
+object closureMock {
+  var property calledCount = 0
+  method called() = calledCount > 0
+  method apply(args...) { calledCount += 1 }
+}
+
+class Visual {
+  var property position = game.origin()
+}
+
+object visual inherits Visual { }
+
+describe 'events' {
+
+  fixture {
+    game.addVisual(visual)
+  }
+
+  test 'addVisualCharacter should be moved with arrow keys' {
+    const character = new Visual()
+    game.addVisualCharacter(character)
+    // Simulate
+    io.queueEvent(["keydown", "KeyUp"])
+    io.flushEvents(0)
+
+    // SKIP: until key code unification
+    // assert.equals(game.at(0, 1), character.position())
+  }
+
+  test 'whenKeyPressedDo should add event handler' {
+    const event = ["keydown", "KeyA"]
+    
+    // TODO: replace after key code unification
+    game.whenKeyPressedDo(event, closureMock) 
+    // keyboard.a().onPressDo(closureMock)
+
+    assert.that(io.eventHandlersFor(event).contains(closureMock))
+  }
+  
+  test 'clear should clear event handlers' {
+    const event = ["keydown"]
+    game.whenKeyPressedDo(event, closureMock)
+    game.clear()
+    assert.notThat(io.eventHandlersFor(event).contains(closureMock))
+  }
+  
+
+  test 'whenCollideDo never called' {
+    game.whenCollideDo(visual, closureMock)
+    io.flushEvents(0)
+    assert.notThat(closureMock.called())
+  }
+
+  test 'whenCollideDo once called' {
+    game.whenCollideDo(visual, closureMock)
+    game.addVisual(new Visual())
+    io.flushEvents(0)
+    assert.that(closureMock.called())
+  }
+
+  test 'whenCollideDo many times called' {
+    game.whenCollideDo(visual, closureMock)
+    game.addVisual(new Visual())
+    io.flushEvents(0)
+    io.flushEvents(1)
+    assert.equals(2, closureMock.calledCount()) 
+  }
+
+
+  test 'onCollideDo never called' {
+    game.onCollideDo(visual, closureMock)
+    io.flushEvents(0)
+    assert.notThat(closureMock.called())
+  }
+
+  test 'onCollideDo once called' {
+    game.onCollideDo(visual, closureMock)
+    game.addVisual(new Visual())
+    io.flushEvents(0)
+    assert.that(closureMock.called())  
+  }
+
+  test 'onCollideDo only once called in same collision' {
+    game.onCollideDo(visual, closureMock)
+    game.addVisual(new Visual())
+    io.flushEvents(0)
+    io.flushEvents(1)
+    assert.equals(1, closureMock.calledCount())  
+  }
+
+  test 'onCollideDo many times called in many collisions' {
+    game.onCollideDo(visual, closureMock)
+    const collider = new Visual()
+    game.addVisual(collider)
+    io.flushEvents(0) // First collision
+    collider.position(game.at(1, 1))
+    io.flushEvents(1) // No collision, different positions
+    collider.position(game.origin())
+    io.flushEvents(2) // Second collision
+    assert.equals(2, closureMock.calledCount())  
+  }
+
+
+  test 'onTick never called' {
+    game.onTick(1000, "", closureMock)
+    io.flushEvents(999)
+    assert.notThat(closureMock.called())
+  }
+
+  test 'onTick once called' {
+    game.onTick(1000, "", closureMock)
+    io.flushEvents(1000)
+    assert.that(closureMock.called())
+  }
+
+  test 'onTick many times called' {
+    game.onTick(1000, "", closureMock)
+    io.flushEvents(1000)
+    io.flushEvents(2000)
+    assert.equals(2, closureMock.calledCount())
+  }
+
+  test 'removeTickEvent' {
+    game.onTick(1000, "event", closureMock)
+    game.removeTickEvent("event")
+    io.flushEvents(1000)
+    assert.notThat(closureMock.called())
+  }
+
+
+  test 'schedule once called' {
+      game.schedule(1000, closureMock)
+      io.flushEvents(1000)
+      assert.that(closureMock.called())
+  }
+
+  test 'schedule only once called' {
+      game.schedule(1000, closureMock)
+      io.flushEvents(1000)
+      io.flushEvents(2000)
+      assert.equals(1, closureMock.calledCount())
+  }
+}

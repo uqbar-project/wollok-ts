@@ -1,8 +1,44 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Constructor, Field, Literal, Method, New, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try } from '../src/builders'
+import { buildEnvironment, validate } from '../src'
+import { Assignment,
+  Catch,
+  Class,
+  Constructor,
+  Field,
+  Literal,
+  Method,
+  New,
+  Package,
+  Parameter,
+  Program,
+  Reference,
+  Return,
+  Self,
+  Send,
+  Singleton,
+  Super,
+  Test,
+  Try } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
-import { Assignment as AssignmentNode, Body as BodyNode, Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Linked, Method as MethodNode, New as NewNode, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Return as ReturnNode, Send as SendNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Try as TryNode } from '../src/model'
+import { Assignment as AssignmentNode,
+  Body as BodyNode,
+  Class as ClassNode,
+  Constructor as ConstructorNode,
+  Field as FieldNode,
+  Filled,
+  Linked,
+  Method as MethodNode,
+  New as NewNode,
+  Package as PackageNode,
+  Parameter as ParameterNode,
+  Program as ProgramNode,
+  Return as ReturnNode,
+  Send as SendNode,
+  Singleton as SingletonNode,
+  Super as SuperNode,
+  Test as TestNode,
+  Try as TryNode } from '../src/model'
 import { validations } from '../src/validator'
 import { validatorAssertions } from './assertions'
 
@@ -32,17 +68,17 @@ describe('Wollok Validations', () => {
         )),
       ])
 
-      const { hasNameWhenNecessary } = validations
+      const { singletonIsNotUnnamed } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
       const unnamedSingleton = packageExample.members[0] as SingletonNode<Linked>
       const namedSingleton = packageExample.members[1] as SingletonNode<Linked>
 
       it('should pass when singleton has a name', () => {
-        namedSingleton.should.pass(hasNameWhenNecessary)
+        namedSingleton.should.pass(singletonIsNotUnnamed)
       })
 
       it('should not pass when singleton has no name', () => {
-        unnamedSingleton.should.not.pass(hasNameWhenNecessary)
+        unnamedSingleton.should.not.pass(singletonIsNotUnnamed)
       })
     })
   })
@@ -103,7 +139,7 @@ describe('Wollok Validations', () => {
 
   describe('Classes', () => {
 
-    describe('Name is in PascalCase', () => {
+    describe('Name is in Uppercase', () => {
       const environment = link([
         WRE,
         Package('p')(
@@ -114,15 +150,15 @@ describe('Wollok Validations', () => {
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classWithLowercaseName = packageExample.members[0] as ClassNode<Linked>
-      const classWithPascalCaseName = packageExample.members[1] as ClassNode<Linked>
-      const { nameIsPascalCase } = validations
+      const classWithUppercaseName = packageExample.members[1] as ClassNode<Linked>
+      const { nameBeginsWithUppercase } = validations
 
-      it('should pass when name is in PascalCase', () => {
-        classWithPascalCaseName.should.pass(nameIsPascalCase)
+      it('should pass when name begins with uppercase', () => {
+        classWithUppercaseName.should.pass(nameBeginsWithUppercase)
       })
 
-      it('should not pass when name is not in PascalCase', () => {
-        classWithLowercaseName.should.not.pass(nameIsPascalCase)
+      it('should not pass when name begins with lowercase', () => {
+        classWithLowercaseName.should.not.pass(nameBeginsWithUppercase)
       })
     })
 
@@ -196,14 +232,14 @@ describe('Wollok Validations', () => {
       const instantiationOfAbstractClass = (packageExample.members[2] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
       const instantiationOfConcreteClass = (packageExample.members[3] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
 
-      const { abstractsAreNotInstantiated } = validations
+      const { instantiationIsNotAbstractClass } = validations
 
       it('should pass when instantiating a concrete class', () => {
-        instantiationOfConcreteClass.should.pass(abstractsAreNotInstantiated)
+        instantiationOfConcreteClass.should.pass(instantiationIsNotAbstractClass)
       })
 
       it('should not pass when instantiating an abstract class', () => {
-        instantiationOfAbstractClass.should.not.pass(abstractsAreNotInstantiated)
+        instantiationOfAbstractClass.should.not.pass(instantiationIsNotAbstractClass)
       })
     })
   })
@@ -226,6 +262,9 @@ describe('Wollok Validations', () => {
             Constructor({ parameters: [Parameter('a')] })(),
             Constructor({ parameters: [Parameter('a'), Parameter('b'), Parameter('q', { isVarArg: true })] })()
           ),
+          Class('c4')(
+            Constructor({ parameters: [Parameter('a'), Parameter('b')] })(),
+          ),
         ),
       ] as PackageNode<Filled>[])
 
@@ -240,6 +279,8 @@ describe('Wollok Validations', () => {
       const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0] as ConstructorNode<Linked>
 
       const { hasDistinctSignature } = validations
+      const classWithSingleConstructor = packageExample.members[3] as ClassNode<Linked>
+      const singleConstructor = classWithSingleConstructor.members[0] as ConstructorNode<Linked>
 
       it('should pass when constructors have distinct arity', () => {
         distinctArityWithVarArgConstructor.should.pass(hasDistinctSignature)
@@ -251,6 +292,10 @@ describe('Wollok Validations', () => {
 
       it('should not pass when constructors can be called with the same amount of arguments', () => {
         conflictingArityWithVarArgConstructor.should.not.pass(hasDistinctSignature)
+      })
+
+      it('should pass when single constructor defined', () => {
+        singleConstructor.should.pass(hasDistinctSignature)
       })
     })
   })
@@ -305,6 +350,31 @@ describe('Wollok Validations', () => {
         methodWithOnlyCallToSuper.should.not.pass(methodNotOnlyCallToSuper)
       })
     })
+
+    describe('Methods with different signatures', () => {
+      const environment = link([
+        WRE,
+        Package('p')(
+          Class('C')(
+            Method('m')(),
+            Method('m', { parameters: [Parameter('param')] })(),
+          ),
+        ),
+      ] as PackageNode<Filled>[])
+
+      const { hasDistinctSignature } = validations
+
+      const packageExample = environment.members[0] as PackageNode<Linked>
+      const classExample = packageExample.members[0] as ClassNode<Linked>
+      const methodMNoParameter = classExample.members[0] as MethodNode<Linked>
+      const methodM1Parameter = classExample.members[1] as MethodNode<Linked>
+
+      it('should not confuse methods with different parameters', () => {
+        methodMNoParameter.should.pass(hasDistinctSignature)
+        methodM1Parameter.should.pass(hasDistinctSignature)
+      })
+    })
+
   })
 
   describe('Assignments', () => {
@@ -416,13 +486,13 @@ describe('Wollok Validations', () => {
   })
 
   describe('Parameters', () => {
-    describe('Name is camelCase', () => {
+    describe('Name is lowercase', () => {
       const environment = link([
         WRE,
         Package('p')(Class('C')(Method('m', { parameters: [Parameter('C'), Parameter('k')] })())),
       ] as PackageNode<Filled>[])
 
-      const { nameIsCamelCase } = validations
+      const { nameBeginsWithLowercase } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = packageExample.members[0] as ClassNode<Linked>
@@ -431,17 +501,17 @@ describe('Wollok Validations', () => {
       const lowercaseParameter = methodExample.parameters[1] as ParameterNode<Linked>
 
       it('should pass when name is a lowercase letter', () => {
-        lowercaseParameter.should.pass(nameIsCamelCase)
+        lowercaseParameter.should.pass(nameBeginsWithLowercase)
       })
 
       it('should not pass when name is an uppercase letter', () => {
-        uppercaseParameter.should.not.pass(nameIsCamelCase)
+        uppercaseParameter.should.not.pass(nameBeginsWithLowercase)
       })
     })
   })
 
   describe('Fields', () => {
-
+    
     describe('Not assign to itself in variable declaration', () => {
       const environment = link([
         WRE,
@@ -476,18 +546,17 @@ describe('Wollok Validations', () => {
         Package('p')(Test('t')()),
       ] as PackageNode<Filled>[])
 
-      const { testIsNotEmpty } = validations
+      const { containerIsNotEmpty } = validations
       const packageExample = environment.members[1] as PackageNode<Linked>
       const emptyTest = packageExample.members[0] as TestNode<Linked>
 
       it('should not pass when test is empty', () => {
-        emptyTest.should.not.pass(testIsNotEmpty)
+        emptyTest.should.not.pass(containerIsNotEmpty)
       })
     })
   })
 
   describe('Packages', () => {
-
     /*
     it('duplicatedPackageName', () => {
       const environment = link([
@@ -496,12 +565,9 @@ describe('Wollok Validations', () => {
         Package('p')(),
         Package('c')(),
       ])
-
       const { notDuplicatedPackageName } = validations
-
       const packageExample = environment.members[1] as PackageNode<Linked>
       const packageExample2 = environment.members[3] as PackageNode<Linked>
-
       assert.ok(!!notDuplicatedPackageName(packageExample, 'duplicatedPackageName'))
       assert.ok(!notDuplicatedPackageName(packageExample2, 'duplicatedPackageName'))
     })*/
@@ -546,7 +612,7 @@ describe('Wollok Validations', () => {
         )),
       ] as PackageNode<Filled>[])
 
-      const { doesNotCheckEqualityAgainstBooleanLiterals } = validations
+      const { dontCompareAgainstTrueOrFalse } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
       const classExample = (packageExample.members[0] as ClassNode<Linked>)
@@ -554,7 +620,7 @@ describe('Wollok Validations', () => {
       const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode<Linked>).value as SendNode<Linked>
 
       it('should not pass when comparing against true literal', () => {
-        comparisonAgainstTrue.should.not.pass(doesNotCheckEqualityAgainstBooleanLiterals)
+        comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
       })
     })
   })
@@ -614,6 +680,26 @@ describe('Wollok Validations', () => {
       it('should not pass when return is in a constructor', () => {
         returnInConstructor.should.not.pass(noReturnStatementInConstructor)
       })
+    })
+  })
+
+  describe('Wollok Core Library Health', () => {
+    const file: { name: string, content: string } = {
+      name: 'zarlanga.wlk',
+      content: '',
+    }
+    const environment = buildEnvironment([file])
+    const problems = validate(environment).map(
+      ({ code, node }) => ({
+        code,
+        file: node.source?.file,
+        line: node.source?.start.line,
+        offset: node.source?.start.offset,
+      })
+    )
+
+    it('should pass without validation errors', () => {
+      problems.should.deep.equal([], 'Wollok Core Libraries has errors: ' + JSON.stringify(problems))
     })
   })
 })

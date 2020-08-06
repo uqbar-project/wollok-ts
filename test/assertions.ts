@@ -2,12 +2,17 @@ import { formatError, Parser } from 'parsimmon'
 import { ImportMock } from 'ts-mock-imports'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
-import { step, Natives } from '../src/interpreter'
+import interpreter, { step, Natives } from '../src/interpreter'
 import link from '../src/linker'
 import { Name, Linked, Node, Package, Reference, List } from '../src/model'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
-
+import globby from 'globby'
+import { readFileSync } from 'fs'
+import { buildEnvironment } from '../src'
+import { join } from 'path'
+import validate from '../src/validator'
+import natives from '../src/wre/wre.natives'
 
 declare global {
   export namespace Chai {
@@ -20,7 +25,7 @@ declare global {
       linkedInto(expected: List<Package>): Assertion
       filledInto(expected: any): Assertion
       target(node: Node): Assertion
-      pass(validation: Validation<Node>): Assertion
+      pass<N extends Node>(validation: Validation<N>): Assertion
       stepped(natives?: Natives): Assertion
     }
 
@@ -190,4 +195,31 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
 
+}
+
+
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export const buildInterpreter = (pattern: string, cwd: string) => {
+
+  const { time, timeEnd, log } = console
+
+  time('Reading tests')
+
+  const files = globby.sync(pattern, { cwd })
+    .map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
+
+  timeEnd('Reading tests')
+
+
+  time('Building environment')
+
+  const environment = buildEnvironment(files)
+
+  timeEnd('Building environment')
+
+  const problems = validate(environment)
+  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
+  else log('No problems found building the environment!')
+
+  return interpreter(environment, natives as Natives)
 }

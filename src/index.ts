@@ -8,8 +8,7 @@ import * as parse from './parser'
 import validate from './validator'
 import wre from './wre/wre.json'
 
-
-function buildEnvironment(files: { name: string, content: string }[]): Environment {
+function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(wre)): Environment {
   return link(files.map(({ name, content }) => {
     try {
       const filePackage = fill(parse.File(name).tryParse(content))
@@ -17,7 +16,7 @@ function buildEnvironment(files: { name: string, content: string }[]): Environme
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }
-  }), build.fromJSON<Environment>(wre))
+  }), baseEnvironment)
 }
 
 export * from './model'
