@@ -1,5 +1,5 @@
 import { Index } from 'parsimmon'
-import { keys, divideOn, mapObject } from './extensions'
+import { keys, mapObject } from './extensions'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -9,7 +9,10 @@ export type Id = string
 export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
-export type Scope = Record<Name, Id>
+export interface Scope {
+  resolve(name: Name): Node<Linked> | undefined
+  resolveQualified(qualifiedName: Name): Node<Linked> | undefined
+}
 
 export interface Source {
   readonly file?: string
@@ -151,6 +154,7 @@ abstract class $Node<S extends Stage> {
   parent<R extends Linked>(this: Module<R> | Describe<R>): Package<R>
   parent<R extends Linked>(this: Field<R> | Method<R>): Module<R>
   parent<R extends Linked>(this: Constructor<R>): Class<R>
+  parent<R extends Linked>(this: Import<R>): Package<R>
   parent<R extends Linked>(this: Node<R>): Node<R>
   @cached
   parent(): never {
@@ -281,7 +285,7 @@ abstract class $Entity<S extends Stage> extends $Node<S> {
   fullyQualifiedName<R extends Linked>(this: Entity<R>): Name {
     const parent = this.parent()
     const label = this.is('Singleton')
-      ? this.name || `${this.superCall.superclassRef.target().fullyQualifiedName()}#${this.id}`
+      ? this.name ?? `${this.superclass().fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
 
     return parent.is('Package') || parent.is('Describe')
@@ -302,13 +306,9 @@ export class Package<S extends Stage = Final> extends $Entity<S> {
 
   @cached
   getNodeByQN<R extends Linked = Final>(this: Package<R>, qualifiedName: Name): Entity<R> {
-    const [, id] = qualifiedName.split('#')
-    if (id) return this.environment().getNodeById(id)
-    return qualifiedName.split('.').reduce((current: Entity<R>, step) => {
-      const next = current.children().find((child): child is Entity<R> => child.is('Entity') && child.name === step)
-      if (!next) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name} among ${JSON.stringify(current.children())}`)
-      return next
-    }, this)
+    const node = this.scope.resolveQualified(qualifiedName)
+    if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
+    return node as Entity<R>
   }
 
 }
@@ -618,9 +618,7 @@ export class Reference<T extends Kind|Category, S extends Stage = Final> extends
 
   @cached
   target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> {
-    const [start, rest] = divideOn('.')(this.name)
-    const root: Package<R> = this.environment().getNodeById(this.scope[start])
-    return (rest.length ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<T, R>
+    return this.scope.resolveQualified(this.name) as NodeOfKindOrCategory<T, R>
   }
 
 }
@@ -722,17 +720,15 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
     throw new Error(`Missing node in node cache with id ${id}`)
   }
 
+  //TODO: as function to use as safe cast instead of all the crapy casts in many methods ?
   @cached
   getNodeByFQN<Q extends Kind | Category, R extends Linked = Final>(this: Environment<R>, fullyQualifiedName: Name): NodeOfKindOrCategory<Q, R> {
-    const [start, rest] = divideOn('.')(fullyQualifiedName)
-    const root = this.members.find(child => child.name === start)
-    if (!root) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-    return (rest ? root.getNodeByQN(rest) : root) as NodeOfKindOrCategory<Q, R>
+    const [, id] = fullyQualifiedName.split('#')
+    if (id) return this.getNodeById(id)
+
+    const node = this.scope.resolveQualified(fullyQualifiedName)
+    if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
+    return node as NodeOfKindOrCategory<Q, R>
   }
 
 }
-
-// TODO:  CLASSES FIXES
-//   - Mixin-pattern for abstract classes to fix Variable case
-//   - Scope como método cacheado en lugar de campo?
-//   - as function to use as safe cast instead of all the crapy casts in many methods ?

@@ -1,5 +1,5 @@
 // TODO:
-// No imports of local references
+// No imports of local definitions or imports of duplicated names
 // No siblings with the same name
 // No global mutable vars
 // No modules named wollok

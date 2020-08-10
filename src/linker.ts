@@ -1,8 +1,11 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn } from './extensions'
-import { Entity, Environment, Filled, Id, Linked, List, Module, Name, Node, Package, Scope } from './model'
+import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope } from './model'
 
 const { assign } = Object
+
+
+const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib']
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
@@ -27,105 +30,98 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
 // SCOPES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// TODO: Use reference target passing a custom scope instead?
-const resolve = (context: Node<Linked>, qualifiedName: Name): Entity<Linked> => {
-  if (qualifiedName.startsWith('#')) return context.environment().getNodeById(qualifiedName.slice(1))
+class LocalScope implements Scope {
+  contributions = new Map<Name, Node<Linked>>()
+  includedScopes: Scope[] = []
 
-  const [start, rest] = divideOn('.')(qualifiedName)
-  const root = context.environment().getNodeById<'Entity'>(context.scope[start])
+  constructor(public containerScope?: Scope) { }
 
-  if (rest.length) {
-    if (!root.is('Package'))
-      throw new Error(`Trying to resolve ${qualifiedName} from non-package root`)
-
-    return (root as Package<Linked>).getNodeByQN(rest)
-  } else {
-    return root
+  register(contributions: List<[Name, Node<Linked>]>) {
+    for(const contribution of contributions)
+      this.contributions.set(contribution[0], contribution[1])
   }
+
+  resolve(name: Name, checkContainerScope = true): Node<Linked> | undefined {
+    const contributed = this.contributions.get(name)
+    if(contributed) return contributed
+
+    for(const includedScope of this.includedScopes) {
+      const inherited = (includedScope as LocalScope).resolve(name, false)
+      if (inherited) return inherited
+    }
+
+    return checkContainerScope ? this.containerScope?.resolve(name) : undefined
+  }
+
+  // TODO: unify with resolve?
+  resolveQualified(qualifiedName: Name, checkContainerScope = true): Node<Linked> | undefined {
+    const [start, rest] = divideOn('.')(qualifiedName)
+    const root = this.resolve(start, checkContainerScope)
+
+    if (!root) throw new Error(`Could not resolve qualified name ${start}`)
+
+    return rest.length ? (root.scope as LocalScope).resolveQualified(rest, false) : root
+  }
+
 }
 
-const scopeContribution = (contributor: Node<Linked>): Scope => {
-  if (contributor.is('Import')) {
-    let referenced
-    try {
-      referenced = resolve(contributor.parent(), contributor.entity.name)
-    } catch (e) {
-      throw new Error(`Importing unresolved entity ${contributor.entity.name}`)
-    }
 
-    return {
-      ...contributor.isGeneric
-        ? assign({}, ...(referenced as Package).members.map(scopeContribution))
-        : scopeContribution(referenced),
-    }
+const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
+  if (contributor.is('Import') && !contributor.isGeneric) {
+    const imported = contributor.scope.resolveQualified(contributor.entity.name) as Entity<Linked>
+    return [[imported.name!, imported]] // TODO: Error if not
   }
 
   if (
     contributor.is('Entity') ||
     contributor.is('Field') ||
     contributor.is('Parameter')
-  ) return contributor.name ? { [contributor.name]: contributor.id } : {}
+  ) return contributor.name ? [[contributor.name, contributor]] : []
 
-  return {}
+  return []
 }
 
-const scopeWithin = (includeInheritedMembers: boolean) => (node: Node<Linked>): Scope => {
-  const response = { ...node.scope }
-
-  if (includeInheritedMembers && node.is('Module')) {
-
-    function inheritedScope(module: Module<Linked>, exclude: List<Id> = []): Scope {
-      if (exclude.includes(module.id)) return {}
-
-      const mixins = module.mixins.map(mixin => resolve(module, mixin.name))
-      const mixinsScope: Scope = assign({}, ...mixins.flatMap(mixin =>
-        mixin.children().map(scopeContribution)))
-
-      if (module.is('Mixin') || (module.is('Class') && !module.superclassRef)) return mixinsScope
-
-      const superclass = resolve(module, module.is('Class') ? module.superclassRef!.name : module.superCall.superclassRef.name) as Module
-      const superclassScope = assign({}, ...superclass.children().map(scopeContribution))
-
-      return {
-        ...inheritedScope(superclass, [module.id, ...exclude]),
-        ...superclassScope,
-        ...mixinsScope,
-      }
-    }
-
-    assign(response, inheritedScope(node), { ...response })
-  }
-
-  assign(response, ...[node, ...node.children()].map(scopeContribution))
-
-  return response
-}
 
 const assignScopes = (environment: Environment<Linked>) => {
-  const globalPackages = ['wollok.lang', 'wollok.lib']
-  const globalScope = assign(
-    {},
-    ...environment.children().map(scopeContribution),
-    ...globalPackages.flatMap(name => environment.getNodeByFQN<'Package'>(name).members.map(scopeContribution)),
-  )
+  environment.forEach((node, parent) => {
+    const scope = new LocalScope(
+      node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin')) ? parent!.parent().scope : parent?.scope
+    )
+    assign(node, { scope })
 
-  function propagateScopeAssignment(
-    node: Node<Linked>,
-    scope: Scope,
-    includeInheritedNames: boolean,
-    propagateOn: (child: Node<Linked>) => boolean,
-    n = 0,
-  ) {
-    (node as any).scope = scope
-    const innerScope = scopeWithin(includeInheritedNames)(node)
+    if(node.is('Entity')) (parent!.scope as LocalScope).register(scopeContribution(node))
+  })
 
-    for (const child of node.children())
-      if (propagateOn(child)) propagateScopeAssignment(child, innerScope, includeInheritedNames, propagateOn, n + 1)
-  }
+  environment.forEach((node, parent) => {
+    if(node.is('Environment'))
+      (node.scope as LocalScope).register(GLOBAL_PACKAGES.flatMap(globalPackage =>
+        (environment.scope.resolveQualified(globalPackage)! as Package<Linked>).members.flatMap(scopeContribution) // TODO: Add Error if not
+      ))
 
-  propagateScopeAssignment(environment, globalScope, false, node => node.is('Entity'))
-  propagateScopeAssignment(environment, environment.scope, true, () => true)
+    if(node.is('Import') && node.isGeneric)
+      (parent!.scope as LocalScope).includedScopes.push(node.scope.resolveQualified(node.entity.name)!.scope) //TODO: Add Error if not
+
+    if(node.is('Class'))
+      (node.scope as LocalScope).includedScopes.push(
+        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
+        ...node.superclassRef ? [node.scope.resolveQualified(node.superclassRef.name)!.scope] : []  //TODO: Add Error if not
+      )
+
+    if(node.is('Mixin'))
+      (node.scope as LocalScope).includedScopes.push(
+        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
+      )
+
+    if(node.is('Singleton'))
+      (node.scope as LocalScope).includedScopes.push(
+        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
+        node.scope.resolveQualified(node.superCall.superclassRef.name)!.scope,  //TODO: Add Error if not
+      )
+
+    if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))
+  })
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER
@@ -138,9 +134,8 @@ export default (
   // TODO: Would it make life easier if we used fqn where possible as id?
   const environment = new Environment<Linked>({
     id: uuid(),
-    scope: {},
-    members: newPackages
-      .reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package<Linked>>,
+    scope: null as any,
+    members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package<Linked>>,
   }).transform(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
@@ -153,9 +148,8 @@ export default (
 
   // TODO: Move this to validations so it becomes fail-resilient
   environment.forEach(node => {
-    if(node.is('Reference'))
-      try { node.target() }
-      catch (e) { throw new Error(`Unlinked reference to ${node.name} in ${node.source?.file}`) }
+    if(node.is('Reference') && !node.target())
+      throw new Error(`Unlinked reference to ${node.name} in ${JSON.stringify(node.source)}`)
   })
 
   return environment

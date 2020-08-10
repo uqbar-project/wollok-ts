@@ -36,17 +36,17 @@ describe('Wollok model', () => {
 
     describe('isAbstract', () => {
       it('should return true for methods with no body', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {} })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         m.isAbstract().should.be.true
       })
 
       it('should return false for native methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {}, body: 'native' })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any, body: 'native' })
         m.isAbstract().should.be.false
       })
 
       it('should return false for non-abstract non-native methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {}, body: new Body({ id: 'b1', scope: {}, sentences: [] }) })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any, body: new Body({ id: 'b1', scope: null as any, sentences: [] }) })
         m.isAbstract().should.be.false
       })
     })
@@ -58,38 +58,38 @@ describe('Wollok model', () => {
     describe('isAbstract', () => {
 
       it('should return true for classes with abstract methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {} })
-        const c = new Class({ name: 'C', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: {} })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
+        const c = new Class({ name: 'C', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any]
         
         c.isAbstract().should.be.true
       })
 
       it('should return true for classes with non-overriten inherited abstract methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {} })
-        const b = new Class({ name: 'B', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: {} })
-        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: {} })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
+        const b = new Class({ name: 'B', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
+        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: {} })
+        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any, b as any]
         
         c.isAbstract().should.be.true
       })
 
       it('should return false for classes with no abstract methods', () => {
-        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: null, id: 'c1', scope: {} })
+        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: null, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any]
         
         c.isAbstract().should.be.false
       })
 
       it('should return false for classes with implemented inherited abstract methods', () => {
-        const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: {} })
-        const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2', scope: {}, body: 'native' })
-        const b = new Class({ name: 'B', mixins: [], members: [m1], superclassRef: null, id: 'c1', scope: {} })
-        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: {} })
+        const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
+        const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2', scope: null as any, body: 'native' })
+        const b = new Class({ name: 'B', mixins: [], members: [m1], superclassRef: null, id: 'c1', scope: null as any })
+        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: {} })
+        const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any, b as any]
         
         c.isAbstract().should.be.false

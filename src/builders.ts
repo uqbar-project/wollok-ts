@@ -248,7 +248,7 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
 }
 
 export const Environment = (...members: PackageNode<Linked>[]): EnvironmentNode<Linked> => {
-  return new EnvironmentNode<Linked>({ members, id: '', scope: {} })
+  return new EnvironmentNode<Linked>({ members, id: '', scope: null as any })
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

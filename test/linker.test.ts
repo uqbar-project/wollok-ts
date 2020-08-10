@@ -130,6 +130,11 @@ describe('Wollok linker', () => {
             Method('m3')(Reference('x'))
           ),
           Class('C', { superclassRef: Reference('x') })(),
+          Class('D')(
+            Method('m4')(
+              Reference('x')
+            )
+          ),
         ),
       ] as PackageNode<Filled>[], WRE)
 
@@ -149,6 +154,9 @@ describe('Wollok linker', () => {
       const m3 = S.members[3] as MethodNode<Linked>
       const m3r = m3.sentences()[0] as ReferenceNode<any, Linked>
       const C = p.members[1] as ClassNode<Linked>
+      const D = p.members[2] as ClassNode<Linked>
+      const m4 = D.methods()[0]
+      const m4r = m4.sentences()[0] as ReferenceNode<any, Linked>
 
       S.superCall.args[0].should.target(f)
       f.value.should.target(f)
@@ -158,6 +166,7 @@ describe('Wollok linker', () => {
       m2r.should.target(m2v)
       m3r.should.target(f)
       C.superclassRef!.should.target(S)
+      m4r.should.target(S)
     })
 
     it('should target inherited members', () => {
@@ -304,6 +313,17 @@ describe('Wollok linker', () => {
 
       C.superclassRef!.should.target(S)
       D.superclassRef!.should.target(T)
+    })
+
+    it('qualified references should not consider parent scopes for non-root steps', () => {
+      const environment = link([
+        Package('p')(
+          Package('q')(),
+          Singleton('s', { superCall: { superclassRef: Reference('Object'), args: [] } })(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      expect(() => environment.getNodeByFQN('p.q.s')).to.throw
     })
 
   })
