@@ -58,10 +58,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
 
     Singleton: node => new Singleton({
       ...node,
-      superCall: node.superCall ?? {
-        superclassRef: OBJECT_CLASS,
-        args: [],
-      },
+      superclassRef: node.superclassRef ?? OBJECT_CLASS,
       members: [...node.members, ...filledPropertyAccessors(node)],
     }),
 

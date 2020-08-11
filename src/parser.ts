@@ -219,15 +219,19 @@ export const Class: Parser<ClassNode<Raw>> = node(ClassNode)(() => key('class').
   members: alt(Constructor, Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 
-export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() => key('object').then(obj({
-  name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)), 
-  superCall: optional(key('inherits').then(obj({
-    superclassRef: FullyQualifiedReference,
-    args: alt(unamedArguments, namedArguments).fallback([]),
-  }))),
-  mixins,
-  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-})).map(recover))
+export const Singleton: Parser<SingletonNode<Raw>> = node(SingletonNode)(() =>
+  key('object').then(obj({
+    name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)),
+    supercall: optional(key('inherits').then(seq(
+      FullyQualifiedReference,
+      alt(unamedArguments, namedArguments).fallback([]),
+    ))),
+    mixins,
+    members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  }))
+    .map(({ supercall, ...payload }) => ({ ...payload, superclassRef: supercall?.[0], supercallArgs: supercall?.[1] ?? [] }))
+    .map(recover)
+)
 
 export const Mixin: Parser<MixinNode<Raw>> = node(MixinNode)(() => key('mixin').then(obj({
   name,
@@ -351,15 +355,17 @@ export const Super: Parser<SuperNode<Raw>> = node(SuperNode)(() =>
 export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = alt(
   node<LiteralNode<Raw, SingletonNode<Raw>>>(LiteralNode)(() => 
     key('new').then(obj({
-      value: node<SingletonNode<Raw>>(SingletonNode)(() => obj({
-        superCall: obj({
-          superclassRef: FullyQualifiedReference,
-          args: alt(unamedArguments, namedArguments),
-        }),
-        // TODO: Convince the world we need a single linearization syntax
-        mixins: (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
-        members: of([]),
-      })),
+      value: node<SingletonNode<Raw>>(SingletonNode)(() =>
+        obj({
+          supercall: seq(
+            FullyQualifiedReference,
+            alt(unamedArguments, namedArguments),
+          ),
+          // TODO: Convince the world we need a single linearization syntax
+          mixins: (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
+          members: of([]),
+        }).map(({ supercall, ...payload }) => ({ ...payload, superclassRef: supercall?.[0], supercallArgs: supercall?.[1] ?? [] }))
+      ),
     }))
   ),
 

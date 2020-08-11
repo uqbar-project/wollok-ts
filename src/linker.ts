@@ -62,7 +62,6 @@ class LocalScope implements Scope {
 
     return rest.length ? (root.scope as LocalScope).resolveQualified(rest, false) : root
   }
-
 }
 
 
@@ -115,7 +114,7 @@ const assignScopes = (environment: Environment<Linked>) => {
     if(node.is('Singleton'))
       (node.scope as LocalScope).includedScopes.push(
         ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
-        node.scope.resolveQualified(node.superCall.superclassRef.name)!.scope,  //TODO: Add Error if not
+        node.scope.resolveQualified(node.superclassRef.name)!.scope,  //TODO: Add Error if not
       )
 
     if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))

@@ -27,10 +27,10 @@ describe('Wollok filler', () => {
   })
 
   it('fills in wollok.lang.Object as default superclass for Singletons', () => {
-    fill(Singleton('S')()).superCall.should.be.filledInto({ superclassRef: Reference('wollok.lang.Object'), args: [] })
+    fill(Singleton('S')()).superclassRef.should.be.filledInto(Reference('wollok.lang.Object'))
 
-    const superCall = { superclassRef: Reference<'Class'>('foo'), args: [] }
-    fill(Singleton('S', { superCall })()).superCall.should.be.filledInto(superCall)
+    const superclassRef = Reference<'Class'>('foo')
+    fill(Singleton('S', { superclassRef })()).superclassRef.should.be.filledInto(superclassRef)
   })
 
   it('fills in null as default initial value for Fields', () => {

@@ -82,6 +82,7 @@ export const Singleton = (name?: Name, payload?: BuildPayload<SingletonNode<Raw>
       members,
       mixins: [],
       ...name ? { name } : {},
+      supercallArgs: [],
       ...payload,
     })
 
@@ -226,7 +227,8 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
 
   return new LiteralNode<Raw, SingletonNode<Raw>>({
     value: new SingletonNode<Raw>({
-      superCall: { superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }), args: [] },
+      superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }),
+      supercallArgs: [],
       mixins: [],
       members: [
         new MethodNode<Raw>({

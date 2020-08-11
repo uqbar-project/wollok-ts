@@ -369,8 +369,8 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       ]
 
       if (node.value.is('Singleton')) {
-        if (node.value.superCall.args.some(is('NamedArgument'))) {
-          const supercallArgs = node.value.superCall.args as List<NamedArgument>
+        if (node.value.supercallArgs.some(is('NamedArgument'))) {
+          const supercallArgs = node.value.supercallArgs as List<NamedArgument>
           return [
             ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(node.value.fullyQualifiedName()),
@@ -378,12 +378,12 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             INIT(0, node.value.superclass().fullyQualifiedName(), true),
           ]
         } else {
-          const supercallArgs = node.value.superCall.args as List<Expression>
+          const supercallArgs = node.value.supercallArgs as List<Expression>
           return [
             ...supercallArgs.flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED([]),
-            INIT(node.value.superCall.args.length, node.value.superclass().fullyQualifiedName()),
+            INIT(node.value.supercallArgs.length, node.value.superclass().fullyQualifiedName()),
           ]
         }
       }
@@ -837,8 +837,8 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   evaluation.pushFrame([
     ...globalSingletons.flatMap(singleton => {
-      if (singleton.superCall.args.some(is('NamedArgument'))) {
-        const args = singleton.superCall.args as List<NamedArgument>
+      if (singleton.supercallArgs.some(is('NamedArgument'))) {
+        const args = singleton.supercallArgs as List<NamedArgument>
         return [
           ...args.flatMap(({ value }) => compile(environment)(value)),
           PUSH(singleton.id),
@@ -846,7 +846,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           INIT(0, singleton.superclass().fullyQualifiedName(), true),
         ]
       } else {
-        const args = singleton.superCall.args as List<Expression>
+        const args = singleton.supercallArgs as List<Expression>
         return [
           ...args.flatMap(arg => compile(environment)(arg)),
           PUSH(singleton.id),

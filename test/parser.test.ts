@@ -388,56 +388,52 @@ describe('Wollok parser', () => {
       })
   
       it('should parse objects that inherits from a class', () => {
-        'object O inherits D {}'.should.be.parsedBy(parser).into(Singleton('O', { superCall: { superclassRef: Reference('D'), args: [] } })()).and.be.tracedTo(0, 22)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
+        'object O inherits D {}'.should.be.parsedBy(parser).into(Singleton('O', { superclassRef: Reference('D') })()).and.be.tracedTo(0, 22)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
       })
   
       it('should parse objects that inherit from a class with explicit builders', () => {
-        'object O inherits D(5) {}'.should.be.parsedBy(parser).into(Singleton('O', { superCall: { superclassRef: Reference('D'), args: [Literal(5)] } })()).and.be.tracedTo(0, 25)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
-          .and.also.have.nested.property('superCall.args.0').tracedTo(20, 21)
+        'object O inherits D(5) {}'.should.be.parsedBy(parser).into(Singleton('O', { superclassRef: Reference('D'), supercallArgs: [Literal(5)] })()).and.be.tracedTo(0, 25)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
+          .and.also.have.nested.property('supercallArgs.0').tracedTo(20, 21)
       })
   
       it('should parse objects that inherit from a class with named arguments', () => {
         'object O inherits D(a = 5, b = 7) {}'.should.be.parsedBy(parser).into(Singleton('O', {
-          superCall: {
-            superclassRef: Reference('D'), args: [
-              NamedArgument('a', Literal(5)),
-              NamedArgument('b', Literal(7)),
-            ],
-          },
+          superclassRef: Reference('D'),
+          supercallArgs: [NamedArgument('a', Literal(5)), NamedArgument('b', Literal(7))],
         })()).and.be.tracedTo(0, 36)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
-          .and.also.have.nested.property('superCall.args.0').tracedTo(20, 25)
-          .and.also.have.nested.property('superCall.args.0.value').tracedTo(24, 25)
-          .and.also.have.nested.property('superCall.args.1').tracedTo(27, 32)
-          .and.also.have.nested.property('superCall.args.1.value').tracedTo(31, 32)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
+          .and.also.have.nested.property('supercallArgs.0').tracedTo(20, 25)
+          .and.also.have.nested.property('supercallArgs.0.value').tracedTo(24, 25)
+          .and.also.have.nested.property('supercallArgs.1').tracedTo(27, 32)
+          .and.also.have.nested.property('supercallArgs.1.value').tracedTo(31, 32)
       })
   
       it('should parse objects that inherit from a class and have a mixin', () => {
         'object O inherits D mixed with M {}'.should.be.parsedBy(parser).into(Singleton('O', {
-          superCall: { superclassRef: Reference('D'), args: [] },
+          superclassRef: Reference('D'),
           mixins: [Reference('M')],
         })()).and.be.tracedTo(0, 35)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
       })
   
       it('should parse objects that inherit from a class and have a mixin referenced by a FQN', () => {
         'object O inherits D mixed with p.M {}'.should.be.parsedBy(parser).into(Singleton('O', {
-          superCall: { superclassRef: Reference('D'), args: [] },
+          superclassRef: Reference('D'),
           mixins: [Reference('p.M')],
         })()).and.be.tracedTo(0, 37)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('mixins.0').tracedTo(31, 34)
       })
   
       it('should parse objects that inherit from a class and have multiple mixins', () => {
         'object O inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(Singleton('O', {
-          superCall: { superclassRef: Reference('D'), args: [] },
+          superclassRef: Reference('D'),
           mixins: [Reference('N'), Reference('M')],
         })()).and.be.tracedTo(0, 41)
-          .and.have.nested.property('superCall.superclassRef').tracedTo(18, 19)
+          .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('mixins.0').tracedTo(37, 38)
           .and.also.have.nested.property('mixins.1').tracedTo(31, 32)
       })
@@ -1247,11 +1243,12 @@ describe('Wollok parser', () => {
 
         it('should parse instantiations of linearized classes as singletons', () => {
           'new C(1,2) with M with N'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, {
-            superCall: { superclassRef: Reference('C'), args: [Literal(1), Literal(2)] },
+            superclassRef: Reference('C'),
+            supercallArgs: [Literal(1), Literal(2)],
             mixins: [Reference('N'), Reference('M')],
-          })())).and.have.nested.property('value.superCall.superclassRef').tracedTo(4, 5)
-            .and.also.have.nested.property('value.superCall.args.0').tracedTo(6, 7)
-            .and.also.have.nested.property('value.superCall.args.1').tracedTo(8, 9)
+          })())).and.have.nested.property('value.superclassRef').tracedTo(4, 5)
+            .and.also.have.nested.property('value.supercallArgs.0').tracedTo(6, 7)
+            .and.also.have.nested.property('value.supercallArgs.1').tracedTo(8, 9)
             .and.also.have.nested.property('value.mixins.0').tracedTo(23, 24)
             .and.also.have.nested.property('value.mixins.1').tracedTo(16, 17)
         })
@@ -1663,36 +1660,36 @@ describe('Wollok parser', () => {
           })
 
           it('should parse literal objects that inherit from a class', () => {
-            'object inherits D {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superCall: { superclassRef: Reference('D'), args: [] } })())).and.be.tracedTo(0, 20)
-              .and.have.nested.property('value.superCall.superclassRef').tracedTo(16, 17)
+            'object inherits D {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superclassRef: Reference('D') })())).and.be.tracedTo(0, 20)
+              .and.have.nested.property('value.superclassRef').tracedTo(16, 17)
           })
 
           it('should parse literal objects that inherit from a class referenced with a FQN', () => {
-            'object inherits p.D {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superCall: { superclassRef: Reference('p.D'), args: [] } })())).and.be.tracedTo(0, 22)
-              .and.have.nested.property('value.superCall.superclassRef').tracedTo(16, 19)
+            'object inherits p.D {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superclassRef: Reference('p.D') })())).and.be.tracedTo(0, 22)
+              .and.have.nested.property('value.superclassRef').tracedTo(16, 19)
           })
 
           it('should parse literal objects that inherit from a class with explicit builders', () => {
-            'object inherits D(5) {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superCall: { superclassRef: Reference('D'), args: [Literal(5)] } })())).and.be.tracedTo(0, 23)
-              .and.have.nested.property('value.superCall.superclassRef').tracedTo(16, 17)
-              .and.also.have.nested.property('value.superCall.args.0').tracedTo(18, 19)
+            'object inherits D(5) {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, { superclassRef: Reference('D'), supercallArgs: [Literal(5)] })())).and.be.tracedTo(0, 23)
+              .and.have.nested.property('value.superclassRef').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supercallArgs.0').tracedTo(18, 19)
           })
 
           it('should parse literal objects that inherit from a class and have a mixin', () => {
             'object inherits D mixed with M {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, {
-              superCall: { superclassRef: Reference('D'), args: [] },
+              superclassRef: Reference('D'),
               mixins: [Reference('M')],
             })())).and.be.tracedTo(0, 33)
-              .and.have.nested.property('value.superCall.superclassRef').tracedTo(16, 17)
+              .and.have.nested.property('value.superclassRef').tracedTo(16, 17)
               .and.also.have.nested.property('value.mixins.0').tracedTo(29, 30)
           })
 
           it('should parse literal objects that inherit from a class and have multiple mixins', () => {
             'object inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(Literal(Singleton(undefined, {
-              superCall: { superclassRef: Reference('D'), args: [] },
+              superclassRef: Reference('D'),
               mixins: [Reference('N'), Reference('M')],
             })())).and.be.tracedTo(0, 39)
-              .and.have.nested.property('value.superCall.superclassRef').tracedTo(16, 17)
+              .and.have.nested.property('value.superclassRef').tracedTo(16, 17)
               .and.also.have.nested.property('value.mixins.0').tracedTo(35, 36)
               .and.also.have.nested.property('value.mixins.1').tracedTo(29, 30)
           })

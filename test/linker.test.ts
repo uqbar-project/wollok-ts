@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
-import { Return, Class, Closure, Field, Import, Method, Mixin, Package, Parameter, Reference, Singleton, Variable, fromJSON } from '../src/builders'
+import { Class, Closure, Describe, Field, Fixture, fromJSON, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable } from '../src/builders'
 import link from '../src/linker'
-import { Return as ReturnNode, Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode,  Package as PackageNode, Reference as ReferenceNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 
@@ -114,7 +114,7 @@ describe('Wollok linker', () => {
     it('should override targets according to scope level', () => {
       const environment = link([
         Package('x')(
-          Singleton('x', { superCall: { superclassRef: Reference('Object'), args: [Reference('x')] } })(
+          Singleton('x', { superclassRef: Reference('Object'), supercallArgs: [Reference('x')] })(
             Field('x', { value: Reference('x') }),
             Method('m1', { parameters: [Parameter('x')] })(
               Reference('x'),
@@ -158,7 +158,7 @@ describe('Wollok linker', () => {
       const m4 = D.methods()[0]
       const m4r = m4.sentences()[0] as ReferenceNode<any, Linked>
 
-      S.superCall.args[0].should.target(f)
+      S.supercallArgs[0].should.target(f)
       f.value.should.target(f)
       m1r.should.target(m1p)
       m1cmr.should.target(m1cmp)
@@ -319,7 +319,7 @@ describe('Wollok linker', () => {
       const environment = link([
         Package('p')(
           Package('q')(),
-          Singleton('s', { superCall: { superclassRef: Reference('Object'), args: [] } })(),
+          Singleton('s', { supercallArgs: [], superclassRef: Reference('Object') })(),
         ),
       ] as PackageNode<Filled>[], WRE)
 

@@ -464,18 +464,15 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
   readonly name: Name | undefined
   readonly mixins!: List<Reference<'Mixin', S>>
   readonly members!: List<ObjectMember<S>>
-  // TODO: avoid using objects that are not nodes. Maybe spread this and unify with class?
-  readonly superCall!: Fillable<S, {
-    superclassRef: Reference<'Class', S>,
-    args: List<Expression<S>> | List<NamedArgument<S>>
-  }>
+  readonly superclassRef!: Fillable<S, Reference<'Class', S>>
+  readonly supercallArgs!: List<Expression<S>> | List<NamedArgument<S>>
 
   constructor(data: Payload<Singleton<S>>) { super(data) }
 
   superclass<R extends Linked>(this: Singleton<R>): Class<R>
   superclass<R extends Linked>(this: Module<R>): Class<R> | null 
   superclass<R extends Linked>(this: Singleton<R>): Class<R> {
-    return this.superCall.superclassRef.target()
+    return this.superclassRef.target()
   }
 }
 
