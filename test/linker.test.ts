@@ -1,5 +1,5 @@
 import { expect, should, use } from 'chai'
-import { Class, Closure, Describe, Field, Fixture, fromJSON, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable } from '../src/builders'
+import { Class, Closure, Describe, Field, fromJSON, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable, Test } from '../src/builders'
 import link from '../src/linker'
 import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
@@ -317,13 +317,42 @@ describe('Wollok linker', () => {
 
     it('qualified references should not consider parent scopes for non-root steps', () => {
       const environment = link([
-        Package('p')(
+        Package('p', { imports: [Import(Reference('r.C'))] })(
           Package('q')(),
           Singleton('s', { supercallArgs: [], superclassRef: Reference('Object') })(),
         ),
+        Package('r')(
+          Class('C')(),
+        ),
       ] as PackageNode<Filled>[], WRE)
 
-      expect(() => environment.getNodeByFQN('p.q.s')).to.throw
+      expect(() => environment.getNodeByFQN('p.q.s')).to.throw()
+    })
+
+    it('packages should not make imported members referenceable from outside', () => {
+      const environment = link([
+        Package('p', { imports: [Import(Reference('r.C'))] })(),
+        Package('r')(
+          Class('C')(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      expect(() => environment.getNodeByFQN('p.C')).to.throw()
+    })
+
+    it('Entities with string names should not be referenceable without the quotes', () => {
+      const environment = link([
+        Package('p')(
+          Describe('"G"')(),
+          Test('"T"')(),
+        ),
+      ] as PackageNode<Filled>[], WRE)
+
+      expect(() => environment.getNodeByFQN('p.G')).to.throw()
+      expect(() => environment.getNodeByFQN('p."G"')).to.not.throw()
+      
+      expect(() => environment.getNodeByFQN('p.T')).to.throw()
+      expect(() => environment.getNodeByFQN('p."T"')).to.not.throw()
     })
 
   })

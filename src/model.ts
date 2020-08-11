@@ -144,7 +144,7 @@ abstract class $Node<S extends Stage> {
     const extractChildren = (owner: any): List<Node<S>> => {
       if (isNode<S>(owner)) return [owner]
       if (isArray(owner)) return owner.flatMap(extractChildren)
-      if (owner instanceof Object) return values(owner).flatMap(extractChildren)
+      if (owner instanceof Object) return values(owner).flatMap(extractChildren) // TODO: Remove once we drop constructors
       return []
     }
 
@@ -199,7 +199,7 @@ abstract class $Node<S extends Stage> {
       if (typeof value === 'function') return value
       if (isArray(value)) return value.map(applyTransform)
       if (isNode<S>(value)) return value.copy(mapObject(applyTransform, tx(value as any)))
-      if (value instanceof Object) return mapObject(applyTransform, value)
+      if (value instanceof Object) return mapObject(applyTransform, value) // TODO: Remove once we drop constructors
       return value
     }
   

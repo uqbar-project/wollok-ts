@@ -552,11 +552,11 @@ describe('Wollok parser', () => {
       const parser = parse.Test
     
       it('should parse empty test', () => {
-        'test "name" { }'.should.be.parsedBy(parser).into(Test('name')()).and.be.tracedTo(0, 15)
+        'test "name" { }'.should.be.parsedBy(parser).into(Test('"name"')()).and.be.tracedTo(0, 15)
       })
     
       it('should parse non-empty test', () => {
-        'test "name" { var x }'.should.be.parsedBy(parser).into(Test('name')(Variable('x'))).and.be.tracedTo(0, 21)
+        'test "name" { var x }'.should.be.parsedBy(parser).into(Test('"name"')(Variable('x'))).and.be.tracedTo(0, 21)
           .and.have.nested.property('body').tracedTo(12, 21)
       })
     
@@ -579,27 +579,27 @@ describe('Wollok parser', () => {
       const parser = parse.Describe
     
       it('should parse empty describe', () => {
-        'describe "name" { }'.should.be.parsedBy(parser).into(Describe('name')()).and.be.tracedTo(0, 19)
+        'describe "name" { }'.should.be.parsedBy(parser).into(Describe('"name"')()).and.be.tracedTo(0, 19)
       })
     
       it('should parse describes with tests', () => {
-        'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(Describe('name')(Test('foo')(), Test('bar')())).and.be.tracedTo(0, 47)
+        'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(Describe('"name"')(Test('"foo"')(), Test('"bar"')())).and.be.tracedTo(0, 47)
           .and.have.nested.property('members.0').tracedTo(18, 32)
           .and.also.have.nested.property('members.1').tracedTo(32, 46)
       })
     
       it('should parse describes with fixture', () => {
-        'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(Describe('name')(Fixture()())).and.be.tracedTo(0, 30)
+        'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(Describe('"name"')(Fixture()())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(18, 29)
       })
     
       it('should parse describes with fields', () => {
-        'describe "name" { var v }'.should.be.parsedBy(parser).into(Describe('name')(Variable('v'))).and.be.tracedTo(0, 25)
+        'describe "name" { var v }'.should.be.parsedBy(parser).into(Describe('"name"')(Variable('v'))).and.be.tracedTo(0, 25)
           .and.have.nested.property('members.0').tracedTo(18, 23)
       })
     
       it('should parse describes with methods', () => {
-        'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(Describe('name')(Method('m')())).and.be.tracedTo(0, 32)
+        'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(Describe('"name"')(Method('m')())).and.be.tracedTo(0, 32)
           .and.have.nested.property('members.0').tracedTo(18, 31)
       })
     
@@ -608,7 +608,7 @@ describe('Wollok parser', () => {
         'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 26, 33)
           .into(
-            Describe('name')(
+            Describe('"name"')(
               Variable('var1'),
               Variable('var3'),
             )
@@ -619,7 +619,7 @@ describe('Wollok parser', () => {
         'describe "name" {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 17, 24)
           .into(
-            Describe('name')(
+            Describe('"name"')(
               Variable('var2'),
               Variable('var3'),
             )
@@ -630,7 +630,7 @@ describe('Wollok parser', () => {
         'describe "name" {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 35, 42)
           .into(
-            Describe('name')(
+            Describe('"name"')(
               Variable('var1'),
               Variable('var2'),
             )
@@ -642,7 +642,7 @@ describe('Wollok parser', () => {
           .recoveringFrom('malformedMember', 17, 40)
           .recoveringFrom('malformedMember', 50, 65)
           .into(
-            Describe('name')(
+            Describe('"name"')(
               Variable('var4')
             )
           )

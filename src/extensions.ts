@@ -7,15 +7,19 @@ export const divideOn = (separator: string) => (str: string): [string, string] =
   return [head, tail.join(separator)]
 }
 
-export const discriminate = <A, B = unknown>(isA: (obj: A|B) => obj is A) => (list: ReadonlyArray<A | B>): [A[], B[]] => {
-  const as: A[] = []
-  const bs: B[] = []
+export function discriminate<A, B = unknown>(isA: (obj: A|B) => obj is A): (list: ReadonlyArray<A | B>) => [A[], B[]]
+export function discriminate<T>(isA: (obj: T) => boolean): (list: ReadonlyArray<T>) => [T[], T[]]
+export function discriminate<T>(isA: (obj: T) => boolean) {
+  return (list: ReadonlyArray<T>): [T[], T[]] => {
+    const as: T[] = []
+    const bs: T[] = []
 
-  for(const member of list)
-    if(isA(member)) as.push(member)
-    else bs.push(member)
-  
-  return [as, bs]
+    for(const member of list)
+      if(isA(member)) as.push(member)
+      else bs.push(member)
+    
+    return [as, bs]
+  }
 }
 
 export const zipObj = (fieldNames: ReadonlyArray<string>, fieldValues: ReadonlyArray<any>): Record<string, any> => {

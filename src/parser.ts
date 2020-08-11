@@ -193,14 +193,14 @@ export const Program: Parser<ProgramNode<Raw>> = node(ProgramNode)(() =>
 
 export const Describe: Parser<DescribeNode<Raw>> = node(DescribeNode)(() =>
   key('describe').then(obj({
-    name: stringLiteral,
+    name: stringLiteral.map(name => `"${name}"`),
     members: alt(Variable, Fixture, Test, Method).or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
   })).map(recover)
 )
 
 export const Test: Parser<TestNode<Raw>> = node(TestNode)(() =>
   key('test').then(obj({
-    name: stringLiteral,
+    name: stringLiteral.map(name => `"${name}"`),
     body: Body,
   }))
 )

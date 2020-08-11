@@ -345,9 +345,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
       ]
 
-      return [
-        LOAD(node.name),
-      ]
+      return [LOAD(node.name)]
     },
 
 

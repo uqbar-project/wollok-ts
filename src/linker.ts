@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import { divideOn } from './extensions'
-import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope } from './model'
+import { divideOn, discriminate } from './extensions'
+import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope, Import } from './model'
 
 const { assign } = Object
 
@@ -66,11 +66,6 @@ class LocalScope implements Scope {
 
 
 const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
-  if (contributor.is('Import') && !contributor.isGeneric) {
-    const imported = contributor.scope.resolveQualified(contributor.entity.name) as Entity<Linked>
-    return [[imported.name!, imported]] // TODO: Error if not
-  }
-
   if (
     contributor.is('Entity') ||
     contributor.is('Field') ||
@@ -97,25 +92,35 @@ const assignScopes = (environment: Environment<Linked>) => {
         (environment.scope.resolveQualified(globalPackage)! as Package<Linked>).members.flatMap(scopeContribution) // TODO: Add Error if not
       ))
 
-    if(node.is('Import') && node.isGeneric)
-      (parent!.scope as LocalScope).includedScopes.push(node.scope.resolveQualified(node.entity.name)!.scope) //TODO: Add Error if not
+    if(node.is('Package') && node.imports.length) {
+      const [genericImports, simpleImports] = discriminate((imported: Import<Linked>) => imported.isGeneric)(node.imports)
 
-    if(node.is('Class'))
-      (node.scope as LocalScope).includedScopes.push(
-        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
-        ...node.superclassRef ? [node.scope.resolveQualified(node.superclassRef.name)!.scope] : []  //TODO: Add Error if not
-      )
+      const packageScope = node.scope as LocalScope
+      const importScope = new LocalScope(packageScope.containerScope)
+      
+      importScope.register(simpleImports.map(imported => {
+        const entity = imported.scope.resolveQualified(imported.entity.name) as Entity<Linked> // TODO: Error if not
+        return [entity.name!, entity]
+      }))
 
-    if(node.is('Mixin'))
-      (node.scope as LocalScope).includedScopes.push(
-        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
-      )
+      importScope.includedScopes.push(...genericImports.map(imported =>
+        imported.scope.resolveQualified(imported.entity.name)!.scope //TODO: Add Error if not
+      ))
 
-    if(node.is('Singleton'))
+      packageScope.containerScope = importScope
+    }
+
+    if(node.is('Module')) {
       (node.scope as LocalScope).includedScopes.push(
-        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope),  //TODO: Add Error if not
-        node.scope.resolveQualified(node.superclassRef.name)!.scope,  //TODO: Add Error if not
+        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope)  //TODO: Add Error if not
       )
+        
+      if(!node.is('Mixin') && node.superclassRef) {
+        (node.scope as LocalScope).includedScopes.push(
+          node.scope.resolveQualified(node.superclassRef.name)!.scope  //TODO: Add Error if not
+        )
+      }
+    }
 
     if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))
   })
