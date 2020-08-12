@@ -10,8 +10,8 @@ export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
 export interface Scope {
-  resolve(name: Name): Node<Linked> | undefined
-  resolveQualified(qualifiedName: Name): Node<Linked> | undefined
+  resolve(name: Name, allowLookup?: boolean): Node<Linked> | undefined
+  resolveQualified(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
 }
 
 export interface Source {

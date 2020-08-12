@@ -41,26 +41,26 @@ class LocalScope implements Scope {
       this.contributions.set(contribution[0], contribution[1])
   }
 
-  resolve(name: Name, checkContainerScope = true): Node<Linked> | undefined {
+  resolve(name: Name, allowLookup = true): Node<Linked> | undefined {
     const contributed = this.contributions.get(name)
     if(contributed) return contributed
 
     for(const includedScope of this.includedScopes) {
-      const inherited = (includedScope as LocalScope).resolve(name, false)
+      const inherited = includedScope.resolve(name, false)
       if (inherited) return inherited
     }
 
-    return checkContainerScope ? this.containerScope?.resolve(name) : undefined
+    return allowLookup ? this.containerScope?.resolve(name) : undefined
   }
 
   // TODO: unify with resolve?
-  resolveQualified(qualifiedName: Name, checkContainerScope = true): Node<Linked> | undefined {
+  resolveQualified(qualifiedName: Name, allowLookup = true): Node<Linked> | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
-    const root = this.resolve(start, checkContainerScope)
+    const root = this.resolve(start, allowLookup)
 
     if (!root) throw new Error(`Could not resolve qualified name ${start}`)
 
-    return rest.length ? (root.scope as LocalScope).resolveQualified(rest, false) : root
+    return rest.length ? root.scope.resolveQualified(rest, false) : root
   }
 }
 
@@ -79,7 +79,9 @@ const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
 const assignScopes = (environment: Environment<Linked>) => {
   environment.forEach((node, parent) => {
     const scope = new LocalScope(
-      node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin')) ? parent!.parent().scope : parent?.scope
+      node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin'))
+        ? parent!.parent().scope
+        : parent?.scope
     )
     assign(node, { scope })
 
