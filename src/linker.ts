@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import { divideOn, discriminate } from './extensions'
-import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope, Import } from './model'
+import { divideOn } from './extensions'
+import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope } from './model'
 
 const { assign } = Object
 
@@ -31,15 +31,16 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 class LocalScope implements Scope {
-  contributions = new Map<Name, Node<Linked>>()
-  includedScopes: Scope[] = []
+  protected contributions = new Map<Name, Node<Linked>>()
+  protected includedScopes: Scope[] = []
 
   constructor(public containerScope?: Scope) { }
 
-  register(contributions: List<[Name, Node<Linked>]>) {
-    for(const contribution of contributions)
-      this.contributions.set(contribution[0], contribution[1])
+  register(...contributions: [ Name, Node<Linked>][]): void {
+    for(const [name, node] of contributions) this.contributions.set(name, node)
   }
+
+  include(...others: Scope[]) { this.includedScopes.push(...others) }
 
   resolve(name: Name, allowLookup = true): Node<Linked> | undefined {
     const contributed = this.contributions.get(name)
@@ -78,45 +79,41 @@ const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
 
 const assignScopes = (environment: Environment<Linked>) => {
   environment.forEach((node, parent) => {
-    const scope = new LocalScope(
-      node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin'))
-        ? parent!.parent().scope
-        : parent?.scope
-    )
-    assign(node, { scope })
+    assign(node, {
+      scope: new LocalScope(
+        node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin'))
+          ? parent!.parent().scope
+          : parent?.scope
+      ),
+    })
 
-    if(node.is('Entity')) (parent!.scope as LocalScope).register(scopeContribution(node))
+    if(node.is('Entity'))
+      parent!.scope.register(...scopeContribution(node))
   })
 
   environment.forEach((node, parent) => {
     if(node.is('Environment'))
-      (node.scope as LocalScope).register(GLOBAL_PACKAGES.flatMap(globalPackage =>
-        (environment.scope.resolveQualified(globalPackage)! as Package<Linked>).members.flatMap(scopeContribution) // TODO: Add Error if not
+      node.scope.register(...GLOBAL_PACKAGES.flatMap(globalPackage =>
+        environment.getNodeByFQN<'Package'>(globalPackage).members.flatMap(scopeContribution) // TODO: Add Error if not found (and test)
       ))
-
-    if(node.is('Package') && node.imports.length) {
-      const [genericImports, simpleImports] = discriminate((imported: Import<Linked>) => imported.isGeneric)(node.imports)
-
-      const packageScope = node.scope as LocalScope
-      const importScope = new LocalScope(null as any)
-      
-      importScope.register(simpleImports.map(imported => {
-        const entity = imported.scope.resolveQualified(imported.entity.name) as Entity<Linked> // TODO: Error if not
-        return [entity.name!, entity]
+    
+    if(node.is('Package'))
+      node.scope.include(...node.imports.map(imported => {
+        const entity = node.getNodeByQN(imported.entity.name) // TODO: Error if not found (and test)
+        
+        if(imported.isGeneric) return entity!.scope //TODO: Add Error if not
+        else {
+          const importScope = new LocalScope()
+          importScope.register([entity.name!, entity])
+          return importScope
+        }
       }))
 
-      packageScope.includedScopes.unshift(importScope, ...genericImports.map(imported =>
-        imported.scope.resolveQualified(imported.entity.name)!.scope //TODO: Add Error if not
-      ))
-    }
+    if(node.is('Module'))
+      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope)) //TODO: Add Error if ancestor is missing (also test)
 
-    if(node.is('Module')) {
-      (node.scope as LocalScope).includedScopes.push(
-        ...node.hierarchy().slice(1).map(supertype => supertype.scope)  //TODO: Add Error if ancestor is missing (also test)
-      )
-    }
-
-    if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))
+    if(parent && !node.is('Entity'))
+      parent!.scope.register(...scopeContribution(node))
   })
 }
 
@@ -137,7 +134,7 @@ export default (
   }).transform(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
-    if(parent) node._cache().set('parent()', parent)
+    if(parent) node._cache().set('parent()', parent) // TODO: These strings are rather ugly...
     node._cache().set('environment()', environment)
     environment._cache().set(`getNodeById(${node.id})`, node)
   })

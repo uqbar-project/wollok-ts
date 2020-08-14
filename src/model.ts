@@ -12,6 +12,8 @@ export type Cache = Map<string, any>
 export interface Scope {
   resolve(name: Name, allowLookup?: boolean): Node<Linked> | undefined
   resolveQualified(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
+  include(...others: Scope[]): void
+  register(...contributions: [ Name, Node<Linked>][]): void
 }
 
 export interface Source {
