@@ -43,14 +43,14 @@ class LocalScope implements Scope {
 
   resolve(name: Name, allowLookup = true): Node<Linked> | undefined {
     const contributed = this.contributions.get(name)
-    if(contributed) return contributed
-
+    if(contributed || !allowLookup) return contributed
+    
     for(const includedScope of this.includedScopes) {
       const inherited = includedScope.resolve(name, false)
       if (inherited) return inherited
     }
 
-    return allowLookup ? this.containerScope?.resolve(name) : undefined
+    return this.containerScope?.resolve(name, allowLookup)
   }
 
   // TODO: unify with resolve?
@@ -114,14 +114,18 @@ const assignScopes = (environment: Environment<Linked>) => {
 
     if(node.is('Module')) {
       (node.scope as LocalScope).includedScopes.push(
-        ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope)  //TODO: Add Error if not
+        ...node.hierarchy().slice(1).map(supertype => supertype.scope)  //TODO: Add Error if ancestor is missing (also test)
       )
+
+      // (node.scope as LocalScope).includedScopes.push(
+      //   ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope)  //TODO: Add Error if not
+      // )
         
-      if(!node.is('Mixin') && node.superclassRef) {
-        (node.scope as LocalScope).includedScopes.push(
-          node.scope.resolveQualified(node.superclassRef.name)!.scope  //TODO: Add Error if not
-        )
-      }
+      // if(!node.is('Mixin') && node.superclassRef) {
+      //   (node.scope as LocalScope).includedScopes.push(
+      //     node.scope.resolveQualified(node.superclassRef.name)!.scope  //TODO: Add Error if not
+      //   )
+      // }
     }
 
     if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))
