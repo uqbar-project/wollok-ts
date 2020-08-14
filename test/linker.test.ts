@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { Class, Closure, Describe, Field, fromJSON, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable, Test } from '../src/builders'
 import link from '../src/linker'
-import { Class as ClassNode, Environment, Field as FieldNode, Filled, Linked, List, Literal as LiteralNode, Method as MethodNode, Package as PackageNode, Reference as ReferenceNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Environment, Filled, Linked, List, Literal as LiteralNode, Package as PackageNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 
@@ -10,6 +10,7 @@ should()
 use(linkerAssertions)
 // TODO: Split uber-tests into smaller tests with clearer descriptions
 // TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
+// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ?
 const WRE: Environment = fromJSON<Environment>(wre)
 
 describe('Wollok linker', () => {
@@ -87,9 +88,9 @@ describe('Wollok linker', () => {
     nodes.forEach(node => node.should.have.property('id'))
   })
 
-  describe('references', () => {
+  describe('scopes', () => {
 
-    it('should target their definitions', () => {
+    it('references should target their definitions', () => {
       const environment = link([
         Package('p')(Class('C', { superclassRef: Reference('Object') })(
           Field('f', { value: Reference('C') }),
@@ -99,11 +100,11 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const Object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
-      const p = environment.members[1] as PackageNode<Linked>
-      const C = p.members[0] as ClassNode<Linked>
-      const f = C.members[0] as FieldNode<Linked>
-      const g = C.members[1] as FieldNode<Linked>
-      const h = C.members[2] as FieldNode<Linked>
+      const p = environment.getNodeByFQN<'Package'>('p')
+      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const f = C.fields()[0]
+      const g = C.fields()[1]
+      const h = C.fields()[2]
 
       C.superclassRef!.should.target(Object)
       f.value.should.target(C)
@@ -138,35 +139,27 @@ describe('Wollok linker', () => {
         ),
       ] as PackageNode<Filled>[], WRE)
 
-      const p = environment.members[1]
-      const S = p.members[0] as SingletonNode<Linked>
-      const f = S.members[0] as FieldNode<Linked>
-      const m1 = S.members[1] as MethodNode<Linked>
-      const m1p = m1.parameters[0]
-      const m1r = m1.sentences()[0] as ReferenceNode<any, Linked>
-      const m1c = m1.sentences()[1] as LiteralNode<Linked, SingletonNode<Linked>>
-      const m1cm = m1c.value.members[0] as MethodNode<Linked>
-      const m1cmp = m1cm.parameters[0]
-      const m1cmr = (m1cm.sentences()[0] as ReturnNode).value as ReferenceNode<any, Linked>
-      const m2 = S.members[2] as MethodNode<Linked>
-      const m2v = m2.sentences()[0] as VariableNode<Linked>
-      const m2r = m2.sentences()[1] as ReferenceNode<any, Linked>
-      const m3 = S.members[3] as MethodNode<Linked>
-      const m3r = m3.sentences()[0] as ReferenceNode<any, Linked>
-      const C = p.members[1] as ClassNode<Linked>
-      const D = p.members[2] as ClassNode<Linked>
+      const S = environment.getNodeByFQN<'Singleton'>('x.x')
+      const C = environment.getNodeByFQN<'Singleton'>('x.C')
+      const D = environment.getNodeByFQN<'Singleton'>('x.D')
+      const f = S.fields()[0]
+      const m1 = S.methods()[0]
+      const closure = m1.sentences()[1] as LiteralNode<Linked, SingletonNode<Linked>>
+      const closureReturn = closure.value.methods()[0].sentences()[0] as ReturnNode<Linked>
+      const m2 = S.methods()[1]
+      const m2var = m2.sentences()[0] as VariableNode<Linked>
+      const m3 = S.methods()[2]
       const m4 = D.methods()[0]
-      const m4r = m4.sentences()[0] as ReferenceNode<any, Linked>
 
       S.supercallArgs[0].should.target(f)
       f.value.should.target(f)
-      m1r.should.target(m1p)
-      m1cmr.should.target(m1cmp)
-      m2v.value.should.target(m2v)
-      m2r.should.target(m2v)
-      m3r.should.target(f)
+      m1.sentences()[0].should.target(m1.parameters[0])
+      closureReturn.value!.should.target(closure.value.methods()[0].parameters[0])
+      m2var.value.should.target(m2var)
+      m2.sentences()[1].should.target(m2var)
+      m3.sentences()[0].should.target(f)
       C.superclassRef!.should.target(S)
-      m4r.should.target(S)
+      m4.sentences()[0].should.target(S)
     })
 
     it('should target inherited members', () => {
@@ -183,16 +176,11 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const A = environment.getNodeByFQN<'Class'>('p.A')
-      const Ax = A.fields()[0]
       const M = environment.getNodeByFQN<'Class'>('p.M')
-      const My = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
-      const my = m.sentences()[1] as ReferenceNode<any, Linked>
 
-      mx.should.target(Ax)
-      my.should.target(My)
+      C.methods()[0].sentences()[0].should.target(A.fields()[0])
+      C.methods()[0].sentences()[1].should.target(M.fields()[0])
     })
 
     it('should target local overriden references to members inherited from mixins', () => {
@@ -207,11 +195,8 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const x = C.fields()[0]
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
 
-      mx.should.target(x)
+      C.methods()[0].sentences()[0].should.target(C.fields()[0])
     })
 
     it('should target local overriden references to members inherited from superclass', () => {
@@ -227,11 +212,8 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const x = C.fields()[0]
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
 
-      mx.should.target(x)
+      C.methods()[0].sentences()[0].should.target(C.fields()[0])
     })
 
     it('should target references overriden on mixins to members inherited from superclass', () => {
@@ -244,12 +226,9 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
-      const Mx = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
 
-      mx.should.target(Mx)
+      C.methods()[0].sentences()[0].should.target(M.fields()[0])
     })
 
     it('should target references overriden on mixins to members inherited from further mixin', () => {
@@ -262,12 +241,9 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
-      const Mx = M.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
 
-      mx.should.target(Mx)
+      C.methods()[0].sentences()[0].should.target(M.fields()[0])
     })
 
     it('should target references overriden on superclass to members inherited from further superclass', () => {
@@ -280,12 +256,9 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
 
       const B = environment.getNodeByFQN<'Class'>('p.B')
-      const Bx = B.fields()[0]
       const C = environment.getNodeByFQN<'Class'>('p.C')
-      const m = C.methods()[0] as MethodNode<Linked>
-      const mx = m.sentences()[0] as ReferenceNode<any, Linked>
 
-      mx.should.target(Bx)
+      C.methods()[0].sentences()[0].should.target(B.fields()[0])
     })
 
     it('should target imported references', () => {
@@ -303,13 +276,10 @@ describe('Wollok linker', () => {
         Package('r')(Class('T', { superclassRef: Reference('Object') })()),
       ] as PackageNode<Filled>[], WRE)
 
-      const p = environment.members[1]
-      const C = p.members[0] as ClassNode<Linked>
-      const D = p.members[1] as ClassNode<Linked>
-      const q = environment.members[2]
-      const S = q.members[0] as ClassNode<Linked>
-      const r = environment.members[3]
-      const T = r.members[0] as ClassNode<Linked>
+      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const D = environment.getNodeByFQN<'Class'>('p.D')
+      const S = environment.getNodeByFQN<'Class'>('q.S')
+      const T = environment.getNodeByFQN<'Class'>('r.T')
 
       C.superclassRef!.should.target(S)
       D.superclassRef!.should.target(T)

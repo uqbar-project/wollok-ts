@@ -42,26 +42,19 @@ class LocalScope implements Scope {
 
   include(...others: Scope[]) { this.includedScopes.push(...others) }
 
-  resolve(name: Name, allowLookup = true): Node<Linked> | undefined {
-    const contributed = this.contributions.get(name)
-    if(contributed || !allowLookup) return contributed
-    
-    for(const includedScope of this.includedScopes) {
-      const inherited = includedScope.resolve(name, false)
-      if (inherited) return inherited
+  resolve(qualifiedName: Name, allowLookup = true): Node<Linked> | undefined {
+    const [start, rest] = divideOn('.')(qualifiedName)
+
+    let root = this.contributions.get(start)
+    if(!root && allowLookup) {
+      for(const includedScope of this.includedScopes) {
+        root = root ?? includedScope.resolve(start, false)
+      }
+      
+      root = root ?? this.containerScope?.resolve(start, allowLookup)
     }
 
-    return this.containerScope?.resolve(name, allowLookup)
-  }
-
-  // TODO: unify with resolve?
-  resolveQualified(qualifiedName: Name, allowLookup = true): Node<Linked> | undefined {
-    const [start, rest] = divideOn('.')(qualifiedName)
-    const root = this.resolve(start, allowLookup)
-
-    if (!root) throw new Error(`Could not resolve qualified name ${start}`)
-
-    return rest.length ? root.scope.resolveQualified(rest, false) : root
+    return root && (rest.length ? root.scope.resolve(rest, false) : root)
   }
 }
 
@@ -126,7 +119,6 @@ export default (
   newPackages: List<Package<Filled>>,
   baseEnvironment?: Environment<Linked>,
 ): Environment => {
-  // TODO: Would it make life easier if we used fqn where possible as id?
   const environment = new Environment<Linked>({
     id: uuid(),
     scope: null as any,

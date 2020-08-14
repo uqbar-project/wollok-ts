@@ -10,8 +10,7 @@ export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
 export interface Scope {
-  resolve(name: Name, allowLookup?: boolean): Node<Linked> | undefined
-  resolveQualified(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
+  resolve(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
   include(...others: Scope[]): void
   register(...contributions: [ Name, Node<Linked>][]): void
 }
@@ -308,7 +307,7 @@ export class Package<S extends Stage = Final> extends $Entity<S> {
 
   @cached
   getNodeByQN<R extends Linked = Final>(this: Package<R>, qualifiedName: Name): Entity<R> {
-    const node = this.scope.resolveQualified(qualifiedName)
+    const node = this.scope.resolve(qualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
     return node as Entity<R>
   }
@@ -617,7 +616,7 @@ export class Reference<T extends Kind|Category, S extends Stage = Final> extends
 
   @cached
   target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> {
-    return this.scope.resolveQualified(this.name) as NodeOfKindOrCategory<T, R>
+    return this.scope.resolve(this.name) as NodeOfKindOrCategory<T, R>
   }
 
 }
@@ -725,7 +724,7 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
     const [, id] = fullyQualifiedName.split('#')
     if (id) return this.getNodeById(id)
 
-    const node = this.scope.resolveQualified(fullyQualifiedName)
+    const node = this.scope.resolve(fullyQualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node as NodeOfKindOrCategory<Q, R>
   }
