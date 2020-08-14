@@ -98,34 +98,22 @@ const assignScopes = (environment: Environment<Linked>) => {
       const [genericImports, simpleImports] = discriminate((imported: Import<Linked>) => imported.isGeneric)(node.imports)
 
       const packageScope = node.scope as LocalScope
-      const importScope = new LocalScope(packageScope.containerScope)
+      const importScope = new LocalScope(null as any)
       
       importScope.register(simpleImports.map(imported => {
         const entity = imported.scope.resolveQualified(imported.entity.name) as Entity<Linked> // TODO: Error if not
         return [entity.name!, entity]
       }))
 
-      importScope.includedScopes.push(...genericImports.map(imported =>
+      packageScope.includedScopes.unshift(importScope, ...genericImports.map(imported =>
         imported.scope.resolveQualified(imported.entity.name)!.scope //TODO: Add Error if not
       ))
-
-      packageScope.containerScope = importScope
     }
 
     if(node.is('Module')) {
       (node.scope as LocalScope).includedScopes.push(
         ...node.hierarchy().slice(1).map(supertype => supertype.scope)  //TODO: Add Error if ancestor is missing (also test)
       )
-
-      // (node.scope as LocalScope).includedScopes.push(
-      //   ...node.mixins.map(mixin => node.scope.resolveQualified(mixin.name)!.scope)  //TODO: Add Error if not
-      // )
-        
-      // if(!node.is('Mixin') && node.superclassRef) {
-      //   (node.scope as LocalScope).includedScopes.push(
-      //     node.scope.resolveQualified(node.superclassRef.name)!.scope  //TODO: Add Error if not
-      //   )
-      // }
     }
 
     if(parent && !node.is('Entity')) (parent.scope as LocalScope).register(scopeContribution(node))
