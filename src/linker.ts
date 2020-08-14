@@ -45,16 +45,13 @@ class LocalScope implements Scope {
   resolve(qualifiedName: Name, allowLookup = true): Node<Linked> | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
 
-    let root = this.contributions.get(start)
-    if(!root && allowLookup) {
-      for(const includedScope of this.includedScopes) {
-        root = root ?? includedScope.resolve(start, false)
-      }
-      
-      root = root ?? this.containerScope?.resolve(start, allowLookup)
-    }
+    const step = !allowLookup
+      ? this.contributions.get(start)
+      : this.includedScopes.reduce((found, included) =>
+        found ?? included.resolve(start, false)
+      , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
 
-    return root && (rest.length ? root.scope.resolve(rest, false) : root)
+    return rest.length ? step?.scope?.resolve(rest, false) : step
   }
 }
 
