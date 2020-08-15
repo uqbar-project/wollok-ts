@@ -84,14 +84,14 @@ const assignScopes = (environment: Environment<Linked>) => {
   environment.forEach((node, parent) => {
     if(node.is('Environment'))
       node.scope.register(...GLOBAL_PACKAGES.flatMap(globalPackage =>
-        environment.getNodeByFQN<'Package'>(globalPackage).members.flatMap(scopeContribution) // TODO: Add Error if not found (and test)
+        (environment.scope.resolve(globalPackage)! as Package<Linked>).members.flatMap(scopeContribution) // TODO: Add Error if not found (and test)
       ))
     
     if(node.is('Package'))
       node.scope.include(...node.imports.map(imported => {
-        const entity = node.getNodeByQN(imported.entity.name) // TODO: Error if not found (and test)
+        const entity = node.scope.resolve(imported.entity.name)! as Entity<Linked> // TODO: Error if not found (and test)
         
-        if(imported.isGeneric) return entity!.scope //TODO: Add Error if not
+        if(imported.isGeneric) return entity.scope
         else {
           const importScope = new LocalScope()
           importScope.register([entity.name!, entity])

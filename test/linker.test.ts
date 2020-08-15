@@ -361,6 +361,12 @@ describe('Wollok linker', () => {
       ] as PackageNode<Filled>[], WRE)
     })
 
+    it('should', () => {
+      link([
+        Package('p', { imports: [Import(Reference('q.A'))] })(),
+      ] as PackageNode<Filled>[], WRE)
+    })
+
     it('should not be linkable if target is missing', () => {
       expect(() => {
         link([
