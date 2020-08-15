@@ -15,7 +15,7 @@
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
     "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples",
-    "test:lint": "eslint '**/*.ts'",
+    "test:lint": "eslint **/*.ts",
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",

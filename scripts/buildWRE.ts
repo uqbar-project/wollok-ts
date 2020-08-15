@@ -1,7 +1,7 @@
 // TODO: Use async fs once we can update TS version to one that allows root level await
 import { readFileSync, writeFileSync } from 'fs'
 import { sync as listFiles } from 'globby'
-import { join, sep as pathSeparator } from 'path'
+import { join } from 'path'
 import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
@@ -25,8 +25,9 @@ const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
 
 log.start('\tParsing...')
 const rawWRE = sourceFiles.map(sourceFile => {
-  const sourceFilePath = sourceFile.split(pathSeparator)
+  const sourceFilePath = sourceFile.split('/')
   const sourceFileName = sourceFilePath.splice(-1)[0].split('.')[0]
+
   return sourceFilePath.reduce(
     (node, path) => Package(path)(node),
     File(sourceFileName).tryParse(readFileSync(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8'))
