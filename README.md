@@ -66,7 +66,7 @@ Now using node v11.15.0 (npm v6.7.0)
 
 ### NPM
 
-You will also need to install [NPM](https://www.npmjs.com/). If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
+You will also need to install [NPM](https://www.npmjs.com/). (Node.js version 8 or greater) If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
 
 ```bash
 # This will install all the project dependencies. Give it some time.
@@ -84,6 +84,12 @@ A full list of the available scripts is listed on the `package.json` file, on th
 
 ### File Description
 [[TODO]]: Describe what is each file
+
+- src/model.ts: It has all the type declarations of the nodes in each stage. 
+- src/parser.ts: Parsing stage functions.
+- src/filler.ts: Filling stage functions.
+- src/log.ts and src/cache.ts: logging and optimization.
+- src/tools.ts: Utils for managing the tree structure.
 
 ### Dependencies
 [[TODO]]: Describe what we are usinng, give links, and explain what docs to read based on what you will be touching.
