@@ -11,7 +11,6 @@ export type Cache = Map<string, any>
 
 export interface Scope {
   resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup?: boolean):  NodeOfKindOrCategory<Q, S> | undefined
-  resolve(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
   include(...others: Scope[]): void
   register(...contributions: [ Name, Node<Linked>][]): void
 }
@@ -308,9 +307,9 @@ export class Package<S extends Stage = Final> extends $Entity<S> {
 
   @cached
   getNodeByQN<R extends Linked = Final>(this: Package<R>, qualifiedName: Name): Entity<R> {
-    const node = this.scope.resolve(qualifiedName)
+    const node = this.scope.resolve<'Entity', R>(qualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
-    return node as Entity<R>
+    return node
   }
 
 }
@@ -439,7 +438,7 @@ export class Class<S extends Stage = Final> extends $Module<S> {
 
   superclass<R extends Linked>(this: Module<R>): Class<R> | null
   superclass<R extends Linked>(this: Class<R>): Class<R> | null {
-    return this.superclassRef?.target<R>() ?? null
+    return this.superclassRef?.target() ?? null
   }
 
   @cached
@@ -618,7 +617,7 @@ export class Reference<T extends Kind|Category, S extends Stage = Final> extends
 
   @cached
   target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> {
-    return this.scope.resolve(this.name) as NodeOfKindOrCategory<T, R>
+    return this.scope.resolve<T, R>(this.name) as NodeOfKindOrCategory<T, R> // TODO: !!!!
   }
 
 }
@@ -726,9 +725,9 @@ export class Environment<S extends Stage = Final> extends $Node<S> {
     const [, id] = fullyQualifiedName.split('#')
     if (id) return this.getNodeById(id)
 
-    const node = this.scope.resolve(fullyQualifiedName)
+    const node = this.scope.resolve<Q, R>(fullyQualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
-    return node as NodeOfKindOrCategory<Q, R>
+    return node
   }
 
 }
