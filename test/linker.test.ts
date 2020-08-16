@@ -4,6 +4,7 @@ import link from '../src/linker'
 import { Environment, Filled, Linked, List, Literal as LiteralNode, Package as PackageNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
+import { LinkError } from '../src/linker'
 
 
 should() 
@@ -329,6 +330,30 @@ describe('Wollok linker', () => {
 
   describe('error handling', () => {
 
+    it('should recover from missing reference in imports', () => {
+      const environment = link([
+        Package('p', { imports: [Import(Reference('q.A'))] })(),
+      ] as PackageNode<Filled>[], WRE)
+
+      environment.getNodeByFQN<'Package'>('p').imports[0].entity.problems!.should.deep.equal([new LinkError('missingReference')])
+    })
+
+    it('should recover from missing reference in superclass', () => {
+      const environment = link([
+        Package('p')(Class('C', { superclassRef: Reference('S') })()),
+      ] as PackageNode<Filled>[], WRE)
+
+      environment.getNodeByFQN<'Class'>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
+    })
+
+    it('should recover from missing reference in mixin', () => {
+      const environment = link([
+        Package('p')(Class('C', { mixins: [Reference('M')] })()),
+      ] as PackageNode<Filled>[], WRE)
+
+      environment.getNodeByFQN<'Class'>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
+    })
+
     it('should not crash if a class inherits from itself', () => {
       link([
         Package('p')(Class('C', { superclassRef: Reference('C') })()),
@@ -359,20 +384,6 @@ describe('Wollok linker', () => {
           Mixin('C', { mixins: [Reference('B')] })(),
         ),
       ] as PackageNode<Filled>[], WRE)
-    })
-
-    // it('should', () => {
-    //   link([
-    //     Package('p', { imports: [Import(Reference('q.A'))] })(),
-    //   ] as PackageNode<Filled>[], WRE)
-    // })
-
-    it('should not be linkable if target is missing', () => {
-      expect(() => {
-        link([
-          Package('p')(Class('C', { superclassRef: Reference('S') })()),
-        ] as PackageNode<Filled>[], WRE)
-      }).to.throw()
     })
 
   })

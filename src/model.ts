@@ -394,15 +394,16 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
 
   @cached
   hierarchy<R extends Linked>(this: Module<R>): List<Module<R>> {
-    const hierarchyExcluding = (module: Module<R>, exclude: List<Id> = []): List<Module<R>> => {
-      if (exclude.includes(module.id!)) return []
+    const hierarchyExcluding = (node: Module<R>, exclude: List<Id> = []): List<Module<R>> => {
+      if (exclude.includes(node.id!)) return []
       const modules = [
-        ...module.mixins.map(mixin => mixin.target<R>()),
-        ...module.kind === 'Mixin' ? [] : module.superclass() ? [module.superclass()!] : [],
+        ...node.mixins.map(mixin => mixin.target()!).filter(mixin => mixin !== undefined),
+        ...node.is('Mixin') || !node.superclass() ? [] : [node.superclass()!],
       ]
-      return modules.reduce(({ mods, exs }, mod) => (
-        { mods: [...mods, ...hierarchyExcluding(mod, exs)], exs: [mod.id, ...exs] }
-      ), { mods: [module], exs: [module.id, ...exclude] }).mods
+      return modules.reduce<[List<Module<R>>, List<Id>]>(([hierarchy, excluded], module) => [
+        [...hierarchy, ...hierarchyExcluding(module, excluded)],
+        [module.id, ...excluded],
+      ], [[node], [node.id, ...exclude]])[0]
     }
 
     return hierarchyExcluding(this)
