@@ -10,6 +10,7 @@ export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
 export interface Scope {
+  resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup?: boolean):  NodeOfKindOrCategory<Q, S> | undefined
   resolve(qualifiedName: Name, allowLookup?: boolean): Node<Linked> | undefined
   include(...others: Scope[]): void
   register(...contributions: [ Name, Node<Linked>][]): void

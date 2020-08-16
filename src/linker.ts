@@ -45,7 +45,7 @@ class LocalScope implements Scope {
     this.register(...contributions)
   }
   
-  resolve(qualifiedName: Name, allowLookup = true): Node<Linked> | undefined {
+  resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup = true):  NodeOfKindOrCategory<Q, S> | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
   
     const step = !allowLookup
@@ -54,7 +54,7 @@ class LocalScope implements Scope {
         found ?? included.resolve(start, false)
       , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
   
-    return rest.length ? step?.scope?.resolve(rest, false) : step
+    return rest.length ? step?.scope?.resolve<Q, S>(rest, false) : step as NodeOfKindOrCategory<Q, S>
   }
 
   register(...contributions: [ Name, Node<Linked>][]): void {
@@ -93,14 +93,14 @@ const assignScopes = (environment: Environment<Linked>) => {
   environment.forEach((node, parent) => {
     if(node.is('Environment')){
       for(const globalName of GLOBAL_PACKAGES) {
-        const globalPackage = environment.scope.resolve(globalName) as Package<Linked>
+        const globalPackage = environment.scope.resolve<'Package'>(globalName)
         if(globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
     
     if(node.is('Package')) {
       for(const imported of node.imports) {
-        const entity = node.scope.resolve(imported.entity.name) as Entity<Linked>
+        const entity = node.scope.resolve<'Entity'>(imported.entity.name)
           
         if(entity) node.scope.include(imported.isGeneric
           ? entity.scope
