@@ -286,7 +286,7 @@ abstract class $Entity<S extends Stage> extends $Node<S> {
   fullyQualifiedName<R extends Linked>(this: Entity<R>): Name {
     const parent = this.parent()
     const label = this.is('Singleton')
-      ? this.name ?? `${this.superclass().fullyQualifiedName()}#${this.id}`
+      ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
 
     return parent.is('Package') || parent.is('Describe')
@@ -436,9 +436,9 @@ export class Class<S extends Stage = Final> extends $Module<S> {
 
   constructors(): List<Constructor<S>> { return this.members.filter<Constructor<S>>(is('Constructor')) }
 
-  superclass<R extends Linked>(this: Module<R>): Class<R> | null
-  superclass<R extends Linked>(this: Class<R>): Class<R> | null {
-    return this.superclassRef?.target() ?? null
+  superclass<R extends Linked>(this: Module<R>): Class<R> | undefined
+  superclass<R extends Linked>(this: Class<R>): Class<R> | undefined {
+    return this.superclassRef?.target()
   }
 
   @cached
@@ -471,9 +471,9 @@ export class Singleton<S extends Stage = Final> extends $Module<S> {
 
   constructor(data: Payload<Singleton<S>>) { super(data) }
 
-  superclass<R extends Linked>(this: Singleton<R>): Class<R>
-  superclass<R extends Linked>(this: Module<R>): Class<R> | null 
-  superclass<R extends Linked>(this: Singleton<R>): Class<R> {
+  superclass<R extends Linked>(this: Singleton<R>): Class<R> | undefined
+  superclass<R extends Linked>(this: Module<R>): Class<R> | undefined
+  superclass<R extends Linked>(this: Singleton<R>): Class<R> | undefined {
     return this.superclassRef.target()
   }
 }
@@ -616,8 +616,8 @@ export class Reference<T extends Kind|Category, S extends Stage = Final> extends
   constructor(data: Payload<Reference<T, S>>) { super(data) }
 
   @cached
-  target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> {
-    return this.scope.resolve<T, R>(this.name) as NodeOfKindOrCategory<T, R> // TODO: !!!!
+  target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> | undefined {
+    return this.scope.resolve<T, R>(this.name)
   }
 
 }

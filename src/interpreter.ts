@@ -335,7 +335,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     Reference: node => {
-      const target = node.target()
+      const target = node.target()!
 
       if (target.is('Module')) return [
         LOAD(target.fullyQualifiedName()),
@@ -373,7 +373,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             ...supercallArgs.flatMap(({ value }) => compile(environment)(value)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED(supercallArgs.map(({ name }) => name)),
-            INIT(0, node.value.superclass().fullyQualifiedName(), true),
+            INIT(0, node.value.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
           const supercallArgs = node.value.supercallArgs as List<Expression>
@@ -381,7 +381,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
             ...supercallArgs.flatMap(arg => compile(environment)(arg)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT_NAMED([]),
-            INIT(node.value.supercallArgs.length, node.value.superclass().fullyQualifiedName()),
+            INIT(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
           ]
         }
       }
@@ -420,7 +420,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 
 
     New: node => {
-      const fqn = node.instantiated.target().fullyQualifiedName()
+      const fqn = node.instantiated.target()!.fullyQualifiedName()
 
       if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
         const args = node.args as List<NamedArgument>
@@ -473,7 +473,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         const handler = compileExpressionClause(environment)(body)
         return [
           LOAD('<exception>'),
-          INHERITS(parameterType.target().fullyQualifiedName()),
+          INHERITS(parameterType.target()!.fullyQualifiedName()),
           CALL('negate', 0),
           CONDITIONAL_JUMP(handler.length + 5),
           LOAD('<exception>'),
@@ -841,7 +841,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           ...args.flatMap(({ value }) => compile(environment)(value)),
           PUSH(singleton.id),
           INIT_NAMED(args.map(({ name }) => name)),
-          INIT(0, singleton.superclass().fullyQualifiedName(), true),
+          INIT(0, singleton.superclass()!.fullyQualifiedName(), true),
         ]
       } else {
         const args = singleton.supercallArgs as List<Expression>
@@ -849,7 +849,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
           ...args.flatMap(arg => compile(environment)(arg)),
           PUSH(singleton.id),
           INIT_NAMED([]),
-          INIT(args.length, singleton.superclass().fullyQualifiedName()),
+          INIT(args.length, singleton.superclass()!.fullyQualifiedName()),
         ]
       }
     }),

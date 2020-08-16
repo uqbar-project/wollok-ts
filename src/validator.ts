@@ -154,7 +154,7 @@ export const validations = {
     isNotEmpty(node)
   ),
 
-  instantiationIsNotAbstractClass: error<New<Linked>>(node => !node.instantiated.target().isAbstract()),
+  instantiationIsNotAbstractClass: error<New<Linked>>(node => !node.instantiated.target()?.isAbstract()),
 
   notAssignToItself: error<Assignment<Linked>>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
 
