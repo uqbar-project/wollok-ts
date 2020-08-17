@@ -6,13 +6,14 @@ import { v4 as uuid } from 'uuid'
 
 const { round } = Math
 const { isArray } = Array
+const { values } = Object
 
 export type Locals = Record<Name, Id>
 
 export interface Context {
   readonly id: Id
   readonly parent: Id | null
-  readonly locals: Locals
+  readonly locals: Locals // TODO: use Map instead
   readonly exceptionHandlerIndex?: number
 }
 
@@ -47,7 +48,7 @@ export class Evaluation {
     readonly environment: Environment,
     protected frameStack: Frame[],
     protected instances: Map<Id, RuntimeObject>,
-    protected contexts: Map<Id, Context>, // TODO: GC contexts
+    protected contexts: Map<Id, Context>,
     protected code: Map<Id, List<Instruction>>,
   ){ }
   
@@ -143,6 +144,8 @@ export class Evaluation {
     return id
   }
 
+  destroyInstance(id: Id): void { this.instances.delete(id) }
+
   context(id: Id): Context {
     const response = this.contexts.get(id)
     if (!response) throw new RangeError(`Access to undefined context "${id}"`)
@@ -154,6 +157,10 @@ export class Evaluation {
     return id
   }
 
+  destroyContext(id: Id): void { this.contexts.delete(id) }
+
+  listContexts(): List<Id> { return [...this.contexts.keys()] }
+
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // STACK MANIPULATION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -163,6 +170,8 @@ export class Evaluation {
   baseFrame(): Frame { return this.frameStack[0] }
 
   stackDepth(): number { return this.frameStack.length }
+
+  listFrames(): List<Frame> { return this.frameStack }
 
   pushFrame(instructions: List<Instruction>, context: Id): void {
     if (this.frameStack.length >= MAX_STACK_SIZE)
@@ -936,6 +945,50 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
   }
 }
 
+// TODO: Add some unit tests.
+const garbageCollect = (evaluation: Evaluation) => {
+  const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
+    return instructions.flatMap(instruction => {
+      if(instruction.kind === 'PUSH') return [instruction.id]
+      if(instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
+      return []
+    })
+  }
+  
+  const marked = new Set<Id>()
+  const pending = [
+    ROOT_CONTEXT_ID,
+    ... evaluation.listFrames().flatMap(({ id, operandStack, context, instructions }) => [
+      id,
+      context,
+      ...operandStack,
+      ...extractIdsFromInstructions(instructions),
+    ]),
+  ]
+
+  while(pending.length) {
+    const next = pending.shift()
+    if(next && !marked.has(next) && next !== LAZY_ID && next !== VOID_ID) {
+      marked.add(next)
+
+      const context = evaluation.context(next)
+      pending.push(
+        ... context.parent ? [context.parent] : [],
+        ...values(context.locals),
+      )
+
+      const instance = evaluation.maybeInstance(next)
+      if(isArray(instance?.innerValue)) pending.push(...instance!.innerValue)
+    }
+  }
+
+  for(const contextId of evaluation.listContexts())
+    if(!marked.has(contextId)) {
+      evaluation.destroyContext(contextId)
+      if (evaluation.maybeInstance(contextId)) evaluation.destroyInstance(contextId)
+    }
+}
+
 // TODO: Refactor this interface
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export default (environment: Environment, natives: Natives) => ({
@@ -985,10 +1038,13 @@ export default (environment: Environment, natives: Natives) => ({
     evaluation.popFrame()
     log.done('Initializing Evaluation')
 
+    garbageCollect(evaluation)
+
     return zipObj(
       tests.map(test => test.fullyQualifiedName()),
       tests.map(test => runTest(evaluation.copy(), natives, test))
     )
   },
 
+  garbageCollect,
 })
