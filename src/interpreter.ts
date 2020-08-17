@@ -38,7 +38,6 @@ export const MAX_STACK_SIZE = 1000
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // TODO: Implement single argument constructors instead ?
-// TODO: Do all these fields still need to be public ?
 // TODO: Do all these fields still need to be an argument in the constructor ?
 // TODO: Can some of the evaluation operations be delegated better?
 // TODO: Should we parameterize the evaluation in the behavior of RuntimeObjects instead?
@@ -49,8 +48,58 @@ export class Evaluation {
     protected frameStack: Frame[],
     protected instances: Map<Id, RuntimeObject>,
     protected contexts: Map<Id, Context>, // TODO: GC contexts
+    protected code: Map<Id, List<Instruction>>,
   ){ }
   
+  copy(): Evaluation {
+    const evaluation = new Evaluation(
+      this.environment,
+      this.frameStack.map(frame => frame.copy()),
+      new Map(),
+      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: { ...context.locals } }])),
+      new Map(this.code),
+    )
+
+    this.instances.forEach((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)))
+
+    return evaluation
+  }
+
+  codeFor(node: Node): List<Instruction> {
+    if(!this.code.has(node.id)) {
+      const compileSentences = compile(this.environment)
+      if(node.is('Method') && node.body && node.body !== 'native') {
+        this.code.set(node.id, [
+          ...compileSentences(...node.body.sentences),
+          PUSH(VOID_ID),
+          RETURN,
+        ])
+      } else if (node.is('Constructor')) {
+        const constructorClass = node.parent()
+        this.code.set(node.id, [
+          ...node.baseCall && constructorClass.superclass() ? [
+            ...node.baseCall.args.flatMap(arg => compileSentences(arg)),
+            LOAD('self'),
+            INIT(
+              node.baseCall.args.length,
+              node.baseCall.callsSuper
+                ? constructorClass.superclass()!.fullyQualifiedName()
+                : constructorClass.fullyQualifiedName(),
+              true,
+            ),
+          ] : [],
+          ...compileSentences(...node.body.sentences),
+          LOAD('self'),
+          CALL('initialize', 0),
+          LOAD('self'),
+          RETURN,
+        ])
+      } else throw new Error(`Can't retrieve instructions for ${node.kind} node`)
+    }
+
+    return this.code.get(node.id)!
+  }
+
   instance(id: Id): RuntimeObject {
     const response = this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
@@ -105,14 +154,12 @@ export class Evaluation {
     return id
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // STACK MANIPULATION
-  // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-  //Return the top of the stack
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  
   currentFrame(): Frame | undefined { return last(this.frameStack) }
 
-  //Return the frame at the base of the stack
   baseFrame(): Frame { return this.frameStack[0] }
 
   stackDepth(): number { return this.frameStack.length }
@@ -125,7 +172,6 @@ export class Evaluation {
   }
 
   popFrame(): Frame | undefined { return this.frameStack.pop() }
-
 
   raise(exceptionId: Id): void{
     let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
@@ -156,20 +202,6 @@ export class Evaluation {
       this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
       this.currentFrame()!.context = currentContext.parent
       this.context(this.currentFrame()!.context).locals['<exception>'] = exceptionId
-  }
-
-  copy(): Evaluation {
-    const evaluation = new Evaluation(
-      this.environment,
-      this.frameStack.map(frame => frame.copy()),
-      new Map(),
-      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: { ...context.locals } }])),
-    )
-
-    // TODO: Improve this
-    this.instances.forEach((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)))
-
-    return evaluation
   }
 
 }
@@ -626,7 +658,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
     })()
 
     case 'INSTANTIATE': return (() => {
-      const id = evaluation.createInstance(instruction.module, instruction.innerValue)
+      const id = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
       currentFrame.pushOperand(id)
     })()
 
@@ -676,7 +708,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const argsId = evaluation.createInstance('wollok.lang.List', argIds)
 
         evaluation.pushFrame(
-          compile(environment)(...messageNotUnderstood.sentences()),
+          evaluation.codeFor(messageNotUnderstood),
           evaluation.createContext(self.id, { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]) })
         )
       } else {
@@ -703,11 +735,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             }
             : { ...zipObj(parameterNames, argIds) }
 
-          evaluation.pushFrame([
-            ...compile(environment)(...method.body!.sentences),
-            PUSH(VOID_ID),
-            RETURN,
-          ], evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
+          evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
         }
       }
     })()
@@ -733,26 +761,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         }
         : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
 
-      const constructorClass = constructor.parent()
-
-      evaluation.pushFrame([
-        ...constructor.baseCall && constructorClass.superclass() ? [
-          ...constructor.baseCall.args.flatMap(arg => compile(environment)(arg)),
-          LOAD('self'),
-          INIT(
-            constructor.baseCall.args.length,
-            constructor.baseCall.callsSuper
-              ? constructorClass.superclass()!.fullyQualifiedName()
-              : constructorClass.fullyQualifiedName(),
-            true,
-          ),
-        ] : [],
-        ...compile(environment)(...constructor.body.sentences),
-        LOAD('self'),
-        CALL('initialize', 0),
-        LOAD('self'),
-        RETURN,
-      ], evaluation.createContext(self.id, locals))
+      evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self.id, locals))
     })()
 
     case 'INIT_NAMED': return (() => {

@@ -298,6 +298,7 @@ export const Evaluation = (
       [...frameStack].reverse(),
       new Map(),
       new Map(keys(contexts).map(key => [key, contexts[key]])),
+      new Map(),
     )
 
     // TODO: Improve this
