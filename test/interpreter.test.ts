@@ -587,7 +587,7 @@ describe('Wollok Interpreter', () => {
           Frame({
             id: 'new_id_2',
             context: 'new_id_2',
-            instructions: compile(environment)(...messageNotUnderstood.sentences()),
+            instructions: evaluation.codeFor(messageNotUnderstood),
           }),
           Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
         ))
