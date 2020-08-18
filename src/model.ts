@@ -127,9 +127,9 @@ abstract class $Node<S extends Stage> {
   _cache(): Cache { throw new Error('uninitialized cache') }
 
   constructor(payload: Record<string, unknown>) {
+    assign(this, payload)
     const cache = new Map()
     this._cache = () => cache
-    assign(this, payload)
   }
  
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {

@@ -25,10 +25,7 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
   return existent
     ? [
       ...members.filter(member => member !== existent),
-      new Package({
-        ...existent,
-        members: isolated.members.reduce(mergePackage, existent.members),
-      }),
+      existent.copy({ members: isolated.members.reduce(mergePackage, existent.members) }) as Package,
     ]
     : [...members, isolated]
 }

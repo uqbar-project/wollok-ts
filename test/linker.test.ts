@@ -74,6 +74,22 @@ describe('Wollok linker', () => {
       ] as unknown as List<PackageNode>)
     })
 
+    it('should re-scope merged packages to find new elements', () => {
+      const baseEnvironment = link([
+        Package('p')(Class('X', { superclassRef: Reference('Object') })()), 
+      ] as PackageNode<Filled>[], WRE)
+
+      const nextEnvironment = link([
+        Package('p')(Class('Y', { superclassRef: Reference('Object') })()),
+      ] as PackageNode<Filled>[], baseEnvironment)
+
+      const p = nextEnvironment.members[1]
+      const Y = p.members[1]
+
+      nextEnvironment.getNodeByFQN('p').should.equal(p)
+      nextEnvironment.getNodeByFQN('p.Y').should.equal(Y)
+    })
+
   })
 
   it('should assign an id to all nodes', () => {
