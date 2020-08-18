@@ -146,6 +146,8 @@ export class Evaluation {
 
   destroyInstance(id: Id): void { this.instances.delete(id) }
 
+  listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
+
   context(id: Id): Context {
     const response = this.contexts.get(id)
     if (!response) throw new RangeError(`Access to undefined context "${id}"`)
