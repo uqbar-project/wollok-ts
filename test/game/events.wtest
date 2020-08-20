@@ -103,6 +103,14 @@ describe 'events' {
     assert.equals(2, closureMock.calledCount())  
   }
 
+  test 'onCollideDo never called when visual is not in the game' {
+    game.onCollideDo(visual, closureMock)
+    game.addVisual(new Visual())
+    game.removeVisual(visual)
+    io.flushEvents(0)
+    assert.notThat(closureMock.called())
+  }
+
 
   test 'onTick never called' {
     game.onTick(1000, "", closureMock)
