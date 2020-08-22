@@ -92,7 +92,11 @@
     ],
     "indent": [
       "warn",
-      2
+      2,
+      {
+        "SwitchCase": 1,
+        "flatTernaryExpressions": true
+      }
     ],
     "no-case-declarations": "off",
     "no-console": [
