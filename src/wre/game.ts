@@ -14,7 +14,7 @@ const returnVoid = (evaluation: Evaluation) => {
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.currentFrame()!.pushOperand(self.get(key)?.id ?? VOID_ID)
+  returnValue(evaluation, self.get(key)?.id ?? VOID_ID)
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {

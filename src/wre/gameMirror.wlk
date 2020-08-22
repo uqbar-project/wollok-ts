@@ -22,7 +22,7 @@ object gameMirror {
 		var lastColliders = []
     io.addTimeHandler(visual.identity(), { time => 
 			const colliders = game.colliders(visual)
-			colliders.forEach({ it => if (!lastColliders.contains(it)) action.apply(it) })
+			colliders.forEach({ it => if (game.hasVisual(visual) and !lastColliders.contains(it)) action.apply(it) })
 			lastColliders = colliders
 		})
   }

@@ -14,11 +14,12 @@
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
-    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples",
+    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:game && npm run test:sanity && npm run test:examples",
     "test:lint": "eslint **/*.ts",
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
+    "test:game": "mocha --parallel -t 10000 -r ts-node/register --root test test/wtest.ts",
     "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
     "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
