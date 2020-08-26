@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp",
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
@@ -19,9 +19,9 @@
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
     "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
-    "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
+    "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
-    "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.2",

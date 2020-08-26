@@ -121,20 +121,20 @@ export class Evaluation {
     let innerValue = baseInnerValue
 
     switch (moduleFQN) {
-    case 'wollok.lang.Number':
-      if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
-      const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-      id = 'N!' + stringValue
-      innerValue = Number(stringValue)
-      break
+      case 'wollok.lang.Number':
+        if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
+        const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
+        id = 'N!' + stringValue
+        innerValue = Number(stringValue)
+        break
 
-    case 'wollok.lang.String':
-      if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
-      id = 'S!' + innerValue
-      break
+      case 'wollok.lang.String':
+        if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
+        id = 'S!' + innerValue
+        break
 
-    default:
-      id = defaultId
+      default:
+        id = defaultId
     }
 
     if (!this.instances.has(id)) this.instances.set(id, new RuntimeObject(this, moduleFQN, id, innerValue))
@@ -580,239 +580,239 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
     switch (instruction.kind) {
 
-    case 'LOAD': return (() => {
-      function resolve(name: Name, contextId: Id): Id | undefined {
-        const context = evaluation.context(contextId)
-        const reponse = context.locals[name]
-        if (reponse) return reponse
-        if (context.parent === null) return undefined
-        return resolve(name, context.parent)
-      }
+      case 'LOAD': return (() => {
+        function resolve(name: Name, contextId: Id): Id | undefined {
+          const context = evaluation.context(contextId)
+          const reponse = context.locals[name]
+          if (reponse) return reponse
+          if (context.parent === null) return undefined
+          return resolve(name, context.parent)
+        }
 
-      const value = resolve(instruction.name, currentFrame.context)
-      if (!value) throw new Error(`LOAD of missing local "${instruction.name}" on context ${JSON.stringify(evaluation.context(currentFrame.context))}`)
+        const value = resolve(instruction.name, currentFrame.context)
+        if (!value) throw new Error(`LOAD of missing local "${instruction.name}" on context ${JSON.stringify(evaluation.context(currentFrame.context))}`)
 
-      // TODO: should add tests for the lazy load and store
-      if (value !== LAZY_ID) currentFrame.pushOperand(value)
-      else {
-        if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
+        // TODO: should add tests for the lazy load and store
+        if (value !== LAZY_ID) currentFrame.pushOperand(value)
+        else {
+          if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
+
+          evaluation.pushFrame([
+            ...instruction.lazyInitialization,
+            DUP,
+            STORE(instruction.name, true),
+            RETURN,
+          ], currentFrame.context)
+        }
+      })()
+
+
+      case 'STORE': return (() => {
+        const valueId = currentFrame.popOperand()
+        const currentContext = evaluation.context(currentFrame.context)
+
+        let context: Context | undefined = currentContext
+        if (instruction.lookup) {
+          while (context && !(instruction.name in context.locals)) {
+            context = context.parent === null ? undefined : evaluation.context(context.parent)
+          }
+        }
+
+        (context ?? currentContext).locals[instruction.name] = valueId
+      })()
+
+
+      case 'PUSH': return (() => {
+        currentFrame.pushOperand(instruction.id)
+      })()
+
+
+      case 'POP': return (() => {
+        currentFrame.popOperand()
+      })()
+
+
+      case 'PUSH_CONTEXT': return (() => {
+        currentFrame.context = evaluation.createContext(
+          currentFrame.context,
+          undefined,
+          undefined,
+          instruction.exceptionHandlerIndexDelta
+            ? currentFrame.nextInstruction + instruction.exceptionHandlerIndexDelta
+            : undefined
+        )
+      })()
+
+
+      case 'POP_CONTEXT': return (() => {
+        const next = evaluation.context(currentFrame.context).parent
+
+        if (!next) throw new Error('Popped root context')
+
+        currentFrame.context = next
+      })()
+
+
+      case 'SWAP': return (() => {
+        const a = currentFrame.popOperand()
+        const bs = new Array(instruction.distance).fill(null).map(() => currentFrame.popOperand()).reverse()
+        const c = currentFrame.popOperand()
+        currentFrame.pushOperand(a)
+        bs.forEach(b => currentFrame.pushOperand(b))
+        currentFrame.pushOperand(c)
+      })()
+
+      case 'DUP': return (() => {
+        const a = currentFrame.popOperand()
+        currentFrame.pushOperand(a)
+        currentFrame.pushOperand(a)
+      })()
+
+      case 'INSTANTIATE': return (() => {
+        const id = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
+        currentFrame.pushOperand(id)
+      })()
+
+      case 'INHERITS': return (() => {
+        const selfId = currentFrame.popOperand()
+        const self = evaluation.instance(selfId)
+        currentFrame.pushOperand(self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID)
+      })()
+
+      case 'JUMP': return (() => {
+        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
+
+        currentFrame.nextInstruction += instruction.count
+      })()
+
+      case 'CONDITIONAL_JUMP': return (() => {
+        const check = currentFrame.popOperand()
+
+        if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
+        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
+          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
+
+        currentFrame.nextInstruction += check === TRUE_ID ? instruction.count : 0
+      })()
+
+
+      case 'CALL': return (() => {
+        const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
+        const self = evaluation.instance(currentFrame.popOperand())
+
+        let lookupStart: Name
+        if (instruction.lookupStart) {
+          const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
+          const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
+          lookupStart = ownHierarchy[start + 1]
+        } else {
+          lookupStart = self.moduleFQN
+        }
+        const method = environment.getNodeByFQN<'Module'>(lookupStart).lookupMethod(instruction.message, instruction.arity)
+
+        if (!method) {
+          log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+
+          const messageNotUnderstood = self.module().lookupMethod('messageNotUnderstood', 2)!
+          const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
+          const argsId = evaluation.createInstance('wollok.lang.List', argIds)
+
+          evaluation.pushFrame(
+            evaluation.codeFor(messageNotUnderstood),
+            evaluation.createContext(self.id, { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]) })
+          )
+        } else {
+          if (method.body === 'native') {
+            log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+            const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
+            const native: NativeFunction = fqn.split('.').reduce((current, name) => {
+              const next = current[name]
+              if (!next) throw new Error(`Native not found: ${fqn}`)
+              return next
+            }, natives as any)
+            const args = argIds.map(id => {
+              if (id === VOID_ID) throw new Error('Reference to void argument')
+              return evaluation.instance(id)
+            })
+
+            native(self, ...args)(evaluation)
+          } else {
+            const parameterNames = method.parameters.map(({ name }) => name)
+            const locals: Locals = method.parameters.some(({ isVarArg }) => isVarArg)
+              ? {
+                ...zipObj(parameterNames.slice(0, -1), argIds),
+                [last(method.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)),
+              }
+              : { ...zipObj(parameterNames, argIds) }
+
+            evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
+          }
+        }
+      })()
+
+
+      case 'INIT': return (() => {
+        const selfId = currentFrame.popOperand()
+        const self = evaluation.instance(selfId)
+        const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
+        const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
+        const constructor = lookupStart.lookupConstructor(instruction.arity)
+
+        if (!constructor) {
+          if (instruction.optional) return evaluation.currentFrame()?.pushOperand(selfId)
+          else throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
+        }
+
+        const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
+          ? {
+            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
+            [last(constructor.parameters)!.name]:
+              evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)),
+          }
+          : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
+
+        evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self.id, locals))
+      })()
+
+      case 'INIT_NAMED': return (() => {
+        const selfId = currentFrame.popOperand()
+        const self = evaluation.instance(selfId)
+
+        const fields = self.module().hierarchy().flatMap(module => module.fields())
+
+        for (const field of fields)
+          self.set(field.name, VOID_ID)
+
+        for (const name of [...instruction.argumentNames].reverse())
+          self.set(name, currentFrame.popOperand())
 
         evaluation.pushFrame([
-          ...instruction.lazyInitialization,
-          DUP,
-          STORE(instruction.name, true),
+          ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
+            ...compile(environment)(field.value),
+            STORE(field.name, true),
+          ]),
+          LOAD('self'),
           RETURN,
-        ], currentFrame.context)
-      }
-    })()
+        ], self.id)
+      })()
 
 
-    case 'STORE': return (() => {
-      const valueId = currentFrame.popOperand()
-      const currentContext = evaluation.context(currentFrame.context)
+      case 'INTERRUPT': return (() => {
+        const exception = currentFrame.popOperand()
+        evaluation.raise(exception)
+      })()
 
-      let context: Context | undefined = currentContext
-      if (instruction.lookup) {
-        while (context && !(instruction.name in context.locals)) {
-          context = context.parent === null ? undefined : evaluation.context(context.parent)
-        }
-      }
+      case 'RETURN': return (() => {
+        const valueId = currentFrame.popOperand()
+        evaluation.popFrame()
 
-      (context ?? currentContext).locals[instruction.name] = valueId
-    })()
+        const next = evaluation.currentFrame()
 
+        if (!next) throw new Error('Returning from last frame')
 
-    case 'PUSH': return (() => {
-      currentFrame.pushOperand(instruction.id)
-    })()
-
-
-    case 'POP': return (() => {
-      currentFrame.popOperand()
-    })()
-
-
-    case 'PUSH_CONTEXT': return (() => {
-      currentFrame.context = evaluation.createContext(
-        currentFrame.context,
-        undefined,
-        undefined,
-        instruction.exceptionHandlerIndexDelta
-          ? currentFrame.nextInstruction + instruction.exceptionHandlerIndexDelta
-          : undefined
-      )
-    })()
-
-
-    case 'POP_CONTEXT': return (() => {
-      const next = evaluation.context(currentFrame.context).parent
-
-      if (!next) throw new Error('Popped root context')
-
-      currentFrame.context = next
-    })()
-
-
-    case 'SWAP': return (() => {
-      const a = currentFrame.popOperand()
-      const bs = new Array(instruction.distance).fill(null).map(() => currentFrame.popOperand()).reverse()
-      const c = currentFrame.popOperand()
-      currentFrame.pushOperand(a)
-      bs.forEach(b => currentFrame.pushOperand(b))
-      currentFrame.pushOperand(c)
-    })()
-
-    case 'DUP': return (() => {
-      const a = currentFrame.popOperand()
-      currentFrame.pushOperand(a)
-      currentFrame.pushOperand(a)
-    })()
-
-    case 'INSTANTIATE': return (() => {
-      const id = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
-      currentFrame.pushOperand(id)
-    })()
-
-    case 'INHERITS': return (() => {
-      const selfId = currentFrame.popOperand()
-      const self = evaluation.instance(selfId)
-      currentFrame.pushOperand(self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID)
-    })()
-
-    case 'JUMP': return (() => {
-      if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-        throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
-
-      currentFrame.nextInstruction += instruction.count
-    })()
-
-    case 'CONDITIONAL_JUMP': return (() => {
-      const check = currentFrame.popOperand()
-
-      if (check !== TRUE_ID && check !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
-      if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-        throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
-
-      currentFrame.nextInstruction += check === TRUE_ID ? instruction.count : 0
-    })()
-
-
-    case 'CALL': return (() => {
-      const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
-      const self = evaluation.instance(currentFrame.popOperand())
-
-      let lookupStart: Name
-      if (instruction.lookupStart) {
-        const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
-        const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
-        lookupStart = ownHierarchy[start + 1]
-      } else {
-        lookupStart = self.moduleFQN
-      }
-      const method = environment.getNodeByFQN<'Module'>(lookupStart).lookupMethod(instruction.message, instruction.arity)
-
-      if (!method) {
-        log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
-
-        const messageNotUnderstood = self.module().lookupMethod('messageNotUnderstood', 2)!
-        const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
-        const argsId = evaluation.createInstance('wollok.lang.List', argIds)
-
-        evaluation.pushFrame(
-          evaluation.codeFor(messageNotUnderstood),
-          evaluation.createContext(self.id, { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]) })
-        )
-      } else {
-        if (method.body === 'native') {
-          log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
-          const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
-          const native: NativeFunction = fqn.split('.').reduce((current, name) => {
-            const next = current[name]
-            if (!next) throw new Error(`Native not found: ${fqn}`)
-            return next
-          }, natives as any)
-          const args = argIds.map(id => {
-            if (id === VOID_ID) throw new Error('Reference to void argument')
-            return evaluation.instance(id)
-          })
-
-          native(self, ...args)(evaluation)
-        } else {
-          const parameterNames = method.parameters.map(({ name }) => name)
-          const locals: Locals = method.parameters.some(({ isVarArg }) => isVarArg)
-            ? {
-              ...zipObj(parameterNames.slice(0, -1), argIds),
-              [last(method.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)),
-            }
-            : { ...zipObj(parameterNames, argIds) }
-
-          evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
-        }
-      }
-    })()
-
-
-    case 'INIT': return (() => {
-      const selfId = currentFrame.popOperand()
-      const self = evaluation.instance(selfId)
-      const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
-      const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
-      const constructor = lookupStart.lookupConstructor(instruction.arity)
-
-      if (!constructor) {
-        if (instruction.optional) return evaluation.currentFrame()?.pushOperand(selfId)
-        else throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
-      }
-
-      const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
-        ? {
-          ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
-          [last(constructor.parameters)!.name]:
-              evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)),
-        }
-        : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
-
-      evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self.id, locals))
-    })()
-
-    case 'INIT_NAMED': return (() => {
-      const selfId = currentFrame.popOperand()
-      const self = evaluation.instance(selfId)
-
-      const fields = self.module().hierarchy().flatMap(module => module.fields())
-
-      for (const field of fields)
-        self.set(field.name, VOID_ID)
-
-      for (const name of [...instruction.argumentNames].reverse())
-        self.set(name, currentFrame.popOperand())
-
-      evaluation.pushFrame([
-        ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
-          ...compile(environment)(field.value),
-          STORE(field.name, true),
-        ]),
-        LOAD('self'),
-        RETURN,
-      ], self.id)
-    })()
-
-
-    case 'INTERRUPT': return (() => {
-      const exception = currentFrame.popOperand()
-      evaluation.raise(exception)
-    })()
-
-    case 'RETURN': return (() => {
-      const valueId = currentFrame.popOperand()
-      evaluation.popFrame()
-
-      const next = evaluation.currentFrame()
-
-      if (!next) throw new Error('Returning from last frame')
-
-      next.pushOperand(valueId)
-    })()
+        next.pushOperand(valueId)
+      })()
 
     }
   } catch (error) {
