@@ -52,7 +52,7 @@ const logger: Logger = {
 const hr = (size: number = columns) => '─'.repeat(size)
 
 const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
-  const instance = evaluation.instances[id]
+  const instance = evaluation.maybeInstance(id)
   const module = instance ? stringifyModule(evaluation)(instance.moduleFQN) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
@@ -98,14 +98,13 @@ const consoleLogger: Logger = {
 
   separator: title => writeLine(greenBright(title
     ? bold(`${hr()}\n ${title}\n${hr()}`)
-    : `${hr()}`
-  )),
+    : `${hr()}`)),
 
   step: evaluation => {
-    const { instructions, nextInstruction, operandStack } = last(evaluation.frameStack)!
+    const { instructions, nextInstruction, operandStack } = evaluation.currentFrame()!
     const instruction = instructions[nextInstruction]
 
-    const stepTabulation = evaluation.frameStack.length - 1
+    const stepTabulation = evaluation.stackDepth() - 1
 
     const tabulationReturn = 0
     // TODO: fix
@@ -114,6 +113,7 @@ const consoleLogger: Logger = {
     //   tabulationReturn = returns === -1 ? stepTabulation : returns
     // }
 
+    // eslint-disable-next-line no-constant-condition
     const tabulation = false && instruction.kind === 'INTERRUPT'
       ? '│'.repeat(stepTabulation - tabulationReturn) + '└' + '─'.repeat(tabulationReturn - 1)
       : '│'.repeat(stepTabulation)
@@ -143,7 +143,7 @@ const consoleLogger: Logger = {
   clear,
 }
 
-export const enableLogs = (level: LogLevel = LogLevel.DEBUG) => {
+export const enableLogs = (level: LogLevel = LogLevel.DEBUG): void => {
   if (level === LogLevel.NONE) return
 
   assign(logger, consoleLogger)

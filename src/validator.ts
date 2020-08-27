@@ -1,47 +1,31 @@
 // TODO:
-// No imports of local references
+// No imports of local definitions or imports of duplicated names
 // No siblings with the same name
 // No global mutable vars
 // No modules named wollok
-import { last } from './extensions'
-import {
-  Assignment,
-  Class,
-  ClassMember,
-  Constructor,
-  Field,
-  Kind,
-  Linked,
-  Method,
-  Mixin,
-  New,
-  Node,
-  NodeOfKind,
-  Parameter,
-  Program,
-  Reference,
-  Return,
-  Self,
-  Send,
-  Singleton,
-  Source,
-  Super,
-  Test,
-  Try,
-  Variable,
-} from './model'
+// Generic import of non package
+
+import { Assignment, Class, Constructor, Field, Linked, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable, is, Source, List } from './model'
+import { Kind } from './model'
 
 const { keys } = Object
 
 type Code = string
 type Level = 'Warning' | 'Error'
 
+export type Validation<N extends Node<Linked>> = (node: N, code: Code) => Problem | null
+
 export interface Problem {
   readonly code: Code
   readonly level: Level
   readonly node: Node<Linked>
-  readonly values: string[]
-  readonly source: Source
+  readonly values: List<string>
+  readonly source: Source // TODO: Wouldn't it be best if this is an optional field?
+}
+
+const EMPTY_SOURCE: Source = {
+  start: { offset: 0, line: 0, column: 0 },
+  end: { offset: 0, line: 0, column: 0 },
 }
 
 const problem = (level: Level) => <N extends Node<Linked>>(
@@ -55,7 +39,7 @@ const problem = (level: Level) => <N extends Node<Linked>>(
         code,
         node,
         values: values(node),
-        source: node.source ? source(node) : emptySource(),
+        source: node.source ? source(node) : EMPTY_SOURCE,
       }
       : null
 
@@ -67,46 +51,14 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-type HaveArgs = Method<Linked> | Constructor<Linked>
+const isNotEmpty = (node: Program<Linked> | Test<Linked> | Method<Linked>) => node.sentences().length !== 0
 
-type notEmpty = Program<Linked> | Test<Linked> | Method<Linked>
-
-const canBeCalledWithArgs = (member1: HaveArgs, member2: HaveArgs) =>
-  ((hasVarArg(member2) &&
-    member1.parameters.length >= member2.parameters.length) ||
-    member2.parameters.length === member1.parameters.length) &&
-  member1 !== member2
-
-const matchingConstructors = (
-  constructors: ReadonlyArray<ClassMember<Linked>>,
-  constructor: Constructor<Linked>
-) => constructors.some(c => c.kind === 'Constructor' && canBeCalledWithArgs(c, constructor))
-
-const matchingSignatures = (
-  methods: ReadonlyArray<ClassMember<Linked>>,
-  method: Method<Linked>
-) =>
-  methods.some(
-    m =>
-      m.kind === 'Method' &&
-      m.name === method.name &&
-      canBeCalledWithArgs(m, method)
-  )
-
-const isNotEmpty = (node: notEmpty) => node.body?.sentences.length !== 0
-
-const isNotAbstractClass = (clazz: Class<Linked>) => {
-  const methods = clazz.methods()
-  return (methods.length === 0) || methods.some(method => isNotEmpty(method))
-}
-
-const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) =>
-  error<N>((node: N) => !node.closestAncestor(kind))
+const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N) => !node.source || !node.ancestors().some(is(kind)))
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {
   nameBeginsWithUppercase: warning<Mixin<Linked> | Class<Linked>>(
-    (node => /^[A-Z]$/.test(node.name[0])),
+    (node => /^[A-Z]/.test(node.name)),
     (node => [node.name]),
     (node => {
       const nodeOffset = node.kind.length + 1
@@ -125,57 +77,49 @@ export const validations = {
   ),
 
   nameBeginsWithLowercase: warning<Singleton<Linked>>(
-    (node => !node.name || /^[a-z]$/.test(node.name[0])),
-    (node => [node.name || ''])
+    (node => /^[a-z_<]/.test(node.name ?? 'ok')),
+    (node => [node.name ?? ''])
   ),
 
-  referenceNameIsValid: warning<
-    Parameter<Linked> | Variable<Linked>
-  >(node => node.name !== undefined && /^[a-z\_]$/.test(node.name[0])),
+  referenceNameIsValid: warning<Parameter<Linked> | Variable<Linked>>(node => /^[a-z_<]/.test(node.name ?? 'ok')),
 
-  onlyLastParameterIsVarArg: error<Method<Linked>>(method => {
-    const varArgIndex = method.parameters.findIndex(parameter => parameter.isVarArg)
-    const methodHasVarArg = varArgIndex > -1
-    return (
-      !methodHasVarArg || varArgIndex + 1 === method.parameters.length
-    )
+  onlyLastParameterIsVarArg: error<Method<Linked>>(node => {
+    const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
+    return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
   }),
 
-  nameIsNotKeyword: error<
-    Reference<Linked> | Method<Linked> | Variable<Linked> | Class<Linked> | Singleton<Linked>
-  >(
-    node =>
-      ![
-        'import',
-        'package',
-        'program',
-        'test',
-        'mixed with',
-        'class',
-        'inherits',
-        'object',
-        'mixin',
-        'var',
-        'const',
-        'override',
-        'method',
-        'native',
-        'constructor',
-        'self',
-        'super',
-        'new',
-        'if',
-        'else',
-        'return',
-        'throw',
-        'try',
-        'then always',
-        'catch',
-        'null',
-        'false',
-        'true',
-      ].includes(node.name || ''),
-    (node => [node.name || '']),
+  nameIsNotKeyword: error<Reference<any, Linked> | Method<Linked> | Variable<Linked> | Class<Linked> | Singleton<Linked>>(node =>
+    ![
+      'import',
+      'package',
+      'program',
+      'test',
+      'mixed with',
+      'class',
+      'inherits',
+      'object',
+      'mixin',
+      'var',
+      'const',
+      'override',
+      'method',
+      'native',
+      'constructor',
+      'self',
+      'super',
+      'new',
+      'if',
+      'else',
+      'return',
+      'throw',
+      'try',
+      'then always',
+      'catch',
+      'null',
+      'false',
+      'true',
+    ].includes(node.name || ''),
+  (node => [node.name || '']),
   ),
 
   hasCatchOrAlways: error<Try<Linked>>(
@@ -192,53 +136,37 @@ export const validations = {
     node => !node.variable.name.includes('.')
   ),
 
-  methodsHaveDistinctSignatures: error<Class<Linked>>(clazz =>
-    clazz.methods().every(method => !matchingSignatures(clazz.members, method))
-  ),
+  hasDistinctSignature: error<Constructor<Linked> | Method<Linked>>(node => {
+    if(node.is('Constructor')) {
+      return node.parent().constructors().every(other => node === other || !other.matchesSignature(node.parameters.length))
+    } else {
+      return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+    }
+  }),
 
-  constructorsHaveDistinctArity: error<Constructor<Linked>>(originalConstructor =>
-    originalConstructor
-      .parent()
-      .constructors().every(
-        constructor =>
-          !matchingConstructors(originalConstructor.parent().members, constructor)
-      )
-  ),
-
-  methodNotOnlyCallToSuper: warning<Method<Linked>>(
-    method =>
-      method.isNative ||
-      !(
-        method.body?.sentences.length === 1 &&
-        method.body?.sentences[0].is('Super')
-      )
+  methodNotOnlyCallToSuper: warning<Method<Linked>>(node =>
+    !node.sentences().length || !node.sentences().every(sentence =>
+      sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+    )
   ),
 
   containerIsNotEmpty: warning<Test<Linked> | Program<Linked>>(node =>
     isNotEmpty(node)
   ),
 
-  instantiationIsNotAbstractClass: error<New<Linked>>(node =>
-    isNotAbstractClass(node.instantiated.target())
-  ),
+  instantiationIsNotAbstractClass: error<New<Linked>>(node => !node.instantiated.target()?.isAbstract()),
 
-  notAssignToItself: error<Assignment<Linked>>(
-    node =>
-      !(
-        node.value.kind === 'Reference' &&
-        node.value.name === node.variable.name
-      )
-  ),
+  notAssignToItself: error<Assignment<Linked>>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
 
   notAssignToItselfInVariableDeclaration: error<Field<Linked>>(
     node => !(node.value!.is('Reference') && node.value!.name === node.name)
   ),
 
-  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(
-    call =>
-      call.message !== '==' ||
-      !(call.args[0].is('Literal') && [true, false].includes(call.args[0].value as boolean))
-  ),
+  dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(node => {
+    if(node.message !== '==') return true
+    const arg = node.args[0]
+    return !arg.is('Literal') || (arg.value !== true && arg.value !== false)
+  }),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
   selfIsNotInAProgram: isNotPresentIn<Self<Linked>>('Program'),
@@ -254,27 +182,26 @@ export const validations = {
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node<Linked>): ReadonlyArray<Problem> => {
+export default (target: Node<Linked>): List<Problem> => {
   const {
     nameBeginsWithUppercase,
     nameBeginsWithLowercase,
     referenceNameIsValid,
     nameIsNotKeyword,
     onlyLastParameterIsVarArg,
-    hasCatchOrAlways,
-    singletonIsNotUnnamed,
-    nonAsignationOfFullyQualifiedReferences,
-    methodsHaveDistinctSignatures,
-    constructorsHaveDistinctArity,
+    hasDistinctSignature,
     methodNotOnlyCallToSuper,
     containerIsNotEmpty,
-    instantiationIsNotAbstractClass,
-    selfIsNotInAProgram,
-    notAssignToItself,
     notAssignToItselfInVariableDeclaration,
-    dontCompareAgainstTrueOrFalse,
-    noSuperInConstructorBody,
+    singletonIsNotUnnamed,
     noReturnStatementInConstructor,
+    noSuperInConstructorBody,
+    selfIsNotInAProgram,
+    nonAsignationOfFullyQualifiedReferences,
+    hasCatchOrAlways,
+    instantiationIsNotAbstractClass,
+    dontCompareAgainstTrueOrFalse,
+    notAssignToItself,
   } = validations
 
   const problemsByKind: {
@@ -290,18 +217,12 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     Package: {},
     Program: { containerIsNotEmpty },
     Test: { containerIsNotEmpty },
-    Class: { nameBeginsWithUppercase, methodsHaveDistinctSignatures, nameIsNotKeyword },
+    Class: { nameBeginsWithUppercase, nameIsNotKeyword },
     Singleton: { nameBeginsWithLowercase, singletonIsNotUnnamed, nameIsNotKeyword },
     Mixin: { nameBeginsWithUppercase },
-    Constructor: { constructorsHaveDistinctArity },
-    Field: {
-      notAssignToItselfInVariableDeclaration,
-    },
-    Method: {
-      onlyLastParameterIsVarArg,
-      nameIsNotKeyword,
-      methodNotOnlyCallToSuper,
-    },
+    Constructor: { hasDistinctSignature },
+    Field: { notAssignToItselfInVariableDeclaration },
+    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
     Variable: { referenceNameIsValid, nameIsNotKeyword },
     Return: { noReturnStatementInConstructor },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
@@ -325,32 +246,10 @@ export default (target: Node<Linked>): ReadonlyArray<Problem> => {
     }
     return [
       ...found,
+      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.source ?? EMPTY_SOURCE } as const)  ) ?? [],
       ...keys(checks)
         .map(code => checks[code](node, code)!)
         .filter(result => result !== null),
     ]
   }, [])
 }
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EXTRA FUNCTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-// const hasParameters = (member: HaveArgs) => member.parameters.length > 0
-
-const hasVarArg = (member: HaveArgs) =>
-  last(member.parameters)?.isVarArg || false
-
-
-const emptySource: () => Source = () => ({
-  start: {
-    offset: 0,
-    line: 0,
-    column: 0,
-  },
-  end: {
-    offset: 0,
-    line: 0,
-    column: 0,
-  },
-})

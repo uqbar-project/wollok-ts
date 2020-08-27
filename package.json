@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "wollokVersion": "2.0.2",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
@@ -10,40 +10,44 @@
     "dist"
   ],
   "scripts": {
+    "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp",
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
-    "test": "npm run buildWRE && npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples && npm run test:game",
-    "test:lint": "tslint --project .",
-    "test:unit": "mocha -r ts-node/register test/**/*.test.ts",
-    "test:sanity": "mocha -t 5000 -r ts-node/register --root language/test/sanity test/wtest.ts",
-    "test:examples": "mocha -t 5000 -r ts-node/register --root language/test/examples test/wtest.ts",
-    "test:game": "mocha -t 5000 -r ts-node/register --root test/game test/wtest.ts",
-    "test:performance": "rm -rf perf/bin && tsc perf/benchmark.ts --outDir perf/bin --target es2017 --module none && node perf/bin/benchmark.js",
-    "prepublishOnly": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && npm test",
+    "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
+    "test": "npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:game && npm run test:examples",
+    "test:lint": "eslint .",
+    "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
+    "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
+    "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
+    "prepublishOnly": "npm run build && npm test",
+    "test:game": "mocha --parallel -t 10000 -r ts-node/register --root test test/wtest.ts",
     "postpublish": "git tag v$npm_package_version && git push --tags",
-    "prepack": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp"
+    "prepack": "npm run build"
   },
   "dependencies": {
-    "@types/parsimmon": "^1.10.0",
+    "@types/parsimmon": "^1.10.2",
     "parsimmon": "^1.13.0",
-    "uuid": "^3.3.3"
+    "unraw": "^2.0.0",
+    "uuid": "^3.4.0"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.7",
+    "@types/chai": "^4.2.11",
     "@types/mocha": "^5.2.7",
-    "@types/sinon": "^7.5.1",
-    "@types/uuid": "^3.4.6",
-    "@types/yargs": "^13.0.3",
+    "@types/sinon": "^7.5.2",
+    "@types/uuid": "^3.4.9",
+    "@types/yargs": "^13.0.9",
+    "@typescript-eslint/eslint-plugin": "^3.0.2",
+    "@typescript-eslint/parser": "^3.0.2",
     "chai": "^4.2.0",
     "chalk": "^2.4.2",
-    "globby": "^10.0.1",
-    "mocha": "^6.2.2",
-    "simple-git": "^1.129.0",
+    "eslint": "^7.1.0",
+    "globby": "^10.0.2",
+    "mocha": "^6.2.3",
+    "simple-git": "^1.132.0",
     "sinon": "7.3.2",
-    "ts-mock-imports": "^1.2.6",
+    "ts-mock-imports": "^1.3.0",
     "ts-node": "8.4.1",
-    "tslint": "^5.20.1",
-    "typescript": "^3.7.4",
-    "yargs": "^15.0.2"
+    "typescript": "^3.7.5",
+    "yargs": "^15.3.1"
   }
 }

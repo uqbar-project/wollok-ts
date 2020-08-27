@@ -4,21 +4,23 @@
     "module": "commonjs",
     "outDir": "dist/temp",
     "lib": [
-      "es2019"
+      "es2020"
     ],
     "declaration": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
     "removeComments": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "experimentalDecorators": true
   },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "scripts/**/*.ts",
+  ],
   "exclude": [
+    "**/*.js",
     "node_modules",
-    "dist"
   ]
 }

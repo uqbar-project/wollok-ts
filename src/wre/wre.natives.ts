@@ -2,8 +2,9 @@ import game from './game'
 import lang from './lang'
 import lib from './lib'
 import vm from './vm'
+import { Natives } from '../interpreter'
 
-export default {
+const WRENatives: Natives = {
   wollok: {
     lang,
     game,
@@ -11,3 +12,5 @@ export default {
     vm,
   },
 }
+
+export default WRENatives

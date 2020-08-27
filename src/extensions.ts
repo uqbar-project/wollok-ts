@@ -1,15 +1,28 @@
-import { List } from './model'
+export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
-export const keys = <T>(obj: T) => Object.keys(obj) as (keyof T)[]
-
-export const last = <T>(xs: List<T>): T | undefined => xs[xs.length - 1]
+export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
 
 export const divideOn = (separator: string) => (str: string): [string, string] => {
   const [head, ...tail] = str.split(separator)
   return [head, tail.join(separator)]
 }
 
-export const zipObj = (fieldNames: List<string>, fieldValues: List<any>): {} => {
+export function discriminate<A, B = unknown>(isA: (obj: A|B) => obj is A): (list: ReadonlyArray<A | B>) => [A[], B[]]
+export function discriminate<T>(isA: (obj: T) => boolean): (list: ReadonlyArray<T>) => [T[], T[]]
+export function discriminate<T>(isA: (obj: T) => boolean) {
+  return (list: ReadonlyArray<T>): [T[], T[]] => {
+    const as: T[] = []
+    const bs: T[] = []
+
+    for(const member of list)
+      if(isA(member)) as.push(member)
+      else bs.push(member)
+
+    return [as, bs]
+  }
+}
+
+export const zipObj = (fieldNames: ReadonlyArray<string>, fieldValues: ReadonlyArray<any>): Record<string, any> => {
   const response: any = {}
   for (let i = 0; i < fieldNames.length; i++) {
     response[fieldNames[i]] = fieldValues[i]

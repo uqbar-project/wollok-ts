@@ -1,28 +1,29 @@
-import { Filled as FilledBehavior } from './behavior'
-import { Body as buildBody, Constructor as buildConstructor, getter, Literal as buildLiteral, Reference as buildReference, setter } from './builders'
-import { Body, Constructor, Field, Filled, KindOf, Literal, Method, Module, Node, NodeOfKind, Raw, Reference } from './model'
+import { getter, setter } from './builders'
+import { Node, Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
 
-const OBJECT_CLASS: Reference<Filled> = buildReference('wollok.lang.Object') as Reference<Filled>
+const OBJECT_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Object' })
 
-const EXCEPTION_CLASS: Reference<Filled> = buildReference('wollok.lang.Exception') as Reference<Filled>
+const EXCEPTION_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Exception' })
 
-const NULL: Literal<Filled> = buildLiteral(null) as Literal<Filled>
+const NULL: Literal<Filled> = new Literal({ value: null })
 
-const EMPTY_BODY: Body<Filled> = buildBody() as Body<Filled>
+const EMPTY_BODY: Body<Filled> = new Body({ sentences: [] })
 
-const DEFAULT_CONSTRUCTOR: Constructor<Filled> = buildConstructor({
+const DEFAULT_CONSTRUCTOR: Constructor<Filled> = new Constructor({
+  parameters: [],
+  body: EMPTY_BODY,
   baseCall: { callsSuper: true, args: [] },
-})() as Constructor<Filled>
+})
 
 
-const filledPropertyAccessors = (transformed: Module<Filled>) => {
-  const overridesGeter = (field: Field<Filled>) => transformed.methods()
+const filledPropertyAccessors = (node: Module<Filled>) => {
+  const overridesGeter = (field: Field<Filled>) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 0)
 
-  const overridesSeter = (field: Field<Filled>) => transformed.methods()
+  const overridesSeter = (field: Field<Filled>) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 1)
 
-  const propertyFields = transformed.fields().filter(field => field.isProperty)
+  const propertyFields = node.fields().filter(field => field.isProperty)
 
   const propertyGetters = propertyFields
     .filter(field => !overridesGeter(field))
@@ -35,61 +36,64 @@ const filledPropertyAccessors = (transformed: Module<Filled>) => {
   return [...propertyGetters, ...propertySetters]
 }
 
-export default <N extends Node<Raw>>(rawNode: N) => FilledBehavior<NodeOfKind<KindOf<N>, Filled>>(
-  (rawNode as Node<Filled>).transform<Filled, Node<Filled>>({
-    Class: (transformed) => ({
-      ...transformed,
-      superclass: transformed.name === 'Object' ? null : transformed.superclass ?? OBJECT_CLASS,
+// TODO: So... Here's an idea: How about we make a type for the "transitioning" states so
+// the non-node fields would be on S-1, but the children would be on S+1 ?
+
+export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => {
+  const result = rawNode.transform<Filled>(filledNode => filledNode.match<Node<Filled>>({
+    Class: node => new Class({
+      ...node,
+      superclassRef: node.name === 'Object' ? null : node.superclassRef ?? OBJECT_CLASS,
       members: [
-        ...transformed.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
-        ...transformed.members,
-        ...filledPropertyAccessors(transformed),
+        ...node.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
+        ...node.members,
+        ...filledPropertyAccessors(node),
       ],
     }),
 
-    Mixin: (transformed) => ({
-      ...transformed,
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+    Mixin: node => new Mixin({
+      ...node,
+      members: [...node.members, ...filledPropertyAccessors(node)],
     }),
 
-    Singleton: (transformed) => ({
-      ...transformed,
-      superCall: transformed.superCall ?? {
-        superclass: OBJECT_CLASS,
-        args: [],
-      },
-      members: [...transformed.members, ...filledPropertyAccessors(transformed)],
+    Singleton: node => new Singleton({
+      ...node,
+      superclassRef: node.superclassRef ?? OBJECT_CLASS,
+      members: [...node.members, ...filledPropertyAccessors(node)],
     }),
 
-    Field: (transformed) => ({
-      ...transformed,
-      value: transformed.value ?? NULL,
+    Field: node => new Field({
+      ...node,
+      value: node.value ?? NULL,
     }),
 
-    Variable: (transformed) => ({
-      ...transformed,
-      value: transformed.value ?? NULL,
+    Variable: node => new Variable({
+      ...node,
+      value: node.value ?? NULL,
     }),
 
-    If: (transformed) => ({
-      ...transformed,
-      elseBody: transformed.elseBody ?? EMPTY_BODY,
+    If: node => new If({
+      ...node,
+      elseBody: node.elseBody ?? EMPTY_BODY,
     }),
 
-    Try: (transformed) => ({
-      ...transformed,
-      always: transformed.always ?? EMPTY_BODY,
+    Try: node => new Try<Filled>({
+      ...node,
+      always: node.always ?? EMPTY_BODY,
     }),
 
-    Catch: (transformed) => ({
-      ...transformed,
-      parameterType: transformed.parameterType ?? EXCEPTION_CLASS,
+    Catch: node => new Catch({
+      ...node,
+      parameterType: node.parameterType ?? EXCEPTION_CLASS,
     }),
 
-    Constructor: (transformed) => ({
-      ...transformed,
-      baseCall: transformed.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
+    Constructor: node => new Constructor({
+      ...node,
+      baseCall: node.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
     }),
 
-  }) as any
-)
+    Node: node => node,
+  })  )
+
+  return result as NodeOfKind<K, Filled>
+}

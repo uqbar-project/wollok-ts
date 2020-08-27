@@ -1,37 +1,46 @@
-import { assert } from 'chai'
 import { formatError, Parser } from 'parsimmon'
 import { ImportMock } from 'ts-mock-imports'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
-import { step } from '../src/interpreter'
+import interpreter, { step, Natives } from '../src/interpreter'
 import link from '../src/linker'
-import { Linked, Node, Package, Raw, Reference } from '../src/model'
-import { Problem } from '../src/validator'
+import { Name, Linked, Node, Package, Reference, List } from '../src/model'
+import { Validation } from '../src/validator'
+import { ParseError } from '../src/parser'
+import globby from 'globby'
+import { readFileSync } from 'fs'
+import { buildEnvironment } from '../src'
+import { join } from 'path'
+import validate from '../src/validator'
+import natives from '../src/wre/wre.natives'
 
 declare global {
-
   export namespace Chai {
-
     interface Assertion {
       also: Assertion
       parsedBy(parser: Parser<any>): Assertion
-      into(expected: {}): Assertion
+      into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
-      linkedInto(expected: Package<Raw>[]): Assertion
+      recoveringFrom(code: Name, start: number, end: number): Assertion
+      linkedInto(expected: List<Package>): Assertion
       filledInto(expected: any): Assertion
-      target(node: Node<Linked>): Assertion
-      pass<N extends Node<Linked>>(validation: (node: N, code: string) => Problem | null): Assertion
-      stepped(natives?: {}): Assertion
+      target(node: Node): Assertion
+      pass<N extends Node>(validation: Validation<N>): Assertion
+      stepped(natives?: Natives): Assertion
     }
 
+    interface ArrayAssertion {
+      be: Assertion
+    }
   }
-
 }
 
-// TODO: Improve these
+
+// TODO: Implement this without calling JSON?
 const dropKeys = (...keys: string[]) => (obj: any) =>
   JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
 
+// TODO: Implement this without calling JSON?
 const dropMethods = (target: any) =>
   JSON.parse(JSON.stringify(target, (_, value) => typeof value === 'function' ? '<function>' : value))
 
@@ -40,61 +49,82 @@ const dropMethods = (target: any) =>
 // ALSO
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const also = ({ Assertion }: any, { flag }: any) => {
-  Assertion.overwriteMethod('property', (base: any) => {
-    return function (this: any) {
-      if (!flag(this, 'objectBeforePropertyChain')) {
-        flag(this, 'objectBeforePropertyChain', this._obj)
-      }
+export const also: Chai.ChaiPlugin = ({ Assertion }, { flag }) => {
 
-      base.apply(this, arguments)
-    }
+  Assertion.overwriteMethod('property', base => function (this: Chai.AssertionStatic, ...args: any[]) {
+    if (!flag(this, 'objectBeforePropertyChain')) flag(this, 'objectBeforePropertyChain', this._obj)
+
+    base.apply(this, args)
   })
 
-  Assertion.addProperty('also', function (this: any) {
+
+  Assertion.addProperty('also', function () {
     this._obj = flag(this, 'objectBeforePropertyChain')
   })
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PARSER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const parserAssertions = ({ Assertion }: any, conf: any) => {
-  also({ Assertion }, conf)
+export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
+  const { Assertion } = chai
+  const { flag } = utils
 
-  Assertion.addMethod('parsedBy', function (this: any, parser: Parser<any>) {
+  also(chai, utils)
+  chai.config.truncateThreshold = 0
+
+  chai.use(function (_chai, utils) {
+    utils.objDisplay = function (obj) { return '!!!'+ obj + '!!!' }
+  })
+
+  Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
     const result = parser.parse(this._obj)
 
     this.assert(
       result.status,
-      !result.status && formatError(this._obj, result),
-      'expected parser to fail for input #{this}'
+      () => formatError(this._obj, result),
+      'Expected parser to fail for input #{this}',
+      true,
+      result.status,
     )
 
     if (result.status) this._obj = result.value
   })
 
-  Assertion.addMethod('into', function (this: any, expected: any) {
-    const unsourced = dropKeys('source')
-    new Assertion(unsourced(this._obj)).to.deep.equal(unsourced(expected))
+
+  Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
+    const plucked = dropKeys('source', 'problems')
+    const expectedProblems = flag(this, 'expectedProblems') ?? []
+    const actualProblems = this._obj.problems?.map(({ code, source: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
+
+    new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
+    new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
+
+    new Assertion(plucked(this._obj)).to.deep.equal(plucked(expected))
   })
 
-  Assertion.addMethod('tracedTo', function (this: any, start: number, end: number) {
+
+  Assertion.addMethod('tracedTo', function (start: number, end: number) {
     new Assertion(this._obj)
       .to.have.nested.property('source.start.offset', start).and.also
       .to.have.nested.property('source.end.offset', end)
   })
 
+
+  Assertion.addMethod('recoveringFrom', function (this: Chai.AssertionStatic, code: Name, start: number, end: number) {
+    flag(this, 'expectedProblems', [...flag(this, 'expectedProblems') ?? [], { code, start, end }])
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // FILLER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const fillerAssertions = ({ Assertion }: any) => {
+export const fillerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('filledInto', function (this: any, expected: any) {
+  Assertion.addMethod('filledInto', function (expected: any) {
     new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
 
@@ -103,25 +133,22 @@ export const fillerAssertions = ({ Assertion }: any) => {
 // LINKER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const linkerAssertions = ({ Assertion }: any) => {
+export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('linkedInto', function (this: any, expected: Package<Raw>[]) {
+  Assertion.addMethod('linkedInto', function (expected: List<Package>) {
     const dropLinkedFields = dropKeys('id', 'scope')
     const actualEnvironment = link(this._obj)
-    const expectedEnvironment = Environment(...expected as any)
+    const expectedEnvironment = Environment(...expected)
+
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })
 
-  Assertion.addMethod('target', function (this: any, node: Node<Linked>) {
-    const reference: Reference<Linked> = this._obj
 
-    if (reference.kind !== 'Reference') assert.fail(`can't check target of ${reference.kind} node`)
+  Assertion.addMethod('target', function (node: Node<Linked>) {
+    const reference: Reference<any, Linked> = this._obj
 
-    this.assert(
-      this._obj.target().id === node.id,
-      `expected reference ${reference.name} to target ${node.kind} ${(node as any).name} ${node.id} but found ${reference.target().kind} ${reference.target<any>().name} ${reference.target().id} instead`,
-      `expected reference ${reference.name} to not target node ${node.kind} ${(node as any).name} ${node.id}`,
-    )
+    new Assertion(reference.is('Reference'), `can't check "target" of ${reference.kind} node`).to.be.true
+    new Assertion(this._obj.target().id).to.equal(node.id)
   })
 }
 
@@ -129,36 +156,69 @@ export const linkerAssertions = ({ Assertion }: any) => {
 // VALIDATOR ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const validatorAssertions = ({ Assertion }: any) => {
+export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('pass', function <N extends Node<Linked>>(this: any, validation: (node: N, code: string) => Problem | null) {
+  Assertion.addMethod('pass', function (validation: Validation<Node<Linked>>) {
+    const result = validation(this._obj, '')
+
     this.assert(
-      validation(this._obj, '') === null,
-      'expected node to pass validation',
-      'expected node to not pass validation'
+      result === null,
+      `Expected ${this._obj.kind} to pass validation, but got #{act} instead`,
+      `Expected ${this._obj.kind} to not pass validation`,
+      null,
+      result
     )
   })
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INTERPRETER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const interpreterAssertions = ({ Assertion }: any, conf: any) => {
-  also({ Assertion }, conf)
+export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
+  const { Assertion } = chai
 
-  Assertion.addMethod('stepped', function (this: any, natives: {} = {}) {
+  also(chai, utils)
+
+
+  Assertion.addMethod('stepped', function (this: Chai.AssertionStatic, natives: Natives = {}) {
     let n = 0
     const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
-    try {
-      step(natives)(this._obj)
-    } finally {
-      stub.restore()
-    }
 
+    try { step(natives)(this._obj) }
+    finally { stub.restore() }
   })
 
-  Assertion.addMethod('into', function (this: any, expected: any) {
+
+  Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
     new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
   })
+
+}
+
+
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export const buildInterpreter = (pattern: string, cwd: string) => {
+
+  const { time, timeEnd, log } = console
+
+  time('Parsing files')
+
+  const files = globby.sync(pattern, { cwd }).map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
+
+  timeEnd('Parsing files')
+
+
+  time('Building environment')
+
+  const environment = buildEnvironment(files)
+
+  timeEnd('Building environment')
+
+  const problems = validate(environment)
+  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
+  else log('No problems found building the environment!')
+
+  return interpreter(environment, natives as Natives)
 }

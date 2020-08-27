@@ -2,10 +2,10 @@ import { assert } from 'chai'
 import { basename } from 'path'
 import yargs from 'yargs'
 import interpreter, { Evaluation, Natives } from '../src/interpreter'
-import { enableLogs, LogLevel } from '../src/log'
+import log, { enableLogs, LogLevel } from '../src/log'
 import { List, Node } from '../src/model'
 import natives from '../src/wre/wre.natives'
-import { buildInterpreter } from './runner'
+import { buildInterpreter } from './assertions'
 
 const { fail } = assert
 const { time, timeEnd } = console
@@ -34,7 +34,10 @@ function registerTests(evaluation: Evaluation, nodes: List<Node>) {
       it(node.name, () => {
         const { runTest } = interpreter(evaluation.environment, natives as Natives)
         const { error } = runTest(evaluation.copy(), node)
-        if (error) fail(`${error}`)
+        if (error) {
+          log.error(error)
+          fail(`${error}`)
+        }
       })
 
   })
@@ -48,10 +51,9 @@ describe(basename(ARGUMENTS.root), () => {
   const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
 
   time('Initializing Evaluation')
-
   const baseEvaluation = buildEvaluation()
   stepAll(baseEvaluation)
-  baseEvaluation.frameStack.pop()
+  baseEvaluation.popFrame()
 
   timeEnd('Initializing Evaluation')
 

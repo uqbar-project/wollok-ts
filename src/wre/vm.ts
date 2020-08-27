@@ -1,13 +1,15 @@
-import { Evaluation, FALSE_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, Natives } from '../interpreter'
 
-export default {
+const vm: Natives = {
 
   runtime: {
 
-    isInteractive: () => (evaluation: Evaluation) => {
+    isInteractive: () => (evaluation: Evaluation): void => {
       evaluation.currentFrame()!.pushOperand(FALSE_ID)
     },
 
   },
 
 }
+
+export default vm
