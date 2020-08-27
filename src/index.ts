@@ -6,11 +6,10 @@ import link from './linker'
 import { Environment } from './model'
 import * as parse from './parser'
 import validate from './validator'
-import wre from './wre/wre.json'
+import WRE from './wre/wre.json'
+import WRENatives from './wre/wre.natives'
 
-const WRENatives = wre as Natives
-
-function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(WRENatives)): Environment {
+function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(WRE)): Environment {
   
   return link(files.map(({ name, content }) => {
     try {
@@ -25,6 +24,7 @@ function buildEnvironment(files: { name: string, content: string }[], baseEnviro
 
 export * from './model'
 export {
+  WRE,
   WRENatives,
   Evaluation,
   Natives,

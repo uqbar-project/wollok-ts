@@ -1,9 +1,6 @@
-import { Evaluation, RuntimeObject } from '../interpreter'
+import { Evaluation, RuntimeObject, Natives } from '../interpreter'
 
-// TODO:
-// tslint:disable:variable-name
-
-export default {
+const lib: Natives = {
 
   console: {
 
@@ -30,3 +27,5 @@ export default {
   },
 
 }
+
+export default lib

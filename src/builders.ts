@@ -223,7 +223,7 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
   const sentences =
     lastSentence?.is('Expression') ? [...initialSentences, Return(lastSentence)] :
     lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
-      [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
+    [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
 
   return new LiteralNode<Raw, SingletonNode<Raw>>({
     value: new SingletonNode<Raw>({

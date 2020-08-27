@@ -1,13 +1,11 @@
 import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
+import { Natives } from '../interpreter'
 
 const { random, floor, ceil } = Math
 const { UTC } = Date
 
-// TODO:
-// tslint:disable:variable-name
-
-const Collections = {
+const Collections: Natives = {
 
   findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
@@ -120,7 +118,7 @@ const Collections = {
 
 }
 
-export default {
+const lang: Natives = {
 
   Exception: {
 
@@ -1209,3 +1207,5 @@ export default {
   },
 
 }
+
+export default lang

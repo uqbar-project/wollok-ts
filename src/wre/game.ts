@@ -72,7 +72,7 @@ const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: E
 const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
   evaluation.environment.getNodeByFQN<'Module'>(self.moduleFQN).lookupMethod(message, 0)
 
-export default {
+const game: Natives = {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       checkNotNull(visual, 'visual')
@@ -226,3 +226,5 @@ export default {
     },
   },
 }
+
+export default game

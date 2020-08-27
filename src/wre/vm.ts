@@ -1,6 +1,6 @@
-import { Evaluation, FALSE_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, Natives } from '../interpreter'
 
-export default {
+const vm: Natives = {
 
   runtime: {
 
@@ -11,3 +11,5 @@ export default {
   },
 
 }
+
+export default vm

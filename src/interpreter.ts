@@ -17,7 +17,7 @@ export interface Context {
   readonly exceptionHandlerIndex?: number
 }
 
-export type NativeFunction = (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation) => void
+export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
 export interface Natives {
   [name: string]: NativeFunction | Natives
 }
