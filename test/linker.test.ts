@@ -7,7 +7,7 @@ import { linkerAssertions } from './assertions'
 import { LinkError } from '../src/linker'
 
 
-should() 
+should()
 use(linkerAssertions)
 // TODO: Split uber-tests into smaller tests with clearer descriptions
 // TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
@@ -35,7 +35,7 @@ describe('Wollok linker', () => {
     it('should merge same name packages into a single package', () => {
       [
         ...WRE.members,
-        Package('A')(Class('X', { superclassRef: Reference('Object') })()), 
+        Package('A')(Class('X', { superclassRef: Reference('Object') })()),
         Package('A')(Class('Y', { superclassRef: Reference('Object') })()),
         Package('B')(Class('X', { superclassRef: Reference('Object') })()),
       ].should.be.linkedInto([
@@ -76,7 +76,7 @@ describe('Wollok linker', () => {
 
     it('should re-scope merged packages to find new elements', () => {
       const baseEnvironment = link([
-        Package('p')(Class('X', { superclassRef: Reference('Object') })()), 
+        Package('p')(Class('X', { superclassRef: Reference('Object') })()),
       ] as PackageNode<Filled>[], WRE)
 
       const nextEnvironment = link([
@@ -337,7 +337,7 @@ describe('Wollok linker', () => {
 
       expect(() => environment.getNodeByFQN('p.G')).to.throw()
       expect(() => environment.getNodeByFQN('p."G"')).to.not.throw()
-      
+
       expect(() => environment.getNodeByFQN('p.T')).to.throw()
       expect(() => environment.getNodeByFQN('p."T"')).to.not.throw()
     })

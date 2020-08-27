@@ -511,7 +511,7 @@ describe('Wollok Validations', () => {
   })
 
   describe('Fields', () => {
-    
+
     describe('Not assign to itself in variable declaration', () => {
       const environment = link([
         WRE,
@@ -591,7 +591,7 @@ describe('Wollok Validations', () => {
       const classExample = (packageExample.members[1] as ClassNode<Linked>)
       const methodExample = classExample.members[0] as MethodNode<Linked>
       const selfInMethod = (methodExample.sentences()[0] as ReturnNode).value!
-      
+
       it('should pass when self is in a method', () => {
         selfInMethod.should.pass(selfIsNotInAProgram)
       })

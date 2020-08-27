@@ -41,16 +41,16 @@ class LocalScope implements Scope {
   constructor(public containerScope?: Scope, ...contributions: [ Name, Node<Linked>][]) {
     this.register(...contributions)
   }
-  
+
   resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup = true):  NodeOfKindOrCategory<Q, S> | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
-  
+
     const step = !allowLookup
       ? this.contributions.get(start)
       : this.includedScopes.reduce((found, included) =>
         found ?? included.resolve(start, false)
       , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
-  
+
     return rest.length ? step?.scope?.resolve<Q, S>(rest, false) : step as NodeOfKindOrCategory<Q, S>
   }
 
@@ -94,11 +94,11 @@ const assignScopes = (environment: Environment<Linked>) => {
         if(globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
-    
+
     if(node.is('Package')) {
       for(const imported of node.imports) {
         const entity = node.scope.resolve<'Entity'>(imported.entity.name)
-          
+
         if(entity) node.scope.include(imported.isGeneric
           ? entity.scope
           : new LocalScope(undefined, [entity.name!, entity])
@@ -140,7 +140,7 @@ export default (
   // TODO: Move to validator?
   environment.forEach(node => {
     if(node.is('Reference') && !node.target()) fail('missingReference')(node)
-  })  
+  })
 
   return environment
 }

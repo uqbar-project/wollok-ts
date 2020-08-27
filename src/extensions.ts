@@ -17,7 +17,7 @@ export function discriminate<T>(isA: (obj: T) => boolean) {
     for(const member of list)
       if(isA(member)) as.push(member)
       else bs.push(member)
-    
+
     return [as, bs]
   }
 }

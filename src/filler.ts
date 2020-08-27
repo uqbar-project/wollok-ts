@@ -37,7 +37,7 @@ const filledPropertyAccessors = (node: Module<Filled>) => {
 }
 
 // TODO: So... Here's an idea: How about we make a type for the "transitioning" states so
-// the non-node fields would be on S-1, but the children would be on S+1 ?  
+// the non-node fields would be on S-1, but the children would be on S+1 ?
 
 export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => {
   const result = rawNode.transform<Filled>(filledNode => filledNode.match<Node<Filled>>({

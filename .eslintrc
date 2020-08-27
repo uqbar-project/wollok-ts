@@ -59,6 +59,10 @@
       "warn",
       "never"
     ],
+    "array-element-newline": [
+      "warn",
+      "consistent"
+    ],
     "arrow-spacing": "warn",
     "comma-dangle": [
       "warn",
@@ -86,10 +90,6 @@
       "warn",
       "consistent"
     ],
-    "array-element-newline": [
-      "warn",
-      "consistent"
-    ],
     "indent": [
       "warn",
       2,
@@ -113,6 +113,7 @@
         "maxEOF": 0
       }
     ],
+    "no-trailing-spaces": "warn",
     "object-curly-newline": [
       "warn",
       {

@@ -10,7 +10,7 @@ import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
 
 function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(WRE)): Environment {
-  
+
   return link(files.map(({ name, content }) => {
     try {
       const filePackage = fill(parse.File(name).tryParse(content))

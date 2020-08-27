@@ -61,7 +61,7 @@ describe('Wollok model', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         const c = new Class({ name: 'C', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any]
-        
+
         c.isAbstract().should.be.true
       })
 
@@ -72,14 +72,14 @@ describe('Wollok model', () => {
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any, b as any]
-        
+
         c.isAbstract().should.be.true
       })
 
       it('should return false for classes with no abstract methods', () => {
         const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: null, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any]
-        
+
         c.isAbstract().should.be.false
       })
 
@@ -91,7 +91,7 @@ describe('Wollok model', () => {
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any, b as any]
-        
+
         c.isAbstract().should.be.false
       })
 

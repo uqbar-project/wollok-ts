@@ -32,7 +32,7 @@ type NonOptionalAttributeKeys<T> = {
     T[K] extends Function ? never :
     K
 }[keyof T]
-export type Payload<T> = 
+export type Payload<T> =
   Pick<T, NonOptionalAttributeKeys<T>> &
   Partial<Pick<T, OptionalKeys<T>>>
 
@@ -121,7 +121,7 @@ abstract class $Node<S extends Stage> {
   readonly scope!: Linkable<S, Scope>
   readonly source?: Source
   readonly problems?: List<Problem>
-  
+
   // TODO: Replace with #cache once TS version is updated
   // readonly #cache: Cache = new Map()
   _cache(): Cache { throw new Error('uninitialized cache') }
@@ -131,7 +131,7 @@ abstract class $Node<S extends Stage> {
     const cache = new Map()
     this._cache = () => cache
   }
- 
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
@@ -161,7 +161,7 @@ abstract class $Node<S extends Stage> {
   parent(): never {
     throw new Error(`Missing parent in cache for node ${this.id}`)
   }
-  
+
   @cached
   descendants(this: Node<S>): List<Node<S>> {
     const pending: Node<S>[] = []
@@ -192,7 +192,7 @@ abstract class $Node<S extends Stage> {
     if(!matched) throw new Error(`Unmatched kind ${this.kind}`)
     return (cases[matched] as (node: Node<S>) => T)(this)
   }
-  
+
   transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): OnStage<this, R>
   transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>): Node<R>
   transform<R extends Stage = S>(tx: (node: Node<R>) => Node<R>) {
@@ -203,7 +203,7 @@ abstract class $Node<S extends Stage> {
       if (value instanceof Object) return mapObject(applyTransform, value) // TODO: Remove once we drop constructors
       return value
     }
-  
+
     return applyTransform(this)
   }
 
@@ -219,7 +219,7 @@ abstract class $Node<S extends Stage> {
       node.children().reduce((seed, child) => {
         return applyReduce(seed, child, node)
       }, tx(acum, node, parent))
-    
+
     return applyReduce(initial, this)
   }
 
@@ -523,7 +523,7 @@ export class Method<S extends Stage = Final> extends $Node<S> {
   sentences(): List<Sentence<S>> {
     return (!this.body || this.body === 'native') ? [] : this.body.sentences
   }
-  
+
   @cached
   matchesSignature(name: Name, arity: number): boolean {
     return this.name === name && (

@@ -71,7 +71,7 @@ const optional = <T>(parser: Parser<T>) => parser.fallback(undefined)
 
 const obj = <T>(parsers: {[K in keyof T]: Parser<T[K]>}): Parser<T> =>
   seqObj<T>(...keys(parsers).map(fieldName => [fieldName, parsers[fieldName as keyof T]] as any))
-  
+
 const key = (str: string) => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
@@ -130,7 +130,7 @@ export const Parameter: Parser<ParameterNode<Raw>> = node(ParameterNode)(() =>
     isVarArg: string('...').result(true).fallback(false),
   })
 )
-  
+
 export const NamedArgument: Parser<NamedArgumentNode<Raw>> = node(NamedArgumentNode)(() =>
   obj({
     name,
@@ -353,7 +353,7 @@ export const Super: Parser<SuperNode<Raw>> = node(SuperNode)(() =>
 )
 
 export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = alt(
-  node<LiteralNode<Raw, SingletonNode<Raw>>>(LiteralNode)(() => 
+  node<LiteralNode<Raw, SingletonNode<Raw>>>(LiteralNode)(() =>
     key('new').then(obj({
       value: node<SingletonNode<Raw>>(SingletonNode)(() =>
         obj({

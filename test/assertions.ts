@@ -53,7 +53,7 @@ export const also: Chai.ChaiPlugin = ({ Assertion }, { flag }) => {
 
   Assertion.overwriteMethod('property', base => function (this: Chai.AssertionStatic, ...args: any[]) {
     if (!flag(this, 'objectBeforePropertyChain')) flag(this, 'objectBeforePropertyChain', this._obj)
-    
+
     base.apply(this, args)
   })
 

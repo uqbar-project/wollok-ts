@@ -165,28 +165,28 @@ describe('Wollok parser', () => {
       it('should not parse packages without a body', () => {
         'package p'.should.not.be.parsedBy(parser)
       })
-  
+
     })
 
 
     describe('Classes', () => {
       const parser = parse.Class
-  
+
       it('should parse empty classes', () => {
         'class C {}'.should.be.parsedBy(parser).into(Class('C')()).and.be.tracedTo(0, 10)
       })
-  
+
       it('should parse classes with a constructor', () => {
         'class C { constructor() {} }'.should.be.parsedBy(parser).into(Class('C')(Constructor()())).and.be.tracedTo(0, 28)
           .and.have.nested.property('members.0').tracedTo(10, 27)
       })
-  
+
       it('should parse classes with sentences', () => {
         'class C { var v method m(){} }'.should.be.parsedBy(parser).into(Class('C')(Field('v'), Method('m')())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
           .and.also.have.nested.property('members.1').tracedTo(16, 29)
       })
-  
+
       it('should parse classes that inherit from other class', () => {
         'class C inherits D {}'.should.be.parsedBy(parser).into(Class(
           'C',
@@ -194,7 +194,7 @@ describe('Wollok parser', () => {
         )()).and.be.tracedTo(0, 21)
           .and.have.nested.property('superclassRef').tracedTo(17, 18)
       })
-  
+
       it('should parse classes that inherit from other class referenced with their FQN', () => {
         'class C inherits p.D {}'.should.be.parsedBy(parser).into(Class(
           'C',
@@ -202,7 +202,7 @@ describe('Wollok parser', () => {
         )()).and.be.tracedTo(0, 23)
           .and.have.nested.property('superclassRef').tracedTo(17, 20)
       })
-  
+
       it('should parse classes that inherit from other class and have a mixin', () => {
         'class C inherits D mixed with M {}'.should.be.parsedBy(parser).into(Class(
           'C',
@@ -258,55 +258,55 @@ describe('Wollok parser', () => {
             )
           )
       })
-  
+
       it('should not parse "class" keyword without a body', () => {
         'class'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse classes without name ', () => {
         'class {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse classes without a body ', () => {
         'class C'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse classes thats inherits from more than one class', () => {
         'class C inherits D inherits E'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse classes that use the "inherits" keyword without a superclass ', () => {
         'class C inherits {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse "class C inherits" keyword without a body and superclass ', () => {
         'class C inherits'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse the "mixed with" keyword without a mixin', () => {
         'class C mixed with {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse the "class C mixed with" keyword without a body and mixin ', () => {
         'class C mixed with'.should.not.be.parsedBy(parser)
       })
     })
 
-  
+
     describe('Mixins', () => {
-  
+
       const parser = parse.Mixin
-  
+
       it('should parse empty mixins', () => {
         'mixin M {}'.should.be.parsedBy(parser).into(Mixin('M')()).and.be.tracedTo(0, 10)
       })
-  
+
       it('should parse non-empty programs', () => {
         'mixin M { var v method m(){} }'.should.be.parsedBy(parser).into(Mixin('M')(Field('v'), Method('m')())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
           .and.also.have.nested.property('members.1').tracedTo(16, 29)
       })
-  
+
 
       it('should recover from member parse error', () => {
         'mixin M {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
@@ -357,47 +357,47 @@ describe('Wollok parser', () => {
         'mixin M { constructor(){} }'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 10, 25)
       })
-  
+
       it('should not parse "mixin" keyword without name and body', () => {
         'mixin'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse mixins without name', () => {
         'mixin {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse mixins without body', () => {
         'mixin M'.should.not.be.parsedBy(parser)
       })
-  
+
     })
 
-  
+
     describe('Singletons', () => {
-  
+
       const parser = parse.Singleton
-  
+
       it('should parse empty objects', () => {
         'object O {}'.should.be.parsedBy(parser).into(Singleton('O')()).and.be.tracedTo(0, 11)
       })
-  
+
       it('should parse non-empty objects', () => {
         'object O  { var v method m(){} }'.should.be.parsedBy(parser).into(Singleton('O')(Field('v'), Method('m')())).and.be.tracedTo(0, 32)
           .and.have.nested.property('members.0').tracedTo(12, 17)
           .and.also.have.nested.property('members.1').tracedTo(18, 31)
       })
-  
+
       it('should parse objects that inherits from a class', () => {
         'object O inherits D {}'.should.be.parsedBy(parser).into(Singleton('O', { superclassRef: Reference('D') })()).and.be.tracedTo(0, 22)
           .and.have.nested.property('superclassRef').tracedTo(18, 19)
       })
-  
+
       it('should parse objects that inherit from a class with explicit builders', () => {
         'object O inherits D(5) {}'.should.be.parsedBy(parser).into(Singleton('O', { superclassRef: Reference('D'), supercallArgs: [Literal(5)] })()).and.be.tracedTo(0, 25)
           .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('supercallArgs.0').tracedTo(20, 21)
       })
-  
+
       it('should parse objects that inherit from a class with named arguments', () => {
         'object O inherits D(a = 5, b = 7) {}'.should.be.parsedBy(parser).into(Singleton('O', {
           superclassRef: Reference('D'),
@@ -409,7 +409,7 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('supercallArgs.1').tracedTo(27, 32)
           .and.also.have.nested.property('supercallArgs.1.value').tracedTo(31, 32)
       })
-  
+
       it('should parse objects that inherit from a class and have a mixin', () => {
         'object O inherits D mixed with M {}'.should.be.parsedBy(parser).into(Singleton('O', {
           superclassRef: Reference('D'),
@@ -418,7 +418,7 @@ describe('Wollok parser', () => {
           .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('mixins.0').tracedTo(31, 32)
       })
-  
+
       it('should parse objects that inherit from a class and have a mixin referenced by a FQN', () => {
         'object O inherits D mixed with p.M {}'.should.be.parsedBy(parser).into(Singleton('O', {
           superclassRef: Reference('D'),
@@ -427,7 +427,7 @@ describe('Wollok parser', () => {
           .and.have.nested.property('superclassRef').tracedTo(18, 19)
           .and.also.have.nested.property('mixins.0').tracedTo(31, 34)
       })
-  
+
       it('should parse objects that inherit from a class and have multiple mixins', () => {
         'object O inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(Singleton('O', {
           superclassRef: Reference('D'),
@@ -437,7 +437,7 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('mixins.0').tracedTo(37, 38)
           .and.also.have.nested.property('mixins.1').tracedTo(31, 32)
       })
-  
+
       it('should parse objects thats have multiple mixins ', () => {
         'object O mixed with M and N {}'.should.be.parsedBy(parser).into(Singleton('O', { mixins: [Reference('N'), Reference('M')] })()).and.be.tracedTo(0, 30)
           .and.have.nested.property('mixins.0').tracedTo(26, 27)
@@ -488,121 +488,121 @@ describe('Wollok parser', () => {
             )
           )
       })
-  
+
       it('should not parse objects with a constructor', () => {
         'object O { constructor(){} }'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 10, 25)
       })
-  
+
       it('should not parse the "object" keyword without a body', () => {
         'object'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects without body', () => {
         'object O'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects that inherit from more than one class', () => {
         'object O inherits D inherits E'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects that use the "inherits" keyword without a superclass', () => {
         'object O inherits {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects that use the "inherits" keyword without a body and superclass', () => {
         'object O inherits'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects thats use "mixed with" keyword without a mixin', () => {
         'object O mixed with {}'.should.not.be.parsedBy(parser)
       })
-  
+
       it('should not parse objects thats use "mixed with" keyword without a mixin and a body', () => {
         'object O mixed with'.should.not.be.parsedBy(parser)
       })
-  
+
     })
-    
+
 
     describe('Programs', () => {
       const parser = parse.Program
       it('should parse empty programs', () => {
         'program name { }'.should.be.parsedBy(parser).into(Program('name')()).and.be.tracedTo(0, 16)
       })
-    
+
       it('should parse non-empty programs', () => {
         'program name { var x }'.should.be.parsedBy(parser).into(Program('name')(Variable('x'))).and.be.tracedTo(0, 22)
           .and.have.nested.property('body.sentences.0').tracedTo(15, 20)
       })
-    
-    
+
+
       it('should not parse programs without name', () => {
         'program { }'.should.not.be.parsedBy(parser)
       })
-    
+
       it('should not parse "program" keyword without name and body', () => {
         'program'.should.not.be.parsedBy(parser)
       })
-    
+
     })
-    
+
 
     describe('Tests', () => {
       const parser = parse.Test
-    
+
       it('should parse empty test', () => {
         'test "name" { }'.should.be.parsedBy(parser).into(Test('"name"')()).and.be.tracedTo(0, 15)
       })
-    
+
       it('should parse non-empty test', () => {
         'test "name" { var x }'.should.be.parsedBy(parser).into(Test('"name"')(Variable('x'))).and.be.tracedTo(0, 21)
           .and.have.nested.property('body').tracedTo(12, 21)
       })
-    
+
       it('should not parse tests with names that aren\'t a string', () => {
         'test name { }'.should.not.be.parsedBy(parser)
       })
-    
+
       it('should not parse tests without name', () => {
         'test { }'.should.not.be.parsedBy(parser)
       })
-    
+
       it('should not parse tests without name and body', () => {
         'test'.should.not.be.parsedBy(parser)
       })
-    
+
     })
-    
+
 
     describe('Describe', () => {
       const parser = parse.Describe
-    
+
       it('should parse empty describe', () => {
         'describe "name" { }'.should.be.parsedBy(parser).into(Describe('"name"')()).and.be.tracedTo(0, 19)
       })
-    
+
       it('should parse describes with tests', () => {
         'describe "name" { test "foo" {} test "bar" {} }'.should.be.parsedBy(parser).into(Describe('"name"')(Test('"foo"')(), Test('"bar"')())).and.be.tracedTo(0, 47)
           .and.have.nested.property('members.0').tracedTo(18, 32)
           .and.also.have.nested.property('members.1').tracedTo(32, 46)
       })
-    
+
       it('should parse describes with fixture', () => {
         'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(Describe('"name"')(Fixture()())).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(18, 29)
       })
-    
+
       it('should parse describes with fields', () => {
         'describe "name" { var v }'.should.be.parsedBy(parser).into(Describe('"name"')(Variable('v'))).and.be.tracedTo(0, 25)
           .and.have.nested.property('members.0').tracedTo(18, 23)
       })
-    
+
       it('should parse describes with methods', () => {
         'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(Describe('"name"')(Method('m')())).and.be.tracedTo(0, 32)
           .and.have.nested.property('members.0').tracedTo(18, 31)
       })
-    
+
 
       it('should recover from member parse error', () => {
         'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
@@ -652,11 +652,11 @@ describe('Wollok parser', () => {
       it('should not parse describes with names that aren\'t a string', () => {
         'describe name { }'.should.not.be.parsedBy(parser)
       })
-    
+
       it('should not parse describe without name', () => {
         'describe { }'.should.not.be.parsedBy(parser)
       })
-    
+
       it('should not parse describe without name and body', () => {
         'describe'.should.not.be.parsedBy(parser)
       })
@@ -1541,7 +1541,7 @@ describe('Wollok parser', () => {
 
       })
 
-      
+
       describe('Literals', () => {
         const parser = parse.Literal
 

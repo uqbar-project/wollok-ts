@@ -1027,5 +1027,5 @@ describe('Wollok Interpreter', () => {
     })
 
   })
-  
+
 })

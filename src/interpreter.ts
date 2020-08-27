@@ -51,7 +51,7 @@ export class Evaluation {
     protected contexts: Map<Id, Context>,
     protected code: Map<Id, List<Instruction>>,
   ){ }
-  
+
   copy(): Evaluation {
     const evaluation = new Evaluation(
       this.environment,
@@ -166,7 +166,7 @@ export class Evaluation {
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // STACK MANIPULATION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  
+
   currentFrame(): Frame | undefined { return last(this.frameStack) }
 
   baseFrame(): Frame { return this.frameStack[0] }
@@ -254,7 +254,7 @@ export class RuntimeObject {
     public readonly id: Id,
     public innerValue?: InnerValue
   ) { this.evaluation = () => evaluation }
-    
+
   copy(evaluation: Evaluation): RuntimeObject {
     return new RuntimeObject(
       evaluation,
@@ -270,7 +270,7 @@ export class RuntimeObject {
   context(): Context {
     return this.evaluation().context(this.id)
   }
-      
+
   module(): Module {
     return this.evaluation().environment.getNodeByFQN<'Module'>(this.moduleFQN)
   }
@@ -956,7 +956,7 @@ const garbageCollect = (evaluation: Evaluation) => {
       return []
     })
   }
-  
+
   const marked = new Set<Id>()
   const pending = [
     ROOT_CONTEXT_ID,
