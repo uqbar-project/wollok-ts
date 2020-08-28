@@ -5,7 +5,7 @@ import { is, Node, Body, Class, Describe, Environment, Expression, Id, List, Mod
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
-// - Reify Contexts and make instances contain their own locals.
+// - Reify Contexts and make instances and Frames contain their own locals.
 //    - Can we avoid the context table and rely on direct reference?
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
@@ -63,11 +63,12 @@ export class Evaluation {
       this.environment,
       this.frameStack.map(frame => frame.copy()),
       new Map(),
-      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: new Map(context.locals) }])),
+      new Map(),
       new Map(this.code),
     )
 
     this.instances.forEach((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)))
+    this.contexts.forEach((context, key) => evaluation.contexts.set(key, context.copy(evaluation)))
 
     return evaluation
   }
@@ -145,11 +146,11 @@ export class Evaluation {
 
     if (!this.instances.has(id)) {
       this.instances.set(id, new RuntimeObject(
-        id,
-        this.currentFrame()?.context ?? ROOT_CONTEXT_ID,
-        new Map([['self', id]]),
         this,
+        this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID),
         moduleFQN,
+        id,
+        new Map([['self', id]]),
         innerValue,
       ))
     }
@@ -167,8 +168,8 @@ export class Evaluation {
     return response
   }
 
-  createContext(parent: Id | null, locals: Map<Name, Id> = new Map(), id: Id = uuid(), exceptionHandlerIndex?: number): Id {
-    this.contexts.set(id, { id, parent, locals, exceptionHandlerIndex })
+  createContext(parent: Context | undefined, locals: Map<Name, Id> = new Map(), id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+    this.contexts.set(id, new Context(this, id, parent, locals, exceptionHandlerIndex))
     return id
   }
 
@@ -213,7 +214,7 @@ export class Evaluation {
         if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
       } else {
         if (!currentContext.parent) throw new Error(`Reached the root context ${JSON.stringify(currentContext)} before reaching the current frame ${currentFrame.id}. This should not happen!`)
-        currentFrame.context = currentContext.parent
+        currentFrame.context = currentContext.parent.id
       }
 
       currentContext = this.context(this.currentFrame()!.context)
@@ -224,7 +225,7 @@ export class Evaluation {
     if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
 
       this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
-      this.currentFrame()!.context = currentContext.parent
+      this.currentFrame()!.context = currentContext.parent.id
       this.context(this.currentFrame()!.context).locals.set('<exception>', exceptionId)
   }
 
@@ -262,53 +263,72 @@ export class Frame {
 
 export class Context {
   constructor(
-    public readonly id: Id,
-    public readonly parent: Id | null, // TODO: Undefined instead of null?
-    public readonly locals: Map<Name, Id>, // TODO: Reference to actual objects instead of Id?
+    evaluation: Evaluation,
+    public readonly id: Id = uuid(),
+    public readonly parent?: Context,
+    public readonly locals: Map<Name, Id> = new Map(), // TODO: Reference to actual objects instead of Id?
     public readonly exceptionHandlerIndex?: number // TODO: Exclusive of Block Context?
-  ){ }
+  ){
+    this.evaluation = () => evaluation
+  }
+
+  // TODO: Replace with #evaluation once TS version is updated
+  protected evaluation(): Evaluation { throw new Error('Uninitialized evaluation') }
+
+  copy(evaluation: Evaluation): Context {
+    return new Context(
+      evaluation,
+      this.id,
+      this.parent,
+      new Map(this.locals),
+    )
+  }
+
+  getId(local: Name): Id | undefined {
+    const reponse = this.locals.get(local)
+    if (reponse) return reponse
+    if (!this.parent) return undefined
+    return this.parent.getId(local)
+  }
+
+  get(local: Name): RuntimeObject | undefined {
+    const id = this.locals.get(local)
+    return id ? this.evaluation().instance(id) : undefined
+  }
+
+  set(local: Name, valueId: Id): void {
+    this.locals.set(local, valueId)
+  }
 }
 
 export type InnerValue = string | number | Id[]
 
 export class RuntimeObject extends Context {
   constructor(
-    id: Id,
-    parent: Id,
-    locals: Map<Name, Id>,
     evaluation: Evaluation,
+    public readonly parent: Context,
     public readonly moduleFQN: Name, // TODO: Reference to actual module to avoid evaluation?
+    id?: Id,
+    locals: Map<Name, Id> = new Map(),
     public innerValue?: InnerValue
   ) {
-    super(id, parent, locals)
-    this.evaluation = () => evaluation
+    super(evaluation, id, parent, locals)
+    locals.set('self', this.id)
   }
 
   copy(evaluation: Evaluation): RuntimeObject {
     return new RuntimeObject(
-      this.id,
-      this.parent!,
-      new Map(this.locals),
       evaluation,
+      this.parent,
       this.moduleFQN,
+      this.id,
+      new Map(this.locals),
       isArray(this.innerValue) ? [...this.innerValue] : this.innerValue
     )
   }
 
-  // TODO: Replace with #evaluation once TS version is updated
-  protected evaluation(): Evaluation { throw new Error('Uninitialized evaluation') }
-
   module(): Module {
     return this.evaluation().environment.getNodeByFQN<'Module'>(this.moduleFQN)
-  }
-
-  get(field: Name): RuntimeObject | undefined {
-    const id = this.locals.get(field)
-    return id ? this.evaluation().instance(id) : undefined
-  }
-
-  set(field: Name, valueId: Id): void {
-    this.locals.set(field, valueId)
   }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
@@ -608,15 +628,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
-        function resolve(name: Name, contextId: Id): Id | undefined {
-          const context = evaluation.context(contextId)
-          const reponse = context.locals.get(name)
-          if (reponse) return reponse
-          if (context.parent === null) return undefined
-          return resolve(name, context.parent)
-        }
-
-        const value = resolve(instruction.name, currentFrame.context)
+        const value = evaluation.context(currentFrame.context).getId(instruction.name)
         if (!value) throw new Error(`LOAD of missing local "${instruction.name}" on context ${JSON.stringify(evaluation.context(currentFrame.context))}`)
 
         // TODO: should add tests for the lazy load and store
@@ -641,7 +653,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         let context: Context | undefined = currentContext
         if (instruction.lookup) {
           while (context && !context.locals.has(instruction.name)) {
-            context = context.parent === null ? undefined : evaluation.context(context.parent)
+            context = context.parent
           }
         }
 
@@ -661,7 +673,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
       case 'PUSH_CONTEXT': return (() => {
         currentFrame.context = evaluation.createContext(
-          currentFrame.context,
+          evaluation.context(currentFrame.context),
           undefined,
           undefined,
           instruction.exceptionHandlerIndexDelta
@@ -676,7 +688,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
         if (!next) throw new Error('Popped root context')
 
-        currentFrame.context = next
+        currentFrame.context = next.id
       })()
 
 
@@ -749,7 +761,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
           evaluation.pushFrame(
             evaluation.codeFor(messageNotUnderstood),
-            evaluation.createContext(self.id, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]])))
+            evaluation.createContext(self, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]])))
           )
         } else {
           if (method.body === 'native') {
@@ -775,7 +787,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
               : method.parameters.map(({ name }, index) => [name, argIds[index]])
             )
 
-            evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
+            evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self : evaluation.context(self.id).parent!, locals))
           }
         }
       })()
@@ -801,7 +813,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           : constructor.parameters.map(({ name }, index) => [name, argIds[index]])
         )
 
-        evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self.id, locals))
+        evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self, locals))
       })()
 
       case 'INIT_NAMED': return (() => {
@@ -874,7 +886,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = build.Evaluation(environment)()
 
-  const rootContext = evaluation.createContext(null, new Map([
+  const rootContext = evaluation.createContext(undefined, new Map([
     ['null', NULL_ID],
     ['true', TRUE_ID],
     ['false', FALSE_ID],
@@ -914,7 +926,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
   const instructions = compile(evaluation.environment)(...sentences)
-  const context = evaluation.createContext(evaluation.currentFrame()?.context ?? ROOT_CONTEXT_ID)
+  const context = evaluation.createContext(evaluation.context(evaluation.currentFrame()?.context ?? ROOT_CONTEXT_ID))
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.pushFrame(instructions, context)
@@ -1004,7 +1016,7 @@ const garbageCollect = (evaluation: Evaluation) => {
 
       const context = evaluation.context(next)
       pending.push(
-        ... context.parent ? [context.parent] : [],
+        ... context.parent ? [context.parent.id] : [],
         ...context.locals.values(),
       )
 
@@ -1039,7 +1051,7 @@ export default (environment: Environment, natives: Natives) => ({
       ...args.map(PUSH),
       CALL(message, args.length),
       RETURN,
-    ], evaluation.createContext(receiver))
+    ], evaluation.createContext(evaluation.context(receiver)))
 
     // TODO: stepAll?
     do {
