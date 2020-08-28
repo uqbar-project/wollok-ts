@@ -4,16 +4,29 @@ import log from './log'
 import { is, Node, Body, Class, Describe, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton } from './model'
 import { v4 as uuid } from 'uuid'
 
+// TODO: Wishlist
+// - Reify Contexts and make instances contain their own locals.
+// - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
+//    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
+//    - More step methods: stepThrough, for example. Step to get inside closure?
+// - More Instructions to simplify natives.
+//    - Simplify weird Instruction parameters (take advantage of scopes. move towards just byte based arguments).
+//    - Something to iterate list elements instead of mapping them?
+//    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
+//    - Maaaaybe make compilation a bit lower level? Compile to IDs/Identifiers only sort of thing?
+// - Avoid trailing instructions for methods and tests when possible (return void), etc.
+// - Send logger as parameter to support better handling and logging to file.
+// - Migrate to TypeScript 4.1. Maybe drop Stages in the model? Not sure if worth it...
+// - Drop deprecated Wollok 2 abstractions.
+
 const { round } = Math
 const { isArray } = Array
 const { values } = Object
 
-export type Locals = Record<Name, Id>
-
 export interface Context {
   readonly id: Id
   readonly parent: Id | null
-  readonly locals: Locals // TODO: use Map instead
+  readonly locals: Map<Name, Id>
   readonly exceptionHandlerIndex?: number
 }
 
@@ -57,7 +70,7 @@ export class Evaluation {
       this.environment,
       this.frameStack.map(frame => frame.copy()),
       new Map(),
-      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: { ...context.locals } }])),
+      new Map([...this.contexts].map(([id, context]) => [id, { ...context, locals: new Map(context.locals) }])),
       new Map(this.code),
     )
 
@@ -139,7 +152,7 @@ export class Evaluation {
 
     if (!this.instances.has(id)) this.instances.set(id, new RuntimeObject(this, moduleFQN, id, innerValue))
 
-    if (!this.contexts.has(id)) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, { self: id }, id)
+    if (!this.contexts.has(id)) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, new Map([['self', id]]), id)
 
     return id
   }
@@ -154,7 +167,7 @@ export class Evaluation {
     return response
   }
 
-  createContext(parent: Id | null, locals: Locals = {}, id: Id = uuid(), exceptionHandlerIndex?: number): Id {
+  createContext(parent: Id | null, locals: Map<Name, Id> = new Map(), id: Id = uuid(), exceptionHandlerIndex?: number): Id {
     this.contexts.set(id, { id, parent, locals, exceptionHandlerIndex })
     return id
   }
@@ -212,7 +225,7 @@ export class Evaluation {
 
       this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
       this.currentFrame()!.context = currentContext.parent
-      this.context(this.currentFrame()!.context).locals['<exception>'] = exceptionId
+      this.context(this.currentFrame()!.context).locals.set('<exception>', exceptionId)
   }
 
 }
@@ -276,12 +289,12 @@ export class RuntimeObject {
   }
 
   get(field: Name): RuntimeObject | undefined {
-    const id = this.context().locals[field]
+    const id = this.context().locals.get(field)
     return id ? this.evaluation().instance(id) : undefined
   }
 
   set(field: Name, valueId: Id): void {
-    this.context().locals[field] = valueId
+    this.context().locals.set(field, valueId)
   }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
@@ -583,7 +596,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       case 'LOAD': return (() => {
         function resolve(name: Name, contextId: Id): Id | undefined {
           const context = evaluation.context(contextId)
-          const reponse = context.locals[name]
+          const reponse = context.locals.get(name)
           if (reponse) return reponse
           if (context.parent === null) return undefined
           return resolve(name, context.parent)
@@ -613,12 +626,12 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
         let context: Context | undefined = currentContext
         if (instruction.lookup) {
-          while (context && !(instruction.name in context.locals)) {
+          while (context && !context.locals.has(instruction.name)) {
             context = context.parent === null ? undefined : evaluation.context(context.parent)
           }
         }
 
-        (context ?? currentContext).locals[instruction.name] = valueId
+        (context ?? currentContext).locals.set(instruction.name, valueId)
       })()
 
 
@@ -715,12 +728,14 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
           const messageNotUnderstood = self.module().lookupMethod('messageNotUnderstood', 2)!
-          const nameId = evaluation.createInstance('wollok.lang.String', instruction.message)
-          const argsId = evaluation.createInstance('wollok.lang.List', argIds)
+          const messageNotUnderstoodArgs = [
+            evaluation.createInstance('wollok.lang.String', instruction.message),
+            evaluation.createInstance('wollok.lang.List', argIds),
+          ]
 
           evaluation.pushFrame(
             evaluation.codeFor(messageNotUnderstood),
-            evaluation.createContext(self.id, { ...zipObj(messageNotUnderstood.parameters.map(({ name }) => name), [nameId, argsId]) })
+            evaluation.createContext(self.id, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]])))
           )
         } else {
           if (method.body === 'native') {
@@ -738,13 +753,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
             native(self, ...args)(evaluation)
           } else {
-            const parameterNames = method.parameters.map(({ name }) => name)
-            const locals: Locals = method.parameters.some(({ isVarArg }) => isVarArg)
-              ? {
-                ...zipObj(parameterNames.slice(0, -1), argIds),
-                [last(method.parameters)!.name]: evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)),
-              }
-              : { ...zipObj(parameterNames, argIds) }
+            const locals = new Map(method.parameters.some(({ isVarArg }) => isVarArg)
+              ? [
+                ...method.parameters.slice(0, -1).map(({ name }, index) => [name, argIds[index]] as const),
+                [last(method.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))],
+              ]
+              : method.parameters.map(({ name }, index) => [name, argIds[index]])
+            )
 
             evaluation.pushFrame(evaluation.codeFor(method), evaluation.createContext(instruction.useReceiverContext ? self.id : evaluation.context(self.id).parent!, locals))
           }
@@ -764,13 +779,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           else throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
         }
 
-        const locals = constructor.parameters.some(({ isVarArg }) => isVarArg)
-          ? {
-            ...zipObj(constructor.parameters.slice(0, -1).map(({ name }) => name), argIds),
-            [last(constructor.parameters)!.name]:
-              evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)),
-          }
-          : { ...zipObj(constructor.parameters.map(({ name }) => name), argIds) }
+        const locals = new Map(constructor.parameters.some(({ isVarArg }) => isVarArg)
+          ? [
+            ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, argIds[index]] as const),
+            [last(constructor.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))],
+          ]
+          : constructor.parameters.map(({ name }, index) => [name, argIds[index]])
+        )
 
         evaluation.pushFrame(evaluation.codeFor(constructor), evaluation.createContext(self.id, locals))
       })()
@@ -845,13 +860,13 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = build.Evaluation(environment)()
 
-  const rootContext = evaluation.createContext(null, {
-    null: NULL_ID,
-    true: TRUE_ID,
-    false: FALSE_ID,
-    ...globalSingletons.reduce((all, singleton) => ({ ...all, [singleton.fullyQualifiedName()]: singleton.id }), {}),
-    ...globalConstants.reduce((all, constant) => ({ ...all, [constant.fullyQualifiedName()]: LAZY_ID }), {}),
-  }, ROOT_CONTEXT_ID)
+  const rootContext = evaluation.createContext(null, new Map([
+    ['null', NULL_ID],
+    ['true', TRUE_ID],
+    ['false', FALSE_ID],
+    ...globalSingletons.map(singleton => [singleton.fullyQualifiedName(), singleton.id] as const),
+    ...globalConstants.map(constant => [constant.fullyQualifiedName(), LAZY_ID] as const),
+  ]), ROOT_CONTEXT_ID)
 
   evaluation.pushFrame([
     ...globalSingletons.flatMap(singleton => {
@@ -976,7 +991,7 @@ const garbageCollect = (evaluation: Evaluation) => {
       const context = evaluation.context(next)
       pending.push(
         ... context.parent ? [context.parent] : [],
-        ...values(context.locals),
+        ...context.locals.values(),
       )
 
       const instance = evaluation.maybeInstance(next)
