@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid'
 // TODO: Wishlist
 // - Reify Contexts and make instances and Frames contain their own locals.
 //    - Can we avoid the context table and rely on direct reference?
+//    - Check if all the public fields need to be public
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
 //    - More step methods: stepThrough, for example. Step to get inside closure?
@@ -231,32 +232,6 @@ export class Evaluation {
 
 }
 
-
-export class Frame {
-  constructor(
-    readonly id: Id,
-    readonly instructions: List<Instruction>,
-    public context: Id,
-    public nextInstruction: number,
-    public operandStack: Id[],
-  ){}
-
-  copy(): Frame {
-    return new Frame(this.id, this.instructions, this.context, this.nextInstruction, [...this.operandStack])
-  }
-
-  popOperand(): Id {
-    const response = this.operandStack.pop()
-    if (!response) throw new RangeError('Popped empty operand stack')
-    return response
-  }
-
-  pushOperand(id: Id): void {
-    this.operandStack.push(id)
-  }
-
-}
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CONTEXTS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -300,6 +275,33 @@ export class Context {
     this.locals.set(local, valueId)
   }
 }
+
+
+export class Frame {
+  constructor(
+    readonly id: Id,
+    readonly instructions: List<Instruction>,
+    public context: Id,
+    public nextInstruction: number,
+    public operandStack: Id[],
+  ){}
+
+  copy(): Frame {
+    return new Frame(this.id, this.instructions, this.context, this.nextInstruction, [...this.operandStack])
+  }
+
+  popOperand(): Id {
+    const response = this.operandStack.pop()
+    if (!response) throw new RangeError('Popped empty operand stack')
+    return response
+  }
+
+  pushOperand(id: Id): void {
+    this.operandStack.push(id)
+  }
+
+}
+
 
 export type InnerValue = string | number | Id[]
 
