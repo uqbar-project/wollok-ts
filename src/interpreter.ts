@@ -21,7 +21,6 @@ import { v4 as uuid } from 'uuid'
 
 const { round } = Math
 const { isArray } = Array
-const { values } = Object
 
 export interface Context {
   readonly id: Id
