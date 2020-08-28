@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Reify Contexts and make instances contain their own locals.
+//    - Can we avoid the context table and rely on direct reference?
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
 //    - More step methods: stepThrough, for example. Step to get inside closure?
