@@ -23,13 +23,6 @@ import { v4 as uuid } from 'uuid'
 const { round } = Math
 const { isArray } = Array
 
-export interface Context {
-  readonly id: Id
-  readonly parent: Id | null
-  readonly locals: Map<Name, Id>
-  readonly exceptionHandlerIndex?: number
-}
-
 export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
 export interface Natives {
   [name: string]: NativeFunction | Natives
@@ -150,9 +143,16 @@ export class Evaluation {
         id = defaultId
     }
 
-    if (!this.instances.has(id)) this.instances.set(id, new RuntimeObject(this, moduleFQN, id, innerValue))
-
-    if (!this.contexts.has(id)) this.createContext(this.currentFrame()?.context ?? ROOT_CONTEXT_ID, new Map([['self', id]]), id)
+    if (!this.instances.has(id)) {
+      this.instances.set(id, new RuntimeObject(
+        id,
+        this.currentFrame()?.context ?? ROOT_CONTEXT_ID,
+        new Map([['self', id]]),
+        this,
+        moduleFQN,
+        innerValue,
+      ))
+    }
 
     return id
   }
@@ -162,7 +162,7 @@ export class Evaluation {
   listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
 
   context(id: Id): Context {
-    const response = this.contexts.get(id)
+    const response = this.contexts.get(id) ?? this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined context "${id}"`)
     return response
   }
@@ -256,23 +256,41 @@ export class Frame {
 
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CONTEXTS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export class Context {
+  constructor(
+    public readonly id: Id,
+    public readonly parent: Id | null, // TODO: Undefined instead of null?
+    public readonly locals: Map<Name, Id>, // TODO: Reference to actual objects instead of Id?
+    public readonly exceptionHandlerIndex?: number // TODO: Exclusive of Block Context?
+  ){ }
+}
 
 export type InnerValue = string | number | Id[]
 
-
-export class RuntimeObject {
+export class RuntimeObject extends Context {
   constructor(
+    id: Id,
+    parent: Id,
+    locals: Map<Name, Id>,
     evaluation: Evaluation,
-    public readonly moduleFQN: Name,
-    public readonly id: Id,
+    public readonly moduleFQN: Name, // TODO: Reference to actual module to avoid evaluation?
     public innerValue?: InnerValue
-  ) { this.evaluation = () => evaluation }
+  ) {
+    super(id, parent, locals)
+    this.evaluation = () => evaluation
+  }
 
   copy(evaluation: Evaluation): RuntimeObject {
     return new RuntimeObject(
+      this.id,
+      this.parent!,
+      new Map(this.locals),
       evaluation,
       this.moduleFQN,
-      this.id,
       isArray(this.innerValue) ? [...this.innerValue] : this.innerValue
     )
   }
@@ -280,21 +298,17 @@ export class RuntimeObject {
   // TODO: Replace with #evaluation once TS version is updated
   protected evaluation(): Evaluation { throw new Error('Uninitialized evaluation') }
 
-  context(): Context {
-    return this.evaluation().context(this.id)
-  }
-
   module(): Module {
     return this.evaluation().environment.getNodeByFQN<'Module'>(this.moduleFQN)
   }
 
   get(field: Name): RuntimeObject | undefined {
-    const id = this.context().locals.get(field)
+    const id = this.locals.get(field)
     return id ? this.evaluation().instance(id) : undefined
   }
 
   set(field: Name, valueId: Id): void {
-    this.context().locals.set(field, valueId)
+    this.locals.set(field, valueId)
   }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }

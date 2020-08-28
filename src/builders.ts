@@ -317,8 +317,10 @@ export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
 
 export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
   new RuntimeObjectType(
+    id,
+    undefined as any,
+    undefined as any,
     undefined as any,
     moduleFQN,
-    id,
     innerValue,
   )
