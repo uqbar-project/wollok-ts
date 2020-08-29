@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, FALSE_ID, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, TRUE_ID, VOID_ID, Frame, Context } from '../interpreter'
 import { Id } from '../model'
 import { Natives } from '../interpreter'
 
@@ -10,7 +10,7 @@ const Collections: Natives = {
   findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       ...self.innerValue.flatMap((id: Id) => [
         PUSH(predicate.id),
         PUSH(id),
@@ -23,7 +23,7 @@ const Collections: Natives = {
       PUSH(continuation.id),
       CALL('apply', 0),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
   add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -36,7 +36,7 @@ const Collections: Natives = {
   fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
         PUSH(closure.id),
         PUSH(id),
@@ -47,13 +47,13 @@ const Collections: Natives = {
         CALL('apply', 2),
       ]),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
   filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       PUSH(self.id),
       CALL('copy', 0),
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
@@ -67,15 +67,15 @@ const Collections: Natives = {
         POP,
       ]),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       PUSH(self.id),
       CALL('max', 0, true, self.moduleFQN),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
   remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -99,21 +99,21 @@ const Collections: Natives = {
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
       CALL('join', separator ? 1 : 0, true, self.moduleFQN),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame([
+    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
       PUSH(self.id),
       PUSH(value.id),
       CALL('contains', 1, true, self.moduleFQN),
       RETURN,
-    ], evaluation.createContext(evaluation.context(self.id)))
+    ]))
   },
 
 }
@@ -207,7 +207,7 @@ const lang: Natives = {
     'findOrElse': Collections.findOrElse,
 
     'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         PUSH(element.id),
         CALL('contains', 1),
@@ -217,7 +217,7 @@ const lang: Natives = {
         CALL('unsafeAdd', 1),
         PUSH(VOID_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'unsafeAdd': Collections.add,
@@ -241,7 +241,7 @@ const lang: Natives = {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         ...[...self.innerValue].reverse().flatMap((id: Id) => [
           PUSH(other.id),
           PUSH(id),
@@ -252,7 +252,7 @@ const lang: Natives = {
         ]),
         PUSH(TRUE_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
   },
@@ -274,7 +274,7 @@ const lang: Natives = {
 
       if (self.innerValue.length < 2) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<lessers>', false),
@@ -311,7 +311,7 @@ const lang: Natives = {
         LOAD('<biggers>'),
         CALL('addAll', 1),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'filter': Collections.filter,
@@ -344,7 +344,7 @@ const lang: Natives = {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         CALL('first', 0),
         PUSH(other.id),
@@ -361,13 +361,13 @@ const lang: Natives = {
         CALL('subList', 1),
         CALL('==', 1),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<answer>', false),
@@ -382,7 +382,7 @@ const lang: Natives = {
         ]),
         LOAD('<answer>'),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
   },
@@ -400,7 +400,7 @@ const lang: Natives = {
       if (key.id === NULL_ID) throw new TypeError('key')
       if (value.id === NULL_ID) throw new TypeError('value')
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         PUSH(key.id),
         CALL('remove', 1),
@@ -411,7 +411,7 @@ const lang: Natives = {
         PUSH(value.id),
         CALL('add', 1),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     basicGet: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -419,7 +419,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         ...keys.innerValue.flatMap((id, index) => [
           PUSH(key.id),
           PUSH(id),
@@ -432,7 +432,7 @@ const lang: Natives = {
         ]),
         PUSH(NULL_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     remove: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -440,7 +440,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         ...keys.innerValue.flatMap((id, index) => {
           const valuesUpToIndex = index === 0
             ? [
@@ -473,7 +473,7 @@ const lang: Natives = {
         }),
         PUSH(VOID_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     keys: (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -494,7 +494,7 @@ const lang: Natives = {
       const keyList = [...keys.innerValue].reverse()
       const valueList = [...values.innerValue].reverse()
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         ...keyList.flatMap((key, index) => [
           PUSH(closure.id),
           PUSH(key),
@@ -503,7 +503,7 @@ const lang: Natives = {
         ]),
         PUSH(VOID_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -803,41 +803,41 @@ const lang: Natives = {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -877,7 +877,7 @@ const lang: Natives = {
 
       const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         ...valueIds.flatMap((id: Id) => [
           PUSH(closure.id),
           PUSH(id),
@@ -886,7 +886,7 @@ const lang: Natives = {
         ]),
         PUSH(VOID_ID),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     anyOne: (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -913,12 +913,12 @@ const lang: Natives = {
   Closure: {
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame([
+      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
         RETURN,
-      ], evaluation.createContext(evaluation.context(self.id)))
+      ]))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {

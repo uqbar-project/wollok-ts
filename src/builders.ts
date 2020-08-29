@@ -290,29 +290,24 @@ export const setter = (name: Name): MethodNode<Filled> => new MethodNode({
 export const Evaluation = (
   environment: EnvironmentNode,
   instances: Record<Id, RuntimeObjectType> = {},
-  contexts: Record<Id, Context> = {}
-) =>
-  (...frameStack: FrameType[]): EvaluationType => {
-    const evaluation = new EvaluationType(
-      environment,
-      [...frameStack].reverse(),
-      new Map(),
-      new Map(keys(contexts).map(key => [key, contexts[key]])),
-      new Map(),
-    )
+  _contexts: Record<Id, Context> = {}
+) => (...frameStack: FrameType[]): EvaluationType => {
+  const evaluation = new EvaluationType(
+    environment,
+    new Map(),
+    [...frameStack].reverse(),
+    new Map(),
+  )
 
-    // TODO: Improve this
-    mapObject((instance, key) => evaluation.setInstance(key, instance.copy(evaluation)), instances)
+  // TODO: Improve this
+  mapObject((instance, key) => evaluation.setInstance(key, instance.copy(evaluation)), instances)
 
-    return evaluation
-  }
+  return evaluation
+}
 
 export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
-    payload.id!,
-    payload.instructions ?? [],
     payload.context!,
-    payload.nextInstruction ?? 0,
-    payload.operandStack ?? [],
+    payload.instructions ?? [],
 )
 
 export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
