@@ -300,7 +300,7 @@ export const Evaluation = (
   )
 
   // TODO: Improve this
-  mapObject((instance, key) => evaluation.setInstance(key, instance.copy(evaluation)), instances)
+  Object.values(instances).forEach(instance => instance.copy(evaluation))
 
   return evaluation
 }

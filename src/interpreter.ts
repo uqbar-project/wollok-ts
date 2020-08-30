@@ -71,7 +71,7 @@ export class Evaluation {
       new Map(this.code),
     )
 
-    this.instances.forEach((instance, key) => evaluation.instances.set(key, instance.copy(evaluation)))
+    this.instances.forEach(instance => instance.copy(evaluation))
 
     return evaluation
   }
@@ -121,8 +121,8 @@ export class Evaluation {
     return this.instances.get(id)
   }
 
-  setInstance(id: Id, object: RuntimeObject): void{
-    this.instances.set(id, object)
+  addInstance(instance: RuntimeObject): void{
+    this.instances.set(instance.id, instance)
   }
 
   // TODO: Move these validations to the RuntimeObject constructor?
@@ -148,14 +148,14 @@ export class Evaluation {
     }
 
     if (!this.instances.has(id)) {
-      this.instances.set(id, new RuntimeObject(
+      new RuntimeObject(
         this,
         this.currentFrame()?.context ?? this.rootContext(),
         moduleFQN,
         id,
         new Map([['self', id]]),
         innerValue,
-      ))
+      )
     }
 
     return id
@@ -258,17 +258,12 @@ export class Frame {
 
 export class Context {
   constructor(
-    evaluation: Evaluation,
+    protected evaluation: Evaluation,
     public readonly parent?: Context,
     public readonly locals: Map<Name, Id> = new Map(), // TODO: Reference to actual objects instead of Id?
     public readonly exceptionHandlerIndex?: number, // TODO: Exclusive of Block Context?
     public readonly id: Id = uuid(),
-  ){
-    this.evaluation = () => evaluation
-  }
-
-  // TODO: Replace with #evaluation once TS version is updated
-  protected evaluation(): Evaluation { throw new Error('Uninitialized evaluation') }
+  ){ }
 
   copy(evaluation: Evaluation): Context {
     return new Context(
@@ -289,7 +284,7 @@ export class Context {
 
   get(local: Name): RuntimeObject | undefined {
     const id = this.locals.get(local)
-    return id ? this.evaluation().instance(id) : undefined
+    return id ? this.evaluation.instance(id) : undefined
   }
 
   set(local: Name, valueId: Id): void {
@@ -312,6 +307,8 @@ export class RuntimeObject extends Context {
     super(evaluation, parent, locals, undefined, id)
 
     locals.set('self', this.id)
+
+    evaluation.addInstance(this)
   }
 
   copy(evaluation: Evaluation): RuntimeObject {
@@ -326,7 +323,7 @@ export class RuntimeObject extends Context {
   }
 
   module(): Module {
-    return this.evaluation().environment.getNodeByFQN<'Module'>(this.moduleFQN)
+    return this.evaluation.environment.getNodeByFQN<'Module'>(this.moduleFQN)
   }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
