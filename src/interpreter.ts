@@ -54,21 +54,18 @@ export class Evaluation {
 
   constructor(
     readonly environment: Environment,
-    globals: Map<Name, RuntimeObject | undefined>, // TODO: no undefined
-    protected frameStack: Frame[] = [],
-    protected instances: Map<Id, RuntimeObject> = new Map(),
-    protected code: Map<Id, List<Instruction>> = new Map(),
-  ){
-    const rootContext = new Context(undefined, globals, undefined, ROOT_CONTEXT_ID)
-    this.rootContext = () => rootContext
-  }
+    readonly rootContext: Context,
+    protected readonly frameStack: Frame[] = [],
+    protected readonly instances: Map<Id, RuntimeObject> = new Map(),
+    protected readonly code: Map<Id, List<Instruction>> = new Map(),
+  ){ }
 
   copy(): Evaluation {
     return new Evaluation(
       this.environment,
-      new Map(this.rootContext().locals),
+      this.rootContext.copy(),
       this.frameStack.map(frame => frame.copy()),
-      new Map([...this.instances.entries()].map(([id, instance]) => [id, instance.copy()])),
+      new Map([...this.instances.values()].map(instance => [instance.id, instance.copy()])),
       new Map(this.code),
     )
   }
@@ -118,10 +115,6 @@ export class Evaluation {
     return this.instances.get(id)
   }
 
-  addInstance(instance: RuntimeObject): void{
-    this.instances.set(instance.id, instance)
-  }
-
   // TODO: Move these validations to the RuntimeObject constructor?
   createInstance(moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): RuntimeObject {
     let id: Id
@@ -148,13 +141,13 @@ export class Evaluation {
     if (existing) return existing
 
     const instance = new RuntimeObject(
-      this.currentFrame()?.context ?? this.rootContext(),
+      this.currentFrame()?.context ?? this.rootContext,
       this.environment.getNodeByFQN(moduleFQN),
       id,
       undefined,
       innerValue,
     )
-    this.addInstance(instance)
+    this.instances.set(instance.id, instance)
 
     return instance
   }
@@ -162,8 +155,6 @@ export class Evaluation {
   destroyInstance(id: Id): void { this.instances.delete(id) }
 
   listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
-
-  rootContext(): Context { throw new Error('Uninitialized root context') } // Make an atribute?
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // STACK MANIPULATION
@@ -186,7 +177,7 @@ export class Evaluation {
   popFrame(): Frame | undefined { return this.frameStack.pop() }
 
   raise(exception: RuntimeObject): void{
-    let currentContext = this.currentFrame()?.context ?? this.rootContext() // TODO: evaluation.currentContext()?
+    let currentContext = this.currentFrame()?.context ?? this.rootContext // TODO: evaluation.currentContext()?
 
     const visited = []
 
@@ -210,9 +201,9 @@ export class Evaluation {
     if (!currentContext.parent) throw new Error('Popped root context')
     if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
 
-      this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
-      this.currentFrame()!.context = currentContext.parent
-      this.currentFrame()!.context.set('<exception>', exception)
+    this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
+    this.currentFrame()!.context = currentContext.parent
+    this.currentFrame()!.context.set('<exception>', exception)
   }
 
 }
@@ -863,22 +854,21 @@ export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
 // TODO: make static method in Evaluation
 const buildEvaluation = (environment: Environment): Evaluation => {
 
+  const evaluation = new Evaluation(environment, new Context())
+
   const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
   const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
-  const globals = new Map<Name, RuntimeObject | undefined>()
 
-  const evaluation = new Evaluation(environment, globals)
-
-  globals.set('null', evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID))
-  globals.set('true', evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID))
-  globals.set('false', evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID))
+  evaluation.rootContext.set('null', evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID))
+  evaluation.rootContext.set('true', evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID))
+  evaluation.rootContext.set('false', evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID))
   for (const module of globalSingletons)
-    globals.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
+    evaluation.rootContext.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
   for (const constant of globalConstants)
-    globals.set(constant.fullyQualifiedName(), new RuntimeObject(evaluation.rootContext(), null as any, LAZY_ID))
+    evaluation.rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(evaluation.rootContext, null as any, LAZY_ID))
 
 
-  evaluation.pushFrame(new Frame(evaluation.rootContext(), [
+  evaluation.pushFrame(new Frame(evaluation.rootContext, [
     ...globalSingletons.flatMap(singleton => {
       if (singleton.supercallArgs.some(is('NamedArgument'))) {
         const args = singleton.supercallArgs as List<NamedArgument>
@@ -908,7 +898,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.pushFrame(new Frame(
-    new Context(evaluation.currentFrame()?.context ?? evaluation.rootContext()),
+    new Context(evaluation.currentFrame()?.context ?? evaluation.rootContext),
     instructions
   ))
 
@@ -981,7 +971,7 @@ const garbageCollect = (evaluation: Evaluation) => {
 
   const marked = new Set<Context>()
   const pending = [
-    evaluation.rootContext(),
+    evaluation.rootContext,
     ... evaluation.listFrames().flatMap(({ operandStack, context, instructions }) => [
       context,
       ...operandStack.map(id => evaluation.maybeInstance(id)),

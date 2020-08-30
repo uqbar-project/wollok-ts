@@ -294,7 +294,7 @@ export const Evaluation = (
 ) => (...frameStack: FrameType[]): EvaluationType => {
   const evaluation = new EvaluationType(
     environment,
-    new Map(),
+    new Context(),
     [...frameStack].reverse(),
     new Map(Object.values(instances).map(instance => [instance.id, instance.copy()])),
   )
