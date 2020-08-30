@@ -53,7 +53,7 @@ const hr = (size: number = columns) => '─'.repeat(size)
 
 const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
   const instance = evaluation.maybeInstance(id)
-  const module = instance ? stringifyModule(evaluation)(instance.moduleFQN) : ''
+  const module = instance ? stringifyModule(evaluation)(instance.module.fullyQualifiedName()) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
     if (val === undefined) return ''

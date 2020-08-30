@@ -151,7 +151,7 @@ export class Evaluation {
       new RuntimeObject(
         this,
         this.currentFrame()?.context ?? this.rootContext(),
-        moduleFQN,
+        this.environment.getNodeByFQN(moduleFQN),
         id,
         new Map([['self', id]]),
         innerValue,
@@ -299,7 +299,7 @@ export class RuntimeObject extends Context {
   constructor(
     evaluation: Evaluation,
     public readonly parent: Context,
-    public readonly moduleFQN: Name, // TODO: Reference to actual module to avoid evaluation?
+    public readonly module: Module,
     id?: Id,
     locals: Map<Name, Id> = new Map(),
     public innerValue?: InnerValue
@@ -315,15 +315,11 @@ export class RuntimeObject extends Context {
     return new RuntimeObject(
       evaluation,
       this.parent,
-      this.moduleFQN,
+      this.module,
       this.id,
       new Map(this.locals),
       isArray(this.innerValue) ? [...this.innerValue] : this.innerValue
     )
-  }
-
-  module(): Module {
-    return this.evaluation.environment.getNodeByFQN<'Module'>(this.moduleFQN)
   }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
@@ -334,11 +330,11 @@ export class RuntimeObject extends Context {
       throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
   }
 
-  protected assertIs(module: Name, innerValueType: string): void {
-    if (this.moduleFQN !== module)
-      throw new TypeError(`Expected an instance of ${module} but got a ${this.moduleFQN} instead`)
+  protected assertIs(moduleFQN: Name, innerValueType: string): void {
+    if (this.module.fullyQualifiedName() !== moduleFQN)
+      throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
     if (typeof this.innerValue !== innerValueType)
-      throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${module} instance`)
+      throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 }
 
@@ -712,7 +708,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       case 'INHERITS': return (() => {
         const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
-        currentFrame.pushOperand(self.module().inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID)
+        currentFrame.pushOperand(self.module.inherits(environment.getNodeByFQN(instruction.module)) ? TRUE_ID : FALSE_ID)
       })()
 
       case 'JUMP': return (() => {
@@ -737,20 +733,20 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
         const self = evaluation.instance(currentFrame.popOperand())
 
-        let lookupStart: Name
+        let lookupStart: Module
         if (instruction.lookupStart) {
-          const ownHierarchy = self.module().hierarchy().map(module => module.fullyQualifiedName())
-          const start = ownHierarchy.findIndex(fqn => fqn === instruction.lookupStart)
+          const ownHierarchy = self.module.hierarchy()
+          const start = ownHierarchy.findIndex(module => module.fullyQualifiedName() === instruction.lookupStart)
           lookupStart = ownHierarchy[start + 1]
         } else {
-          lookupStart = self.moduleFQN
+          lookupStart = self.module
         }
-        const method = environment.getNodeByFQN<'Module'>(lookupStart).lookupMethod(instruction.message, instruction.arity)
+        const method = lookupStart.lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
           log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
 
-          const messageNotUnderstood = self.module().lookupMethod('messageNotUnderstood', 2)!
+          const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
             evaluation.createInstance('wollok.lang.String', instruction.message),
             evaluation.createInstance('wollok.lang.List', argIds),
@@ -823,7 +819,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
 
-        const fields = self.module().hierarchy().flatMap(module => module.fields())
+        const fields = self.module.hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
           self.set(field.name, VOID_ID)

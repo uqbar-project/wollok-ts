@@ -65,12 +65,12 @@ const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: E
   }
   const visuals: RuntimeObject = self.get('visuals')!
   visuals.assertIsCollection()
-  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.moduleFQN)
+  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.module.fullyQualifiedName())
   else visuals.innerValue.push(visual.id)
 }
 
-const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
-  evaluation.environment.getNodeByFQN<'Module'>(self.moduleFQN).lookupMethod(message, 0)
+const lookupMethod = (self: RuntimeObject, message: string) => (_evaluation: Evaluation) =>
+  self.module.lookupMethod(message, 0)
 
 const game: Natives = {
   game: {
