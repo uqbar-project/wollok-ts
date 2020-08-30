@@ -296,11 +296,8 @@ export const Evaluation = (
     environment,
     new Map(),
     [...frameStack].reverse(),
-    new Map(),
+    new Map(Object.values(instances).map(instance => [instance.id, instance.copy()])),
   )
-
-  // TODO: Improve this
-  Object.values(instances).forEach(instance => instance.copy(evaluation))
 
   return evaluation
 }
@@ -312,7 +309,6 @@ export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
 
 export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
   new RuntimeObjectType(
-    undefined as any,
     undefined as any,
     undefined as any,
     id,

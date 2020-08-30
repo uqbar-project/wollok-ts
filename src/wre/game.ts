@@ -3,7 +3,7 @@ import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID
 import { Id } from '../model'
 import natives from './wre.natives'
 
-const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
+const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.instance(evaluation.createInstance('wollok.lang.List', elements))
 
 const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
@@ -18,7 +18,7 @@ const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
-  self.set(key, value.id)
+  self.set(key, value)
   returnVoid(evaluation)
 }
 
@@ -85,7 +85,7 @@ const game: Natives = {
     addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
       checkNotNull(visual, 'visual')
       checkNotNull(position, 'position')
-      visual.set('position', position.id)
+      visual.set('position', position)
       addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
     },
@@ -127,11 +127,11 @@ const game: Natives = {
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue)
-      returnValue(evaluation, result)
+      returnValue(evaluation, result.id)
     },
 
     hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -144,11 +144,11 @@ const game: Natives = {
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue.filter(samePosition(evaluation, position)))
-      returnValue(evaluation, result)
+      returnValue(evaluation, result.id)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -174,7 +174,7 @@ const game: Natives = {
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       checkNotNull(visual, 'visual')
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation))
+      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const position = getPosition(visual.id)(evaluation)
@@ -182,7 +182,7 @@ const game: Natives = {
         .filter(samePosition(evaluation, position))
         .filter(id => id !== visual.id)
       )
-      returnValue(evaluation, result)
+      returnValue(evaluation, result.id)
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),
@@ -196,22 +196,22 @@ const game: Natives = {
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'boardGround', boardGround),
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('running', FALSE_ID)
+      self.set('running', evaluation.instance(FALSE_ID))
       returnVoid(evaluation)
     },
 
     hideAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      visual.set('showAttributes', FALSE_ID)
+      visual.set('showAttributes', evaluation.instance(FALSE_ID))
       returnVoid(evaluation)
     },
 
     showAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      visual.set('showAttributes', TRUE_ID)
+      visual.set('showAttributes', evaluation.instance(TRUE_ID))
       returnVoid(evaluation)
     },
 
     errorReporter: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('errorReporter', visual.id)
+      self.set('errorReporter', visual)
       returnVoid(evaluation)
     },
 
@@ -221,7 +221,7 @@ const game: Natives = {
     },
 
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('running', TRUE_ID)
+      self.set('running', evaluation.instance(TRUE_ID))
       returnVoid(evaluation)
     },
   },

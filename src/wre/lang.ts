@@ -10,7 +10,7 @@ const Collections: Natives = {
   findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       ...self.innerValue.flatMap((id: Id) => [
         PUSH(predicate.id),
         PUSH(id),
@@ -36,7 +36,7 @@ const Collections: Natives = {
   fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
         PUSH(closure.id),
         PUSH(id),
@@ -53,7 +53,7 @@ const Collections: Natives = {
   filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       PUSH(self.id),
       CALL('copy', 0),
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
@@ -71,7 +71,7 @@ const Collections: Natives = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       PUSH(self.id),
       CALL('max', 0, true, self.module.fullyQualifiedName()),
       RETURN,
@@ -99,7 +99,7 @@ const Collections: Natives = {
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
       CALL('join', separator ? 1 : 0, true, self.module.fullyQualifiedName()),
@@ -108,7 +108,7 @@ const Collections: Natives = {
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+    evaluation.pushFrame(new Frame(new Context(self), [
       PUSH(self.id),
       PUSH(value.id),
       CALL('contains', 1, true, self.module.fullyQualifiedName()),
@@ -207,7 +207,7 @@ const lang: Natives = {
     'findOrElse': Collections.findOrElse,
 
     'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         PUSH(element.id),
         CALL('contains', 1),
@@ -241,7 +241,7 @@ const lang: Natives = {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         ...[...self.innerValue].reverse().flatMap((id: Id) => [
           PUSH(other.id),
           PUSH(id),
@@ -274,7 +274,7 @@ const lang: Natives = {
 
       if (self.innerValue.length < 2) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<lessers>', false),
@@ -344,7 +344,7 @@ const lang: Natives = {
       if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(FALSE_ID)
       if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(TRUE_ID)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('first', 0),
         PUSH(other.id),
@@ -367,7 +367,7 @@ const lang: Natives = {
     'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<answer>', false),
@@ -390,8 +390,8 @@ const lang: Natives = {
   Dictionary: {
 
     initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
-      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
+      self.set('<keys>', evaluation.instance(evaluation.createInstance('wollok.lang.List', [])))
+      self.set('<values>', evaluation.instance(evaluation.createInstance('wollok.lang.List', [])))
 
       evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
@@ -400,7 +400,7 @@ const lang: Natives = {
       if (key.id === NULL_ID) throw new TypeError('key')
       if (value.id === NULL_ID) throw new TypeError('value')
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         PUSH(key.id),
         CALL('remove', 1),
@@ -419,7 +419,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         ...keys.innerValue.flatMap((id, index) => [
           PUSH(key.id),
           PUSH(id),
@@ -440,7 +440,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         ...keys.innerValue.flatMap((id, index) => {
           const valuesUpToIndex = index === 0
             ? [
@@ -494,7 +494,7 @@ const lang: Natives = {
       const keyList = [...keys.innerValue].reverse()
       const valueList = [...values.innerValue].reverse()
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         ...keyList.flatMap((key, index) => [
           PUSH(closure.id),
           PUSH(key),
@@ -507,8 +507,8 @@ const lang: Natives = {
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
-      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
+      self.set('<keys>', evaluation.instance(evaluation.createInstance('wollok.lang.List', [])))
+      self.set('<values>', evaluation.instance(evaluation.createInstance('wollok.lang.List', [])))
 
       evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
@@ -803,7 +803,7 @@ const lang: Natives = {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -813,7 +813,7 @@ const lang: Natives = {
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === FALSE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -823,7 +823,7 @@ const lang: Natives = {
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -833,7 +833,7 @@ const lang: Natives = {
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.id === TRUE_ID) return evaluation.currentFrame()!.pushOperand(self.id)
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -877,7 +877,7 @@ const lang: Natives = {
 
       const valueIds = values.map(v => evaluation.createInstance('wollok.lang.Number', v)).reverse()
 
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         ...valueIds.flatMap((id: Id) => [
           PUSH(closure.id),
           PUSH(id),
@@ -913,7 +913,7 @@ const lang: Natives = {
   Closure: {
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame(new Frame(new Context(evaluation, self), [
+      evaluation.pushFrame(new Frame(new Context(self), [
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
@@ -937,11 +937,11 @@ const lang: Natives = {
       const today = new Date()
 
       if (!day || day.id === NULL_ID)
-        self.set('day', evaluation.createInstance('wollok.lang.Number', today.getDate()))
+        self.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', today.getDate())))
       if (!month || month.id === NULL_ID)
-        self.set('month', evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1))
+        self.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', today.getMonth() + 1)))
       if (!year || year.id === NULL_ID)
-        self.set('year', evaluation.createInstance('wollok.lang.Number', today.getFullYear()))
+        self.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', today.getFullYear())))
 
       evaluation.currentFrame()!.pushOperand(VOID_ID)
     },
@@ -975,9 +975,9 @@ const lang: Natives = {
       const instance = evaluation.instance(evaluation.createInstance(self.module.fullyQualifiedName()))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
 
       evaluation.currentFrame()!.pushOperand(instance.id)
@@ -1000,9 +1000,9 @@ const lang: Natives = {
       while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
         value.setDate(value.getDate() - 1)
 
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
       evaluation.currentFrame()!.pushOperand(instance.id)
     },
@@ -1025,9 +1025,9 @@ const lang: Natives = {
         value.setDate(value.getDate() - 1)
       }
 
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
       evaluation.currentFrame()!.pushOperand(instance.id)
     },
@@ -1093,9 +1093,9 @@ const lang: Natives = {
       const instance = evaluation.instance(evaluation.createInstance(self.module.fullyQualifiedName()))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
       evaluation.currentFrame()!.pushOperand(instance.id)
     },
@@ -1113,9 +1113,9 @@ const lang: Natives = {
       const instance = evaluation.instance(evaluation.createInstance(self.module.fullyQualifiedName()))
 
       const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
 
       evaluation.currentFrame()!.pushOperand(instance.id)
@@ -1139,9 +1139,9 @@ const lang: Natives = {
         value.setDate(value.getDate() - 1)
       }
 
-      instance.set('day', evaluation.createInstance('wollok.lang.Number', value.getDate()))
-      instance.set('month', evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1))
-      instance.set('year', evaluation.createInstance('wollok.lang.Number', value.getFullYear()))
+      instance.set('day', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getDate())))
+      instance.set('month', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getMonth() + 1)))
+      instance.set('year', evaluation.instance(evaluation.createInstance('wollok.lang.Number', value.getFullYear())))
 
       evaluation.currentFrame()!.pushOperand(instance.id)
     },

@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid'
 // - Reify Contexts and make instances and Frames contain their own locals.
 //    - Move logic to constructors
 //    - Check if all the public fields need to be public
+//    - Operand Stack could be filled by RuntimeObjects instead of ids
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
 //    - More step methods: stepThrough, for example. Step to get inside closure?
@@ -53,27 +54,23 @@ export class Evaluation {
 
   constructor(
     readonly environment: Environment,
-    globals: Map<Name, Id>,
+    globals: Map<Name, RuntimeObject | undefined>, // TODO: no undefined
     protected frameStack: Frame[] = [],
     protected instances: Map<Id, RuntimeObject> = new Map(),
     protected code: Map<Id, List<Instruction>> = new Map(),
   ){
-    const rootContext = new Context(this, undefined, new Map(globals), undefined, ROOT_CONTEXT_ID)
+    const rootContext = new Context(undefined, globals, undefined, ROOT_CONTEXT_ID)
     this.rootContext = () => rootContext
   }
 
   copy(): Evaluation {
-    const evaluation = new Evaluation(
+    return new Evaluation(
       this.environment,
       new Map(this.rootContext().locals),
       this.frameStack.map(frame => frame.copy()),
-      new Map(),
+      new Map([...this.instances.entries()].map(([id, instance]) => [id, instance.copy()])),
       new Map(this.code),
     )
-
-    this.instances.forEach(instance => instance.copy(evaluation))
-
-    return evaluation
   }
 
   codeFor(node: Node): List<Instruction> {
@@ -134,28 +131,28 @@ export class Evaluation {
       case 'wollok.lang.Number':
         if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
         const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-        id = 'N!' + stringValue
+        id = `N!${stringValue}`
         innerValue = Number(stringValue)
         break
 
       case 'wollok.lang.String':
         if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
-        id = 'S!' + innerValue
+        id = `S!${innerValue}`
         break
 
       default:
         id = defaultId
     }
 
-    if (!this.instances.has(id)) {
-      new RuntimeObject(
-        this,
+    const existing = this.instances.get(id)
+    if (!existing) {
+      this.addInstance(new RuntimeObject(
         this.currentFrame()?.context ?? this.rootContext(),
         this.environment.getNodeByFQN(moduleFQN),
         id,
-        new Map([['self', id]]),
+        undefined,
         innerValue,
-      )
+      ))
     }
 
     return id
@@ -165,7 +162,7 @@ export class Evaluation {
 
   listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
 
-  rootContext(): Context { throw new Error('Uninitialized root context') }
+  rootContext(): Context { throw new Error('Uninitialized root context') } // Make an atribute?
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // STACK MANIPULATION
@@ -196,11 +193,11 @@ export class Evaluation {
     while (currentContext.exceptionHandlerIndex === undefined) {
       const currentFrame = this.currentFrame()
 
-      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exceptionId}`)
 
       if (currentFrame.context.id === currentFrame.id) {
         this.frameStack.pop()
-        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${exceptionId}`)
       } else {
         if (!currentContext.parent) throw new Error(`Reached the root context ${currentContext.id} before reaching the current frame ${currentFrame.id}. This should not happen!`)
         currentFrame.context = currentContext.parent
@@ -215,7 +212,7 @@ export class Evaluation {
 
       this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
       this.currentFrame()!.context = currentContext.parent
-      this.currentFrame()!.context.set('<exception>', exceptionId)
+      this.currentFrame()!.context.set('<exception>', exception)
   }
 
 }
@@ -258,16 +255,14 @@ export class Frame {
 
 export class Context {
   constructor(
-    protected evaluation: Evaluation,
     public readonly parent?: Context,
-    public readonly locals: Map<Name, Id> = new Map(), // TODO: Reference to actual objects instead of Id?
+    public readonly locals: Map<Name, RuntimeObject | undefined> = new Map(), // TODO: Reference to actual objects instead of Id?
     public readonly exceptionHandlerIndex?: number, // TODO: Exclusive of Block Context?
     public readonly id: Id = uuid(),
   ){ }
 
-  copy(evaluation: Evaluation): Context {
+  copy(): Context {
     return new Context(
-      evaluation,
       this.parent,
       new Map(this.locals),
       this.exceptionHandlerIndex,
@@ -275,20 +270,12 @@ export class Context {
     )
   }
 
-  getId(local: Name): Id | undefined {
-    const reponse = this.locals.get(local)
-    if (reponse) return reponse
-    if (!this.parent) return undefined
-    return this.parent.getId(local)
-  }
-
   get(local: Name): RuntimeObject | undefined {
-    const id = this.locals.get(local)
-    return id ? this.evaluation.instance(id) : undefined
+    return this.locals.get(local) ?? this.parent?.get(local)
   }
 
-  set(local: Name, valueId: Id): void {
-    this.locals.set(local, valueId)
+  set(local: Name, value: RuntimeObject | undefined): void {
+    this.locals.set(local, value)
   }
 }
 
@@ -297,23 +284,19 @@ export type InnerValue = string | number | Id[]
 
 export class RuntimeObject extends Context {
   constructor(
-    evaluation: Evaluation,
     public readonly parent: Context,
     public readonly module: Module,
     id?: Id,
-    locals: Map<Name, Id> = new Map(),
+    locals: Map<Name, RuntimeObject | undefined> = new Map(),
     public innerValue?: InnerValue
   ) {
-    super(evaluation, parent, locals, undefined, id)
+    super(parent, locals, undefined, id)
 
-    locals.set('self', this.id)
-
-    evaluation.addInstance(this)
+    locals.set('self', this)
   }
 
-  copy(evaluation: Evaluation): RuntimeObject {
+  copy(): RuntimeObject {
     return new RuntimeObject(
-      evaluation,
       this.parent,
       this.module,
       this.id,
@@ -619,11 +602,10 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
-        const value = currentFrame.context.getId(instruction.name)
-        if (!value) throw new Error(`LOAD of missing local "${instruction.name}" on context ${currentFrame.context.id}`)
+        const value = currentFrame.context.get(instruction.name)
 
         // TODO: should add tests for the lazy load and store
-        if (value !== LAZY_ID) currentFrame.pushOperand(value)
+        if (value?.id !== LAZY_ID) currentFrame.pushOperand(value?.id ?? VOID_ID)
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
@@ -650,7 +632,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           }
         }
 
-        (context ?? currentContext).set(instruction.name, valueId)
+        (context ?? currentContext).set(instruction.name, valueId === VOID_ID ? undefined : evaluation.instance(valueId))
       })()
 
 
@@ -666,7 +648,6 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
       case 'PUSH_CONTEXT': return (() => {
         currentFrame.context = new Context(
-          evaluation,
           currentFrame.context,
           undefined,
           instruction.exceptionHandlerIndexDelta
@@ -731,6 +712,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
       case 'CALL': return (() => {
         const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
+        const args = argIds.map(id => evaluation.instance(id))
         const self = evaluation.instance(currentFrame.popOperand())
 
         let lookupStart: Module
@@ -748,40 +730,37 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
-            evaluation.createInstance('wollok.lang.String', instruction.message),
-            evaluation.createInstance('wollok.lang.List', argIds),
+            evaluation.instance(evaluation.createInstance('wollok.lang.String', instruction.message)),
+            evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds)),
           ]
 
           evaluation.pushFrame(new Frame(
-            new Context(evaluation, self, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]]))),
+            new Context(self, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]]))),
             evaluation.codeFor(messageNotUnderstood)
           ))
         } else {
+
           if (method.body === 'native') {
-            log.debug('Calling Native:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+            log.debug('Calling Native:', lookupStart.fullyQualifiedName(), '>>', instruction.message, '/', instruction.arity)
             const fqn = `${method.parent().fullyQualifiedName()}.${method.name}`
             const native: NativeFunction = fqn.split('.').reduce((current, name) => {
               const next = current[name]
               if (!next) throw new Error(`Native not found: ${fqn}`)
               return next
             }, natives as any)
-            const args = argIds.map(id => {
-              if (id === VOID_ID) throw new Error('Reference to void argument')
-              return evaluation.instance(id)
-            })
 
             native(self, ...args)(evaluation)
           } else {
             const locals = new Map(method.parameters.some(({ isVarArg }) => isVarArg)
               ? [
-                ...method.parameters.slice(0, -1).map(({ name }, index) => [name, argIds[index]] as const),
-                [last(method.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))],
+                ...method.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
+                [last(method.parameters)!.name, evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)))],
               ]
-              : method.parameters.map(({ name }, index) => [name, argIds[index]])
+              : method.parameters.map(({ name }, index) => [name, args[index]])
             )
 
             evaluation.pushFrame(new Frame(
-              new Context(evaluation, instruction.useReceiverContext ? self : self.parent, locals),
+              new Context(instruction.useReceiverContext ? self : self.parent, locals),
               evaluation.codeFor(method)
             ))
           }
@@ -793,6 +772,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const selfId = currentFrame.popOperand()
         const self = evaluation.instance(selfId)
         const argIds = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()).reverse()
+        const args = argIds.map(id => evaluation.instance(id))
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
         const constructor = lookupStart.lookupConstructor(instruction.arity)
 
@@ -803,14 +783,14 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
         const locals = new Map(constructor.parameters.some(({ isVarArg }) => isVarArg)
           ? [
-            ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, argIds[index]] as const),
-            [last(constructor.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))],
+            ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
+            [last(constructor.parameters)!.name, evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)))],
           ]
-          : constructor.parameters.map(({ name }, index) => [name, argIds[index]])
+          : constructor.parameters.map(({ name }, index) => [name, args[index]])
         )
 
         evaluation.pushFrame(new Frame(
-          new Context(evaluation, self, locals),
+          new Context(self, locals),
           evaluation.codeFor(constructor)
         ))
       })()
@@ -822,10 +802,10 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const fields = self.module.hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
-          self.set(field.name, VOID_ID)
+          self.set(field.name, undefined)
 
         for (const name of [...instruction.argumentNames].reverse())
-          self.set(name, currentFrame.popOperand())
+          self.set(name, evaluation.instance(currentFrame.popOperand()))
 
         evaluation.pushFrame(new Frame(
           self,
@@ -880,18 +860,23 @@ export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
 // EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+// TODO: make static method in Evaluation
 const buildEvaluation = (environment: Environment): Evaluation => {
 
   const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
   const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
+  const globals = new Map<Name, RuntimeObject | undefined>()
 
-  const evaluation = new Evaluation(environment, new Map([
-    ['null', NULL_ID],
-    ['true', TRUE_ID],
-    ['false', FALSE_ID],
-    ...globalSingletons.map(singleton => [singleton.fullyQualifiedName(), singleton.id] as const),
-    ...globalConstants.map(constant => [constant.fullyQualifiedName(), LAZY_ID] as const),
-  ]))
+  const evaluation = new Evaluation(environment, globals)
+
+  globals.set('null', evaluation.instance(evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)))
+  globals.set('true', evaluation.instance(evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)))
+  globals.set('false', evaluation.instance(evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID)))
+  for (const module of globalSingletons)
+    globals.set(module.fullyQualifiedName(), evaluation.instance(evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id)))
+  for (const constant of globalConstants)
+    globals.set(constant.fullyQualifiedName(), new RuntimeObject(evaluation.rootContext(), null as any, LAZY_ID))
+
 
   evaluation.pushFrame(new Frame(evaluation.rootContext(), [
     ...globalSingletons.flatMap(singleton => {
@@ -915,11 +900,6 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     }),
   ]))
 
-  evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)
-  evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)
-  evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID)
-  for (const module of globalSingletons) evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id)
-
   return evaluation
 }
 
@@ -928,7 +908,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.pushFrame(new Frame(
-    new Context(evaluation, evaluation.currentFrame()?.context ?? evaluation.rootContext()),
+    new Context(evaluation.currentFrame()?.context ?? evaluation.rootContext()),
     instructions
   ))
 
@@ -1017,7 +997,7 @@ const garbageCollect = (evaluation: Evaluation) => {
 
       pending.push(
         ... next.parent ? [next.parent] : [],
-        ...[...next.locals.values()].map(id => evaluation.instance(id)),
+        ...next.locals.values(),
       )
 
       if(next instanceof RuntimeObject && isArray(next?.innerValue)) pending.push(...next!.innerValue.map(id => evaluation.instance(id)))
@@ -1045,7 +1025,7 @@ export default (environment: Environment, natives: Natives) => ({
     const initialFrameCount = evaluation.stackDepth()
 
     evaluation.pushFrame(new Frame(
-      new Context(evaluation, evaluation.instance(receiver)),
+      new Context(evaluation.instance(receiver)),
       [
         PUSH(receiver),
         ...args.map(PUSH),
