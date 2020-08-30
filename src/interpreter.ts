@@ -123,7 +123,7 @@ export class Evaluation {
   }
 
   // TODO: Move these validations to the RuntimeObject constructor?
-  createInstance(moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): Id {
+  createInstance(moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): RuntimeObject {
     let id: Id
     let innerValue = baseInnerValue
 
@@ -145,17 +145,18 @@ export class Evaluation {
     }
 
     const existing = this.instances.get(id)
-    if (!existing) {
-      this.addInstance(new RuntimeObject(
-        this.currentFrame()?.context ?? this.rootContext(),
-        this.environment.getNodeByFQN(moduleFQN),
-        id,
-        undefined,
-        innerValue,
-      ))
-    }
+    if (existing) return existing
 
-    return id
+    const instance = new RuntimeObject(
+      this.currentFrame()?.context ?? this.rootContext(),
+      this.environment.getNodeByFQN(moduleFQN),
+      id,
+      undefined,
+      innerValue,
+    )
+    this.addInstance(instance)
+
+    return instance
   }
 
   destroyInstance(id: Id): void { this.instances.delete(id) }
@@ -184,20 +185,19 @@ export class Evaluation {
 
   popFrame(): Frame | undefined { return this.frameStack.pop() }
 
-  raise(exceptionId: Id): void{
+  raise(exception: RuntimeObject): void{
     let currentContext = this.currentFrame()?.context ?? this.rootContext() // TODO: evaluation.currentContext()?
-    const exception = this.instance(exceptionId)
 
     const visited = []
 
     while (currentContext.exceptionHandlerIndex === undefined) {
       const currentFrame = this.currentFrame()
 
-      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exceptionId}`)
+      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
 
       if (currentFrame.context.id === currentFrame.id) {
         this.frameStack.pop()
-        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${exceptionId}`)
+        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
       } else {
         if (!currentContext.parent) throw new Error(`Reached the root context ${currentContext.id} before reaching the current frame ${currentFrame.id}. This should not happen!`)
         currentFrame.context = currentContext.parent
@@ -682,8 +682,8 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       })()
 
       case 'INSTANTIATE': return (() => {
-        const id = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
-        currentFrame.pushOperand(id)
+        const instance = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
+        currentFrame.pushOperand(instance.id)
       })()
 
       case 'INHERITS': return (() => {
@@ -730,8 +730,8 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
-            evaluation.instance(evaluation.createInstance('wollok.lang.String', instruction.message)),
-            evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds)),
+            evaluation.createInstance('wollok.lang.String', instruction.message),
+            evaluation.createInstance('wollok.lang.List', argIds),
           ]
 
           evaluation.pushFrame(new Frame(
@@ -754,7 +754,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             const locals = new Map(method.parameters.some(({ isVarArg }) => isVarArg)
               ? [
                 ...method.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
-                [last(method.parameters)!.name, evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1)))],
+                [last(method.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))],
               ]
               : method.parameters.map(({ name }, index) => [name, args[index]])
             )
@@ -784,7 +784,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const locals = new Map(constructor.parameters.some(({ isVarArg }) => isVarArg)
           ? [
             ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
-            [last(constructor.parameters)!.name, evaluation.instance(evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1)))],
+            [last(constructor.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))],
           ]
           : constructor.parameters.map(({ name }, index) => [name, args[index]])
         )
@@ -821,7 +821,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'INTERRUPT': return (() => {
-        const exception = currentFrame.popOperand()
+        const exception = evaluation.instance(currentFrame.popOperand())
         evaluation.raise(exception)
       })()
 
@@ -869,11 +869,11 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = new Evaluation(environment, globals)
 
-  globals.set('null', evaluation.instance(evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)))
-  globals.set('true', evaluation.instance(evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)))
-  globals.set('false', evaluation.instance(evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID)))
+  globals.set('null', evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID))
+  globals.set('true', evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID))
+  globals.set('false', evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID))
   for (const module of globalSingletons)
-    globals.set(module.fullyQualifiedName(), evaluation.instance(evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id)))
+    globals.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
   for (const constant of globalConstants)
     globals.set(constant.fullyQualifiedName(), new RuntimeObject(evaluation.rootContext(), null as any, LAZY_ID))
 
@@ -934,8 +934,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 
   if (test.parent().is('Describe')) {
     const describe = test.parent() as Describe
-    const describeInstanceId = evaluation.createInstance(describe.fullyQualifiedName())
-    const describeInstance = evaluation.instance(describeInstanceId)
+    const describeInstance = evaluation.createInstance(describe.fullyQualifiedName())
 
     evaluation.pushFrame(new Frame(describeInstance, compile(evaluation.environment)(
       ...describe.variables(),

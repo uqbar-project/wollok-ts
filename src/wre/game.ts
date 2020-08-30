@@ -3,7 +3,7 @@ import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID
 import { Id } from '../model'
 import natives from './wre.natives'
 
-const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.instance(evaluation.createInstance('wollok.lang.List', elements))
+const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
 
 const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
@@ -158,8 +158,7 @@ const game: Natives = {
       const wCurrentTime: RuntimeObject = evaluation.instance(currentFrame.operandStack.pop()!)
       wCurrentTime.assertIsNumber()
       const currentTime = wCurrentTime.innerValue
-      const messageTimeId = evaluation.createInstance('wollok.lang.Number', currentTime + 2 * 1000)
-      const messageTime = evaluation.instance(messageTimeId)
+      const messageTime = evaluation.createInstance('wollok.lang.Number', currentTime + 2 * 1000)
       set(visual, 'message', message)(evaluation)
       set(visual, 'messageTime', messageTime)(evaluation)
     },
