@@ -1,11 +1,11 @@
-import { Evaluation, FALSE_ID, Natives } from '../interpreter'
+import { Evaluation, Natives } from '../interpreter'
 
 const vm: Natives = {
 
   runtime: {
 
     isInteractive: () => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.instance(FALSE_ID))
+      evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
     },
 
   },

@@ -31,8 +31,8 @@ export interface Natives {
 
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
-export const TRUE_ID = 'true'
-export const FALSE_ID = 'false'
+const TRUE_ID = 'true'
+const FALSE_ID = 'false'
 export const LAZY_ID = '<lazy>'
 
 export const ROOT_CONTEXT_ID = 'root'
@@ -63,12 +63,12 @@ export class Evaluation {
     rootContext.set('true', evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID))
     rootContext.set('false', evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID))
     for (const module of globalSingletons)
-      evaluation.rootContext.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
+      rootContext.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
     for (const constant of globalConstants)
-      evaluation.rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(evaluation.rootContext, null as any, LAZY_ID))
+      rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, LAZY_ID))
 
 
-    evaluation.pushFrame(new Frame(evaluation.rootContext, [
+    evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
         if (singleton.supercallArgs.some(is('NamedArgument'))) {
           const args = singleton.supercallArgs as List<NamedArgument>
@@ -203,41 +203,54 @@ export class Evaluation {
     return this.code.get(node.id)!
   }
 
+  boolean(value: boolean): RuntimeObject {
+    return this.instance(value ? TRUE_ID : FALSE_ID)
+  }
+
+  number(value: number): RuntimeObject {
+    const stringValue = value.toFixed(DECIMAL_PRECISION)
+    const id = `N!${stringValue}`
+
+    const existing = this.instances.get(id)
+    if (existing) return existing
+
+    const instance = new RuntimeObject(
+      this.rootContext,
+      this.environment.getNodeByFQN('wollok.lang.Number'),
+      id,
+      undefined,
+      Number(stringValue),
+    )
+    this.instances.set(instance.id, instance)
+
+    return instance
+  }
+
+  string(value: string): RuntimeObject {
+    const id = `S!${value}`
+
+    const existing = this.instances.get(id)
+    if (existing) return existing
+
+    const instance = new RuntimeObject(
+      this.rootContext,
+      this.environment.getNodeByFQN('wollok.lang.String'),
+      id,
+      undefined,
+      value,
+    )
+    this.instances.set(instance.id, instance)
+
+    return instance
+  }
+
   instance(id: Id): RuntimeObject {
     const response = this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
   }
 
-  maybeInstance(id: Id): RuntimeObject | undefined {
-    return this.instances.get(id)
-  }
-
-  // TODO: Move these validations to the RuntimeObject constructor?
-  createInstance(moduleFQN: Name, baseInnerValue?: InnerValue, defaultId: Id = uuid()): RuntimeObject {
-    let id: Id
-    let innerValue = baseInnerValue
-
-    switch (moduleFQN) {
-      case 'wollok.lang.Number':
-        if (typeof innerValue !== 'number') throw new TypeError(`Can't create a Number with innerValue ${innerValue}`)
-        const stringValue = innerValue.toFixed(DECIMAL_PRECISION)
-        id = `N!${stringValue}`
-        innerValue = Number(stringValue)
-        break
-
-      case 'wollok.lang.String':
-        if (typeof innerValue !== 'string') throw new TypeError(`Can't create a String with innerValue ${innerValue}`)
-        id = `S!${innerValue}`
-        break
-
-      default:
-        id = defaultId
-    }
-
-    const existing = this.instances.get(id)
-    if (existing) return existing
-
+  createInstance(moduleFQN: Name, innerValue?: InnerValue, id: Id = uuid()): RuntimeObject {
     const instance = new RuntimeObject(
       this.currentFrame()?.context ?? this.rootContext,
       this.environment.getNodeByFQN(moduleFQN),
@@ -245,7 +258,7 @@ export class Evaluation {
       undefined,
       innerValue,
     )
-    this.instances.set(instance.id, instance)
+    this.instances.set(id, instance)
 
     return instance
   }
@@ -741,14 +754,17 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       })()
 
       case 'INSTANTIATE': return (() => {
-        const instance = evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
+        const instance =
+          instruction.module === 'wollok.lang.String' ? evaluation.string(`${instruction.innerValue}`) :
+          instruction.module === 'wollok.lang.Number' ? evaluation.number(Number(instruction.innerValue)) :
+          evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
         currentFrame.pushOperand(instance)
       })()
 
       case 'INHERITS': return (() => {
         const self = currentFrame.popOperand()!
         const inherits = self.module.inherits(environment.getNodeByFQN(instruction.module))
-        currentFrame.pushOperand(evaluation.instance(inherits ? TRUE_ID : FALSE_ID))
+        currentFrame.pushOperand(evaluation.boolean(inherits))
       })()
 
       case 'JUMP': return (() => {
@@ -789,7 +805,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
-            evaluation.createInstance('wollok.lang.String', instruction.message),
+            evaluation.string(instruction.message),
             evaluation.createInstance('wollok.lang.List', argIds),
           ]
 
@@ -982,7 +998,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
-      if(instruction.kind === 'PUSH') return [instruction.id]
+      if(instruction.kind === 'PUSH') return instruction.id === VOID_ID ? [] : [instruction.id]
       if(instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
       return []
     })
@@ -994,7 +1010,7 @@ const garbageCollect = (evaluation: Evaluation) => {
     ... evaluation.listFrames().flatMap(({ operandStack, context, instructions }) => [
       context,
       ...operandStack,
-      ...extractIdsFromInstructions(instructions).map(id => evaluation.maybeInstance(id)),
+      ...extractIdsFromInstructions(instructions).map(id => evaluation.instance(id)),
     ]),
   ]
 

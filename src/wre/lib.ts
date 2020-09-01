@@ -21,7 +21,7 @@ const lib: Natives = {
 
     newline: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
       const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
-      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.String', newline))
+      evaluation.currentFrame()!.pushOperand(evaluation.string(newline))
     },
 
   },
