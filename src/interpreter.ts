@@ -5,7 +5,6 @@ import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Reify Contexts and make instances and Frames contain their own locals.
-//    - Move logic to constructors
 //    - Drop the need for well known ids
 //    - Check if all the public fields need to be public
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
@@ -33,9 +32,7 @@ export const NULL_ID = 'null'
 export const VOID_ID = 'void'
 const TRUE_ID = 'true'
 const FALSE_ID = 'false'
-export const LAZY_ID = '<lazy>'
-
-export const ROOT_CONTEXT_ID = 'root'
+const LAZY_ID = '<lazy>'
 
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
@@ -203,6 +200,16 @@ export class Evaluation {
     return this.code.get(node.id)!
   }
 
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // INSTANCE MANIPULATION
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  instance(id: Id): RuntimeObject {
+    const response = this.instances.get(id)
+    if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
+    return response
+  }
+
   boolean(value: boolean): RuntimeObject {
     return this.instance(value ? TRUE_ID : FALSE_ID)
   }
@@ -244,13 +251,10 @@ export class Evaluation {
     return instance
   }
 
-  instance(id: Id): RuntimeObject {
-    const response = this.instances.get(id)
-    if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
-    return response
-  }
-
   createInstance(moduleFQN: Name, innerValue?: InnerValue, id: Id = uuid()): RuntimeObject {
+    if(moduleFQN === 'wollok.lang.Number' || moduleFQN === 'wollok.lang.String')
+      throw new TypeError(`Can't manually create instances of ${moduleFQN}`)
+
     const instance = new RuntimeObject(
       this.currentFrame()?.context ?? this.rootContext,
       this.environment.getNodeByFQN(moduleFQN),
