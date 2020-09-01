@@ -5,7 +5,7 @@ const vm: Natives = {
   runtime: {
 
     isInteractive: () => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(evaluation.instance(FALSE_ID))
     },
 
   },

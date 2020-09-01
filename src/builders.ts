@@ -296,7 +296,7 @@ export const Evaluation = (
     environment,
     new Context(),
     [...frameStack].reverse(),
-    new Map(Object.values(instances).map(instance => [instance.id, instance.copy()])),
+    new Map(Object.values(instances).map(instance => [instance.id, instance])),
   )
 
   return evaluation

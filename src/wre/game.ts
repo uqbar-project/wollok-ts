@@ -1,20 +1,16 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID } from '../interpreter'
 import { Id } from '../model'
 import natives from './wre.natives'
 
 const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
 
-const returnValue = (evaluation: Evaluation, id: Id) => {
-  evaluation.currentFrame()!.pushOperand(id)
-}
-
 const returnVoid = (evaluation: Evaluation) => {
-  returnValue(evaluation, VOID_ID)
+  evaluation.currentFrame()!.pushOperand(undefined)
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  returnValue(evaluation, self.get(key)?.id ?? VOID_ID)
+  evaluation.currentFrame()!.pushOperand(self.get(key))
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -50,11 +46,11 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const { sendMessage } = interpret(evaluation.environment, natives as Natives)
   const currentFrame = evaluation.currentFrame()!
   sendMessage('position', id)(evaluation)
-  return evaluation.instance(currentFrame.operandStack.pop()!)
+  return currentFrame.operandStack.pop()
 }
 
 const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
-  const visualPosition = getPosition(id)(evaluation)
+  const visualPosition = getPosition(id)(evaluation)!
   return position.get('x') === visualPosition.get('x')
     && position.get('y') === visualPosition.get('y')
 }
@@ -127,38 +123,37 @@ const game: Natives = {
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
+      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue)
-      returnValue(evaluation, result.id)
+      evaluation.currentFrame()!.pushOperand(result)
     },
 
     hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, FALSE_ID)
+      if (!visuals) return evaluation.currentFrame()!.pushOperand(evaluation.instance(FALSE_ID))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      returnValue(evaluation, currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID)
+      evaluation.currentFrame()!.pushOperand(evaluation.instance(currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID))
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
+      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue.filter(samePosition(evaluation, position)))
-      returnValue(evaluation, result.id)
+      evaluation.currentFrame()!.pushOperand(result)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.currentFrame()!
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
       sendMessage('currentTime', io(evaluation))(evaluation)
-      const wCurrentTime: RuntimeObject = evaluation.instance(currentFrame.operandStack.pop()!)
-      wCurrentTime.assertIsNumber()
-      const currentTime = wCurrentTime.innerValue
-      const messageTime = evaluation.createInstance('wollok.lang.Number', currentTime + 2 * 1000)
+      const currentTime: RuntimeObject = currentFrame.operandStack.pop()!
+      currentTime.assertIsNumber()
+      const messageTime = evaluation.createInstance('wollok.lang.Number', currentTime.innerValue + 2 * 1000)
       set(visual, 'message', message)(evaluation)
       set(visual, 'messageTime', messageTime)(evaluation)
     },
@@ -173,15 +168,15 @@ const game: Natives = {
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       checkNotNull(visual, 'visual')
       const visuals = self.get('visuals')
-      if (!visuals) return returnValue(evaluation, newList(evaluation).id)
+      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      const position = getPosition(visual.id)(evaluation)
+      const position = getPosition(visual.id)(evaluation)!
       const result = newList(evaluation, ...currentVisuals.innerValue
         .filter(samePosition(evaluation, position))
         .filter(id => id !== visual.id)
       )
-      returnValue(evaluation, result.id)
+      evaluation.currentFrame()!.pushOperand(result)
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),
