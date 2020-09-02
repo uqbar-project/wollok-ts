@@ -101,10 +101,10 @@ const consoleLogger: Logger = {
     : `${hr()}`)),
 
   step: evaluation => {
-    const { instructions, nextInstruction, operandStack } = evaluation.currentFrame()!
+    const { instructions, nextInstruction, operandStack } = evaluation.frameStack.top!
     const instruction = instructions[nextInstruction]
 
-    const stepTabulation = evaluation.stackDepth() - 1
+    const stepTabulation = evaluation.frameStack.depth - 1
 
     const tabulationReturn = 0
     // TODO: fix
@@ -119,8 +119,8 @@ const consoleLogger: Logger = {
       : '│'.repeat(stepTabulation)
 
     consoleLogger.debug(
-      `${('0000' + stepCount++).slice(-4)}<${evaluation.currentFrame()?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
-      `[${operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? VOID_ID)).join(', ')}]`
+      `${('0000' + stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
+      `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? VOID_ID))].join(', ')}]`
     )
 
   },

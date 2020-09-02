@@ -10,7 +10,7 @@ const Collections: Natives = {
   findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       ...self.innerValue.flatMap((id: Id) => [
         PUSH(predicate.id),
         PUSH(id),
@@ -30,13 +30,13 @@ const Collections: Natives = {
     self.assertIsCollection()
 
     self.innerValue.push(element.id)
-    evaluation.currentFrame()!.pushOperand(undefined)
+    evaluation.frameStack.top!.operandStack.push(undefined)
   },
 
   fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
         PUSH(closure.id),
         PUSH(id),
@@ -53,7 +53,7 @@ const Collections: Natives = {
   filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       PUSH(self.id),
       CALL('copy', 0),
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
@@ -71,7 +71,7 @@ const Collections: Natives = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       PUSH(self.id),
       CALL('max', 0, true, self.module.fullyQualifiedName()),
       RETURN,
@@ -82,24 +82,24 @@ const Collections: Natives = {
     self.assertIsCollection()
 
     self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
-    evaluation.currentFrame()!.pushOperand(undefined)
+    evaluation.frameStack.top!.operandStack.push(undefined)
   },
 
   size: (self: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue.length))
+    evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue.length))
   },
 
   clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
     self.innerValue.splice(0, self.innerValue.length)
-    evaluation.currentFrame()!.pushOperand(undefined)
+    evaluation.frameStack.top!.operandStack.push(undefined)
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
       CALL('join', separator ? 1 : 0, true, self.module.fullyQualifiedName()),
@@ -108,7 +108,7 @@ const Collections: Natives = {
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.pushFrame(new Frame(new Context(self), [
+    evaluation.frameStack.push(new Frame(new Context(self), [
       PUSH(self.id),
       PUSH(value.id),
       CALL('contains', 1, true, self.module.fullyQualifiedName()),
@@ -138,12 +138,12 @@ const lang: Natives = {
   Object: {
 
     identity: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.id))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.id))
     },
 
     // TODO:
     instanceVariables: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.List', []))
+      evaluation.frameStack.top!.operandStack.push(evaluation.createInstance('wollok.lang.List', []))
     },
 
     // TODO:
@@ -157,11 +157,11 @@ const lang: Natives = {
     },
 
     kindName: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.module.fullyQualifiedName()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.module.fullyQualifiedName()))
     },
 
     className: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.module.fullyQualifiedName()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.module.fullyQualifiedName()))
     },
 
     generateDoesNotUnderstandMessage:
@@ -174,14 +174,14 @@ const lang: Natives = {
           const argsText = new Array(parametersSize.innerValue).fill(null).map((_, i) => `arg ${i}`)
           const text = `${target.innerValue} does not undersand ${messageName.innerValue}(${argsText})`
 
-          evaluation.currentFrame()!.pushOperand(evaluation.string(text))
+          evaluation.frameStack.top!.operandStack.push(evaluation.string(text))
         },
 
     checkNotNull: (_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       message.assertIsString()
 
       if (value.id === NULL_ID) throw new TypeError(message.innerValue)
-      else evaluation.currentFrame()!.pushOperand(undefined)
+      else evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
   },
@@ -195,7 +195,7 @@ const lang: Natives = {
     'anyOne': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.instance(self.innerValue[floor(random() * self.innerValue.length)]))
+      evaluation.frameStack.top!.operandStack.push(evaluation.instance(self.innerValue[floor(random() * self.innerValue.length)]))
     },
 
     'fold': Collections.fold,
@@ -207,7 +207,7 @@ const lang: Natives = {
     'findOrElse': Collections.findOrElse,
 
     'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         PUSH(element.id),
         CALL('contains', 1),
@@ -233,15 +233,15 @@ const lang: Natives = {
     'contains': Collections.contains,
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.module !== other.module) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
+      if (self.module !== other.module) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
 
       self.assertIsCollection()
       other.assertIsCollection()
 
-      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
-      if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(true))
+      if (self.innerValue.length !== other.innerValue.length) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
+      if (!self.innerValue.length) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(true))
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         ...[...self.innerValue].reverse().flatMap((id: Id) => [
           PUSH(other.id),
           PUSH(id),
@@ -266,15 +266,15 @@ const lang: Natives = {
 
       const valueId = self.innerValue[index.innerValue]
       if (!valueId) throw new RangeError('index')
-      evaluation.currentFrame()!.pushOperand(evaluation.instance(valueId))
+      evaluation.frameStack.top!.operandStack.push(evaluation.instance(valueId))
     },
 
     'sortBy': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      if (self.innerValue.length < 2) return evaluation.currentFrame()!.pushOperand(self)
+      if (self.innerValue.length < 2) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<lessers>', false),
@@ -337,14 +337,14 @@ const lang: Natives = {
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      if (self.module !== other.module) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
+      if (self.module !== other.module) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
 
       other.assertIsCollection()
 
-      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
-      if (!self.innerValue.length) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(true))
+      if (self.innerValue.length !== other.innerValue.length) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
+      if (!self.innerValue.length) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(true))
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('first', 0),
         PUSH(other.id),
@@ -367,7 +367,7 @@ const lang: Natives = {
     'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         CALL('newInstance', 0),
         STORE('<answer>', false),
@@ -393,14 +393,14 @@ const lang: Natives = {
       self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
       self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
 
-      evaluation.currentFrame()!.pushOperand(undefined)
+      evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
     put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
       if (key.id === NULL_ID) throw new TypeError('key')
       if (value.id === NULL_ID) throw new TypeError('value')
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         PUSH(key.id),
         CALL('remove', 1),
@@ -419,7 +419,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         ...keys.innerValue.flatMap((id, index) => [
           PUSH(key.id),
           PUSH(id),
@@ -440,7 +440,7 @@ const lang: Natives = {
 
       keys.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         ...keys.innerValue.flatMap((id, index) => {
           const valuesUpToIndex = index === 0
             ? [
@@ -477,11 +477,11 @@ const lang: Natives = {
     },
 
     keys: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(self.get('<keys>'))
+      evaluation.frameStack.top!.operandStack.push(self.get('<keys>'))
     },
 
     values: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(self.get('<values>'))
+      evaluation.frameStack.top!.operandStack.push(self.get('<values>'))
     },
 
     forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -494,7 +494,7 @@ const lang: Natives = {
       const keyList = [...keys.innerValue].reverse()
       const valueList = [...values.innerValue].reverse()
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         ...keyList.flatMap((key, index) => [
           PUSH(closure.id),
           PUSH(key),
@@ -510,7 +510,7 @@ const lang: Natives = {
       self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
       self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
 
-      evaluation.currentFrame()!.pushOperand(undefined)
+      evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
   },
@@ -526,7 +526,7 @@ const lang: Natives = {
         ? evaluation.number(Number(num.slice(0, decimalPosition + 1)))
         : self
 
-      evaluation.currentFrame()!.pushOperand(coerced)
+      evaluation.frameStack.top!.operandStack.push(coerced)
     },
 
     'coerceToPositiveInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -540,32 +540,32 @@ const lang: Natives = {
         ? evaluation.number(Number(num.slice(0, decimalPosition + 1)))
         : self
 
-      evaluation.currentFrame()!.pushOperand(coerced)
+      evaluation.frameStack.top!.operandStack.push(coerced)
     },
 
     '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue === other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue === other.innerValue))
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue + other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue + other.innerValue))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue - other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue - other.innerValue))
     },
 
     '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue * other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue * other.innerValue))
     },
 
     '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -573,52 +573,52 @@ const lang: Natives = {
       other.assertIsNumber()
       if (other.innerValue === 0) throw new RangeError('other')
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue / other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue / other.innerValue))
     },
 
     '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue ** other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue ** other.innerValue))
     },
 
     '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue % other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue % other.innerValue))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(`${self.innerValue}`))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(`${self.innerValue}`))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue > other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue > other.innerValue))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue < other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue < other.innerValue))
     },
 
     'abs': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
 
-      if (self.innerValue > 0) evaluation.currentFrame()!.pushOperand(self)
-      else evaluation.currentFrame()!.pushOperand(evaluation.number(-self.innerValue))
+      if (self.innerValue > 0) evaluation.frameStack.top!.operandStack.push(self)
+      else evaluation.frameStack.top!.operandStack.push(evaluation.number(-self.innerValue))
     },
 
     'invert': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(-self.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(-self.innerValue))
     },
 
     'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -626,7 +626,7 @@ const lang: Natives = {
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -640,14 +640,14 @@ const lang: Natives = {
         ? evaluation.number(Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
         : self
 
-      evaluation.currentFrame()!.pushOperand(truncated)
+      evaluation.frameStack.top!.operandStack.push(truncated)
     },
 
     'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(random() * (other.innerValue - self.innerValue) + self.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(random() * (other.innerValue - self.innerValue) + self.innerValue))
     },
 
     'gcd': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -656,13 +656,13 @@ const lang: Natives = {
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(gcd(self.innerValue, other.innerValue)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(gcd(self.innerValue, other.innerValue)))
     },
 
     'isInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue % 1 === 0))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue % 1 === 0))
     },
 
   },
@@ -673,27 +673,27 @@ const lang: Natives = {
     'length': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(self.innerValue.length))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(self.innerValue.length))
     },
 
     'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.innerValue + other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.innerValue + other.innerValue))
     },
 
     'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue.startsWith(other.innerValue)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue.startsWith(other.innerValue)))
     },
 
     'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue.endsWith(other.innerValue)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue.endsWith(other.innerValue)))
     },
 
     'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -704,7 +704,7 @@ const lang: Natives = {
 
       if (value < 0) throw new RangeError('other')
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(value))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(value))
     },
 
     'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -715,52 +715,52 @@ const lang: Natives = {
 
       if (value < 0) throw new RangeError('other')
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(value))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(value))
     },
 
     'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.innerValue.toLowerCase()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.innerValue.toLowerCase()))
     },
 
     'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.innerValue.toUpperCase()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.innerValue.toUpperCase()))
     },
 
     'trim': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.innerValue.trim()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.innerValue.trim()))
     },
 
     'reverse': (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self.innerValue.split('').reverse().join('')))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self.innerValue.split('').reverse().join('')))
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue < other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue < other.innerValue))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue > other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue > other.innerValue))
     },
 
     'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue.indexOf(other.innerValue) >= 0))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue.indexOf(other.innerValue) >= 0))
     },
 
     'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -776,7 +776,7 @@ const lang: Natives = {
       }
 
       const value = self.innerValue.substring(startIndex.innerValue, endIndex && endIndex.innerValue as number)
-      evaluation.currentFrame()!.pushOperand(evaluation.string(value))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(value))
     },
 
     'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -785,28 +785,28 @@ const lang: Natives = {
       replacement.assertIsString()
 
       const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
-      evaluation.currentFrame()!.pushOperand(evaluation.string(value))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(value))
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(self)
+      evaluation.frameStack.top!.operandStack.push(self)
     },
 
     'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(self)
+      evaluation.frameStack.top!.operandStack.push(self)
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self.innerValue === other.innerValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self.innerValue === other.innerValue))
     },
   },
 
   Boolean: {
 
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === evaluation.boolean(false)) return evaluation.currentFrame()!.pushOperand(self)
+      if (self === evaluation.boolean(false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -814,9 +814,9 @@ const lang: Natives = {
     },
 
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === evaluation.boolean(false)) return evaluation.currentFrame()!.pushOperand(self)
+      if (self === evaluation.boolean(false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -824,9 +824,9 @@ const lang: Natives = {
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === evaluation.boolean(true)) return evaluation.currentFrame()!.pushOperand(self)
+      if (self === evaluation.boolean(true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -834,9 +834,9 @@ const lang: Natives = {
     },
 
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === evaluation.boolean(true)) return evaluation.currentFrame()!.pushOperand(self)
+      if (self === evaluation.boolean(true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(closure.id),
         CALL('apply', 0),
         RETURN,
@@ -844,19 +844,19 @@ const lang: Natives = {
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self === evaluation.boolean(true) ? 'true' : 'false'))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self === evaluation.boolean(true) ? 'true' : 'false'))
     },
 
     'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.string(self === evaluation.boolean(true) ? 'true' : 'false'))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(self === evaluation.boolean(true) ? 'true' : 'false'))
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self === other))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self === other))
     },
 
     'negate': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(self === evaluation.boolean(false)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(self === evaluation.boolean(false)))
     },
   },
 
@@ -880,7 +880,7 @@ const lang: Natives = {
 
       const valueIds = values.map(v => evaluation.number(v).id).reverse()
 
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         ...valueIds.flatMap((id: Id) => [
           PUSH(closure.id),
           PUSH(id),
@@ -908,7 +908,7 @@ const lang: Natives = {
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
         for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(values[floor(random() * values.length)]))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(values[floor(random() * values.length)]))
     },
 
   },
@@ -916,7 +916,7 @@ const lang: Natives = {
   Closure: {
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame(new Frame(new Context(self), [
+      evaluation.frameStack.push(new Frame(new Context(self), [
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
         CALL('<apply>', args.length, false),
@@ -925,7 +925,7 @@ const lang: Natives = {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame()!.pushOperand(self.get('<toString>') ?? evaluation.string(`Closure#${self.id} `))
+      evaluation.frameStack.top!.operandStack.push(self.get('<toString>') ?? evaluation.string(`Closure#${self.id} `))
     },
 
   },
@@ -946,11 +946,11 @@ const lang: Natives = {
       if (!year || year.id === NULL_ID)
         self.set('year', evaluation.number(today.getFullYear()))
 
-      evaluation.currentFrame()!.pushOperand(undefined)
+      evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
     '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (other.module !== self.module) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
+      if (other.module !== self.module) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
 
       const day = self.get('day')!.innerValue
       const month = self.get('month')!.innerValue
@@ -962,7 +962,7 @@ const lang: Natives = {
 
       const answer = day === otherDay && month === otherMonth && year === otherYear
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(answer))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(answer))
     },
 
     'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -983,7 +983,7 @@ const lang: Natives = {
       instance.set('year', evaluation.number(value.getFullYear()))
 
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1007,7 +1007,7 @@ const lang: Natives = {
       instance.set('month', evaluation.number(value.getMonth() + 1))
       instance.set('year', evaluation.number(value.getFullYear()))
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1032,7 +1032,7 @@ const lang: Natives = {
       instance.set('month', evaluation.number(value.getMonth() + 1))
       instance.set('year', evaluation.number(value.getFullYear()))
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1041,7 +1041,7 @@ const lang: Natives = {
       year.assertIsNumber()
 
       const value = new Date(year.innerValue, 1, 29)
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(value.getDate() === 29))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(value.getDate() === 29))
     },
 
     'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1055,7 +1055,7 @@ const lang: Natives = {
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
 
-      evaluation.currentFrame()!.pushOperand(evaluation.number(value.getDay()))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(value.getDay()))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1080,7 +1080,7 @@ const lang: Natives = {
       const msPerDay = 1000 * 60 * 60 * 24
       const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
       const otherUTC = UTC(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
-      evaluation.currentFrame()!.pushOperand(evaluation.number(floor((ownUTC - otherUTC) / msPerDay)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.number(floor((ownUTC - otherUTC) / msPerDay)))
     },
 
     'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1100,7 +1100,7 @@ const lang: Natives = {
       instance.set('month', evaluation.number(value.getMonth() + 1))
       instance.set('year', evaluation.number(value.getFullYear()))
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1121,7 +1121,7 @@ const lang: Natives = {
       instance.set('year', evaluation.number(value.getFullYear()))
 
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1146,7 +1146,7 @@ const lang: Natives = {
       instance.set('month', evaluation.number(value.getMonth() + 1))
       instance.set('year', evaluation.number(value.getFullYear()))
 
-      evaluation.currentFrame()!.pushOperand(instance)
+      evaluation.frameStack.top!.operandStack.push(instance)
     },
 
     '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1171,7 +1171,7 @@ const lang: Natives = {
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(value < otherValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(value < otherValue))
     },
 
     '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1196,7 +1196,7 @@ const lang: Natives = {
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
 
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(value > otherValue))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(value > otherValue))
     },
 
     'shortDescription': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -1204,7 +1204,7 @@ const lang: Natives = {
       const month: RuntimeObject = self.get('month')!
       const year: RuntimeObject = self.get('year')!
 
-      evaluation.currentFrame()!.pushOperand(evaluation.string(`${month.innerValue}/${day.innerValue}/${year.innerValue}`))
+      evaluation.frameStack.top!.operandStack.push(evaluation.string(`${month.innerValue}/${day.innerValue}/${year.innerValue}`))
     },
 
   },

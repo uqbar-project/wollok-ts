@@ -6,11 +6,11 @@ import natives from './wre.natives'
 const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
 
 const returnVoid = (evaluation: Evaluation) => {
-  evaluation.currentFrame()!.pushOperand(undefined)
+  evaluation.frameStack.top!.operandStack.push(undefined)
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.currentFrame()!.pushOperand(self.get(key))
+  evaluation.frameStack.top!.operandStack.push(self.get(key))
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -44,7 +44,7 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = evaluation.instance(id).get('position')
   if (position) return position
   const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-  const currentFrame = evaluation.currentFrame()!
+  const currentFrame = evaluation.frameStack.top!
   sendMessage('position', id)(evaluation)
   return currentFrame.operandStack.pop()
 }
@@ -123,32 +123,32 @@ const game: Natives = {
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
+      if (!visuals) return evaluation.frameStack.top!.operandStack.push(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue)
-      evaluation.currentFrame()!.pushOperand(result)
+      evaluation.frameStack.top!.operandStack.push(result)
     },
 
     hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame()!.pushOperand(evaluation.boolean(false))
+      if (!visuals) return evaluation.frameStack.top!.operandStack.push(evaluation.boolean(false))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      evaluation.currentFrame()!.pushOperand(evaluation.boolean(currentVisuals.innerValue.includes(visual.id)))
+      evaluation.frameStack.top!.operandStack.push(evaluation.boolean(currentVisuals.innerValue.includes(visual.id)))
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
+      if (!visuals) return evaluation.frameStack.top!.operandStack.push(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = newList(evaluation, ...currentVisuals.innerValue.filter(samePosition(evaluation, position)))
-      evaluation.currentFrame()!.pushOperand(result)
+      evaluation.frameStack.top!.operandStack.push(result)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
-      const currentFrame = evaluation.currentFrame()!
+      const currentFrame = evaluation.frameStack.top!
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
       sendMessage('currentTime', io(evaluation))(evaluation)
       const currentTime: RuntimeObject = currentFrame.operandStack.pop()!
@@ -168,7 +168,7 @@ const game: Natives = {
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       checkNotNull(visual, 'visual')
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame()!.pushOperand(newList(evaluation))
+      if (!visuals) return evaluation.frameStack.top!.operandStack.push(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const position = getPosition(visual.id)(evaluation)!
@@ -176,7 +176,7 @@ const game: Natives = {
         .filter(samePosition(evaluation, position))
         .filter(id => id !== visual.id)
       )
-      evaluation.currentFrame()!.pushOperand(result)
+      evaluation.frameStack.top!.operandStack.push(result)
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),

@@ -53,7 +53,7 @@ describe(basename(ARGUMENTS.root), () => {
   time('Initializing Evaluation')
   const baseEvaluation = buildEvaluation()
   stepAll(baseEvaluation)
-  baseEvaluation.popFrame()
+  baseEvaluation.frameStack.pop()
 
   timeEnd('Initializing Evaluation')
 

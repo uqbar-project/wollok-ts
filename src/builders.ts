@@ -1,5 +1,5 @@
 import { mapObject, last } from './extensions'
-import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType } from './interpreter'
+import { Context, Evaluation as EvaluationType, Frame as FrameType, RuntimeObject as RuntimeObjectType, Stack, MAX_FRAME_STACK_SIZE } from './interpreter'
 import * as Model from './model'
 import { Source, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Filled, Fixture as FixtureNode, Id, If as IfNode, Import as ImportNode, isNode, Linked, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Payload, Program as ProgramNode, Raw, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Category, Kind } from './model'
 
@@ -295,7 +295,7 @@ export const Evaluation = (
   const evaluation = new EvaluationType(
     environment,
     new Context(),
-    [...frameStack].reverse(),
+    new Stack(MAX_FRAME_STACK_SIZE, [...frameStack].reverse()),
     new Map(Object.values(instances).map(instance => [instance.id, instance])),
   )
 

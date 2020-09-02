@@ -36,7 +36,12 @@ const LAZY_ID = '<lazy>'
 
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
-export const MAX_STACK_SIZE = 1000
+export const MAX_FRAME_STACK_SIZE = 1000
+export const MAX_OPERAND_STACK_SIZE = 10000
+
+export class WollokError extends Error {
+  constructor(readonly moduleFQN: Name) { super(moduleFQN) }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // RUNTIME
@@ -45,7 +50,6 @@ export const MAX_STACK_SIZE = 1000
 // TODO: Implement single argument constructors instead ?
 // TODO: Do all these fields still need to be an argument in the constructor ?
 // TODO: Can some of the evaluation operations be delegated better?
-// TODO: Should we parameterize the evaluation in the behavior of RuntimeObjects instead?
 
 export class Evaluation {
 
@@ -65,7 +69,7 @@ export class Evaluation {
       rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, LAZY_ID))
 
 
-    evaluation.pushFrame(new Frame(rootContext, [
+    evaluation.frameStack.push(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
         if (singleton.supercallArgs.some(is('NamedArgument'))) {
           const args = singleton.supercallArgs as List<NamedArgument>
@@ -93,7 +97,7 @@ export class Evaluation {
   constructor(
     readonly environment: Environment,
     readonly rootContext: Context,
-    protected readonly frameStack: Frame[] = [],
+    readonly frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
     protected readonly instances: Map<Id, RuntimeObject> = new Map(),
     protected readonly code: Map<Id, List<Instruction>> = new Map(),
   ){ }
@@ -123,6 +127,7 @@ export class Evaluation {
     }
 
     const copiedInstances = new Map<Id, RuntimeObject>()
+    // TODO: instead of copy methods make these overloaded constructors that take an Instance and the caché?
     function copyInstance(instance: RuntimeObject): RuntimeObject
     function copyInstance(instance: RuntimeObject | undefined): RuntimeObject | undefined
     function copyInstance(instance: RuntimeObject | undefined) {
@@ -146,13 +151,12 @@ export class Evaluation {
       return copy
     }
 
-    const copyFrame = (frame: Frame): Frame => {
+    function copyFrame(frame: Frame): Frame {
       return new Frame(
         copyContext(frame.context),
         frame.instructions,
         frame.nextInstruction,
         frame.operandStack.map(operand => copyInstance(operand)),
-        frame.id,
       )
     }
 
@@ -165,6 +169,7 @@ export class Evaluation {
     )
   }
 
+  // TODO: move this out of evaluation and use @cache instead of code attribute?
   codeFor(node: Node): List<Instruction> {
     if(!this.code.has(node.id)) {
       const compileSentences = compile(this.environment)
@@ -256,7 +261,7 @@ export class Evaluation {
       throw new TypeError(`Can't manually create instances of ${moduleFQN}`)
 
     const instance = new RuntimeObject(
-      this.currentFrame()?.context ?? this.rootContext,
+      this.frameStack.top?.context ?? this.rootContext,
       this.environment.getNodeByFQN(moduleFQN),
       id,
       undefined,
@@ -271,76 +276,83 @@ export class Evaluation {
 
   listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // STACK MANIPULATION
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-  currentFrame(): Frame | undefined { return last(this.frameStack) } // TODO: Make it non optional and throw if not?
-
-  baseFrame(): Frame { return this.frameStack[0] }
-
-  stackDepth(): number { return this.frameStack.length }
-
-  listFrames(): List<Frame> { return this.frameStack }
-
-  pushFrame(frame: Frame): void {
-    if (this.frameStack.length >= MAX_STACK_SIZE)
-      return this.raise(this.createInstance('wollok.lang.StackOverflowException'))
-    this.frameStack.push(frame)
-  }
-
-  popFrame(): Frame | undefined { return this.frameStack.pop() }
-
-  raise(exception: RuntimeObject): void{
-    let currentContext = this.currentFrame()?.context ?? this.rootContext // TODO: evaluation.currentContext()?
+  raise(exception: RuntimeObject): void {
+    let currentContext = this.frameStack.top?.context ?? this.rootContext // TODO: evaluation.currentContext()?
 
     const visited = []
 
     while (currentContext.exceptionHandlerIndex === undefined) {
-      const currentFrame = this.currentFrame()
+      const currentFrame = this.frameStack.top
 
       if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
 
-      if (currentFrame.context.id === currentFrame.id) {
+      if (currentFrame.context === currentFrame.baseContext) {
         this.frameStack.pop()
-        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
+        if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
       } else {
-        if (!currentContext.parent) throw new Error(`Reached the root context ${currentContext.id} before reaching the current frame ${currentFrame.id}. This should not happen!`)
+        if (!currentContext.parent) throw new Error(`Reached the root context ${currentContext.id} before reaching the current frame. This should not happen!`)
         currentFrame.context = currentContext.parent
       }
 
-      currentContext = this.currentFrame()!.context
+      currentContext = this.frameStack.top!.context
       visited.push(currentContext)
     }
 
     if (!currentContext.parent) throw new Error('Popped root context')
-    if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+    if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
 
-    this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
-    this.currentFrame()!.context = currentContext.parent
-    this.currentFrame()!.context.set('<exception>', exception)
+    this.frameStack.top!.nextInstruction = currentContext.exceptionHandlerIndex!
+    this.frameStack.top!.context = currentContext.parent
+    this.frameStack.top!.context.set('<exception>', exception)
   }
 
 }
 
 
-export class Frame {
+export class Stack<T> {
   constructor(
-    public context: Context, // TODO: receive parent context instead
+    protected readonly maxSize: number,
+    protected readonly elements: T[] = [],
+  ) { }
+
+  get depth(): number { return this.elements.length }
+
+  get top(): T | undefined { return last(this.elements) }
+
+  *[Symbol.iterator](): Iterator<T> { yield* this.elements }
+
+  isEmpty(): boolean { return !this.elements.length }
+
+  forEach(f: (element: T) => void): void { this.elements.forEach(f) }
+
+  map<U>(tx: (element: T) => U): Stack<U> { return new Stack(this.maxSize, this.elements.map(tx)) }
+
+  unshift(element: T): void {
+    if (this.maxSize! <= this.elements.length) throw new WollokError('wollok.lang.StackOverflowException')
+    this.elements.unshift(element)
+  }
+
+  push(element: T): void {
+    if (this.maxSize! <= this.elements.length) throw new WollokError('wollok.lang.StackOverflowException')
+    this.elements.push(element)
+  }
+
+  pop(): T {
+    if (!this.elements.length) throw new Error('Stack underflow')
+    return this.elements.pop()!
+  }
+}
+
+
+export class Frame {
+  public context: Context
+
+  constructor(
+    public baseContext: Context, // TODO: receive parent context instead
     readonly instructions: List<Instruction>,
     public nextInstruction: number = 0,
-    public operandStack: Array<RuntimeObject | undefined> = [],
-    public id: Id = context.id, // TODO: Is this still necesary?
-  ){ }
-
-  popOperand(): RuntimeObject | undefined {
-    if (!this.operandStack.length) throw new RangeError('Popped empty operand stack')
-    return this.operandStack.pop()
-  }
-
-  pushOperand(operand: RuntimeObject | undefined): void {
-    this.operandStack.push(operand)
-  }
+    public operandStack = new Stack<RuntimeObject | undefined>(MAX_OPERAND_STACK_SIZE),
+  ){ this.context = baseContext }
 
 }
 
@@ -446,7 +458,7 @@ const compileExpressionClause = (environment: Environment) => ({ sentences }: Bo
     ...index < sentences.length - 1 ? [POP] : [],
   ]) : [PUSH(VOID_ID)]
 
-export const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
+const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => node.match({
     Variable: node => [
       ...compile(environment)(node.value),
@@ -665,7 +677,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
 export const step = (natives: Natives) => (evaluation: Evaluation): void => {
   const { environment } = evaluation
 
-  const currentFrame = evaluation.currentFrame()
+  const currentFrame = evaluation.frameStack.top
   if (!currentFrame) throw new Error('Reached end of frame stack')
 
   const instruction = currentFrame.instructions[currentFrame.nextInstruction]
@@ -681,11 +693,11 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const value = currentFrame.context.get(instruction.name)
 
         // TODO: should add tests for the lazy load and store
-        if (value?.id !== LAZY_ID) currentFrame.pushOperand(value)
+        if (value?.id !== LAZY_ID) currentFrame.operandStack.push(value)
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          evaluation.pushFrame(new Frame(
+          evaluation.frameStack.push(new Frame(
             currentFrame.context,
             [
               ...instruction.lazyInitialization,
@@ -698,7 +710,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'STORE': return (() => {
-        const value = currentFrame.popOperand()
+        const value = currentFrame.operandStack.pop()
         const currentContext = currentFrame.context
 
         let context: Context | undefined = currentContext
@@ -713,12 +725,12 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'PUSH': return (() => {
-        currentFrame.pushOperand(instruction.id === VOID_ID ? undefined : evaluation.instance(instruction.id))
+        currentFrame.operandStack.push(instruction.id === VOID_ID ? undefined : evaluation.instance(instruction.id))
       })()
 
 
       case 'POP': return (() => {
-        currentFrame.popOperand()
+        currentFrame.operandStack.pop()
       })()
 
 
@@ -743,18 +755,18 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'SWAP': return (() => {
-        const a = currentFrame.popOperand()
-        const bs = new Array(instruction.distance).fill(null).map(() => currentFrame.popOperand()).reverse()
-        const c = currentFrame.popOperand()
-        currentFrame.pushOperand(a)
-        bs.forEach(b => currentFrame.pushOperand(b))
-        currentFrame.pushOperand(c)
+        const a = currentFrame.operandStack.pop()
+        const bs = new Array(instruction.distance).fill(null).map(() => currentFrame.operandStack.pop()).reverse()
+        const c = currentFrame.operandStack.pop()
+        currentFrame.operandStack.push(a)
+        bs.forEach(b => currentFrame.operandStack.push(b))
+        currentFrame.operandStack.push(c)
       })()
 
       case 'DUP': return (() => {
-        const a = currentFrame.popOperand()
-        currentFrame.pushOperand(a)
-        currentFrame.pushOperand(a)
+        const a = currentFrame.operandStack.pop()
+        currentFrame.operandStack.push(a)
+        currentFrame.operandStack.push(a)
       })()
 
       case 'INSTANTIATE': return (() => {
@@ -762,13 +774,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           instruction.module === 'wollok.lang.String' ? evaluation.string(`${instruction.innerValue}`) :
           instruction.module === 'wollok.lang.Number' ? evaluation.number(Number(instruction.innerValue)) :
           evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
-        currentFrame.pushOperand(instance)
+        currentFrame.operandStack.push(instance)
       })()
 
       case 'INHERITS': return (() => {
-        const self = currentFrame.popOperand()!
+        const self = currentFrame.operandStack.pop()!
         const inherits = self.module.inherits(environment.getNodeByFQN(instruction.module))
-        currentFrame.pushOperand(evaluation.boolean(inherits))
+        currentFrame.operandStack.push(evaluation.boolean(inherits))
       })()
 
       case 'JUMP': return (() => {
@@ -779,7 +791,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       })()
 
       case 'CONDITIONAL_JUMP': return (() => {
-        const check = currentFrame.popOperand()
+        const check = currentFrame.operandStack.pop()
 
         if (check?.id !== TRUE_ID && check?.id !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
         if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
@@ -790,9 +802,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'CALL': return (() => {
-        const args = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()!).reverse()
+        const args = Array.from({ length: instruction.arity }, () => currentFrame.operandStack.pop()!).reverse()
         const argIds = args.map(({ id }) => id)
-        const self = currentFrame.popOperand()!
+        const self = currentFrame.operandStack.pop()!
 
         let lookupStart: Module
         if (instruction.lookupStart) {
@@ -813,7 +825,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             evaluation.createInstance('wollok.lang.List', argIds),
           ]
 
-          evaluation.pushFrame(new Frame(
+          evaluation.frameStack.push(new Frame(
             new Context(self, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]]))),
             evaluation.codeFor(messageNotUnderstood)
           ))
@@ -838,7 +850,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
               : method.parameters.map(({ name }, index) => [name, args[index]])
             )
 
-            evaluation.pushFrame(new Frame(
+            evaluation.frameStack.push(new Frame(
               new Context(instruction.useReceiverContext ? self : self.parent, locals),
               evaluation.codeFor(method)
             ))
@@ -848,14 +860,14 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'INIT': return (() => {
-        const self = currentFrame.popOperand()!
-        const args = Array.from({ length: instruction.arity }, () => currentFrame.popOperand()!).reverse()
+        const self = currentFrame.operandStack.pop()!
+        const args = Array.from({ length: instruction.arity }, () => currentFrame.operandStack.pop()!).reverse()
         const argIds = args.map(({ id }) => id)
         const lookupStart: Class = environment.getNodeByFQN(instruction.lookupStart)
         const constructor = lookupStart.lookupConstructor(instruction.arity)
 
         if (!constructor) {
-          if (instruction.optional) return evaluation.currentFrame()?.pushOperand(self)
+          if (instruction.optional) return evaluation.frameStack.top?.operandStack.push(self)
           else throw new Error(`Missing constructor/${instruction.arity} on ${lookupStart.fullyQualifiedName()}`)
         }
 
@@ -867,14 +879,14 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           : constructor.parameters.map(({ name }, index) => [name, args[index]])
         )
 
-        evaluation.pushFrame(new Frame(
+        evaluation.frameStack.push(new Frame(
           new Context(self, locals),
           evaluation.codeFor(constructor)
         ))
       })()
 
       case 'INIT_NAMED': return (() => {
-        const self = currentFrame.popOperand()!
+        const self = currentFrame.operandStack.pop()!
 
         const fields = self.module.hierarchy().flatMap(module => module.fields())
 
@@ -882,9 +894,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           self.set(field.name, undefined)
 
         for (const name of [...instruction.argumentNames].reverse())
-          self.set(name, currentFrame.popOperand())
+          self.set(name, currentFrame.operandStack.pop())
 
-        evaluation.pushFrame(new Frame(
+        evaluation.frameStack.push(new Frame(
           self,
           [
             ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
@@ -898,27 +910,29 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'INTERRUPT': return (() => {
-        const exception = currentFrame.popOperand()!
+        const exception = currentFrame.operandStack.pop()!
         evaluation.raise(exception)
       })()
 
       case 'RETURN': return (() => {
-        const valueId = currentFrame.popOperand()
-        evaluation.popFrame()
+        const valueId = currentFrame.operandStack.pop()
+        evaluation.frameStack.pop()
 
-        const next = evaluation.currentFrame()
+        const next = evaluation.frameStack.top
 
         if (!next) throw new Error('Returning from last frame')
 
-        next.pushOperand(valueId)
+        next.operandStack.push(valueId)
       })()
 
     }
   } catch (error) {
     log.error(error)
-    if (evaluation.currentFrame())
-      evaluation.raise(evaluation.createInstance('wollok.lang.EvaluationError', error))
-    else throw error
+    if (!evaluation.frameStack.isEmpty()) {
+      evaluation.raise(evaluation.createInstance(
+        error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
+      ))
+    } else throw error
   }
 
 }
@@ -927,7 +941,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
   const takeStep = step(natives)
   // TODO: add done() message to check instructions pending
-  while (evaluation.currentFrame()!.nextInstruction < evaluation.currentFrame()!.instructions.length) {
+  while (evaluation.frameStack.top!.nextInstruction < evaluation.frameStack.top!.instructions.length) {
     log.step(evaluation)
     takeStep(evaluation)
   }
@@ -941,15 +955,15 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
-  evaluation.pushFrame(new Frame(
-    new Context(evaluation.currentFrame()?.context ?? evaluation.rootContext),
+  evaluation.frameStack.push(new Frame(
+    new Context(evaluation.frameStack.top?.context ?? evaluation.rootContext),
     instructions
   ))
 
   stepAll(natives)(evaluation)
 
-  const currentFrame = evaluation.popFrame()!
-  return currentFrame.operandStack.length ? currentFrame.popOperand() : undefined
+  const currentFrame = evaluation.frameStack.pop()!
+  return currentFrame.operandStack.isEmpty ? undefined : currentFrame.operandStack.pop()
 }
 
 export interface TestResult {
@@ -965,7 +979,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
     const describe = test.parent() as Describe
     const describeInstance = evaluation.createInstance(describe.fullyQualifiedName())
 
-    evaluation.pushFrame(new Frame(describeInstance, compile(evaluation.environment)(
+    evaluation.frameStack.push(new Frame(describeInstance, compile(evaluation.environment)(
       ...describe.variables(),
       ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
     )))
@@ -1011,7 +1025,7 @@ const garbageCollect = (evaluation: Evaluation) => {
   const marked = new Set<Context>()
   const pending = [
     evaluation.rootContext,
-    ... evaluation.listFrames().flatMap(({ operandStack, context, instructions }) => [
+    ...[...evaluation.frameStack].flatMap(({ operandStack, context, instructions }) => [
       context,
       ...operandStack,
       ...extractIdsFromInstructions(instructions).map(id => evaluation.instance(id)),
@@ -1048,11 +1062,12 @@ export default (environment: Environment, natives: Natives) => ({
 
   stepAll: stepAll(natives),
 
+  // TODO: stepThrough
   sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
     const takeStep = step(natives)
-    const initialFrameCount = evaluation.stackDepth()
+    const initialFrameCount = evaluation.frameStack.depth
 
-    evaluation.pushFrame(new Frame(
+    evaluation.frameStack.push(new Frame(
       new Context(evaluation.instance(receiver)),
       [
         PUSH(receiver),
@@ -1064,7 +1079,7 @@ export default (environment: Environment, natives: Natives) => ({
     // TODO: stepAll?
     do {
       takeStep(evaluation)
-    } while (evaluation.stackDepth() > initialFrameCount)
+    } while (evaluation.frameStack.depth > initialFrameCount)
   },
 
   runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
@@ -1086,7 +1101,7 @@ export default (environment: Environment, natives: Natives) => ({
     log.start('Initializing Evaluation')
     const evaluation = Evaluation.of(environment)
     stepAll(natives)(evaluation)
-    evaluation.popFrame()
+    evaluation.frameStack.pop()
     log.done('Initializing Evaluation')
 
     garbageCollect(evaluation)
