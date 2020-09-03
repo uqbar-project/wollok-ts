@@ -311,7 +311,6 @@ export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | num
   new RuntimeObjectType(
     undefined as any,
     undefined as any,
-    id,
-    undefined as any,
     innerValue,
+    id,
   )

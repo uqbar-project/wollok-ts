@@ -81,7 +81,9 @@ const Collections: Natives = {
   remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    self.innerValue = self.innerValue.filter((id: Id) => id !== element.id)
+    for(let index = 0; index < self.innerValue.length; index++)
+      if ( self.innerValue[index] === element.id) self.innerValue.splice(index--, 1)
+
     evaluation.frameStack.top!.operandStack.push(undefined)
   },
 

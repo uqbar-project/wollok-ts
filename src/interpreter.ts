@@ -67,7 +67,7 @@ export class Evaluation {
     for (const module of globalSingletons)
       rootContext.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
     for (const constant of globalConstants)
-      rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, LAZY_ID))
+      rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, undefined, LAZY_ID))
 
 
     evaluation.frameStack.push(new Frame(rootContext, [
@@ -175,10 +175,10 @@ export class Evaluation {
     const instance = new RuntimeObject(
       this.rootContext,
       this.environment.getNodeByFQN('wollok.lang.Number'),
-      id,
-      undefined,
       Number(stringValue),
+      id,
     )
+
     this.instances.set(instance.id, instance)
 
     return instance
@@ -193,15 +193,16 @@ export class Evaluation {
     const instance = new RuntimeObject(
       this.rootContext,
       this.environment.getNodeByFQN('wollok.lang.String'),
-      id,
-      undefined,
       value,
+      id,
     )
+
     this.instances.set(instance.id, instance)
 
     return instance
   }
 
+  // TODO: Replace with addInstance(new RuntimeObject(...))
   createInstance(moduleFQN: Name, innerValue?: InnerValue, id: Id = uuid()): RuntimeObject {
     if(moduleFQN === 'wollok.lang.Number' || moduleFQN === 'wollok.lang.String')
       throw new TypeError(`Can't manually create instances of ${moduleFQN}`)
@@ -209,9 +210,8 @@ export class Evaluation {
     const instance = new RuntimeObject(
       this.frameStack.top?.context ?? this.rootContext,
       this.environment.getNodeByFQN(moduleFQN),
-      id,
-      undefined,
       innerValue,
+      id,
     )
     this.instances.set(id, instance)
 
@@ -238,11 +238,11 @@ export class Evaluation {
     }
 
     if (!currentContext.parent) throw new Error('Popped root context')
-    if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+    if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
 
-    this.frameStack.top!.jumpTo(currentContext.exceptionHandlerIndex!)
-    this.frameStack.top!.context = currentContext.parent
-    this.frameStack.top!.context.set('<exception>', exception)
+    this.frameStack.top.jumpTo(currentContext.exceptionHandlerIndex!)
+    this.frameStack.top.context = currentContext.parent
+    this.frameStack.top.context.set('<exception>', exception)
   }
 
 }
@@ -310,9 +310,11 @@ export class Frame {
 
 
   constructor(parentContext: Context, instructions: List<Instruction>, locals: Locals = new Map()){
-    this.baseContext = new Context(parentContext, locals)
+    this.baseContext = new Context(parentContext)
     this.context = this.baseContext
     this.instructions = instructions
+
+    locals.forEach((instance, name) => this.baseContext.set(name, instance))
   }
 
 
@@ -345,6 +347,11 @@ export class Frame {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Context {
+  readonly id: Id
+  readonly parent?: Context
+  readonly locals: Locals = new Map()
+  readonly exceptionHandlerIndex?: number // TODO: Exclusive of Block Context?
+
 
   static copy(context: Context, cache: Map<Id, any>): Context
   static copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
@@ -356,7 +363,6 @@ export class Context {
 
     const copy = new Context(
       Context.copy(context.parent, cache),
-      new Map(),
       context.exceptionHandlerIndex,
       context.id,
     )
@@ -368,12 +374,13 @@ export class Context {
     return copy
   }
 
-  constructor(
-    readonly parent?: Context,
-    readonly locals: Locals = new Map(),
-    readonly exceptionHandlerIndex?: number, // TODO: Exclusive of Block Context?
-    readonly id: Id = uuid(),
-  ){ }
+
+  constructor(parent?: Context, exceptionHandlerIndex?: number, id: Id = uuid()){
+    this.parent = parent
+    this.exceptionHandlerIndex = exceptionHandlerIndex
+    this.id = id
+  }
+
 
   get(local: Name): RuntimeObject | undefined {
     return this.locals.get(local) ?? this.parent?.get(local)
@@ -388,6 +395,10 @@ export class Context {
 export type InnerValue = string | number | Id[]
 
 export class RuntimeObject extends Context {
+  readonly parent!: Context
+  readonly module: Module
+  readonly innerValue?: InnerValue
+
 
   static copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
   static copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
@@ -400,9 +411,8 @@ export class RuntimeObject extends Context {
     const copy = new RuntimeObject(
       Context.copy(instance.parent, cache),
       instance.module,
+      isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
       instance.id,
-      new Map(),
-      isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue
     )
 
     cache.set(instance.id, copy)
@@ -412,20 +422,23 @@ export class RuntimeObject extends Context {
     return copy
   }
 
-  constructor(
-    readonly parent: Context,
-    readonly module: Module,
-    id?: Id,
-    locals: Locals = new Map(),
-    public innerValue?: InnerValue
-  ) {
-    super(parent, locals, undefined, id)
-    locals.set('self', this)
+
+  constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
+    super(parent, undefined, id)
+
+    this.module = module
+    this.innerValue = innerValue
+
+    this.locals.set('self', this)
   }
 
+
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
+
   assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
+
   assertIsBoolean(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.Boolean', 'boolean') }
+
   assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] } {
     if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
       throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
@@ -761,7 +774,6 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       case 'PUSH_CONTEXT': return (() => {
         currentFrame.context = new Context(
           currentFrame.context,
-          undefined,
           instruction.exceptionHandlerIndexDelta
             ? currentFrame.nextInstructionIndex + instruction.exceptionHandlerIndexDelta
             : undefined
@@ -771,9 +783,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
       case 'POP_CONTEXT': return (() => {
         const next = currentFrame.context.parent
-
         if (!next) throw new Error('Popped root context')
-
         currentFrame.context = next
       })()
 

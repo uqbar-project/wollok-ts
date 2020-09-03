@@ -96,9 +96,8 @@ const game: Natives = {
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
       if (visuals) {
-        const currentVisuals: RuntimeObject = visuals
-        currentVisuals.assertIsCollection()
-        currentVisuals.innerValue = currentVisuals.innerValue.filter((id: Id) => id !== visual.id)
+        const { sendMessage } = interpret(evaluation.environment, natives as Natives)
+        sendMessage('remove', visuals.id, visual.id)(evaluation)
       }
       returnVoid(evaluation)
     },
