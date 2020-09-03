@@ -1,6 +1,6 @@
 import chalk from 'chalk'
 import { last } from './extensions'
-import { Evaluation, Instruction, VOID_ID } from './interpreter'
+import { Evaluation, Instruction, VOID_ID, RuntimeObject } from './interpreter'
 import { Id, Name } from './model'
 
 const columns = (process.stdout && process.stdout.columns) || 80
@@ -52,7 +52,12 @@ const logger: Logger = {
 const hr = (size: number = columns) => '─'.repeat(size)
 
 const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
-  const instance = id === VOID_ID ? undefined : evaluation.instance(id)
+  let instance: RuntimeObject | undefined
+  try {
+    instance = evaluation.instance(id)
+  } catch (e) {
+    // Ignore
+  }
   const module = instance ? stringifyModule(evaluation)(instance.module.fullyQualifiedName()) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
@@ -101,8 +106,8 @@ const consoleLogger: Logger = {
     : `${hr()}`)),
 
   step: evaluation => {
-    const { instructions, nextInstruction, operandStack } = evaluation.frameStack.top!
-    const instruction = instructions[nextInstruction]
+    const { instructions, nextInstructionIndex, operandStack } = evaluation.frameStack.top!
+    const instruction = instructions[nextInstructionIndex]
 
     const stepTabulation = evaluation.frameStack.depth - 1
 

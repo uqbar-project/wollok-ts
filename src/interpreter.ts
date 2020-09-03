@@ -1,6 +1,6 @@
 import { last, zipObj } from './extensions'
 import log from './log'
-import { is, Node, Body, Class, Describe, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton } from './model'
+import { is, Node, Body, Class, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field } from './model'
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
@@ -22,11 +22,12 @@ import { v4 as uuid } from 'uuid'
 
 const { round } = Math
 const { isArray } = Array
+const { assign } = Object
 
 export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
-export interface Natives {
-  [name: string]: NativeFunction | Natives
-}
+export interface Natives { [name: string]: NativeFunction | Natives }
+
+export type Locals = Map<Name, RuntimeObject | undefined>
 
 export const NULL_ID = 'null'
 export const VOID_ID = 'void'
@@ -103,68 +104,13 @@ export class Evaluation {
   ){ }
 
   copy(): Evaluation {
-    const copiedContexts = new Map<Id, Context>()
-    function copyContext(context: Context): Context
-    function copyContext(context: Context | undefined): Context | undefined
-    function copyContext(context: Context | undefined) {
-      if(!context) return undefined
-
-      const copied = copiedContexts.get(context.id)
-      if(copied) return copied
-
-      const copy = new Context(
-        copyContext(context.parent),
-        new Map(),
-        context.exceptionHandlerIndex,
-        context.id,
-      )
-
-      copiedContexts.set(context.id, copy)
-
-      context.locals.forEach((local, name) => copy.locals.set(name, copyInstance(local)))
-
-      return copy
-    }
-
-    const copiedInstances = new Map<Id, RuntimeObject>()
-    // TODO: instead of copy methods make these overloaded constructors that take an Instance and the caché?
-    function copyInstance(instance: RuntimeObject): RuntimeObject
-    function copyInstance(instance: RuntimeObject | undefined): RuntimeObject | undefined
-    function copyInstance(instance: RuntimeObject | undefined) {
-      if(!instance) return undefined
-
-      const copied = copiedInstances.get(instance.id)
-      if(copied) return copied
-
-      const copy = new RuntimeObject(
-        copyContext(instance.parent),
-        instance.module,
-        instance.id,
-        new Map(),
-        isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue
-      )
-
-      copiedInstances.set(instance.id, copy)
-
-      instance.locals.forEach((local, name) => copy.locals.set(name, copyInstance(local)))
-
-      return copy
-    }
-
-    function copyFrame(frame: Frame): Frame {
-      return new Frame(
-        copyContext(frame.context),
-        frame.instructions,
-        frame.nextInstruction,
-        frame.operandStack.map(operand => copyInstance(operand)),
-      )
-    }
+    const cache = new Map<Id, any>()
 
     return new Evaluation(
       this.environment,
-      copyContext(this.rootContext),
-      this.frameStack.map(copyFrame),
-      new Map([...this.instances.entries()].map(([name, instance]) => [name, copyInstance(instance)])),
+      Context.copy(this.rootContext, cache),
+      this.frameStack.map(frame => Frame.copy(frame, cache)),
+      new Map([...this.instances.entries()].map(([name, instance]) => [name, RuntimeObject.copy(instance, cache)])),
       this.code
     )
   }
@@ -277,31 +223,24 @@ export class Evaluation {
   listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
 
   raise(exception: RuntimeObject): void {
-    let currentContext = this.frameStack.top?.context ?? this.rootContext // TODO: evaluation.currentContext()?
+    let currentContext = this.frameStack.top?.context
 
-    const visited = []
-
-    while (currentContext.exceptionHandlerIndex === undefined) {
+    while (currentContext?.exceptionHandlerIndex === undefined) {
       const currentFrame = this.frameStack.top
 
-      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
+      if (!currentContext || !currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
 
-      if (currentFrame.context === currentFrame.baseContext) {
-        this.frameStack.pop()
-        if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
-      } else {
-        if (!currentContext.parent) throw new Error(`Reached the root context ${currentContext.id} before reaching the current frame. This should not happen!`)
-        currentFrame.context = currentContext.parent
-      }
+      if (currentFrame.hasNestedContext()) {
+        currentFrame.context = currentContext.parent!
+      } else this.frameStack.pop()
 
-      currentContext = this.frameStack.top!.context
-      visited.push(currentContext)
+      currentContext = this.frameStack.top?.context
     }
 
     if (!currentContext.parent) throw new Error('Popped root context')
     if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
 
-    this.frameStack.top!.nextInstruction = currentContext.exceptionHandlerIndex!
+    this.frameStack.top!.jumpTo(currentContext.exceptionHandlerIndex!)
     this.frameStack.top!.context = currentContext.parent
     this.frameStack.top!.context.set('<exception>', exception)
   }
@@ -327,14 +266,18 @@ export class Stack<T> {
 
   map<U>(tx: (element: T) => U): Stack<U> { return new Stack(this.maxSize, this.elements.map(tx)) }
 
-  unshift(element: T): void {
-    if (this.maxSize! <= this.elements.length) throw new WollokError('wollok.lang.StackOverflowException')
-    this.elements.unshift(element)
+  unshift(...elements: T[]): void {
+    if (this.maxSize! < this.elements.length + elements.length)
+      throw new WollokError('wollok.lang.StackOverflowException')
+
+    this.elements.unshift(...elements)
   }
 
-  push(element: T): void {
-    if (this.maxSize! <= this.elements.length) throw new WollokError('wollok.lang.StackOverflowException')
-    this.elements.push(element)
+  push(...elements: T[]): void {
+    if (this.maxSize! < this.elements.length + elements.length)
+      throw new WollokError('wollok.lang.StackOverflowException')
+
+    this.elements.push(...elements)
   }
 
   pop(): T {
@@ -346,13 +289,54 @@ export class Stack<T> {
 
 export class Frame {
   public context: Context
+  readonly operandStack = new Stack<RuntimeObject | undefined>(MAX_OPERAND_STACK_SIZE)
+  readonly instructions: List<Instruction>
+  protected pc = 0
+  protected readonly baseContext: Context
 
-  constructor(
-    public baseContext: Context, // TODO: receive parent context instead
-    readonly instructions: List<Instruction>,
-    public nextInstruction: number = 0,
-    public operandStack = new Stack<RuntimeObject | undefined>(MAX_OPERAND_STACK_SIZE),
-  ){ this.context = baseContext }
+
+  static copy(frame: Frame, cache: Map<Id, any>): Frame {
+    const copy = new Frame(
+      Context.copy(frame.context, cache),
+      frame.instructions,
+    )
+
+    assign(copy, { context: copy.context.parent, baseContext: copy.context.parent })
+    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject.copy(operand, cache)))
+    copy.pc = frame.pc
+
+    return copy
+  }
+
+
+  constructor(parentContext: Context, instructions: List<Instruction>, locals: Locals = new Map()){
+    this.baseContext = new Context(parentContext, locals)
+    this.context = this.baseContext
+    this.instructions = instructions
+  }
+
+
+  get nextInstructionIndex(): number { return this.pc }
+
+  isFinished(): boolean { return this.pc >= this.instructions.length }
+
+  hasNestedContext(): boolean { return this.context !== this.baseContext }
+
+  takeNextInstruction(): Instruction {
+    if (this.isFinished()) throw new Error('Reached end of instructions')
+    return this.instructions[this.pc++]
+  }
+
+  jump(instructionDelta: number): void {
+    this.jumpTo(this.pc + instructionDelta)
+  }
+
+  jumpTo(instructionIndex: number): void {
+    if (instructionIndex < 0 || instructionIndex >= this.instructions.length)
+      throw new Error(`Out of range jump to instruction index ${instructionIndex}`)
+
+    this.pc = instructionIndex
+  }
 
 }
 
@@ -361,11 +345,34 @@ export class Frame {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Context {
+
+  static copy(context: Context, cache: Map<Id, any>): Context
+  static copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
+  static copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
+    if(!context) return undefined
+
+    const cached = cache.get(context.id)
+    if(cached) return cached
+
+    const copy = new Context(
+      Context.copy(context.parent, cache),
+      new Map(),
+      context.exceptionHandlerIndex,
+      context.id,
+    )
+
+    cache.set(context.id, copy)
+
+    context.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject.copy(local, cache)))
+
+    return copy
+  }
+
   constructor(
-    public readonly parent?: Context,
-    public readonly locals: Map<Name, RuntimeObject | undefined> = new Map(), // TODO: Reference to actual objects instead of Id?
-    public readonly exceptionHandlerIndex?: number, // TODO: Exclusive of Block Context?
-    public readonly id: Id = uuid(),
+    readonly parent?: Context,
+    readonly locals: Locals = new Map(),
+    readonly exceptionHandlerIndex?: number, // TODO: Exclusive of Block Context?
+    readonly id: Id = uuid(),
   ){ }
 
   get(local: Name): RuntimeObject | undefined {
@@ -381,15 +388,38 @@ export class Context {
 export type InnerValue = string | number | Id[]
 
 export class RuntimeObject extends Context {
+
+  static copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
+  static copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
+  static copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined {
+    if(!instance) return undefined
+
+    const cached = cache.get(instance.id)
+    if(cached) return cached
+
+    const copy = new RuntimeObject(
+      Context.copy(instance.parent, cache),
+      instance.module,
+      instance.id,
+      new Map(),
+      isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue
+    )
+
+    cache.set(instance.id, copy)
+
+    instance.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject.copy(local, cache)))
+
+    return copy
+  }
+
   constructor(
-    public readonly parent: Context,
-    public readonly module: Module,
+    readonly parent: Context,
+    readonly module: Module,
     id?: Id,
-    locals: Map<Name, RuntimeObject | undefined> = new Map(),
+    locals: Locals = new Map(),
     public innerValue?: InnerValue
   ) {
     super(parent, locals, undefined, id)
-
     locals.set('self', this)
   }
 
@@ -680,13 +710,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
   const currentFrame = evaluation.frameStack.top
   if (!currentFrame) throw new Error('Reached end of frame stack')
 
-  const instruction = currentFrame.instructions[currentFrame.nextInstruction]
-  if (!instruction) throw new Error('Reached end of instructions')
-
-  currentFrame.nextInstruction++
+  const instruction = currentFrame.takeNextInstruction()
 
   try {
-
     switch (instruction.kind) {
 
       case 'LOAD': return (() => {
@@ -697,14 +723,12 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         else {
           if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
 
-          evaluation.frameStack.push(new Frame(
-            currentFrame.context,
-            [
-              ...instruction.lazyInitialization,
-              DUP,
-              STORE(instruction.name, true),
-              RETURN,
-            ]))
+          evaluation.frameStack.push(new Frame(currentFrame.context, [
+            ...instruction.lazyInitialization,
+            DUP,
+            STORE(instruction.name, true),
+            RETURN,
+          ]))
         }
       })()
 
@@ -739,7 +763,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           currentFrame.context,
           undefined,
           instruction.exceptionHandlerIndexDelta
-            ? currentFrame.nextInstruction + instruction.exceptionHandlerIndexDelta
+            ? currentFrame.nextInstructionIndex + instruction.exceptionHandlerIndexDelta
             : undefined
         )
       })()
@@ -784,20 +808,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       })()
 
       case 'JUMP': return (() => {
-        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
-
-        currentFrame.nextInstruction += instruction.count
+        currentFrame.jump(instruction.count)
       })()
 
       case 'CONDITIONAL_JUMP': return (() => {
         const check = currentFrame.operandStack.pop()
-
         if (check?.id !== TRUE_ID && check?.id !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
-        if (currentFrame.nextInstruction + instruction.count >= currentFrame.instructions.length || instruction.count < 0)
-          throw new Error(`Invalid jump count ${instruction.count} on index ${currentFrame.nextInstruction} of [${currentFrame.instructions.map(i => JSON.stringify(i))}]`)
-
-        currentFrame.nextInstruction += check.id === TRUE_ID ? instruction.count : 0
+        currentFrame.jump(check.id === TRUE_ID ? instruction.count : 0)
       })()
 
 
@@ -826,8 +843,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           ]
 
           evaluation.frameStack.push(new Frame(
-            new Context(self, new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]]))),
-            evaluation.codeFor(messageNotUnderstood)
+            self,
+            evaluation.codeFor(messageNotUnderstood),
+            new Map(messageNotUnderstood.parameters.map(({ name }, index) => [name, messageNotUnderstoodArgs[index]]))
           ))
         } else {
 
@@ -851,8 +869,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             )
 
             evaluation.frameStack.push(new Frame(
-              new Context(instruction.useReceiverContext ? self : self.parent, locals),
-              evaluation.codeFor(method)
+              instruction.useReceiverContext ? self : self.parent,
+              evaluation.codeFor(method),
+              locals
             ))
           }
         }
@@ -880,15 +899,18 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         )
 
         evaluation.frameStack.push(new Frame(
-          new Context(self, locals),
-          evaluation.codeFor(constructor)
+          self,
+          evaluation.codeFor(constructor),
+          locals
         ))
       })()
 
       case 'INIT_NAMED': return (() => {
         const self = currentFrame.operandStack.pop()!
 
-        const fields = self.module.hierarchy().flatMap(module => module.fields())
+        const fields: List<Field|Variable> = self.module.is('Describe')
+          ? self.module.variables()
+          : self.module.hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
           self.set(field.name, undefined)
@@ -896,16 +918,16 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, currentFrame.operandStack.pop())
 
-        evaluation.frameStack.push(new Frame(
-          self,
-          [
-            ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
+        evaluation.frameStack.push(new Frame(self, [
+          ...fields
+            .filter(field => !instruction.argumentNames.includes(field.name))
+            .flatMap(field => [
               ...compile(environment)(field.value),
               STORE(field.name, true),
             ]),
-            LOAD('self'),
-            RETURN,
-          ]))
+          LOAD('self'),
+          RETURN,
+        ]))
       })()
 
 
@@ -941,7 +963,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
   const takeStep = step(natives)
   // TODO: add done() message to check instructions pending
-  while (evaluation.frameStack.top!.nextInstruction < evaluation.frameStack.top!.instructions.length) {
+  while (!evaluation.frameStack.top!.isFinished()) {
     log.step(evaluation)
     takeStep(evaluation)
   }
@@ -956,7 +978,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
   evaluation.frameStack.push(new Frame(
-    new Context(evaluation.frameStack.top?.context ?? evaluation.rootContext),
+    evaluation.frameStack.top?.context ?? evaluation.rootContext,
     instructions
   ))
 
@@ -975,14 +997,17 @@ export interface TestResult {
 function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResult {
   log.resetStep()
 
-  if (test.parent().is('Describe')) {
-    const describe = test.parent() as Describe
+  const describe = test.parent()
+  if (describe.is('Describe')) {
     const describeInstance = evaluation.createInstance(describe.fullyQualifiedName())
 
-    evaluation.frameStack.push(new Frame(describeInstance, compile(evaluation.environment)(
-      ...describe.variables(),
-      ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
-    )))
+    evaluation.frameStack.push(new Frame(describeInstance, [
+      PUSH(describeInstance.id),
+      INIT_NAMED([]),
+      ...compile(evaluation.environment)(
+        ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
+      ),
+    ]))
 
     try {
       stepAll(natives)(evaluation)
@@ -995,9 +1020,8 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
     }
   }
 
-  let error: Error | undefined
-
   const before = process.hrtime()
+  let error: Error | undefined
   try {
     run(evaluation, natives, test.body.sentences)
   } catch (e) {
@@ -1067,14 +1091,12 @@ export default (environment: Environment, natives: Natives) => ({
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.depth
 
-    evaluation.frameStack.push(new Frame(
-      new Context(evaluation.instance(receiver)),
-      [
-        PUSH(receiver),
-        ...args.map(PUSH),
-        CALL(message, args.length),
-        RETURN,
-      ]))
+    evaluation.frameStack.push(new Frame(evaluation.instance(receiver), [
+      PUSH(receiver),
+      ...args.map(PUSH),
+      CALL(message, args.length),
+      RETURN,
+    ]))
 
     // TODO: stepAll?
     do {
