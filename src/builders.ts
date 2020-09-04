@@ -292,12 +292,13 @@ export const Evaluation = (
   instances: Record<Id, RuntimeObjectType> = {},
   _contexts: Record<Id, Context> = {}
 ) => (...frameStack: FrameType[]): EvaluationType => {
-  const evaluation = new EvaluationType(
-    environment,
-    new Context(),
-    new Stack(MAX_FRAME_STACK_SIZE, [...frameStack].reverse()),
-    new Map(Object.values(instances).map(instance => [instance.id, instance])),
-  )
+  const evaluation = EvaluationType.of(environment)
+  // unew EvaluationType(
+  //   environment,
+  //   new Context(),
+  //   new Stack(MAX_FRAME_STACK_SIZE, [...frameStack].reverse()),
+  //   new Map(Object.values(instances).map(instance => [instance.id, instance])),
+  // )
 
   return evaluation
 }
@@ -308,9 +309,4 @@ export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
 )
 
 export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
-  new RuntimeObjectType(
-    undefined as any,
-    undefined as any,
-    innerValue,
-    id,
-  )
+  null as any

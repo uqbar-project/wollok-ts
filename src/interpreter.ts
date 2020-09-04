@@ -1,15 +1,16 @@
 import { last, zipObj } from './extensions'
 import log from './log'
-import { is, Node, Body, Class, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field } from './model'
+import { is, Node, Body, Class, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Reify Contexts and make instances and Frames contain their own locals.
-//    - Drop the need for well known ids
 //    - Check if all the public fields need to be public
+//    - Improve Lazy initialization
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
 //    - More step methods: stepThrough, for example. Step to get inside closure?
+//    - method to set-up evaluation for a message send: ev.sendMessage('m', o, p1, p2)
 // - More Instructions to simplify natives.
 //    - Simplify weird Instruction parameters (take advantage of scopes. move towards just byte based arguments).
 //    - Something to iterate list elements instead of mapping them?
@@ -22,7 +23,7 @@ import { v4 as uuid } from 'uuid'
 
 const { round } = Math
 const { isArray } = Array
-const { assign } = Object
+const { assign, keys } = Object
 
 export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
 export interface Natives { [name: string]: NativeFunction | Natives }
@@ -44,14 +45,22 @@ export class WollokError extends Error {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// RUNTIME
+// EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// TODO: Implement single argument constructors instead ?
-// TODO: Do all these fields still need to be an argument in the constructor ?
-// TODO: Can some of the evaluation operations be delegated better?
-
 export class Evaluation {
+  readonly environment: Environment
+  readonly rootContext: Context
+  readonly frameStack: Stack<Frame>
+  protected readonly instanceCache: Map<Id, RuntimeObject>
+  protected readonly code: Map<Id, List<Instruction>>
+
+  get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
+  get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // STATIC OPERATIONS
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   static of(environment: Environment): Evaluation {
     const rootContext = new Context()
@@ -60,37 +69,18 @@ export class Evaluation {
     const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
 
-    rootContext.set('null', evaluation.addInstance(new RuntimeObject(
-      evaluation.currentContext,
-      evaluation.environment.getNodeByFQN('wollok.lang.Object'),
-      undefined,
-      NULL_ID,
-    )))
-
-    rootContext.set('true', evaluation.addInstance(new RuntimeObject(
-      evaluation.currentContext,
-      evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
-      undefined,
-      TRUE_ID,
-    )))
-
-    rootContext.set('false', evaluation.addInstance(new RuntimeObject(
-      evaluation.currentContext,
-      evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
-      undefined,
-      FALSE_ID,
-    )))
+    rootContext.set('null', RuntimeObject.null(evaluation))
+    rootContext.set('true', RuntimeObject.boolean(evaluation, true))
+    rootContext.set('false', RuntimeObject.boolean(evaluation, false))
 
     for (const module of globalSingletons)
-      rootContext.set(module.fullyQualifiedName(), evaluation.addInstance(new RuntimeObject(
-        evaluation.currentContext,
-        module,
-        undefined,
-        module.id,
-      )))
-    for (const constant of globalConstants)
-      rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, undefined, LAZY_ID))
+      rootContext.set(module.fullyQualifiedName(), RuntimeObject.object(evaluation, module))
 
+    for (const constant of globalConstants) {
+      const lazy = RuntimeObject.object(evaluation, 'wollok.lang.Object')
+      assign(lazy, { id: LAZY_ID }) //TODO: Improve
+      rootContext.set(constant.fullyQualifiedName(), lazy)
+    }
 
     evaluation.frameStack.push(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
@@ -117,22 +107,45 @@ export class Evaluation {
     return evaluation
   }
 
-  constructor(
-    readonly environment: Environment,
-    readonly rootContext: Context,
-    readonly frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
-    protected readonly instances: Map<Id, RuntimeObject> = new Map(),
-    protected readonly code: Map<Id, List<Instruction>> = new Map(),
-  ){ }
+  static _retrieveInstanceOrSaveDefault(evaluation: Evaluation, instance: RuntimeObject): RuntimeObject {
+    const existing = evaluation.instanceCache.get(instance.id)
+    if(existing) return existing
+
+    evaluation.instanceCache.set(instance.id, instance)
+
+    return instance
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // CONSTRUCTOR
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  protected constructor(
+    environment: Environment,
+    rootContext: Context,
+    frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
+    instanceCache = new Map<Id, RuntimeObject>(),
+    code = new Map<Id, List<Instruction>>()
+  ){
+    this.environment = environment
+    this.rootContext = rootContext
+    this.frameStack = frameStack
+    this.instanceCache = instanceCache
+    this.code = code
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // OPERATIONS
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   copy(): Evaluation {
     const cache = new Map<Id, any>()
 
     return new Evaluation(
       this.environment,
-      Context.copy(this.rootContext, cache),
-      this.frameStack.map(frame => Frame.copy(frame, cache)),
-      new Map([...this.instances.entries()].map(([name, instance]) => [name, RuntimeObject.copy(instance, cache)])),
+      Context._copy(this.rootContext, cache),
+      this.frameStack.map(frame => Frame._copy(frame, cache)),
+      new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, cache)])),
       this.code
     )
   }
@@ -173,72 +186,14 @@ export class Evaluation {
     return this.code.get(node.id)!
   }
 
-  get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
-
   instance(id: Id): RuntimeObject {
-    const response = this.instances.get(id)
+    const response = this.instanceCache.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
   }
 
-  null(): RuntimeObject {
-    return this.instance(NULL_ID)
-  }
+  freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
-  boolean(value: boolean): RuntimeObject {
-    return this.instance(value ? TRUE_ID : FALSE_ID)
-  }
-
-  number(value: number): RuntimeObject {
-    const stringValue = value.toFixed(DECIMAL_PRECISION)
-    const id = `N!${stringValue}`
-
-    const existing = this.instances.get(id)
-    if (existing) return existing
-
-    const instance = new RuntimeObject(
-      this.rootContext,
-      this.environment.getNodeByFQN('wollok.lang.Number'),
-      Number(stringValue),
-      id,
-    )
-
-    this.instances.set(instance.id, instance)
-
-    return instance
-  }
-
-  string(value: string): RuntimeObject {
-    const id = `S!${value}`
-
-    const existing = this.instances.get(id)
-    if (existing) return existing
-
-    const instance = new RuntimeObject(
-      this.rootContext,
-      this.environment.getNodeByFQN('wollok.lang.String'),
-      value,
-      id,
-    )
-
-    this.instances.set(instance.id, instance)
-
-    return instance
-  }
-
-  addInstance(instance: RuntimeObject): RuntimeObject {
-    const moduleFQN = instance.module.fullyQualifiedName()
-    if(['wollok.lang.Number', 'wollok.lang.String'].includes(moduleFQN))
-      throw new TypeError(`Can't manually add instances of ${moduleFQN}`)
-
-    this.instances.set(instance.id, instance)
-
-    return instance
-  }
-
-  destroyInstance(id: Id): void { this.instances.delete(id) }
-
-  listInstances(): List<RuntimeObject> { return [...this.instances.values()] }
 
   raise(exception: RuntimeObject): void {
     let currentContext = this.frameStack.top?.context
@@ -255,22 +210,26 @@ export class Evaluation {
       currentContext = this.frameStack.top?.context
     }
 
-    if (!currentContext.parent) throw new Error('Popped root context')
     if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
 
     this.frameStack.top.jumpTo(currentContext.exceptionHandlerIndex!)
-    this.frameStack.top.context = currentContext.parent
+    this.frameStack.top.context = currentContext.parent!
     this.frameStack.top.context.set('<exception>', exception)
   }
 
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// STACKS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Stack<T> {
-  constructor(
-    protected readonly maxSize: number,
-    protected readonly elements: T[] = [],
-  ) { }
+  protected readonly maxSize: number
+  protected readonly elements: T[] = []
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize
+  }
 
   get depth(): number { return this.elements.length }
 
@@ -282,7 +241,11 @@ export class Stack<T> {
 
   forEach(f: (element: T) => void): void { this.elements.forEach(f) }
 
-  map<U>(tx: (element: T) => U): Stack<U> { return new Stack(this.maxSize, this.elements.map(tx)) }
+  map<U>(tx: (element: T) => U): Stack<U> {
+    const response = new Stack<U>(this.maxSize)
+    response.unshift(...this.elements.map(tx))
+    return response
+  }
 
   unshift(...elements: T[]): void {
     if (this.maxSize! < this.elements.length + elements.length)
@@ -304,6 +267,9 @@ export class Stack<T> {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// FRAMES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Frame {
   public context: Context
@@ -312,15 +278,17 @@ export class Frame {
   protected pc = 0
   protected readonly baseContext: Context
 
+  get nextInstructionIndex(): number { return this.pc }
 
-  static copy(frame: Frame, cache: Map<Id, any>): Frame {
+
+  static _copy(frame: Frame, cache: Map<Id, any>): Frame {
     const copy = new Frame(
-      Context.copy(frame.context, cache),
+      Context._copy(frame.context, cache),
       frame.instructions,
     )
 
     assign(copy, { context: copy.context.parent, baseContext: copy.context.parent })
-    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject.copy(operand, cache)))
+    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, cache)))
     copy.pc = frame.pc
 
     return copy
@@ -335,8 +303,6 @@ export class Frame {
     locals.forEach((instance, name) => this.baseContext.set(name, instance))
   }
 
-
-  get nextInstructionIndex(): number { return this.pc }
 
   isFinished(): boolean { return this.pc >= this.instructions.length }
 
@@ -371,23 +337,23 @@ export class Context {
   readonly exceptionHandlerIndex?: number // TODO: Exclusive of Block Context?
 
 
-  static copy(context: Context, cache: Map<Id, any>): Context
-  static copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
-  static copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
+  static _copy(context: Context, cache: Map<Id, any>): Context
+  static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
+  static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
     if(!context) return undefined
 
     const cached = cache.get(context.id)
     if(cached) return cached
 
     const copy = new Context(
-      Context.copy(context.parent, cache),
+      Context._copy(context.parent, cache),
       context.exceptionHandlerIndex,
       context.id,
     )
 
     cache.set(context.id, copy)
 
-    context.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject.copy(local, cache)))
+    context.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject._copy(local, cache)))
 
     return copy
   }
@@ -409,6 +375,9 @@ export class Context {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// RUNTIME OBJECTS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type InnerValue = string | number | Id[]
 
@@ -418,16 +387,16 @@ export class RuntimeObject extends Context {
   readonly innerValue?: InnerValue
 
 
-  static copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
-  static copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
-  static copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined {
+  static _copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
+  static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
+  static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined {
     if(!instance) return undefined
 
     const cached = cache.get(instance.id)
     if(cached) return cached
 
     const copy = new RuntimeObject(
-      Context.copy(instance.parent, cache),
+      Context._copy(instance.parent, cache),
       instance.module,
       isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
       instance.id,
@@ -435,13 +404,100 @@ export class RuntimeObject extends Context {
 
     cache.set(instance.id, copy)
 
-    instance.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject.copy(local, cache)))
+    instance.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject._copy(local, cache)))
 
     return copy
   }
 
+  static null(evaluation: Evaluation): RuntimeObject {
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.Object'),
+        undefined,
+        NULL_ID,
+      )
+    )
+  }
 
-  constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
+  static boolean(evaluation: Evaluation, value: boolean): RuntimeObject {
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
+        undefined,
+        value ? TRUE_ID : FALSE_ID,
+      )
+    )
+  }
+
+  static number(evaluation: Evaluation, value: number): RuntimeObject {
+    const stringValue = value.toFixed(DECIMAL_PRECISION)
+    const id = `N!${stringValue}`
+
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.rootContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.Number'),
+        Number(stringValue),
+        id,
+      )
+    )
+  }
+
+  static string(evaluation: Evaluation, value: string): RuntimeObject {
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.rootContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.String'),
+        value,
+        `S!${value}`,
+      )
+    )
+  }
+
+  static list(evaluation: Evaluation, elements: List<Id>): RuntimeObject {
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.List'),
+        [...elements],
+      )
+    )
+  }
+
+  static set(evaluation: Evaluation, elements: List<Id>): RuntimeObject {
+    return Evaluation._retrieveInstanceOrSaveDefault(
+      evaluation,
+      new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.Set'),
+        [...elements],
+      )
+    )
+  }
+
+  static object(evaluation: Evaluation, moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject> = {}): RuntimeObject {
+    const module = isNode(moduleOrFQN) ? moduleOrFQN : evaluation.environment.getNodeByFQN<'Module'>(moduleOrFQN)
+    const instance = new RuntimeObject(
+      evaluation.currentContext,
+      module,
+      undefined,
+      module.is('Singleton') && !!module.name ? module.id : undefined
+    )
+
+    for(const local of keys(locals))
+      instance.set(local, locals[local])
+
+    return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
+  }
+
+  protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
     super(parent, undefined, id)
 
     this.module = module
@@ -732,7 +788,7 @@ const compile = (environment: Environment) => (...sentences: Sentence[]): List<I
   }))
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// STEPS
+// EXECUTION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const step = (natives: Natives) => (evaluation: Evaluation): void => {
@@ -823,13 +879,11 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
       case 'INSTANTIATE': return (() => {
         const instance =
-          instruction.module === 'wollok.lang.String' ? evaluation.string(`${instruction.innerValue}`) :
-          instruction.module === 'wollok.lang.Number' ? evaluation.number(Number(instruction.innerValue)) :
-          evaluation.addInstance(new RuntimeObject(
-            evaluation.currentContext,
-            evaluation.environment.getNodeByFQN(instruction.module),
-            isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue,
-          ))
+          instruction.module === 'wollok.lang.String' ? RuntimeObject.string(evaluation, `${instruction.innerValue}`) :
+          instruction.module === 'wollok.lang.Number' ? RuntimeObject.number(evaluation, Number(instruction.innerValue)) :
+          instruction.module === 'wollok.lang.List' ? RuntimeObject.list(evaluation, instruction.innerValue as Id[]) :
+          instruction.module === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, instruction.innerValue as Id[]) :
+          RuntimeObject.object(evaluation, instruction.module)
 
         currentFrame.operandStack.push(instance)
       })()
@@ -837,7 +891,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
       case 'INHERITS': return (() => {
         const self = currentFrame.operandStack.pop()!
         const inherits = self.module.inherits(environment.getNodeByFQN(instruction.module))
-        currentFrame.operandStack.push(evaluation.boolean(inherits))
+        currentFrame.operandStack.push(RuntimeObject.boolean(evaluation, inherits))
       })()
 
       case 'JUMP': return (() => {
@@ -871,12 +925,8 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
-            evaluation.string(instruction.message),
-            evaluation.addInstance(new RuntimeObject(
-              evaluation.currentContext,
-              evaluation.environment.getNodeByFQN('wollok.lang.List'),
-              argIds,
-            )),
+            RuntimeObject.string(evaluation, instruction.message),
+            RuntimeObject.list(evaluation, argIds),
           ]
 
           evaluation.frameStack.push(new Frame(
@@ -901,11 +951,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
               ? [
                 ...method.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
                 [last(method.parameters)!.name,
-                  evaluation.addInstance(new RuntimeObject(
-                    evaluation.currentContext,
-                    evaluation.environment.getNodeByFQN('wollok.lang.List'),
-                    argIds.slice(method.parameters.length - 1))
-                  ),
+                  RuntimeObject.list(evaluation, argIds.slice(method.parameters.length - 1)),
                 ],
 
               ]
@@ -937,11 +983,9 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const locals = new Map(constructor.parameters.some(({ isVarArg }) => isVarArg)
           ? [
             ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
-            [last(constructor.parameters)!.name,
-              evaluation.addInstance(new RuntimeObject(
-                evaluation.currentContext,
-                evaluation.environment.getNodeByFQN('wollok.lang.List'),
-                argIds.slice(constructor.parameters.length - 1))),
+            [
+              last(constructor.parameters)!.name,
+              RuntimeObject.list(evaluation, argIds.slice(constructor.parameters.length - 1)),
             ],
           ]
           : constructor.parameters.map(({ name }, index) => [name, args[index]])
@@ -1000,15 +1044,8 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
   } catch (error) {
     log.error(error)
     if (!evaluation.frameStack.isEmpty()) {
-      evaluation.raise(
-        evaluation.addInstance(new RuntimeObject(
-          evaluation.currentContext,
-          evaluation.environment.getNodeByFQN(
-            error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
-          ),
-        ))
-      )
-
+      const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
+      evaluation.raise(RuntimeObject.object(evaluation, exceptionType))
 
     } else throw error
   }
@@ -1025,9 +1062,6 @@ export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EVALUATION
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
   const instructions = compile(evaluation.environment)(...sentences)
@@ -1052,10 +1086,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 
   const describe = test.parent()
   if (describe.is('Describe')) {
-    const describeInstance = evaluation.addInstance(new RuntimeObject(
-      evaluation.currentContext,
-      describe as unknown as Module,
-    ))
+    const describeInstance = RuntimeObject.object(evaluation, describe as unknown as Module) // TODO: Describe is a module?
 
     evaluation.frameStack.push(new Frame(describeInstance, [
       PUSH(describeInstance.id),
@@ -1092,6 +1123,10 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// GC
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 // TODO: Add some unit tests.
 const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
@@ -1126,9 +1161,9 @@ const garbageCollect = (evaluation: Evaluation) => {
     }
   }
 
-  for(const instance of evaluation.listInstances())
+  for(const instance of evaluation.instances)
     if(!marked.has(instance)) {
-      evaluation.destroyInstance(instance.id)
+      evaluation.freeInstance(instance.id)
     }
 }
 
