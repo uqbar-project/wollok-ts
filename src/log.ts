@@ -1,6 +1,6 @@
 import chalk from 'chalk'
 import { last } from './extensions'
-import { Evaluation, Instruction, VOID_ID, RuntimeObject } from './interpreter'
+import { Evaluation, Instruction, RuntimeObject } from './interpreter'
 import { Id, Name } from './model'
 
 const columns = (process.stdout && process.stdout.columns) || 80
@@ -125,7 +125,7 @@ const consoleLogger: Logger = {
 
     consoleLogger.debug(
       `${('0000' + stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
-      `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? VOID_ID))].join(', ')}]`
+      `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? 'void'))].join(', ')}]`
     )
 
   },

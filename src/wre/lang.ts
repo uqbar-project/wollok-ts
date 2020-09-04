@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, INSTANTIATE, JUMP, LOAD, NULL_ID, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, VOID_ID, Frame } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, Frame } from '../interpreter'
 import { Id } from '../model'
 import { Natives } from '../interpreter'
 
@@ -145,7 +145,13 @@ const lang: Natives = {
 
     // TODO:
     instanceVariables: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.frameStack.top!.operandStack.push(evaluation.createInstance('wollok.lang.List', []))
+      evaluation.frameStack.top!.operandStack.push(
+        evaluation.addInstance(new RuntimeObject(
+          evaluation.currentContext,
+          evaluation.environment.getNodeByFQN('wollok.lang.List'),
+          [],
+        ))
+      )
     },
 
     // TODO:
@@ -182,7 +188,7 @@ const lang: Natives = {
     checkNotNull: (_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       message.assertIsString()
 
-      if (value.id === NULL_ID) throw new TypeError(message.innerValue)
+      if (value === evaluation.null()) throw new TypeError(message.innerValue)
       else evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
@@ -217,7 +223,7 @@ const lang: Natives = {
         PUSH(self.id),
         PUSH(element.id),
         CALL('unsafeAdd', 1),
-        PUSH(VOID_ID),
+        PUSH(),
         RETURN,
       ]))
     },
@@ -392,15 +398,16 @@ const lang: Natives = {
   Dictionary: {
 
     initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
-      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
-
-      evaluation.frameStack.top!.operandStack.push(undefined)
+      evaluation.frameStack.push(new Frame(self, [
+        PUSH(self.id),
+        CALL('clear', 0),
+        RETURN,
+      ]))
     },
 
     put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (key.id === NULL_ID) throw new TypeError('key')
-      if (value.id === NULL_ID) throw new TypeError('value')
+      if (key === evaluation.null()) throw new TypeError('key')
+      if (value === evaluation.null()) throw new TypeError('value')
 
       evaluation.frameStack.push(new Frame(self, [
         PUSH(self.id),
@@ -432,7 +439,7 @@ const lang: Natives = {
           CALL('get', 1),
           RETURN,
         ]),
-        PUSH(NULL_ID),
+        PUSH(evaluation.null().id),
         RETURN,
       ]))
     },
@@ -473,7 +480,7 @@ const lang: Natives = {
             CALL('remove', 1),
           ]
         }),
-        PUSH(VOID_ID),
+        PUSH(),
         RETURN,
       ]))
     },
@@ -503,14 +510,22 @@ const lang: Natives = {
           PUSH(valueList[index]),
           CALL('apply', 2),
         ]),
-        PUSH(VOID_ID),
+        PUSH(),
         RETURN,
       ]))
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('<keys>', evaluation.createInstance('wollok.lang.List', []))
-      self.set('<values>', evaluation.createInstance('wollok.lang.List', []))
+      self.set('<keys>', evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.List'),
+        [],
+      )))
+      self.set('<values>', evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        evaluation.environment.getNodeByFQN('wollok.lang.List'),
+        [],
+      )))
 
       evaluation.frameStack.top!.operandStack.push(undefined)
     },
@@ -889,7 +904,7 @@ const lang: Natives = {
           CALL('apply', 1),
           POP,
         ]),
-        PUSH(VOID_ID),
+        PUSH(),
         RETURN,
       ]))
     },
@@ -920,7 +935,7 @@ const lang: Natives = {
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
       evaluation.frameStack.push(new Frame(self, [
         PUSH(self.id),
-        ...args.map(arg => PUSH(arg?.id ?? VOID_ID)),
+        ...args.map(arg => PUSH(arg?.id)),
         CALL('<apply>', args.length, false),
         RETURN,
       ]))
@@ -941,11 +956,11 @@ const lang: Natives = {
 
       const today = new Date()
 
-      if (!day || day.id === NULL_ID)
+      if (!day || day === evaluation.null())
         self.set('day', evaluation.number(today.getDate()))
-      if (!month || month.id === NULL_ID)
+      if (!month || month === evaluation.null())
         self.set('month', evaluation.number(today.getMonth() + 1))
-      if (!year || year.id === NULL_ID)
+      if (!year || year === evaluation.null())
         self.set('year', evaluation.number(today.getFullYear()))
 
       evaluation.frameStack.top!.operandStack.push(undefined)
@@ -977,7 +992,10 @@ const lang: Natives = {
       year.assertIsNumber()
       days.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
       instance.set('day', evaluation.number(value.getDate()))
@@ -998,8 +1016,10 @@ const lang: Natives = {
       year.assertIsNumber()
       months.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
-
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
       const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
 
       while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
@@ -1022,7 +1042,10 @@ const lang: Natives = {
       year.assertIsNumber()
       years.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
 
       const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
 
@@ -1095,7 +1118,10 @@ const lang: Natives = {
       year.assertIsNumber()
       days.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
       instance.set('day', evaluation.number(value.getDate()))
@@ -1115,7 +1141,10 @@ const lang: Natives = {
       year.assertIsNumber()
       months.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
 
       const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
       instance.set('day', evaluation.number(value.getDate()))
@@ -1136,7 +1165,10 @@ const lang: Natives = {
       year.assertIsNumber()
       years.assertIsNumber()
 
-      const instance = evaluation.createInstance(self.module.fullyQualifiedName())
+      const instance = evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        self.module,
+      ))
 
       const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
 

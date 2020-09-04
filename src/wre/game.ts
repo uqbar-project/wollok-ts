@@ -1,9 +1,13 @@
 import { interpret } from '..'
-import { Evaluation, Natives, NULL_ID, RuntimeObject } from '../interpreter'
+import { Evaluation, Natives, RuntimeObject } from '../interpreter'
 import { Id } from '../model'
 import natives from './wre.natives'
 
-const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.createInstance('wollok.lang.List', elements)
+const newList = (evaluation: Evaluation, ...elements: Id[]) => evaluation.addInstance(new RuntimeObject(
+  evaluation.currentContext,
+  evaluation.environment.getNodeByFQN('wollok.lang.List'),
+  elements,
+))
 
 const returnVoid = (evaluation: Evaluation) => {
   evaluation.frameStack.top!.operandStack.push(undefined)
@@ -31,10 +35,6 @@ const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = 
     sendMessage(message, receiver(evaluation), ...params)(evaluation)
     if (voidMessage) returnVoid(evaluation)
   }
-
-const checkNotNull = (obj: RuntimeObject, name: string) => {
-  if (obj.id === NULL_ID) throw new TypeError(name)
-}
 
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
@@ -71,7 +71,7 @@ const lookupMethod = (self: RuntimeObject, message: string) => (_evaluation: Eva
 const game: Natives = {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      checkNotNull(visual, 'visual')
+      if (visual === evaluation.null()) throw new TypeError('visual')
       const message = 'position' // TODO
       if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
       addVisual(self, visual)(evaluation)
@@ -79,8 +79,8 @@ const game: Natives = {
     },
 
     addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
-      checkNotNull(visual, 'visual')
-      checkNotNull(position, 'position')
+      if (visual === evaluation.null()) throw new TypeError('visual')
+      if (position === evaluation.null()) throw new TypeError('position')
       visual.set('position', position)
       addVisual(self, visual)(evaluation)
       returnVoid(evaluation)
@@ -165,7 +165,7 @@ const game: Natives = {
     },
 
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      checkNotNull(visual, 'visual')
+      if (visual === evaluation.null()) throw new TypeError('visual')
       const visuals = self.get('visuals')
       if (!visuals) return evaluation.frameStack.top!.operandStack.push(newList(evaluation))
       const currentVisuals: RuntimeObject = visuals

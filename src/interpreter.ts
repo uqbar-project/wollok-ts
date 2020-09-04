@@ -29,8 +29,7 @@ export interface Natives { [name: string]: NativeFunction | Natives }
 
 export type Locals = Map<Name, RuntimeObject | undefined>
 
-export const NULL_ID = 'null'
-export const VOID_ID = 'void'
+const NULL_ID = 'null'
 const TRUE_ID = 'true'
 const FALSE_ID = 'false'
 const LAZY_ID = '<lazy>'
@@ -61,11 +60,34 @@ export class Evaluation {
     const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
 
-    rootContext.set('null', evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID))
-    rootContext.set('true', evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID))
-    rootContext.set('false', evaluation.createInstance('wollok.lang.Boolean', undefined, FALSE_ID))
+    rootContext.set('null', evaluation.addInstance(new RuntimeObject(
+      evaluation.currentContext,
+      evaluation.environment.getNodeByFQN('wollok.lang.Object'),
+      undefined,
+      NULL_ID,
+    )))
+
+    rootContext.set('true', evaluation.addInstance(new RuntimeObject(
+      evaluation.currentContext,
+      evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
+      undefined,
+      TRUE_ID,
+    )))
+
+    rootContext.set('false', evaluation.addInstance(new RuntimeObject(
+      evaluation.currentContext,
+      evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
+      undefined,
+      FALSE_ID,
+    )))
+
     for (const module of globalSingletons)
-      rootContext.set(module.fullyQualifiedName(), evaluation.createInstance(module.fullyQualifiedName(), undefined, module.id))
+      rootContext.set(module.fullyQualifiedName(), evaluation.addInstance(new RuntimeObject(
+        evaluation.currentContext,
+        module,
+        undefined,
+        module.id,
+      )))
     for (const constant of globalConstants)
       rootContext.set(constant.fullyQualifiedName(), new RuntimeObject(rootContext, undefined as any, undefined, LAZY_ID))
 
@@ -122,7 +144,7 @@ export class Evaluation {
       if(node.is('Method') && node.body && node.body !== 'native') {
         this.code.set(node.id, [
           ...compileSentences(...node.body.sentences),
-          PUSH(VOID_ID),
+          PUSH(),
           RETURN,
         ])
       } else if (node.is('Constructor')) {
@@ -151,14 +173,16 @@ export class Evaluation {
     return this.code.get(node.id)!
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // INSTANCE MANIPULATION
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
 
   instance(id: Id): RuntimeObject {
     const response = this.instances.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
     return response
+  }
+
+  null(): RuntimeObject {
+    return this.instance(NULL_ID)
   }
 
   boolean(value: boolean): RuntimeObject {
@@ -202,18 +226,12 @@ export class Evaluation {
     return instance
   }
 
-  // TODO: Replace with addInstance(new RuntimeObject(...))
-  createInstance(moduleFQN: Name, innerValue?: InnerValue, id: Id = uuid()): RuntimeObject {
-    if(moduleFQN === 'wollok.lang.Number' || moduleFQN === 'wollok.lang.String')
-      throw new TypeError(`Can't manually create instances of ${moduleFQN}`)
+  addInstance(instance: RuntimeObject): RuntimeObject {
+    const moduleFQN = instance.module.fullyQualifiedName()
+    if(['wollok.lang.Number', 'wollok.lang.String'].includes(moduleFQN))
+      throw new TypeError(`Can't manually add instances of ${moduleFQN}`)
 
-    const instance = new RuntimeObject(
-      this.frameStack.top?.context ?? this.rootContext,
-      this.environment.getNodeByFQN(moduleFQN),
-      innerValue,
-      id,
-    )
-    this.instances.set(id, instance)
+    this.instances.set(instance.id, instance)
 
     return instance
   }
@@ -459,7 +477,7 @@ export class RuntimeObject extends Context {
 export type Instruction
   = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
   | { kind: 'STORE', name: Name, lookup: boolean }
-  | { kind: 'PUSH', id: Id }
+  | { kind: 'PUSH', id?: Id }
   | { kind: 'POP' }
   | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number }
   | { kind: 'POP_CONTEXT' }
@@ -477,7 +495,7 @@ export type Instruction
 
 export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
-export const PUSH = (id: Id): Instruction => ({ kind: 'PUSH', id })
+export const PUSH = (id?: Id): Instruction => ({ kind: 'PUSH', id })
 export const POP: Instruction = ({ kind: 'POP' })
 export const PUSH_CONTEXT = (exceptionHandlerIndexDelta?: number): Instruction => ({ kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta })
 export const POP_CONTEXT: Instruction = ({ kind: 'POP_CONTEXT' })
@@ -499,21 +517,21 @@ const compileExpressionClause = (environment: Environment) => ({ sentences }: Bo
   sentences.length ? sentences.flatMap((sentence, index) => [
     ...compile(environment)(sentence),
     ...index < sentences.length - 1 ? [POP] : [],
-  ]) : [PUSH(VOID_ID)]
+  ]) : [PUSH()]
 
 const compile = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => node.match({
     Variable: node => [
       ...compile(environment)(node.value),
       STORE(node.name, false),
-      PUSH(VOID_ID),
+      PUSH(),
     ],
 
 
     Return: node => [
       ...node.value
         ? compile(environment)(node.value)
-        : [PUSH(VOID_ID)],
+        : [PUSH()],
       RETURN,
     ],
 
@@ -521,7 +539,7 @@ const compile = (environment: Environment) => (...sentences: Sentence[]): List<I
     Assignment: node => [
       ...compile(environment)(node.value),
       STORE(node.variable.name, true),
-      PUSH(VOID_ID),
+      PUSH(),
     ],
 
     Self: () => [
@@ -684,7 +702,7 @@ const compile = (environment: Environment) => (...sentences: Sentence[]): List<I
         PUSH_CONTEXT(),
         PUSH(FALSE_ID),
         STORE('<exception>', false),
-        PUSH(VOID_ID),
+        PUSH(),
         STORE('<result>', false),
 
         PUSH_CONTEXT(clause.length + 3),
@@ -762,7 +780,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'PUSH': return (() => {
-        currentFrame.operandStack.push(instruction.id === VOID_ID ? undefined : evaluation.instance(instruction.id))
+        currentFrame.operandStack.push(instruction.id ? evaluation.instance(instruction.id) : undefined)
       })()
 
 
@@ -807,7 +825,12 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const instance =
           instruction.module === 'wollok.lang.String' ? evaluation.string(`${instruction.innerValue}`) :
           instruction.module === 'wollok.lang.Number' ? evaluation.number(Number(instruction.innerValue)) :
-          evaluation.createInstance(instruction.module, isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue)
+          evaluation.addInstance(new RuntimeObject(
+            evaluation.currentContext,
+            evaluation.environment.getNodeByFQN(instruction.module),
+            isArray(instruction.innerValue) ? [...instruction.innerValue] : instruction.innerValue,
+          ))
+
         currentFrame.operandStack.push(instance)
       })()
 
@@ -849,7 +872,11 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
             evaluation.string(instruction.message),
-            evaluation.createInstance('wollok.lang.List', argIds),
+            evaluation.addInstance(new RuntimeObject(
+              evaluation.currentContext,
+              evaluation.environment.getNodeByFQN('wollok.lang.List'),
+              argIds,
+            )),
           ]
 
           evaluation.frameStack.push(new Frame(
@@ -873,7 +900,14 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             const locals = new Map(method.parameters.some(({ isVarArg }) => isVarArg)
               ? [
                 ...method.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
-                [last(method.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(method.parameters.length - 1))],
+                [last(method.parameters)!.name,
+                  evaluation.addInstance(new RuntimeObject(
+                    evaluation.currentContext,
+                    evaluation.environment.getNodeByFQN('wollok.lang.List'),
+                    argIds.slice(method.parameters.length - 1))
+                  ),
+                ],
+
               ]
               : method.parameters.map(({ name }, index) => [name, args[index]])
             )
@@ -903,7 +937,12 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const locals = new Map(constructor.parameters.some(({ isVarArg }) => isVarArg)
           ? [
             ...constructor.parameters.slice(0, -1).map(({ name }, index) => [name, args[index]] as const),
-            [last(constructor.parameters)!.name, evaluation.createInstance('wollok.lang.List', argIds.slice(constructor.parameters.length - 1))],
+            [last(constructor.parameters)!.name,
+              evaluation.addInstance(new RuntimeObject(
+                evaluation.currentContext,
+                evaluation.environment.getNodeByFQN('wollok.lang.List'),
+                argIds.slice(constructor.parameters.length - 1))),
+            ],
           ]
           : constructor.parameters.map(({ name }, index) => [name, args[index]])
         )
@@ -961,9 +1000,16 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
   } catch (error) {
     log.error(error)
     if (!evaluation.frameStack.isEmpty()) {
-      evaluation.raise(evaluation.createInstance(
-        error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
-      ))
+      evaluation.raise(
+        evaluation.addInstance(new RuntimeObject(
+          evaluation.currentContext,
+          evaluation.environment.getNodeByFQN(
+            error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
+          ),
+        ))
+      )
+
+
     } else throw error
   }
 
@@ -987,10 +1033,7 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   const instructions = compile(evaluation.environment)(...sentences)
 
   // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
-  evaluation.frameStack.push(new Frame(
-    evaluation.frameStack.top?.context ?? evaluation.rootContext,
-    instructions
-  ))
+  evaluation.frameStack.push(new Frame(evaluation.currentContext, instructions))
 
   stepAll(natives)(evaluation)
 
@@ -1009,7 +1052,10 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 
   const describe = test.parent()
   if (describe.is('Describe')) {
-    const describeInstance = evaluation.createInstance(describe.fullyQualifiedName())
+    const describeInstance = evaluation.addInstance(new RuntimeObject(
+      evaluation.currentContext,
+      describe as unknown as Module,
+    ))
 
     evaluation.frameStack.push(new Frame(describeInstance, [
       PUSH(describeInstance.id),
@@ -1050,7 +1096,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
-      if(instruction.kind === 'PUSH') return instruction.id === VOID_ID ? [] : [instruction.id]
+      if(instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]
       if(instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
       return []
     })
