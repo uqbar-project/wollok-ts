@@ -196,25 +196,24 @@ export class Evaluation {
 
 
   raise(exception: RuntimeObject): void {
-    let currentContext = this.frameStack.top?.context
+    while(!this.frameStack.isEmpty()) {
+      const currentFrame = this.frameStack.top!
 
-    while (currentContext?.exceptionHandlerIndex === undefined) {
-      const currentFrame = this.frameStack.top
+      while(currentFrame.hasNestedContext()) {
+        if(currentFrame.context.exceptionHandlerIndex !== undefined) {
+          currentFrame.jumpTo(currentFrame.context.exceptionHandlerIndex)
+          currentFrame.popContext()
+          currentFrame.context.set('<exception>', exception)
+          return
+        }
 
-      if (!currentContext || !currentFrame) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
+        currentFrame.popContext()
+      }
 
-      if (currentFrame.hasNestedContext()) {
-        currentFrame.context = currentContext.parent!
-      } else this.frameStack.pop()
-
-      currentContext = this.frameStack.top?.context
+      this.frameStack.pop()
     }
 
-    if (!this.frameStack.top) throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
-
-    this.frameStack.top.jumpTo(currentContext.exceptionHandlerIndex!)
-    this.frameStack.top.context = currentContext.parent!
-    this.frameStack.top.context.set('<exception>', exception)
+    throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
   }
 
 }
@@ -272,14 +271,14 @@ export class Stack<T> {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Frame {
-  public context: Context
   readonly operandStack = new Stack<RuntimeObject | undefined>(MAX_OPERAND_STACK_SIZE)
   readonly instructions: List<Instruction>
   protected pc = 0
+  protected currentContext: Context
   protected readonly baseContext: Context
 
   get nextInstructionIndex(): number { return this.pc }
-
+  get context(): Context { return this.currentContext }
 
   static _copy(frame: Frame, cache: Map<Id, any>): Frame {
     const copy = new Frame(
@@ -297,7 +296,7 @@ export class Frame {
 
   constructor(parentContext: Context, instructions: List<Instruction>, locals: Locals = new Map()){
     this.baseContext = new Context(parentContext)
-    this.context = this.baseContext
+    this.currentContext = this.baseContext
     this.instructions = instructions
 
     locals.forEach((instance, name) => this.baseContext.set(name, instance))
@@ -307,6 +306,15 @@ export class Frame {
   isFinished(): boolean { return this.pc >= this.instructions.length }
 
   hasNestedContext(): boolean { return this.context !== this.baseContext }
+
+  pushContext(exceptionHandlerIndex?: number): void {
+    this.currentContext = new Context(this.currentContext, exceptionHandlerIndex)
+  }
+
+  popContext(): void {
+    if(!this.hasNestedContext()) throw new Error('Popped frame base context')
+    this.currentContext = this.currentContext.parent!
+  }
 
   takeNextInstruction(): Instruction {
     if (this.isFinished()) throw new Error('Reached end of instructions')
@@ -846,19 +854,15 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 
       case 'PUSH_CONTEXT': return (() => {
-        currentFrame.context = new Context(
-          currentFrame.context,
-          instruction.exceptionHandlerIndexDelta
-            ? currentFrame.nextInstructionIndex + instruction.exceptionHandlerIndexDelta
-            : undefined
+        currentFrame.pushContext(instruction.exceptionHandlerIndexDelta
+          ? currentFrame.nextInstructionIndex + instruction.exceptionHandlerIndexDelta
+          : undefined
         )
       })()
 
 
       case 'POP_CONTEXT': return (() => {
-        const next = currentFrame.context.parent
-        if (!next) throw new Error('Popped root context')
-        currentFrame.context = next
+        currentFrame.popContext()
       })()
 
 
