@@ -5,7 +5,6 @@ import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Reify Contexts and make instances and Frames contain their own locals.
-//    - Check if all the public fields need to be public
 //    - Improve Lazy initialization
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
@@ -507,8 +506,6 @@ export class RuntimeObject extends Context {
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
 
   assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
-
-  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.Boolean', 'boolean') }
 
   assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] } {
     if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
