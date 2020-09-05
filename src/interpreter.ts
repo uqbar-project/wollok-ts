@@ -58,9 +58,6 @@ export class Evaluation {
   get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
   get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // STATIC OPERATIONS
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   static of(environment: Environment): Evaluation {
     const rootContext = new Context()
@@ -116,9 +113,6 @@ export class Evaluation {
     return instance
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // CONSTRUCTOR
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   protected constructor(
     environment: Environment,
@@ -134,9 +128,6 @@ export class Evaluation {
     this.code = code
   }
 
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // OPERATIONS
-  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   copy(): Evaluation {
     const cache = new Map<Id, any>()
@@ -280,11 +271,9 @@ export class Frame {
   get nextInstructionIndex(): number { return this.pc }
   get context(): Context { return this.currentContext }
 
+
   static _copy(frame: Frame, cache: Map<Id, any>): Frame {
-    const copy = new Frame(
-      Context._copy(frame.context, cache),
-      frame.instructions,
-    )
+    const copy = new Frame(Context._copy(frame.context, cache), frame.instructions)
 
     assign(copy, { context: copy.context.parent, baseContext: copy.context.parent })
     copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, cache)))
