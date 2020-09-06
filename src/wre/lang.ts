@@ -73,7 +73,7 @@ const Collections: Natives = {
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
     evaluation.frameStack.push(new Frame(self, [
       PUSH(self.id),
-      CALL('max', 0, true, self.module.fullyQualifiedName()),
+      CALL('max', 0, self.module.fullyQualifiedName()),
       RETURN,
     ]))
   },
@@ -104,7 +104,7 @@ const Collections: Natives = {
     evaluation.frameStack.push(new Frame(self, [
       PUSH(self.id),
       ...separator ? [PUSH(separator.id)] : [],
-      CALL('join', separator ? 1 : 0, true, self.module.fullyQualifiedName()),
+      CALL('join', separator ? 1 : 0, self.module.fullyQualifiedName()),
       RETURN,
     ]))
   },
@@ -113,7 +113,7 @@ const Collections: Natives = {
     evaluation.frameStack.push(new Frame(self, [
       PUSH(self.id),
       PUSH(value.id),
-      CALL('contains', 1, true, self.module.fullyQualifiedName()),
+      CALL('contains', 1, self.module.fullyQualifiedName()),
       RETURN,
     ]))
   },
@@ -922,7 +922,7 @@ const lang: Natives = {
       evaluation.frameStack.push(new Frame(self, [
         PUSH(self.id),
         ...args.map(arg => PUSH(arg?.id)),
-        CALL('<apply>', args.length, false),
+        CALL('<apply>', args.length, undefined, true),
         RETURN,
       ]))
     },

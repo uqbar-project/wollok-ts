@@ -1,5 +1,5 @@
 import { Index } from 'parsimmon'
-import { keys, mapObject } from './extensions'
+import { keys, mapObject, last } from './extensions'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -355,7 +355,7 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
   lookupMethod<R extends Linked>(this: Describe<R>, name: Name, arity: number): Method<R> | undefined {
     return this.methods().find(member =>
       (!!member.body || member.body === 'native') && member.name === name && (
-        member.parameters.some(({ isVarArg }) => isVarArg) && member.parameters.length - 1 <= arity ||
+        member.hasVarArgs() && member.parameters.length - 1 <= arity ||
         member.parameters.length === arity
       ))
   }
@@ -414,11 +414,18 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
   }
 
   @cached
-  lookupMethod<R extends Linked>(this: Module<R>, name: Name, arity: number): Method<R> | undefined {
+  lookupMethod<R extends Linked>(this: Module<R>, name: Name, arity: number, lookupStartFQN?: Name): Method<R> | undefined {
+    let startReached = !lookupStartFQN
+
     for (const module of this.hierarchy()) {
-      const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
-      if (found) return found
+      if(startReached) {
+        const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
+        if (found) return found
+      } else if(module.fullyQualifiedName() === lookupStartFQN) {
+        startReached = true
+      }
     }
+
     return undefined
   }
 
@@ -520,14 +527,19 @@ export class Method<S extends Stage = Final> extends $Node<S> {
   isAbstract(): boolean { return !this.body }
 
   @cached
+  hasVarArgs(): boolean {
+    return !!last(this.parameters)?.isVarArg
+  }
+
+  @cached
   sentences(): List<Sentence<S>> {
-    return (!this.body || this.body === 'native') ? [] : this.body.sentences
+    return !this.body || this.body === 'native' ? [] : this.body.sentences
   }
 
   @cached
   matchesSignature(name: Name, arity: number): boolean {
     return this.name === name && (
-      this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+      this.hasVarArgs() && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
     )
   }
@@ -535,18 +547,23 @@ export class Method<S extends Stage = Final> extends $Node<S> {
 }
 
 export class Constructor<S extends Stage = Final> extends $Node<S> {
-  readonly kind = 'Constructor'
-  readonly parameters!: List<Parameter<S>>
-  readonly body!: Body<S>
-  readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
+    readonly kind = 'Constructor'
+    readonly parameters!: List<Parameter<S>>
+    readonly body!: Body<S>
+    readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
 
-  constructor(data: Payload<Constructor<S>>) { super(data) }
+    constructor(data: Payload<Constructor<S>>) { super(data) }
 
-  @cached
-  matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
-    return this.parameters.some(({ isVarArg }) => isVarArg) && this.parameters.length - 1 <= arity ||
+    @cached
+    hasVarArgs(): boolean {
+      return !!last(this.parameters)?.isVarArg
+    }
+
+    @cached
+    matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
+      return this.hasVarArgs() && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
-  }
+    }
 }
 
 

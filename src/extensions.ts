@@ -7,6 +7,8 @@ export const divideOn = (separator: string) => (str: string): [string, string] =
   return [head, tail.join(separator)]
 }
 
+export const get = <T>(obj: any, path: string): T | undefined => path.split('.').reduce((current, step) => current?.[step], obj)
+
 export function discriminate<A, B = unknown>(isA: (obj: A|B) => obj is A): (list: ReadonlyArray<A | B>) => [A[], B[]]
 export function discriminate<T>(isA: (obj: T) => boolean): (list: ReadonlyArray<T>) => [T[], T[]]
 export function discriminate<T>(isA: (obj: T) => boolean) {
