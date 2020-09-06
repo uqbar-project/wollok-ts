@@ -74,6 +74,7 @@
         "objects": "always-multiline"
       }
     ],
+    "@typescript-eslint/no-extra-parens": "warn",
     "comma-spacing": [
       "warn",
       {

@@ -629,7 +629,7 @@ const lang: Natives = {
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      evaluation.frameStack.top!.operandStack.push(RuntimeObject.number(evaluation, ceil(self.innerValue * (10 ** decimals.innerValue)) / (10 ** decimals.innerValue)))
+      evaluation.frameStack.top!.operandStack.push(RuntimeObject.number(evaluation, ceil(self.innerValue * 10 ** decimals.innerValue) / 10 ** decimals.innerValue))
     },
 
     'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {

@@ -4,10 +4,7 @@ import { is, Node, Body, Class, Environment, Expression, Id, List, Module, Name,
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
-// - Reify Contexts and make instances and Frames contain their own locals.
-//    - Improve Lazy initialization
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
-//    - Unshift frame in eval for better setup. Allow evaluation to have no active frame.
 //    - More step methods: stepThrough, for example. Step to get inside closure?
 //    - method to set-up evaluation for a message send: ev.sendMessage('m', o, p1, p2)
 // - More Instructions to simplify natives.
@@ -32,7 +29,6 @@ export type Locals = Map<Name, RuntimeObject | undefined>
 const NULL_ID = 'null'
 const TRUE_ID = 'true'
 const FALSE_ID = 'false'
-const LAZY_ID = '<lazy>'
 
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
@@ -73,9 +69,7 @@ export class Evaluation {
       rootContext.set(module.fullyQualifiedName(), RuntimeObject.object(evaluation, module))
 
     for (const constant of globalConstants) {
-      const lazy = RuntimeObject.object(evaluation, 'wollok.lang.Object')
-      assign(lazy, { id: LAZY_ID }) //TODO: Improve
-      rootContext.set(constant.fullyQualifiedName(), lazy)
+      rootContext.set(constant.fullyQualifiedName(), RuntimeObject.lazy(evaluation, constant.value))
     }
 
     evaluation.frameStack.push(new Frame(rootContext, [
@@ -140,7 +134,6 @@ export class Evaluation {
     )
   }
 
-  // TODO: move this out of evaluation and use @cache instead of code attribute?
   codeFor(node: Node): List<Instruction> {
     if(!this.code.has(node.id)) {
       const compileSentences = compile(this.environment)
@@ -330,7 +323,7 @@ export class Context {
   readonly id: Id
   readonly parent?: Context
   readonly locals: Locals = new Map()
-  readonly exceptionHandlerIndex?: number // TODO: Exclusive of Block Context?
+  readonly exceptionHandlerIndex?: number
 
 
   static _copy(context: Context, cache: Map<Id, any>): Context
@@ -381,6 +374,7 @@ export class RuntimeObject extends Context {
   readonly parent!: Context
   readonly module: Module
   readonly innerValue?: InnerValue
+  readonly lazyInitializer?: Expression
 
 
   static _copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
@@ -396,6 +390,7 @@ export class RuntimeObject extends Context {
       instance.module,
       isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
       instance.id,
+      instance.lazyInitializer,
     )
 
     cache.set(instance.id, copy)
@@ -493,11 +488,24 @@ export class RuntimeObject extends Context {
     return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
   }
 
-  protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
+  static lazy(evaluation: Evaluation, initializer: Expression): RuntimeObject {
+    const instance = new RuntimeObject(
+      evaluation.currentContext,
+      undefined as any,
+      undefined,
+      undefined,
+      initializer
+    )
+
+    return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
+  }
+
+  protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id, initializer?: Expression) {
     super(parent, undefined, id)
 
     this.module = module
     this.innerValue = innerValue
+    this.lazyInitializer = initializer
 
     this.locals.set('self', this)
   }
@@ -508,7 +516,7 @@ export class RuntimeObject extends Context {
   assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
 
   assertIsCollection(): asserts this is RuntimeObject & { innerValue: Id[] } {
-    if (!isArray(this.innerValue) || (this.innerValue.length && typeof this.innerValue[0] !== 'string'))
+    if (!isArray(this.innerValue) || this.innerValue.length && typeof this.innerValue[0] !== 'string')
       throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<Id> but was ${this.innerValue}`)
   }
 
@@ -525,8 +533,8 @@ export class RuntimeObject extends Context {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type Instruction
-  = { kind: 'LOAD', name: Name, lazyInitialization?: List<Instruction> }
-  | { kind: 'STORE', name: Name, lookup: boolean }
+  = { kind: 'LOAD', name: Name }
+  | { kind: 'STORE', name: Name, lookup: boolean } // TODO: !
   | { kind: 'PUSH', id?: Id }
   | { kind: 'POP' }
   | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number }
@@ -537,31 +545,29 @@ export type Instruction
   | { kind: 'INHERITS', module: Name }
   | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
-  | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name }
+  | { kind: 'CALL', message: Name, arity: number, useReceiverContext: boolean, lookupStart?: Name } // TODO: !
   | { kind: 'INIT', arity: number, lookupStart: Name, optional?: boolean }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'INTERRUPT' }
   | { kind: 'RETURN' }
 
-export const LOAD = (name: Name, lazyInitialization?: List<Instruction>): Instruction => ({ kind: 'LOAD', name, lazyInitialization })
+export const LOAD = (name: Name): Instruction => ({ kind: 'LOAD', name })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id?: Id): Instruction => ({ kind: 'PUSH', id })
-export const POP: Instruction = ({ kind: 'POP' })
+export const POP: Instruction = { kind: 'POP' }
 export const PUSH_CONTEXT = (exceptionHandlerIndexDelta?: number): Instruction => ({ kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta })
-export const POP_CONTEXT: Instruction = ({ kind: 'POP_CONTEXT' })
+export const POP_CONTEXT: Instruction = { kind: 'POP_CONTEXT' }
 export const SWAP = (distance = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
 export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction => ({ kind: 'INSTANTIATE', module, innerValue })
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', module })
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
-export const CALL = (message: Name, arity: number, useReceiverContext = true, lookupStart?: Name): Instruction =>
-  ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
-export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction =>
-  ({ kind: 'INIT', arity, lookupStart, optional })
+export const CALL = (message: Name, arity: number, useReceiverContext = true, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, useReceiverContext, lookupStart })
+export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'INIT', arity, lookupStart, optional })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
-export const INTERRUPT: Instruction = ({ kind: 'INTERRUPT' })
-export const RETURN: Instruction = ({ kind: 'RETURN' })
+export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
+export const RETURN: Instruction = { kind: 'RETURN' }
 
 const compileExpressionClause = (environment: Environment) => ({ sentences }: Body): List<Instruction> =>
   sentences.length ? sentences.flatMap((sentence, index) => [
@@ -600,12 +606,8 @@ const compile = (environment: Environment) => (...sentences: Sentence[]): List<I
     Reference: node => {
       const target = node.target()!
 
-      if (target.is('Module')) return [
+      if (target.is('Module') || target.is('Variable') && target.parent().is('Package')) return [
         LOAD(target.fullyQualifiedName()),
-      ]
-
-      if (target.is('Variable') && target.parent().is('Package')) return [
-        LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
       ]
 
       return [LOAD(node.name)]
@@ -800,12 +802,10 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const value = currentFrame.context.get(instruction.name)
 
         // TODO: should add tests for the lazy load and store
-        if (value?.id !== LAZY_ID) currentFrame.operandStack.push(value)
+        if (!value?.lazyInitializer) currentFrame.operandStack.push(value)
         else {
-          if (!instruction.lazyInitialization) throw new Error(`No lazy initialization for lazy reference "${instruction.name}"`)
-
           evaluation.frameStack.push(new Frame(currentFrame.context, [
-            ...instruction.lazyInitialization,
+            ...compile(environment)(value.lazyInitializer),
             DUP,
             STORE(instruction.name, true),
             RETURN,
@@ -911,7 +911,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const method = lookupStart.lookupMethod(instruction.message, instruction.arity)
 
         if (!method) {
-          log.warn('Method not found:', lookupStart, '>>', instruction.message, '/', instruction.arity)
+          log.warn('Method not found:', lookupStart.fullyQualifiedName(), '>>', instruction.message, '/', instruction.arity)
 
           const messageNotUnderstood = self.module.lookupMethod('messageNotUnderstood', 2)!
           const messageNotUnderstoodArgs = [
@@ -1024,7 +1024,6 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         evaluation.frameStack.pop()
 
         const next = evaluation.frameStack.top
-
         if (!next) throw new Error('Returning from last frame')
 
         next.operandStack.push(valueId)
@@ -1122,7 +1121,6 @@ const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
       if(instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]
-      if(instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
       return []
     })
   }
