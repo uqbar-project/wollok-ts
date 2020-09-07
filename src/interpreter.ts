@@ -1,9 +1,10 @@
 import { last, zipObj, get } from './extensions'
 import log from './log'
-import { is, Node, Body, Class, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
+import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
+// - Use context info to simplify STORE so we don't need the boolean
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - More step methods: stepThrough, for example. Step to get inside closure?
 //    - method to set-up evaluation for a message send: ev.sendMessage('m', o, p1, p2)

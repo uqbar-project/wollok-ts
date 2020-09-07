@@ -54,8 +54,7 @@ const Collections: Natives = {
     self.assertIsCollection()
 
     evaluation.frameStack.push(new Frame(self, [
-      PUSH(self.id),
-      CALL('copy', 0),
+      INSTANTIATE(self.module.fullyQualifiedName(), [...self.innerValue]),
       ...[...self.innerValue].reverse().flatMap((id: Id) => [
         DUP,
         PUSH(closure.id),
@@ -81,8 +80,8 @@ const Collections: Natives = {
   remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
     self.assertIsCollection()
 
-    for(let index = 0; index < self.innerValue.length; index++)
-      if ( self.innerValue[index] === element.id) self.innerValue.splice(index--, 1)
+    const index = self.innerValue.indexOf(element.id)
+    if (index >= 0) self.innerValue.splice(index, 1)
 
     evaluation.frameStack.top!.operandStack.push(undefined)
   },
@@ -440,38 +439,27 @@ const lang: Natives = {
 
     remove: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): void => {
       const keys: RuntimeObject = self.get('<keys>')!
+      const values: RuntimeObject = self.get('<values>')!
 
       keys.assertIsCollection()
+      values.assertIsCollection()
 
       evaluation.frameStack.push(new Frame(self, [
         ...keys.innerValue.flatMap((id, index) => {
-          const valuesUpToIndex = index === 0
-            ? [
-              LOAD('<values>'),
-              CALL('newInstance', 0),
-            ]
-            : [
-              LOAD('<values>'),
-              INSTANTIATE('wollok.lang.Number', 0),
-              INSTANTIATE('wollok.lang.Number', index - 1),
-              CALL('subList', 2),
-            ]
-
           return [
             PUSH(key.id),
             PUSH(id),
             CALL('!=', 1),
-            CONDITIONAL_JUMP(valuesUpToIndex.length + 8),
-            ...valuesUpToIndex,
-            LOAD('<values>'),
-            INSTANTIATE('wollok.lang.Number', index + 1),
-            CALL('subList', 1),
-            CALL('+', 1),
+            CONDITIONAL_JUMP(6),
+
+            INSTANTIATE(values.module.fullyQualifiedName(), [...values.innerValue.slice(0, index), ...values.innerValue.slice(index + 1)]),
             STORE('<values>', true),
 
-            LOAD('<keys>'),
-            PUSH(id),
-            CALL('remove', 1),
+            INSTANTIATE(keys.module.fullyQualifiedName(), [...keys.innerValue.slice(0, index), ...keys.innerValue.slice(index + 1)]),
+            STORE('<keys>', true),
+
+            PUSH(),
+            RETURN,
           ]
         }),
         PUSH(),
