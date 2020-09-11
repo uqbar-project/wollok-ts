@@ -39,3 +39,7 @@ export const mapObject = <T, R = any>(tx: (value: T[keyof T], key: keyof T) => R
   }
   return response
 }
+
+
+export const sum = (array: ReadonlyArray<number>): number => array.reduce((acum, elem) => acum + elem, 0)
+export const sumBy = <T>(array: ReadonlyArray<T>, tx: (elem: T) => number): number => array.reduce((acum, elem) => acum + tx(elem), 0)

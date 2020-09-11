@@ -255,9 +255,9 @@ export class Stack<T> {
 export class Frame {
   readonly operandStack = new Stack<RuntimeObject | undefined>(MAX_OPERAND_STACK_SIZE)
   readonly instructions: List<Instruction>
+  readonly baseContext: Context
   protected pc = 0
   protected currentContext: Context
-  protected readonly baseContext: Context
 
   get nextInstructionIndex(): number { return this.pc }
   get context(): Context { return this.currentContext }
@@ -265,8 +265,7 @@ export class Frame {
 
   static _copy(frame: Frame, cache: Map<Id, any>): Frame {
     const copy = new Frame(Context._copy(frame.context, cache), frame.instructions)
-
-    assign(copy, { context: copy.context.parentContext, baseContext: copy.context.parentContext })
+    assign(copy, { currentContext: copy.context.parentContext, initialContext: copy.context.parentContext })
     copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, cache)))
     copy.pc = frame.pc
 
@@ -329,6 +328,7 @@ export class Context {
   static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
   static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
     if(!context) return undefined
+    if(context instanceof RuntimeObject) return RuntimeObject._copy(context, cache)
 
     const cached = cache.get(context.id)
     if(cached) return cached
@@ -574,7 +574,7 @@ const compileExpressionClause = (environment: Environment) => ({ sentences }: Bo
     ...index < sentences.length - 1 ? [POP] : [],
   ]) : [PUSH()]
 
-const compileSentence = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
+export const compileSentence = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
   sentences.flatMap(node => {
     const compile = compileSentence(environment)
 
