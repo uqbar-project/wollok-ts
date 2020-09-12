@@ -199,13 +199,13 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export const buildInterpreter = (pattern: string, cwd: string) => {
+export const buildInterpreter = (pattern: string, cwd: string, ...ignore: string[]) => {
 
   const { time, timeEnd, log } = console
 
   time('Parsing files')
 
-  const files = globby.sync(pattern, { cwd }).map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
+  const files = globby.sync(pattern, { cwd, ignore }).map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
 
   timeEnd('Parsing files')
 
