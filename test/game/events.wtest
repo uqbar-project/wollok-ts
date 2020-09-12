@@ -31,9 +31,7 @@ describe 'events' {
 
   test 'whenKeyPressedDo should add event handler' {
     const event = ["keypress", "KeyA"]
-    
-    game.whenKeyPressedDo(event, closureMock) 
-
+    keyboard.a().onPressDo(closureMock)
     assert.that(io.eventHandlersFor(event).contains(closureMock))
   }
   
