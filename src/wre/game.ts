@@ -221,6 +221,24 @@ const game: Natives = {
       self.set('running', TRUE_ID)
       returnVoid(evaluation)
     },
+
+    addSound: (self: RuntimeObject, soundObject: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (!self.get('sounds')) {
+        self.set('sounds', newList(evaluation))
+      }
+      const sounds: RuntimeObject = self.get('sounds')!
+      sounds.assertIsCollection()
+      sounds.innerValue.push(soundObject.id)
+    },
+
+    allSounds: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      const sounds = self.get('sounds')
+      if (!sounds) return returnValue(evaluation, newList(evaluation))
+      const currentSounds: RuntimeObject = sounds
+      currentSounds.assertIsCollection()
+      const result = newList(evaluation, ...currentSounds.innerValue)
+      returnValue(evaluation, result)
+    },
   },
 }
 
