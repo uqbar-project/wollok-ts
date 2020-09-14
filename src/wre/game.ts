@@ -217,16 +217,49 @@ const game: Natives = {
       returnVoid(evaluation)
     },
 
-    // TODO:
-    sound: (_self: RuntimeObject, _audioFile: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
-    },
-
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', TRUE_ID)
       returnVoid(evaluation)
     },
   },
+}
+
+const sounds: Natives = {
+  Sound: {
+    play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
+      returnVoid(evaluation)
+    },
+
+    played: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      returnValue(evaluation, self.get('status')?.innerValue === 'played' ? TRUE_ID : FALSE_ID)
+    },
+
+    stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      self.set('status', evaluation.createInstance('wollok.lang.String', 'stopped'))
+      returnVoid(evaluation)
+    },
+
+    pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      self.set('status', evaluation.createInstance('wollok.lang.String', 'paused'))
+      returnVoid(evaluation)
+    },
+
+    resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that isn\'t paused.')
+      self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
+      returnVoid(evaluation)
+    },
+
+    paused: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      returnValue(evaluation, self.get('status')?.innerValue === 'paused' ? TRUE_ID : FALSE_ID)
+    },
+
+    volume: (self: RuntimeObject, newVolume?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'volume', newVolume),
+
+    shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
+
+  }
 }
 
 export default game
