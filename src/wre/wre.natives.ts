@@ -1,5 +1,4 @@
 import game from './game'
-import sounds from './game'
 import lang from './lang'
 import lib from './lib'
 import vm from './vm'
@@ -11,7 +10,6 @@ const WRENatives: Natives = {
     game,
     lib,
     vm,
-    sounds,
   },
 }
 

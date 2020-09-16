@@ -240,9 +240,7 @@ const game: Natives = {
       returnValue(evaluation, result)
     },
   },
-}
 
-const sounds: Natives = {
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
