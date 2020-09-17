@@ -230,20 +230,12 @@ const game: Natives = {
       sounds.assertIsCollection()
       sounds.innerValue.push(soundObject.id)
     },
-
-    allSounds: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const sounds = self.get('sounds')
-      if (!sounds) return returnValue(evaluation, newList(evaluation))
-      const currentSounds: RuntimeObject = sounds
-      currentSounds.assertIsCollection()
-      const result = newList(evaluation, ...currentSounds.innerValue)
-      returnValue(evaluation, result)
-    },
   },
 
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
+      //add sound
       returnVoid(evaluation)
     },
 
@@ -252,7 +244,8 @@ const game: Natives = {
     },
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('status', evaluation.createInstance('wollok.lang.String', 'stopped'))
+      self.set('status', evaluation.createInstance('wollok.lang.String', 'stopped')) // sacar esta linea??
+      //remove sound
       returnVoid(evaluation)
     },
 
