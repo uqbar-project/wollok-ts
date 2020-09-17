@@ -14,7 +14,7 @@ const returnVoid = (evaluation: Evaluation) => {
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  returnValue(evaluation, self.get(key)?.id ?? VOID_ID)
+  returnValue(evaluation, self.get(key)?.id ?? NULL_ID)
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -185,7 +185,7 @@ const game: Natives = {
       returnValue(evaluation, result)
     },
 
-    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),
+    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'title', title),
 
     width: (self: RuntimeObject, width?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'width', width),
 
@@ -194,6 +194,8 @@ const game: Natives = {
     ground: (self: RuntimeObject, ground: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'ground', ground),
 
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'boardGround', boardGround),
+
+    doCellSize: (self: RuntimeObject, size: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'cellSize', size),
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', FALSE_ID)

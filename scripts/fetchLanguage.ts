@@ -17,7 +17,7 @@ const fetchLanguage = async () => {
     mkdirSync(WOLLOK_LANGUAGE_FOLDER)
     const client = gitClient(WOLLOK_LANGUAGE_FOLDER)
     await client.clone(WOLLOK_LANGUAGE_REPO, '.')
-    await client.checkout(`v${WOLLOK_LANGUAGE_VERSION}`)
+    await client.checkout(`${WOLLOK_LANGUAGE_VERSION}`)
   }
   log.done('Obtaining the Wollok Language specification')
 }

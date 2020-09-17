@@ -23,25 +23,20 @@ describe 'events' {
     const character = new Visual()
     game.addVisualCharacter(character)
     // Simulate
-    io.queueEvent(["keydown", "KeyUp"])
+    io.queueEvent(["keypress", "ArrowUp"])
     io.flushEvents(0)
 
-    // SKIP: until key code unification
-    // assert.equals(game.at(0, 1), character.position())
+    assert.equals(game.at(0, 1), character.position())
   }
 
   test 'whenKeyPressedDo should add event handler' {
-    const event = ["keydown", "KeyA"]
-    
-    // TODO: replace after key code unification
-    game.whenKeyPressedDo(event, closureMock) 
-    // keyboard.a().onPressDo(closureMock)
-
+    const event = ["keypress", "KeyA"]
+    keyboard.a().onPressDo(closureMock)
     assert.that(io.eventHandlersFor(event).contains(closureMock))
   }
   
   test 'clear should clear event handlers' {
-    const event = ["keydown"]
+    const event = ["keypress"]
     game.whenKeyPressedDo(event, closureMock)
     game.clear()
     assert.notThat(io.eventHandlersFor(event).contains(closureMock))

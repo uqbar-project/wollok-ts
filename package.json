@@ -1,7 +1,7 @@
 {
   "name": "wollok-ts",
   "version": "2.1.0",
-  "wollokVersion": "2.0.2",
+  "wollokVersion": "master",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",
@@ -17,10 +17,11 @@
     "test": "npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:game && npm run test:examples",
     "test:lint": "eslint .",
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
-    "test:examples": "mocha --parallel -t 10000 -r ts-node/register --root language/test/examples test/wtest.ts",
-    "test:sanity": "mocha --parallel -t 10000 -r ts-node/register --root language/test/sanity test/wtest.ts",
+    "test:examples": "npm run test:wtest -- --root language/test/examples",
+    "test:sanity": "npm run test:wtest -- --root language/test/sanity --ignore mirror/instanceVariableMirror.wtest --ignore game/sounds.wtest --ignore testing/describe/describeWithTestsFlagOnly.wtest --ignore testing/tests/flagOnly.wtest",
+    "test:game": "npm run test:wtest -- --root test",
+    "test:wtest": "mocha --parallel -t 10000 -r ts-node/register test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",
-    "test:game": "mocha --parallel -t 10000 -r ts-node/register --root test test/wtest.ts",
     "postpublish": "git tag v$npm_package_version && git push --tags",
     "prepack": "npm run build"
   },

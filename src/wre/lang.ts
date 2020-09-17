@@ -1051,8 +1051,9 @@ const lang: Natives = {
       year.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+      const dayOfWeek = value.getDay() == 0 ? 7 : value.getDay()
 
-      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', value.getDay()))
+      evaluation.currentFrame()!.pushOperand(evaluation.createInstance('wollok.lang.Number', dayOfWeek))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {

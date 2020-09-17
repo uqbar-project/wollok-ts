@@ -199,10 +199,11 @@ export const Describe: Parser<DescribeNode<Raw>> = node(DescribeNode)(() =>
 )
 
 export const Test: Parser<TestNode<Raw>> = node(TestNode)(() =>
-  key('test').then(obj({
-    name: stringLiteral.map(name => `"${name}"`),
+  obj({
+    isOnly: check(key('only')),
+    name: key('test').then(stringLiteral.map(name => `"${name}"`)),
     body: Body,
-  }))
+  })
 )
 
 const mixins = lazy(() =>
