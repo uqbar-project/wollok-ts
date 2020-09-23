@@ -243,15 +243,6 @@ const game: Natives = {
       self.set('running', TRUE_ID)
       returnVoid(evaluation)
     },
-
-    addSound: (self: RuntimeObject, soundObject: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (!self.get('sounds')) {
-        self.set('sounds', newList(evaluation))
-      }
-      const sounds: RuntimeObject = self.get('sounds')!
-      sounds.assertIsCollection()
-      sounds.innerValue.push(soundObject.id)
-    },
   },
 
   Sound: {
