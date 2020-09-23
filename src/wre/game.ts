@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
+import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter';
 import { Id } from '../model'
 import natives from './wre.natives'
 
@@ -44,6 +44,8 @@ const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('
 
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
+const wGame = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
+
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = evaluation.instance(id).get('position')
   if (position) return position
@@ -59,14 +61,39 @@ const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: I
     && position.get('y') === visualPosition.get('y')
 }
 
-const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-  if (!self.get('visuals')) {
-    self.set('visuals', newList(evaluation))
+const addElementToGameFieldList = (gameObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
+  if (!gameObject.get(fieldName)) {
+    gameObject.set(fieldName, newList(evaluation))
   }
-  const visuals: RuntimeObject = self.get('visuals')!
-  visuals.assertIsCollection()
-  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.moduleFQN)
-  else visuals.innerValue.push(visual.id)
+  const fieldList: RuntimeObject = gameObject.get(fieldName)!
+  fieldList.assertIsCollection()
+  if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.moduleFQN)
+  else fieldList.innerValue.push(element.id)
+}
+
+const addVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
+  return addElementToGameFieldList(gameObject, visual, 'visuals')
+}
+
+const addSound = (gameObject: RuntimeObject, visual: RuntimeObject) => {
+  return addElementToGameFieldList(gameObject, visual, 'sounds')
+}
+
+const removeElementFromGameFieldList = (gameObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
+  const fieldList = gameObject.get(fieldName)
+  if (fieldList) {
+    const currentElements: RuntimeObject = fieldList
+    currentElements.assertIsCollection()
+    currentElements.innerValue = currentElements.innerValue.filter((id: Id) => id !== elementToRemove.id)
+  }
+}
+
+const removeVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
+  removeElementFromGameFieldList(gameObject, visual, "visuals")
+}
+
+const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  removeElementFromGameFieldList(gameObject, sound, "sounds")
 }
 
 const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
@@ -98,12 +125,7 @@ const game: Natives = {
       redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      const visuals = self.get('visuals')
-      if (visuals) {
-        const currentVisuals: RuntimeObject = visuals
-        currentVisuals.assertIsCollection()
-        currentVisuals.innerValue = currentVisuals.innerValue.filter((id: Id) => id !== visual.id)
-      }
+      removeVisual(self, visual)
       returnVoid(evaluation)
     },
 
@@ -235,7 +257,7 @@ const game: Natives = {
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
-      //add sound
+      addSound(wGame(evaluation), self)(evaluation)
       returnVoid(evaluation)
     },
 
@@ -245,7 +267,7 @@ const game: Natives = {
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('status', evaluation.createInstance('wollok.lang.String', 'stopped')) // sacar esta linea??
-      //remove sound
+      removeSound(wGame(evaluation), self)
       returnVoid(evaluation)
     },
 
