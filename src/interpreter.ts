@@ -1,4 +1,4 @@
-import { last, zipObj, get } from './extensions'
+import { last, zipObj, get, sumBy } from './extensions'
 import log from './log'
 import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
@@ -536,7 +536,7 @@ export type Instruction
   | { kind: 'STORE', name: Name, lookup: boolean }
   | { kind: 'PUSH', id?: Id }
   | { kind: 'POP' }
-  | { kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta?: number }
+  | { kind: 'PUSH_CONTEXT', nodeId: Id, exceptionHandlerIndexDelta?: number }
   | { kind: 'POP_CONTEXT' }
   | { kind: 'SWAP', distance: number }
   | { kind: 'DUP' }
@@ -554,7 +554,7 @@ export const LOAD = (name: Name): Instruction => ({ kind: 'LOAD', name })
 export const STORE = (name: Name, lookup: boolean): Instruction => ({ kind: 'STORE', name, lookup })
 export const PUSH = (id?: Id): Instruction => ({ kind: 'PUSH', id })
 export const POP: Instruction = { kind: 'POP' }
-export const PUSH_CONTEXT = (exceptionHandlerIndexDelta?: number): Instruction => ({ kind: 'PUSH_CONTEXT', exceptionHandlerIndexDelta })
+export const PUSH_CONTEXT = (nodeId: Id, exceptionHandlerIndexDelta?: number): Instruction => ({ kind: 'PUSH_CONTEXT', nodeId, exceptionHandlerIndexDelta })
 export const POP_CONTEXT: Instruction = { kind: 'POP_CONTEXT' }
 export const SWAP = (distance = 0): Instruction => ({ kind: 'SWAP', distance })
 export const DUP: Instruction = { kind: 'DUP' }
@@ -715,10 +715,11 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
         const elseClause = compileExpressionClause(environment)(node.elseBody)
         return [
           ...compile(node.condition),
-          PUSH_CONTEXT(),
-          CONDITIONAL_JUMP(elseClause.length + 1),
+          CONDITIONAL_JUMP(elseClause.length + 2),
+          PUSH_CONTEXT(node.elseBody.id),
           ...elseClause,
-          JUMP(thenClause.length),
+          JUMP(thenClause.length + 1),
+          PUSH_CONTEXT(node.thenBody.id),
           ...thenClause,
           POP_CONTEXT,
         ]
@@ -739,7 +740,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
           POP,
         ]
 
-        const catches = node.catches.flatMap(({ parameter, parameterType, body }) => {
+        const catches = node.catches.map(({ parameter, parameterType, body }) => {
           const handler = compileExpressionClause(environment)(body)
           return [
             LOAD('<exception>'),
@@ -756,23 +757,28 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
         })
 
         return [
-          PUSH_CONTEXT(),
-          PUSH(FALSE_ID),
+          PUSH_CONTEXT(node.id),
+          PUSH(NULL_ID),
           STORE('<exception>', false),
           PUSH(),
           STORE('<result>', false),
 
-          PUSH_CONTEXT(clause.length + 3),
+          PUSH_CONTEXT(node.body.id, clause.length + 3),
           ...clause,
           STORE('<result>', true),
           POP_CONTEXT,
-          JUMP(catches.length + 2),
+          JUMP(sumBy(catches, clause => clause.length + 2)),
 
-          PUSH_CONTEXT(catches.length + 1),
-          ...catches,
-          POP_CONTEXT,
+          ...catches.flatMap((catchClause, index) => {
+            const distanceToAlways = sumBy(catches.slice(index), clause => clause.length + 2)
+            return [
+              PUSH_CONTEXT(node.catches[index].id, distanceToAlways),
+              ...catchClause,
+              POP_CONTEXT,
+            ]
+          }),
 
-          PUSH_CONTEXT(),
+          PUSH_CONTEXT(node.always.id),
           ...always,
           POP_CONTEXT,
           LOAD('<exception>'),
@@ -781,6 +787,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
           CONDITIONAL_JUMP(2),
           LOAD('<exception>'),
           INTERRUPT,
+
           LOAD('<result>'),
 
           POP_CONTEXT,
