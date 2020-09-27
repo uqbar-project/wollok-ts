@@ -4,7 +4,6 @@ import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedA
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
-// - Use context info to simplify STORE so we don't need the boolean
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
 //    - More step methods: stepThrough, for example. Step to get inside closure?
 //    - method to set-up evaluation for a message send: ev.sendMessage('m', o, p1, p2)
