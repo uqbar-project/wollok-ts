@@ -75,8 +75,8 @@ const addVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
   return addElementToGameFieldList(gameObject, visual, 'visuals')
 }
 
-const addSound = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  return addElementToGameFieldList(gameObject, visual, 'sounds')
+const addSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  return addElementToGameFieldList(gameObject, sound, 'sounds')
 }
 
 const removeElementFromGameFieldList = (gameObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
