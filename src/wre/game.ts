@@ -61,26 +61,26 @@ const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: I
     && position.get('y') === visualPosition.get('y')
 }
 
-const addElementToGameFieldList = (gameObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
-  if (!gameObject.get(fieldName)) {
-    gameObject.set(fieldName, newList(evaluation))
+const addToInnerCollection = (wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
+  if (!wObject.get(fieldName)) {
+    wObject.set(fieldName, newList(evaluation))
   }
-  const fieldList: RuntimeObject = gameObject.get(fieldName)!
+  const fieldList: RuntimeObject = wObject.get(fieldName)!
   fieldList.assertIsCollection()
   if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.moduleFQN)
   else fieldList.innerValue.push(element.id)
 }
 
 const addVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  return addElementToGameFieldList(gameObject, visual, 'visuals')
+  return addToInnerCollection(gameObject, visual, 'visuals')
 }
 
 const addSound = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  return addElementToGameFieldList(gameObject, visual, 'sounds')
+  return addToInnerCollection(gameObject, visual, 'sounds')
 }
 
-const removeElementFromGameFieldList = (gameObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
-  const fieldList = gameObject.get(fieldName)
+const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
+  const fieldList = wObject.get(fieldName)
   if (fieldList) {
     const currentElements: RuntimeObject = fieldList
     currentElements.assertIsCollection()
@@ -89,11 +89,19 @@ const removeElementFromGameFieldList = (gameObject: RuntimeObject, elementToRemo
 }
 
 const removeVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  removeElementFromGameFieldList(gameObject, visual, "visuals")
+  removeFromInnerCollection(gameObject, visual, "visuals")
 }
 
 const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
-  removeElementFromGameFieldList(gameObject, sound, "sounds")
+  removeFromInnerCollection(gameObject, sound, "sounds")
+}
+
+const newWString = (newString: string) => (evaluation: Evaluation) => {
+  return evaluation.createInstance('wollok.lang.String', newString)
+}
+
+const toWBoolean = (booleanToConvert: boolean) => {
+  return booleanToConvert ? TRUE_ID : FALSE_ID
 }
 
 const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
@@ -161,7 +169,7 @@ const game: Natives = {
       if (!visuals) return returnValue(evaluation, FALSE_ID)
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      returnValue(evaluation, currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID)
+      returnValue(evaluation, toWBoolean(currentVisuals.innerValue.includes(visual.id)))
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -247,34 +255,34 @@ const game: Natives = {
 
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
+      self.set('status', newWString('played')(evaluation))
       addSound(wGame(evaluation), self)(evaluation)
       returnVoid(evaluation)
     },
 
     played: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      returnValue(evaluation, self.get('status')?.innerValue === 'played' ? TRUE_ID : FALSE_ID)
+      returnValue(evaluation, toWBoolean(self.get('status')?.innerValue === 'played'))
     },
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('status', evaluation.createInstance('wollok.lang.String', 'stopped')) // sacar esta linea??
+      self.set('status', newWString('stopped')(evaluation))
       removeSound(wGame(evaluation), self)
       returnVoid(evaluation)
     },
 
     pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('status', evaluation.createInstance('wollok.lang.String', 'paused'))
+      self.set('status', newWString('paused')(evaluation))
       returnVoid(evaluation)
     },
 
     resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that isn\'t paused.')
-      self.set('status', evaluation.createInstance('wollok.lang.String', 'played'))
+      self.set('status', newWString('played')(evaluation))
       returnVoid(evaluation)
     },
 
     paused: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      returnValue(evaluation, self.get('status')?.innerValue === 'paused' ? TRUE_ID : FALSE_ID)
+      returnValue(evaluation, toWBoolean(self.get('status')?.innerValue === 'paused'))
     },
 
     volume: (self: RuntimeObject, newVolume?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'volume', newVolume),
