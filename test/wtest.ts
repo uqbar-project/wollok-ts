@@ -21,6 +21,12 @@ const ARGUMENTS = yargs
     type: 'string',
     description: 'Path to the root test folder',
   })
+  .option('ignore', {
+    type: 'array',
+    string: true,
+    default: [],
+    description: 'Paths to ignore',
+  })
   .argv
 
 
@@ -48,7 +54,7 @@ describe(basename(ARGUMENTS.root), () => {
 
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
+  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root, ...ARGUMENTS.ignore)
 
   time('Initializing Evaluation')
   const baseEvaluation = buildEvaluation()
