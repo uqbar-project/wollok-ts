@@ -75,8 +75,8 @@ const addVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
   return addToInnerCollection(gameObject, visual, 'visuals')
 }
 
-const addSound = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  return addToInnerCollection(gameObject, visual, 'sounds')
+const addSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  return addToInnerCollection(gameObject, sound, 'sounds')
 }
 
 const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
