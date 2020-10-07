@@ -276,7 +276,8 @@ const game: Natives = {
     },
 
     resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that isn\'t paused.')
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
+      sendMessage('error', wGame(evaluation).id, newWString('You cannot resume a sound that isn\'t paused.')(evaluation))
       self.set('status', newWString('played')(evaluation))
       returnVoid(evaluation)
     },
