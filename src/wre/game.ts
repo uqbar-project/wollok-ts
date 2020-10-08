@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter';
+import { Evaluation, FALSE_ID, Natives, NULL_ID, RuntimeObject, TRUE_ID, VOID_ID } from '../interpreter'
 import { Id } from '../model'
 import natives from './wre.natives'
 
@@ -89,11 +89,11 @@ const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: Runt
 }
 
 const removeVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
-  removeFromInnerCollection(gameObject, visual, "visuals")
+  removeFromInnerCollection(gameObject, visual, 'visuals')
 }
 
 const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
-  removeFromInnerCollection(gameObject, sound, "sounds")
+  removeFromInnerCollection(gameObject, sound, 'sounds')
 }
 
 const newWString = (newString: string) => (evaluation: Evaluation) => {
@@ -290,7 +290,7 @@ const game: Natives = {
 
     shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
 
-  }
+  },
 }
 
 export default game
