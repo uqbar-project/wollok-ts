@@ -23,7 +23,8 @@
     "test:wtest": "mocha --parallel -t 10000 -r ts-node/register test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "debug:game": "npm run buildWRE && npm run prepack && rm -R ../wollok-run-client/node_modules/wollok-ts/dist/ && cp -R dist/ ../wollok-run-client/node_modules/wollok-ts/"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.2",
