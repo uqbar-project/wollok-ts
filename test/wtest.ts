@@ -30,11 +30,16 @@ const ARGUMENTS = yargs
   .argv
 
 
+function selectTests(nodes: List<Node>) {
+  const onlyTest = nodes.find(node => node.is('Test') && node.isOnly)
+  return onlyTest ? [onlyTest] : nodes
+}
+
 function registerTests(evaluation: Evaluation, nodes: List<Node>) {
   nodes.forEach(node => {
 
     if (node.is('Describe') || node.is('Package'))
-      describe(node.name, () => registerTests(evaluation, node.members))
+      describe(node.name, () => registerTests(evaluation, selectTests(node.members)))
 
     if (node.is('Test'))
       it(node.name, () => {
