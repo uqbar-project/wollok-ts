@@ -255,6 +255,8 @@ const game: Natives = {
 
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (wGame(evaluation).get('running')?.id !== TRUE_ID)
+        throw new Error('You cannot play a sound if game has not started')
       self.set('status', newWString('played')(evaluation))
       addSound(wGame(evaluation), self)(evaluation)
       returnVoid(evaluation)
@@ -265,19 +267,23 @@ const game: Natives = {
     },
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot stop a sound that is not played')
       self.set('status', newWString('stopped')(evaluation))
       removeSound(wGame(evaluation), self)
       returnVoid(evaluation)
     },
 
     pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot pause a sound that is not played')
       self.set('status', newWString('paused')(evaluation))
       returnVoid(evaluation)
     },
 
     resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('error', wGame(evaluation).id, newWString('You cannot resume a sound that isn\'t paused.')(evaluation))
+      if (self.get('status')?.innerValue !== 'paused')
+        throw new Error('You cannot resume a sound that is not paused')
       self.set('status', newWString('played')(evaluation))
       returnVoid(evaluation)
     },
@@ -286,7 +292,15 @@ const game: Natives = {
       returnValue(evaluation, toWBoolean(self.get('status')?.innerValue === 'paused'))
     },
 
-    volume: (self: RuntimeObject, newVolume?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'volume', newVolume),
+    volume: (self: RuntimeObject, newVolume?: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (newVolume) {
+        const volume: RuntimeObject = newVolume
+        volume.assertIsNumber()
+        if (volume.innerValue < 0 || volume.innerValue > 1)
+          throw new RangeError('newVolume')
+      }
+      property(self, 'volume', newVolume)(evaluation)
+    },
 
     shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
 
