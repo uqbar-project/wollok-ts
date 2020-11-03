@@ -5,6 +5,7 @@ object io {
   const property timeHandlers = new Dictionary()
   var property eventQueue = []
   var property currentTime = 0
+  var property errorHandler = { exception => }
 
   method queueEvent(event) {
     eventQueue.add(event)
@@ -48,7 +49,7 @@ object io {
       eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
     }
 
-    timeHandlers.values().flatten().forEach{ callback => callback.apply(time) }
+    timeHandlers.values().flatten().forEach{ callback => try { callback.apply(time) } catch e { errorHandler.apply(e) } }
     currentTime = time
   }
 

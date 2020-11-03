@@ -7,6 +7,10 @@ object closureMock {
   method apply(args...) { calledCount += 1 }
 }
 
+object closureErrorMock {
+  method apply(args...) { self.error('FAIL') }
+}
+
 class Visual {
   var property position = game.origin()
 }
@@ -145,5 +149,18 @@ describe 'events' {
       io.flushEvents(1000)
       io.flushEvents(2000)
       assert.equals(1, closureMock.calledCount())
+  }
+
+
+  test 'throws exception on event should not propagate' {
+      game.schedule(0, closureErrorMock)
+      io.flushEvents(0)
+  }
+
+  test 'throws exception on event with error handler' {
+      io.errorHandler(closureMock)
+      game.schedule(0, closureErrorMock)
+      io.flushEvents(0)
+      assert.that(closureMock.called())
   }
 }
