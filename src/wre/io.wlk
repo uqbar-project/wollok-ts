@@ -49,7 +49,7 @@ object io {
       eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
     }
 
-    timeHandlers.values().flatten().forEach{ callback => try { callback.apply(time) } catch e { errorHandler.apply(e) } }
+    timeHandlers.values().flatten().forEach{ callback => try { callback.apply(time) } catch e: DomainException { errorHandler.apply(e) } }
     currentTime = time
   }
 
