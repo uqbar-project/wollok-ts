@@ -139,34 +139,42 @@ describe 'events' {
 
 
   test 'schedule once called' {
-      game.schedule(1000, closureMock)
-      io.flushEvents(1000)
-      assert.that(closureMock.called())
+    game.schedule(1000, closureMock)
+    io.flushEvents(1000)
+    assert.that(closureMock.called())
   }
 
   test 'schedule only once called' {
-      game.schedule(1000, closureMock)
-      io.flushEvents(1000)
-      io.flushEvents(2000)
-      assert.equals(1, closureMock.calledCount())
+    game.schedule(1000, closureMock)
+    io.flushEvents(1000)
+    io.flushEvents(2000)
+    assert.equals(1, closureMock.calledCount())
   }
 
   test 'schedule on 0 ms should not throws exception' {
-      io.errorHandler(closureErrorMock)
-      game.schedule(0, closureMock)
-      io.flushEvents(0)
+    io.errorHandler(closureErrorMock)
+    game.schedule(0, closureMock)
+    io.flushEvents(0)
   }
 
 
-  test 'throws exception on event should not propagate' {
-      game.schedule(0, closureErrorMock)
-      io.flushEvents(0)
+  // TODO: Move to io.wtest
+  test 'throws exception on time event should not propagate' {
+    game.schedule(0, closureErrorMock)
+    io.flushEvents(0)
+  }
+
+  test 'throws exception on queue event should not propagate' {
+    const event = ["keypress", "KeyA"]
+    keyboard.a().onPressDo(closureErrorMock)
+    io.queueEvent(event)
+    io.flushEvents(0)
   }
 
   test 'throws exception on event with error handler' {
-      io.errorHandler(closureMock)
-      game.schedule(0, closureErrorMock)
-      io.flushEvents(0)
-      assert.that(closureMock.called())
+    io.errorHandler(closureMock)
+    game.schedule(0, closureErrorMock)
+    io.flushEvents(0)
+    assert.that(closureMock.called())
   }
 }

@@ -46,11 +46,20 @@ object io {
     const currentEvents = eventQueue.copy()
     eventQueue = []
     currentEvents.forEach{ event =>
-      eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
+      eventHandlers.getOrElse(event, { [] }).forEach{ callback => self.runHandler({ callback.apply() }) }
     }
 
-    timeHandlers.values().flatten().forEach{ callback => try { callback.apply(time) } catch e: DomainException { errorHandler.apply(e) } }
+    timeHandlers.values().flatten().forEach{ callback => self.runHandler({ callback.apply(time) }) }
     currentTime = time
+  }
+
+  method runHandler(callback) {
+    try { 
+      callback.apply() 
+    } catch e: DomainException { 
+      errorHandler.apply(e) 
+    }
+    //TODO: catch Exception ?
   }
 
 }
