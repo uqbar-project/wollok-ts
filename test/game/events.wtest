@@ -156,25 +156,5 @@ describe 'events' {
     game.schedule(0, closureMock)
     io.flushEvents(0)
   }
-
-
-  // TODO: Move to io.wtest
-  test 'throws exception on time event should not propagate' {
-    game.schedule(0, closureErrorMock)
-    io.flushEvents(0)
-  }
-
-  test 'throws exception on queue event should not propagate' {
-    const event = ["keypress", "KeyA"]
-    keyboard.a().onPressDo(closureErrorMock)
-    io.queueEvent(event)
-    io.flushEvents(0)
-  }
-
-  test 'throws exception on event with error handler' {
-    io.errorHandler(closureMock)
-    game.schedule(0, closureErrorMock)
-    io.flushEvents(0)
-    assert.that(closureMock.called())
-  }
+  
 }

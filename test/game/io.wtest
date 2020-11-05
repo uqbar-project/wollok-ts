@@ -8,6 +8,10 @@ object closureMock {
   method apply(args...) { calls.add(args) }
 }
 
+object closureErrorMock {
+  method apply(args...) { self.error('FAIL') }
+}
+
 describe 'flush events' {
 
   test 'should clear event queue' {
@@ -46,5 +50,24 @@ describe 'flush events' {
   test 'should update current time' {
     io.flushEvents(100)
     assert.equals(100, io.currentTime())
+  }
+
+
+  test 'throws exception on queue event should not propagate' {
+    io.queueEvent('EVENT')
+    io.addEventHandler('EVENT', closureErrorMock)
+    io.flushEvents(0)
+  }
+
+  test 'throws exception on time event should not propagate' {
+    io.addTimeHandler('', closureErrorMock)
+    io.flushEvents(0)
+  }
+
+  test 'throws exception on event with error handler' {
+    io.errorHandler(closureMock)
+    io.addTimeHandler('', closureErrorMock)
+    io.flushEvents(0)
+    assert.that(closureMock.called())
   }
 }
