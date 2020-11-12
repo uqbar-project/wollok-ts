@@ -5,6 +5,7 @@ object io {
   const property timeHandlers = new Dictionary()
   var property eventQueue = []
   var property currentTime = 0
+  var property errorHandler = { exception => }
 
   method queueEvent(event) {
     eventQueue.add(event)
@@ -45,11 +46,20 @@ object io {
     const currentEvents = eventQueue.copy()
     eventQueue = []
     currentEvents.forEach{ event =>
-      eventHandlers.getOrElse(event, { [] }).forEach{ callback => callback.apply() }
+      eventHandlers.getOrElse(event, { [] }).forEach{ callback => self.runHandler({ callback.apply() }) }
     }
 
-    timeHandlers.values().flatten().forEach{ callback => callback.apply(time) }
+    timeHandlers.values().flatten().forEach{ callback => self.runHandler({ callback.apply(time) }) }
     currentTime = time
+  }
+
+  method runHandler(callback) {
+    try { 
+      callback.apply() 
+    } catch e: DomainException { 
+      errorHandler.apply(e) 
+    }
+    //TODO: catch Exception ?
   }
 
 }

@@ -12,6 +12,7 @@ const PREFIX_OPERATORS: Record<Name, Name> = {
   '!': 'negate',
   '-': 'invert',
   '+': 'plus',
+  'not': 'negate',
 }
 
 const ASSIGNATION_OPERATORS = ['=', '||=', '/=', '-=', '+=', '*=', '&&=', '%=']

@@ -30,7 +30,7 @@ object gameMirror {
 	method onTick(milliseconds, name, action) {
 		var times = 0
 		const initTime = io.currentTime()
-		io.addTimeHandler(name, { time => if ((time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
+		io.addTimeHandler(name, { time => if (milliseconds == 0 or (time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
 	}
 
 	method schedule(milliseconds, action) {
