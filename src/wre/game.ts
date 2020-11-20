@@ -9,7 +9,7 @@ const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
 }
 
-const returnVoid = (evaluation: Evaluation) => {
+export const returnVoid = (evaluation: Evaluation): void => {
   returnValue(evaluation, VOID_ID)
 }
 

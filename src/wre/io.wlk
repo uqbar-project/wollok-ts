@@ -1,3 +1,4 @@
+import wollok.game.*
 //TODO: Move to language?
 object io {
   // TODO: merge handlers
@@ -5,7 +6,8 @@ object io {
   const property timeHandlers = new Dictionary()
   var property eventQueue = []
   var property currentTime = 0
-  var property errorHandler = { exception => }
+  var property errorHandler = { exception => console.println(exception)}
+  var property domainExceptionHandler = {exception => game.say(exception.source(), exception.message())}
 
   method queueEvent(event) {
     eventQueue.add(event)
@@ -55,9 +57,11 @@ object io {
 
   method runHandler(callback) {
     try { 
-      callback.apply() 
-    } catch e: DomainException { 
-      errorHandler.apply(e) 
+      callback.apply()
+    } catch e: DomainException{
+      domainExceptionHandler.apply(e)
+    } catch e {
+      errorHandler.apply(e)
     }
     //TODO: catch Exception ?
   }
