@@ -42,8 +42,6 @@ const checkNotNull = (obj: RuntimeObject, name: string) => {
 
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
-const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
-
 const wGame = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
 
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
@@ -138,7 +136,7 @@ const game: Natives = {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('addEventHandler', event.id, action.id),
+      redirectTo(mirror)('whenKeyPressedDo', event.id, action.id),
 
     whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
       redirectTo(mirror)('whenCollideDo', visual.id, action.id),
@@ -153,7 +151,7 @@ const game: Natives = {
       redirectTo(mirror)('schedule', milliseconds.id, action.id),
 
     removeTickEvent: (_self: RuntimeObject, event: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('removeTimeHandler', event.id),
+      redirectTo(mirror)('removeTickEvent', event.id),
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
@@ -184,7 +182,7 @@ const game: Natives = {
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.currentFrame()!
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('currentTime', io(evaluation))(evaluation)
+      sendMessage('currentTime', mirror(evaluation))(evaluation)
       const wCurrentTime: RuntimeObject = evaluation.instance(currentFrame.operandStack.pop()!)
       wCurrentTime.assertIsNumber()
       const currentTime = wCurrentTime.innerValue
@@ -196,7 +194,7 @@ const game: Natives = {
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('clear', io(evaluation))(evaluation)
+      sendMessage('clear', mirror(evaluation))(evaluation)
       self.set('visuals', newList(evaluation))
       returnVoid(evaluation)
     },
