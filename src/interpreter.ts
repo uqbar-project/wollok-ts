@@ -290,7 +290,7 @@ export class RuntimeObject {
 
   get(field: Name): RuntimeObject | undefined {
     const id = this.context().locals.get(field)
-    return id ? this.evaluation().instance(id) : undefined //TODO: LAZY!!
+    return id && id !== LAZY_ID ? this.evaluation().instance(id) : undefined //TODO: LAZY!!
   }
 
   set(field: Name, valueId: Id): void {
@@ -821,14 +821,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const fields = self.module().hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
-          self.set(field.name, VOID_ID) // TODO: Lazy
+          self.set(field.name, LAZY_ID)
 
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
         evaluation.pushFrame([
-          // TODO: Remove for lazy
-          ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
+          ...fields.filter(field => !instruction.argumentNames.includes(field.name) && field.value.is('Literal')).flatMap(field => [
             ...compile(environment)(field.value),
             STORE(field.name, true),
           ]),
