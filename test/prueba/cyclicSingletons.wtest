@@ -1,0 +1,21 @@
+object juan {
+    const property fechaNacimiento = new Date()
+    var mascota = firulais
+}
+
+object firulais {
+    var duenio = juan
+}
+
+test "should not raise a stack overflow error if circular references setted" {
+  assert.that(juan !== null)
+}
+
+
+test "property getter for an const reference - instance of a class" {
+  assert.equals(new Date(), juan.fechaNacimiento())
+}
+
+test "closure toString should be its source code" {
+  assert.equals("{x => 5 + x}", {x => 5 + x}.toString())
+}
