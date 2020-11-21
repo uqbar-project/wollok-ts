@@ -19,7 +19,7 @@
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity --ignore mirror/instanceVariableMirror.wtest",
-    "test:game": "npm run test:wtest -- --root test",
+    "test:game": "npm run test:wtest -- --root test/game",
     "test:wtest": "mocha --parallel -t 10000 -r ts-node/register test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
