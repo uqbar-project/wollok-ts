@@ -45,5 +45,6 @@ object gameMirror {
 	method whenKeyPressedDo(event, action) { io.addEventHandler(event, action) }
 	method removeTickEvent(event) { io.removeTimeHandler(event) }
 	method clear() { io.clear() }
+	method flushEvents(time) { io.flushEvents(time) }
 	method currentTime() = io.currentTime()
 }

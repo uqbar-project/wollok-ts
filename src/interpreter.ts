@@ -422,7 +422,7 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
       ]
 
       if (target.is('Field')) return [
-        LOAD(target.name, compile(environment)(target.value)), // STORE(target.name, true) ?
+        LOAD(target.name, compile(environment)(target.value)),
       ]
 
       return [LOAD(node.name)]
@@ -884,7 +884,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
 
   const evaluation = build.Evaluation(environment)()
 
-  evaluation.createContext(null, new Map([
+  const rootContext = evaluation.createContext(null, new Map([
     ['null', NULL_ID],
     ['true', TRUE_ID],
     ['false', FALSE_ID],
@@ -892,6 +892,7 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ...globalConstants.map(constant => [constant.fullyQualifiedName(), LAZY_ID] as const),
   ]), ROOT_CONTEXT_ID)
 
+  evaluation.pushFrame([], rootContext)
 
   evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)
   evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)
@@ -1032,6 +1033,7 @@ export default (environment: Environment, natives: Natives) => ({
 
     // TODO: stepAll?
     do {
+      log.step(evaluation)
       takeStep(evaluation)
     } while (evaluation.stackDepth() > initialFrameCount)
   },
