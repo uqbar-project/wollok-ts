@@ -2,6 +2,12 @@ object o {
   var property x = pepita.energia() / 2
 }
 
+class C {
+  var property x
+}
+
+object w inherits C(x = pepita.energia()) { }
+
 object pepita {
   var property energia
 
@@ -10,6 +16,10 @@ object pepita {
   }
 }
 
-test "TEST" {
+test "TEST o" {
   assert.equals(1, o.x())
+}
+
+test "TEST w" {
+  assert.equals(2, w.x())
 }
