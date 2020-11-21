@@ -1,0 +1,15 @@
+object o {
+  var property x = pepita.energia() / 2
+}
+
+object pepita {
+  var property energia
+
+  method initialize() {
+    energia = 2
+  }
+}
+
+test "TEST" {
+  assert.equals(1, o.x())
+}

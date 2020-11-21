@@ -401,6 +401,10 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
         LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
       ]
 
+      if (target.is('Field')) return [
+        LOAD(target.name, compile(environment)(target.value)),
+      ]
+
       return [LOAD(node.name)]
     },
 
@@ -797,16 +801,16 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const fields = self.module().hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
-          self.set(field.name, VOID_ID)
+          self.set(field.name, LAZY_ID)
 
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
         evaluation.pushFrame([
-          ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
-            ...compile(environment)(field.value),
-            STORE(field.name, true),
-          ]),
+          // ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
+          //   ...compile(environment)(field.value),
+          //   STORE(field.name, true),
+          // ]),
           LOAD('self'),
           RETURN,
         ], self.id)
