@@ -59,12 +59,10 @@ describe(basename(ARGUMENTS.root), () => {
 
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root, ...ARGUMENTS.ignore)
+  const { buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root, ...ARGUMENTS.ignore)
 
   time('Initializing Evaluation')
   const baseEvaluation = buildEvaluation()
-  stepAll(baseEvaluation)
-  baseEvaluation.popFrame()
 
   timeEnd('Initializing Evaluation')
 
