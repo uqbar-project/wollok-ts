@@ -290,7 +290,7 @@ export class RuntimeObject {
 
   get(field: Name): RuntimeObject | undefined {
     const id = this.context().locals.get(field)
-    return id ? this.evaluation().instance(id) : undefined
+    return id && id !== LAZY_ID ? this.evaluation().instance(id) : undefined //TODO: LAZY!!
   }
 
   set(field: Name, valueId: Id): void {
@@ -393,12 +393,36 @@ export const compile = (environment: Environment) => (...sentences: Sentence[]):
     Reference: node => {
       const target = node.target()!
 
+      const initModule = (singleton: Singleton) => {
+        if (singleton.supercallArgs.some(is('NamedArgument'))) {
+          const args = singleton.supercallArgs as List<NamedArgument>
+          return [
+            ...args.flatMap(({ value }) => compile(environment)(value)),
+            PUSH(singleton.id),
+            INIT_NAMED(args.map(({ name }) => name)),
+            INIT(0, singleton.superclass()!.fullyQualifiedName(), true),
+          ]
+        } else {
+          const args = singleton.supercallArgs as List<Expression>
+          return [
+            ...args.flatMap(arg => compile(environment)(arg)),
+            PUSH(singleton.id),
+            INIT_NAMED([]),
+            INIT(args.length, singleton.superclass()!.fullyQualifiedName()),
+          ]
+        }
+      }
+
       if (target.is('Module')) return [
-        LOAD(target.fullyQualifiedName()),
+        LOAD(target.fullyQualifiedName(), initModule(target)),
       ]
 
       if (target.is('Variable') && target.parent().is('Package')) return [
         LOAD(target.fullyQualifiedName(), compile(environment)(target.value)),
+      ]
+
+      if (target.is('Field')) return [
+        LOAD(target.name, compile(environment)(target.value)),
       ]
 
       return [LOAD(node.name)]
@@ -797,13 +821,13 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const fields = self.module().hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
-          self.set(field.name, VOID_ID)
+          self.set(field.name, LAZY_ID)
 
         for (const name of [...instruction.argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
         evaluation.pushFrame([
-          ...fields.filter(field => !instruction.argumentNames.includes(field.name)).flatMap(field => [
+          ...fields.filter(field => !instruction.argumentNames.includes(field.name) && field.value.is('Literal')).flatMap(field => [
             ...compile(environment)(field.value),
             STORE(field.name, true),
           ]),
@@ -864,31 +888,11 @@ const buildEvaluation = (environment: Environment): Evaluation => {
     ['null', NULL_ID],
     ['true', TRUE_ID],
     ['false', FALSE_ID],
-    ...globalSingletons.map(singleton => [singleton.fullyQualifiedName(), singleton.id] as const),
+    ...globalSingletons.map(singleton => [singleton.fullyQualifiedName(), LAZY_ID] as const),
     ...globalConstants.map(constant => [constant.fullyQualifiedName(), LAZY_ID] as const),
   ]), ROOT_CONTEXT_ID)
 
-  evaluation.pushFrame([
-    ...globalSingletons.flatMap(singleton => {
-      if (singleton.supercallArgs.some(is('NamedArgument'))) {
-        const args = singleton.supercallArgs as List<NamedArgument>
-        return [
-          ...args.flatMap(({ value }) => compile(environment)(value)),
-          PUSH(singleton.id),
-          INIT_NAMED(args.map(({ name }) => name)),
-          INIT(0, singleton.superclass()!.fullyQualifiedName(), true),
-        ]
-      } else {
-        const args = singleton.supercallArgs as List<Expression>
-        return [
-          ...args.flatMap(arg => compile(environment)(arg)),
-          PUSH(singleton.id),
-          INIT_NAMED([]),
-          INIT(args.length, singleton.superclass()!.fullyQualifiedName()),
-        ]
-      }
-    }),
-  ], rootContext)
+  evaluation.pushFrame([], rootContext)
 
   evaluation.createInstance('wollok.lang.Object', undefined, NULL_ID)
   evaluation.createInstance('wollok.lang.Boolean', undefined, TRUE_ID)
@@ -1029,6 +1033,7 @@ export default (environment: Environment, natives: Natives) => ({
 
     // TODO: stepAll?
     do {
+      log.step(evaluation)
       takeStep(evaluation)
     } while (evaluation.stackDepth() > initialFrameCount)
   },
@@ -1038,7 +1043,6 @@ export default (environment: Environment, natives: Natives) => ({
 
     log.start('Initializing Evaluation')
     const initializedEvaluation = evaluation || buildEvaluation(environment)
-    stepAll(natives)(initializedEvaluation)
     log.done('Initializing Evaluation')
 
     log.info('Running program', fullyQualifiedName)
@@ -1051,8 +1055,6 @@ export default (environment: Environment, natives: Natives) => ({
   runTests: (tests: List<Test>): Record<Name, TestResult> => {
     log.start('Initializing Evaluation')
     const evaluation = buildEvaluation(environment)
-    stepAll(natives)(evaluation)
-    evaluation.popFrame()
     log.done('Initializing Evaluation')
 
     garbageCollect(evaluation)

@@ -15,7 +15,7 @@ describe('Wollok Game', () => {
 
   describe(basePackage, () => {
 
-    const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', join('test', 'game'))
+    const { runProgram, buildEvaluation, sendMessage } = buildInterpreter('**/*.wpgm', join('test', 'game'))
 
     const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
@@ -53,5 +53,10 @@ describe('Wollok Game', () => {
       visuals(evaluation).should.have.length(0)
     })
 
+    it('flush event', () => {
+      const evaluation = buildEvaluation()
+      const time = evaluation.createInstance('wollok.lang.Number', 1)
+      sendMessage('flushEvents', evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id, time)(evaluation)
+    })
   })
 })
