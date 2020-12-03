@@ -247,6 +247,8 @@ const game: Natives = {
 
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', TRUE_ID)
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
+      sendMessage('doStart', mirror(evaluation))(evaluation)
       returnVoid(evaluation)
     },
   },

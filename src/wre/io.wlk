@@ -6,8 +6,8 @@ object io {
   const property timeHandlers = new Dictionary()
   var property eventQueue = []
   var property currentTime = 0
-  var property errorHandler = { exception => console.println(exception)}
-  var property domainExceptionHandler = {exception => game.say(exception.source(), exception.message())}
+  var property errorHandler
+  var property domainExceptionHandler
 
   method queueEvent(event) {
     eventQueue.add(event)
