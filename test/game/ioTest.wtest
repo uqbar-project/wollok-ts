@@ -71,7 +71,7 @@ describe 'flush events' {
 
   test 'throws exception on event with error handler' {
     io.domainExceptionHandler(closureMock)
-    io.addTimeHandler('asd', closureErrorMock)
+    io.addTimeHandler('', closureErrorMock)
     io.flushEvents(0)
     assert.that(closureMock.called())
   }
