@@ -9,7 +9,7 @@ const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
 }
 
-const returnVoid = (evaluation: Evaluation) => {
+export const returnVoid = (evaluation: Evaluation): void => {
   returnValue(evaluation, VOID_ID)
 }
 
@@ -247,6 +247,8 @@ const game: Natives = {
 
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', TRUE_ID)
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
+      sendMessage('doStart', mirror(evaluation))(evaluation)
       returnVoid(evaluation)
     },
   },

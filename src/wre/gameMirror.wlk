@@ -41,6 +41,11 @@ object gameMirror {
 		})
 	}
 
+	method doStart(){
+		io.exceptionHandler({ exception => console.println(exception)})
+		io.domainExceptionHandler({exception => game.say(exception.source(), exception.message())})
+	}
+
 
 	method whenKeyPressedDo(event, action) { io.addEventHandler(event, action) }
 	method removeTickEvent(event) { io.removeTimeHandler(event) }

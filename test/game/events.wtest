@@ -152,7 +152,7 @@ describe 'events' {
   }
 
   test 'schedule on 0 ms should not throws exception' {
-    io.errorHandler(closureErrorMock)
+    io.exceptionHandler(closureErrorMock)
     game.schedule(0, closureMock)
     io.flushEvents(0)
   }
