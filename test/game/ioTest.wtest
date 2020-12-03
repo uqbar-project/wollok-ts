@@ -1,4 +1,5 @@
 import wollok.io.*
+import wollok.game.*
 
 object closureMock {
   const property calls = []
@@ -13,6 +14,10 @@ object closureErrorMock {
 }
 
 describe 'flush events' {
+
+  fixture{
+    game.start()
+  }
 
   test 'should clear event queue' {
     io.queueEvent('')
@@ -65,8 +70,8 @@ describe 'flush events' {
   }
 
   test 'throws exception on event with error handler' {
-    io.errorHandler(closureMock)
-    io.addTimeHandler('', closureErrorMock)
+    io.domainExceptionHandler(closureMock)
+    io.addTimeHandler('asd', closureErrorMock)
     io.flushEvents(0)
     assert.that(closureMock.called())
   }
