@@ -1,6 +1,7 @@
-import { interpret, WRENatives } from '..'
 import { Evaluation, RuntimeObject, Natives } from '../interpreter'
 import { returnVoid } from './game'
+import { interpret } from '..'
+import WRENatives from './wre.natives'
 
 const getObjectAsString = (obj: RuntimeObject) => (evaluation: Evaluation): string => {
   const currentFrame = evaluation.currentFrame()!

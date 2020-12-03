@@ -42,7 +42,7 @@ object gameMirror {
 	}
 
 	method doStart(){
-		io.errorHandler({ exception => console.println(exception)})
+		io.exceptionHandler({ exception => console.println(exception)})
 		io.domainExceptionHandler({exception => game.say(exception.source(), exception.message())})
 	}
 

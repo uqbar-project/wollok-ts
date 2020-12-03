@@ -6,8 +6,8 @@ object io {
   const property timeHandlers = new Dictionary()
   var property eventQueue = []
   var property currentTime = 0
-  var property errorHandler
-  var property domainExceptionHandler
+  var property exceptionHandler = { => }
+  var property domainExceptionHandler = { => }
 
   method queueEvent(event) {
     eventQueue.add(event)
@@ -61,9 +61,8 @@ object io {
     } catch e: DomainException{
       domainExceptionHandler.apply(e)
     } catch e {
-      errorHandler.apply(e)
+      exceptionHandler.apply(e)
     }
-    //TODO: catch Exception ?
   }
 
 }

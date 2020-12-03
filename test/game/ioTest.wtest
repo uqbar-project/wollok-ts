@@ -9,8 +9,12 @@ object closureMock {
   method apply(args...) { calls.add(args) }
 }
 
-object closureErrorMock {
+object closureDomainErrorMock {
   method apply(args...) { self.error('FAIL') }
+}
+
+object closureErrorMock {
+  method apply(args...) = 1 / 0
 }
 
 describe 'flush events' {
@@ -60,19 +64,33 @@ describe 'flush events' {
 
   test 'throws exception on queue event should not propagate' {
     io.queueEvent('EVENT')
-    io.addEventHandler('EVENT', closureErrorMock)
+    io.addEventHandler('EVENT', closureDomainErrorMock)
     io.flushEvents(0)
   }
 
   test 'throws exception on time event should not propagate' {
-    io.addTimeHandler('', closureErrorMock)
+    io.addTimeHandler('', closureDomainErrorMock)
     io.flushEvents(0)
   }
 
-  test 'throws exception on event with error handler' {
+  test 'throws domain exception on event with error handler' {
     io.domainExceptionHandler(closureMock)
+    io.addTimeHandler('', closureDomainErrorMock)
+    io.flushEvents(0)
+    assert.that(closureMock.called())
+  }
+
+  test 'throws exception on event with error handler' {
+    io.exceptionHandler(closureMock)
     io.addTimeHandler('', closureErrorMock)
     io.flushEvents(0)
     assert.that(closureMock.called())
+  }
+
+  test 'throws exception on event with error handler do not call domain handler' {
+    io.domainExceptionHandler(closureMock)
+    io.addTimeHandler('', closureErrorMock)
+    io.flushEvents(0)
+    assert.notThat(closureMock.called())
   }
 }
