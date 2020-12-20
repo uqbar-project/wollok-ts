@@ -5,15 +5,22 @@ import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
-//    - More step methods: stepThrough, for example. Step to get inside closure?
-//    - method to set-up evaluation for a message send: ev.sendMessage('m', o, p1, p2)
+//    - Create methods for setting-up evaluations for specific purposes:
+//      PROBLEM: setting-up a run is not the same as actually running
+//               If we are to just set-up to avoid skipping steps we can't post-process
+//               For example, if we send a message is not the same as set-up a frame for evaluating that message
+//               If we want to return a "test result" then we need to make that atomic.
+//               We could avoid the run itself and just setup the evaluation, like what we do in the initialization
+//                that would move the responsibility to the evaluation user.
+//      - Run a test and get a test result
+//      - Run a program and get a run result (time consumed? catched error?)
+//      - Send a message and obtain the result ev.sendMessage('m', o | oid, p1 | p1id, p2 | p2id)
+//   - Send logger as parameter to support better handling and logging to file.
+//   - More step methods: stepThrough, for example. Step to get inside closure?
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
 //    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
 // - Avoid trailing instructions for methods and tests when possible (return void), etc.
-// - Send logger as parameter to support better handling and logging to file.
-// - Migrate to TypeScript 4.1. Maybe drop Stages in the model? Not sure if worth it...
-// - Drop deprecated Wollok 2 abstractions.
 
 const { round } = Math
 const { isArray } = Array
@@ -787,6 +794,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
       },
     })
   })
+
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EXECUTION
