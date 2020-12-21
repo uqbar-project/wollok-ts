@@ -63,7 +63,7 @@ export class Evaluation {
     protected instances: Map<Id, RuntimeObject>,
     protected contexts: Map<Id, Context>,
     protected code: Map<Id, List<Instruction>>,
-  ){ }
+  ) { }
 
   copy(): Evaluation {
     const evaluation = new Evaluation(
@@ -80,9 +80,9 @@ export class Evaluation {
   }
 
   codeFor(node: Node): List<Instruction> {
-    if(!this.code.has(node.id)) {
+    if (!this.code.has(node.id)) {
       const compileSentences = compile(this.environment)
-      if(node.is('Method') && node.body && node.body !== 'native') {
+      if (node.is('Method') && node.body && node.body !== 'native') {
         this.code.set(node.id, [
           ...compileSentences(...node.body.sentences),
           PUSH(VOID_ID),
@@ -124,7 +124,7 @@ export class Evaluation {
     return this.instances.get(id)
   }
 
-  setInstance(id: Id, object: RuntimeObject): void{
+  setInstance(id: Id, object: RuntimeObject): void {
     this.instances.set(id, object)
   }
 
@@ -197,20 +197,23 @@ export class Evaluation {
 
   popFrame(): Frame | undefined { return this.frameStack.pop() }
 
-  raise(exceptionId: Id): void{
+  raise(exceptionId: Id): void {
     let currentContext = this.context(this.currentFrame()?.context ?? ROOT_CONTEXT_ID)
     const exception = this.instance(exceptionId)
+
+    const raiseUnhandledException = (exception: RuntimeObject) => {
+      throw new Error(`Reached end of stack with unhandled exception of type ${exception.moduleFQN}: ${exception.id}`)
+    }
 
     const visited = []
 
     while (currentContext.exceptionHandlerIndex === undefined) {
       const currentFrame = this.currentFrame()
 
-      if (!currentFrame) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
-
-      if (currentFrame.context === currentFrame.id) {
+      if (!currentFrame) raiseUnhandledException(exception)
+      else if (currentFrame.context === currentFrame.id) {
         this.frameStack.pop()
-        if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+        if (!this.currentFrame()) raiseUnhandledException(exception)
       } else {
         if (!currentContext.parent) throw new Error(`Reached the root context ${JSON.stringify(currentContext)} before reaching the current frame ${currentFrame.id}. This should not happen!`)
         currentFrame.context = currentContext.parent
@@ -221,11 +224,11 @@ export class Evaluation {
     }
 
     if (!currentContext.parent) throw new Error('Popped root context')
-    if (!this.currentFrame()) throw new Error(`Reached end of stack with unhandled exception ${JSON.stringify(exception)}`)
+    if (!this.currentFrame()) raiseUnhandledException(exception)
 
-      this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
-      this.currentFrame()!.context = currentContext.parent
-      this.context(this.currentFrame()!.context).locals.set('<exception>', exceptionId)
+    this.currentFrame()!.nextInstruction = currentContext.exceptionHandlerIndex!
+    this.currentFrame()!.context = currentContext.parent
+    this.context(this.currentFrame()!.context).locals.set('<exception>', exceptionId)
   }
 
 }
@@ -238,7 +241,7 @@ export class Frame {
     public context: Id,
     public nextInstruction: number,
     public operandStack: Id[],
-  ){}
+  ) { }
 
   copy(): Frame {
     return new Frame(this.id, this.instructions, this.context, this.nextInstruction, [...this.operandStack])
@@ -908,9 +911,9 @@ function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>
   stepAll(natives)(evaluation)
 
   const currentFrame = evaluation.popFrame()!
-  if(currentFrame.operandStack.length) {
+  if (currentFrame.operandStack.length) {
     const topOperand = currentFrame.popOperand()
-    if(topOperand !== VOID_ID) return evaluation.instance(topOperand)
+    if (topOperand !== VOID_ID) return evaluation.instance(topOperand)
   }
   return null
 
@@ -966,8 +969,8 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
-      if(instruction.kind === 'PUSH') return [instruction.id]
-      if(instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
+      if (instruction.kind === 'PUSH') return [instruction.id]
+      if (instruction.kind === 'LOAD' && instruction.lazyInitialization) return extractIdsFromInstructions(instruction.lazyInitialization)
       return []
     })
   }
@@ -975,7 +978,7 @@ const garbageCollect = (evaluation: Evaluation) => {
   const marked = new Set<Id>()
   const pending = [
     ROOT_CONTEXT_ID,
-    ... evaluation.listFrames().flatMap(({ id, operandStack, context, instructions }) => [
+    ...evaluation.listFrames().flatMap(({ id, operandStack, context, instructions }) => [
       id,
       context,
       ...operandStack,
@@ -983,24 +986,24 @@ const garbageCollect = (evaluation: Evaluation) => {
     ]),
   ]
 
-  while(pending.length) {
+  while (pending.length) {
     const next = pending.shift()
-    if(next && !marked.has(next) && next !== LAZY_ID && next !== VOID_ID) {
+    if (next && !marked.has(next) && next !== LAZY_ID && next !== VOID_ID) {
       marked.add(next)
 
       const context = evaluation.context(next)
       pending.push(
-        ... context.parent ? [context.parent] : [],
+        ...context.parent ? [context.parent] : [],
         ...context.locals.values(),
       )
 
       const instance = evaluation.maybeInstance(next)
-      if(isArray(instance?.innerValue)) pending.push(...instance!.innerValue)
+      if (isArray(instance?.innerValue)) pending.push(...instance!.innerValue)
     }
   }
 
-  for(const contextId of evaluation.listContexts())
-    if(!marked.has(contextId)) {
+  for (const contextId of evaluation.listContexts())
+    if (!marked.has(contextId)) {
       evaluation.destroyContext(contextId)
       if (evaluation.maybeInstance(contextId)) evaluation.destroyInstance(contextId)
     }
