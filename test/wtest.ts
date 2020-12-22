@@ -45,18 +45,11 @@ function registerTests(evaluation: Evaluation, nodes: List<Node>) {
 
 
 describe(basename(ARGUMENTS.root), () => {
-
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
+  const [, environment] = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
 
-  time('Initializing Evaluation')
-  const baseEvaluation = buildEvaluation()
-  stepAll(baseEvaluation)
-  baseEvaluation.frameStack.pop()
+  const evaluation = Evaluation.of(environment, natives)
 
-  timeEnd('Initializing Evaluation')
-
-  registerTests(baseEvaluation, baseEvaluation.environment.members)
-
+  registerTests(evaluation, evaluation.environment.members)
 })

@@ -33,7 +33,7 @@ export function fromJSON<T>(json: any): T {
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Reference = <Q extends Kind|Category>(name: Name): ReferenceNode<Q, Raw> => new ReferenceNode<Q, Raw>({ name })
+export const Reference = <Q extends Kind | Category>(name: Name): ReferenceNode<Q, Raw> => new ReferenceNode<Q, Raw>({ name })
 
 export const Parameter = (name: Name, payload?: BuildPayload<ParameterNode<Raw>>): ParameterNode<Raw> => new ParameterNode<Raw>({
   name,
@@ -166,7 +166,7 @@ export const Variable = (name: Name, payload?: BuildPayload<VariableNode<Raw>>):
 
 export const Return = (value: Expression<Raw> | undefined = undefined, payload?: BuildPayload<ReturnNode<Raw>>): ReturnNode<Raw> => new ReturnNode<Raw>({ ...payload, value })
 
-export const Assignment = (reference: ReferenceNode<'Variable'|'Field', Raw>, value: Expression<Raw>): AssignmentNode<Raw> =>
+export const Assignment = (reference: ReferenceNode<'Variable' | 'Field', Raw>, value: Expression<Raw>): AssignmentNode<Raw> =>
   new AssignmentNode<Raw>({ variable: reference, value })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -222,8 +222,8 @@ export const Closure = (payload: { parameters?: List<ParameterNode<Raw>>, senten
   const lastSentence = last(payload.sentences ?? [])
   const sentences =
     lastSentence?.is('Expression') ? [...initialSentences, Return(lastSentence)] :
-    lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
-    [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
+      lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
+        [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
 
   return new LiteralNode<Raw, SingletonNode<Raw>>({
     value: new SingletonNode<Raw>({
@@ -281,32 +281,3 @@ export const setter = (name: Name): MethodNode<Filled> => new MethodNode({
     ],
   }),
 })
-
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EVALUATION
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const Evaluation = (
-  environment: EnvironmentNode,
-  instances: Record<Id, RuntimeObjectType> = {},
-  _contexts: Record<Id, Context> = {}
-) => (...frameStack: FrameType[]): EvaluationType => {
-  const evaluation = EvaluationType.of(environment)
-  // unew EvaluationType(
-  //   environment,
-  //   new Context(),
-  //   new Stack(MAX_FRAME_STACK_SIZE, [...frameStack].reverse()),
-  //   new Map(Object.values(instances).map(instance => [instance.id, instance])),
-  // )
-
-  return evaluation
-}
-
-export const Frame = (payload: Partial<FrameType>): FrameType => new FrameType(
-    payload.context!,
-    payload.instructions ?? [],
-)
-
-export const RuntimeObject = (id: Id, moduleFQN: Name, innerValue?: string | number | Id[]): RuntimeObjectType =>
-  null as any

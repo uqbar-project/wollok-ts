@@ -3,6 +3,7 @@ import { join } from 'path'
 import { RuntimeObject } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildInterpreter } from './assertions'
+import natives from '../src/wre/wre.natives'
 
 should()
 
@@ -15,7 +16,7 @@ describe('Wollok Game', () => {
 
   describe(basePackage, () => {
 
-    const { runProgram, buildEvaluation } = buildInterpreter('**/*.wpgm', join('test', 'game'))
+    const [{ runProgram }, environment] = buildInterpreter('**/*.wpgm', join('test', 'game'))
 
     const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
@@ -28,7 +29,7 @@ describe('Wollok Game', () => {
     }
 
     const runGameProgram = (programFQN: string) => {
-      const evaluation = buildEvaluation()
+      const evaluation = Evaluation.of(environment, natives)
       runProgram(programFQN, evaluation)
       return evaluation
     }

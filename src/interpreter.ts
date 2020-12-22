@@ -59,7 +59,7 @@ export class Evaluation {
   get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
 
 
-  static of(environment: Environment): Evaluation {
+  static of(environment: Environment, natives: Natives, stepAllInitialization = true): Evaluation {
     const rootContext = new Context()
     const evaluation = new Evaluation(environment, rootContext)
 
@@ -99,12 +99,19 @@ export class Evaluation {
       }),
     ]))
 
+    if (stepAllInitialization) {
+      log.start('Initializing Evaluation')
+      stepAll(natives)(evaluation)
+      evaluation.frameStack.pop()
+      log.done('Initializing Evaluation')
+    }
+
     return evaluation
   }
 
   static _retrieveInstanceOrSaveDefault(evaluation: Evaluation, instance: RuntimeObject): RuntimeObject {
     const existing = evaluation.instanceCache.get(instance.id)
-    if(existing) return existing
+    if (existing) return existing
 
     evaluation.instanceCache.set(instance.id, instance)
 
@@ -118,7 +125,7 @@ export class Evaluation {
     frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
     instanceCache = new Map<Id, RuntimeObject>(),
     code = new Map<Id, List<Instruction>>()
-  ){
+  ) {
     this.environment = environment
     this.rootContext = rootContext
     this.frameStack = frameStack
@@ -140,9 +147,9 @@ export class Evaluation {
   }
 
   codeFor(node: Node): List<Instruction> {
-    if(!this.code.has(node.id)) {
+    if (!this.code.has(node.id)) {
       const compileSentences = compileSentence(this.environment)
-      if(node.is('Method') && node.body && node.body !== 'native') {
+      if (node.is('Method') && node.body && node.body !== 'native') {
         this.code.set(node.id, [
           ...compileSentences(...node.body.sentences),
           PUSH(),
@@ -184,11 +191,11 @@ export class Evaluation {
 
 
   raise(exception: RuntimeObject): void {
-    while(!this.frameStack.isEmpty()) {
+    while (!this.frameStack.isEmpty()) {
       const currentFrame = this.frameStack.top!
 
-      while(currentFrame.hasNestedContext()) {
-        if(currentFrame.context.exceptionHandlerIndex !== undefined) {
+      while (currentFrame.hasNestedContext()) {
+        if (currentFrame.context.exceptionHandlerIndex !== undefined) {
           currentFrame.jumpTo(currentFrame.context.exceptionHandlerIndex)
           currentFrame.popContext()
           currentFrame.context.set('<exception>', exception)
@@ -279,7 +286,7 @@ export class Frame {
   }
 
 
-  constructor(parentContext: Context, instructions: List<Instruction>, locals: Locals = new Map()){
+  constructor(parentContext: Context, instructions: List<Instruction>, locals: Locals = new Map()) {
     this.baseContext = new Context(parentContext)
     this.currentContext = this.baseContext
     this.instructions = instructions
@@ -297,7 +304,7 @@ export class Frame {
   }
 
   popContext(): void {
-    if(!this.hasNestedContext()) throw new Error('Popped frame base context')
+    if (!this.hasNestedContext()) throw new Error('Popped frame base context')
     this.currentContext = this.currentContext.parentContext!
   }
 
@@ -333,11 +340,11 @@ export class Context {
   static _copy(context: Context, cache: Map<Id, any>): Context
   static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
   static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
-    if(!context) return undefined
-    if(context instanceof RuntimeObject) return RuntimeObject._copy(context, cache)
+    if (!context) return undefined
+    if (context instanceof RuntimeObject) return RuntimeObject._copy(context, cache)
 
     const cached = cache.get(context.id)
-    if(cached) return cached
+    if (cached) return cached
 
     const copy = new Context(
       Context._copy(context.parentContext, cache),
@@ -353,7 +360,7 @@ export class Context {
   }
 
 
-  constructor(parent?: Context, exceptionHandlerIndex?: number, id: Id = uuid()){
+  constructor(parent?: Context, exceptionHandlerIndex?: number, id: Id = uuid()) {
     this.parentContext = parent
     this.exceptionHandlerIndex = exceptionHandlerIndex
     this.id = id
@@ -385,10 +392,10 @@ export class RuntimeObject extends Context {
   static _copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
   static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
   static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined {
-    if(!instance) return undefined
+    if (!instance) return undefined
 
     const cached = cache.get(instance.id)
-    if(cached) return cached
+    if (cached) return cached
 
     const copy = new RuntimeObject(
       Context._copy(instance.parentContext, cache),
@@ -487,7 +494,7 @@ export class RuntimeObject extends Context {
       module.is('Singleton') && !!module.name ? module.id : undefined
     )
 
-    for(const local of keys(locals))
+    for (const local of keys(locals))
       instance.set(local, locals[local])
 
     return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
@@ -890,10 +897,10 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const { moduleFQN, innerValue } = instruction
         const instance =
           moduleFQN === 'wollok.lang.String' ? RuntimeObject.string(evaluation, `${innerValue}`) :
-          moduleFQN === 'wollok.lang.Number' ? RuntimeObject.number(evaluation, Number(innerValue)) :
-          moduleFQN === 'wollok.lang.List' ? RuntimeObject.list(evaluation, innerValue as Id[]) :
-          moduleFQN === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, innerValue as Id[]) :
-          RuntimeObject.object(evaluation, moduleFQN)
+            moduleFQN === 'wollok.lang.Number' ? RuntimeObject.number(evaluation, Number(innerValue)) :
+              moduleFQN === 'wollok.lang.List' ? RuntimeObject.list(evaluation, innerValue as Id[]) :
+                moduleFQN === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, innerValue as Id[]) :
+                  RuntimeObject.object(evaluation, moduleFQN)
 
         currentFrame.operandStack.push(instance)
       })()
@@ -914,7 +921,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const { count } = instruction
         const check = currentFrame.operandStack.pop()
 
-        if(check?.id === TRUE_ID) return currentFrame.jump(count)
+        if (check?.id === TRUE_ID) return currentFrame.jump(count)
         if (check?.id !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
       })()
 
@@ -949,7 +956,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
             skipReceiverContext ? self.parentContext : self,
             evaluation.codeFor(method),
             new Map(method.parameters.map(({ name, isVarArg }, index) =>
-              [name, isVarArg ? RuntimeObject.list(evaluation, argIds.slice(index)): args[index]]
+              [name, isVarArg ? RuntimeObject.list(evaluation, argIds.slice(index)) : args[index]]
             ))
           ))
         }
@@ -984,7 +991,7 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
         const { argumentNames } = instruction
         const self = currentFrame.operandStack.pop()!
 
-        const fields: List<Field|Variable> = self.module.is('Describe')
+        const fields: List<Field | Variable> = self.module.is('Describe')
           ? self.module.variables()
           : self.module.hierarchy().flatMap(module => module.fields())
 
@@ -1111,7 +1118,7 @@ function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResu
 const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
-      if(instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]
+      if (instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]
       return []
     })
   }
@@ -1126,22 +1133,22 @@ const garbageCollect = (evaluation: Evaluation) => {
     ]),
   ]
 
-  while(pending.length) {
+  while (pending.length) {
     const next = pending.shift()
-    if(next && !marked.has(next)) {
+    if (next && !marked.has(next)) {
       marked.add(next)
 
       pending.push(
-        ... next.parentContext ? [next.parentContext] : [],
+        ...next.parentContext ? [next.parentContext] : [],
         ...next.locals.values(),
       )
 
-      if(next instanceof RuntimeObject && isArray(next?.innerValue)) pending.push(...next!.innerValue.map(id => evaluation.instance(id)))
+      if (next instanceof RuntimeObject && isArray(next?.innerValue)) pending.push(...next!.innerValue.map(id => evaluation.instance(id)))
     }
   }
 
-  for(const instance of evaluation.instances)
-    if(!marked.has(instance)) {
+  for (const instance of evaluation.instances)
+    if (!marked.has(instance)) {
       evaluation.freeInstance(instance.id)
     }
 }
@@ -1149,8 +1156,6 @@ const garbageCollect = (evaluation: Evaluation) => {
 // TODO: Refactor this interface
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export default (environment: Environment, natives: Natives) => ({
-
-  buildEvaluation: () => Evaluation.of(environment),
 
   step: step(natives),
 
@@ -1174,28 +1179,20 @@ export default (environment: Environment, natives: Natives) => ({
     } while (evaluation.frameStack.depth > initialFrameCount)
   },
 
-  runProgram: (fullyQualifiedName: Name, evaluation?: Evaluation): void => {
+  runProgram: (fullyQualifiedName: Name, targetEvaluation?: Evaluation): void => {
     const programSentences = environment.getNodeByFQN<'Program'>(fullyQualifiedName).body.sentences
 
-    log.start('Initializing Evaluation')
-    const initializedEvaluation = evaluation || Evaluation.of(environment)
-    stepAll(natives)(initializedEvaluation)
-    log.done('Initializing Evaluation')
+    const evaluation = targetEvaluation || Evaluation.of(environment, natives)
 
     log.info('Running program', fullyQualifiedName)
-    run(initializedEvaluation, natives, programSentences)
+    run(evaluation, natives, programSentences)
     log.success('Done!')
   },
 
   runTest: (evaluation: Evaluation, test: Test): TestResult => runTest(evaluation, natives, test),
 
   runTests: (tests: List<Test>): Record<Name, TestResult> => {
-    log.start('Initializing Evaluation')
-    const evaluation = Evaluation.of(environment)
-    stepAll(natives)(evaluation)
-    evaluation.frameStack.pop()
-    log.done('Initializing Evaluation')
-
+    const evaluation = Evaluation.of(environment, natives)
     garbageCollect(evaluation)
 
     return zipObj(

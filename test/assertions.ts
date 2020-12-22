@@ -4,7 +4,7 @@ import uuid from 'uuid'
 import { Environment } from '../src/builders'
 import interpreter, { step, Natives } from '../src/interpreter'
 import link from '../src/linker'
-import { Name, Linked, Node, Package, Reference, List } from '../src/model'
+import { Name, Linked, Node, Package, Reference, List, Environment as EnvironmentType } from '../src/model'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
@@ -76,7 +76,7 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
   chai.config.truncateThreshold = 0
 
   chai.use(function (_chai, utils) {
-    utils.objDisplay = function (obj) { return '!!!'+ obj + '!!!' }
+    utils.objDisplay = function (obj) { return '!!!' + obj + '!!!' }
   })
 
   Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
@@ -199,7 +199,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export const buildInterpreter = (pattern: string, cwd: string) => {
+export const buildInterpreter = (pattern: string, cwd: string): [ReturnType<typeof interpreter>, EnvironmentType] => {
 
   const { time, timeEnd, log } = console
 
@@ -217,8 +217,8 @@ export const buildInterpreter = (pattern: string, cwd: string) => {
   timeEnd('Building environment')
 
   const problems = validate(environment)
-  if(problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
+  if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
   else log('No problems found building the environment!')
 
-  return interpreter(environment, natives as Natives)
+  return [interpreter(environment, natives as Natives), environment]
 }
