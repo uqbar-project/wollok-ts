@@ -1,4 +1,4 @@
-import { last, zipObj, get } from './extensions'
+import { last, get } from './extensions'
 import log from './log'
 import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
@@ -21,6 +21,8 @@ import { v4 as uuid } from 'uuid'
 //    - Something to iterate list elements instead of mapping them?
 //    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
 // - Avoid trailing instructions for methods and tests when possible (return void), etc.
+// - Extract Service file, that offers a facade to run tests, run a program, send a message, etc.
+// - Split this file in smaller more manageable pieces.
 
 const { round } = Math
 const { isArray } = Array
@@ -1049,73 +1051,12 @@ export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
   }
 }
 
-
-function run(evaluation: Evaluation, natives: Natives, sentences: List<Sentence>) {
-  const instructions = compileSentence(evaluation.environment)(...sentences)
-
-  // TODO: This should not be run on a context child of the current frame's context. Either receive the context or use the global one.
-  evaluation.frameStack.push(new Frame(evaluation.currentContext, instructions))
-
-  stepAll(natives)(evaluation)
-
-  const currentFrame = evaluation.frameStack.pop()!
-  return currentFrame.operandStack.isEmpty ? undefined : currentFrame.operandStack.pop()
-}
-
-export interface TestResult {
-  error?: Error,
-  duration: number,
-  evaluation: Evaluation,
-}
-
-function runTest(evaluation: Evaluation, natives: Natives, test: Test): TestResult {
-  log.resetStep()
-
-  const describe = test.parent()
-  if (describe.is('Describe')) {
-    const describeInstance = RuntimeObject.object(evaluation, describe as unknown as Module) // TODO: Describe is a module?
-
-    evaluation.frameStack.push(new Frame(describeInstance, [
-      PUSH(describeInstance.id),
-      INIT_NAMED([]),
-      ...compileSentence(evaluation.environment)(
-        ...describe.fixtures().flatMap(fixture => fixture.body.sentences),
-      ),
-    ]))
-
-    try {
-      stepAll(natives)(evaluation)
-    } catch (error) {
-      return {
-        error,
-        duration: 0,
-        evaluation,
-      }
-    }
-  }
-
-  const before = process.hrtime()
-  let error: Error | undefined
-  try {
-    run(evaluation, natives, test.body.sentences)
-  } catch (e) {
-    error = e
-  }
-  const delta = process.hrtime(before)
-
-  return {
-    evaluation,
-    error,
-    duration: round(delta[0] * 1e3 + delta[1] / 1e6),
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // GC
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // TODO: Add some unit tests.
-const garbageCollect = (evaluation: Evaluation) => {
+export const garbageCollect = (evaluation: Evaluation) => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
       if (instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]
@@ -1153,6 +1094,7 @@ const garbageCollect = (evaluation: Evaluation) => {
     }
 }
 
+
 // TODO: Refactor this interface
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export default (environment: Environment, natives: Natives) => ({
@@ -1162,6 +1104,10 @@ export default (environment: Environment, natives: Natives) => ({
   stepAll: stepAll(natives),
 
   // TODO: stepThrough
+  // TODO: stepOut
+  // TODO: stepIn === step
+  // TODO: stepOver
+
   sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
     const takeStep = step(natives)
     const initialFrameCount = evaluation.frameStack.depth
@@ -1179,27 +1125,4 @@ export default (environment: Environment, natives: Natives) => ({
     } while (evaluation.frameStack.depth > initialFrameCount)
   },
 
-  runProgram: (fullyQualifiedName: Name, targetEvaluation?: Evaluation): void => {
-    const programSentences = environment.getNodeByFQN<'Program'>(fullyQualifiedName).body.sentences
-
-    const evaluation = targetEvaluation || Evaluation.of(environment, natives)
-
-    log.info('Running program', fullyQualifiedName)
-    run(evaluation, natives, programSentences)
-    log.success('Done!')
-  },
-
-  runTest: (evaluation: Evaluation, test: Test): TestResult => runTest(evaluation, natives, test),
-
-  runTests: (tests: List<Test>): Record<Name, TestResult> => {
-    const evaluation = Evaluation.of(environment, natives)
-    garbageCollect(evaluation)
-
-    return zipObj(
-      tests.map(test => test.fullyQualifiedName()),
-      tests.map(test => runTest(evaluation.copy(), natives, test))
-    )
-  },
-
-  garbageCollect,
 })

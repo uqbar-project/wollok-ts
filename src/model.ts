@@ -10,9 +10,9 @@ export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
 export interface Scope {
-  resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup?: boolean):  NodeOfKindOrCategory<Q, S> | undefined
+  resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup?: boolean): NodeOfKindOrCategory<Q, S> | undefined
   include(...others: Scope[]): void
-  register(...contributions: [ Name, Node<Linked>][]): void
+  register(...contributions: [Name, Node<Linked>][]): void
 }
 
 export interface Source {
@@ -27,10 +27,10 @@ export abstract class Problem { abstract code: Name }
 type OptionalKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? K : never }[keyof T]
 type NonOptionalAttributeKeys<T> = {
   [K in keyof T]-?:
-    K extends 'kind' ? never :
-    undefined extends T[K] ? never :
-    T[K] extends Function ? never :
-    K
+  K extends 'kind' ? never :
+  undefined extends T[K] ? never :
+  T[K] extends Function ? never :
+  K
 }[keyof T]
 export type Payload<T> =
   Pick<T, NonOptionalAttributeKeys<T>> &
@@ -49,7 +49,7 @@ export const is = <Q extends Kind | Category>(kindOrCategory: Q) =>
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: {_cache(): Cache}, ...args: any[]) {
+  descriptor.value = function (this: { _cache(): Cache }, ...args: any[]) {
     const key = `${propertyKey}(${[...args]})`
     // TODO: Could we optimize this if we avoid returning undefined in cache methods?
     if (this._cache().has(key)) return this._cache().get(key)
@@ -189,7 +189,7 @@ abstract class $Node<S extends Stage> {
 
   match<T>(this: Node<S>, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q, S>) => T }>): T {
     const matched = keys(cases).find(key => this.is(key))
-    if(!matched) throw new Error(`Unmatched kind ${this.kind}`)
+    if (!matched) throw new Error(`Unmatched kind ${this.kind}`)
     return (cases[matched] as (node: Node<S>) => T)(this)
   }
 
@@ -353,11 +353,7 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
 
   @cached
   lookupMethod<R extends Linked>(this: Describe<R>, name: Name, arity: number): Method<R> | undefined {
-    return this.methods().find(member =>
-      (!!member.body || member.body === 'native') && member.name === name && (
-        member.hasVarArgs() && member.parameters.length - 1 <= arity ||
-        member.parameters.length === arity
-      ))
+    return this.methods().find(method => method.matchesSignature(name, arity))
   }
 }
 
@@ -418,10 +414,10 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
     let startReached = !lookupStartFQN
 
     for (const module of this.hierarchy()) {
-      if(startReached) {
+      if (startReached) {
         const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
         if (found) return found
-      } else if(module.fullyQualifiedName() === lookupStartFQN) {
+      } else if (module.fullyQualifiedName() === lookupStartFQN) {
         startReached = true
       }
     }
@@ -547,23 +543,23 @@ export class Method<S extends Stage = Final> extends $Node<S> {
 }
 
 export class Constructor<S extends Stage = Final> extends $Node<S> {
-    readonly kind = 'Constructor'
-    readonly parameters!: List<Parameter<S>>
-    readonly body!: Body<S>
-    readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
+  readonly kind = 'Constructor'
+  readonly parameters!: List<Parameter<S>>
+  readonly body!: Body<S>
+  readonly baseCall?: { callsSuper: boolean, args: List<Expression<S>> }
 
-    constructor(data: Payload<Constructor<S>>) { super(data) }
+  constructor(data: Payload<Constructor<S>>) { super(data) }
 
-    @cached
-    hasVarArgs(): boolean {
-      return !!last(this.parameters)?.isVarArg
-    }
+  @cached
+  hasVarArgs(): boolean {
+    return !!last(this.parameters)?.isVarArg
+  }
 
-    @cached
-    matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
-      return this.hasVarArgs() && this.parameters.length - 1 <= arity ||
+  @cached
+  matchesSignature<R extends Linked>(this: Constructor<R>, arity: number): boolean {
+    return this.hasVarArgs() && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
-    }
+  }
 }
 
 
@@ -609,7 +605,7 @@ export class Assignment<S extends Stage = Final> extends $Sentence<S> {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type Expression<S extends Stage = Final>
-  = Reference<'Field' | 'Variable'| 'Parameter' | 'NamedArgument' | 'Singleton', S>
+  = Reference<'Field' | 'Variable' | 'Parameter' | 'NamedArgument' | 'Singleton', S>
   | Self<S>
   | Literal<S, LiteralValue<S>>
   | Send<S>
@@ -626,7 +622,7 @@ abstract class $Expression<S extends Stage> extends $Node<S> {
 }
 
 
-export class Reference<T extends Kind|Category, S extends Stage = Final> extends $Expression<S> {
+export class Reference<T extends Kind | Category, S extends Stage = Final> extends $Expression<S> {
   readonly kind = 'Reference'
   readonly name!: Name
 

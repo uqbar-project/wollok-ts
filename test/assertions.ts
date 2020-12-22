@@ -9,7 +9,7 @@ import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
 import { readFileSync } from 'fs'
-import { buildEnvironment } from '../src'
+import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
 import natives from '../src/wre/wre.natives'
@@ -199,7 +199,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export const buildInterpreter = (pattern: string, cwd: string): [ReturnType<typeof interpreter>, EnvironmentType] => {
+export const buildEnvironment = (pattern: string, cwd: string): EnvironmentType => {
 
   const { time, timeEnd, log } = console
 
@@ -212,7 +212,7 @@ export const buildInterpreter = (pattern: string, cwd: string): [ReturnType<type
 
   time('Building environment')
 
-  const environment = buildEnvironment(files)
+  const environment = buildEnv(files)
 
   timeEnd('Building environment')
 
@@ -220,5 +220,5 @@ export const buildInterpreter = (pattern: string, cwd: string): [ReturnType<type
   if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
   else log('No problems found building the environment!')
 
-  return [interpreter(environment, natives as Natives), environment]
+  return environment
 }

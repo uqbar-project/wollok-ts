@@ -1,14 +1,13 @@
 import { assert } from 'chai'
 import { basename } from 'path'
 import yargs from 'yargs'
-import interpreter, { Evaluation, Natives } from '../src/interpreter'
+import { Evaluation, RuntimeObject, Frame, PUSH, INIT_NAMED, compileSentence, stepAll } from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
-import { List, Node } from '../src/model'
+import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
-import { buildInterpreter } from './assertions'
+import { buildEnvironment } from './assertions'
 
 const { fail } = assert
-const { time, timeEnd } = console
 
 const ARGUMENTS = yargs
   .option('verbose', {
@@ -24,30 +23,55 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(evaluation: Evaluation, nodes: List<Node>) {
+function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
   nodes.forEach(node => {
+    if (node.is('Package')) describe(node.name, () => registerTests(baseEvaluation, node.members))
 
-    if (node.is('Describe') || node.is('Package'))
-      describe(node.name, () => registerTests(evaluation, node.members))
+    else if (node.is('Describe')) {
+      const evaluation = baseEvaluation.copy()
 
-    if (node.is('Test'))
-      it(node.name, () => {
-        const { runTest } = interpreter(evaluation.environment, natives as Natives)
-        const { error } = runTest(evaluation.copy(), node)
-        if (error) {
-          log.error(error)
-          fail(`${error}`)
-        }
+      describe(node.name, () => {
+        before(() => {
+          const describeInstance = RuntimeObject.object(evaluation, node as unknown as Module) // TODO: Describe is a module?
+
+          evaluation.frameStack.push(new Frame(describeInstance, [
+            PUSH(describeInstance.id),
+            INIT_NAMED([]),
+            ...compileSentence(evaluation.environment)(
+              ...node.fixtures().flatMap(fixture => fixture.body.sentences),
+            ),
+          ]))
+          stepAll(natives)(evaluation)
+        })
+
+        registerTests(evaluation, node.members)
       })
+    }
+
+    else if (node.is('Test')) it(node.name, () => {
+      log.resetStep()
+
+      const evaluation = baseEvaluation.copy()
+      const instructions = compileSentence(evaluation.environment)(...node.body.sentences)
+
+      try {
+        evaluation.frameStack.push(new Frame(evaluation.currentContext, instructions))
+        stepAll(natives)(evaluation)
+        evaluation.frameStack.pop()!
+      } catch (error) {
+        log.error(error)
+        fail(`${error}`)
+      }
+
+    })
 
   })
 }
 
-
 describe(basename(ARGUMENTS.root), () => {
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const [, environment] = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
+  const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root)
 
   const evaluation = Evaluation.of(environment, natives)
 

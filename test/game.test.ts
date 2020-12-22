@@ -1,9 +1,10 @@
 import { should } from 'chai'
 import { join } from 'path'
-import { RuntimeObject } from '../src/interpreter'
+import { RuntimeObject, compileSentence, Frame, stepAll } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
-import { buildInterpreter } from './assertions'
+import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
+import log from '../src/log'
 
 should()
 
@@ -16,7 +17,7 @@ describe('Wollok Game', () => {
 
   describe(basePackage, () => {
 
-    const [{ runProgram }, environment] = buildInterpreter('**/*.wpgm', join('test', 'game'))
+    const environment = buildEnvironment('**/*.wpgm', join('test', 'game'))
 
     const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
@@ -30,7 +31,19 @@ describe('Wollok Game', () => {
 
     const runGameProgram = (programFQN: string) => {
       const evaluation = Evaluation.of(environment, natives)
-      runProgram(programFQN, evaluation)
+      const programSentences = environment.getNodeByFQN<'Program'>(programFQN).body.sentences
+
+      log.info('Running program', programFQN)
+
+      const instructions = compileSentence(evaluation.environment)(...programSentences)
+
+      evaluation.frameStack.push(new Frame(evaluation.rootContext, instructions))
+
+      stepAll(natives)(evaluation)
+      evaluation.frameStack.pop()!
+
+      log.success('Done!')
+
       return evaluation
     }
 
