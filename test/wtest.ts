@@ -7,8 +7,6 @@ import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
 import { buildEnvironment } from './assertions'
 
-const { fail } = assert
-
 const ARGUMENTS = yargs
   .option('verbose', {
     alias: 'v',
@@ -43,7 +41,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
               ...node.fixtures().flatMap(fixture => fixture.body.sentences),
             ),
           ]))
-          evaluation.stepAll(natives)
+          evaluation.stepAll()
         })
 
         registerTests(evaluation, node.members)
@@ -57,7 +55,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
       const instructions = compileSentence(evaluation.environment)(...node.body.sentences)
 
       evaluation.frameStack.push(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
-      evaluation.stepAll(natives)
+      evaluation.stepAll()
     })
 
   })
@@ -67,8 +65,7 @@ describe(basename(ARGUMENTS.root), () => {
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
   const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root)
-
-  const evaluation = Evaluation.of(environment, natives)
+  const evaluation = Evaluation.create(environment, natives)
 
   registerTests(evaluation, evaluation.environment.members)
 })

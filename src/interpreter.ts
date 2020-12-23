@@ -4,7 +4,7 @@ import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedA
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
-// - logger and natives as evaluation attributes.
+// - logger as evaluation attributes.
 // - Rethink tests
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
@@ -48,16 +48,17 @@ export class Evaluation {
   readonly environment: Environment
   readonly rootContext: Context
   readonly frameStack: Stack<Frame>
+  readonly natives: Natives
   protected readonly instanceCache: Map<Id, RuntimeObject>
-  protected readonly code: Map<Id, List<Instruction>>
+  protected readonly codeCache: Map<Id, List<Instruction>>
 
   get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
   get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
 
 
-  static of(environment: Environment, natives: Natives, stepAllInitialization = true): Evaluation {
+  static create(environment: Environment, natives: Natives, stepAllInitialization = true): Evaluation {
     const rootContext = new Context()
-    const evaluation = new Evaluation(environment, rootContext)
+    const evaluation = new Evaluation(environment, natives, rootContext)
 
     const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
@@ -97,7 +98,7 @@ export class Evaluation {
 
     if (stepAllInitialization) {
       log.start('Initializing Evaluation')
-      evaluation.stepAll(natives)
+      evaluation.stepAll()
       log.done('Initializing Evaluation')
     }
 
@@ -116,16 +117,18 @@ export class Evaluation {
 
   protected constructor(
     environment: Environment,
+    natives: Natives,
     rootContext: Context,
     frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
     instanceCache = new Map<Id, RuntimeObject>(),
     code = new Map<Id, List<Instruction>>()
   ) {
     this.environment = environment
+    this.natives = natives
     this.rootContext = rootContext
     this.frameStack = frameStack
     this.instanceCache = instanceCache
-    this.code = code
+    this.codeCache = code
   }
 
 
@@ -134,25 +137,26 @@ export class Evaluation {
 
     return new Evaluation(
       this.environment,
+      this.natives,
       Context._copy(this.rootContext, cache),
       this.frameStack.map(frame => Frame._copy(frame, cache)),
       new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, cache)])),
-      this.code
+      this.codeCache
     )
   }
 
   codeFor(node: Node): List<Instruction> {
-    if (!this.code.has(node.id)) {
+    if (!this.codeCache.has(node.id)) {
       const compileSentences = compileSentence(this.environment)
       if (node.is('Method') && node.body && node.body !== 'native') {
-        this.code.set(node.id, [
+        this.codeCache.set(node.id, [
           ...compileSentences(...node.body.sentences),
           PUSH(),
           RETURN,
         ])
       } else if (node.is('Constructor')) {
         const constructorClass = node.parent()
-        this.code.set(node.id, [
+        this.codeCache.set(node.id, [
           ...node.baseCall && constructorClass.superclass() ? [
             ...node.baseCall.args.flatMap(arg => compileSentences(arg)),
             LOAD('self'),
@@ -173,7 +177,7 @@ export class Evaluation {
       } else throw new Error(`Can't retrieve instructions for ${node.kind} node`)
     }
 
-    return this.code.get(node.id)!
+    return this.codeCache.get(node.id)!
   }
 
   instance(id: Id): RuntimeObject {
@@ -216,17 +220,13 @@ export class Evaluation {
     throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
   }
 
-  // TODO: natives should be an evaluation attribute?
-  step(natives: Natives) {
-    step(natives)(this)
-  }
+  step() { step(this.natives, this) }
 
-  // TODO: natives should be an evaluation attribute?
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
-  stepAll(natives: Natives) {
+  stepAll() {
     while (!this.frameStack.top!.isFinished()) {
       log.step(this)
-      this.step(natives)
+      this.step()
     }
     this.frameStack.pop()
   }
@@ -832,7 +832,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
 // EXECUTION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const step = (natives: Natives) => (evaluation: Evaluation): void => {
+const step = (natives: Natives, evaluation: Evaluation): void => {
   const { environment } = evaluation
 
   const currentFrame = evaluation.frameStack.top

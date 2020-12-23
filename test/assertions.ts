@@ -12,7 +12,6 @@ import { readFileSync } from 'fs'
 import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
-import natives from '../src/wre/wre.natives'
 
 declare global {
   export namespace Chai {
@@ -26,7 +25,7 @@ declare global {
       filledInto(expected: any): Assertion
       target(node: Node): Assertion
       pass<N extends Node>(validation: Validation<N>): Assertion
-      stepped(natives?: Natives): Assertion
+      stepped(): Assertion
     }
 
     interface ArrayAssertion {
@@ -182,11 +181,11 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
   also(chai, utils)
 
 
-  Assertion.addMethod('stepped', function (this: Chai.AssertionStatic, natives: Natives = {}) {
+  Assertion.addMethod('stepped', function (this: Chai.AssertionStatic) {
     let n = 0
     const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
 
-    try { this._obj.step(natives) }
+    try { this._obj.step() }
     finally { stub.restore() }
   })
 

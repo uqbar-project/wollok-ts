@@ -30,7 +30,7 @@ describe('Wollok Game', () => {
     }
 
     const runGameProgram = (programFQN: string) => {
-      const evaluation = Evaluation.of(environment, natives)
+      const evaluation = Evaluation.create(environment, natives)
       const programSentences = environment.getNodeByFQN<'Program'>(programFQN).body.sentences
 
       log.info('Running program', programFQN)
@@ -38,7 +38,7 @@ describe('Wollok Game', () => {
       const instructions = compileSentence(evaluation.environment)(...programSentences)
 
       evaluation.frameStack.push(new Frame(evaluation.rootContext, instructions))
-      evaluation.stepAll(natives)
+      evaluation.stepAll()
 
       log.success('Done!')
 

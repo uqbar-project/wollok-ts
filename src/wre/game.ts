@@ -1,6 +1,5 @@
 import { Evaluation, Natives, RuntimeObject } from '../interpreter'
 import { Id } from '../model'
-import natives from './wre.natives'
 
 const returnVoid = (evaluation: Evaluation) => {
   evaluation.frameStack.top!.operandStack.push(undefined)
@@ -39,7 +38,7 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const initialFrameCount = evaluation.frameStack.depth
   evaluation.sendMessage('position', id)
   do {
-    evaluation.step(natives) // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
+    evaluation.step() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
   } while (evaluation.frameStack.depth > initialFrameCount)
   return currentFrame.operandStack.pop()
 }
@@ -94,7 +93,7 @@ const game: Natives = {
         const initialFrameCount = evaluation.frameStack.depth
         evaluation.sendMessage('remove', visuals.id, visual.id)
         do {
-          evaluation.step(natives)
+          evaluation.step()
         } while (evaluation.frameStack.depth > initialFrameCount)
       }
       returnVoid(evaluation)
@@ -148,7 +147,7 @@ const game: Natives = {
       const initialFrameCount = evaluation.frameStack.depth
       evaluation.sendMessage('currentTime', io(evaluation))
       do {
-        evaluation.step(natives)
+        evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
 
       const currentTime: RuntimeObject = currentFrame.operandStack.pop()!
@@ -162,7 +161,7 @@ const game: Natives = {
       const initialFrameCount = evaluation.frameStack.depth
       evaluation.sendMessage('clear', io(evaluation))
       do {
-        evaluation.step(natives)
+        evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
 
 
