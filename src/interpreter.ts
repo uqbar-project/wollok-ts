@@ -1,10 +1,9 @@
 import { last, get } from './extensions'
-import log from './log'
 import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
+import { Logger, nullLogger } from './log'
 
 // TODO: Wishlist
-// - logger as evaluation attributes.
 // - Rethink tests
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
@@ -45,6 +44,7 @@ export class WollokError extends Error {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Evaluation {
+  log: Logger
   readonly environment: Environment
   readonly rootContext: Context
   readonly frameStack: Stack<Frame>
@@ -97,9 +97,9 @@ export class Evaluation {
     ]))
 
     if (stepAllInitialization) {
-      log.start('Initializing Evaluation')
+      evaluation.log.start('Initializing Evaluation')
       evaluation.stepAll()
-      log.done('Initializing Evaluation')
+      evaluation.log.done('Initializing Evaluation')
     }
 
     return evaluation
@@ -121,7 +121,8 @@ export class Evaluation {
     rootContext: Context,
     frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
     instanceCache = new Map<Id, RuntimeObject>(),
-    code = new Map<Id, List<Instruction>>()
+    code = new Map<Id, List<Instruction>>(),
+    logger: Logger = nullLogger,
   ) {
     this.environment = environment
     this.natives = natives
@@ -129,6 +130,7 @@ export class Evaluation {
     this.frameStack = frameStack
     this.instanceCache = instanceCache
     this.codeCache = code
+    this.log = logger
   }
 
 
@@ -141,7 +143,8 @@ export class Evaluation {
       Context._copy(this.rootContext, cache),
       this.frameStack.map(frame => Frame._copy(frame, cache)),
       new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, cache)])),
-      this.codeCache
+      this.codeCache,
+      this.log,
     )
   }
 
@@ -225,7 +228,7 @@ export class Evaluation {
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
   stepAll() {
     while (!this.frameStack.top!.isFinished()) {
-      log.step(this)
+      this.log.step(this)
       this.step()
     }
     this.frameStack.pop()
@@ -959,7 +962,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
         const method = self.module.lookupMethod(message, arity, lookupStartFQN)
 
         if (!method) {
-          log.warn('Method not found:', lookupStartFQN ?? self.module.fullyQualifiedName(), '>>', message, '/', arity)
+          evaluation.log.warn('Method not found:', lookupStartFQN ?? self.module.fullyQualifiedName(), '>>', message, '/', arity)
           const messageNotUnderstoodMethod = self.module.lookupMethod('messageNotUnderstood', 2)!
 
           return evaluation.frameStack.push(new Frame(
@@ -971,7 +974,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
             ])
           ))
         } else if (method.body === 'native') {
-          log.debug('Calling Native:', method.parent().fullyQualifiedName(), '>>', message, '/', arity)
+          evaluation.log.debug('Calling Native:', method.parent().fullyQualifiedName(), '>>', message, '/', arity)
           const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
           const native = get<NativeFunction>(natives, nativeFQN)
           if (!native) throw new Error(`Native not found: ${nativeFQN}`)
@@ -1055,7 +1058,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
 
     }
   } catch (error) {
-    log.error(error)
+    evaluation.log.error(error)
     if (!evaluation.frameStack.isEmpty()) {
       const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
       evaluation.raise(RuntimeObject.object(evaluation, exceptionType))

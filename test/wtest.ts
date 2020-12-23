@@ -1,8 +1,7 @@
-import { assert } from 'chai'
 import { basename } from 'path'
 import yargs from 'yargs'
 import { Evaluation, RuntimeObject, Frame, PUSH, INIT_NAMED, compileSentence } from '../src/interpreter'
-import log, { enableLogs, LogLevel } from '../src/log'
+import { LogLevel, ConsoleLogger } from '../src/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
 import { buildEnvironment } from './assertions'
@@ -49,10 +48,11 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
     }
 
     else if (node.is('Test')) it(node.name, () => {
-      log.resetStep()
-
       const evaluation = baseEvaluation.copy()
       const instructions = compileSentence(evaluation.environment)(...node.body.sentences)
+
+      evaluation.log.separator(node.name)
+      evaluation.log.resetStep()
 
       evaluation.frameStack.push(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
       evaluation.stepAll()
@@ -62,10 +62,10 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
 }
 
 describe(basename(ARGUMENTS.root), () => {
-  if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
-
   const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root)
   const evaluation = Evaluation.create(environment, natives)
+
+  if (ARGUMENTS.verbose) evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
 
   registerTests(evaluation, evaluation.environment.members)
 })

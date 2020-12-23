@@ -4,50 +4,125 @@ import { Evaluation, Instruction, RuntimeObject } from './interpreter'
 import { Id, Name } from './model'
 
 const columns = (process.stdout && process.stdout.columns) || 80
-const { clear, log: writeLine } = console
-const { assign, keys } = Object
+const { clear: consoleClear, log: consoleLog } = console
+const { keys, values } = Object
+const { max } = Math
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold } = chalk
 
 export enum LogLevel {
   NONE,
-  DEBUG,
-  INFO,
-  SUCCESS,
-  WARN,
   ERROR,
+  WARN,
+  SUCCESS,
+  INFO,
+  DEBUG,
 }
 
-type Log = (...args: any[]) => void
-type Logger = {
-  info: Log,
-  warn: Log,
-  error: Log,
-  debug: Log,
-  success: Log,
-  start: (title: string) => void,
-  done: (title: string) => void,
-  separator: (title?: string) => void,
-  step: (evaluation: Evaluation) => void,
-  resetStep: () => void,
-  clear: () => void,
+export abstract class Logger {
+  protected timers: Record<string, [number, number]> = {}
+  protected stepCount = 0
+
+  constructor(level: LogLevel) {
+    const operationsByLevel: Record<LogLevel, (keyof Logger)[]> = {
+      [LogLevel.NONE]: [],
+      [LogLevel.DEBUG]: ['debug', 'step', 'resetStep'],
+      [LogLevel.INFO]: ['info', 'start', 'done', 'separator'],
+      [LogLevel.SUCCESS]: ['success'],
+      [LogLevel.WARN]: ['warn'],
+      [LogLevel.ERROR]: ['error', 'clear'],
+    }
+
+    for (const logLevel of values(LogLevel)) {
+      if (level < Number(logLevel))
+        for (const key of operationsByLevel[Number(logLevel) as LogLevel])
+          this[key] = () => { }
+    }
+  }
+
+
+  start(title: string) {
+    this.info(`${title}...`)
+    this.timers[title] = process.hrtime()
+  }
+
+  done(title: string) {
+    const delta = process.hrtime(this.timers[title])
+    delete this.timers[title]
+    this.info(`Done ${title}. (${(delta[0] * 1e3 + delta[1] / 1e6).toFixed(4)}ms)`)
+  }
+
+  resetStep() {
+    this.stepCount = 0
+  }
+
+  abstract info(...args: any[]): void
+  abstract warn(...args: any[]): void
+  abstract error(...args: any[]): void
+  abstract debug(...args: any[]): void
+  abstract success(...args: any[]): void
+  abstract separator(title?: string): void
+  abstract step(evaluation: Evaluation): void
+  abstract clear(): void
 }
 
-const timers: { [title: string]: [number, number] } = {}
-let stepCount = 0
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// NULL LOGGER
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const logger: Logger = {
-  info: () => { },
-  warn: () => { },
-  error: () => { },
-  debug: () => { },
-  success: () => { },
-  start: () => { },
-  done: () => { },
-  separator: () => { },
-  step: () => { },
-  resetStep: () => { },
-  clear: () => { },
+export class NullLogger extends Logger {
+  constructor() { super(LogLevel.NONE) }
+
+  info() { }
+  warn() { }
+  error() { }
+  debug() { }
+  success() { }
+  separator() { }
+  step() { }
+  clear() { }
 }
+
+export const nullLogger = new NullLogger()
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CONSOLE LOGGER
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export class ConsoleLogger extends Logger {
+  info(...args: any[]) { consoleLog(blueBright.bold('[INFO]: '), ...args) }
+  warn(...args: any[]) { consoleLog(yellow.bold('[WARN]: '), ...args) }
+  error(...args: any[]) { consoleLog(redBright.bold('[ERROR]:'), ...args) }
+  debug(...args: any[]) { consoleLog(cyan.bold('[DEBUG]:'), ...args) }
+  success(...args: any[]) { consoleLog(greenBright.bold('[GOOD]: '), ...args) }
+
+  separator(title?: string) {
+    consoleLog(greenBright(
+      title
+        ? bold(`${hr()}\n ${title}\n${hr()}`)
+        : `${hr()}`
+    ))
+  }
+
+  step(evaluation: Evaluation) {
+    const { instructions, nextInstructionIndex, operandStack } = evaluation.frameStack.top!
+    const instruction = instructions[nextInstructionIndex]
+
+    const stepTabulation = evaluation.frameStack.depth
+    let tabulation = '│'.repeat(stepTabulation)
+
+    this.debug(
+      `${('0000' + this.stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
+      `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? 'void'))].join(', ')}]`
+    )
+  }
+
+  clear() { consoleClear() }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 
 const hr = (size: number = columns) => '─'.repeat(size)
 
@@ -89,75 +164,3 @@ const stringifyInstruction = (evaluation: Evaluation) => (instruction: Instructi
     .map(value => italic(value))
   return `${instruction.kind}(${args.join(', ')})`
 }
-
-const consoleLogger: Logger = {
-  info: (...args) => writeLine(blueBright.bold('[INFO]: '), ...args),
-
-  warn: (...args) => writeLine(yellow.bold('[WARN]: '), ...args),
-
-  error: (...args) => writeLine(redBright.bold('[ERROR]:'), ...args),
-
-  debug: (...args) => writeLine(cyan.bold('[DEBUG]:'), ...args),
-
-  success: (...args) => writeLine(greenBright.bold('[GOOD]: '), ...args),
-
-  separator: title => writeLine(greenBright(title
-    ? bold(`${hr()}\n ${title}\n${hr()}`)
-    : `${hr()}`)),
-
-  step: evaluation => {
-    const { instructions, nextInstructionIndex, operandStack } = evaluation.frameStack.top!
-    const instruction = instructions[nextInstructionIndex]
-
-    const stepTabulation = evaluation.frameStack.depth - 1
-
-    const tabulationReturn = 0
-    // TODO: fix
-    // if (instruction.kind === 'INTERRUPT') {
-    //   const returns = [...evaluation.frameStack].reverse().findIndex(({ resume }) => resume.includes(instruction.interruption))
-    //   tabulationReturn = returns === -1 ? stepTabulation : returns
-    // }
-
-    // eslint-disable-next-line no-constant-condition
-    const tabulation = false && instruction.kind === 'INTERRUPT'
-      ? '│'.repeat(stepTabulation - tabulationReturn) + '└' + '─'.repeat(tabulationReturn - 1)
-      : '│'.repeat(stepTabulation)
-
-    consoleLogger.debug(
-      `${('0000' + stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
-      `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? 'void'))].join(', ')}]`
-    )
-
-  },
-
-  resetStep: () => {
-    stepCount = 0
-  },
-
-  start: title => {
-    consoleLogger.info(`${title}...`)
-    timers[title] = process.hrtime()
-  },
-
-  done: title => {
-    const delta = process.hrtime(timers[title])
-    delete timers[title]
-    consoleLogger.info(`Done ${title}. (${(delta[0] * 1e3 + delta[1] / 1e6).toFixed(4)}ms)`)
-  },
-
-  clear,
-}
-
-export const enableLogs = (level: LogLevel = LogLevel.DEBUG): void => {
-  if (level === LogLevel.NONE) return
-
-  assign(logger, consoleLogger)
-
-  if (level > LogLevel.DEBUG) assign(logger, { debug: () => { }, step: () => { } })
-  if (level > LogLevel.INFO) assign(logger, { info: () => { }, start: () => { }, done: () => { } })
-  if (level > LogLevel.SUCCESS) assign(logger, { success: () => { } })
-  if (level > LogLevel.WARN) assign(logger, { warn: () => { } })
-  if (level > LogLevel.ERROR) assign(logger, { error: () => { } })
-}
-
-export default logger

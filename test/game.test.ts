@@ -4,7 +4,6 @@ import { RuntimeObject, compileSentence, Frame } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import log from '../src/log'
 
 should()
 
@@ -33,14 +32,14 @@ describe('Wollok Game', () => {
       const evaluation = Evaluation.create(environment, natives)
       const programSentences = environment.getNodeByFQN<'Program'>(programFQN).body.sentences
 
-      log.info('Running program', programFQN)
+      evaluation.log.info('Running program', programFQN)
 
       const instructions = compileSentence(evaluation.environment)(...programSentences)
 
       evaluation.frameStack.push(new Frame(evaluation.rootContext, instructions))
       evaluation.stepAll()
 
-      log.success('Done!')
+      evaluation.log.success('Done!')
 
       return evaluation
     }
