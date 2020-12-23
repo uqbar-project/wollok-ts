@@ -2,7 +2,7 @@ import { formatError, Parser } from 'parsimmon'
 import { ImportMock } from 'ts-mock-imports'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
-import interpreter, { step, Natives } from '../src/interpreter'
+import { Natives } from '../src/interpreter'
 import link from '../src/linker'
 import { Name, Linked, Node, Package, Reference, List, Environment as EnvironmentType } from '../src/model'
 import { Validation } from '../src/validator'
@@ -186,7 +186,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     let n = 0
     const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => `new_id_${n++}`)
 
-    try { step(natives)(this._obj) }
+    try { this._obj.step(natives) }
     finally { stub.restore() }
   })
 

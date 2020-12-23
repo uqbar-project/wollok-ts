@@ -1,6 +1,6 @@
 import { should } from 'chai'
 import { join } from 'path'
-import { RuntimeObject, compileSentence, Frame, stepAll } from '../src/interpreter'
+import { RuntimeObject, compileSentence, Frame } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
@@ -38,9 +38,7 @@ describe('Wollok Game', () => {
       const instructions = compileSentence(evaluation.environment)(...programSentences)
 
       evaluation.frameStack.push(new Frame(evaluation.rootContext, instructions))
-
-      stepAll(natives)(evaluation)
-      evaluation.frameStack.pop()!
+      evaluation.stepAll(natives)
 
       log.success('Done!')
 

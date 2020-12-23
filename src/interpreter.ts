@@ -1,24 +1,24 @@
 import { last, get } from './extensions'
 import log from './log'
-import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Test, Variable, Singleton, Field, isNode } from './model'
+import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Variable, Singleton, Field, isNode } from './model'
 import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
-// - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
-//   - Send logger as parameter to support better handling and logging to file.
-//   - More step methods: stepThrough, for example. Step to get inside closure?
-// - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
-//    - run tests
-//    - run programs
-//    - send a message and obtain result
+// - logger and natives as evaluation attributes.
+// - Rethink tests
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
 //    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
 // - Avoid trailing instructions for methods and tests when possible (return void), etc.
-// - Extract Service file, that offers a facade to run tests, run a program, send a message, etc.
 // - Split this file in smaller more manageable pieces.
 
-const { round } = Math
+// TODO: Create tickets:
+// - More step methods: stepThrough, for example. Step to get inside closure?
+// - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
+//    - run tests
+//    - run programs
+//    - send a message and obtain result
+
 const { isArray } = Array
 const { assign, keys } = Object
 
@@ -97,8 +97,7 @@ export class Evaluation {
 
     if (stepAllInitialization) {
       log.start('Initializing Evaluation')
-      stepAll(natives)(evaluation)
-      evaluation.frameStack.pop()
+      evaluation.stepAll(natives)
       log.done('Initializing Evaluation')
     }
 
@@ -216,6 +215,26 @@ export class Evaluation {
 
     throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
   }
+
+  // TODO: natives should be an evaluation attribute?
+  step(natives: Natives) {
+    step(natives)(this)
+  }
+
+  // TODO: natives should be an evaluation attribute?
+  /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
+  stepAll(natives: Natives) {
+    while (!this.frameStack.top!.isFinished()) {
+      log.step(this)
+      this.step(natives)
+    }
+    this.frameStack.pop()
+  }
+
+  // TODO: stepThrough
+  // TODO: stepOut
+  // TODO: stepIn === step
+  // TODO: stepOver
 
 }
 
@@ -497,7 +516,7 @@ export class RuntimeObject extends Context {
       evaluation.currentContext,
       module,
       undefined,
-      module.is('Singleton') && !!module.name ? module.id : undefined
+      module.is('Describe') || (module.is('Singleton') && !!module.name) ? module.id : undefined
     )
 
     for (const local of keys(locals))
@@ -813,7 +832,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
 // EXECUTION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const step = (natives: Natives) => (evaluation: Evaluation): void => {
+const step = (natives: Natives) => (evaluation: Evaluation): void => {
   const { environment } = evaluation
 
   const currentFrame = evaluation.frameStack.top
@@ -1045,16 +1064,6 @@ export const step = (natives: Natives) => (evaluation: Evaluation): void => {
 
 }
 
-/** Takes all possible steps, until the last frame has no pending instructions */
-export const stepAll = (natives: Natives) => (evaluation: Evaluation): void => {
-  const takeStep = step(natives)
-  // TODO: add done() message to check instructions pending
-  while (!evaluation.frameStack.top!.isFinished()) {
-    log.step(evaluation)
-    takeStep(evaluation)
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // GC
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -1097,19 +1106,3 @@ export const garbageCollect = (evaluation: Evaluation) => {
       evaluation.freeInstance(instance.id)
     }
 }
-
-
-// TODO: Refactor this interface
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
-export default (environment: Environment, natives: Natives) => ({
-
-  step: step(natives),
-
-  stepAll: stepAll(natives),
-
-  // TODO: stepThrough
-  // TODO: stepOut
-  // TODO: stepIn === step
-  // TODO: stepOver
-
-})

@@ -1,7 +1,7 @@
 import { assert } from 'chai'
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Evaluation, RuntimeObject, Frame, PUSH, INIT_NAMED, compileSentence, stepAll } from '../src/interpreter'
+import { Evaluation, RuntimeObject, Frame, PUSH, INIT_NAMED, compileSentence } from '../src/interpreter'
 import log, { enableLogs, LogLevel } from '../src/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
@@ -32,7 +32,9 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
 
       describe(node.name, () => {
         before(() => {
-          const describeInstance = RuntimeObject.object(evaluation, node as unknown as Module) // TODO: Describe is a module?
+          // TODO: Describe is a module?
+          // TODO: If the GC runs after describe is initialized it will destroy the instance. Maybe they should be treated as singletons...
+          const describeInstance = RuntimeObject.object(evaluation, node as unknown as Module)
 
           evaluation.frameStack.push(new Frame(describeInstance, [
             PUSH(describeInstance.id),
@@ -41,7 +43,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
               ...node.fixtures().flatMap(fixture => fixture.body.sentences),
             ),
           ]))
-          stepAll(natives)(evaluation)
+          evaluation.stepAll(natives)
         })
 
         registerTests(evaluation, node.members)
@@ -54,15 +56,8 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
       const evaluation = baseEvaluation.copy()
       const instructions = compileSentence(evaluation.environment)(...node.body.sentences)
 
-      try {
-        evaluation.frameStack.push(new Frame(evaluation.currentContext, instructions))
-        stepAll(natives)(evaluation)
-        evaluation.frameStack.pop()!
-      } catch (error) {
-        log.error(error)
-        fail(`${error}`)
-      }
-
+      evaluation.frameStack.push(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
+      evaluation.stepAll(natives)
     })
 
   })

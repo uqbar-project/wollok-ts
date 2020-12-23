@@ -1,7 +1,7 @@
 import { dirname } from 'path'
 import * as build from './builders'
 import fill from './filler'
-import interpret, { Evaluation, Natives } from './interpreter'
+import { Evaluation, Natives } from './interpreter'
 import link from './linker'
 import { Environment } from './model'
 import * as parse from './parser'
@@ -34,5 +34,4 @@ export {
   fill,
   link,
   validate,
-  interpret,
 }
