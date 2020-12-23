@@ -391,11 +391,7 @@ const lang: Natives = {
   Dictionary: {
 
     initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(self.id),
-        CALL('clear', 0),
-        RETURN,
-      ]))
+      evaluation.sendMessage('clear', self)
     },
 
     put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -797,41 +793,25 @@ const lang: Natives = {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(closure.id),
-        CALL('apply', 0),
-        RETURN,
-      ]))
+      evaluation.sendMessage('apply', closure)
     },
 
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(closure.id),
-        CALL('apply', 0),
-        RETURN,
-      ]))
+      evaluation.sendMessage('apply', closure)
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(closure.id),
-        CALL('apply', 0),
-        RETURN,
-      ]))
+      evaluation.sendMessage('apply', closure)
     },
 
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(closure.id),
-        CALL('apply', 0),
-        RETURN,
-      ]))
+      evaluation.sendMessage('apply', closure)
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {

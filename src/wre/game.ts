@@ -1,5 +1,5 @@
 import { interpret } from '..'
-import { Evaluation, Natives, RuntimeObject } from '../interpreter'
+import { Evaluation, Natives, RuntimeObject, step } from '../interpreter'
 import { Id } from '../model'
 import natives from './wre.natives'
 
@@ -25,8 +25,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
 
 const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
-    const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-    sendMessage(message, receiver(evaluation), ...params)(evaluation)
+    evaluation.sendMessage(message, receiver(evaluation), ...params)
     if (voidMessage) returnVoid(evaluation)
   }
 
@@ -37,9 +36,12 @@ const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('woll
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = evaluation.instance(id).get('position')
   if (position) return position
-  const { sendMessage } = interpret(evaluation.environment, natives as Natives)
   const currentFrame = evaluation.frameStack.top!
-  sendMessage('position', id)(evaluation)
+  const initialFrameCount = evaluation.frameStack.depth
+  evaluation.sendMessage('position', id)
+  do {
+    step(natives)(evaluation)
+  } while (evaluation.frameStack.depth > initialFrameCount)
   return currentFrame.operandStack.pop()
 }
 
@@ -90,8 +92,11 @@ const game: Natives = {
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
       if (visuals) {
-        const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-        sendMessage('remove', visuals.id, visual.id)(evaluation)
+        const initialFrameCount = evaluation.frameStack.depth
+        evaluation.sendMessage('remove', visuals.id, visual.id)
+        do {
+          step(natives)(evaluation)
+        } while (evaluation.frameStack.depth > initialFrameCount)
       }
       returnVoid(evaluation)
     },
@@ -135,14 +140,18 @@ const game: Natives = {
       if (!visuals) return evaluation.frameStack.top!.operandStack.push(RuntimeObject.list(evaluation, []))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      const result =  RuntimeObject.list(evaluation, currentVisuals.innerValue.filter(samePosition(evaluation, position)))
+      const result = RuntimeObject.list(evaluation, currentVisuals.innerValue.filter(samePosition(evaluation, position)))
       evaluation.frameStack.top!.operandStack.push(result)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.frameStack.top!
-      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('currentTime', io(evaluation))(evaluation)
+      const initialFrameCount = evaluation.frameStack.depth
+      evaluation.sendMessage('currentTime', io(evaluation))
+      do {
+        step(natives)(evaluation)
+      } while (evaluation.frameStack.depth > initialFrameCount)
+
       const currentTime: RuntimeObject = currentFrame.operandStack.pop()!
       currentTime.assertIsNumber()
       const messageTime = RuntimeObject.number(evaluation, currentTime.innerValue + 2 * 1000)
@@ -151,8 +160,13 @@ const game: Natives = {
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('clear', io(evaluation))(evaluation)
+      const initialFrameCount = evaluation.frameStack.depth
+      evaluation.sendMessage('clear', io(evaluation))
+      do {
+        step(natives)(evaluation)
+      } while (evaluation.frameStack.depth > initialFrameCount)
+
+
       self.set('visuals', RuntimeObject.list(evaluation, []))
       returnVoid(evaluation)
     },
@@ -171,7 +185,7 @@ const game: Natives = {
       evaluation.frameStack.top!.operandStack.push(result)
     },
 
-    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),
+    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'title', title),
 
     width: (self: RuntimeObject, width?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'width', width),
 

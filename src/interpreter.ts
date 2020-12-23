@@ -5,18 +5,12 @@ import { v4 as uuid } from 'uuid'
 
 // TODO: Wishlist
 // - Unify Interpreter and Evaluation to get a consistent API and Refactor exported API
-//    - Create methods for setting-up evaluations for specific purposes:
-//      PROBLEM: setting-up a run is not the same as actually running
-//               If we are to just set-up to avoid skipping steps we can't post-process
-//               For example, if we send a message is not the same as set-up a frame for evaluating that message
-//               If we want to return a "test result" then we need to make that atomic.
-//               We could avoid the run itself and just setup the evaluation, like what we do in the initialization
-//                that would move the responsibility to the evaluation user.
-//      - Run a test and get a test result
-//      - Run a program and get a run result (time consumed? catched error?)
-//      - Send a message and obtain the result ev.sendMessage('m', o | oid, p1 | p1id, p2 | p2id)
 //   - Send logger as parameter to support better handling and logging to file.
 //   - More step methods: stepThrough, for example. Step to get inside closure?
+// - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
+//    - run tests
+//    - run programs
+//    - send a message and obtain result
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
 //    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
@@ -191,6 +185,16 @@ export class Evaluation {
 
   freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
+  sendMessage(message: string, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]) {
+    const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
+
+    this.frameStack.push(new Frame(receiverInstance, [
+      PUSH(receiverInstance.id),
+      ...args.map(arg => PUSH(arg instanceof RuntimeObject ? arg.id : arg)),
+      CALL(message, args.length),
+      RETURN,
+    ]))
+  }
 
   raise(exception: RuntimeObject): void {
     while (!this.frameStack.isEmpty()) {
@@ -1107,22 +1111,5 @@ export default (environment: Environment, natives: Natives) => ({
   // TODO: stepOut
   // TODO: stepIn === step
   // TODO: stepOver
-
-  sendMessage: (message: string, receiver: Id, ...args: Id[]) => (evaluation: Evaluation) => {
-    const takeStep = step(natives)
-    const initialFrameCount = evaluation.frameStack.depth
-
-    evaluation.frameStack.push(new Frame(evaluation.instance(receiver), [
-      PUSH(receiver),
-      ...args.map(PUSH),
-      CALL(message, args.length),
-      RETURN,
-    ]))
-
-    // TODO: stepAll?
-    do {
-      takeStep(evaluation)
-    } while (evaluation.frameStack.depth > initialFrameCount)
-  },
 
 })
