@@ -191,7 +191,7 @@ export class Evaluation {
 
   freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
-  sendMessage(message: string, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]) {
+  sendMessage(message: string, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]): void {
     const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
 
     this.frameStack.push(new Frame(receiverInstance, [
@@ -223,10 +223,10 @@ export class Evaluation {
     throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
   }
 
-  step() { step(this.natives, this) }
+  step(): void { step(this.natives, this) }
 
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
-  stepAll() {
+  stepAll(): void {
     while (!this.frameStack.top!.isFinished()) {
       this.log.step(this)
       this.step()
@@ -519,7 +519,7 @@ export class RuntimeObject extends Context {
       evaluation.currentContext,
       module,
       undefined,
-      module.is('Describe') || (module.is('Singleton') && !!module.name) ? module.id : undefined
+      module.is('Describe') || module.is('Singleton') && !!module.name ? module.id : undefined
     )
 
     for (const local of keys(locals))
@@ -925,10 +925,10 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
         const { moduleFQN, innerValue } = instruction
         const instance =
           moduleFQN === 'wollok.lang.String' ? RuntimeObject.string(evaluation, `${innerValue}`) :
-            moduleFQN === 'wollok.lang.Number' ? RuntimeObject.number(evaluation, Number(innerValue)) :
-              moduleFQN === 'wollok.lang.List' ? RuntimeObject.list(evaluation, innerValue as Id[]) :
-                moduleFQN === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, innerValue as Id[]) :
-                  RuntimeObject.object(evaluation, moduleFQN)
+          moduleFQN === 'wollok.lang.Number' ? RuntimeObject.number(evaluation, Number(innerValue)) :
+          moduleFQN === 'wollok.lang.List' ? RuntimeObject.list(evaluation, innerValue as Id[]) :
+          moduleFQN === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, innerValue as Id[]) :
+          RuntimeObject.object(evaluation, moduleFQN)
 
         currentFrame.operandStack.push(instance)
       })()
@@ -1072,7 +1072,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 // TODO: Add some unit tests.
-export const garbageCollect = (evaluation: Evaluation) => {
+export const garbageCollect = (evaluation: Evaluation): void => {
   const extractIdsFromInstructions = (instructions: List<Instruction>): List<Id> => {
     return instructions.flatMap(instruction => {
       if (instruction.kind === 'PUSH') return instruction.id ? [] : [instruction.id!]

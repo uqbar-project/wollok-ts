@@ -58,9 +58,9 @@ const isNotPresentIn = <N extends Node<Linked>>(kind: Kind) => error<N>((node: N
 // TODO: Why are we exporting this as a single object?
 export const validations = {
   nameBeginsWithUppercase: warning<Mixin<Linked> | Class<Linked>>(
-    (node => /^[A-Z]/.test(node.name)),
-    (node => [node.name]),
-    (node => {
+    node => /^[A-Z]/.test(node.name),
+    node => [node.name],
+    node => {
       const nodeOffset = node.kind.length + 1
       const { start, end } = node.source!
       return {
@@ -73,12 +73,12 @@ export const validations = {
           offset: node.name.length + nodeOffset,
         },
       }
-    })
+    }
   ),
 
   nameBeginsWithLowercase: warning<Singleton<Linked>>(
-    (node => /^[a-z_<]/.test(node.name ?? 'ok')),
-    (node => [node.name ?? ''])
+    node => /^[a-z_<]/.test(node.name ?? 'ok'),
+    node => [node.name ?? '']
   ),
 
   referenceNameIsValid: warning<Parameter<Linked> | Variable<Linked>>(node => /^[a-z_<]/.test(node.name ?? 'ok')),
@@ -119,13 +119,13 @@ export const validations = {
       'false',
       'true',
     ].includes(node.name || ''),
-  (node => [node.name || '']),
+  node => [node.name || ''],
   ),
 
   hasCatchOrAlways: error<Try<Linked>>(
     t =>
       t.catches?.length > 0 ||
-      (t.always?.sentences.length > 0 && t.body?.sentences.length > 0)
+      t.always?.sentences.length > 0 && t.body?.sentences.length > 0
   ),
 
   singletonIsNotUnnamed: error<Singleton<Linked>>(
@@ -165,7 +165,7 @@ export const validations = {
   dontCompareAgainstTrueOrFalse: warning<Send<Linked>>(node => {
     if(node.message !== '==') return true
     const arg = node.args[0]
-    return !arg.is('Literal') || (arg.value !== true && arg.value !== false)
+    return !arg.is('Literal') || arg.value !== true && arg.value !== false
   }),
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.

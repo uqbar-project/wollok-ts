@@ -3,10 +3,9 @@ import { last } from './extensions'
 import { Evaluation, Instruction, RuntimeObject } from './interpreter'
 import { Id, Name } from './model'
 
-const columns = (process.stdout && process.stdout.columns) || 80
+const columns = process.stdout && process.stdout.columns || 80
 const { clear: consoleClear, log: consoleLog } = console
 const { keys, values } = Object
-const { max } = Math
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold } = chalk
 
 export enum LogLevel {
@@ -40,18 +39,18 @@ export abstract class Logger {
   }
 
 
-  start(title: string) {
+  start(title: string): void {
     this.info(`${title}...`)
     this.timers[title] = process.hrtime()
   }
 
-  done(title: string) {
+  done(title: string): void {
     const delta = process.hrtime(this.timers[title])
     delete this.timers[title]
     this.info(`Done ${title}. (${(delta[0] * 1e3 + delta[1] / 1e6).toFixed(4)}ms)`)
   }
 
-  resetStep() {
+  resetStep(): void {
     this.stepCount = 0
   }
 
@@ -72,14 +71,14 @@ export abstract class Logger {
 export class NullLogger extends Logger {
   constructor() { super(LogLevel.NONE) }
 
-  info() { }
-  warn() { }
-  error() { }
-  debug() { }
-  success() { }
-  separator() { }
-  step() { }
-  clear() { }
+  info(): void { }
+  warn(): void { }
+  error(): void { }
+  debug(): void { }
+  success(): void { }
+  separator(): void { }
+  step(): void { }
+  clear(): void { }
 }
 
 export const nullLogger = new NullLogger()
@@ -89,13 +88,13 @@ export const nullLogger = new NullLogger()
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class ConsoleLogger extends Logger {
-  info(...args: any[]) { consoleLog(blueBright.bold('[INFO]: '), ...args) }
-  warn(...args: any[]) { consoleLog(yellow.bold('[WARN]: '), ...args) }
-  error(...args: any[]) { consoleLog(redBright.bold('[ERROR]:'), ...args) }
-  debug(...args: any[]) { consoleLog(cyan.bold('[DEBUG]:'), ...args) }
-  success(...args: any[]) { consoleLog(greenBright.bold('[GOOD]: '), ...args) }
+  info(...args: any[]): void { consoleLog(blueBright.bold('[INFO]: '), ...args) }
+  warn(...args: any[]): void { consoleLog(yellow.bold('[WARN]: '), ...args) }
+  error(...args: any[]): void { consoleLog(redBright.bold('[ERROR]:'), ...args) }
+  debug(...args: any[]): void { consoleLog(cyan.bold('[DEBUG]:'), ...args) }
+  success(...args: any[]): void { consoleLog(greenBright.bold('[GOOD]: '), ...args) }
 
-  separator(title?: string) {
+  separator(title?: string): void {
     consoleLog(greenBright(
       title
         ? bold(`${hr()}\n ${title}\n${hr()}`)
@@ -103,12 +102,12 @@ export class ConsoleLogger extends Logger {
     ))
   }
 
-  step(evaluation: Evaluation) {
+  step(evaluation: Evaluation): void {
     const { instructions, nextInstructionIndex, operandStack } = evaluation.frameStack.top!
     const instruction = instructions[nextInstructionIndex]
 
     const stepTabulation = evaluation.frameStack.depth
-    let tabulation = '│'.repeat(stepTabulation)
+    const tabulation = '│'.repeat(stepTabulation)
 
     this.debug(
       `${('0000' + this.stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
@@ -116,7 +115,7 @@ export class ConsoleLogger extends Logger {
     )
   }
 
-  clear() { consoleClear() }
+  clear(): void { consoleClear() }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

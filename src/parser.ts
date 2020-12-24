@@ -362,7 +362,7 @@ export const New: Parser<NewNode<Raw> | LiteralNode<Raw, SingletonNode<Raw>>> = 
             alt(unamedArguments, namedArguments),
           ),
           // TODO: Convince the world we need a single linearization syntax
-          mixins: (key('with').then(Reference)).atLeast(1).map(mixins => [...mixins].reverse()),
+          mixins: key('with').then(Reference).atLeast(1).map(mixins => [...mixins].reverse()),
           members: of([]),
         }).map(({ supercall, ...payload }) => ({ ...payload, superclassRef: supercall?.[0], supercallArgs: supercall?.[1] ?? [] }))
       ),

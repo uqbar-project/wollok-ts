@@ -1133,7 +1133,7 @@ describe('Wollok parser', () => {
         })
 
         it('should parse arithmetic operators in prefix operations', () => {
-          '-1'.should.be.parsedBy(parser).into(Send((Literal(1)), 'invert', [])).and.be.tracedTo(0, 2)
+          '-1'.should.be.parsedBy(parser).into(Send(Literal(1), 'invert', [])).and.be.tracedTo(0, 2)
             .and.have.nested.property('receiver').tracedTo(1, 2)
         })
 

@@ -588,7 +588,7 @@ describe('Wollok Validations', () => {
       const packageExample = environment.members[1] as PackageNode<Linked>
       const programExample = packageExample.members[0] as ProgramNode<Linked>
       const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value!
-      const classExample = (packageExample.members[1] as ClassNode<Linked>)
+      const classExample = packageExample.members[1] as ClassNode<Linked>
       const methodExample = classExample.members[0] as MethodNode<Linked>
       const selfInMethod = (methodExample.sentences()[0] as ReturnNode).value!
 
@@ -615,7 +615,7 @@ describe('Wollok Validations', () => {
       const { dontCompareAgainstTrueOrFalse } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = (packageExample.members[0] as ClassNode<Linked>)
+      const classExample = packageExample.members[0] as ClassNode<Linked>
       const methodExample = classExample.members[1] as MethodNode<Linked>
       const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode<Linked>).value as SendNode<Linked>
 
@@ -638,7 +638,7 @@ describe('Wollok Validations', () => {
       const { noSuperInConstructorBody } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = (packageExample.members[0] as ClassNode<Linked>)
+      const classExample = packageExample.members[0] as ClassNode<Linked>
       const constructorExample = classExample.members[0] as ConstructorNode<Linked>
       const superInConstructorBody = constructorExample.body.sentences[0] as SuperNode<Linked>
       const method = classExample.members[1] as MethodNode<Linked>
@@ -667,7 +667,7 @@ describe('Wollok Validations', () => {
       const { noReturnStatementInConstructor } = validations
 
       const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = (packageExample.members[0] as ClassNode<Linked>)
+      const classExample = packageExample.members[0] as ClassNode<Linked>
       const constructorExample = classExample.members[0] as ConstructorNode<Linked>
       const returnInConstructor = constructorExample.body.sentences[0] as ReturnNode<Linked>
       const method = classExample.members[1] as MethodNode<Linked>
