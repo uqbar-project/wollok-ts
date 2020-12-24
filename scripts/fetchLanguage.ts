@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync } from 'fs'
 import gitClient from 'simple-git/promise'
-import log, { enableLogs, LogLevel } from '../src/log'
+import { ConsoleLogger, LogLevel } from '../src/log'
 import { wollokVersion } from '../package.json'
 
 const WOLLOK_LANGUAGE_REPO = 'https://github.com/uqbar-project/wollok-language.git'
 const WOLLOK_LANGUAGE_TAG = `v${wollokVersion}`
 const WOLLOK_LANGUAGE_FOLDER = 'language'
 
-enableLogs(LogLevel.INFO)
+const log = new ConsoleLogger(LogLevel.INFO)
 
 const fetchLanguage = async () => {
   log.start('Obtaining the Wollok Language specification')
