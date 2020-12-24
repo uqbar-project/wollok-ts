@@ -5,13 +5,13 @@ import { join } from 'path'
 import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
-import log, { enableLogs, LogLevel } from '../src/log'
+import { ConsoleLogger, LogLevel } from '../src/log'
 import { File } from '../src/parser'
 
 const WRE_SRC_PATH = 'language/src'
 const WRE_TARGET_PATH = 'src/wre'
 
-enableLogs(LogLevel.INFO)
+const log = new ConsoleLogger(LogLevel.INFO)
 
 log.start('Building WRE')
 
