@@ -52,6 +52,7 @@ export class Evaluation {
   protected readonly instanceCache: Map<Id, RuntimeObject>
   protected readonly codeCache: Map<Id, List<Instruction>>
 
+  // TODO: currentFrame?
   get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
   get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
 
@@ -513,7 +514,7 @@ export class RuntimeObject extends Context {
     )
   }
 
-  static object(evaluation: Evaluation, moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject> = {}): RuntimeObject {
+  static object(evaluation: Evaluation, moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject | undefined> = {}): RuntimeObject {
     const module = isNode(moduleOrFQN) ? moduleOrFQN : evaluation.environment.getNodeByFQN<'Module'>(moduleOrFQN)
     const instance = new RuntimeObject(
       evaluation.currentContext,
@@ -850,11 +851,10 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
         const { name } = instruction
         const value = currentFrame.context.get(name)
 
-        // TODO: should add tests for the lazy load and store
         if (!value?.lazyInitializer) currentFrame.operandStack.push(value)
         else {
           evaluation.frameStack.push(new Frame(currentFrame.context, [
-            ...compileSentence(environment)(value.lazyInitializer),
+            ...compileSentence(evaluation.environment)(value.lazyInitializer),
             DUP,
             STORE(name, true),
             RETURN,
