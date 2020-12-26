@@ -617,7 +617,7 @@ export type Expression<S extends Stage = Final>
 
 abstract class $Expression<S extends Stage> extends $Node<S> {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q, S> {
-    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
+    return kindOrCategory === 'Expression' || kindOrCategory === 'Sentence' || super.is(kindOrCategory)
   }
 }
 
@@ -632,7 +632,6 @@ export class Reference<T extends Kind | Category, S extends Stage = Final> exten
   target<R extends Linked = Final>(this: Reference<any, R>): NodeOfKindOrCategory<T, R> | undefined {
     return this.scope.resolve<T, R>(this.name)
   }
-
 }
 
 

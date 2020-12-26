@@ -178,6 +178,8 @@ export class Evaluation {
           LOAD('self'),
           RETURN,
         ])
+      } else if(node.is('Sentence')) {
+        this.codeCache.set(node.id, compileSentences(node))
       } else throw new Error(`Can't retrieve instructions for ${node.kind} node`)
     }
 
@@ -854,7 +856,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
         if (!value?.lazyInitializer) currentFrame.operandStack.push(value)
         else {
           evaluation.frameStack.push(new Frame(currentFrame.context, [
-            ...compileSentence(evaluation.environment)(value.lazyInitializer),
+            ...evaluation.codeFor(value.lazyInitializer),
             DUP,
             STORE(name, true),
             RETURN,

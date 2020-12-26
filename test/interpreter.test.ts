@@ -87,6 +87,7 @@ describe('Wollok Interpreter', () => {
 
       it('should trigger lazy initialization for uninitialized lazy references', () => {
         const lazyInitializer = new Self<Raw>({}) as Expression
+
         evaluation({
           instances: [obj`target`({ lazyInitializer })],
           frames: [
