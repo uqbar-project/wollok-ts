@@ -1,5 +1,5 @@
 import { formatError, Parser } from 'parsimmon'
-import { ImportMock } from 'ts-mock-imports'
+import { restore, stub } from 'sinon'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
 import link from '../src/linker'
@@ -11,8 +11,9 @@ import { readFileSync } from 'fs'
 import { buildEnvironment as buildEnv, Evaluation, Natives } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
-import { Frame, RuntimeObject, Instruction } from '../src/interpreter'
+import { Frame, RuntimeObject, Instruction, InnerValue } from '../src/interpreter'
 import { mapObject, last } from '../src/extensions'
+import { Logger, nullLogger } from '../src/log'
 
 const { keys } = Object
 
@@ -28,6 +29,7 @@ declare global {
       filledInto(expected: any): Assertion
       target(node: Node): Assertion
       pass<N extends Node>(validation: Validation<N>): Assertion
+      throwException: Assertion
       onCurrentFrame: Assertion
       onInstance(instance: InstanceDescription): Assertion
       whenStepped(): Assertion
@@ -35,6 +37,8 @@ declare global {
       popOperands(count: number): Assertion
       pushOperands(...operands: (InstanceDescription|undefined)[]): Assertion
       setLocal(name: Name, value?: InstanceDescription): Assertion
+      jumpTo(position: number): Assertion
+      createInstance(instance: InstanceDescription): Assertion
     }
 
     interface ArrayAssertion {
@@ -187,6 +191,10 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
   const { Assertion } = chai
   const { flag } = utils
 
+  Assertion.addProperty('throwException', function () {
+    flag(this, 'expectedException', true)
+  })
+
   Assertion.addProperty('onCurrentFrame', function () {
     const evaluation: Evaluation = this._obj
     flag(this, 'targetFrameIndex', [...evaluation.frameStack].indexOf(evaluation.frameStack.top!))
@@ -214,7 +222,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
   Assertion.addMethod('pushOperands', function (...operandDescriptions: (InstanceDescription|undefined)[]) {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
     const frameIndex: number = flag(this, 'targetFrameIndex')
-    const operands = operandDescriptions.map(instance => instance?.id)
+    const operands = operandDescriptions.map(instance => instance?.id).reverse()
 
     deltas.push((metric: EvaluationMetrics) => {
       metric.frames[frameIndex].operands.push(...operands)
@@ -229,6 +237,17 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
     deltas.push((metric: EvaluationMetrics) => {
       for(let n = 0; n < count; n++) metric.frames[frameIndex].operands.pop()
+    })
+
+    flag(this, 'deltas', deltas)
+  })
+
+  Assertion.addMethod('jumpTo', function (position: number) {
+    const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
+    const frameIndex: number = flag(this, 'targetFrameIndex')
+
+    deltas.push((metric: EvaluationMetrics) => {
+      metric.frames[frameIndex].nextInstruction = position
     })
 
     flag(this, 'deltas', deltas)
@@ -249,26 +268,44 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     flag(this, 'deltas', deltas)
   })
 
+  Assertion.addMethod('createInstance', function ({ id, locals = {}, moduleFQN = 'wollok.lang.Object', lazyInitializer, innerValue }: InstanceDescription) {
+    const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
+
+    deltas.push((metric: EvaluationMetrics) => {
+      metric.instances.push({ id, locals: mapObject(value => value?.id, locals), moduleFQN, lazyInitializer: lazyInitializer?.id, innerValue })
+    })
+
+    flag(this, 'deltas', deltas)
+  })
+
   Assertion.addMethod('whenStepped', function () {
     const evaluation: Evaluation = this._obj
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
-    const before = evaluationMetrics(evaluation)
+    if(flag(this, 'expectedException')) new Assertion(() => evaluation.step()).to.throw()
+    else {
+      const before = evaluationMetrics(evaluation)
 
-    evaluation.step()
+      let nextId = 1
+      stub(uuid, 'v4').callsFake(() => `_new_${nextId++}_`)
+      try { evaluation.step() }
+      finally { restore() }
 
-    const after = evaluationMetrics(evaluation)
+      const after = evaluationMetrics(evaluation)
 
-    last(before.frames)!.nextInstruction += 1
-    deltas.forEach(delta => delta(before))
+      last(before.frames)!.nextInstruction += 1
+      deltas.forEach(delta => delta(before))
 
-    new Assertion(after, 'Step produced unexpected differences').to.deep.equal(before)
+      new Assertion(after, 'Step produced unexpected differences').to.deep.equal(before)
+    }
+
   })
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // METRICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// TODO: Have a method that actually converts to JSON in the model
 
 interface EvaluationMetrics {
   instances: InstanceMetrics[]
@@ -278,7 +315,9 @@ interface EvaluationMetrics {
 interface InstanceMetrics {
   id: Id
   locals: Record<Name, Id | undefined>
-  lazyInitializer?: Expression
+  lazyInitializer?: Id
+  moduleFQN: Name
+  innerValue?: InnerValue
 }
 
 interface FrameMetrics {
@@ -298,7 +337,9 @@ const evaluationMetrics = (target: Evaluation): EvaluationMetrics => ({
 const  instanceMetrics = (target: RuntimeObject): InstanceMetrics => ({
   id: target.id,
   locals: [...target.locals.entries()].reduce((acum, [key, value]) => ({ ...acum, [key]: value?.id }), {}),
-  lazyInitializer: target.lazyInitializer,
+  lazyInitializer: target.lazyInitializer?.id,
+  moduleFQN: target.module?.fullyQualifiedName(),
+  innerValue: target.innerValue,
 })
 
 const  frameMetrics = (target: Frame): FrameMetrics => ({
@@ -316,12 +357,15 @@ interface EvaluationDescription {
   instances?: InstanceDescription[]
   frames?: FrameDescription[]
   natives?: Natives
+  log?: Logger
 }
 
 interface InstanceDescription {
   id: Id
+  moduleFQN?: Name
   locals?: Record<Name, InstanceDescription | undefined>
   lazyInitializer?: Expression
+  innerValue?: InnerValue
 }
 
 interface FrameDescription {
@@ -329,36 +373,40 @@ interface FrameDescription {
   locals?: Record<Name, InstanceDescription | undefined>
   operands?: (InstanceDescription | undefined)[]
   parentContext?: InstanceDescription
+  nextInstructionIndex?: number
 }
 
 export const obj = (literals: TemplateStringsArray): InstanceDescription & { (args: Partial<InstanceDescription>): InstanceDescription } => {
   const id = literals.join()
-  const f = ({ locals = {}, lazyInitializer }: Partial<InstanceDescription>) => ({ id, locals, lazyInitializer })
+  const f = ({ locals = {}, lazyInitializer, moduleFQN, innerValue }: Partial<InstanceDescription>): InstanceDescription =>
+    ({ id, locals, lazyInitializer, moduleFQN, innerValue })
   f.id = id
   return f
 }
 
-export const testEvaluation = (environment: EnvironmentType) => ({ instances: instanceDescriptions = [], frames:frameDescriptions = [], natives = {} }: EvaluationDescription): Evaluation => {
-  const extraInstances = [obj`__xi1__`, obj`__xi2__`]
+export const testEvaluation = (environment: EnvironmentType) => ({ instances: instanceDescriptions = [], frames:frameDescriptions = [], natives = {}, log = nullLogger }: EvaluationDescription): Evaluation => {
+  const evaluation = Evaluation.create(environment, natives, false)
 
-  const evaluation = Evaluation.create(environment, natives, false);
-
-  [...instanceDescriptions, ...extraInstances].forEach(({ id, locals = {}, lazyInitializer }) => {
-    const stub = ImportMock.mockFunction(uuid, 'v4').callsFake(() => id)
+  instanceDescriptions.forEach(({ id, locals = {}, lazyInitializer, moduleFQN, innerValue }) => {
+    stub(uuid, 'v4').returns(id)
     try {
       if(lazyInitializer) RuntimeObject.lazy(evaluation, lazyInitializer)
-      else RuntimeObject.object(evaluation, 'wollok.lang.Object', mapObject(instance => instance && evaluation.instance(instance.id), locals))
+      else if (moduleFQN === 'wollok.lang.Number') RuntimeObject.number(evaluation, innerValue as number)
+      else if (moduleFQN === 'wollok.lang.String') RuntimeObject.string(evaluation, innerValue as string)
+      else if (moduleFQN === 'wollok.lang.List') RuntimeObject.list(evaluation, innerValue as Id[])
+      else RuntimeObject.object(evaluation, moduleFQN ?? 'wollok.lang.Object', mapObject(instance => instance && evaluation.instance(instance.id), locals))
     }
-    finally { stub.restore() }
+    finally { restore() }
   })
 
-  const frames = frameDescriptions.map(({ instructions = [], locals = {}, operands = [], parentContext }) => {
+  const frames = frameDescriptions.map(({ instructions = [], locals = {}, operands = [], nextInstructionIndex, parentContext }) => {
     const frame = new Frame(
       parentContext ? evaluation.instance(parentContext.id) : evaluation.rootContext,
       instructions,
       new Map(keys(locals).map(key => [key, locals[key] === undefined ? undefined : evaluation.instance(locals[key]!.id)])),
     )
 
+    if(nextInstructionIndex !== undefined) frame.jumpTo(nextInstructionIndex)
     frame.operandStack.push(...operands.map(operand => operand && evaluation.instance(operand.id)).reverse())
 
     return frame
@@ -366,17 +414,7 @@ export const testEvaluation = (environment: EnvironmentType) => ({ instances: in
 
   evaluation.frameStack.push(...frames.reverse())
 
-  evaluation.instances.forEach(instance => {
-    instance.set('__xr1__', evaluation.instance('__xi1__'))
-    instance.set('__xr2__', evaluation.instance('__xi2__'))
-  })
-
-  frames.forEach(frame => {
-    frame.context.set('__xr1__', evaluation.instance('__xi1__'))
-    frame.context.set('__xr2__', evaluation.instance('__xi2__'))
-    frame.operandStack.unshift(evaluation.instance('__xi1__'))
-    frame.operandStack.unshift(evaluation.instance('__xi2__'))
-  })
+  evaluation.log = log
 
   return evaluation
 }

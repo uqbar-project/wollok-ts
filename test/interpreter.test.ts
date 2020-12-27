@@ -6,6 +6,12 @@ import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Package as PackageNode, Self, Raw, Expression } from '../src/model'
 import { interpreterAssertions, testEvaluation, obj } from './assertions'
 import { index } from 'parsimmon'
+import uuid from 'uuid'
+import { ConsoleLogger, LogLevel } from '../src/log'
+
+// TODO:
+// - Create and use toJSON methods on model instead of metrics
+// - Pass the environment or maybe the new classes to each testcase
 
 
 should()
@@ -18,19 +24,21 @@ const WRE = Package('wollok')(
     Class('String', { superclassRef: Reference('wollok.lang.Object') })(),
     Class('Boolean', { superclassRef: Reference('wollok.lang.Object') })(),
     Class('Number', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('List', { superclassRef: Reference('wollok.lang.Object') })()
+    Class('List', { superclassRef: Reference('wollok.lang.Object') })(),
+    Class('EvaluationError', { superclassRef: Reference('wollok.lang.Object') })(),
   ),
   Package('lib')(),
 ) as unknown as PackageNode<Filled>
 
-const environment = link([WRE])
+const environment = link([WRE,
+  Package('test')(
+    Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
+  ) as unknown as PackageNode<Filled>,
+])
 
 const evaluation = testEvaluation(environment)
 
-// // TODO: Some mocking is quite ugly. Either properly link the mock classes or use sinon for cleaner definitions.
-// afterEach(() => {
-//   restore()
-// })
+// afterEach(restore)
 
 describe('Wollok Interpreter', () => {
 
@@ -40,9 +48,9 @@ describe('Wollok Interpreter', () => {
 
       it('should push the local with the given name from the current locals into the current operand stack', () => {
         evaluation({
-          instances: [obj`target`],
+          instances: [obj`target`, obj`other`],
           frames: [
-            { instructions: [LOAD('x')], locals:{ x: obj`target` } },
+            { instructions: [LOAD('x')], locals:{ x: obj`target` }, operands: [obj`other`] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`target`)
@@ -105,9 +113,9 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the current operand stack and save it to the given name in the current locals', () => {
         evaluation({
-          instances: [obj`value`],
+          instances: [obj`value`, obj`other`],
           frames: [
-            { instructions: [STORE('x', false)], operands: [obj`value`], locals:{ } },
+            { instructions: [STORE('x', false)], operands: [obj`value`, obj`other`], locals:{ } },
           ],
         }).should
           .onCurrentFrame.popOperands(1)
@@ -165,9 +173,9 @@ describe('Wollok Interpreter', () => {
 
       it('should push the instance with the given id to the current operand stack', () => {
         evaluation({
-          instances: [obj`value`],
+          instances: [obj`value`, obj`other`],
           frames: [
-            { instructions: [PUSH('value')] },
+            { instructions: [PUSH('value')], operands: [obj`other`] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`value`)
@@ -177,251 +185,341 @@ describe('Wollok Interpreter', () => {
     })
 
 
-    //     describe('POP', () => {
-
-    //       const instruction = POP
-
-    //       it('should pop the top of the operand stack and discard it', () => {
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['2', '1'], instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({ operandStack: ['2'], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should raise an error if the current operand is empty', () => {
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: [], instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
-
-
-    //     describe('PUSH_CONTEXT', () => {
-
-
-    //       it('should create a new, empty context for the current frame', () => {
-    //         const instruction = PUSH_CONTEXT()
-    //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-    //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-    //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map() },
-    //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('if argument is provided, should set an exception handler index for the context based on the instruction position', () => {
-    //         const instruction = PUSH_CONTEXT(2)
-    //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-    //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-    //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map(), exceptionHandlerIndex: 3 },
-    //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //     })
-
-
-    //     describe('POP_CONTEXT', () => {
-
-    //       const instruction = POP_CONTEXT
-
-    //       it('should discard the current frame context and replace it with the parent', () => {
-    //         const evaluation = Evaluation(environment, {}, {
-    //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-    //           2: { id: '2', parentContext: '1', locals: new Map() },
-    //         })(Frame({ id: '2', context: '2', operandStack: [], instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-    //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-    //           2: { id: '2', parentContext: '1', locals: new Map() },
-    //         })(Frame({ id: '2', context: '1', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //     })
-
-
-    //     describe('SWAP', () => {
-
-    //       it('should swap the top two operands of the stack', () => {
-    //         const instruction = SWAP()
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['3', '2', '1'], instructions: [instruction] }))
-
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({ operandStack: ['3', '1', '2'], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should swap the top operand with the one N levels below, if parameter is provided', () => {
-    //         const instruction = SWAP(3)
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
-
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({ operandStack: ['1', '4', '3', '2', '5'], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should raise an error if the current operand stack has length < 2', () => {
-
-    //         const instruction = SWAP()
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['1'], instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //       it('should raise an error if the current operand stack has length < 2 + N, if argument is provided', () => {
-
-    //         const instruction = SWAP(3)
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['4', '3', '2', '1'], instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
-
-    //     describe('DUP', () => {
-
-    //       it('should duplicate the top operand of the stack', () => {
-    //         const instruction = DUP
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: ['2', '1'], instructions: [instruction] }))
-
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({ operandStack: ['2', '1', '1'], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should raise an error if the current operand stack is empty', () => {
-
-    //         const instruction = DUP
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: [], instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
-
-    //     describe('INSTANTIATE', () => {
-
-    //       it('should create a new instance from the given module and push it to the operand stack', () => {
-    //         const instruction = INSTANTIATE('wollok.lang.Object')
-    //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map() } })(Frame({ context: '1', instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, { new_id_0: RuntimeObject('new_id_0', 'wollok.lang.Object') }, {
-    //           1: { id: '1', parentContext: '', locals: new Map() },
-    //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map([['self', 'new_id_0']]) },
-    //         })(Frame({ context: '1', operandStack: ['new_id_0'], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //     })
-
-
-    //     describe('INHERITS', () => {
-
-    //       it('should pop an object id from the operand stack and push true if it inherits the given module', () => {
-    //         const instruction = INHERITS('wollok.lang.Object')
-    //         const evaluation = Evaluation(
-    //           environment,
-    //           { 1: RuntimeObject('1', 'wollok.lang.Closure') },
-    //           { [ROOT_CONTEXT_ID]: { id: ROOT_CONTEXT_ID, parentContext: null, locals: new Map() } }
-    //         )(Frame({ operandStack: ['1'], instructions: [instruction] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Closure') }, { [ROOT_CONTEXT_ID]: { id: ROOT_CONTEXT_ID, parentContext: null, locals: new Map() } })(Frame({ operandStack: [TRUE_ID], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should pop an object id from the operand stack and push false if it does not inherit the given module', () => {
-    //         const instruction = INHERITS('wollok.lang.Closure')
-    //         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1'], instructions: [instruction] }))
-
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: [FALSE_ID], instructions: [instruction], nextInstruction: 1 })))
-    //       })
-
-    //       it('should raise an error if the current operand stack is empty', () => {
-
-    //         const instruction = INHERITS('wollok.lang.Object')
-    //         const evaluation = Evaluation(environment, {})(Frame({ instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //       it('should raise an error if there is no instance with the given id', () => {
-
-    //         const instruction = INHERITS('wollok.lang.Object')
-    //         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['2'], instructions: [instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
-
-
-    //     describe('JUMP', () => {
-
-    //       it('should increment the next instruction in the given ammount', () => {
-    //         const instruction = JUMP(2)
-    //         const evaluation = Evaluation(environment, {})(Frame({ instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')] }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({ nextInstruction: 3, instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')] })))
-    //       })
-
-    //       it('should raise an error if the given count overflows the instruction list', () => {
-    //         const instruction = JUMP(3)
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: [TRUE_ID], instructions: [instruction, instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
-
-
-    //     describe('CONDITIONAL_JUMP', () => {
-
-    //       it('should pop a boolean from the operand stack and increment the Next Instruction the given ammount if it is true', () => {
-    //         const instruction = CONDITIONAL_JUMP(2)
-    //         const evaluation = Evaluation(environment, {})(Frame({
-    //           operandStack: [TRUE_ID],
-    //           instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
-    //         }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({
-    //           nextInstruction: 3,
-    //           instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
-    //         })))
-    //       })
-
-    //       it('should pop a boolean from the operand stack and do nothing if it is false', () => {
-    //         const instruction = CONDITIONAL_JUMP(2)
-
-    //         const evaluation = Evaluation(environment, {})(Frame({
-    //           operandStack: [FALSE_ID],
-    //           instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
-    //         }))
-
-    //         evaluation.should.be.stepped().into(Evaluation(environment, {})(Frame({
-    //           instructions: [instruction, LOAD('a'), LOAD('b'), LOAD('c')],
-    //           nextInstruction: 1,
-    //         })))
-    //       })
-
-    //       it('should raise an error if the current operand stack is empty', () => {
-    //         const instruction = CONDITIONAL_JUMP(1)
-    //         const evaluation = Evaluation(environment, {})(Frame({ instructions: [instruction, instruction, instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //       it('should raise an error if the given id does not belong to a boolean', () => {
-    //         const instruction = CONDITIONAL_JUMP(1)
-    //         const evaluation = Evaluation(environment, { 1: RuntimeObject('1', 'wollok.lang.Object') })(Frame({ operandStack: ['1'], instructions: [instruction, instruction, instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //       it('should raise an error if the given count overflows the instruction list', () => {
-    //         const instruction = CONDITIONAL_JUMP(3)
-    //         const evaluation = Evaluation(environment, {})(Frame({ operandStack: [TRUE_ID], instructions: [instruction, instruction] }))
-
-    //         expect(() => step({})(evaluation)).to.throw()
-    //       })
-
-    //     })
+    describe('POP', () => {
+
+      it('should pop the top of the operand stack and discard it', () => {
+        evaluation({
+          instances: [obj`value`, obj`other`],
+          frames: [
+            { instructions: [POP], operands:[obj`value`, obj`other`] },
+          ],
+        }).should
+          .onCurrentFrame.popOperands(1)
+          .whenStepped()
+      })
+
+      it('should raise an error if the current operand is empty', () => {
+        evaluation({
+          instances: [obj`value`],
+          frames: [
+            { instructions: [POP], operands:[] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
+
+
+    describe('PUSH_CONTEXT', () => {
+
+
+      //       it('should create a new, empty context for the current frame', () => {
+      //         const instruction = PUSH_CONTEXT()
+      //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
+
+      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
+      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
+      //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map() },
+      //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
+      //       })
+
+      //       it('if argument is provided, should set an exception handler index for the context based on the instruction position', () => {
+      //         const instruction = PUSH_CONTEXT(2)
+      //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
+
+      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
+      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
+      //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map(), exceptionHandlerIndex: 3 },
+      //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
+      //       })
+
+    })
+
+
+    describe('POP_CONTEXT', () => {
+
+      //       const instruction = POP_CONTEXT
+
+      //       it('should discard the current frame context and replace it with the parent', () => {
+      //         const evaluation = Evaluation(environment, {}, {
+      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
+      //           2: { id: '2', parentContext: '1', locals: new Map() },
+      //         })(Frame({ id: '2', context: '2', operandStack: [], instructions: [instruction] }))
+
+      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
+      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
+      //           2: { id: '2', parentContext: '1', locals: new Map() },
+      //         })(Frame({ id: '2', context: '1', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
+      //       })
+
+    })
+
+
+    describe('SWAP', () => {
+
+      it('should swap the top two operands of the stack if no distance is specified', () => {
+        evaluation({
+          instances: [obj`v1`, obj`v2`, obj`v3`],
+          frames: [
+            { instructions: [SWAP()], operands:[obj`v2`, obj`v1`, obj`v3`] },
+          ],
+        }).should
+          .onCurrentFrame.popOperands(2)
+          .and.pushOperands(obj`v1`, obj`v2`)
+          .whenStepped()
+      })
+
+      it('should swap the top two operands of the stack if distance 0 is specified', () => {
+        evaluation({
+          instances: [obj`v1`, obj`v2`],
+          frames: [
+            { instructions: [SWAP(0)], operands:[obj`v2`, obj`v1`] },
+          ],
+        }).should
+          .onCurrentFrame.popOperands(2)
+          .and.pushOperands(obj`v1`, obj`v2`)
+          .whenStepped()
+      })
+
+      it('should swap the top operand with the one N levels below, if distance N is specified', () => {
+        evaluation({
+          instances: [obj`v1`, obj`v2`, obj`v3`, obj`v4`, obj`v5`],
+          frames: [
+            { instructions: [SWAP(3)], operands:[obj`v5`, obj`v2`, obj`v3`, obj`v4`, obj`v1`] },
+          ],
+        }).should
+          .onCurrentFrame.popOperands(5)
+          .and.pushOperands(obj`v1`, obj`v2`, obj`v3`, obj`v4`, obj`v5`)
+          .whenStepped()
+      })
+
+      it('should raise an error if the current operand stack has length < 2, if distance is not specified', () => {
+        evaluation({
+          instances: [obj`v1`],
+          frames: [
+            { instructions: [SWAP()], operands:[obj`v1`] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+      it('should raise an error if the current operand stack has length < 2, if distance is not specified', () => {
+        evaluation({
+          instances: [obj`v1`, obj`v2`],
+          frames: [
+            { instructions: [SWAP(1)], operands:[obj`v1`, obj`v2`] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
+
+
+    describe('DUP', () => {
+
+      it('should duplicate the top operand of the stack', () => {
+        evaluation({
+          instances: [obj`right`, obj`wrong`],
+          frames: [
+            { instructions: [DUP], operands:[obj`right`, obj`wrong`] },
+          ],
+        }).should
+          .onCurrentFrame.pushOperands(obj`right`)
+          .whenStepped()
+      })
+
+      it('should raise an error if the current operand stack is empty', () => {
+        evaluation({
+          frames: [
+            { instructions: [DUP], operands:[] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
+
+
+    describe('INSTANTIATE', () => {
+
+      it('should create a new instance from the given module and push it to the operand stack', () => {
+        evaluation({
+          frames: [
+            { instructions: [INSTANTIATE('test.C')] },
+          ],
+        }).should
+          .createInstance(obj`_new_1_`({ moduleFQN: 'test.C', locals: { self: obj`_new_1_` } }))
+          .and.onCurrentFrame.pushOperands(obj`_new_1_`)
+          .whenStepped()
+      })
+
+      it('should set the inner value if one is specified', () => {
+        evaluation({
+          frames: [
+            { instructions: [INSTANTIATE('wollok.lang.Number', 7)] },
+          ],
+        }).should
+          .createInstance(obj`N!7.00000`({ moduleFQN: 'wollok.lang.Number', locals: { self: obj`N!7.00000` }, innerValue: 7 }))
+          .and.onCurrentFrame.pushOperands(obj`N!7.00000`)
+          .whenStepped()
+      })
+
+    })
+
+
+    describe('INHERITS', () => {
+
+      it('should pop an object from the operand stack and push true if it inherits the given module', () => {
+        evaluation({
+          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
+          frames: [
+            { instructions: [INHERITS('wollok.lang.Object')], operands: [obj`target`] },
+          ],
+        }).should.onCurrentFrame
+          .popOperands(1)
+          .and.pushOperands(obj`true`)
+          .whenStepped()
+      })
+
+      it('should pop an object from the operand stack and push false if it does not inherits the given module', () => {
+        evaluation({
+          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
+          frames: [
+            { instructions: [INHERITS('wollok.lang.Number')], operands: [obj`target`] },
+          ],
+        }).should.onCurrentFrame
+          .popOperands(1)
+          .and.pushOperands(obj`false`)
+          .whenStepped()
+      })
+
+      it('should raise an error if the current operand stack is empty', () => {
+        evaluation({
+          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
+          frames: [
+            { instructions: [INHERITS('wollok.lang.List')], operands: [] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
+
+
+    describe('JUMP', () => {
+
+      it('should increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, JUMP(2), POP, POP, POP], nextInstructionIndex: 1 },
+          ],
+        }).should.onCurrentFrame
+          .jumpTo(4)
+          .whenStepped()
+      })
+
+      it('should decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, POP, POP, JUMP(-2), POP], nextInstructionIndex: 3 },
+          ],
+        }).should.onCurrentFrame
+          .jumpTo(2)
+          .whenStepped()
+      })
+
+      it('should cause no effect when a N == 0 jump is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, JUMP(0), POP], nextInstructionIndex: 1 },
+          ],
+        }).should.whenStepped()
+      })
+
+      it('should raise an error if the given count overflows the instruction list', () => {
+        evaluation({
+          frames: [
+            { instructions: [JUMP(1), POP] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+      it('should raise an error if the given count underflows the instruction list', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, JUMP(-3), POP], nextInstructionIndex: 1 },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
+
+
+    describe('CONDITIONAL_JUMP', () => {
+
+      it('should pop a boolean from the operand stack and, if it is true, increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, CONDITIONAL_JUMP(2), POP, POP, POP], nextInstructionIndex: 1, operands:[obj`true`] },
+          ],
+        }).should.onCurrentFrame
+          .popOperands(1)
+          .and.jumpTo(4)
+          .whenStepped()
+      })
+
+      it('should pop a boolean from the operand stack and, if it is true, decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, POP, POP, CONDITIONAL_JUMP(-2), POP], nextInstructionIndex: 3, operands:[obj`true`] },
+          ],
+        }).should.onCurrentFrame
+          .popOperands(1)
+          .and.jumpTo(2)
+          .whenStepped()
+      })
+
+      it('should pop a boolean from the operand stack and, if it is true, cause no jump if N == 0 is provided', () => {
+        evaluation({
+          frames: [
+            { instructions: [CONDITIONAL_JUMP(0), POP], operands:[obj`true`] },
+          ],
+        }).should.onCurrentFrame.popOperands(1)
+          .whenStepped()
+      })
+
+      it('should pop a boolean from the operand stack and, if it is false, cause no jump', () => {
+        evaluation({
+          frames: [
+            { instructions: [CONDITIONAL_JUMP(1)], operands:[obj`false`] },
+          ],
+        }).should.onCurrentFrame
+          .popOperands(1)
+          .whenStepped()
+      })
+
+      it('should raise an error if the operand stack is empty', () => {
+        evaluation({
+          frames: [
+            { instructions: [CONDITIONAL_JUMP(1), POP, POP], operands:[] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+      it('should raise an error if true is popped and the given count overflows the instruction list', () => {
+        evaluation({
+          frames: [
+            { instructions: [CONDITIONAL_JUMP(1), POP], operands:[obj`true`] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+      it('should raise an error if true is popped and the given count underflows the instruction list', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, CONDITIONAL_JUMP(-3), POP], nextInstructionIndex: 1, operands:[obj`true`] },
+          ],
+        }).should.throwException.whenStepped()
+      })
+
+    })
 
 
     //     describe('CALL', () => {
