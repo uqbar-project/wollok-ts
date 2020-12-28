@@ -194,6 +194,7 @@ export class Evaluation {
 
   freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
+  // TODO: this is weird. This should instead make the lookup not use the CALL instruction...
   sendMessage(message: string, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]): void {
     const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
 
@@ -397,13 +398,16 @@ export class Context {
     this.id = id
   }
 
-
   get(local: Name): RuntimeObject | undefined {
     return this.locals.get(local) ?? this.parentContext?.get(local)
   }
 
   set(local: Name, value: RuntimeObject | undefined): void {
     this.locals.set(local, value)
+  }
+
+  contextHierarchy(): List<Context> {
+    return [this, ...this.parentContext?.contextHierarchy() ?? []]
   }
 }
 

@@ -4,14 +4,14 @@ import { Class, Constructor, Field, Literal, Method, Package, Parameter, Referen
 import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INIT_NAMED, INSTANTIATE, INTERRUPT, JUMP, LOAD, NativeFunction, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP, Evaluation, Frame, RuntimeObject } from '../src/interpreter'
 import link from '../src/linker'
 import { Class as ClassNode, Constructor as ConstructorNode, Field as FieldNode, Filled, Method as MethodNode, Package as PackageNode, Self as SelfNode, Raw, Expression } from '../src/model'
-import { interpreterAssertions, testEvaluation, obj } from './assertions'
+import { interpreterAssertions, testEvaluation, obj, ctx } from './assertions'
 import { index } from 'parsimmon'
 import uuid from 'uuid'
 import { ConsoleLogger, LogLevel } from '../src/log'
 
 // TODO:
 // - Create and use toJSON methods on model instead of metrics
-// - Pass the environment or maybe the new classes to each testcase
+// - Pass the environment or maybe the new classes to each testcase, to avoid global test domain
 
 
 should()
@@ -50,7 +50,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`target`, obj`other`],
           frames: [
-            { instructions: [LOAD('x')], locals:{ x: obj`target` }, operands: [obj`other`] },
+            { instructions: [LOAD('x')], operands: [obj`other`], contexts: [ctx`c1`({ locals:{ x: obj`target` } })] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`target`)
@@ -64,7 +64,7 @@ describe('Wollok Interpreter', () => {
             obj`ctx`({ locals: { 'x': obj`target` } }),
           ],
           frames: [
-            { instructions: [LOAD('x')], locals:{ }, parentContext: obj`ctx` },
+            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{ }, parent: obj`ctx` })] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`target`)
@@ -74,7 +74,7 @@ describe('Wollok Interpreter', () => {
       it('should push a void value if the local is not in the context hierarchy', () => {
         evaluation({
           frames: [
-            { instructions: [LOAD('x')], locals:{ } },
+            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{} })] },
           ],
         }).should
           .onCurrentFrame.pushOperands(undefined)
@@ -85,8 +85,8 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`wrong`],
           frames: [
-            { instructions: [LOAD('x')], locals:{ } },
-            { locals:{ x: obj`wrong` } },
+            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{} })] },
+            { contexts: [ctx`c1`({ locals:{ x: obj`wrong` } })] },
           ],
         }).should
           .onCurrentFrame.pushOperands(undefined)
@@ -94,15 +94,18 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should trigger lazy initialization for uninitialized lazy references', () => {
+        const mockCode = [POP, POP, POP]
         const lazyInitializer = new SelfNode<Raw>({}) as Expression
+        stub(Evaluation.prototype, 'codeFor').withArgs(lazyInitializer).returns(mockCode)
+
 
         evaluation({
           instances: [obj`target`({ lazyInitializer })],
           frames: [
-            { instructions: [LOAD('x')], locals:{ x: obj`target` } },
+            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{ x: obj`target` } })] },
           ],
         }).should
-          .pushFrames({ instructions: [LOAD('self'), DUP, STORE('x', true), RETURN] })
+          .pushFrames({ instructions: [...mockCode, DUP, STORE('x', true), RETURN], contexts: [ctx`_new_1_`({ parent: ctx`c1` })] })
           .whenStepped()
       })
 
@@ -115,7 +118,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`value`, obj`other`],
           frames: [
-            { instructions: [STORE('x', false)], operands: [obj`value`, obj`other`], locals:{ } },
+            { instructions: [STORE('x', false)], operands: [obj`value`, obj`other`], contexts: [ctx`c1`({ locals:{ } })] },
           ],
         }).should
           .onCurrentFrame.popOperands(1)
@@ -127,7 +130,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`old`, obj`new`],
           frames: [
-            { instructions: [STORE('x', false)], operands: [obj`new`], locals:{ x: obj`old` } },
+            { instructions: [STORE('x', false)], operands: [obj`new`], contexts: [ctx`c1`({ locals:{ x: obj`old` } })] },
           ],
         }).should
           .onCurrentFrame.popOperands(1)
@@ -143,7 +146,7 @@ describe('Wollok Interpreter', () => {
             obj`context`({ locals:{ x: obj`old` } }),
           ],
           frames: [
-            { instructions: [STORE('x', true)], operands: [obj`new`], locals:{ }, parentContext: obj`context` },
+            { instructions: [STORE('x', true)], operands: [obj`new`], contexts: [ctx`c1`({ locals:{ }, parent: obj`context` })] },
           ],
         }).should
           .onInstance(obj`context`).setLocal('x', obj`new`)
@@ -158,7 +161,7 @@ describe('Wollok Interpreter', () => {
             obj`context`({ locals:{ } }),
           ],
           frames: [
-            { instructions: [STORE('x', true)], operands: [obj`value`], locals:{ }, parentContext: obj`context` },
+            { instructions: [STORE('x', true)], operands: [obj`value`], contexts: [ctx`c1`({ locals:{ }, parent: obj`context` })] },
           ],
         }).should
           .onCurrentFrame.popOperands(1)
@@ -175,7 +178,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`value`, obj`other`],
           frames: [
-            { instructions: [PUSH('value')], operands: [obj`other`] },
+            { instructions: [PUSH('value')], operands: [obj`other`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`value`)
@@ -191,7 +194,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`value`, obj`other`],
           frames: [
-            { instructions: [POP], operands:[obj`value`, obj`other`] },
+            { instructions: [POP], operands:[obj`value`, obj`other`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.popOperands(1)
@@ -202,7 +205,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`value`],
           frames: [
-            { instructions: [POP], operands:[] },
+            { instructions: [POP], operands:[], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -261,7 +264,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`v1`, obj`v2`, obj`v3`],
           frames: [
-            { instructions: [SWAP()], operands:[obj`v2`, obj`v1`, obj`v3`] },
+            { instructions: [SWAP()], operands:[obj`v2`, obj`v1`, obj`v3`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.popOperands(2)
@@ -273,7 +276,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`v1`, obj`v2`],
           frames: [
-            { instructions: [SWAP(0)], operands:[obj`v2`, obj`v1`] },
+            { instructions: [SWAP(0)], operands:[obj`v2`, obj`v1`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.popOperands(2)
@@ -285,7 +288,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`v1`, obj`v2`, obj`v3`, obj`v4`, obj`v5`],
           frames: [
-            { instructions: [SWAP(3)], operands:[obj`v5`, obj`v2`, obj`v3`, obj`v4`, obj`v1`] },
+            { instructions: [SWAP(3)], operands:[obj`v5`, obj`v2`, obj`v3`, obj`v4`, obj`v1`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.popOperands(5)
@@ -297,7 +300,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`v1`],
           frames: [
-            { instructions: [SWAP()], operands:[obj`v1`] },
+            { instructions: [SWAP()], operands:[obj`v1`], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -306,7 +309,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`v1`, obj`v2`],
           frames: [
-            { instructions: [SWAP(1)], operands:[obj`v1`, obj`v2`] },
+            { instructions: [SWAP(1)], operands:[obj`v1`, obj`v2`], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -320,7 +323,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`right`, obj`wrong`],
           frames: [
-            { instructions: [DUP], operands:[obj`right`, obj`wrong`] },
+            { instructions: [DUP], operands:[obj`right`, obj`wrong`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.pushOperands(obj`right`)
@@ -330,7 +333,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the current operand stack is empty', () => {
         evaluation({
           frames: [
-            { instructions: [DUP], operands:[] },
+            { instructions: [DUP], operands:[], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -343,22 +346,23 @@ describe('Wollok Interpreter', () => {
       it('should create a new instance from the given module and push it to the operand stack', () => {
         evaluation({
           frames: [
-            { instructions: [INSTANTIATE('test.C')] },
+            { instructions: [INSTANTIATE('test.C')], contexts:[ctx`c1`] },
           ],
         }).should
-          .createInstance(obj`_new_1_`({ moduleFQN: 'test.C', locals: { self: obj`_new_1_` } }))
+          .createInstance(obj`_new_1_`({ moduleFQN: 'test.C', locals: { self: obj`_new_1_` }, parent: ctx`c1` }))
           .and.onCurrentFrame.pushOperands(obj`_new_1_`)
           .whenStepped()
       })
 
       it('should set the inner value if one is specified', () => {
+        const innerValue = ['42', '17', '5']
         evaluation({
           frames: [
-            { instructions: [INSTANTIATE('wollok.lang.Number', 7)] },
+            { instructions: [INSTANTIATE('wollok.lang.List', innerValue)], contexts:[ctx`c1`] },
           ],
         }).should
-          .createInstance(obj`N!7.00000`({ moduleFQN: 'wollok.lang.Number', locals: { self: obj`N!7.00000` }, innerValue: 7 }))
-          .and.onCurrentFrame.pushOperands(obj`N!7.00000`)
+          .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.List', locals: { self: obj`_new_1_` }, innerValue, parent: ctx`c1` }))
+          .and.onCurrentFrame.pushOperands(obj`_new_1_`)
           .whenStepped()
       })
 
@@ -371,7 +375,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
           frames: [
-            { instructions: [INHERITS('wollok.lang.Object')], operands: [obj`target`] },
+            { instructions: [INHERITS('wollok.lang.Object')], operands: [obj`target`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .popOperands(1)
@@ -383,7 +387,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
           frames: [
-            { instructions: [INHERITS('wollok.lang.Number')], operands: [obj`target`] },
+            { instructions: [INHERITS('wollok.lang.Number')], operands: [obj`target`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .popOperands(1)
@@ -395,7 +399,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
           frames: [
-            { instructions: [INHERITS('wollok.lang.List')], operands: [] },
+            { instructions: [INHERITS('wollok.lang.List')], operands: [], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -408,7 +412,7 @@ describe('Wollok Interpreter', () => {
       it('should increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
         evaluation({
           frames: [
-            { instructions: [POP, JUMP(2), POP, POP, POP], nextInstructionIndex: 1 },
+            { instructions: [POP, JUMP(2), POP, POP, POP], nextInstructionIndex: 1, contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .jumpTo(4)
@@ -418,7 +422,7 @@ describe('Wollok Interpreter', () => {
       it('should decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
         evaluation({
           frames: [
-            { instructions: [POP, POP, POP, JUMP(-2), POP], nextInstructionIndex: 3 },
+            { instructions: [POP, POP, POP, JUMP(-2), POP], nextInstructionIndex: 3, contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .jumpTo(2)
@@ -428,7 +432,7 @@ describe('Wollok Interpreter', () => {
       it('should cause no effect when a N == 0 jump is provided', () => {
         evaluation({
           frames: [
-            { instructions: [POP, JUMP(0), POP], nextInstructionIndex: 1 },
+            { instructions: [POP, JUMP(0), POP], nextInstructionIndex: 1, contexts:[ctx`c1`] },
           ],
         }).should.whenStepped()
       })
@@ -436,7 +440,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the given count overflows the instruction list', () => {
         evaluation({
           frames: [
-            { instructions: [JUMP(1), POP] },
+            { instructions: [JUMP(1), POP], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -444,7 +448,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the given count underflows the instruction list', () => {
         evaluation({
           frames: [
-            { instructions: [POP, JUMP(-3), POP], nextInstructionIndex: 1 },
+            { instructions: [POP, JUMP(-3), POP], nextInstructionIndex: 1, contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -457,7 +461,7 @@ describe('Wollok Interpreter', () => {
       it('should pop a boolean from the operand stack and, if it is true, increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
         evaluation({
           frames: [
-            { instructions: [POP, CONDITIONAL_JUMP(2), POP, POP, POP], nextInstructionIndex: 1, operands:[obj`true`] },
+            { instructions: [POP, CONDITIONAL_JUMP(2), POP, POP, POP], nextInstructionIndex: 1, operands:[obj`true`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .popOperands(1)
@@ -468,7 +472,7 @@ describe('Wollok Interpreter', () => {
       it('should pop a boolean from the operand stack and, if it is true, decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
         evaluation({
           frames: [
-            { instructions: [POP, POP, POP, CONDITIONAL_JUMP(-2), POP], nextInstructionIndex: 3, operands:[obj`true`] },
+            { instructions: [POP, POP, POP, CONDITIONAL_JUMP(-2), POP], nextInstructionIndex: 3, operands:[obj`true`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .popOperands(1)
@@ -479,7 +483,7 @@ describe('Wollok Interpreter', () => {
       it('should pop a boolean from the operand stack and, if it is true, cause no jump if N == 0 is provided', () => {
         evaluation({
           frames: [
-            { instructions: [CONDITIONAL_JUMP(0), POP], operands:[obj`true`] },
+            { instructions: [CONDITIONAL_JUMP(0), POP], operands:[obj`true`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame.popOperands(1)
           .whenStepped()
@@ -488,7 +492,7 @@ describe('Wollok Interpreter', () => {
       it('should pop a boolean from the operand stack and, if it is false, cause no jump', () => {
         evaluation({
           frames: [
-            { instructions: [CONDITIONAL_JUMP(1)], operands:[obj`false`] },
+            { instructions: [CONDITIONAL_JUMP(1)], operands:[obj`false`], contexts:[ctx`c1`] },
           ],
         }).should.onCurrentFrame
           .popOperands(1)
@@ -498,7 +502,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if the operand stack is empty', () => {
         evaluation({
           frames: [
-            { instructions: [CONDITIONAL_JUMP(1), POP, POP], operands:[] },
+            { instructions: [CONDITIONAL_JUMP(1), POP, POP], operands:[], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -506,7 +510,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if true is popped and the given count overflows the instruction list', () => {
         evaluation({
           frames: [
-            { instructions: [CONDITIONAL_JUMP(1), POP], operands:[obj`true`] },
+            { instructions: [CONDITIONAL_JUMP(1), POP], operands:[obj`true`], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -514,7 +518,7 @@ describe('Wollok Interpreter', () => {
       it('should raise an error if true is popped and the given count underflows the instruction list', () => {
         evaluation({
           frames: [
-            { instructions: [POP, CONDITIONAL_JUMP(-3), POP], nextInstructionIndex: 1, operands:[obj`true`] },
+            { instructions: [POP, CONDITIONAL_JUMP(-3), POP], nextInstructionIndex: 1, operands:[obj`true`], contexts:[ctx`c1`] },
           ],
         }).should.throwException.whenStepped()
       })
@@ -525,49 +529,42 @@ describe('Wollok Interpreter', () => {
     describe('CALL', () => {
 
       it('should pop the arguments (in reverse order) and receiver from the operand stack and create a new frame for the method body', () => {
-
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Self())) as MethodNode
-
+        const mockCode = [POP, POP, POP]
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return()) as MethodNode
         stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
+        stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
 
         evaluation({
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
-            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
+            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`], contexts:[ctx`c1`] },
           ],
         }).should
           .onCurrentFrame.popOperands(3)
-          .and.pushFrames({ instructions: [LOAD('self'), RETURN], parentContext: obj`receiver`, locals: { p1: obj`arg1`, p2: obj`arg2` } })
+          .and.pushFrames({ instructions: mockCode, contexts:[ctx`_new_1_`({ locals: { p1: obj`arg1`, p2: obj`arg2` }, parent: obj`receiver` })] })
           .whenStepped()
-
-        //         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
-        //         const instruction = CALL('m', 2)
-        //         const evaluation = Evaluation(environment, {
-        //           1: RuntimeObject('1', 'wollok.lang.Object'),
-        //           2: RuntimeObject('2', 'wollok.lang.Object'),
-        //           3: RuntimeObject('3', 'wollok.lang.Object'),
-        //         }, { 1: { id: '1', parentContext: '', locals: new Map() } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
-
-        //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //         }, {
-      //           1: { id: '1', parentContext: '', locals: new Map() },
-      //           new_id_0: { id: 'new_id_0', parentContext: '3', locals: new Map([['p1', '2'], ['p2', '1']]) },
-      //         })(
-      //           Frame({
-      //             id: 'new_id_0', context: 'new_id_0', instructions: [
-      //               ...compile(environment)(...method.sentences()),
-      //               PUSH(VOID_ID),
-      //               RETURN,
-      //             ],
-      //           }),
-      //           Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
-      //         ))
       })
+
+      it('should skip receivers context if useReceiverContext is false', () => {
+        const mockCode = [POP, POP, POP]
+        const method = Method('m')(Return()) as MethodNode
+        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
+        stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
+
+        evaluation({
+          rootContext: ctx`root`,
+          instances: [obj`receiver`({ moduleFQN: 'test.C' })],
+          frames: [
+            { instructions: [CALL('m', 0, undefined, true)], operands:[obj`receiver`], contexts:[ctx`c1`] },
+          ],
+        }).should
+          .onCurrentFrame.popOperands(1)
+          .and.pushFrames({ instructions: mockCode, contexts: [ctx`_new_1_`({ parent: ctx`root` })] })
+          .whenStepped()
+      })
+
+      //TODO: Review Evaluation.sendMessage before proceeding
+      // TODO: test lookupStart
 
       //       it('should run method ignoring the receivers context if useReceiverContext is false', () => {
       //         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
