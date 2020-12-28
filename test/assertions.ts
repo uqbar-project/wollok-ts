@@ -208,7 +208,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
     deltas.push((metric: EvaluationMetrics) => {
-      for (const { operands = [], contexts, instructions = [] } of frameDescriptions) {
+      for (const { operands = [], contexts = [{ id: `_frame_${metric.frames.length}_ctx_` }], instructions = [] } of frameDescriptions) {
         metric.frames.push({
           baseContext: last(contexts)!.id,
           currentContext: contexts[0].id,
@@ -408,7 +408,7 @@ interface FrameDescription {
   instructions?: Instruction[]
   nextInstructionIndex?: number
   operands?: (InstanceDescription | undefined)[]
-  contexts: ContextDescription[]
+  contexts?: ContextDescription[]
 }
 
 export const ctx = (literals: TemplateStringsArray): ContextDescription & { (description: Partial<ContextDescription>): ContextDescription } => {
@@ -433,6 +433,8 @@ export const testEvaluation = (environment: EnvironmentType) => ({ rootContext, 
   } finally { mock.restore() }
   evaluation.frameStack.pop()
 
+  evaluation.log = log
+
   instanceDescriptions.forEach(({ id, locals = {}, lazyInitializer, moduleFQN, innerValue }) => {
     const mock = stub(uuid, 'v4').returns(id)
     try {
@@ -443,10 +445,10 @@ export const testEvaluation = (environment: EnvironmentType) => ({ rootContext, 
       else RuntimeObject.object(evaluation, moduleFQN ?? 'wollok.lang.Object', mapObject(instance => instance && evaluation.instance(instance.id), locals))
     }
     finally { mock.restore() }
-  })
+  });
 
-  for( const { instructions = [], operands = [], nextInstructionIndex, contexts } of  [...frameDescriptions].reverse()) {
-    const [baseContext, ...otherContexts] = contexts.reverse()
+  [...frameDescriptions].reverse().forEach(({ instructions = [], operands = [], nextInstructionIndex, contexts }, index) => {
+    const [baseContext, ...otherContexts] = contexts?.reverse() ?? [{ id: `_frame_${index}_ctx_` }]
     const locals = baseContext.locals ?? {}
     const parentContext = baseContext.parent
       ? [...evaluation.frameStack]
@@ -478,10 +480,7 @@ export const testEvaluation = (environment: EnvironmentType) => ({ rootContext, 
     }
 
     evaluation.frameStack.push(frame)
-  }
-
-
-  evaluation.log = log
+  })
 
   return evaluation
 }
