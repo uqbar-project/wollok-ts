@@ -223,43 +223,40 @@ describe('Wollok Interpreter', () => {
         }).should
           .onCurrentFrame.pushContexts(ctx`_new_1_`({ parent: ctx`base` }))
           .whenStepped()
-        //         const instruction = PUSH_CONTEXT()
-        //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-      //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map() },
-      //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
       })
 
-      //       it('if argument is provided, should set an exception handler index for the context based on the instruction position', () => {
-      //         const instruction = PUSH_CONTEXT(2)
-      //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-      //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map(), exceptionHandlerIndex: 3 },
-      //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-      //       })
+      it('if argument is provided, should set the contexts exception handler index relative to the instruction position', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP, PUSH_CONTEXT(7)], nextInstructionIndex: 1, contexts: [ctx`base`] },
+          ],
+        }).should
+          .onCurrentFrame.pushContexts(ctx`_new_1_`({ parent: ctx`base`, exceptionHandlerIndex: 9 }))
+          .whenStepped()
+      })
 
     })
 
 
     describe('POP_CONTEXT', () => {
 
-      //       const instruction = POP_CONTEXT
+      it('should discard the current frame context and replace it with its parent', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP_CONTEXT], contexts: [ctx`top`, ctx`middle`, ctx`base`] },
+          ],
+        }).should
+          .onCurrentFrame.popContexts(1)
+          .whenStepped()
+      })
 
-      //       it('should discard the current frame context and replace it with the parent', () => {
-      //         const evaluation = Evaluation(environment, {}, {
-      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-      //           2: { id: '2', parentContext: '1', locals: new Map() },
-      //         })(Frame({ id: '2', context: '2', operandStack: [], instructions: [instruction] }))
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
-      //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
-      //           2: { id: '2', parentContext: '1', locals: new Map() },
-      //         })(Frame({ id: '2', context: '1', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-      //       })
+      it('should raise an error if the frame base context would be popped', () => {
+        evaluation({
+          frames: [
+            { instructions: [POP_CONTEXT], contexts: [ctx`base`] },
+          ],
+        }).should.throwException.whenStepped()
+      })
 
     })
 

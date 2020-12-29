@@ -281,9 +281,11 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const frameIndex: number = flag(this, 'targetFrameIndex')
 
     deltas.push((metric: EvaluationMetrics) => {
+      const currentFrame = metric.frames[frameIndex]
       for(let n = 0; n < count; n++) {
-        const currentContext = metric.contexts[metric.frames[frameIndex].currentContext]
-        metric.frames[frameIndex].currentContext = currentContext.parent
+        const currentContext = metric.contexts[currentFrame.currentContext]
+        delete metric.contexts[currentFrame.currentContext]
+        currentFrame.currentContext = currentContext.parent
       }
     })
 
