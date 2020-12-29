@@ -532,9 +532,10 @@ describe('Wollok Interpreter', () => {
     describe('CALL', () => {
 
       it('should pop the arguments (in reverse order) and receiver from the operand stack and create a new frame for the method body', () => {
-        const mockCode = [POP, POP, POP]
-        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return()) as MethodNode
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })() as MethodNode
         stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
+
+        const mockCode = [POP, POP, POP]
         stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
 
         evaluation({
@@ -548,52 +549,36 @@ describe('Wollok Interpreter', () => {
           .whenStepped()
       })
 
+      it('should group all trailing arguments as a single list if method has a varargs parameter', () => {
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })() as MethodNode
+        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
+
+        const mockCode = [POP, POP, POP]
+        stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
+
+        evaluation({
+          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
+          frames: [
+            { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`], contexts:[ctx`c1`] },
+          ],
+        }).should
+          .createInstance(obj`_new_1_`({
+            moduleFQN: 'wollok.lang.List',
+            locals:{ self: obj`_new_1_` },
+            innerValue: ['arg2', 'arg3'],
+            parent: ctx`c1`,
+          }))
+          .onCurrentFrame.popOperands(4)
+          .and.pushFrames({
+            instructions: mockCode,
+            contexts:[ctx`_new_2_`({ locals: { p1: obj`arg1`, p2: obj`_new_1_` }, parent: obj`receiver` })],
+          })
+          .whenStepped()
+      })
+
+
       // TODO: test lookupStart
 
-
-      //       it('if method has a varargs parameter, should group all trailing arguments as a single array argument', () => {
-      //         const method = Method('m', {
-      //           parameters: [
-      //             Parameter('p1'),
-      //             Parameter('p2', { isVarArg: true }),
-      //           ],
-      //         })(Return(Literal(5))) as MethodNode<any>
-      //         const instruction = CALL('m', 3)
-      //         const evaluation = Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //           4: RuntimeObject('4', 'wollok.lang.Object'),
-      //           5: RuntimeObject('5', 'wollok.lang.Object'),
-      //         }, { 1: { id: '1', parentContext: '', locals: new Map() } })(Frame({ context: '1', operandStack: ['5', '4', '3', '2', '1'], instructions: [instruction] }))
-
-      //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
-
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //           4: RuntimeObject('4', 'wollok.lang.Object'),
-      //           5: RuntimeObject('5', 'wollok.lang.Object'),
-      //           new_id_0: RuntimeObject('new_id_0', 'wollok.lang.List', ['2', '1']),
-      //         }, {
-      //           1: { id: '1', parentContext: '', locals: new Map() },
-      //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map([['self', 'new_id_0']]) },
-      //           new_id_1: { id: 'new_id_1', parentContext: '4', locals: new Map([['p1', '3'], ['p2', 'new_id_0']]) },
-      //         })(
-      //           Frame({
-      //             id: 'new_id_1',
-      //             context: 'new_id_1',
-      //             instructions: [
-      //               ...compile(environment)(...method.sentences()),
-      //               PUSH(VOID_ID),
-      //               RETURN,
-      //             ],
-      //           }),
-      //           Frame({ context: '1', operandStack: ['5'], instructions: [instruction], nextInstruction: 1 }),
-      //         ))
-      //       })
 
       //       it('if method is not found, should still pop the arguments and receiver and use them to call messageNotUnderstood', () => {
       //         const messageNotUnderstood = Method('messageNotUnderstood', {

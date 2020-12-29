@@ -92,14 +92,8 @@ const game: Natives = {
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (visuals) {
-        const initialFrameCount = evaluation.frameStack.depth
-        evaluation.invoke(visuals.module.lookupMethod('remove', 1)!, visuals, visual)
-        do {
-          evaluation.step()
-        } while (evaluation.frameStack.depth > initialFrameCount)
-      }
-      returnVoid(evaluation)
+      if (visuals) evaluation.invoke(visuals.module.lookupMethod('remove', 1)!, visuals, visual)
+      else evaluation.frameStack.top!.operandStack.push(undefined)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
