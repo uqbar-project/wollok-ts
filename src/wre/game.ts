@@ -25,7 +25,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
 const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
     const receiverInstance = evaluation.instance(receiver(evaluation))
-    evaluation.invoke(receiverInstance.module.lookupMethod(message, params.length)!, receiverInstance, ...params.map(evaluation.instance))
+    evaluation.invoke(receiverInstance.module.lookupMethod(message, params.length)!, receiverInstance, ...params)
     if (voidMessage) returnVoid(evaluation)
   }
 

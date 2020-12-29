@@ -1060,7 +1060,6 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
 
     }
   } catch (error) {
-    console.log(error)
     evaluation.log.error(error)
     if (!evaluation.frameStack.isEmpty()) {
       const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
