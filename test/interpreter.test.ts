@@ -1,5 +1,6 @@
 import { expect, should, use } from 'chai'
-import { restore, stub } from 'sinon'
+import { restore, stub, spy } from 'sinon'
+import sinonChai from 'sinon-chai'
 import { Class, Constructor, Field, Literal, Method, Package, Parameter, Reference, Return, Self } from '../src/builders'
 import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INIT_NAMED, INSTANTIATE, INTERRUPT, JUMP, LOAD, NativeFunction, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP, Evaluation, Frame, RuntimeObject } from '../src/interpreter'
 import link from '../src/linker'
@@ -16,6 +17,7 @@ import { ConsoleLogger, LogLevel } from '../src/log'
 
 should()
 use(interpreterAssertions)
+use(sinonChai)
 
 const WRE = Package('wollok')(
   Package('lang')(
@@ -533,9 +535,8 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the arguments (in reverse order) and receiver from the operand stack and create a new frame for the method body', () => {
         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })() as MethodNode
-        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
-
         const mockCode = [POP, POP, POP]
+        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
         stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
 
         evaluation({
@@ -551,9 +552,8 @@ describe('Wollok Interpreter', () => {
 
       it('should group all trailing arguments as a single list if method has a varargs parameter', () => {
         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })() as MethodNode
-        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
-
         const mockCode = [POP, POP, POP]
+        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
         stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
 
         evaluation({
@@ -576,76 +576,27 @@ describe('Wollok Interpreter', () => {
           .whenStepped()
       })
 
+      it('if method is native it should pop the arguments and receiver and use them to call the native function', () => {
+        const nativeBody = spy(() => {})
+        const native: NativeFunction = spy(() => nativeBody)
+        const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')], body: 'native' })() as MethodNode
+        stub(method, 'parent').returns(environment.getNodeByFQN<'Module'>('test.C'))
+        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
 
-      // TODO: test lookupStart
+        evaluation({
+          log: new ConsoleLogger(LogLevel.ERROR),
+          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
+          frames: [
+            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
+          ],
+          natives: { test: { C: { m: native } } },
+        }).should
+          .onCurrentFrame.popOperands(3)
+          .whenStepped()
 
-
-      //       it('if method is not found, should still pop the arguments and receiver and use them to call messageNotUnderstood', () => {
-      //         const messageNotUnderstood = Method('messageNotUnderstood', {
-      //           parameters: [
-      //             Parameter('name'),
-      //             Parameter('parameters', { isVarArg: true }),
-      //           ],
-      //         })(Return(Literal(5))) as MethodNode<any>
-      //         const instruction = CALL('m', 2)
-      //         const evaluation = Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //         }, { 1: { id: '1', parentContext: '', locals: new Map() } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
-
-      //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod =
-      //           name => name === 'messageNotUnderstood' ? messageNotUnderstood : undefined
-
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {
-      //           '1': RuntimeObject('1', 'wollok.lang.Object'),
-      //           '2': RuntimeObject('2', 'wollok.lang.Object'),
-      //           '3': RuntimeObject('3', 'wollok.lang.Object'),
-      //           'S!m': RuntimeObject('S!m', 'wollok.lang.String', 'm'),
-      //           'new_id_1': RuntimeObject('new_id_1', 'wollok.lang.List', ['2', '1']),
-      //         }, {
-      //           '1': { id: '1', parentContext: '', locals: new Map() },
-      //           'S!m': { id: 'S!m', parentContext: '1', locals: new Map([['self', 'S!m']]) },
-      //           'new_id_1': { id: 'new_id_1', parentContext: '1', locals: new Map([['self', 'new_id_1']]) },
-      //           'new_id_2': { id: 'new_id_2', parentContext: '3', locals: new Map([['name', 'S!m'], ['parameters', 'new_id_1']]) },
-      //         })(
-      //           Frame({
-      //             id: 'new_id_2',
-      //             context: 'new_id_2',
-      //             instructions: evaluation.codeFor(messageNotUnderstood),
-      //           }),
-      //           Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
-      //         ))
-      //       })
-
-      //       it('if method is native, it should still pop the arguments and receiver and use them to call the native function', () => {
-      //         const method = Method('m', {
-      //           body: 'native', parameters: [
-      //             Parameter('p1'), Parameter('p2'),
-      //           ],
-      //         })() as MethodNode<any>
-
-      //         const native: NativeFunction = (self, p1, p2) => e => { e.baseFrame().operandStack.push(self.id + p1!.id + p2!.id) }
-
-      //         const instruction = CALL('m', 2)
-      //         const evaluation = Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //           4: RuntimeObject('4', 'wollok.lang.Object'),
-      //         })(Frame({ operandStack: ['4', '3', '2', '1'], instructions: [instruction] }))
-
-      //         method.parent = () => evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object') as any
-      //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
-
-      //         evaluation.should.be.stepped({ wollok: { lang: { Object: { m: native } } } }).into(Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //           4: RuntimeObject('4', 'wollok.lang.Object'),
-      //         })(Frame({ operandStack: ['4', '321'], instructions: [instruction], nextInstruction: 1 })))
-      //       })
+        native.should.have.been.calledWithMatch({ id: 'receiver' }, { id: 'arg1' }, { id:'arg2' })
+        nativeBody.should.have.been.calledWithMatch((arg: any) => arg instanceof Evaluation)
+      })
 
       //       it('if method is native and has varargs the arguments are spread on the native instead of grouped in an array', () => {
       //         const method = Method('m', {
@@ -689,6 +640,45 @@ describe('Wollok Interpreter', () => {
       //         expect(() => step({})(evaluation)).to.throw()
       //       })
 
+      //       it('if method is not found, should still pop the arguments and receiver and use them to call messageNotUnderstood', () => {
+      //         const messageNotUnderstood = Method('messageNotUnderstood', {
+      //           parameters: [
+      //             Parameter('name'),
+      //             Parameter('parameters', { isVarArg: true }),
+      //           ],
+      //         })(Return(Literal(5))) as MethodNode<any>
+      //         const instruction = CALL('m', 2)
+      //         const evaluation = Evaluation(environment, {
+      //           1: RuntimeObject('1', 'wollok.lang.Object'),
+      //           2: RuntimeObject('2', 'wollok.lang.Object'),
+      //           3: RuntimeObject('3', 'wollok.lang.Object'),
+      //         }, { 1: { id: '1', parentContext: '', locals: new Map() } })(Frame({ context: '1', operandStack: ['3', '2', '1'], instructions: [instruction] }))
+
+      //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod =
+      //           name => name === 'messageNotUnderstood' ? messageNotUnderstood : undefined
+
+
+      //         evaluation.should.be.stepped().into(Evaluation(environment, {
+      //           '1': RuntimeObject('1', 'wollok.lang.Object'),
+      //           '2': RuntimeObject('2', 'wollok.lang.Object'),
+      //           '3': RuntimeObject('3', 'wollok.lang.Object'),
+      //           'S!m': RuntimeObject('S!m', 'wollok.lang.String', 'm'),
+      //           'new_id_1': RuntimeObject('new_id_1', 'wollok.lang.List', ['2', '1']),
+      //         }, {
+      //           '1': { id: '1', parentContext: '', locals: new Map() },
+      //           'S!m': { id: 'S!m', parentContext: '1', locals: new Map([['self', 'S!m']]) },
+      //           'new_id_1': { id: 'new_id_1', parentContext: '1', locals: new Map([['self', 'new_id_1']]) },
+      //           'new_id_2': { id: 'new_id_2', parentContext: '3', locals: new Map([['name', 'S!m'], ['parameters', 'new_id_1']]) },
+      //         })(
+      //           Frame({
+      //             id: 'new_id_2',
+      //             context: 'new_id_2',
+      //             instructions: evaluation.codeFor(messageNotUnderstood),
+      //           }),
+      //           Frame({ context: '1', instructions: [instruction], nextInstruction: 1 }),
+      //         ))
+      //       })
+
       //       it('should raise an error if there is no instance with the given id', () => {
       //         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
 
@@ -710,6 +700,8 @@ describe('Wollok Interpreter', () => {
 
       //         expect(() => step({})(evaluation)).to.throw()
       //       })
+
+      // TODO: test lookupStart
 
     })
 
