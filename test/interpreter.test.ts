@@ -215,16 +215,22 @@ describe('Wollok Interpreter', () => {
 
     describe('PUSH_CONTEXT', () => {
 
-
-      //       it('should create a new, empty context for the current frame', () => {
-      //         const instruction = PUSH_CONTEXT()
-      //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
+      it('should push a new, empty context to the current frame context stack', () => {
+        evaluation({
+          frames: [
+            { instructions: [PUSH_CONTEXT()], contexts: [ctx`base`] },
+          ],
+        }).should
+          .onCurrentFrame.pushContexts(ctx`_new_1_`({ parent: ctx`base` }))
+          .whenStepped()
+        //         const instruction = PUSH_CONTEXT()
+        //         const evaluation = Evaluation(environment, {}, { 1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) } })(Frame({ id: '1', context: '1', operandStack: [], instructions: [instruction] }))
 
       //         evaluation.should.be.stepped().into(Evaluation(environment, {}, {
       //           1: { id: '1', parentContext: '', locals: new Map([['a', '2']]) },
       //           new_id_0: { id: 'new_id_0', parentContext: '1', locals: new Map() },
       //         })(Frame({ id: '1', context: 'new_id_0', operandStack: [], instructions: [instruction], nextInstruction: 1 })))
-      //       })
+      })
 
       //       it('if argument is provided, should set an exception handler index for the context based on the instruction position', () => {
       //         const instruction = PUSH_CONTEXT(2)

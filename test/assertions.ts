@@ -36,6 +36,8 @@ declare global {
       pushFrames(...frames: FrameDescription[]): Assertion
       popOperands(count: number): Assertion
       pushOperands(...operands: (InstanceDescription|undefined)[]): Assertion
+      popContexts(count: number): Assertion
+      pushContexts(...contexts: ContextDescription[]): Assertion
       setLocal(name: Name, value?: InstanceDescription): Assertion
       jumpTo(position: number): Assertion
       createInstance(instance: InstanceDescription): Assertion
@@ -249,6 +251,40 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
     deltas.push((metric: EvaluationMetrics) => {
       for(let n = 0; n < count; n++) metric.frames[frameIndex].operands.pop()
+    })
+
+    flag(this, 'deltas', deltas)
+  })
+
+  Assertion.addMethod('pushContexts', function (...contextDescriptions: ContextDescription[]) {
+    const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
+    const frameIndex: number = flag(this, 'targetFrameIndex')
+
+    deltas.push((metric: EvaluationMetrics) => {
+      const currentFrame = metric.frames[frameIndex]
+      for(const { id, exceptionHandlerIndex, locals, parent } of contextDescriptions) {
+        metric.contexts[id] = {
+          id,
+          parent: parent?.id ?? currentFrame.currentContext,
+          locals: mapObject(value => value?.id, locals ?? {}),
+          exceptionHandlerIndex,
+        }
+        currentFrame.currentContext = id
+      }
+    })
+
+    flag(this, 'deltas', deltas)
+  })
+
+  Assertion.addMethod('popContexts', function (count: number) {
+    const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
+    const frameIndex: number = flag(this, 'targetFrameIndex')
+
+    deltas.push((metric: EvaluationMetrics) => {
+      for(let n = 0; n < count; n++) {
+        const currentContext = metric.contexts[metric.frames[frameIndex].currentContext]
+        metric.frames[frameIndex].currentContext = currentContext.parent
+      }
     })
 
     flag(this, 'deltas', deltas)
