@@ -624,7 +624,7 @@ export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction 
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', moduleFQN: module })
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
-export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN: lookupStart })
+export const CALL = (message: Name, arity: number, lookupStartFQN?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN })
 export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'INIT', arity, lookupStart, optional })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
@@ -983,12 +983,11 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
         if (method) evaluation.invoke(method, self, ...args)
         else {
           evaluation.log.warn('Method not found:', lookupStartFQN ?? self.module.fullyQualifiedName(), '>>', message, '/', arity)
-
           evaluation.invoke(
             self.module.lookupMethod('messageNotUnderstood', 2)!,
             self,
             RuntimeObject.string(evaluation, message),
-            RuntimeObject.list(evaluation, args.map(({ id }) => id))
+            RuntimeObject.list(evaluation, args.map(({ id }) => id)),
           )
         }
       })()

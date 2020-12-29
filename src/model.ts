@@ -417,9 +417,8 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
       if (startReached) {
         const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
         if (found) return found
-      } else if (module.fullyQualifiedName() === lookupStartFQN) {
-        startReached = true
       }
+      if (module.fullyQualifiedName() === lookupStartFQN) startReached = true
     }
 
     return undefined
