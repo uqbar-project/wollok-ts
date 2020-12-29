@@ -21,9 +21,11 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
     get(self, key)(evaluation)
 }
 
+//TODO: Do we still need this?
 const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
-    evaluation.sendMessage(message, receiver(evaluation), ...params)
+    const receiverInstance = evaluation.instance(receiver(evaluation))
+    evaluation.invoke(receiverInstance.module.lookupMethod(message, params.length)!, receiverInstance, ...params.map(evaluation.instance))
     if (voidMessage) returnVoid(evaluation)
   }
 
@@ -32,11 +34,12 @@ const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('
 const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
 
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
-  const position = evaluation.instance(id).get('position')
+  const instance = evaluation.instance(id)
+  const position = instance.get('position')
   if (position) return position
   const currentFrame = evaluation.frameStack.top!
   const initialFrameCount = evaluation.frameStack.depth
-  evaluation.sendMessage('position', id)
+  evaluation.invoke(instance.module.lookupMethod('position', 0)!, instance)
   do {
     evaluation.step() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
   } while (evaluation.frameStack.depth > initialFrameCount)
@@ -91,7 +94,7 @@ const game: Natives = {
       const visuals = self.get('visuals')
       if (visuals) {
         const initialFrameCount = evaluation.frameStack.depth
-        evaluation.sendMessage('remove', visuals.id, visual.id)
+        evaluation.invoke(visuals.module.lookupMethod('remove', 1)!, visuals, visual)
         do {
           evaluation.step()
         } while (evaluation.frameStack.depth > initialFrameCount)
@@ -145,7 +148,8 @@ const game: Natives = {
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.frameStack.top!
       const initialFrameCount = evaluation.frameStack.depth
-      evaluation.sendMessage('currentTime', io(evaluation))
+      const ioInstance = evaluation.instance(io(evaluation))
+      evaluation.invoke(ioInstance.module.lookupMethod('currentTime', 0)!, ioInstance)
       do {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
@@ -159,7 +163,8 @@ const game: Natives = {
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const initialFrameCount = evaluation.frameStack.depth
-      evaluation.sendMessage('clear', io(evaluation))
+      const ioInstance = evaluation.instance(io(evaluation))
+      evaluation.invoke(ioInstance.module.lookupMethod('clear', 0)!, ioInstance)
       do {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)

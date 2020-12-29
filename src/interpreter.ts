@@ -1,5 +1,5 @@
 import { last, get } from './extensions'
-import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Variable, Singleton, Field, isNode } from './model'
+import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Variable, Singleton, Field, isNode, Method } from './model'
 import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
@@ -194,16 +194,30 @@ export class Evaluation {
 
   freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
-  // TODO: this is weird. This should instead make the lookup not use the CALL instruction...
-  sendMessage(message: string, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]): void {
-    const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
+  invoke(method: Method, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]): void {
+    if (!method.body) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
+    if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
-    this.frameStack.push(new Frame(receiverInstance, [
-      PUSH(receiverInstance.id),
-      ...args.map(arg => PUSH(arg instanceof RuntimeObject ? arg.id : arg)),
-      CALL(message, args.length),
-      RETURN,
-    ]))
+    const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
+    const argumentInstances = args.map(arg => arg instanceof RuntimeObject ? arg : this.instance(arg))
+
+    if (method.body === 'native') {
+      const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
+      const native = get<NativeFunction>(this.natives, nativeFQN)
+      if (native) this.log.debug('Invoking Native:', nativeFQN, '/', args.length)
+      else throw new Error(`Native not found: ${nativeFQN}`)
+      native(receiverInstance, ...argumentInstances)(this)
+    } else {
+      this.frameStack.push(new Frame(
+        receiverInstance,
+        this.codeFor(method),
+        new Map(method.parameters.map(({ name, isVarArg }, index) => [name,
+          isVarArg
+            ? RuntimeObject.list(this, argumentInstances.slice(index).map(({ id }) => id))
+            : argumentInstances[index],
+        ]))
+      ))
+    }
   }
 
   raise(exception: RuntimeObject): void {
@@ -592,7 +606,7 @@ export type Instruction
   | { kind: 'INHERITS', moduleFQN: Name }
   | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
-  | { kind: 'CALL', message: Name, arity: number, skipReceiverContext: boolean, lookupStartFQN?: Name }
+  | { kind: 'CALL', message: Name, arity: number, lookupStartFQN?: Name }
   | { kind: 'INIT', arity: number, lookupStart: Name, optional?: boolean }
   | { kind: 'INIT_NAMED', argumentNames: List<Name> }
   | { kind: 'INTERRUPT' }
@@ -610,7 +624,7 @@ export const INSTANTIATE = (module: Name, innerValue?: InnerValue): Instruction 
 export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', moduleFQN: module })
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
-export const CALL = (message: Name, arity: number, lookupStart?: Name, skipReceiverContext = false): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN: lookupStart, skipReceiverContext })
+export const CALL = (message: Name, arity: number, lookupStart?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN: lookupStart })
 export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'INIT', arity, lookupStart, optional })
 export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
 export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
@@ -961,40 +975,22 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
 
 
       case 'CALL': return (() => {
-        const { message, arity, lookupStartFQN, skipReceiverContext } = instruction
+        const { message, arity, lookupStartFQN } = instruction
         const args = Array.from({ length: arity }, () => currentFrame.operandStack.pop()!).reverse()
-        const argIds = args.map(({ id }) => id)
         const self = currentFrame.operandStack.pop()!
         const method = self.module.lookupMethod(message, arity, lookupStartFQN)
 
-        if (!method) {
+        if (method) evaluation.invoke(method, self, ...args)
+        else {
           evaluation.log.warn('Method not found:', lookupStartFQN ?? self.module.fullyQualifiedName(), '>>', message, '/', arity)
-          const messageNotUnderstoodMethod = self.module.lookupMethod('messageNotUnderstood', 2)!
 
-          return evaluation.frameStack.push(new Frame(
+          evaluation.invoke(
+            self.module.lookupMethod('messageNotUnderstood', 2)!,
             self,
-            evaluation.codeFor(messageNotUnderstoodMethod),
-            new Map([
-              [messageNotUnderstoodMethod.parameters[0].name, RuntimeObject.string(evaluation, message)],
-              [messageNotUnderstoodMethod.parameters[1].name, RuntimeObject.list(evaluation, argIds)],
-            ])
-          ))
-        } else if (method.body === 'native') {
-          evaluation.log.debug('Calling Native:', method.parent().fullyQualifiedName(), '>>', message, '/', arity)
-          const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
-          const native = get<NativeFunction>(natives, nativeFQN)
-          if (!native) throw new Error(`Native not found: ${nativeFQN}`)
-          native(self, ...args)(evaluation)
-        } else {
-          evaluation.frameStack.push(new Frame(
-            skipReceiverContext ? self.parentContext : self,
-            evaluation.codeFor(method),
-            new Map(method.parameters.map(({ name, isVarArg }, index) =>
-              [name, isVarArg ? RuntimeObject.list(evaluation, argIds.slice(index)) : args[index]]
-            ))
-          ))
+            RuntimeObject.string(evaluation, message),
+            RuntimeObject.list(evaluation, args.map(({ id }) => id))
+          )
         }
-
       })()
 
 

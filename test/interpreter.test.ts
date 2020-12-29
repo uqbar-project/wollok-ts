@@ -548,65 +548,8 @@ describe('Wollok Interpreter', () => {
           .whenStepped()
       })
 
-      it('should skip receivers context if useReceiverContext is false', () => {
-        const mockCode = [POP, POP, POP]
-        const method = Method('m')(Return()) as MethodNode
-        stub(environment.getNodeByFQN<'Module'>('test.C'), 'lookupMethod').returns(method)
-        stub(Evaluation.prototype, 'codeFor').withArgs(method).returns(mockCode)
-
-        evaluation({
-          rootContext: ctx`root`,
-          instances: [obj`receiver`({ moduleFQN: 'test.C' })],
-          frames: [
-            { instructions: [CALL('m', 0, undefined, true)], operands:[obj`receiver`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.pushFrames({ instructions: mockCode, contexts: [ctx`_new_1_`({ parent: ctx`root` })] })
-          .whenStepped()
-      })
-
-      //TODO: Review Evaluation.sendMessage before proceeding
       // TODO: test lookupStart
 
-      //       it('should run method ignoring the receivers context if useReceiverContext is false', () => {
-      //         const method = Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(Return(Literal(5))) as MethodNode<any>
-      //         const instruction = CALL('m', 2, false)
-      //         const evaluation = Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //         }, {
-      //           0: { id: '0', parentContext: '', locals: new Map() },
-      //           1: { id: '1', parentContext: '0', locals: new Map() },
-      //           2: { id: '2', parentContext: '0', locals: new Map() },
-      //           3: { id: '3', parentContext: '0', locals: new Map() },
-      //         })(Frame({ context: '0', operandStack: ['3', '2', '1'], instructions: [instruction] }))
-
-      //         evaluation.environment.getNodeByFQN<'Module'>('wollok.lang.Object').lookupMethod = () => method
-
-
-      //         evaluation.should.be.stepped().into(Evaluation(environment, {
-      //           1: RuntimeObject('1', 'wollok.lang.Object'),
-      //           2: RuntimeObject('2', 'wollok.lang.Object'),
-      //           3: RuntimeObject('3', 'wollok.lang.Object'),
-      //         }, {
-      //           0: { id: '0', parentContext: '', locals: new Map() },
-      //           1: { id: '1', parentContext: '0', locals: new Map() },
-      //           2: { id: '2', parentContext: '0', locals: new Map() },
-      //           3: { id: '3', parentContext: '0', locals: new Map() },
-      //           new_id_0: { id: 'new_id_0', parentContext: '0', locals: new Map([['p1', '2'], ['p2', '1']]) },
-      //         })(
-      //           Frame({
-      //             id: 'new_id_0', context: 'new_id_0', instructions: [
-      //               ...compile(environment)(...method.sentences()),
-      //               PUSH(VOID_ID),
-      //               RETURN,
-      //             ],
-      //           }),
-      //           Frame({ context: '0', instructions: [instruction], nextInstruction: 1 }),
-      //         ))
-      //       })
 
       //       it('if method has a varargs parameter, should group all trailing arguments as a single array argument', () => {
       //         const method = Method('m', {

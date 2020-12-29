@@ -70,11 +70,7 @@ const Collections: Natives = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.frameStack.push(new Frame(self, [
-      PUSH(self.id),
-      CALL('max', 0, self.module.fullyQualifiedName()),
-      RETURN,
-    ]))
+    evaluation.invoke(evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('max', 0)!, self)
   },
 
   remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -100,21 +96,13 @@ const Collections: Natives = {
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.frameStack.push(new Frame(self, [
-      PUSH(self.id),
-      ...separator ? [PUSH(separator.id)] : [],
-      CALL('join', separator ? 1 : 0, self.module.fullyQualifiedName()),
-      RETURN,
-    ]))
+    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
+    evaluation.invoke(method, self, ...separator ? [separator] : [])
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.frameStack.push(new Frame(self, [
-      PUSH(self.id),
-      PUSH(value.id),
-      CALL('contains', 1, self.module.fullyQualifiedName()),
-      RETURN,
-    ]))
+    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('contains', 1)!
+    evaluation.invoke(method, self, value)
   },
 
 }
@@ -391,7 +379,7 @@ const lang: Natives = {
   Dictionary: {
 
     initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.sendMessage('clear', self)
+      evaluation.invoke(self.module.lookupMethod('clear', 0)!, self)
     },
 
     put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -793,25 +781,25 @@ const lang: Natives = {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.sendMessage('apply', closure)
+      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
     },
 
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.sendMessage('apply', closure)
+      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.sendMessage('apply', closure)
+      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
     },
 
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.frameStack.top!.operandStack.push(self)
 
-      evaluation.sendMessage('apply', closure)
+      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -887,12 +875,13 @@ const lang: Natives = {
   Closure: {
 
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
-      evaluation.frameStack.push(new Frame(self, [
-        PUSH(self.id),
-        ...args.map(arg => PUSH(arg?.id)),
-        CALL('<apply>', args.length, undefined, true),
-        RETURN,
-      ]))
+      const method = self.module.lookupMethod('<apply>', args.length)!
+      evaluation.frameStack.push(new Frame(self.parentContext,
+        evaluation.codeFor(method),
+        new Map(method.parameters.map(({ name, isVarArg }, index) =>
+          [name, isVarArg ? RuntimeObject.list(evaluation, args.map(arg => arg!.id).slice(index)) : args[index]]
+        ))
+      ))
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {
