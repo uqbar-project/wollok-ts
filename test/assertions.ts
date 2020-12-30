@@ -30,10 +30,12 @@ declare global {
       target(node: Node): Assertion
       pass<N extends Node>(validation: Validation<N>): Assertion
       throwException: Assertion
+      onFrame(index: number): Assertion
       onCurrentFrame: Assertion
       onInstance(instance: InstanceDescription): Assertion
       whenStepped(): Assertion
       pushFrames(...frames: FrameDescription[]): Assertion
+      popFrames(count: number): Assertion
       popOperands(count: number): Assertion
       pushOperands(...operands: (InstanceDescription|undefined)[]): Assertion
       popContexts(count: number): Assertion
@@ -199,7 +201,11 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
   Assertion.addProperty('onCurrentFrame', function () {
     const evaluation: Evaluation = this._obj
-    flag(this, 'targetFrameIndex', [...evaluation.frameStack].indexOf(evaluation.frameStack.top!))
+    flag(this, 'targetFrameIndex', evaluation.frameStack.depth - 1)
+  })
+
+  Assertion.addMethod('onFrame', function (index: number) {
+    flag(this, 'targetFrameIndex', index)
   })
 
   Assertion.addMethod('onInstance', function (instance: InstanceDescription) {
@@ -227,6 +233,23 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
             exceptionHandlerIndex,
           }
         })
+      }
+    })
+
+    flag(this, 'deltas', deltas)
+  })
+
+  Assertion.addMethod('popFrames', function (count: number) {
+    const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
+
+    deltas.push((metric: EvaluationMetrics) =>  {
+      for(let n = 0; n < count; n++) {
+        const { currentContext, baseContext } = metric.frames.pop()!
+        const contexts = [currentContext]
+        while (contexts[0] !== baseContext) {
+          contexts.unshift(metric.contexts[contexts[0]].parent)
+        }
+        contexts.forEach(context => { delete metric.contexts[context] })
       }
     })
 
@@ -336,7 +359,10 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const evaluation: Evaluation = this._obj
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
-    if(flag(this, 'expectedException')) new Assertion(() => evaluation.step()).to.throw()
+    if(flag(this, 'expectedException')) new Assertion(() => {
+      evaluation.step()
+    }).to.throw()
+
     else {
       const before = evaluationMetrics(evaluation)
 

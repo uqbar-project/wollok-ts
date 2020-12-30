@@ -82,16 +82,16 @@ export class Evaluation {
           return [
             ...args.flatMap(({ value }) => compileSentence(environment)(value)),
             PUSH(singleton.id),
-            INIT_NAMED(args.map(({ name }) => name)),
-            INIT(0, singleton.superclass()!.fullyQualifiedName(), true),
+            INIT(args.map(({ name }) => name)),
+            CALL_CONSTRUCTOR(0, singleton.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
           const args = singleton.supercallArgs as List<Expression>
           return [
             ...args.flatMap(arg => compileSentence(environment)(arg)),
             PUSH(singleton.id),
-            INIT_NAMED([]),
-            INIT(args.length, singleton.superclass()!.fullyQualifiedName()),
+            INIT([]),
+            CALL_CONSTRUCTOR(args.length, singleton.superclass()!.fullyQualifiedName()),
           ]
         }
       }),
@@ -164,7 +164,7 @@ export class Evaluation {
           ...node.baseCall && constructorClass.superclass() ? [
             ...node.baseCall.args.flatMap(arg => compileSentences(arg)),
             LOAD('self'),
-            INIT(
+            CALL_CONSTRUCTOR(
               node.baseCall.args.length,
               node.baseCall.callsSuper
                 ? constructorClass.superclass()!.fullyQualifiedName()
@@ -241,7 +241,7 @@ export class Evaluation {
     throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
   }
 
-  step(): void { step(this.natives, this) }
+  step(): void { step(this) }
 
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
   stepAll(): void {
@@ -607,8 +607,8 @@ export type Instruction
   | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, lookupStartFQN?: Name }
-  | { kind: 'INIT', arity: number, lookupStart: Name, optional?: boolean }
-  | { kind: 'INIT_NAMED', argumentNames: List<Name> }
+  | { kind: 'CALL_CONSTRUCTOR', arity: number, lookupStart: Name, optional?: boolean }
+  | { kind: 'INIT', argumentNames: List<Name> }
   | { kind: 'INTERRUPT' }
   | { kind: 'RETURN' }
 
@@ -625,8 +625,8 @@ export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', modu
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, lookupStartFQN?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN })
-export const INIT = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'INIT', arity, lookupStart, optional })
-export const INIT_NAMED = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT_NAMED', argumentNames })
+export const CALL_CONSTRUCTOR = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'CALL_CONSTRUCTOR', arity, lookupStart, optional })
+export const INIT = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT', argumentNames })
 export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
 export const RETURN: Instruction = { kind: 'RETURN' }
 
@@ -703,16 +703,16 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
             return [
               ...supercallArgs.flatMap(({ value }) => compile(value)),
               INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT_NAMED(supercallArgs.map(({ name }) => name)),
-              INIT(0, node.value.superclass()!.fullyQualifiedName(), true),
+              INIT(supercallArgs.map(({ name }) => name)),
+              CALL_CONSTRUCTOR(0, node.value.superclass()!.fullyQualifiedName(), true),
             ]
           } else {
             const supercallArgs = node.value.supercallArgs as List<Expression>
             return [
               ...supercallArgs.flatMap(arg => compile(arg)),
               INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT_NAMED([]),
-              INIT(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
+              INIT([]),
+              CALL_CONSTRUCTOR(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
             ]
           }
         }
@@ -720,8 +720,8 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
         const args = node.value.args as List<Expression>
         return [
           INSTANTIATE(node.value.instantiated.name, []),
-          INIT_NAMED([]),
-          INIT(0, node.value.instantiated.name),
+          INIT([]),
+          CALL_CONSTRUCTOR(0, node.value.instantiated.name),
           ...args.flatMap(arg => [
             DUP,
             ...compile(arg),
@@ -758,15 +758,15 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
           return [
             ...args.flatMap(({ value }) => compile(value)),
             INSTANTIATE(fqn),
-            INIT_NAMED(args.map(({ name }) => name)),
-            INIT(0, fqn, true),
+            INIT(args.map(({ name }) => name)),
+            CALL_CONSTRUCTOR(0, fqn, true),
           ]
         } else {
           return [
             ...(node.args as List<Expression>).flatMap(arg => compile(arg)),
             INSTANTIATE(fqn),
-            INIT_NAMED([]),
-            INIT(node.args.length, fqn),
+            INIT([]),
+            CALL_CONSTRUCTOR(node.args.length, fqn),
           ]
         }
       },
@@ -856,7 +856,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
 // EXECUTION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const step = (natives: Natives, evaluation: Evaluation): void => {
+const step = (evaluation: Evaluation): void => {
   const { environment } = evaluation
 
   const currentFrame = evaluation.frameStack.top
@@ -993,7 +993,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
       })()
 
 
-      case 'INIT': return (() => {
+      case 'CALL_CONSTRUCTOR': return (() => {
         const { arity, lookupStart, optional } = instruction
         const self = currentFrame.operandStack.pop()!
         const args = Array.from({ length: arity }, () => currentFrame.operandStack.pop()!).reverse()
@@ -1016,7 +1016,7 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
       })()
 
 
-      case 'INIT_NAMED': return (() => {
+      case 'INIT': return (() => {
         const { argumentNames } = instruction
         const self = currentFrame.operandStack.pop()!
 
@@ -1031,10 +1031,10 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
           self.set(name, currentFrame.operandStack.pop())
 
         evaluation.frameStack.push(new Frame(self, [
-          ...fields.flatMap(field => argumentNames.includes(field.name) ? [] : [
-            ...compileSentence(environment)(field.value),
-            STORE(field.name, true),
-          ]),
+          ...fields.flatMap(field => argumentNames.includes(field.name)
+            ? []
+            : [...evaluation.codeFor(field.value), STORE(field.name, true)]
+          ),
           LOAD('self'),
           RETURN,
         ]))
@@ -1060,10 +1060,9 @@ const step = (natives: Natives, evaluation: Evaluation): void => {
     }
   } catch (error) {
     evaluation.log.error(error)
-    if (!evaluation.frameStack.isEmpty()) {
-      const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
-      evaluation.raise(RuntimeObject.object(evaluation, exceptionType))
-    } else throw error
+    const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
+    const message = error.message ? RuntimeObject.string(evaluation, error.message) : undefined
+    evaluation.raise(RuntimeObject.object(evaluation, exceptionType, { message }))
   }
 
 }

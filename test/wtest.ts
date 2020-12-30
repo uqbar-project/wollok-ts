@@ -1,6 +1,6 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Evaluation, RuntimeObject, Frame, PUSH, INIT_NAMED, compileSentence } from '../src/interpreter'
+import { Evaluation, RuntimeObject, Frame, PUSH, INIT, compileSentence } from '../src/interpreter'
 import { LogLevel, ConsoleLogger } from '../src/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
@@ -35,7 +35,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
 
           evaluation.frameStack.push(new Frame(describeInstance, [
             PUSH(describeInstance.id),
-            INIT_NAMED([]),
+            INIT([]),
             ...compileSentence(evaluation.environment)(
               ...node.fixtures().flatMap(fixture => fixture.body.sentences),
             ),

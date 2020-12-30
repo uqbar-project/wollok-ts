@@ -1,5 +1,6 @@
 import { should } from 'chai'
 import { Class, Method, Raw, Linked, Body, Reference } from '../src/model'
+import { restore, stub } from 'sinon'
 
 should()
 
@@ -57,9 +58,13 @@ describe('Wollok model', () => {
 
     describe('isAbstract', () => {
 
+      afterEach(restore)
+
       it('should return true for classes with abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         const c = new Class({ name: 'C', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
+        stub(c, 'fullyQualifiedName').returns('C')
+
         c.hierarchy = () => [c as any]
 
         c.isAbstract().should.be.true
@@ -71,7 +76,9 @@ describe('Wollok model', () => {
         const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
-        c.hierarchy = () => [c as any, b as any]
+        stub(b, 'fullyQualifiedName').returns('B')
+        stub(c, 'fullyQualifiedName').returns('C')
+        stub(c, 'hierarchy').returns([c, b])
 
         c.isAbstract().should.be.true
       })
