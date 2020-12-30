@@ -228,7 +228,7 @@ export class Evaluation {
         if (currentFrame.context.exceptionHandlerIndex !== undefined) {
           currentFrame.jumpTo(currentFrame.context.exceptionHandlerIndex)
           currentFrame.popContext()
-          currentFrame.context.set('<exception>', exception)
+          currentFrame.operandStack.push(exception)
           return
         }
 
@@ -828,8 +828,9 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
           ...clause,
           STORE('<result>', true),
           POP_CONTEXT,
-          JUMP(catches.length + 2),
+          JUMP(catches.length + 3),
 
+          STORE('<exception>', false),
           PUSH_CONTEXT(catches.length + 1),
           ...catches,
           POP_CONTEXT,

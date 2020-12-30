@@ -30,8 +30,8 @@ declare global {
       target(node: Node): Assertion
       pass<N extends Node>(validation: Validation<N>): Assertion
       throwException: Assertion
-      onFrame(index: number): Assertion
       onCurrentFrame: Assertion
+      onBaseFrame: Assertion
       onInstance(instance: InstanceDescription): Assertion
       whenStepped(): Assertion
       pushFrames(...frames: FrameDescription[]): Assertion
@@ -204,8 +204,8 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     flag(this, 'targetFrameIndex', evaluation.frameStack.depth - 1)
   })
 
-  Assertion.addMethod('onFrame', function (index: number) {
-    flag(this, 'targetFrameIndex', index)
+  Assertion.addProperty('onBaseFrame', function () {
+    flag(this, 'targetFrameIndex', 0)
   })
 
   Assertion.addMethod('onInstance', function (instance: InstanceDescription) {
@@ -305,9 +305,11 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
     deltas.push((metric: EvaluationMetrics) => {
       const currentFrame = metric.frames[frameIndex]
+
       for(let n = 0; n < count; n++) {
         const currentContext = metric.contexts[currentFrame.currentContext]
-        delete metric.contexts[currentFrame.currentContext]
+        if(!keys(metric.instances).some(id => metric.contexts[id].parent === currentFrame.currentContext))
+          delete metric.contexts[currentFrame.currentContext]
         currentFrame.currentContext = currentContext.parent
       }
     })

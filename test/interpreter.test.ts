@@ -6,7 +6,6 @@ import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTI
 import link from '../src/linker'
 import { Constructor as ConstructorNode, Filled, Method as MethodNode, Package as PackageNode, Self as SelfNode, Raw, Expression } from '../src/model'
 import { interpreterAssertions, testEvaluation, obj, ctx } from './assertions'
-import { ConsoleLogger, LogLevel } from '../src/log'
 
 // TODO:
 // - Create and use toJSON methods on model instead of metrics
@@ -847,7 +846,7 @@ describe('Wollok Interpreter', () => {
 
     describe('INTERRUPT', () => {
 
-      it('should drop contexts until one with an exception handler is dropped and make the frame pop an operand, store it as local <exception> and jump to the handler index', () => {
+      it('should drop contexts until one with an exception handler is dropped and jump to the handler index', () => {
         evaluation({
           instances: [obj`exception`],
           frames: [
@@ -859,9 +858,7 @@ describe('Wollok Interpreter', () => {
             },
           ],
         }).should.onCurrentFrame
-          .popOperands(1)
           .popContexts(3)
-          .and.setLocal('<exception>', obj`exception`) // TODO: Would it not be simpler to push it to the operand stack?
           .and.jumpTo(1)
           .whenStepped()
       })
@@ -877,33 +874,32 @@ describe('Wollok Interpreter', () => {
         }).should.onCurrentFrame
           .popOperands(1)
           .and.popFrames(2)
-          .and.onFrame(0)
+          .and.onBaseFrame
           .popContexts(2)
-          .and.setLocal('<exception>', obj`exception`)
+          .and.pushOperands(obj`exception`)
           .and.jumpTo(1)
           .whenStepped()
       })
 
-      // it('should raise an error if the current operand stack is empty (but it would get caught by the handler)', () => {
-      //   evaluation({
-      //     log: new ConsoleLogger(LogLevel.DEBUG),
-      //     rootContext: ctx`root`,
-      //     frames: [
-      //       {
-      //         instructions: [INTERRUPT],
-      //         operands:[],
-      //         contexts:[ctx`c2`({ exceptionHandlerIndex: 0 }), ctx`c1`],
-      //       },
-      //     ],
-      //   }).should
-      //     .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.EvaluationError', parent: ctx`c2`, locals:{ self: obj`_new_1_` } }))
-      //     .createInstance(obj`S!Stack underflow`({ moduleFQN: 'wollok.lang.String', parent: ctx`root`, locals:{ self: obj`S!Stack underflow` } }))
-      //     .onCurrentFrame
-      //     .popContexts(1)
-      //     .jumpTo(0)
-      //     .and.setLocal('<exception>', obj`_new_1_`)
-      //     .whenStepped()
-      // })
+      it('should raise an error if the current operand stack is empty', () => {
+        evaluation({
+          rootContext: ctx`root`,
+          frames: [
+            {
+              instructions: [INTERRUPT],
+              operands:[],
+              contexts:[ctx`c2`({ exceptionHandlerIndex: 0 }), ctx`c1`],
+            },
+          ],
+        }).should
+          .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.EvaluationError', parent: ctx`c2`, locals:{ self: obj`_new_1_`, message: obj`S!Stack underflow` } }))
+          .createInstance(obj`S!Stack underflow`({ moduleFQN: 'wollok.lang.String', parent: ctx`root`, locals:{ self: obj`S!Stack underflow` }, innerValue: 'Stack underflow' }))
+          .and.onCurrentFrame
+          .popContexts(1)
+          .jumpTo(0)
+          .pushOperands(obj`_new_1_`)
+          .whenStepped()
+      })
 
       it('should raise an error if the handler index is out of range', () => {
         evaluation({
@@ -958,7 +954,7 @@ describe('Wollok Interpreter', () => {
           ],
         }).should
           .popFrames(1)
-          .and.onFrame(0).pushOperands(obj`result`)
+          .and.onBaseFrame.pushOperands(obj`result`)
           .whenStepped()
       })
 
