@@ -34,7 +34,7 @@ declare global {
       onBaseFrame: Assertion
       onInstance(instance: InstanceDescription): Assertion
       whenStepped(): Assertion
-      pushFrames(...frames: FrameDescription[]): Assertion
+      pushFrame(frame: FrameDescription): Assertion
       popFrames(count: number): Assertion
       popOperands(count: number): Assertion
       pushOperands(...operands: (InstanceDescription|undefined)[]): Assertion
@@ -212,28 +212,27 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     flag(this, 'targetInstanceId', instance.id)
   })
 
-  Assertion.addMethod('pushFrames', function (...frameDescriptions: FrameDescription[]) {
+  Assertion.addMethod('pushFrame', function ({ operands = [], contexts: contextDescriptions, instructions = [] }: FrameDescription) {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
     deltas.push((metric: EvaluationMetrics) => {
-      for (const { operands = [], contexts = [{ id: `_frame_${metric.frames.length}_ctx_` }], instructions = [] } of frameDescriptions) {
-        metric.frames.push({
-          baseContext: last(contexts)!.id,
-          currentContext: contexts[0].id,
-          instructions,
-          operands: operands.map(operand => operand?.id),
-          nextInstruction: 0,
-        })
+      const contexts = contextDescriptions ?? [{ id: `_frame_${metric.frames.length}_ctx_` }]
+      metric.frames.push({
+        baseContext: last(contexts)!.id,
+        currentContext: contexts[0].id,
+        instructions,
+        operands: operands.map(operand => operand?.id),
+        nextInstruction: 0,
+      })
 
-        contexts.forEach(({ id, parent, locals = {}, exceptionHandlerIndex }, index) => {
-          metric.contexts[id] = {
-            id,
-            parent: parent?.id ?? (index < contexts.length - 1 ? contexts[index + 1].id : metric.rootContext),
-            locals: mapObject(value => value?.id, locals),
-            exceptionHandlerIndex,
-          }
-        })
-      }
+      contexts.forEach(({ id, parent, locals = {}, exceptionHandlerIndex }, index) => {
+        metric.contexts[id] = {
+          id,
+          parent: parent?.id ?? (index < contexts.length - 1 ? contexts[index + 1].id : metric.rootContext),
+          locals: mapObject(value => value?.id, locals),
+          exceptionHandlerIndex,
+        }
+      })
     })
 
     flag(this, 'deltas', deltas)
@@ -450,6 +449,7 @@ const evaluationMetrics = ({ frameStack, instances, rootContext }: Evaluation): 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 interface EvaluationDescription {
+  environment: EnvironmentType,
   rootContext?: ContextDescription,
   instances?: InstanceDescription[]
   frames?: FrameDescription[]
@@ -491,7 +491,7 @@ export const obj = (literals: TemplateStringsArray): InstanceDescription & { (de
   return f
 }
 
-export const testEvaluation = (environment: EnvironmentType) => ({ rootContext, instances: instanceDescriptions = [], frames:frameDescriptions = [], natives = {}, log = nullLogger }: EvaluationDescription): Evaluation => {
+export const evaluation = ({ environment, rootContext, instances: instanceDescriptions = [], frames:frameDescriptions = [], natives = {}, log = nullLogger }: EvaluationDescription): Evaluation => {
   let evaluation: Evaluation
   const mock = stub(uuid, 'v4').onFirstCall().returns(rootContext?.id ?? 'root')
   try {

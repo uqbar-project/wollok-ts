@@ -4,7 +4,6 @@ import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
 // TODO: Wishlist
-// - Rethink tests
 // - More Instructions to simplify natives.
 //    - Something to iterate list elements instead of mapping them?
 //    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
@@ -12,6 +11,7 @@ import { Logger, nullLogger } from './log'
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
+// - Create and use toJSON / fromJSON methods on runtime model and replace the test metrics
 // - More step methods: stepThrough, for example. Step to get inside closure?
 // - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
 //    - run tests

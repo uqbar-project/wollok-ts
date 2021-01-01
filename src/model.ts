@@ -412,7 +412,6 @@ abstract class $Module<S extends Stage> extends $Entity<S> {
   @cached
   lookupMethod<R extends Linked>(this: Module<R>, name: Name, arity: number, lookupStartFQN?: Name): Method<R> | undefined {
     let startReached = !lookupStartFQN
-
     for (const module of this.hierarchy()) {
       if (startReached) {
         const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
