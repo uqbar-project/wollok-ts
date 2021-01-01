@@ -11,7 +11,7 @@ import { Logger, nullLogger } from './log'
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
-// - Create and use toJSON / fromJSON methods on runtime model and replace the test metrics
+// - Create and use toJSON / fromJSON methods on runtime model and use it to sreplace the test metrics
 // - More step methods: stepThrough, for example. Step to get inside closure?
 // - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
 //    - run tests
