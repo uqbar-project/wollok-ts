@@ -4,14 +4,10 @@ import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
 // TODO: Wishlist
-// - More Instructions to simplify natives.
-//    - Something to iterate list elements instead of mapping them?
-//    - Rewrite long and complex natives and try so simplify them. Ensure test coverage.
-// - Avoid trailing instructions for methods and tests when possible (return void), etc.
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
-// - Create and use toJSON / fromJSON methods on runtime model and use it to sreplace the test metrics
+// - Create and use toJSON / fromJSON methods on runtime model and use it to replace the test metrics
 // - More step methods: stepThrough, for example. Step to get inside closure?
 // - Create facade service that generates single, meaningful results, hiding the evaluation complexity:
 //    - run tests
@@ -52,8 +48,8 @@ export class Evaluation {
   protected readonly instanceCache: Map<Id, RuntimeObject>
   protected readonly codeCache: Map<Id, List<Instruction>>
 
-  // TODO: currentFrame?
-  get currentContext(): Context { return this.frameStack.top?.context ?? this.rootContext }
+  get currentFrame(): Frame | undefined { return this.frameStack.top }
+  get currentContext(): Context { return this.currentFrame?.context ?? this.rootContext }
   get instances(): List<RuntimeObject> { return [...this.instanceCache.values()] }
 
 
@@ -75,7 +71,7 @@ export class Evaluation {
       rootContext.set(constant.fullyQualifiedName(), RuntimeObject.lazy(evaluation, constant.value))
     }
 
-    evaluation.frameStack.push(new Frame(rootContext, [
+    evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
         if (singleton.supercallArgs.some(is('NamedArgument'))) {
           const args = singleton.supercallArgs as List<NamedArgument>
@@ -186,6 +182,10 @@ export class Evaluation {
     return this.codeCache.get(node.id)!
   }
 
+  pushFrame(frame: Frame): void { this.frameStack.push(frame) }
+
+  popFrame(): void { this.frameStack.pop() }
+
   instance(id: Id): RuntimeObject {
     const response = this.instanceCache.get(id)
     if (!response) throw new RangeError(`Access to undefined instance "${id}"`)
@@ -208,7 +208,7 @@ export class Evaluation {
       else throw new Error(`Native not found: ${nativeFQN}`)
       native(receiverInstance, ...argumentInstances)(this)
     } else {
-      this.frameStack.push(new Frame(
+      this.pushFrame(new Frame(
         receiverInstance,
         this.codeFor(method),
         new Map(method.parameters.map(({ name, isVarArg }, index) => [name,
@@ -222,20 +222,20 @@ export class Evaluation {
 
   raise(exception: RuntimeObject): void {
     while (!this.frameStack.isEmpty()) {
-      const currentFrame = this.frameStack.top!
+      const currentFrame = this.currentFrame!
 
       while (currentFrame.hasNestedContext()) {
         if (currentFrame.context.exceptionHandlerIndex !== undefined) {
           currentFrame.jumpTo(currentFrame.context.exceptionHandlerIndex)
           currentFrame.popContext()
-          currentFrame.operandStack.push(exception)
+          currentFrame.pushOperand(exception)
           return
         }
 
         currentFrame.popContext()
       }
 
-      this.frameStack.pop()
+      this.popFrame()
     }
 
     throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
@@ -245,11 +245,11 @@ export class Evaluation {
 
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
   stepAll(): void {
-    while (!this.frameStack.top!.isFinished()) {
+    while (!this.currentFrame!.isFinished()) {
       this.log.step(this)
       this.step()
     }
-    this.frameStack.pop()
+    this.popFrame()
   }
 
   // TODO: stepThrough
@@ -344,6 +344,14 @@ export class Frame {
   isFinished(): boolean { return this.pc >= this.instructions.length }
 
   hasNestedContext(): boolean { return this.context !== this.baseContext }
+
+  pushOperand(operand: RuntimeObject | undefined): void {
+    this.operandStack.push(operand)
+  }
+
+  popOperand(): RuntimeObject | undefined {
+    return this.operandStack.pop()
+  }
 
   pushContext(exceptionHandlerIndex?: number): void {
     this.currentContext = new Context(this.currentContext, exceptionHandlerIndex)
@@ -860,7 +868,7 @@ export const compileSentence = (environment: Environment) => (...sentences: Sent
 const step = (evaluation: Evaluation): void => {
   const { environment } = evaluation
 
-  const currentFrame = evaluation.frameStack.top
+  const currentFrame = evaluation.currentFrame
   if (!currentFrame) throw new Error('Reached end of frame stack')
 
   const instruction = currentFrame.takeNextInstruction()
@@ -872,9 +880,9 @@ const step = (evaluation: Evaluation): void => {
         const { name } = instruction
         const value = currentFrame.context.get(name)
 
-        if (!value?.lazyInitializer) currentFrame.operandStack.push(value)
+        if (!value?.lazyInitializer) currentFrame.pushOperand(value)
         else {
-          evaluation.frameStack.push(new Frame(currentFrame.context, [
+          evaluation.pushFrame(new Frame(currentFrame.context, [
             ...evaluation.codeFor(value.lazyInitializer),
             DUP,
             STORE(name, true),
@@ -886,7 +894,7 @@ const step = (evaluation: Evaluation): void => {
 
       case 'STORE': return (() => {
         const { name, lookup } = instruction
-        const value = currentFrame.operandStack.pop()
+        const value = currentFrame.popOperand()
 
         const currentContext = currentFrame.context
         let context: Context | undefined = currentContext
@@ -902,12 +910,12 @@ const step = (evaluation: Evaluation): void => {
 
       case 'PUSH': return (() => {
         const { id } = instruction
-        currentFrame.operandStack.push(id ? evaluation.instance(id) : undefined)
+        currentFrame.pushOperand(id ? evaluation.instance(id) : undefined)
       })()
 
 
       case 'POP': return (() => {
-        currentFrame.operandStack.pop()
+        currentFrame.popOperand()
       })()
 
 
@@ -927,19 +935,19 @@ const step = (evaluation: Evaluation): void => {
 
       case 'SWAP': return (() => {
         const { distance } = instruction
-        const a = currentFrame.operandStack.pop()
-        const others = new Array(distance).fill(null).map(() => currentFrame.operandStack.pop()).reverse()
-        const b = currentFrame.operandStack.pop()
+        const a = currentFrame.popOperand()
+        const others = new Array(distance).fill(null).map(() => currentFrame.popOperand()).reverse()
+        const b = currentFrame.popOperand()
 
-        currentFrame.operandStack.push(a)
-        currentFrame.operandStack.push(...others)
-        currentFrame.operandStack.push(b)
+        currentFrame.pushOperand(a)
+        others.forEach(operand => currentFrame.pushOperand(operand))
+        currentFrame.pushOperand(b)
       })()
 
       case 'DUP': return (() => {
-        const operand = currentFrame.operandStack.pop()
-        currentFrame.operandStack.push(operand)
-        currentFrame.operandStack.push(operand)
+        const operand = currentFrame.popOperand()
+        currentFrame.pushOperand(operand)
+        currentFrame.pushOperand(operand)
       })()
 
       case 'INSTANTIATE': return (() => {
@@ -951,14 +959,14 @@ const step = (evaluation: Evaluation): void => {
           moduleFQN === 'wollok.lang.Set' ? RuntimeObject.set(evaluation, innerValue as Id[]) :
           RuntimeObject.object(evaluation, moduleFQN)
 
-        currentFrame.operandStack.push(instance)
+        currentFrame.pushOperand(instance)
       })()
 
       case 'INHERITS': return (() => {
         const { moduleFQN } = instruction
-        const self = currentFrame.operandStack.pop()!
+        const self = currentFrame.popOperand()!
         const inherits = self.module.inherits(environment.getNodeByFQN(moduleFQN))
-        currentFrame.operandStack.push(RuntimeObject.boolean(evaluation, inherits))
+        currentFrame.pushOperand(RuntimeObject.boolean(evaluation, inherits))
       })()
 
       case 'JUMP': return (() => {
@@ -968,7 +976,7 @@ const step = (evaluation: Evaluation): void => {
 
       case 'CONDITIONAL_JUMP': return (() => {
         const { count } = instruction
-        const check = currentFrame.operandStack.pop()
+        const check = currentFrame.popOperand()
 
         if (check?.id === TRUE_ID) return currentFrame.jump(count)
         if (check?.id !== FALSE_ID) throw new Error(`Non-boolean check ${check}`)
@@ -977,8 +985,8 @@ const step = (evaluation: Evaluation): void => {
 
       case 'CALL': return (() => {
         const { message, arity, lookupStartFQN } = instruction
-        const args = Array.from({ length: arity }, () => currentFrame.operandStack.pop()!).reverse()
-        const self = currentFrame.operandStack.pop()!
+        const args = Array.from({ length: arity }, () => currentFrame.popOperand()!).reverse()
+        const self = currentFrame.popOperand()!
         const method = self.module.lookupMethod(message, arity, lookupStartFQN)
 
         if (method) evaluation.invoke(method, self, ...args)
@@ -996,18 +1004,18 @@ const step = (evaluation: Evaluation): void => {
 
       case 'CALL_CONSTRUCTOR': return (() => {
         const { arity, lookupStart, optional } = instruction
-        const self = currentFrame.operandStack.pop()!
-        const args = Array.from({ length: arity }, () => currentFrame.operandStack.pop()!).reverse()
+        const self = currentFrame.popOperand()!
+        const args = Array.from({ length: arity }, () => currentFrame.popOperand()!).reverse()
         const argIds = args.map(({ id }) => id)
         const lookupStartClass = environment.getNodeByFQN<'Class'>(lookupStart)
         const constructor = lookupStartClass.lookupConstructor(arity)
 
         if (!constructor) {
-          if (optional) return evaluation.frameStack.top?.operandStack.push(self)
+          if (optional) return evaluation.currentFrame?.pushOperand(self)
           else throw new Error(`Missing constructor/${arity} on ${lookupStartClass.fullyQualifiedName()}`)
         }
 
-        evaluation.frameStack.push(new Frame(
+        evaluation.pushFrame(new Frame(
           self,
           evaluation.codeFor(constructor),
           new Map(constructor.parameters.map(({ name, isVarArg }, index) =>
@@ -1019,7 +1027,7 @@ const step = (evaluation: Evaluation): void => {
 
       case 'INIT': return (() => {
         const { argumentNames } = instruction
-        const self = currentFrame.operandStack.pop()!
+        const self = currentFrame.popOperand()!
 
         const fields: List<Field | Variable> = self.module.is('Describe')
           ? self.module.variables()
@@ -1029,9 +1037,9 @@ const step = (evaluation: Evaluation): void => {
           self.set(field.name, undefined)
 
         for (const name of [...argumentNames].reverse())
-          self.set(name, currentFrame.operandStack.pop())
+          self.set(name, currentFrame.popOperand())
 
-        evaluation.frameStack.push(new Frame(self, [
+        evaluation.pushFrame(new Frame(self, [
           ...fields.flatMap(field => argumentNames.includes(field.name)
             ? []
             : [...evaluation.codeFor(field.value), STORE(field.name, true)]
@@ -1043,19 +1051,19 @@ const step = (evaluation: Evaluation): void => {
 
 
       case 'INTERRUPT': return (() => {
-        const exception = currentFrame.operandStack.pop()!
+        const exception = currentFrame.popOperand()!
         evaluation.raise(exception)
       })()
 
 
       case 'RETURN': return (() => {
-        const value = currentFrame.operandStack.pop()
-        evaluation.frameStack.pop()
+        const value = currentFrame.popOperand()
+        evaluation.popFrame()
 
-        const next = evaluation.frameStack.top
+        const next = evaluation.currentFrame
         if (!next) throw new Error('Returning from last frame')
 
-        next.operandStack.push(value)
+        next.pushOperand(value)
       })()
 
     }

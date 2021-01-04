@@ -2,11 +2,11 @@ import { Evaluation, Natives, RuntimeObject } from '../interpreter'
 import { Id } from '../model'
 
 const returnVoid = (evaluation: Evaluation) => {
-  evaluation.frameStack.top!.operandStack.push(undefined)
+  evaluation.currentFrame!.pushOperand(undefined)
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.frameStack.top!.operandStack.push(self.get(key))
+  evaluation.currentFrame!.pushOperand(self.get(key))
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -37,13 +37,13 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const instance = evaluation.instance(id)
   const position = instance.get('position')
   if (position) return position
-  const currentFrame = evaluation.frameStack.top!
+  const currentFrame = evaluation.currentFrame!
   const initialFrameCount = evaluation.frameStack.depth
   evaluation.invoke(instance.module.lookupMethod('position', 0)!, instance)
   do {
     evaluation.step() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
   } while (evaluation.frameStack.depth > initialFrameCount)
-  return currentFrame.operandStack.pop()
+  return currentFrame.popOperand()
 }
 
 const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
@@ -93,7 +93,7 @@ const game: Natives = {
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
       if (visuals) evaluation.invoke(visuals.module.lookupMethod('remove', 1)!, visuals, visual)
-      else evaluation.frameStack.top!.operandStack.push(undefined)
+      else evaluation.currentFrame!.pushOperand(undefined)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
@@ -116,31 +116,31 @@ const game: Natives = {
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.frameStack.top!.operandStack.push(RuntimeObject.list(evaluation, []))
+      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      evaluation.frameStack.top!.operandStack.push(RuntimeObject.list(evaluation, currentVisuals.innerValue))
+      evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, currentVisuals.innerValue))
     },
 
     hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.frameStack.top!.operandStack.push(RuntimeObject.boolean(evaluation, false))
+      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      evaluation.frameStack.top!.operandStack.push(RuntimeObject.boolean(evaluation, currentVisuals.innerValue.includes(visual.id)))
+      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, currentVisuals.innerValue.includes(visual.id)))
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.frameStack.top!.operandStack.push(RuntimeObject.list(evaluation, []))
+      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const result = RuntimeObject.list(evaluation, currentVisuals.innerValue.filter(samePosition(evaluation, position)))
-      evaluation.frameStack.top!.operandStack.push(result)
+      evaluation.currentFrame!.pushOperand(result)
     },
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
-      const currentFrame = evaluation.frameStack.top!
+      const currentFrame = evaluation.currentFrame!
       const initialFrameCount = evaluation.frameStack.depth
       const ioInstance = evaluation.instance(io(evaluation))
       evaluation.invoke(ioInstance.module.lookupMethod('currentTime', 0)!, ioInstance)
@@ -148,7 +148,7 @@ const game: Natives = {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
 
-      const currentTime: RuntimeObject = currentFrame.operandStack.pop()!
+      const currentTime: RuntimeObject = currentFrame.popOperand()!
       currentTime.assertIsNumber()
       const messageTime = RuntimeObject.number(evaluation, currentTime.innerValue + 2 * 1000)
       set(visual, 'message', message)(evaluation)
@@ -171,7 +171,7 @@ const game: Natives = {
     colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
       const visuals = self.get('visuals')
-      if (!visuals) return evaluation.frameStack.top!.operandStack.push(RuntimeObject.list(evaluation, []))
+      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
       const position = getPosition(visual.id)(evaluation)!
@@ -179,7 +179,7 @@ const game: Natives = {
         .filter(samePosition(evaluation, position))
         .filter(id => id !== visual.id)
       )
-      evaluation.frameStack.top!.operandStack.push(result)
+      evaluation.currentFrame!.pushOperand(result)
     },
 
     title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'title', title),

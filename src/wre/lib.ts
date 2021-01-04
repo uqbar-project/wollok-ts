@@ -21,7 +21,7 @@ const lib: Natives = {
 
     newline: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
       const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
-      evaluation.frameStack.top!.operandStack.push(RuntimeObject.string(evaluation, newline))
+      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, newline))
     },
 
   },

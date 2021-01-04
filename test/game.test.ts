@@ -36,7 +36,7 @@ describe('Wollok Game', () => {
 
       const instructions = compileSentence(evaluation.environment)(...programSentences)
 
-      evaluation.frameStack.push(new Frame(evaluation.rootContext, instructions))
+      evaluation.pushFrame(new Frame(evaluation.rootContext, instructions))
       evaluation.stepAll()
 
       evaluation.log.success('Done!')

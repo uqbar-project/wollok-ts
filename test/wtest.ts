@@ -33,7 +33,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
           // TODO: If the GC runs after describe is initialized it will destroy the instance. Maybe they should be treated as singletons...
           const describeInstance = RuntimeObject.object(evaluation, node as unknown as Module)
 
-          evaluation.frameStack.push(new Frame(describeInstance, [
+          evaluation.pushFrame(new Frame(describeInstance, [
             PUSH(describeInstance.id),
             INIT([]),
             ...compileSentence(evaluation.environment)(
@@ -54,7 +54,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
       evaluation.log.separator(node.name)
       evaluation.log.resetStep()
 
-      evaluation.frameStack.push(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
+      evaluation.pushFrame(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
       evaluation.stepAll()
     })
 

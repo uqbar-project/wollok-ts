@@ -103,14 +103,14 @@ export class ConsoleLogger extends Logger {
   }
 
   step(evaluation: Evaluation): void {
-    const { instructions, nextInstructionIndex, operandStack } = evaluation.frameStack.top!
+    const { instructions, nextInstructionIndex, operandStack } = evaluation.currentFrame!
     const instruction = instructions[nextInstructionIndex]
 
     const stepTabulation = evaluation.frameStack.depth
     const tabulation = '│'.repeat(stepTabulation)
 
     this.debug(
-      `${('0000' + this.stepCount++).slice(-4)}<${evaluation.frameStack.top?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
+      `${('0000' + this.stepCount++).slice(-4)}<${evaluation.currentFrame?.context?.id.slice(24) || '-'.repeat(12)}>: ${tabulation}${stringifyInstruction(evaluation)(instruction)}`,
       `[${[...operandStack.map(operand => stringifyId(evaluation)(operand?.id ?? 'void'))].join(', ')}]`
     )
   }

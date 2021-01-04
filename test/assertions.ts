@@ -497,7 +497,7 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
   try {
     evaluation = Evaluation.create(environment, natives, false)
   } finally { mock.restore() }
-  evaluation.frameStack.pop()
+  evaluation.popFrame()
 
   evaluation.log = log
 
@@ -534,8 +534,13 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
     }
     finally { mock.restore() }
 
-    if(nextInstructionIndex !== undefined) frame.jumpTo(nextInstructionIndex)
-    frame.operandStack.push(...operands.map(operand => operand && evaluation.instance(operand.id)).reverse())
+    if(nextInstructionIndex !== undefined) {
+      frame.jumpTo(nextInstructionIndex)
+    }
+
+    [...operands].reverse().forEach(operand =>
+      frame.pushOperand(operand && evaluation.instance(operand.id))
+    )
 
     for (const { id, exceptionHandlerIndex, locals = {} } of otherContexts) {
       const mock = stub(uuid, 'v4').callsFake(() => id)
@@ -545,7 +550,7 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
       for (const key of keys(locals)) frame.context.set(key, evaluation.instance(locals[key]!.id))
     }
 
-    evaluation.frameStack.push(frame)
+    evaluation.pushFrame(frame)
   })
 
   return evaluation
