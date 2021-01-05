@@ -93,7 +93,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
     }),
 
     Node: node => node,
-  })  )
+  }))
 
   return result as NodeOfKind<K, Filled>
 }
