@@ -9,12 +9,12 @@ const returnValue = (evaluation: Evaluation, id: Id) => {
   evaluation.currentFrame()!.pushOperand(id)
 }
 
-const returnVoid = (evaluation: Evaluation) => {
+export const returnVoid = (evaluation: Evaluation): void => {
   returnValue(evaluation, VOID_ID)
 }
 
 const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  returnValue(evaluation, self.get(key)?.id ?? VOID_ID)
+  returnValue(evaluation, self.get(key)?.id ?? NULL_ID)
 }
 
 const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
@@ -42,7 +42,7 @@ const checkNotNull = (obj: RuntimeObject, name: string) => {
 
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
-const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
+const wGame = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
 
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = evaluation.instance(id).get('position')
@@ -59,14 +59,47 @@ const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: I
     && position.get('y') === visualPosition.get('y')
 }
 
-const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-  if (!self.get('visuals')) {
-    self.set('visuals', newList(evaluation))
+const addToInnerCollection = (wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
+  if (!wObject.get(fieldName)) {
+    wObject.set(fieldName, newList(evaluation))
   }
-  const visuals: RuntimeObject = self.get('visuals')!
-  visuals.assertIsCollection()
-  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.moduleFQN)
-  else visuals.innerValue.push(visual.id)
+  const fieldList: RuntimeObject = wObject.get(fieldName)!
+  fieldList.assertIsCollection()
+  if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.moduleFQN)
+  else fieldList.innerValue.push(element.id)
+}
+
+const addVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
+  return addToInnerCollection(gameObject, visual, 'visuals')
+}
+
+const addSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  return addToInnerCollection(gameObject, sound, 'sounds')
+}
+
+const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
+  const fieldList = wObject.get(fieldName)
+  if (fieldList) {
+    const currentElements: RuntimeObject = fieldList
+    currentElements.assertIsCollection()
+    currentElements.innerValue = currentElements.innerValue.filter((id: Id) => id !== elementToRemove.id)
+  }
+}
+
+const removeVisual = (gameObject: RuntimeObject, visual: RuntimeObject) => {
+  removeFromInnerCollection(gameObject, visual, 'visuals')
+}
+
+const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  removeFromInnerCollection(gameObject, sound, 'sounds')
+}
+
+const newWString = (newString: string) => (evaluation: Evaluation) => {
+  return evaluation.createInstance('wollok.lang.String', newString)
+}
+
+const toWBoolean = (booleanToConvert: boolean) => {
+  return booleanToConvert ? TRUE_ID : FALSE_ID
 }
 
 const lookupMethod = (self: RuntimeObject, message: string) => (evaluation: Evaluation) =>
@@ -98,17 +131,12 @@ const game: Natives = {
       redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      const visuals = self.get('visuals')
-      if (visuals) {
-        const currentVisuals: RuntimeObject = visuals
-        currentVisuals.assertIsCollection()
-        currentVisuals.innerValue = currentVisuals.innerValue.filter((id: Id) => id !== visual.id)
-      }
+      removeVisual(self, visual)
       returnVoid(evaluation)
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('addEventHandler', event.id, action.id),
+      redirectTo(mirror)('whenKeyPressedDo', event.id, action.id),
 
     whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
       redirectTo(mirror)('whenCollideDo', visual.id, action.id),
@@ -123,7 +151,7 @@ const game: Natives = {
       redirectTo(mirror)('schedule', milliseconds.id, action.id),
 
     removeTickEvent: (_self: RuntimeObject, event: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('removeTimeHandler', event.id),
+      redirectTo(mirror)('removeTickEvent', event.id),
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
@@ -139,7 +167,7 @@ const game: Natives = {
       if (!visuals) return returnValue(evaluation, FALSE_ID)
       const currentVisuals: RuntimeObject = visuals
       currentVisuals.assertIsCollection()
-      returnValue(evaluation, currentVisuals.innerValue.includes(visual.id) ? TRUE_ID : FALSE_ID)
+      returnValue(evaluation, toWBoolean(currentVisuals.innerValue.includes(visual.id)))
     },
 
     getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -154,7 +182,7 @@ const game: Natives = {
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.currentFrame()!
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('currentTime', io(evaluation))(evaluation)
+      sendMessage('currentTime', mirror(evaluation))(evaluation)
       const wCurrentTime: RuntimeObject = evaluation.instance(currentFrame.operandStack.pop()!)
       wCurrentTime.assertIsNumber()
       const currentTime = wCurrentTime.innerValue
@@ -166,7 +194,7 @@ const game: Natives = {
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const { sendMessage } = interpret(evaluation.environment, natives as Natives)
-      sendMessage('clear', io(evaluation))(evaluation)
+      sendMessage('clear', mirror(evaluation))(evaluation)
       self.set('visuals', newList(evaluation))
       returnVoid(evaluation)
     },
@@ -185,7 +213,7 @@ const game: Natives = {
       returnValue(evaluation, result)
     },
 
-    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void  => property(self, 'title', title),
+    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'title', title),
 
     width: (self: RuntimeObject, width?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'width', width),
 
@@ -194,6 +222,8 @@ const game: Natives = {
     ground: (self: RuntimeObject, ground: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'ground', ground),
 
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'boardGround', boardGround),
+
+    doCellSize: (self: RuntimeObject, size: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'cellSize', size),
 
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', FALSE_ID)
@@ -215,15 +245,65 @@ const game: Natives = {
       returnVoid(evaluation)
     },
 
-    // TODO:
-    sound: (_self: RuntimeObject, _audioFile: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
-    },
-
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', TRUE_ID)
+      const { sendMessage } = interpret(evaluation.environment, natives as Natives)
+      sendMessage('doStart', mirror(evaluation))(evaluation)
       returnVoid(evaluation)
     },
+  },
+
+  Sound: {
+    play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (wGame(evaluation).get('running')?.id !== TRUE_ID)
+        throw new Error('You cannot play a sound if game has not started')
+      self.set('status', newWString('played')(evaluation))
+      addSound(wGame(evaluation), self)(evaluation)
+      returnVoid(evaluation)
+    },
+
+    played: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      returnValue(evaluation, toWBoolean(self.get('status')?.innerValue === 'played'))
+    },
+
+    stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot stop a sound that is not played')
+      self.set('status', newWString('stopped')(evaluation))
+      removeSound(wGame(evaluation), self)
+      returnVoid(evaluation)
+    },
+
+    pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot pause a sound that is not played')
+      self.set('status', newWString('paused')(evaluation))
+      returnVoid(evaluation)
+    },
+
+    resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'paused')
+        throw new Error('You cannot resume a sound that is not paused')
+      self.set('status', newWString('played')(evaluation))
+      returnVoid(evaluation)
+    },
+
+    paused: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      returnValue(evaluation, toWBoolean(self.get('status')?.innerValue === 'paused'))
+    },
+
+    volume: (self: RuntimeObject, newVolume?: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (newVolume) {
+        const volume: RuntimeObject = newVolume
+        volume.assertIsNumber()
+        if (volume.innerValue < 0 || volume.innerValue > 1)
+          throw new RangeError('newVolume')
+      }
+      property(self, 'volume', newVolume)(evaluation)
+    },
+
+    shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
+
   },
 }
 

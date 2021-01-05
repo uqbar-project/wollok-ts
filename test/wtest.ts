@@ -21,14 +21,25 @@ const ARGUMENTS = yargs
     type: 'string',
     description: 'Path to the root test folder',
   })
+  .option('ignore', {
+    type: 'array',
+    string: true,
+    default: [],
+    description: 'Paths to ignore',
+  })
   .argv
 
+
+function selectTests(nodes: List<Node>) {
+  const onlyTest = nodes.find(node => node.is('Test') && node.isOnly)
+  return onlyTest ? [onlyTest] : nodes
+}
 
 function registerTests(evaluation: Evaluation, nodes: List<Node>) {
   nodes.forEach(node => {
 
     if (node.is('Describe') || node.is('Package'))
-      describe(node.name, () => registerTests(evaluation, node.members))
+      describe(node.name, () => registerTests(evaluation, selectTests(node.members)))
 
     if (node.is('Test'))
       it(node.name, () => {
@@ -48,12 +59,10 @@ describe(basename(ARGUMENTS.root), () => {
 
   if (ARGUMENTS.verbose) enableLogs(LogLevel.DEBUG)
 
-  const { stepAll, buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root)
+  const { buildEvaluation } = buildInterpreter('**/*.@(wlk|wtest)', ARGUMENTS.root, ...ARGUMENTS.ignore)
 
   time('Initializing Evaluation')
   const baseEvaluation = buildEvaluation()
-  stepAll(baseEvaluation)
-  baseEvaluation.popFrame()
 
   timeEnd('Initializing Evaluation')
 

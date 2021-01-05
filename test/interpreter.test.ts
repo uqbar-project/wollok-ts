@@ -870,7 +870,8 @@ describe('Wollok Interpreter', () => {
 
     describe('INIT_NAMED', () => {
 
-      it('should pop the instance and arguments and initialize all fields', () => {
+      // TODO: not initialize references test
+      it('should pop the instance and arguments and initialize literal fields', () => {
         const f1 = Field('f1', { value: Literal(5) }) as FieldNode
         const f2 = Field('f2', { value: Literal(null) }) as FieldNode
         const f3 = Field('f3', { value: Literal(7) }) as FieldNode
