@@ -1,6 +1,6 @@
 import { should } from 'chai'
 import { join } from 'path'
-import { RuntimeObject, compileSentence, Frame } from '../src/interpreter'
+import { RuntimeObject, Frame, compile } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
@@ -30,11 +30,11 @@ describe('Wollok Game', () => {
 
     const runGameProgram = (programFQN: string) => {
       const evaluation = Evaluation.create(environment, natives)
-      const programSentences = environment.getNodeByFQN<'Program'>(programFQN).body.sentences
+      const program = environment.getNodeByFQN<'Program'>(programFQN)
 
       evaluation.log.info('Running program', programFQN)
 
-      const instructions = compileSentence(evaluation.environment)(...programSentences)
+      const instructions = compile(program)
 
       evaluation.pushFrame(new Frame(evaluation.rootContext, instructions))
       evaluation.stepAll()

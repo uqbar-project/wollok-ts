@@ -1,9 +1,9 @@
 import { last, get } from './extensions'
-import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Sentence, Variable, Singleton, Field, isNode, Method } from './model'
+import { is, Node, Body, Environment, Expression, Id, List, Module, Name, NamedArgument, Variable, Singleton, Field, isNode, Method } from './model'
 import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
-// TODO: Wishlist
+// TODO:
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
@@ -46,7 +46,6 @@ export class Evaluation {
   readonly frameStack: Stack<Frame>
   readonly natives: Natives
   protected readonly instanceCache: Map<Id, RuntimeObject>
-  protected readonly codeCache: Map<Id, List<Instruction>>
 
   get currentFrame(): Frame | undefined { return this.frameStack.top }
   get currentContext(): Context { return this.currentFrame?.context ?? this.rootContext }
@@ -76,7 +75,7 @@ export class Evaluation {
         if (singleton.supercallArgs.some(is('NamedArgument'))) {
           const args = singleton.supercallArgs as List<NamedArgument>
           return [
-            ...args.flatMap(({ value }) => compileSentence(environment)(value)),
+            ...args.flatMap(({ value }) => compile(value)),
             PUSH(singleton.id),
             INIT(args.map(({ name }) => name)),
             CALL_CONSTRUCTOR(0, singleton.superclass()!.fullyQualifiedName(), true),
@@ -84,7 +83,7 @@ export class Evaluation {
         } else {
           const args = singleton.supercallArgs as List<Expression>
           return [
-            ...args.flatMap(arg => compileSentence(environment)(arg)),
+            ...args.flatMap(arg => compile(arg)),
             PUSH(singleton.id),
             INIT([]),
             CALL_CONSTRUCTOR(args.length, singleton.superclass()!.fullyQualifiedName()),
@@ -118,7 +117,6 @@ export class Evaluation {
     rootContext: Context,
     frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
     instanceCache = new Map<Id, RuntimeObject>(),
-    code = new Map<Id, List<Instruction>>(),
     logger: Logger = nullLogger,
   ) {
     this.environment = environment
@@ -126,7 +124,6 @@ export class Evaluation {
     this.rootContext = rootContext
     this.frameStack = frameStack
     this.instanceCache = instanceCache
-    this.codeCache = code
     this.log = logger
   }
 
@@ -140,46 +137,8 @@ export class Evaluation {
       Context._copy(this.rootContext, cache),
       this.frameStack.map(frame => Frame._copy(frame, cache)),
       new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, cache)])),
-      this.codeCache,
       this.log,
     )
-  }
-
-  codeFor(node: Node): List<Instruction> {
-    if (!this.codeCache.has(node.id)) {
-      const compileSentences = compileSentence(this.environment)
-      if (node.is('Method') && node.body && node.body !== 'native') {
-        this.codeCache.set(node.id, [
-          ...compileSentences(...node.body.sentences),
-          PUSH(),
-          RETURN,
-        ])
-      } else if (node.is('Constructor')) {
-        const constructorClass = node.parent()
-        this.codeCache.set(node.id, [
-          ...node.baseCall && constructorClass.superclass() ? [
-            ...node.baseCall.args.flatMap(arg => compileSentences(arg)),
-            LOAD('self'),
-            CALL_CONSTRUCTOR(
-              node.baseCall.args.length,
-              node.baseCall.callsSuper
-                ? constructorClass.superclass()!.fullyQualifiedName()
-                : constructorClass.fullyQualifiedName(),
-              true,
-            ),
-          ] : [],
-          ...compileSentences(...node.body.sentences),
-          LOAD('self'),
-          CALL('initialize', 0),
-          LOAD('self'),
-          RETURN,
-        ])
-      } else if(node.is('Sentence')) {
-        this.codeCache.set(node.id, compileSentences(node))
-      } else throw new Error(`Can't retrieve instructions for ${node.kind} node`)
-    }
-
-    return this.codeCache.get(node.id)!
   }
 
   pushFrame(frame: Frame): void { this.frameStack.push(frame) }
@@ -194,27 +153,26 @@ export class Evaluation {
 
   freeInstance(id: Id): void { this.instanceCache.delete(id) }
 
-  invoke(method: Method, receiver: RuntimeObject | Id, ...args: (RuntimeObject | Id)[]): void {
-    if (!method.body) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
-    if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
-
-    const receiverInstance = receiver instanceof RuntimeObject ? receiver : this.instance(receiver)
-    const argumentInstances = args.map(arg => arg instanceof RuntimeObject ? arg : this.instance(arg))
+  invoke(methodOrMessage: Method | string, receiver: RuntimeObject, ...args: RuntimeObject[]): void {
+    const method = methodOrMessage instanceof Method ? methodOrMessage : receiver.module.lookupMethod(methodOrMessage, args.length)
+    if (!method) throw new Error(`Can't invoke unexistent method ${receiver.module.fullyQualifiedName()}.${methodOrMessage}/${args.length}`)
+    if (method.isAbstract()) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
+    if (methodOrMessage instanceof Method && !method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
     if (method.body === 'native') {
       const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
       const native = get<NativeFunction>(this.natives, nativeFQN)
       if (native) this.log.debug('Invoking Native:', nativeFQN, '/', args.length)
       else throw new Error(`Native not found: ${nativeFQN}`)
-      native(receiverInstance, ...argumentInstances)(this)
+      native(receiver, ...args)(this)
     } else {
       this.pushFrame(new Frame(
-        receiverInstance,
-        this.codeFor(method),
+        receiver,
+        compile(method),
         new Map(method.parameters.map(({ name, isVarArg }, index) => [name,
           isVarArg
-            ? RuntimeObject.list(this, argumentInstances.slice(index).map(({ id }) => id))
-            : argumentInstances[index],
+            ? RuntimeObject.list(this, args.slice(index).map(({ id }) => id))
+            : args[index],
         ]))
       ))
     }
@@ -638,227 +596,269 @@ export const INIT = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT',
 export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
 export const RETURN: Instruction = { kind: 'RETURN' }
 
-const compileExpressionClause = (environment: Environment) => ({ sentences }: Body): List<Instruction> =>
-  sentences.length ? sentences.flatMap((sentence, index) => [
-    ...compileSentence(environment)(sentence),
-    ...index < sentences.length - 1 ? [POP] : [],
-  ]) : [PUSH()]
 
-export const compileSentence = (environment: Environment) => (...sentences: Sentence[]): List<Instruction> =>
-  sentences.flatMap(node => {
-    const compile = compileSentence(environment)
+export const compile = (node: Node): List<Instruction> => {
 
-    return node.match({
+  const compileExpressionClause = ({ sentences }: Body): List<Instruction> =>
+    sentences.length ? sentences.flatMap((sentence, index) => [
+      ...compile(sentence),
+      ...index < sentences.length - 1 ? [POP] : [],
+    ]) : [PUSH()]
 
-      Variable: node => [
-        ...compile(node.value),
-        STORE(node.name, false),
-        PUSH(),
-      ],
+  return node.match({
 
-
-      Return: node => [
-        ...node.value
-          ? compile(node.value)
-          : [PUSH()],
-        RETURN,
-      ],
+    Variable: node => [
+      ...compile(node.value),
+      STORE(node.name, false),
+      PUSH(),
+    ],
 
 
-      Assignment: node => [
-        ...compile(node.value),
-        STORE(node.variable.name, true),
-        PUSH(),
-      ],
-
-      Self: () => [
-        LOAD('self'),
-      ],
+    Return: node => [
+      ...node.value
+        ? compile(node.value)
+        : [PUSH()],
+      RETURN,
+    ],
 
 
-      Reference: node => {
-        const target = node.target()!
+    Assignment: node => [
+      ...compile(node.value),
+      STORE(node.variable.name, true),
+      PUSH(),
+    ],
 
-        return [
-          LOAD(target.is('Module') || target.is('Variable') && target.parent().is('Package')
-            ? target.fullyQualifiedName()
-            : node.name
-          ),
-        ]
-      },
-
-
-      Literal: node => {
-        if (node.value === null) return [
-          PUSH(NULL_ID),
-        ]
-
-        if (typeof node.value === 'boolean') return [
-          PUSH(node.value ? TRUE_ID : FALSE_ID),
-        ]
-
-        if (typeof node.value === 'number') return [
-          INSTANTIATE('wollok.lang.Number', node.value),
-        ]
-
-        if (typeof node.value === 'string') return [
-          INSTANTIATE('wollok.lang.String', node.value),
-        ]
-
-        if (node.value.is('Singleton')) {
-          if (node.value.supercallArgs.some(is('NamedArgument'))) {
-            const supercallArgs = node.value.supercallArgs as List<NamedArgument>
-            return [
-              ...supercallArgs.flatMap(({ value }) => compile(value)),
-              INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT(supercallArgs.map(({ name }) => name)),
-              CALL_CONSTRUCTOR(0, node.value.superclass()!.fullyQualifiedName(), true),
-            ]
-          } else {
-            const supercallArgs = node.value.supercallArgs as List<Expression>
-            return [
-              ...supercallArgs.flatMap(arg => compile(arg)),
-              INSTANTIATE(node.value.fullyQualifiedName()),
-              INIT([]),
-              CALL_CONSTRUCTOR(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
-            ]
-          }
-        }
-
-        const args = node.value.args as List<Expression>
-        return [
-          INSTANTIATE(node.value.instantiated.name, []),
-          INIT([]),
-          CALL_CONSTRUCTOR(0, node.value.instantiated.name),
-          ...args.flatMap(arg => [
-            DUP,
-            ...compile(arg),
-            CALL('add', 1),
-            POP,
-          ]),
-        ]
-      },
+    Self: () => [
+      LOAD('self'),
+    ],
 
 
-      Send: node => [
-        ...compile(node.receiver),
-        ...node.args.flatMap(arg => compile(arg)),
-        CALL(node.message, node.args.length),
-      ],
+    Reference: node => {
+      const target = node.target()!
+
+      return [
+        LOAD(target.is('Module') || target.is('Variable') && target.parent().is('Package')
+          ? target.fullyQualifiedName()
+          : node.name
+        ),
+      ]
+    },
 
 
-      Super: node => {
-        const currentMethod = node.ancestors().find(is('Method'))!
-        return [
-          LOAD('self'),
-          ...node.args.flatMap(arg => compile(arg)),
-          CALL(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName()),
-        ]
-      },
+    Literal: node => {
+      if (node.value === null) return [
+        PUSH(NULL_ID),
+      ]
 
+      if (typeof node.value === 'boolean') return [
+        PUSH(node.value ? TRUE_ID : FALSE_ID),
+      ]
 
-      New: node => {
-        const fqn = node.instantiated.target()!.fullyQualifiedName()
+      if (typeof node.value === 'number') return [
+        INSTANTIATE('wollok.lang.Number', node.value),
+      ]
 
-        if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
-          const args = node.args as List<NamedArgument>
+      if (typeof node.value === 'string') return [
+        INSTANTIATE('wollok.lang.String', node.value),
+      ]
 
+      if (node.value.is('Singleton')) {
+        if (node.value.supercallArgs.some(is('NamedArgument'))) {
+          const supercallArgs = node.value.supercallArgs as List<NamedArgument>
           return [
-            ...args.flatMap(({ value }) => compile(value)),
-            INSTANTIATE(fqn),
-            INIT(args.map(({ name }) => name)),
-            CALL_CONSTRUCTOR(0, fqn, true),
+            ...supercallArgs.flatMap(({ value }) => compile(value)),
+            INSTANTIATE(node.value.fullyQualifiedName()),
+            INIT(supercallArgs.map(({ name }) => name)),
+            CALL_CONSTRUCTOR(0, node.value.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
+          const supercallArgs = node.value.supercallArgs as List<Expression>
           return [
-            ...(node.args as List<Expression>).flatMap(arg => compile(arg)),
-            INSTANTIATE(fqn),
+            ...supercallArgs.flatMap(arg => compile(arg)),
+            INSTANTIATE(node.value.fullyQualifiedName()),
             INIT([]),
-            CALL_CONSTRUCTOR(node.args.length, fqn),
+            CALL_CONSTRUCTOR(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
           ]
         }
-      },
+      }
 
-
-      If: node => {
-        const thenClause = compileExpressionClause(environment)(node.thenBody)
-        const elseClause = compileExpressionClause(environment)(node.elseBody)
-        return [
-          ...compile(node.condition),
-          PUSH_CONTEXT(),
-          CONDITIONAL_JUMP(elseClause.length + 1),
-          ...elseClause,
-          JUMP(thenClause.length),
-          ...thenClause,
-          POP_CONTEXT,
-        ]
-      },
-
-
-      Throw: node => [
-        ...compile(node.exception),
-        INTERRUPT,
-      ],
-
-
-      Try: node => {
-        const clause = compileExpressionClause(environment)(node.body)
-
-        const always = [
-          ...compileExpressionClause(environment)(node.always),
+      const args = node.value.args as List<Expression>
+      return [
+        INSTANTIATE(node.value.instantiated.name, []),
+        INIT([]),
+        CALL_CONSTRUCTOR(0, node.value.instantiated.name),
+        ...args.flatMap(arg => [
+          DUP,
+          ...compile(arg),
+          CALL('add', 1),
           POP,
-        ]
+        ]),
+      ]
+    },
 
-        const catches = node.catches.flatMap(({ parameter, parameterType, body }) => {
-          const handler = compileExpressionClause(environment)(body)
-          return [
-            LOAD('<exception>'),
-            INHERITS(parameterType.target()!.fullyQualifiedName()),
-            CALL('negate', 0),
-            CONDITIONAL_JUMP(handler.length + 5),
-            LOAD('<exception>'),
-            STORE(parameter.name, false),
-            ...handler,
-            STORE('<result>', true),
-            PUSH(FALSE_ID),
-            STORE('<exception>', true),
-          ]
-        })
+
+    Send: node => [
+      ...compile(node.receiver),
+      ...node.args.flatMap(arg => compile(arg)),
+      CALL(node.message, node.args.length),
+    ],
+
+
+    Super: node => {
+      const currentMethod = node.ancestors().find(is('Method'))!
+      return [
+        LOAD('self'),
+        ...node.args.flatMap(arg => compile(arg)),
+        CALL(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName()),
+      ]
+    },
+
+
+    New: node => {
+      const fqn = node.instantiated.target()!.fullyQualifiedName()
+
+      if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
+        const args = node.args as List<NamedArgument>
 
         return [
-          PUSH_CONTEXT(),
-          PUSH(FALSE_ID),
-          STORE('<exception>', false),
-          PUSH(),
-          STORE('<result>', false),
-
-          PUSH_CONTEXT(clause.length + 3),
-          ...clause,
-          STORE('<result>', true),
-          POP_CONTEXT,
-          JUMP(catches.length + 3),
-
-          STORE('<exception>', false),
-          PUSH_CONTEXT(catches.length + 1),
-          ...catches,
-          POP_CONTEXT,
-
-          PUSH_CONTEXT(),
-          ...always,
-          POP_CONTEXT,
-          LOAD('<exception>'),
-          INHERITS('wollok.lang.Exception'),
-          CALL('negate', 0),
-          CONDITIONAL_JUMP(2),
-          LOAD('<exception>'),
-          INTERRUPT,
-          LOAD('<result>'),
-
-          POP_CONTEXT,
+          ...args.flatMap(({ value }) => compile(value)),
+          INSTANTIATE(fqn),
+          INIT(args.map(({ name }) => name)),
+          CALL_CONSTRUCTOR(0, fqn, true),
         ]
-      },
-    })
+      } else {
+        return [
+          ...(node.args as List<Expression>).flatMap(arg => compile(arg)),
+          INSTANTIATE(fqn),
+          INIT([]),
+          CALL_CONSTRUCTOR(node.args.length, fqn),
+        ]
+      }
+    },
+
+
+    If: node => {
+      const thenClause = compileExpressionClause(node.thenBody)
+      const elseClause = compileExpressionClause(node.elseBody)
+      return [
+        ...compile(node.condition),
+        PUSH_CONTEXT(),
+        CONDITIONAL_JUMP(elseClause.length + 1),
+        ...elseClause,
+        JUMP(thenClause.length),
+        ...thenClause,
+        POP_CONTEXT,
+      ]
+    },
+
+
+    Throw: node => [
+      ...compile(node.exception),
+      INTERRUPT,
+    ],
+
+
+    Try: node => {
+      const clause = compileExpressionClause(node.body)
+
+      const always = [
+        ...compileExpressionClause(node.always),
+        POP,
+      ]
+
+      const catches = node.catches.flatMap(({ parameter, parameterType, body }) => {
+        const handler = compileExpressionClause(body)
+        return [
+          LOAD('<exception>'),
+          INHERITS(parameterType.target()!.fullyQualifiedName()),
+          CALL('negate', 0),
+          CONDITIONAL_JUMP(handler.length + 5),
+          LOAD('<exception>'),
+          STORE(parameter.name, false),
+          ...handler,
+          STORE('<result>', true),
+          PUSH(FALSE_ID),
+          STORE('<exception>', true),
+        ]
+      })
+
+      return [
+        PUSH_CONTEXT(),
+        PUSH(FALSE_ID),
+        STORE('<exception>', false),
+        PUSH(),
+        STORE('<result>', false),
+
+        PUSH_CONTEXT(clause.length + 3),
+        ...clause,
+        STORE('<result>', true),
+        POP_CONTEXT,
+        JUMP(catches.length + 3),
+
+        STORE('<exception>', false),
+        PUSH_CONTEXT(catches.length + 1),
+        ...catches,
+        POP_CONTEXT,
+
+        PUSH_CONTEXT(),
+        ...always,
+        POP_CONTEXT,
+        LOAD('<exception>'),
+        INHERITS('wollok.lang.Exception'),
+        CALL('negate', 0),
+        CONDITIONAL_JUMP(2),
+        LOAD('<exception>'),
+        INTERRUPT,
+        LOAD('<result>'),
+
+        POP_CONTEXT,
+      ]
+    },
+
+
+    Method: node => {
+      if (!node.body) throw new Error(`Can't compile abstract method ${node.name}`)
+      if (node.body === 'native') throw new Error(`Can't compile native method ${node.name}`)
+      return [
+        ...compile(node.body),
+        PUSH(),
+        RETURN,
+      ]
+    },
+
+    Program: node => compile(node.body),
+
+    Test: node => compile(node.body),
+
+    Constructor: node => {
+      const constructorClass = node.parent()
+      return [
+        ...node.baseCall && constructorClass.superclass() ? [
+          ...node.baseCall.args.flatMap(arg => compile(arg)),
+          LOAD('self'),
+          CALL_CONSTRUCTOR(
+            node.baseCall.args.length,
+            node.baseCall.callsSuper
+              ? constructorClass.superclass()!.fullyQualifiedName()
+              : constructorClass.fullyQualifiedName(),
+            true,
+          ),
+        ] : [],
+        ...compile(node.body),
+        LOAD('self'),
+        CALL('initialize', 0),
+        LOAD('self'),
+        RETURN,
+      ]
+    },
+
+    Fixture: node => compile(node.body),
+
+    Body: node => node.sentences.flatMap(compile),
+
+    Node: () => { throw new Error(`Can't compile ${node.kind} node`) },
   })
+}
 
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -883,7 +883,7 @@ const step = (evaluation: Evaluation): void => {
         if (!value?.lazyInitializer) currentFrame.pushOperand(value)
         else {
           evaluation.pushFrame(new Frame(currentFrame.context, [
-            ...evaluation.codeFor(value.lazyInitializer),
+            ...compile(value.lazyInitializer),
             DUP,
             STORE(name, true),
             RETURN,
@@ -993,7 +993,7 @@ const step = (evaluation: Evaluation): void => {
         else {
           evaluation.log.warn('Method not found:', lookupStartFQN ?? self.module.fullyQualifiedName(), '>>', message, '/', arity)
           evaluation.invoke(
-            self.module.lookupMethod('messageNotUnderstood', 2)!,
+            'messageNotUnderstood',
             self,
             RuntimeObject.string(evaluation, message),
             RuntimeObject.list(evaluation, args.map(({ id }) => id)),
@@ -1017,7 +1017,7 @@ const step = (evaluation: Evaluation): void => {
 
         evaluation.pushFrame(new Frame(
           self,
-          evaluation.codeFor(constructor),
+          compile(constructor),
           new Map(constructor.parameters.map(({ name, isVarArg }, index) =>
             [name, isVarArg ? RuntimeObject.list(evaluation, argIds.slice(index)) : args[index]]
           ))
@@ -1042,7 +1042,7 @@ const step = (evaluation: Evaluation): void => {
         evaluation.pushFrame(new Frame(self, [
           ...fields.flatMap(field => argumentNames.includes(field.name)
             ? []
-            : [...evaluation.codeFor(field.value), STORE(field.name, true)]
+            : [...compile(field.value), STORE(field.name, true)]
           ),
           LOAD('self'),
           RETURN,

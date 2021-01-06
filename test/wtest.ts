@@ -1,6 +1,6 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Evaluation, RuntimeObject, Frame, PUSH, INIT, compileSentence } from '../src/interpreter'
+import { Evaluation, RuntimeObject, Frame, PUSH, INIT, compile } from '../src/interpreter'
 import { LogLevel, ConsoleLogger } from '../src/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
@@ -36,9 +36,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
           evaluation.pushFrame(new Frame(describeInstance, [
             PUSH(describeInstance.id),
             INIT([]),
-            ...compileSentence(evaluation.environment)(
-              ...node.fixtures().flatMap(fixture => fixture.body.sentences),
-            ),
+            ...node.fixtures().flatMap(fixture => compile(fixture)),
           ]))
           evaluation.stepAll()
         })
@@ -49,7 +47,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
 
     else if (node.is('Test')) it(node.name, () => {
       const evaluation = baseEvaluation.copy()
-      const instructions = compileSentence(evaluation.environment)(...node.body.sentences)
+      const instructions = compile(node)
 
       evaluation.log.separator(node.name)
       evaluation.log.resetStep()

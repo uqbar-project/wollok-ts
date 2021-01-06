@@ -1,4 +1,4 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, Frame, INIT, CALL_CONSTRUCTOR, PUSH_CONTEXT } from '../interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, Frame, INIT, CALL_CONSTRUCTOR, compile } from '../interpreter'
 import { Id } from '../model'
 import { Natives } from '../interpreter'
 
@@ -70,7 +70,8 @@ const Collections: Natives = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    evaluation.invoke(evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('max', 0)!, self)
+    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('max', 0)!
+    evaluation.invoke(method, self)
   },
 
   remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -380,7 +381,7 @@ const lang: Natives = {
   Dictionary: {
 
     initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.invoke(self.module.lookupMethod('clear', 0)!, self)
+      evaluation.invoke('clear', self)
     },
 
     put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -782,25 +783,25 @@ const lang: Natives = {
     '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.currentFrame!.pushOperand(self)
 
-      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
+      evaluation.invoke('apply', closure)
     },
 
     'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.currentFrame!.pushOperand(self)
 
-      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
+      evaluation.invoke('apply', closure)
     },
 
     '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.currentFrame!.pushOperand(self)
 
-      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
+      evaluation.invoke('apply', closure)
     },
 
     'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
       if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.currentFrame!.pushOperand(self)
 
-      evaluation.invoke(closure.module.lookupMethod('apply', 0)!, closure)
+      evaluation.invoke('apply', closure)
     },
 
     'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
@@ -878,7 +879,7 @@ const lang: Natives = {
     apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
       const method = self.module.lookupMethod('<apply>', args.length)!
       evaluation.pushFrame(new Frame(self.parentContext,
-        evaluation.codeFor(method),
+        compile(method),
         new Map(method.parameters.map(({ name, isVarArg }, index) =>
           [name, isVarArg ? RuntimeObject.list(evaluation, args.map(arg => arg!.id).slice(index)) : args[index]]
         ))

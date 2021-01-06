@@ -25,7 +25,7 @@ const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (e
 const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
   (evaluation: Evaluation) => {
     const receiverInstance = evaluation.instance(receiver(evaluation))
-    evaluation.invoke(receiverInstance.module.lookupMethod(message, params.length)!, receiverInstance, ...params)
+    evaluation.invoke(message, receiverInstance, ...params.map(param => evaluation.instance(param)))
     if (voidMessage) returnVoid(evaluation)
   }
 
@@ -39,7 +39,7 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   if (position) return position
   const currentFrame = evaluation.currentFrame!
   const initialFrameCount = evaluation.frameStack.depth
-  evaluation.invoke(instance.module.lookupMethod('position', 0)!, instance)
+  evaluation.invoke('position', instance)
   do {
     evaluation.step() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
   } while (evaluation.frameStack.depth > initialFrameCount)
@@ -92,7 +92,7 @@ const game: Natives = {
 
     removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
-      if (visuals) evaluation.invoke(visuals.module.lookupMethod('remove', 1)!, visuals, visual)
+      if (visuals) evaluation.invoke('remove', visuals, visual)
       else evaluation.currentFrame!.pushOperand(undefined)
     },
 
@@ -143,7 +143,7 @@ const game: Natives = {
       const currentFrame = evaluation.currentFrame!
       const initialFrameCount = evaluation.frameStack.depth
       const ioInstance = evaluation.instance(io(evaluation))
-      evaluation.invoke(ioInstance.module.lookupMethod('currentTime', 0)!, ioInstance)
+      evaluation.invoke('currentTime', ioInstance)
       do {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
@@ -158,7 +158,7 @@ const game: Natives = {
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const initialFrameCount = evaluation.frameStack.depth
       const ioInstance = evaluation.instance(io(evaluation))
-      evaluation.invoke(ioInstance.module.lookupMethod('clear', 0)!, ioInstance)
+      evaluation.invoke('clear', ioInstance)
       do {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
