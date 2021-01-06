@@ -235,12 +235,7 @@ const game: Natives = {
 
   Sound: {
     play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log(wGame(evaluation).get('running'))
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-      if (wGame(evaluation).get('running') === RuntimeObject.boolean(evaluation, true))
+      if (wGame(evaluation).get('running') !== RuntimeObject.boolean(evaluation, true))
         throw new Error('You cannot play a sound if game has not started')
       self.set('status', RuntimeObject.string(evaluation, 'played'))
       addSound(evaluation, wGame(evaluation), self)

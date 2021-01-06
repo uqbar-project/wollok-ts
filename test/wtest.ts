@@ -45,16 +45,17 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
       })
     }
 
-    else if (node.is('Test')) it(node.name, () => {
-      const evaluation = baseEvaluation.copy()
-      const instructions = compile(node)
+    else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
+      it(node.name, () => {
+        const evaluation = baseEvaluation.copy()
+        const instructions = compile(node)
 
-      evaluation.log.separator(node.name)
-      evaluation.log.resetStep()
+        evaluation.log.separator(node.name)
+        evaluation.log.resetStep()
 
-      evaluation.pushFrame(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
-      evaluation.stepAll()
-    })
+        evaluation.pushFrame(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
+        evaluation.stepAll()
+      })
 
   })
 }
