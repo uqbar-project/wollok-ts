@@ -105,6 +105,7 @@ export const Program = (name: Name, payload?: BuildPayload<ProgramNode<Raw>>) =>
 export const Test = (name: string, payload?: BuildPayload<TestNode<Raw>>) =>
   (...sentences: Sentence<Raw>[]): TestNode<Raw> =>
     new TestNode<Raw>({
+      isOnly: false,
       name,
       body: Body(...sentences),
       ...payload,

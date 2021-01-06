@@ -560,6 +560,10 @@ describe('Wollok parser', () => {
           .and.have.nested.property('body').tracedTo(12, 21)
       })
 
+      it('should parse only test', () => {
+        'only test "name" { }'.should.be.parsedBy(parser).into(Test('"name"', { isOnly: true })()).and.be.tracedTo(0, 20)
+      })
+
       it('should not parse tests with names that aren\'t a string', () => {
         'test name { }'.should.not.be.parsedBy(parser)
       })

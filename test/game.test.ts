@@ -21,9 +21,11 @@ describe('Wollok Game', () => {
     const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 
     const visuals = (evaluation: Evaluation) => {
-      const wVisuals: RuntimeObject = evaluation
-        .instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
-        .get('visuals')!
+      const game = evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
+      console.log('!!!!!!!!!!!!!!!!')
+      console.log(game.locals)
+      console.log('!!!!!!!!!!!!!!!!')
+      const wVisuals: RuntimeObject = game.get('visuals')!
       wVisuals.assertIsCollection()
       return wVisuals.innerValue
     }
@@ -34,9 +36,7 @@ describe('Wollok Game', () => {
 
       evaluation.log.info('Running program', programFQN)
 
-      const instructions = compile(program)
-
-      evaluation.pushFrame(new Frame(evaluation.rootContext, instructions))
+      evaluation.pushFrame(new Frame(evaluation.rootContext, compile(program)))
       evaluation.stepAll()
 
       evaluation.log.success('Done!')
@@ -64,5 +64,11 @@ describe('Wollok Game', () => {
       visuals(evaluation).should.have.length(0)
     })
 
+    it('flush event', () => {
+      const evaluation = Evaluation.create(environment, natives)
+      const time = RuntimeObject.number(evaluation, 1)
+      evaluation.invoke('flushEvents', evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id), time)
+      evaluation.stepAll()
+    })
   })
 })

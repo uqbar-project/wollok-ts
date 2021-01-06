@@ -31,7 +31,7 @@ const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = 
 
 const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
 
-const io = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.io.io').id
+const wGame = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
 
 const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const instance = evaluation.instance(id)
@@ -52,26 +52,40 @@ const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: I
     && position.get('y') === visualPosition.get('y')
 }
 
-const addVisual = (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation) => {
-  if (!self.get('visuals')) {
-    self.set('visuals', RuntimeObject.list(evaluation, []))
+const addToInnerCollection = (wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
+  if (!wObject.get(fieldName)) {
+    wObject.set(fieldName, RuntimeObject.list(evaluation, []))
   }
-  const visuals: RuntimeObject = self.get('visuals')!
-  visuals.assertIsCollection()
-  if (visuals.innerValue.includes(visual.id)) throw new TypeError(visual.module.fullyQualifiedName())
-  else visuals.innerValue.push(visual.id)
+  const fieldList: RuntimeObject = wObject.get(fieldName)!
+  fieldList.assertIsCollection()
+  if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.module.fullyQualifiedName())
+  else fieldList.innerValue.push(element.id)
 }
 
-const lookupMethod = (self: RuntimeObject, message: string) => (_evaluation: Evaluation) =>
-  self.module.lookupMethod(message, 0)
+const addSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  return addToInnerCollection(gameObject, sound, 'sounds')
+}
+
+const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
+  const fieldList = wObject.get(fieldName)
+  if (fieldList) {
+    const currentElements: RuntimeObject = fieldList
+    currentElements.assertIsCollection()
+    currentElements.innerValue.splice(0, currentElements.innerValue.length)
+    currentElements.innerValue.push(...currentElements.innerValue.filter((id: Id) => id !== elementToRemove.id))
+  }
+}
+
+const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
+  removeFromInnerCollection(gameObject, sound, 'sounds')
+}
 
 const game: Natives = {
   game: {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
-      const message = 'position' // TODO
-      if (!lookupMethod(visual, message)(evaluation)) throw new TypeError(message)
-      addVisual(self, visual)(evaluation)
+      if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
+      addToInnerCollection(self, visual, 'visuals')
       returnVoid(evaluation)
     },
 
@@ -79,7 +93,7 @@ const game: Natives = {
       if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
       if (position === RuntimeObject.null(evaluation)) throw new TypeError('position')
       visual.set('position', position)
-      addVisual(self, visual)(evaluation)
+      addToInnerCollection(self, visual, 'visuals')
       returnVoid(evaluation)
     },
 
@@ -97,7 +111,7 @@ const game: Natives = {
     },
 
     whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('addEventHandler', event.id, action.id),
+      redirectTo(mirror)('whenKeyPressedDo', event.id, action.id),
 
     whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
       redirectTo(mirror)('whenCollideDo', visual.id, action.id),
@@ -112,7 +126,7 @@ const game: Natives = {
       redirectTo(mirror)('schedule', milliseconds.id, action.id),
 
     removeTickEvent: (_self: RuntimeObject, event: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(io)('removeTimeHandler', event.id),
+      redirectTo(mirror)('removeTickEvent', event.id),
 
     allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const visuals = self.get('visuals')
@@ -142,7 +156,7 @@ const game: Natives = {
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.currentFrame!
       const initialFrameCount = evaluation.frameStack.depth
-      const ioInstance = evaluation.instance(io(evaluation))
+      const ioInstance = evaluation.instance(mirror(evaluation))
       evaluation.invoke('currentTime', ioInstance)
       do {
         evaluation.step()
@@ -157,8 +171,7 @@ const game: Natives = {
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       const initialFrameCount = evaluation.frameStack.depth
-      const ioInstance = evaluation.instance(io(evaluation))
-      evaluation.invoke('clear', ioInstance)
+      evaluation.invoke('clear', evaluation.instance(mirror(evaluation)))
       do {
         evaluation.step()
       } while (evaluation.frameStack.depth > initialFrameCount)
@@ -192,6 +205,8 @@ const game: Natives = {
 
     boardGround: (self: RuntimeObject, boardGround: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'boardGround', boardGround),
 
+    doCellSize: (self: RuntimeObject, size: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'cellSize', size),
+
     stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', RuntimeObject.boolean(evaluation, false))
       returnVoid(evaluation)
@@ -212,15 +227,63 @@ const game: Natives = {
       returnVoid(evaluation)
     },
 
-    // TODO:
-    sound: (_self: RuntimeObject, _audioFile: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
-    },
-
     doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
       self.set('running', RuntimeObject.boolean(evaluation, true))
+      evaluation.invoke('doStart', evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id))
+    },
+  },
+
+  Sound: {
+    play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (wGame(evaluation).get('running') === RuntimeObject.boolean(evaluation, true))
+        throw new Error('You cannot play a sound if game has not started')
+      self.set('status', RuntimeObject.string(evaluation, 'played'))
+      addSound(wGame(evaluation), self)(evaluation)
       returnVoid(evaluation)
     },
+
+    played: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.get('status')?.innerValue === 'played'))
+    },
+
+    stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot stop a sound that is not played')
+      self.set('status', RuntimeObject.string(evaluation, 'stopped'))
+      removeSound(wGame(evaluation), self)
+      returnVoid(evaluation)
+    },
+
+    pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'played')
+        throw new Error('You cannot pause a sound that is not played')
+      self.set('status', RuntimeObject.string(evaluation, 'paused'))
+      returnVoid(evaluation)
+    },
+
+    resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (self.get('status')?.innerValue !== 'paused')
+        throw new Error('You cannot resume a sound that is not paused')
+      self.set('status', RuntimeObject.string(evaluation, 'played'))
+      returnVoid(evaluation)
+    },
+
+    paused: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.get('status')?.innerValue === 'paused'))
+    },
+
+    volume: (self: RuntimeObject, newVolume?: RuntimeObject) => (evaluation: Evaluation): void => {
+      if (newVolume) {
+        const volume: RuntimeObject = newVolume
+        volume.assertIsNumber()
+        if (volume.innerValue < 0 || volume.innerValue > 1)
+          throw new RangeError('newVolume')
+      }
+      property(self, 'volume', newVolume)(evaluation)
+    },
+
+    shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
+
   },
 }
 

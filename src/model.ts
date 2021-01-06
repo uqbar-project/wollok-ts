@@ -329,6 +329,7 @@ export class Program<S extends Stage = Final> extends $Entity<S> {
 
 export class Test<S extends Stage = Final> extends $Entity<S> {
   readonly kind = 'Test'
+  readonly isOnly!: boolean
   readonly name!: Name
   readonly body!: Body<S>
 

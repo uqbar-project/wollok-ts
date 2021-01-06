@@ -66,9 +66,8 @@ export class Evaluation {
     for (const module of globalSingletons)
       rootContext.set(module.fullyQualifiedName(), RuntimeObject.object(evaluation, module))
 
-    for (const constant of globalConstants) {
+    for (const constant of globalConstants)
       rootContext.set(constant.fullyQualifiedName(), RuntimeObject.lazy(evaluation, constant.value))
-    }
 
     evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {

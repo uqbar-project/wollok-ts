@@ -1014,8 +1014,9 @@ const lang: Natives = {
       year.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+      const dayOfWeek = value.getDay() == 0 ? 7 : value.getDay()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, value.getDay()))
+      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, dayOfWeek))
     },
 
     '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {

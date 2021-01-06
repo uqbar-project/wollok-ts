@@ -30,7 +30,7 @@ object gameMirror {
 	method onTick(milliseconds, name, action) {
 		var times = 0
 		const initTime = io.currentTime()
-		io.addTimeHandler(name, { time => if ((time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
+		io.addTimeHandler(name, { time => if (milliseconds == 0 or (time - initTime).div(milliseconds) > times) { action.apply(); times+=1 } })
 	}
 
 	method schedule(milliseconds, action) {
@@ -40,5 +40,16 @@ object gameMirror {
 			io.removeTimeHandler(name)
 		})
 	}
-	
+
+	method doStart(){
+		io.exceptionHandler({ exception => console.println(exception)})
+		io.domainExceptionHandler({exception => game.say(exception.source(), exception.message())})
+	}
+
+
+	method whenKeyPressedDo(event, action) { io.addEventHandler(event, action) }
+	method removeTickEvent(event) { io.removeTimeHandler(event) }
+	method clear() { io.clear() }
+	method flushEvents(time) { io.flushEvents(time) }
+	method currentTime() = io.currentTime()
 }
