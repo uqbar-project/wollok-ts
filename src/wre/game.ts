@@ -52,18 +52,18 @@ const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: I
     && position.get('y') === visualPosition.get('y')
 }
 
-const addToInnerCollection = (wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => (evaluation: Evaluation) => {
-  if (!wObject.get(fieldName)) {
+const addToInnerCollection = (evaluation: Evaluation, wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => {
+  if (!wObject.get(fieldName))
     wObject.set(fieldName, RuntimeObject.list(evaluation, []))
-  }
+
   const fieldList: RuntimeObject = wObject.get(fieldName)!
   fieldList.assertIsCollection()
   if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.module.fullyQualifiedName())
   else fieldList.innerValue.push(element.id)
 }
 
-const addSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
-  return addToInnerCollection(gameObject, sound, 'sounds')
+const addSound = (evaluation: Evaluation, gameObject: RuntimeObject, sound: RuntimeObject) => {
+  return addToInnerCollection(evaluation, gameObject, sound, 'sounds')
 }
 
 const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
@@ -85,7 +85,7 @@ const game: Natives = {
     addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
       if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
-      addToInnerCollection(self, visual, 'visuals')
+      addToInnerCollection(evaluation, self, visual, 'visuals')
       returnVoid(evaluation)
     },
 
@@ -93,7 +93,7 @@ const game: Natives = {
       if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
       if (position === RuntimeObject.null(evaluation)) throw new TypeError('position')
       visual.set('position', position)
-      addToInnerCollection(self, visual, 'visuals')
+      addToInnerCollection(evaluation, self, visual, 'visuals')
       returnVoid(evaluation)
     },
 
@@ -238,7 +238,7 @@ const game: Natives = {
       if (wGame(evaluation).get('running') === RuntimeObject.boolean(evaluation, true))
         throw new Error('You cannot play a sound if game has not started')
       self.set('status', RuntimeObject.string(evaluation, 'played'))
-      addSound(wGame(evaluation), self)(evaluation)
+      addSound(evaluation, wGame(evaluation), self)
       returnVoid(evaluation)
     },
 

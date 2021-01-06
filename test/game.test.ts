@@ -4,6 +4,7 @@ import { RuntimeObject, Frame, compile } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
+import { ConsoleLogger, LogLevel } from '../src/log'
 
 should()
 
@@ -22,9 +23,6 @@ describe('Wollok Game', () => {
 
     const visuals = (evaluation: Evaluation) => {
       const game = evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
-      console.log('!!!!!!!!!!!!!!!!')
-      console.log(game.locals)
-      console.log('!!!!!!!!!!!!!!!!')
       const wVisuals: RuntimeObject = game.get('visuals')!
       wVisuals.assertIsCollection()
       return wVisuals.innerValue
@@ -36,7 +34,7 @@ describe('Wollok Game', () => {
 
       evaluation.log.info('Running program', programFQN)
 
-      evaluation.pushFrame(new Frame(evaluation.rootContext, compile(program)))
+      evaluation.pushFrame(new Frame(evaluation.currentContext, compile(program)))
       evaluation.stepAll()
 
       evaluation.log.success('Done!')
@@ -66,8 +64,10 @@ describe('Wollok Game', () => {
 
     it('flush event', () => {
       const evaluation = Evaluation.create(environment, natives)
+      evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
+      const gameMirror = evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id)
       const time = RuntimeObject.number(evaluation, 1)
-      evaluation.invoke('flushEvents', evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id), time)
+      evaluation.invoke('flushEvents', gameMirror, time)
       evaluation.stepAll()
     })
   })
