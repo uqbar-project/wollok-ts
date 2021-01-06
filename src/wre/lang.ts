@@ -887,7 +887,13 @@ const lang: Natives = {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(self.get('<toString>') ?? RuntimeObject.string(evaluation, `Closure#${self.id} `))
+      const toString = self.get('<toString>')
+
+      if(toString?.lazyInitializer) {
+        evaluation.pushFrame(new Frame(self.parentContext, compile(toString.lazyInitializer)))
+      } else {
+        evaluation.currentFrame!.pushOperand(self.get('<toString>') ?? RuntimeObject.string(evaluation, `Closure#${self.id} `))
+      }
     },
 
   },
@@ -901,11 +907,11 @@ const lang: Natives = {
 
       const today = new Date()
 
-      if (!day || day === RuntimeObject.null(evaluation))
+      if (!day || day === RuntimeObject.null(evaluation) || !!day.lazyInitializer)
         self.set('day', RuntimeObject.number(evaluation, today.getDate()))
-      if (!month || month === RuntimeObject.null(evaluation))
+      if (!month || month === RuntimeObject.null(evaluation) || !!month.lazyInitializer)
         self.set('month', RuntimeObject.number(evaluation, today.getMonth() + 1))
-      if (!year || year === RuntimeObject.null(evaluation))
+      if (!year || year === RuntimeObject.null(evaluation) || !!year.lazyInitializer)
         self.set('year', RuntimeObject.number(evaluation, today.getFullYear()))
 
       evaluation.currentFrame!.pushOperand(undefined)

@@ -18,7 +18,7 @@
     "test:lint": "eslint .",
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
-    "test:sanity": "npm run test:wtest -- --root language/test/sanity --ignore mirror/instanceVariableMirror.wtest --ignore lazy/cyclicReferences.wtest",
+    "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:game": "npm run test:wtest -- --root test/game",
     "test:wtest": "mocha --parallel -t 10000 -r ts-node/register test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",

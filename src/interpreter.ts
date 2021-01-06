@@ -195,22 +195,28 @@ export class Evaluation {
       this.popFrame()
     }
 
-    throw new Error(`Reached end of stack with unhandled exception ${exception.id}`)
+    throw new Error(`Reached end of stack with unhandled exception ${exception.module.fullyQualifiedName()}: ${exception.get('message')?.innerValue}`)
   }
 
-  step(): void { step(this) }
+  stepInto(): void { step(this) }
+
+  stepOut(): void {
+    const initialFrameDepth = this.frameStack.depth
+    do {
+      this.stepInto()
+    } while (this.frameStack.depth >= initialFrameDepth)
+  }
 
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
   stepAll(): void {
     while (!this.currentFrame!.isFinished()) {
       this.log.step(this)
-      this.step()
+      this.stepInto()
     }
     this.popFrame()
   }
 
   // TODO: stepThrough
-  // TODO: stepOut
   // TODO: stepIn === step
   // TODO: stepOver
 
@@ -535,7 +541,6 @@ export class RuntimeObject extends Context {
 
     this.locals.set('self', this)
   }
-
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
 
@@ -1038,14 +1043,19 @@ const step = (evaluation: Evaluation): void => {
         for (const name of [...argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
-        evaluation.pushFrame(new Frame(self, [
-          ...fields.flatMap(field => argumentNames.includes(field.name)
-            ? []
-            : [...compile(field.value), STORE(field.name, true)]
-          ),
-          LOAD('self'),
-          RETURN,
-        ]))
+        // TODO: X!
+        // evaluation.pushFrame(new Frame(self, [
+        //   ...fields.flatMap(field => argumentNames.includes(field.name)
+        //     ? []
+        //     : [...compile(field.value), STORE(field.name, true)]
+        //   ),
+        //   LOAD('self'),
+        //   RETURN,
+        // ]))
+        for(const field of fields)
+          if(!argumentNames.includes(field.name))
+            self.set(field.name, RuntimeObject.lazy(evaluation, field.value))
+        evaluation.currentFrame!.pushOperand(self)
       })()
 
 

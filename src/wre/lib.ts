@@ -6,11 +6,8 @@ const lib: Natives = {
 
     // TODO:
     println: (_self: RuntimeObject, obj: RuntimeObject) => (evaluation: Evaluation): void => {
-      const initialFrameCount = evaluation.frameStack.depth
       evaluation.invoke('toString', obj)
-      do {
-        evaluation.step()
-      } while (evaluation.frameStack.depth > initialFrameCount)
+      evaluation.stepOut()
       const message: RuntimeObject = evaluation.currentFrame!.operandStack.pop()!
       message.assertIsString()
       evaluation.log.info(message.innerValue)

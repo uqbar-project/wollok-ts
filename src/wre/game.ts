@@ -38,11 +38,9 @@ const getPosition = (id: Id) => (evaluation: Evaluation) => {
   const position = instance.get('position')
   if (position) return position
   const currentFrame = evaluation.currentFrame!
-  const initialFrameCount = evaluation.frameStack.depth
   evaluation.invoke('position', instance)
-  do {
-    evaluation.step() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
-  } while (evaluation.frameStack.depth > initialFrameCount)
+  evaluation.stepOut() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
+
   return currentFrame.popOperand()
 }
 
@@ -155,12 +153,9 @@ const game: Natives = {
 
     say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
       const currentFrame = evaluation.currentFrame!
-      const initialFrameCount = evaluation.frameStack.depth
       const ioInstance = evaluation.instance(mirror(evaluation))
       evaluation.invoke('currentTime', ioInstance)
-      do {
-        evaluation.step()
-      } while (evaluation.frameStack.depth > initialFrameCount)
+      evaluation.stepOut()
 
       const currentTime: RuntimeObject = currentFrame.popOperand()!
       currentTime.assertIsNumber()
@@ -170,12 +165,8 @@ const game: Natives = {
     },
 
     clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const initialFrameCount = evaluation.frameStack.depth
       evaluation.invoke('clear', evaluation.instance(mirror(evaluation)))
-      do {
-        evaluation.step()
-      } while (evaluation.frameStack.depth > initialFrameCount)
-
+      evaluation.stepOut()
 
       self.set('visuals', RuntimeObject.list(evaluation, []))
       returnVoid(evaluation)

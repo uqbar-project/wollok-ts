@@ -132,7 +132,8 @@ const stringifyId = (evaluation: Evaluation) => (id: Id): string => {
   } catch (e) {
     // Ignore
   }
-  const module = instance ? stringifyModule(evaluation)(instance.module.fullyQualifiedName()) : ''
+
+  const module = instance?.module ? stringifyModule(evaluation)(instance.module.fullyQualifiedName()) : ''
   const valueDescription = () => {
     const val = instance && instance.innerValue
     if (val === undefined) return ''

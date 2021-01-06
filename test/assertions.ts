@@ -361,7 +361,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
     if(flag(this, 'expectedException')) new Assertion(() => {
-      evaluation.step()
+      evaluation.stepInto()
     }).to.throw()
 
     else {
@@ -369,7 +369,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
       let nextId = 1
       const mock = stub(uuid, 'v4').callsFake(() => `_new_${nextId++}_`)
-      try { evaluation.step() }
+      try { evaluation.stepInto() }
       finally { mock.restore() }
 
       const after = evaluationMetrics(evaluation)
