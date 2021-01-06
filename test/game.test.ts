@@ -4,7 +4,6 @@ import { RuntimeObject, Frame, compile } from '../src/interpreter'
 import { Evaluation } from '../src/interpreter'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { ConsoleLogger, LogLevel } from '../src/log'
 
 should()
 
@@ -64,9 +63,9 @@ describe('Wollok Game', () => {
 
     it('flush event', () => {
       const evaluation = Evaluation.create(environment, natives)
-      evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
       const gameMirror = evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id)
       const time = RuntimeObject.number(evaluation, 1)
+      evaluation.pushFrame(new Frame(evaluation.currentContext, []))
       evaluation.invoke('flushEvents', gameMirror, time)
       evaluation.stepAll()
     })
