@@ -1,4 +1,4 @@
-import { Evaluation, RuntimeObject, Natives } from '../interpreter'
+import { Evaluation, RuntimeObject, Natives } from '../interpreter/runtimeModel'
 
 const lib: Natives = {
 

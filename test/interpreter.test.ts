@@ -2,11 +2,12 @@ import { should, use } from 'chai'
 import { restore, stub, spy, match } from 'sinon'
 import sinonChai from 'sinon-chai'
 import { Class, Constructor, Field, Literal, Method, Package, Parameter, Reference } from '../src/builders'
-import * as interpreter from '../src/interpreter'
-import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, NativeFunction, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP, Evaluation } from '../src/interpreter'
+import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
+import * as compiler from '../src/interpreter/compiler'
 import link from '../src/linker'
 import { Constructor as ConstructorNode, Filled, Package as PackageNode } from '../src/model'
 import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
+import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
 
 
 should()
@@ -565,7 +566,7 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the arguments (in reverse order) and receiver from the operand stack and create a new frame for the method body', () => {
         const mockCode = [POP, POP, POP]
-        stub(interpreter, 'compile').withArgs(match({ name: 'm' })).returns(mockCode)
+        stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
 
         evaluation({
           environment: link([WRE, Package('test')(
@@ -585,7 +586,7 @@ describe('Wollok Interpreter', () => {
 
       it('should group all trailing arguments as a single list if the method has a varargs parameter', () => {
         const mockCode = [POP, POP, POP]
-        stub(interpreter, 'compile').withArgs(match({ name: 'm' })).returns(mockCode)
+        stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
 
         evaluation({
           environment: link([WRE, Package('test')(
@@ -614,7 +615,7 @@ describe('Wollok Interpreter', () => {
 
       it('lookup should start on lookup start if one is provided', () => {
         const mockCode = [POP, POP, POP]
-        const codeForMock = stub(interpreter, 'compile')
+        const codeForMock = stub(compiler, 'default')
         codeForMock.withArgs(match({ name: 'm', isOverride: false })).returns(mockCode)
         codeForMock.callThrough()
 
@@ -685,7 +686,7 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the arguments and receiver and use them to call messageNotUnderstood if method is not found', () => {
         const mockCode = [POP, POP, POP]
-        stub(interpreter, 'compile').withArgs(match({ name: 'messageNotUnderstood' })).returns(mockCode)
+        stub(compiler, 'default').withArgs(match({ name: 'messageNotUnderstood' })).returns(mockCode)
 
         evaluation({
           environment: link([WRE, Package('test')(
@@ -725,7 +726,7 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the target instance and arguments (in reverse order) from the operand stack and create a new frame for the constructor body', () => {
         const mockCode = [POP, POP, POP]
-        stub(interpreter, 'compile').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
+        stub(compiler, 'default').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
 
         evaluation({
           environment: link([WRE, Package('test')(
@@ -773,7 +774,7 @@ describe('Wollok Interpreter', () => {
 
       it('should group all trailing arguments as a single list if the constructor has a varargs parameter', () => {
         const mockCode = [POP, POP, POP]
-        stub(interpreter, 'compile').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
+        stub(compiler, 'default').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
 
         evaluation({
           environment: link([WRE, Package('test')(
@@ -831,7 +832,7 @@ describe('Wollok Interpreter', () => {
       it('should pop the instance and arguments and initialize all fields', () => {
         const f2InitMockCode = [POP, POP, POP]
         const f4InitMockCode = [POP, POP, POP, POP, POP]
-        const codeForMock = stub(interpreter, 'compile')
+        const codeForMock = stub(compiler, 'default')
         codeForMock.withArgs(match({ value: 4 })).returns(f4InitMockCode)
         codeForMock.withArgs(match({ value: 2 })).returns(f2InitMockCode)
         codeForMock.callThrough()

@@ -8,12 +8,13 @@ import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
 import { readFileSync } from 'fs'
-import { buildEnvironment as buildEnv, Evaluation, Natives } from '../src'
+import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
-import { Frame, RuntimeObject, Instruction, InnerValue, LazyInitializer } from '../src/interpreter'
+import { Frame, RuntimeObject, InnerValue, LazyInitializer, Evaluation, Natives } from '../src/interpreter/runtimeModel'
 import { mapObject, last } from '../src/extensions'
-import { Logger, nullLogger } from '../src/log'
+import { Logger, nullLogger } from '../src/interpreter/log'
+import { Instruction } from '../src/interpreter/compiler'
 
 const { keys } = Object
 
@@ -373,7 +374,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
     if(flag(this, 'expectedException')) new Assertion(() => {
-      evaluation.stepInto()
+      evaluation.stepIn()
     }).to.throw()
 
     else {
@@ -381,7 +382,7 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
       let nextId = 1
       const mock = stub(uuid, 'v4').callsFake(() => `_new_${nextId++}_`)
-      try { evaluation.stepInto() }
+      try { evaluation.stepIn() }
       finally { mock.restore() }
 
       const after = evaluationMetrics(evaluation)

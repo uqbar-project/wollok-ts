@@ -1,7 +1,7 @@
 import { should } from 'chai'
 import { join } from 'path'
-import { RuntimeObject, Frame, compile } from '../src/interpreter'
-import { Evaluation } from '../src/interpreter'
+import { RuntimeObject, Frame, Evaluation } from '../src/interpreter/runtimeModel'
+import compile from '../src/interpreter/compiler'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
 

@@ -1,12 +1,14 @@
 import chalk from 'chalk'
-import { last } from './extensions'
-import { Evaluation, Instruction, RuntimeObject } from './interpreter'
-import { Id, Name } from './model'
+import { last } from '../extensions'
+import { Evaluation, RuntimeObject } from './runtimeModel'
+import { Instruction } from './compiler'
+import { Id, Name } from '../model'
 
 const columns = process.stdout && process.stdout.columns || 80
 const { clear: consoleClear, log: consoleLog } = console
 const { keys, values } = Object
 const { yellow, redBright, blueBright, cyan, greenBright, magenta, italic, bold } = chalk
+
 
 export enum LogLevel {
   NONE,
@@ -16,6 +18,7 @@ export enum LogLevel {
   INFO,
   DEBUG,
 }
+
 
 export abstract class Logger {
   protected timers: Record<string, [number, number]> = {}

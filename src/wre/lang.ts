@@ -1,6 +1,6 @@
-import { CALL, CONDITIONAL_JUMP, DUP, Evaluation, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN, RuntimeObject, STORE, SWAP, Frame, INIT, CALL_CONSTRUCTOR, compile } from '../interpreter'
+import compile, { CALL, CONDITIONAL_JUMP, DUP, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN,  STORE, SWAP, INIT, CALL_CONSTRUCTOR } from '../interpreter/compiler'
+import { Natives, Evaluation, RuntimeObject, Frame } from '../interpreter/runtimeModel'
 import { Id } from '../model'
-import { Natives } from '../interpreter'
 
 const { random, floor, ceil } = Math
 const { UTC } = Date

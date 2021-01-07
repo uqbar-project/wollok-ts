@@ -5,7 +5,7 @@ import { join } from 'path'
 import { Package } from '../src/builders'
 import fill from '../src/filler'
 import link from '../src/linker'
-import { ConsoleLogger, LogLevel } from '../src/log'
+import { ConsoleLogger, LogLevel } from '../src/interpreter/log'
 import { File } from '../src/parser'
 
 const WRE_SRC_PATH = 'language/src'

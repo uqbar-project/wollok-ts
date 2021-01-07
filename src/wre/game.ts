@@ -1,4 +1,4 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter'
+import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
 import { Id } from '../model'
 
 const returnVoid = (evaluation: Evaluation) => {
