@@ -4,7 +4,6 @@ import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
 // TODO:
-// - evaluation.instance(evaluation.environment.getNodeByFQN('x').id) ===> evaluation.instance('x')
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
