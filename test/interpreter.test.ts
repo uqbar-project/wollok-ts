@@ -5,8 +5,8 @@ import { Class, Constructor, Field, Literal, Method, Package, Parameter, Referen
 import * as interpreter from '../src/interpreter'
 import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, NativeFunction, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP, Evaluation } from '../src/interpreter'
 import link from '../src/linker'
-import { Constructor as ConstructorNode, Filled, Package as PackageNode, Self as SelfNode, Raw, Expression } from '../src/model'
-import { interpreterAssertions, evaluation, obj, ctx } from './assertions'
+import { Constructor as ConstructorNode, Filled, Package as PackageNode } from '../src/model'
+import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
 
 
 should()
@@ -91,19 +91,16 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should trigger lazy initialization for uninitialized lazy references', () => {
-        const mockCode = [POP, POP, POP]
-        const lazyInitializer = new SelfNode<Raw>({}) as Expression
-        stub(interpreter, 'compile').withArgs(lazyInitializer).returns(mockCode)
-
-
         evaluation({
           environment,
-          instances: [obj`target`({ lazyInitializer })],
+          instances: [obj`target`({ locals: { x: lazy`x`(obj`target`, [INSTANTIATE('wollok.lang.Number', 7)]) } })],
           frames: [
-            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{ x: obj`target` } })] },
+            { instructions: [LOAD('x')], contexts: [ctx`c1`({ parent: obj`target` })] },
           ],
         }).should
-          .pushFrame({ instructions: [...mockCode, DUP, STORE('x', true), RETURN], contexts: [ctx`_new_1_`({ parent: ctx`c1` })] })
+          .createInstance(obj`N!7.00000`({ moduleFQN: 'wollok.lang.Number', locals: { self: obj`N!7.00000` }, innerValue: 7 }))
+          .onInstance(obj`target`).setLocal('x', obj`N!7.00000`)
+          .onCurrentFrame.pushOperands(obj`N!7.00000`)
           .whenStepped()
       })
 
@@ -857,21 +854,11 @@ describe('Wollok Interpreter', () => {
         }).should
           .onInstance(obj`target`)
           .setLocal('f3', obj`arg3`)
-          .setLocal('f4', undefined)
+          .setLocal('f4', lazy`f4`(obj`target`, f4InitMockCode))
           .setLocal('f1', obj`arg1`)
-          .setLocal('f2', undefined)
+          .setLocal('f2', lazy`f2`(obj`target`, f2InitMockCode))
           .and.onCurrentFrame.popOperands(3)
-          .and.pushFrame({
-            instructions: [
-              ...f4InitMockCode,
-              STORE('f4', true),
-              ...f2InitMockCode,
-              STORE('f2', true),
-              LOAD('self'),
-              RETURN,
-            ],
-            contexts: [ctx`_new_1_`({ parent: obj`target` })],
-          })
+          .and.pushOperands(obj`target`)
           .whenStepped()
       })
 

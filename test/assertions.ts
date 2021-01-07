@@ -3,7 +3,7 @@ import { stub } from 'sinon'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
 import link from '../src/linker'
-import { Name, Linked, Node, Package, Reference, List, Environment as EnvironmentType, Id, Expression } from '../src/model'
+import { Name, Linked, Node, Package, Reference, List, Environment as EnvironmentType, Id } from '../src/model'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
@@ -11,7 +11,7 @@ import { readFileSync } from 'fs'
 import { buildEnvironment as buildEnv, Evaluation, Natives } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
-import { Frame, RuntimeObject, Instruction, InnerValue } from '../src/interpreter'
+import { Frame, RuntimeObject, Instruction, InnerValue, LazyInitializer } from '../src/interpreter'
 import { mapObject, last } from '../src/extensions'
 import { Logger, nullLogger } from '../src/log'
 
@@ -40,7 +40,7 @@ declare global {
       pushOperands(...operands: (InstanceDescription|undefined)[]): Assertion
       popContexts(count: number): Assertion
       pushContexts(...contexts: ContextDescription[]): Assertion
-      setLocal(name: Name, value?: InstanceDescription): Assertion
+      setLocal(name: Name, value?: InstanceDescription | LazyInitializerDescription): Assertion
       jumpTo(position: number): Assertion
       createInstance(instance: InstanceDescription): Assertion
     }
@@ -229,7 +229,11 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
         metric.contexts[id] = {
           id,
           parent: parent?.id ?? (index < contexts.length - 1 ? contexts[index + 1].id : metric.rootContext),
-          locals: mapObject(value => value?.id, locals),
+          locals: mapObject(value =>
+            isLazy(value)
+              ? { instructions: value.instructions, context: value.context.id, local: value.local }
+              : value?.id
+          , locals),
           exceptionHandlerIndex,
         }
       })
@@ -284,11 +288,14 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
     deltas.push((metric: EvaluationMetrics) => {
       const currentFrame = metric.frames[frameIndex]
-      for(const { id, exceptionHandlerIndex, locals, parent } of contextDescriptions) {
+      for(const { id, exceptionHandlerIndex, locals = {}, parent } of contextDescriptions) {
         metric.contexts[id] = {
           id,
           parent: parent?.id ?? currentFrame.currentContext,
-          locals: mapObject(value => value?.id, locals ?? {}),
+          locals: mapObject(value => isLazy(value)
+            ? { instructions: value.instructions, context: value.context.id, local: value.local }
+            : value?.id
+          , locals),
           exceptionHandlerIndex,
         }
         currentFrame.currentContext = id
@@ -327,28 +334,33 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
     flag(this, 'deltas', deltas)
   })
 
-  Assertion.addMethod('setLocal', function (name: Name, operandDescription?: InstanceDescription) {
+  Assertion.addMethod('setLocal', function (name: Name, value?: InstanceDescription | LazyInitializerDescription) {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
     const frameIndex: number | undefined = flag(this, 'targetFrameIndex')
     const instanceId: Id = flag(this, 'targetInstanceId')
 
     deltas.push((metric: EvaluationMetrics) => {
       const contextId = frameIndex !== undefined ? metric.frames[frameIndex].currentContext : instanceId
-      metric.contexts[contextId].locals[name] = operandDescription?.id
+      metric.contexts[contextId].locals[name] = isLazy(value)
+        ? { instructions: value.instructions, context: value.context.id, local: value.local }
+        : value?.id
     })
 
     flag(this, 'deltas', deltas)
   })
 
-  Assertion.addMethod('createInstance', function ({ id, locals = {}, moduleFQN = 'wollok.lang.Object', lazyInitializer, innerValue, exceptionHandlerIndex, parent }: InstanceDescription) {
+  Assertion.addMethod('createInstance', function ({ id, locals = {}, moduleFQN = 'wollok.lang.Object', innerValue, exceptionHandlerIndex, parent }: InstanceDescription) {
     const deltas: MetricsDelta[] = flag(this, 'deltas') ?? []
 
     deltas.push((metric: EvaluationMetrics) => {
-      metric.instances[id] = { id, moduleFQN, lazyInitializer: lazyInitializer?.id, innerValue }
+      metric.instances[id] = { id, moduleFQN, innerValue }
       metric.contexts[id] = {
         id,
         parent: parent?.id ?? metric.rootContext,
-        locals: mapObject(value => value?.id, locals),
+        locals: mapObject(value => isLazy(value)
+          ? { instructions: value.instructions, context: value.context.id, local: value.local }
+          : value?.id
+        , locals),
         exceptionHandlerIndex,
       }
     })
@@ -391,14 +403,13 @@ export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
 interface EvaluationMetrics {
   instances: Record<Id, {
     id: Id
-    lazyInitializer?: Id
     moduleFQN: Name
     innerValue?: InnerValue
   }>
   contexts: Record<Id, {
     id: Id,
     parent: Id,
-    locals: Record<Name, Id | undefined>
+    locals: Record<Name, Id | {local: Name, context: Id, instructions: Instruction[]} | undefined>
     exceptionHandlerIndex?: number
   }>
   rootContext: Id
@@ -422,11 +433,10 @@ const evaluationMetrics = ({ frameStack, instances, rootContext }: Evaluation): 
     baseContext: baseContext.id,
     currentContext: context.id,
   })),
-  instances: instances.reduce((instancesById, { id, lazyInitializer, module, innerValue }) => ({
+  instances: instances.reduce((instancesById, { id, module, innerValue }) => ({
     ...instancesById, [id]:{
       id,
       innerValue,
-      lazyInitializer: lazyInitializer?.id,
       moduleFQN: module?.fullyQualifiedName(),
     },
   }), {}),
@@ -438,7 +448,12 @@ const evaluationMetrics = ({ frameStack, instances, rootContext }: Evaluation): 
     ...others, [id]: {
       id,
       exceptionHandlerIndex,
-      locals: [...locals.entries()].reduce((acum, [key, value]) => ({ ...acum, [key]: value?.id }), {}),
+      locals: [...locals.entries()].reduce((acum, [key, value]) => ({
+        ...acum,
+        [key]: value instanceof LazyInitializer
+          ? { instructions: value.instructions, context: value.context.id, local: value.local }
+          : value?.id,
+      }), {}),
       parent: parentContext?.id,
     },
   }), {}),
@@ -459,15 +474,20 @@ interface EvaluationDescription {
 
 interface ContextDescription {
   id: Id
-  locals?: Record<Name, InstanceDescription | undefined>
+  locals?: Record<Name, InstanceDescription | LazyInitializerDescription | undefined>
   parent?: ContextDescription
   exceptionHandlerIndex?: number
 }
 
 interface InstanceDescription extends ContextDescription {
   moduleFQN?: Name
-  lazyInitializer?: Expression
   innerValue?: InnerValue
+}
+
+interface LazyInitializerDescription {
+  local: Name
+  context: ContextDescription
+  instructions: Instruction[]
 }
 
 interface FrameDescription {
@@ -477,12 +497,20 @@ interface FrameDescription {
   contexts?: ContextDescription[]
 }
 
+const isLazy = (target: any): target is LazyInitializerDescription => !!target?.instructions
+
 export const ctx = (literals: TemplateStringsArray): ContextDescription & { (description: Partial<ContextDescription>): ContextDescription } => {
   const id = literals.join()
   const f = (description: Partial<InstanceDescription>): InstanceDescription => ({ id, ...description })
   f.id = id
   return f
 }
+
+export const lazy = (literals: TemplateStringsArray) => (context: ContextDescription, instructions: Instruction[]): LazyInitializerDescription => ({
+  local: literals.join(),
+  context,
+  instructions,
+})
 
 export const obj = (literals: TemplateStringsArray): InstanceDescription & { (description: Partial<InstanceDescription>): InstanceDescription } => {
   const id = literals.join()
@@ -501,14 +529,23 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
 
   evaluation.log = log
 
-  instanceDescriptions.forEach(({ id, locals = {}, lazyInitializer, moduleFQN, innerValue }) => {
+  instanceDescriptions.forEach(({ id, locals = {}, moduleFQN, innerValue }) => {
     const mock = stub(uuid, 'v4').returns(id)
     try {
-      if(lazyInitializer) RuntimeObject.lazy(evaluation, lazyInitializer)
-      else if (moduleFQN === 'wollok.lang.Number') RuntimeObject.number(evaluation, innerValue as number)
+      if (moduleFQN === 'wollok.lang.Number') RuntimeObject.number(evaluation, innerValue as number)
       else if (moduleFQN === 'wollok.lang.String') RuntimeObject.string(evaluation, innerValue as string)
       else if (moduleFQN === 'wollok.lang.List') RuntimeObject.list(evaluation, innerValue as Id[])
-      else RuntimeObject.object(evaluation, moduleFQN ?? 'wollok.lang.Object', mapObject(instance => instance && evaluation.instance(instance.id), locals))
+      else {
+        const instance = RuntimeObject.object(
+          evaluation,
+          moduleFQN ?? 'wollok.lang.Object',
+          mapObject(value => isLazy(value) ? undefined : value && evaluation.instance(value.id), locals)
+        )
+        for (const name in locals) {
+          const value = locals[name]
+          if(isLazy(value)) instance.set(name, new LazyInitializer(evaluation, instance, name, value.instructions))
+        }
+      }
     }
     finally { mock.restore() }
   });
@@ -529,7 +566,7 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
       frame = new Frame(
         parentContext,
         instructions,
-        new Map(keys(locals).map(key => [key, locals[key] === undefined ? undefined : evaluation.instance(locals[key]!.id)])),
+        new Map(keys(locals).map(key => [key, locals[key] && evaluation.instance((locals[key] as InstanceDescription).id)])),
       )
     }
     finally { mock.restore() }
@@ -547,7 +584,7 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
       try { frame.pushContext(exceptionHandlerIndex) }
       finally { mock.restore() }
 
-      for (const key of keys(locals)) frame.context.set(key, evaluation.instance(locals[key]!.id))
+      for (const key of keys(locals)) frame.context.set(key, evaluation.instance((locals[key] as InstanceDescription).id))
     }
 
     evaluation.pushFrame(frame)

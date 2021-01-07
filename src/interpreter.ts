@@ -20,7 +20,7 @@ const { assign, keys } = Object
 export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => (evaluation: Evaluation) => void
 export interface Natives { [name: string]: NativeFunction | Natives }
 
-export type Locals = Map<Name, RuntimeObject | undefined>
+export type Locals = Map<Name, RuntimeObject | LazyInitializer | undefined>
 
 const NULL_ID = 'null'
 const TRUE_ID = 'true'
@@ -31,9 +31,8 @@ export const DECIMAL_PRECISION = 5
 export const MAX_FRAME_STACK_SIZE = 1000
 export const MAX_OPERAND_STACK_SIZE = 10000
 
-export class WollokError extends Error {
-  constructor(readonly moduleFQN: Name) { super(moduleFQN) }
-}
+export class WollokError extends Error { constructor(readonly moduleFQN: Name) { super(moduleFQN) } }
+export class WollokUnrecoverableError extends Error { }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION
@@ -54,7 +53,7 @@ export class Evaluation {
 
   static create(environment: Environment, natives: Natives, stepAllInitialization = true): Evaluation {
     const rootContext = new Context()
-    const evaluation = new Evaluation(environment, natives, rootContext)
+    const evaluation = new Evaluation(environment, natives, () => rootContext)
 
     const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
@@ -67,16 +66,14 @@ export class Evaluation {
       rootContext.set(module.fullyQualifiedName(), RuntimeObject.object(evaluation, module))
 
     for (const constant of globalConstants)
-      rootContext.set(constant.fullyQualifiedName(), RuntimeObject.lazy(evaluation, constant.value))
+      rootContext.set(constant.fullyQualifiedName(), new LazyInitializer(evaluation, rootContext, constant.fullyQualifiedName(), compile(constant.value)))
 
     evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
         if (singleton.supercallArgs.some(is('NamedArgument'))) {
-          const args = singleton.supercallArgs as List<NamedArgument>
           return [
-            ...args.flatMap(({ value }) => compile(value)),
             PUSH(singleton.id),
-            INIT(args.map(({ name }) => name)),
+            INIT([]),
             CALL_CONSTRUCTOR(0, singleton.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
@@ -100,6 +97,7 @@ export class Evaluation {
     return evaluation
   }
 
+  // TODO: Can we do this with a symbol instead of static?
   static _retrieveInstanceOrSaveDefault(evaluation: Evaluation, instance: RuntimeObject): RuntimeObject {
     const existing = evaluation.instanceCache.get(instance.id)
     if (existing) return existing
@@ -113,16 +111,16 @@ export class Evaluation {
   protected constructor(
     environment: Environment,
     natives: Natives,
-    rootContext: Context,
-    frameStack = new Stack<Frame>(MAX_FRAME_STACK_SIZE),
-    instanceCache = new Map<Id, RuntimeObject>(),
+    rootContext: (evaluation: Evaluation) => Context,
+    frameStack = (_evaluation: Evaluation) => new Stack<Frame>(MAX_FRAME_STACK_SIZE),
+    instanceCache = (_evaluation: Evaluation) => new Map<Id, RuntimeObject>(),
     logger: Logger = nullLogger,
   ) {
     this.environment = environment
     this.natives = natives
-    this.rootContext = rootContext
-    this.frameStack = frameStack
-    this.instanceCache = instanceCache
+    this.rootContext = rootContext(this)
+    this.frameStack = frameStack(this)
+    this.instanceCache = instanceCache(this)
     this.log = logger
   }
 
@@ -133,9 +131,9 @@ export class Evaluation {
     return new Evaluation(
       this.environment,
       this.natives,
-      Context._copy(this.rootContext, cache),
-      this.frameStack.map(frame => Frame._copy(frame, cache)),
-      new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, cache)])),
+      evaluation => Context._copy(this.rootContext, evaluation, cache),
+      evaluation => this.frameStack.map(frame => Frame._copy(frame, evaluation, cache)),
+      evaluation => new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, evaluation, cache)])),
       this.log,
     )
   }
@@ -195,10 +193,13 @@ export class Evaluation {
       this.popFrame()
     }
 
-    throw new Error(`Reached end of stack with unhandled exception ${exception.module.fullyQualifiedName()}: ${exception.get('message')?.innerValue}`)
+    throw new WollokUnrecoverableError(`Reached end of stack with unhandled exception ${exception.module.fullyQualifiedName()}: ${exception.get('message')?.innerValue}`)
   }
 
-  stepInto(): void { step(this) }
+  stepInto(): void {
+    this.log.step(this)
+    step(this)
+  }
 
   stepOut(): void {
     const initialFrameDepth = this.frameStack.depth
@@ -209,10 +210,7 @@ export class Evaluation {
 
   /** Takes all possible steps, until the last frame has no pending instructions and then drops that frame */
   stepAll(): void {
-    while (!this.currentFrame!.isFinished()) {
-      this.log.step(this)
-      this.stepInto()
-    }
+    while (!this.currentFrame!.isFinished()) this.stepInto()
     this.popFrame()
   }
 
@@ -285,10 +283,10 @@ export class Frame {
   get context(): Context { return this.currentContext }
 
 
-  static _copy(frame: Frame, cache: Map<Id, any>): Frame {
-    const copy = new Frame(Context._copy(frame.context, cache), frame.instructions)
+  static _copy(frame: Frame, evaluation: Evaluation, cache: Map<Id, any>): Frame {
+    const copy = new Frame(Context._copy(frame.context, evaluation, cache), frame.instructions)
     assign(copy, { currentContext: copy.context.parentContext, initialContext: copy.context.parentContext })
-    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, cache)))
+    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, evaluation, cache)))
     copy.pc = frame.pc
 
     return copy
@@ -353,25 +351,29 @@ export class Context {
   readonly locals: Locals = new Map()
   readonly exceptionHandlerIndex?: number
 
-
-  static _copy(context: Context, cache: Map<Id, any>): Context
-  static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined
-  static _copy(context: Context | undefined, cache: Map<Id, any>): Context | undefined {
+  // TODO: can we make this with a symbol instead of static?
+  static _copy(context: Context, evaluation: Evaluation, cache: Map<Id, any>): Context
+  static _copy(context: Context | undefined, evaluation: Evaluation, cache: Map<Id, any>): Context | undefined
+  static _copy(context: Context | undefined, evaluation: Evaluation, cache: Map<Id, any>): Context | undefined {
     if (!context) return undefined
-    if (context instanceof RuntimeObject) return RuntimeObject._copy(context, cache)
+    if (context instanceof RuntimeObject) return RuntimeObject._copy(context, evaluation, cache)
 
     const cached = cache.get(context.id)
     if (cached) return cached
 
     const copy = new Context(
-      Context._copy(context.parentContext, cache),
+      Context._copy(context.parentContext, evaluation, cache),
       context.exceptionHandlerIndex,
       context.id,
     )
 
     cache.set(context.id, copy)
 
-    context.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject._copy(local, cache)))
+    context.locals.forEach((local, name) => copy.locals.set(name,
+      local instanceof LazyInitializer
+        ? LazyInitializer._copy(local, evaluation, cache)
+        : RuntimeObject._copy(local, evaluation, cache)
+    ))
 
     return copy
   }
@@ -384,10 +386,10 @@ export class Context {
   }
 
   get(local: Name): RuntimeObject | undefined {
-    return this.locals.get(local) ?? this.parentContext?.get(local)
+    return (this.locals.get(local) ?? this.parentContext?.get(local))?.materialize()
   }
 
-  set(local: Name, value: RuntimeObject | undefined): void {
+  set(local: Name, value: RuntimeObject | LazyInitializer | undefined): void {
     this.locals.set(local, value)
   }
 
@@ -406,28 +408,31 @@ export class RuntimeObject extends Context {
   readonly parentContext!: Context
   readonly module: Module
   readonly innerValue?: InnerValue
-  readonly lazyInitializer?: Expression
 
 
-  static _copy(instance: RuntimeObject, cache: Map<Id, any>): RuntimeObject
-  static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined
-  static _copy(instance: RuntimeObject | undefined, cache: Map<Id, any>): RuntimeObject | undefined {
+  static _copy(instance: RuntimeObject, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject
+  static _copy(instance: RuntimeObject | undefined, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject | undefined
+  static _copy(instance: RuntimeObject | undefined, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject | undefined {
     if (!instance) return undefined
+    if (instance instanceof LazyInitializer) return instance
 
     const cached = cache.get(instance.id)
     if (cached) return cached
 
     const copy = new RuntimeObject(
-      Context._copy(instance.parentContext, cache),
+      Context._copy(instance.parentContext, evaluation, cache),
       instance.module,
       isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
       instance.id,
-      instance.lazyInitializer,
     )
 
     cache.set(instance.id, copy)
 
-    instance.locals.forEach((local, name) => copy.locals.set(name, RuntimeObject._copy(local, cache)))
+    instance.locals.forEach((local, name) => copy.locals.set(name,
+      local instanceof LazyInitializer
+        ? LazyInitializer._copy(local, evaluation, cache)
+        : RuntimeObject._copy(local, evaluation, cache)
+    ))
 
     return copy
   }
@@ -520,27 +525,16 @@ export class RuntimeObject extends Context {
     return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
   }
 
-  static lazy(evaluation: Evaluation, initializer: Expression): RuntimeObject {
-    const instance = new RuntimeObject(
-      evaluation.currentContext,
-      undefined as any,
-      undefined,
-      undefined,
-      initializer
-    )
-
-    return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
-  }
-
-  protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id, initializer?: Expression) {
+  protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
     super(parent, undefined, id)
 
     this.module = module
     this.innerValue = innerValue
-    this.lazyInitializer = initializer
 
     this.locals.set('self', this)
   }
+
+  materialize(): RuntimeObject | undefined { return this }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
 
@@ -556,6 +550,38 @@ export class RuntimeObject extends Context {
       throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
     if (typeof this.innerValue !== innerValueType)
       throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
+  }
+}
+
+export class LazyInitializer {
+  constructor(
+    protected readonly evaluation: Evaluation,
+    readonly context: Context,
+    readonly local: Name,
+    readonly instructions: List<Instruction>,
+  ) { }
+
+  static _copy(initializer: LazyInitializer, evaluation: Evaluation, cache: Map<Id, Context>): LazyInitializer {
+    return new LazyInitializer(
+      evaluation,
+      Context._copy(initializer.context, evaluation, cache),
+      initializer.local,
+      initializer.instructions,
+    )
+  }
+
+  materialize(): RuntimeObject | undefined {
+    this.evaluation.log.info('Materializing lazy initializer of', this.local)
+    const frame = new Frame(this.context, this.instructions)
+    this.evaluation.pushFrame(frame)
+    this.evaluation.stepAll()
+
+    const value = frame.popOperand()
+
+    this.evaluation.log.info('Materialized lazy initializer of', this.local, 'to', value?.id)
+
+    this.context.set(this.local, value)
+    return value
   }
 }
 
@@ -882,17 +908,7 @@ const step = (evaluation: Evaluation): void => {
 
       case 'LOAD': return (() => {
         const { name } = instruction
-        const value = currentFrame.context.get(name)
-
-        if (!value?.lazyInitializer) currentFrame.pushOperand(value)
-        else {
-          evaluation.pushFrame(new Frame(currentFrame.context, [
-            ...compile(value.lazyInitializer),
-            DUP,
-            STORE(name, true),
-            RETURN,
-          ]))
-        }
+        currentFrame.pushOperand(currentFrame.context.get(name))
       })()
 
 
@@ -1043,18 +1059,20 @@ const step = (evaluation: Evaluation): void => {
         for (const name of [...argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
-        // TODO: X!
-        // evaluation.pushFrame(new Frame(self, [
-        //   ...fields.flatMap(field => argumentNames.includes(field.name)
-        //     ? []
-        //     : [...compile(field.value), STORE(field.name, true)]
-        //   ),
-        //   LOAD('self'),
-        //   RETURN,
-        // ]))
-        for(const field of fields)
-          if(!argumentNames.includes(field.name))
-            self.set(field.name, RuntimeObject.lazy(evaluation, field.value))
+        if(self.module.is('Describe')) {
+
+        } else if(self.module.is('Singleton') && !!self.module.name) {
+          for(const field of fields) {
+            const defaultValue = (self.module.supercallArgs as List<NamedArgument>).find(arg => arg.is('NamedArgument') && arg.name === field.name)
+            self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value)))
+          }
+        } else {
+          for(const field of fields)
+            if(!argumentNames.includes(field.name))
+              self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value)))
+        }
+
+
         evaluation.currentFrame!.pushOperand(self)
       })()
 
@@ -1078,6 +1096,9 @@ const step = (evaluation: Evaluation): void => {
     }
   } catch (error) {
     evaluation.log.error(error)
+
+    if(error instanceof WollokUnrecoverableError) throw error
+
     const exceptionType = error instanceof WollokError ? error.moduleFQN : 'wollok.lang.EvaluationError'
     const message = error.message ? RuntimeObject.string(evaluation, error.message) : undefined
     evaluation.raise(RuntimeObject.object(evaluation, exceptionType, { message }))
@@ -1099,7 +1120,7 @@ export const garbageCollect = (evaluation: Evaluation): void => {
   }
 
   const marked = new Set<Context>()
-  const pending = [
+  const pending: (Context | LazyInitializer | undefined)[] = [
     evaluation.rootContext,
     ...[...evaluation.frameStack].flatMap(({ operandStack, context, instructions }) => [
       context,
@@ -1110,7 +1131,7 @@ export const garbageCollect = (evaluation: Evaluation): void => {
 
   while (pending.length) {
     const next = pending.shift()
-    if (next && !marked.has(next)) {
+    if (next && !(next instanceof LazyInitializer) && !marked.has(next)) {
       marked.add(next)
 
       pending.push(

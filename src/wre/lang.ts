@@ -521,6 +521,8 @@ const lang: Natives = {
     },
 
     '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+      self.assertIsNumber()
+
       evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue === other.innerValue))
     },
 
@@ -887,13 +889,7 @@ const lang: Natives = {
     },
 
     toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const toString = self.get('<toString>')
-
-      if(toString?.lazyInitializer) {
-        evaluation.pushFrame(new Frame(self.parentContext, compile(toString.lazyInitializer)))
-      } else {
-        evaluation.currentFrame!.pushOperand(self.get('<toString>') ?? RuntimeObject.string(evaluation, `Closure#${self.id} `))
-      }
+       evaluation.currentFrame!.pushOperand(self.get('<toString>') ?? RuntimeObject.string(evaluation, `Closure#${self.id} `))
     },
 
   },
@@ -907,11 +903,11 @@ const lang: Natives = {
 
       const today = new Date()
 
-      if (!day || day === RuntimeObject.null(evaluation) || !!day.lazyInitializer)
+      if (!day || day === RuntimeObject.null(evaluation))
         self.set('day', RuntimeObject.number(evaluation, today.getDate()))
-      if (!month || month === RuntimeObject.null(evaluation) || !!month.lazyInitializer)
+      if (!month || month === RuntimeObject.null(evaluation))
         self.set('month', RuntimeObject.number(evaluation, today.getMonth() + 1))
-      if (!year || year === RuntimeObject.null(evaluation) || !!year.lazyInitializer)
+      if (!year || year === RuntimeObject.null(evaluation))
         self.set('year', RuntimeObject.number(evaluation, today.getFullYear()))
 
       evaluation.currentFrame!.pushOperand(undefined)
