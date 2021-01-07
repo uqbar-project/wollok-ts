@@ -1049,9 +1049,20 @@ const step = (evaluation: Evaluation): void => {
         const { argumentNames } = instruction
         const self = currentFrame.popOperand()!
 
-        const fields: List<Field | Variable> = self.module.is('Describe')
-          ? self.module.variables()
-          : self.module.hierarchy().flatMap(module => module.fields())
+        if(self.module.is('Describe')) {
+          for (const variable of self.module.variables()) self.set(variable.name, undefined)
+
+          return evaluation.pushFrame(new Frame(self, [
+            ...self.module.variables().flatMap(field => [
+              ...compile(field.value),
+              STORE(field.name, true),
+            ]),
+            LOAD('self'),
+            RETURN,
+          ]))
+        }
+
+        const fields: List<Field> = self.module.hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
           self.set(field.name, undefined)
@@ -1059,9 +1070,7 @@ const step = (evaluation: Evaluation): void => {
         for (const name of [...argumentNames].reverse())
           self.set(name, currentFrame.popOperand())
 
-        if(self.module.is('Describe')) {
-
-        } else if(self.module.is('Singleton') && !!self.module.name) {
+        if(self.module.is('Singleton') && !!self.module.name) {
           for(const field of fields) {
             const defaultValue = (self.module.supercallArgs as List<NamedArgument>).find(arg => arg.is('NamedArgument') && arg.name === field.name)
             self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value)))
