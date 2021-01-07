@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 
 // TODO:
+// - evaluation.instance(evaluation.environment.getNodeByFQN('x').id) ===> evaluation.instance('x')
 // - Split this file in smaller more manageable pieces.
 
 // TODO: Create tickets:
@@ -25,6 +26,9 @@ export type Locals = Map<Name, RuntimeObject | LazyInitializer | undefined>
 const NULL_ID = 'null'
 const TRUE_ID = 'true'
 const FALSE_ID = 'false'
+
+const COPY = Symbol('copy')
+const CREATE_OR_RETRIEVE = Symbol('createOrRetrieve')
 
 // TODO: Receive these as arguments, but have a default
 export const DECIMAL_PRECISION = 5
@@ -97,16 +101,6 @@ export class Evaluation {
     return evaluation
   }
 
-  // TODO: Can we do this with a symbol instead of static?
-  static _retrieveInstanceOrSaveDefault(evaluation: Evaluation, instance: RuntimeObject): RuntimeObject {
-    const existing = evaluation.instanceCache.get(instance.id)
-    if (existing) return existing
-
-    evaluation.instanceCache.set(instance.id, instance)
-
-    return instance
-  }
-
 
   protected constructor(
     environment: Environment,
@@ -125,15 +119,24 @@ export class Evaluation {
   }
 
 
+  [CREATE_OR_RETRIEVE](instance: RuntimeObject): RuntimeObject {
+    const existing = this.instanceCache.get(instance.id)
+    if (existing) return existing
+
+    this.instanceCache.set(instance.id, instance)
+
+    return instance
+  }
+
   copy(): Evaluation {
     const cache = new Map<Id, any>()
 
     return new Evaluation(
       this.environment,
       this.natives,
-      evaluation => Context._copy(this.rootContext, evaluation, cache),
-      evaluation => this.frameStack.map(frame => Frame._copy(frame, evaluation, cache)),
-      evaluation => new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, RuntimeObject._copy(instance, evaluation, cache)])),
+      evaluation => this.rootContext[COPY](evaluation, cache),
+      evaluation => this.frameStack.map(frame => frame[COPY](evaluation, cache)),
+      evaluation => new Map([...this.instanceCache.entries()].map(([name, instance]) => [name, instance[COPY](evaluation, cache)])),
       this.log,
     )
   }
@@ -283,11 +286,12 @@ export class Frame {
   get context(): Context { return this.currentContext }
 
 
-  static _copy(frame: Frame, evaluation: Evaluation, cache: Map<Id, any>): Frame {
-    const copy = new Frame(Context._copy(frame.context, evaluation, cache), frame.instructions)
+  [COPY](evaluation: Evaluation, cache: Map<Id, any>): Frame {
+    const copy = new Frame(this.context[COPY](evaluation, cache), this.instructions)
+
     assign(copy, { currentContext: copy.context.parentContext, initialContext: copy.context.parentContext })
-    copy.operandStack.unshift(...frame.operandStack.map(operand => RuntimeObject._copy(operand, evaluation, cache)))
-    copy.pc = frame.pc
+    copy.operandStack.unshift(...this.operandStack.map(operand => operand?.[COPY](evaluation, cache)))
+    copy.pc = this.pc
 
     return copy
   }
@@ -351,38 +355,27 @@ export class Context {
   readonly locals: Locals = new Map()
   readonly exceptionHandlerIndex?: number
 
-  // TODO: can we make this with a symbol instead of static?
-  static _copy(context: Context, evaluation: Evaluation, cache: Map<Id, any>): Context
-  static _copy(context: Context | undefined, evaluation: Evaluation, cache: Map<Id, any>): Context | undefined
-  static _copy(context: Context | undefined, evaluation: Evaluation, cache: Map<Id, any>): Context | undefined {
-    if (!context) return undefined
-    if (context instanceof RuntimeObject) return RuntimeObject._copy(context, evaluation, cache)
-
-    const cached = cache.get(context.id)
-    if (cached) return cached
-
-    const copy = new Context(
-      Context._copy(context.parentContext, evaluation, cache),
-      context.exceptionHandlerIndex,
-      context.id,
-    )
-
-    cache.set(context.id, copy)
-
-    context.locals.forEach((local, name) => copy.locals.set(name,
-      local instanceof LazyInitializer
-        ? LazyInitializer._copy(local, evaluation, cache)
-        : RuntimeObject._copy(local, evaluation, cache)
-    ))
-
-    return copy
-  }
-
-
   constructor(parent?: Context, exceptionHandlerIndex?: number, id: Id = uuid()) {
     this.parentContext = parent
     this.exceptionHandlerIndex = exceptionHandlerIndex
     this.id = id
+  }
+
+  [COPY](evaluation: Evaluation, cache: Map<Id, any>): Context {
+    const cached = cache.get(this.id)
+    if (cached) return cached
+
+    const copy = new Context(
+      this.parentContext?.[COPY](evaluation, cache),
+      this.exceptionHandlerIndex,
+      this.id,
+    )
+
+    cache.set(this.id, copy)
+
+    this.locals.forEach((local, name) => copy.locals.set(name, local?.[COPY](evaluation, cache)))
+
+    return copy
   }
 
   get(local: Name): RuntimeObject | undefined {
@@ -409,37 +402,8 @@ export class RuntimeObject extends Context {
   readonly module: Module
   readonly innerValue?: InnerValue
 
-
-  static _copy(instance: RuntimeObject, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject
-  static _copy(instance: RuntimeObject | undefined, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject | undefined
-  static _copy(instance: RuntimeObject | undefined, evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject | undefined {
-    if (!instance) return undefined
-    if (instance instanceof LazyInitializer) return instance
-
-    const cached = cache.get(instance.id)
-    if (cached) return cached
-
-    const copy = new RuntimeObject(
-      Context._copy(instance.parentContext, evaluation, cache),
-      instance.module,
-      isArray(instance.innerValue) ? [...instance.innerValue] : instance.innerValue,
-      instance.id,
-    )
-
-    cache.set(instance.id, copy)
-
-    instance.locals.forEach((local, name) => copy.locals.set(name,
-      local instanceof LazyInitializer
-        ? LazyInitializer._copy(local, evaluation, cache)
-        : RuntimeObject._copy(local, evaluation, cache)
-    ))
-
-    return copy
-  }
-
   static null(evaluation: Evaluation): RuntimeObject {
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.currentContext,
         evaluation.environment.getNodeByFQN('wollok.lang.Object'),
@@ -450,8 +414,7 @@ export class RuntimeObject extends Context {
   }
 
   static boolean(evaluation: Evaluation, value: boolean): RuntimeObject {
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.currentContext,
         evaluation.environment.getNodeByFQN('wollok.lang.Boolean'),
@@ -465,8 +428,7 @@ export class RuntimeObject extends Context {
     const stringValue = value.toFixed(DECIMAL_PRECISION)
     const id = `N!${stringValue}`
 
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.rootContext,
         evaluation.environment.getNodeByFQN('wollok.lang.Number'),
@@ -477,8 +439,7 @@ export class RuntimeObject extends Context {
   }
 
   static string(evaluation: Evaluation, value: string): RuntimeObject {
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.rootContext,
         evaluation.environment.getNodeByFQN('wollok.lang.String'),
@@ -489,8 +450,7 @@ export class RuntimeObject extends Context {
   }
 
   static list(evaluation: Evaluation, elements: List<Id>): RuntimeObject {
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.currentContext,
         evaluation.environment.getNodeByFQN('wollok.lang.List'),
@@ -500,8 +460,7 @@ export class RuntimeObject extends Context {
   }
 
   static set(evaluation: Evaluation, elements: List<Id>): RuntimeObject {
-    return Evaluation._retrieveInstanceOrSaveDefault(
-      evaluation,
+    return evaluation[CREATE_OR_RETRIEVE](
       new RuntimeObject(
         evaluation.currentContext,
         evaluation.environment.getNodeByFQN('wollok.lang.Set'),
@@ -519,10 +478,9 @@ export class RuntimeObject extends Context {
       module.is('Describe') || module.is('Singleton') && !!module.name ? module.id : undefined
     )
 
-    for (const local of keys(locals))
-      instance.set(local, locals[local])
+    for (const local of keys(locals)) instance.set(local, locals[local])
 
-    return Evaluation._retrieveInstanceOrSaveDefault(evaluation, instance)
+    return evaluation[CREATE_OR_RETRIEVE](instance)
   }
 
   protected constructor(parent: Context, module: Module, innerValue?: InnerValue, id?: Id) {
@@ -532,6 +490,24 @@ export class RuntimeObject extends Context {
     this.innerValue = innerValue
 
     this.locals.set('self', this)
+  }
+
+  [COPY](evaluation: Evaluation, cache: Map<Id, any>): RuntimeObject {
+    const cached = cache.get(this.id)
+    if (cached) return cached
+
+    const copy = new RuntimeObject(
+      this.parentContext[COPY](evaluation, cache),
+      this.module,
+      isArray(this.innerValue) ? [...this.innerValue] : this.innerValue,
+      this.id,
+    )
+
+    cache.set(this.id, copy)
+
+    this.locals.forEach((local, name) => copy.locals.set(name, local?.[COPY](evaluation, cache)))
+
+    return copy
   }
 
   materialize(): RuntimeObject | undefined { return this }
@@ -561,13 +537,8 @@ export class LazyInitializer {
     readonly instructions: List<Instruction>,
   ) { }
 
-  static _copy(initializer: LazyInitializer, evaluation: Evaluation, cache: Map<Id, Context>): LazyInitializer {
-    return new LazyInitializer(
-      evaluation,
-      Context._copy(initializer.context, evaluation, cache),
-      initializer.local,
-      initializer.instructions,
-    )
+  [COPY](evaluation: Evaluation, cache: Map<Id, Context>): LazyInitializer {
+    return new LazyInitializer(evaluation, this.context[COPY](evaluation, cache), this.local, this.instructions)
   }
 
   materialize(): RuntimeObject | undefined {
