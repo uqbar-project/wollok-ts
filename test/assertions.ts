@@ -596,7 +596,7 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
 
 
 // TODO: check if needed
-export const buildEnvironment = (pattern: string, cwd: string): EnvironmentType => {
+export const buildEnvironment = (pattern: string, cwd: string, skipValidations = false): EnvironmentType => {
   const { time, timeEnd, log } = console
 
   time('Parsing files')
@@ -608,9 +608,11 @@ export const buildEnvironment = (pattern: string, cwd: string): EnvironmentType 
   const environment = buildEnv(files)
   timeEnd('Building environment')
 
-  const problems = validate(environment)
-  if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
-  else log('No problems found building the environment!')
+  if(!skipValidations) {
+    const problems = validate(environment)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
+    else log('No problems found building the environment!')
+  }
 
   return environment
 }

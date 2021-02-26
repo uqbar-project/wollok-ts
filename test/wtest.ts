@@ -1,7 +1,7 @@
 import { basename } from 'path'
 import yargs from 'yargs'
 import { Evaluation, RuntimeObject, Frame } from '../src/interpreter/runtimeModel'
-import compile, { PUSH, INIT } from '../src/interpreter/compiler'
+import compile, { PUSH, INIT, DUP, CALL, POP } from '../src/interpreter/compiler'
 import { LogLevel, ConsoleLogger } from '../src/interpreter/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
@@ -37,6 +37,9 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
           evaluation.pushFrame(new Frame(describeInstance, [
             PUSH(describeInstance.id),
             INIT([]),
+            DUP,
+            CALL('initialize', 0),
+            POP,
             ...node.fixtures().flatMap(fixture => compile(fixture)),
           ]))
           evaluation.stepAll()
@@ -62,7 +65,7 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
 }
 
 describe(basename(ARGUMENTS.root), () => {
-  const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root)
+  const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
   const evaluation = Evaluation.create(environment, natives)
 
   if (ARGUMENTS.verbose) evaluation.log = new ConsoleLogger(LogLevel.DEBUG)

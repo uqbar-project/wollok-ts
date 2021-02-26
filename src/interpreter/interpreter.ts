@@ -170,13 +170,17 @@ export default function (evaluation: Evaluation): void {
           ]))
         }
 
+        // TODO: add method to do this in the model?
         const fields: List<Field> = self.module.hierarchy().flatMap(module => module.fields())
 
         for (const field of fields)
           self.set(field.name, undefined)
 
-        for (const name of [...argumentNames].reverse())
+        for (const name of [...argumentNames].reverse()) {
+          if(!fields.some(field => field.name === name))
+            throw new Error(`${name} is not a field of ${self.module.fullyQualifiedName}`)
           self.set(name, currentFrame.popOperand())
+        }
 
         if(self.module.is('Singleton')) {
 

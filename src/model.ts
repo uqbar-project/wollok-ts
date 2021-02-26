@@ -352,9 +352,11 @@ export class Describe<S extends Stage = Final> extends $Entity<S> {
   variables(): List<Variable<S>> { return this.members.filter(is('Variable')) }
   fixtures(): List<Fixture<S>> { return this.members.filter(is('Fixture')) }
 
+  // TODO: Describe is a Module?
   @cached
   lookupMethod<R extends Linked>(this: Describe<R>, name: Name, arity: number): Method<R> | undefined {
     return this.methods().find(method => method.matchesSignature(name, arity))
+      ?? this.environment().getNodeByFQN<'Class', R>('wollok.lang.Object').lookupMethod(name, arity)
   }
 }
 
