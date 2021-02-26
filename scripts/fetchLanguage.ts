@@ -4,7 +4,7 @@ import { ConsoleLogger, LogLevel } from '../src/interpreter/log'
 import { wollokVersion } from '../package.json'
 
 const WOLLOK_LANGUAGE_REPO = 'https://github.com/uqbar-project/wollok-language.git'
-const WOLLOK_LANGUAGE_TAG = `v${wollokVersion}`
+const WOLLOK_LANGUAGE_TAG = wollokVersion.includes(':') ? wollokVersion.split(':')[1] : `v${wollokVersion}`
 const WOLLOK_LANGUAGE_FOLDER = 'language'
 
 const log = new ConsoleLogger(LogLevel.INFO)
