@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.3.0
+- Removed Stages from model so TypeScript stops crashing :(
+- Replaced model builders with better constructors
+- Discarded unnecesary Filler pipeline stage (filling is now handled in the constructors)
+
 ## v2.2.0
 
 - Masive reification. Most concepts previously represented by Ids are now reified into instances.
