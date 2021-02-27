@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn } from './extensions'
-import { Entity, Environment, Filled, Linked, List, Name, Node, Package, Scope, Problem, Reference, NodeOfKindOrCategory, Kind, Category, Stage } from './model'
+import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference, NodeOfKindOrCategory, Kind, Category } from './model'
 const { assign } = Object
 
 
@@ -11,16 +11,16 @@ export class LinkError extends Problem {
   constructor(public code: Name){ super() }
 }
 
-const fail = (code: Name) => (node: Reference<any, Linked>) =>
+const fail = (code: Name) => (node: Reference<any>) =>
   assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): List<Entity<Filled>> => {
+const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => {
   if (!isolated.is('Package')) return [...members.filter(({ name }) => name !== isolated.name), isolated]
-  const existent = members.find((member: Entity<Filled>): member is Package<Filled> =>
+  const existent = members.find((member: Entity): member is Package =>
     member.is('Package') && member.name === isolated.name)
   return existent
     ? [
@@ -35,14 +35,14 @@ const mergePackage = (members: List<Entity<Filled>>, isolated: Entity<Filled>): 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 class LocalScope implements Scope {
-  protected contributions = new Map<Name, Node<Linked>>()
+  protected contributions = new Map<Name, Node>()
   protected includedScopes: Scope[] = []
 
-  constructor(public containerScope?: Scope, ...contributions: [ Name, Node<Linked>][]) {
+  constructor(public containerScope?: Scope, ...contributions: [ Name, Node][]) {
     this.register(...contributions)
   }
 
-  resolve<Q extends Kind | Category, S extends Stage = Linked>(qualifiedName: Name, allowLookup = true):  NodeOfKindOrCategory<Q, S> | undefined {
+  resolve<Q extends Kind | Category>(qualifiedName: Name, allowLookup = true):  NodeOfKindOrCategory<Q> | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
 
     const step = !allowLookup
@@ -51,10 +51,10 @@ class LocalScope implements Scope {
         found ?? included.resolve(start, false)
       , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
 
-    return rest.length ? step?.scope?.resolve<Q, S>(rest, false) : step as NodeOfKindOrCategory<Q, S>
+    return rest.length ? step?.scope?.resolve<Q>(rest, false) : step as NodeOfKindOrCategory<Q>
   }
 
-  register(...contributions: [ Name, Node<Linked>][]): void {
+  register(...contributions: [ Name, Node][]): void {
     for(const [name, node] of contributions) this.contributions.set(name, node)
   }
 
@@ -62,7 +62,7 @@ class LocalScope implements Scope {
 }
 
 
-const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
+const scopeContribution = (contributor: Node): List<[Name, Node]> => {
   if (
     contributor.is('Entity') ||
     contributor.is('Field') ||
@@ -73,7 +73,7 @@ const scopeContribution = (contributor: Node<Linked>): List<[Name, Node]> => {
 }
 
 
-const assignScopes = (environment: Environment<Linked>) => {
+const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
@@ -120,13 +120,13 @@ const assignScopes = (environment: Environment<Linked>) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export default (
-  newPackages: List<Package<Filled>>,
-  baseEnvironment?: Environment<Linked>,
+  newPackages: List<Package>,
+  baseEnvironment?: Environment,
 ): Environment => {
-  const environment = new Environment<Linked>({
+  const environment = new Environment({
     id: uuid(),
     scope: null as any,
-    members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package<Linked>>,
+    members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package>,
   }).transform(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {

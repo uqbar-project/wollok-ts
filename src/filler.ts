@@ -1,37 +1,37 @@
 import { getter, setter } from './builders'
-import { Node, Body, Catch, Class, Constructor, Field, Filled, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Raw, Reference, Singleton, Try, Variable } from './model'
+import { Node, Body, Catch, Class, Constructor, Field, If, Kind, Literal, Method, Mixin, Module, NodeOfKind, Reference, Singleton, Try, Variable } from './model'
 
-const OBJECT_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Object' })
+const OBJECT_CLASS: Reference<'Class'> = new Reference({ name: 'wollok.lang.Object' })
 
-const EXCEPTION_CLASS: Reference<'Class', Filled> = new Reference({ name: 'wollok.lang.Exception' })
+const EXCEPTION_CLASS: Reference<'Class'> = new Reference({ name: 'wollok.lang.Exception' })
 
-const NULL: Literal<Filled> = new Literal({ value: null })
+const NULL: Literal = new Literal({ value: null })
 
-const EMPTY_BODY: Body<Filled> = new Body({ sentences: [] })
+const EMPTY_BODY: Body = new Body({ sentences: [] })
 
-const DEFAULT_CONSTRUCTOR: Constructor<Filled> = new Constructor({
+const DEFAULT_CONSTRUCTOR: Constructor = new Constructor({
   parameters: [],
   body: EMPTY_BODY,
   baseCall: { callsSuper: true, args: [] },
 })
 
 
-const filledPropertyAccessors = (node: Module<Filled>) => {
-  const overridesGeter = (field: Field<Filled>) => node.methods()
+const filledPropertyAccessors = (node: Module) => {
+  const overridesGeter = (field: Field) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 0)
 
-  const overridesSeter = (field: Field<Filled>) => node.methods()
+  const overridesSeter = (field: Field) => node.methods()
     .some(method => method.name === field.name && method.parameters.length === 1)
 
   const propertyFields = node.fields().filter(field => field.isProperty)
 
   const propertyGetters = propertyFields
     .filter(field => !overridesGeter(field))
-    .map((field: Field<Filled>) => getter(field.name) as Method<Filled>)
+    .map((field: Field) => getter(field.name) as Method)
 
   const propertySetters = propertyFields
     .filter(field => !field.isReadOnly && !overridesSeter(field))
-    .map((field: Field<Filled>) => setter(field.name) as Method<Filled>)
+    .map((field: Field) => setter(field.name) as Method)
 
   return [...propertyGetters, ...propertySetters]
 }
@@ -39,8 +39,8 @@ const filledPropertyAccessors = (node: Module<Filled>) => {
 // TODO: So... Here's an idea: How about we make a type for the "transitioning" states so
 // the non-node fields would be on S-1, but the children would be on S+1 ?
 
-export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Filled> => {
-  const result = rawNode.transform<Filled>(filledNode => filledNode.match<Node<Filled>>({
+export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
+  const result = rawNode.transform(filledNode => filledNode.match<Node>({
     Class: node => new Class({
       ...node,
       superclassRef: node.name === 'Object' ? null : node.superclassRef ?? OBJECT_CLASS,
@@ -77,7 +77,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
       elseBody: node.elseBody ?? EMPTY_BODY,
     }),
 
-    Try: node => new Try<Filled>({
+    Try: node => new Try({
       ...node,
       always: node.always ?? EMPTY_BODY,
     }),
@@ -95,5 +95,5 @@ export default <K extends Kind>(rawNode: NodeOfKind<K, Raw>): NodeOfKind<K, Fill
     Node: node => node,
   }))
 
-  return result as NodeOfKind<K, Filled>
+  return result as NodeOfKind<K>
 }

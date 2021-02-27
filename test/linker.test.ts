@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { Class, Closure, Describe, Field, fromJSON, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable, Test } from '../src/builders'
 import link from '../src/linker'
-import { Environment, Filled, Linked, List, Literal as LiteralNode, Package as PackageNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Environment, List, Literal as LiteralNode, Package as PackageNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
 import { LinkError } from '../src/linker'
@@ -77,11 +77,11 @@ describe('Wollok linker', () => {
     it('should re-scope merged packages to find new elements', () => {
       const baseEnvironment = link([
         Package('p')(Class('X', { superclassRef: Reference('Object') })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const nextEnvironment = link([
         Package('p')(Class('Y', { superclassRef: Reference('Object') })()),
-      ] as PackageNode<Filled>[], baseEnvironment)
+      ] as PackageNode[], baseEnvironment)
 
       const p = nextEnvironment.members[1]
       const Y = p.members[1]
@@ -98,7 +98,7 @@ describe('Wollok linker', () => {
         Class('C', { superclassRef: Reference('Object') })(),
         Package('q')(Mixin('M')()),
       ),
-    ] as PackageNode<Filled>[], WRE)
+    ] as PackageNode[], WRE)
 
     const nodes = [environment, ...environment.descendants()]
 
@@ -114,7 +114,7 @@ describe('Wollok linker', () => {
           Field('g', { value: Reference('p') }),
           Field('h', { value: Reference('f') }),
         )),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const Object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
       const p = environment.getNodeByFQN<'Package'>('p')
@@ -124,9 +124,9 @@ describe('Wollok linker', () => {
       const h = C.fields()[2]
 
       C.superclassRef!.should.target(Object)
-      f.value.should.target(C)
-      g.value.should.target(p)
-      h.value.should.target(f)
+      f.value!.should.target(C)
+      g.value!.should.target(p)
+      h.value!.should.target(f)
     })
 
     it('should override targets according to scope level', () => {
@@ -154,25 +154,25 @@ describe('Wollok linker', () => {
             )
           ),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const S = environment.getNodeByFQN<'Singleton'>('x.x')
       const C = environment.getNodeByFQN<'Singleton'>('x.C')
       const D = environment.getNodeByFQN<'Singleton'>('x.D')
       const f = S.fields()[0]
       const m1 = S.methods()[0]
-      const closure = m1.sentences()[1] as LiteralNode<Linked, SingletonNode<Linked>>
-      const closureReturn = closure.value.methods()[0].sentences()[0] as ReturnNode<Linked>
+      const closure = m1.sentences()[1] as LiteralNode<SingletonNode>
+      const closureReturn = closure.value.methods()[0].sentences()[0] as ReturnNode
       const m2 = S.methods()[1]
-      const m2var = m2.sentences()[0] as VariableNode<Linked>
+      const m2var = m2.sentences()[0] as VariableNode
       const m3 = S.methods()[2]
       const m4 = D.methods()[0]
 
       S.supercallArgs[0].should.target(f)
-      f.value.should.target(f)
+      f.value!.should.target(f)
       m1.sentences()[0].should.target(m1.parameters[0])
       closureReturn.value!.should.target(closure.value.methods()[0].parameters[0])
-      m2var.value.should.target(m2var)
+      m2var.value!.should.target(m2var)
       m2.sentences()[1].should.target(m2var)
       m3.sentences()[0].should.target(f)
       C.superclassRef!.should.target(S)
@@ -190,7 +190,7 @@ describe('Wollok linker', () => {
             Reference('y'),
           )),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const A = environment.getNodeByFQN<'Class'>('p.A')
       const M = environment.getNodeByFQN<'Class'>('p.M')
@@ -209,7 +209,7 @@ describe('Wollok linker', () => {
             Method('m')(Reference('x'))
           ),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
 
@@ -226,7 +226,7 @@ describe('Wollok linker', () => {
             Method('m')(Reference('x'))
           ),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
 
@@ -240,7 +240,7 @@ describe('Wollok linker', () => {
           Class('A')(Field('x')),
           Class('C', { superclassRef: Reference('A'), mixins: [Reference('M')] })(Method('m')(Reference('x'))),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -255,7 +255,7 @@ describe('Wollok linker', () => {
           Mixin('N')(Field('x')),
           Class('C', { mixins: [Reference('M')] })(Method('m')(Reference('x'))),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -270,7 +270,7 @@ describe('Wollok linker', () => {
           Class('B', { superclassRef: Reference('A') })(Field('x')),
           Class('C', { superclassRef: Reference('B') })(Method('m')(Reference('x'))),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const B = environment.getNodeByFQN<'Class'>('p.B')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -291,7 +291,7 @@ describe('Wollok linker', () => {
         ),
         Package('q')(Class('S', { superclassRef: Reference('Object') })()),
         Package('r')(Class('T', { superclassRef: Reference('Object') })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const D = environment.getNodeByFQN<'Class'>('p.D')
@@ -311,7 +311,7 @@ describe('Wollok linker', () => {
         Package('r')(
           Class('C')(),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       expect(() => environment.getNodeByFQN('p.q.s')).to.throw()
     })
@@ -322,7 +322,7 @@ describe('Wollok linker', () => {
         Package('r')(
           Class('C')(),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       expect(() => environment.getNodeByFQN('p.C')).to.throw()
     })
@@ -333,7 +333,7 @@ describe('Wollok linker', () => {
           Describe('"G"')(),
           Test('"T"')(),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       expect(() => environment.getNodeByFQN('p.G')).to.throw()
       expect(() => environment.getNodeByFQN('p."G"')).to.not.throw()
@@ -349,7 +349,7 @@ describe('Wollok linker', () => {
     it('should recover from missing reference in imports', () => {
       const environment = link([
         Package('p', { imports: [Import(Reference('q.A'))] })(),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       environment.getNodeByFQN<'Package'>('p').imports[0].entity.problems!.should.deep.equal([new LinkError('missingReference')])
     })
@@ -357,7 +357,7 @@ describe('Wollok linker', () => {
     it('should recover from missing reference in superclass', () => {
       const environment = link([
         Package('p')(Class('C', { superclassRef: Reference('S') })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       environment.getNodeByFQN<'Class'>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
     })
@@ -365,7 +365,7 @@ describe('Wollok linker', () => {
     it('should recover from missing reference in mixin', () => {
       const environment = link([
         Package('p')(Class('C', { mixins: [Reference('M')] })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
 
       environment.getNodeByFQN<'Class'>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
     })
@@ -373,7 +373,7 @@ describe('Wollok linker', () => {
     it('should not crash if a class inherits from itself', () => {
       link([
         Package('p')(Class('C', { superclassRef: Reference('C') })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
     })
 
     it('should not crash if there is an inheritance cycle', () => {
@@ -383,13 +383,13 @@ describe('Wollok linker', () => {
           Class('B', { superclassRef: Reference('A') })(),
           Class('C', { superclassRef: Reference('B') })(),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
     })
 
     it('should not crash if a mixin includes itself', () => {
       link([
         Package('p')(Mixin('A', { mixins: [Reference('A')] })()),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
     })
 
     it('should not crash if there is an linearization cycle', () => {
@@ -399,7 +399,7 @@ describe('Wollok linker', () => {
           Mixin('B', { mixins: [Reference('A')] })(),
           Mixin('C', { mixins: [Reference('B')] })(),
         ),
-      ] as PackageNode<Filled>[], WRE)
+      ] as PackageNode[], WRE)
     })
 
   })

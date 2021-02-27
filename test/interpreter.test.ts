@@ -5,7 +5,7 @@ import { Class, Constructor, Field, Literal, Method, Package, Parameter, Referen
 import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
 import * as compiler from '../src/interpreter/compiler'
 import link from '../src/linker'
-import { Constructor as ConstructorNode, Filled, Package as PackageNode } from '../src/model'
+import { Constructor as ConstructorNode, Package as PackageNode } from '../src/model'
 import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
 import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
 
@@ -26,7 +26,7 @@ const WRE = Package('wollok')(
     Class('EvaluationError', { superclassRef: Reference('wollok.lang.Object') })(),
   ),
   Package('lib')(),
-) as unknown as PackageNode<Filled>
+) as unknown as PackageNode
 
 const environment = link([WRE])
 
@@ -364,7 +364,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           environment: link([Package('test')(
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode<Filled>[], environment),
+          )] as PackageNode[], environment),
           frames: [
             { instructions: [INSTANTIATE('test.C')], contexts:[ctx`c1`] },
           ],
@@ -573,7 +573,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(),
             )
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -593,7 +593,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })(),
             )
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`], contexts:[ctx`c1`] },
@@ -627,7 +627,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('test.B') })(
               Method('m', { isOverride: true })()
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' })],
           frames: [
             { instructions: [CALL('m', 0, 'test.C')], operands:[obj`receiver`] },
@@ -647,7 +647,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Method('m', { parameters: [Parameter('p1'), Parameter('p2')], body: 'native' })(),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -670,7 +670,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })], body: 'native' })(),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -691,7 +691,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           environment: link([WRE, Package('test')(
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           rootContext: ctx`root`,
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
@@ -711,7 +711,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Method('m')(),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg1`, obj`receiver`] },
@@ -733,7 +733,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })(),
             )
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
@@ -751,7 +751,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('test.B') })(
               Constructor({ baseCall: { callsSuper: true, args: [] } })(),
             )
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' })],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(0, 'test.C')], operands:[obj`target`] },
@@ -781,7 +781,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Constructor({ parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })(),
             )
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(3, 'test.C')], operands:[obj`target`, obj`arg3`, obj`arg2`, obj`arg1`], contexts:[ctx`c1`] },
@@ -802,7 +802,7 @@ describe('Wollok Interpreter', () => {
         evaluation({
           environment: link([WRE, Package('test')(
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
@@ -816,7 +816,7 @@ describe('Wollok Interpreter', () => {
             Class('C', { superclassRef: Reference('wollok.lang.Object') })(
               Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })(),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg1`] },
@@ -847,7 +847,7 @@ describe('Wollok Interpreter', () => {
               Field('f3', { value: Literal(3) }),
               Field('f4', { value: Literal(4) }),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg3`, obj`arg1`],
           frames: [
             { instructions: [INIT(['f3', 'f1'])], operands:[obj`target`, obj`arg1`, obj`arg3`] },
@@ -870,7 +870,7 @@ describe('Wollok Interpreter', () => {
               Field('f1', { value: Literal(1) }),
               Field('f2', { value: Literal(2) }),
             ),
-          )] as PackageNode<Filled>[]),
+          )] as PackageNode[]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [INIT(['f1', 'f2'])], operands:[obj`target`, obj`arg1`] },

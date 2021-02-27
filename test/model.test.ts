@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { Class, Method, Raw, Linked, Body, Reference } from '../src/model'
+import { Class, Method, Body, Reference } from '../src/model'
 import { restore, stub } from 'sinon'
 
 should()
@@ -9,9 +9,9 @@ describe('Wollok model', () => {
   describe('cache', () => {
 
     it('should be populated the first time the node is used', () => {
-      const method = new Method<Raw>({ name: 'm', body: 'native', isOverride: false, parameters: [] })
-      // TODO: Use a raw method instead of casting
-      const node = new Class<Raw>({ name: 'C', mixins: [], members: [method] }) as Class<Linked>
+      const method = new Method({ name: 'm', body: 'native', isOverride: false, parameters: [] })
+      const node = new Class({ name: 'C', mixins: [], members: [method] })
+      stub(node, 'hierarchy').returns([node])
 
       node._cache().size.should.equal(0)
       const response = node.lookupMethod(method.name, method.parameters.length)
@@ -20,10 +20,10 @@ describe('Wollok model', () => {
     })
 
     it('should prevent a second call to the same method', () => {
-      const method = new Method<Raw>({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
-      const otherMethod = new Method<Raw>({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
-      // TODO: Use a raw method instead of casting
-      const node = new Class<Raw>({ name: 'C', mixins: [], members: [method] }) as Class<Linked>
+      const method = new Method({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
+      const otherMethod = new Method({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
+      const node = new Class({ name: 'C', mixins: [], members: [method] })
+      stub(node, 'hierarchy').returns([node])
 
       node.lookupMethod(method.name, method.parameters.length)
       node._cache().set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)

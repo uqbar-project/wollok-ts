@@ -34,10 +34,10 @@ describe('Wollok filler', () => {
   })
 
   it('fills in null as default initial value for Fields', () => {
-    fill(Field('f')).value.should.be.filledInto(Literal(null))
+    fill(Field('f')).value?.should.be.filledInto(Literal(null))
 
     const value = Literal(5)
-    fill(Field('f', { value })).value.should.be.filledInto(value)
+    fill(Field('f', { value })).value?.should.be.filledInto(value)
   })
 
   it('fills in default base call for Constructors', () => {
@@ -48,10 +48,10 @@ describe('Wollok filler', () => {
   })
 
   it('fills in null as default initial value for Variables', () => {
-    fill(Variable('f')).value.should.be.filledInto(Literal(null))
+    fill(Variable('f')).value?.should.be.filledInto(Literal(null))
 
     const value = Literal(5)
-    fill(Variable('f', { value })).value.should.be.filledInto(value)
+    fill(Variable('f', { value })).value?.should.be.filledInto(value)
   })
 
   it('fills in missing else clause for Ifs', () => {

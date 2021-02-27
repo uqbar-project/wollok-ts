@@ -26,8 +26,6 @@ import { Assignment as AssignmentNode,
   Class as ClassNode,
   Constructor as ConstructorNode,
   Field as FieldNode,
-  Filled,
-  Linked,
   Method as MethodNode,
   New as NewNode,
   Package as PackageNode,
@@ -69,9 +67,9 @@ describe('Wollok Validations', () => {
       ])
 
       const { singletonIsNotUnnamed } = validations
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const unnamedSingleton = packageExample.members[0] as SingletonNode<Linked>
-      const namedSingleton = packageExample.members[1] as SingletonNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const unnamedSingleton = packageExample.members[0] as SingletonNode
+      const namedSingleton = packageExample.members[1] as SingletonNode
 
       it('should pass when singleton has a name', () => {
         namedSingleton.should.pass(singletonIsNotUnnamed)
@@ -94,7 +92,7 @@ describe('Wollok Validations', () => {
         })(Package('c')()),
       ])
 
-      const packageExample = enviroment.members[1] as PackageNode<Linked>
+      const packageExample = enviroment.members[1] as PackageNode
       const importExample = packageExample.imports[0]
       const { importHasNotLocalReference } = validations(enviroment)
 
@@ -117,14 +115,14 @@ describe('Wollok Validations', () => {
           )(),
           Class('program')(),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { nameIsNotKeyword } = validations
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
       const referenceWithKeywordName = classExample.superclassRef!
 
-      const classExample2 = packageExample.members[1] as ClassNode<Linked>
+      const classExample2 = packageExample.members[1] as ClassNode
       const referenceWithValidName = classExample2.superclassRef!
 
       it('should pass when name is not a keyword', () => {
@@ -146,11 +144,11 @@ describe('Wollok Validations', () => {
           Class('c')(),
           Class('C')(),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classWithLowercaseName = packageExample.members[0] as ClassNode<Linked>
-      const classWithUppercaseName = packageExample.members[1] as ClassNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classWithLowercaseName = packageExample.members[0] as ClassNode
+      const classWithUppercaseName = packageExample.members[1] as ClassNode
       const { nameBeginsWithUppercase } = validations
 
       it('should pass when name begins with uppercase', () => {
@@ -187,13 +185,13 @@ describe('Wollok Validations', () => {
           ),
 
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classWithDuplicatedSignatures = packageExample.members[0] as ClassNode<Linked>
-      const classWithDistinctSignatures = packageExample.members[1] as ClassNode<Linked>
-      const classWithOverlappingVarArgSignature = packageExample.members[2] as ClassNode<Linked>
-      const classWithDistinctSignaturesAndVarArg = packageExample.members[3] as ClassNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classWithDuplicatedSignatures = packageExample.members[0] as ClassNode
+      const classWithDistinctSignatures = packageExample.members[1] as ClassNode
+      const classWithOverlappingVarArgSignature = packageExample.members[2] as ClassNode
+      const classWithDistinctSignaturesAndVarArg = packageExample.members[3] as ClassNode
 
       const { hasDistinctSignature } = validations
 
@@ -226,11 +224,11 @@ describe('Wollok Validations', () => {
           Test('t')(New(Reference('C'), [])),
           Test('t')(New(Reference('C2'), [])),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const instantiationOfAbstractClass = (packageExample.members[2] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
-      const instantiationOfConcreteClass = (packageExample.members[3] as TestNode<Linked>).body.sentences[0] as NewNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const instantiationOfAbstractClass = (packageExample.members[2] as TestNode).body.sentences[0] as NewNode
+      const instantiationOfConcreteClass = (packageExample.members[3] as TestNode).body.sentences[0] as NewNode
 
       const { instantiationIsNotAbstractClass } = validations
 
@@ -266,21 +264,21 @@ describe('Wollok Validations', () => {
             Constructor({ parameters: [Parameter('a'), Parameter('b')] })(),
           ),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classWithConstructorsOfSameArity = packageExample.members[0] as ClassNode<Linked>
-      const conflictingArityConstructor = classWithConstructorsOfSameArity.members[0] as ConstructorNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classWithConstructorsOfSameArity = packageExample.members[0] as ClassNode
+      const conflictingArityConstructor = classWithConstructorsOfSameArity.members[0] as ConstructorNode
 
-      const classWithVarArgConflictingConstructors = packageExample.members[1] as ClassNode<Linked>
-      const conflictingArityWithVarArgConstructor = classWithVarArgConflictingConstructors.members[0] as ConstructorNode<Linked>
+      const classWithVarArgConflictingConstructors = packageExample.members[1] as ClassNode
+      const conflictingArityWithVarArgConstructor = classWithVarArgConflictingConstructors.members[0] as ConstructorNode
 
-      const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as ClassNode<Linked>
-      const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0] as ConstructorNode<Linked>
+      const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as ClassNode
+      const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0] as ConstructorNode
 
       const { hasDistinctSignature } = validations
-      const classWithSingleConstructor = packageExample.members[3] as ClassNode<Linked>
-      const singleConstructor = classWithSingleConstructor.members[0] as ConstructorNode<Linked>
+      const classWithSingleConstructor = packageExample.members[3] as ClassNode
+      const singleConstructor = classWithSingleConstructor.members[0] as ConstructorNode
 
       it('should pass when constructors have distinct arity', () => {
         distinctArityWithVarArgConstructor.should.pass(hasDistinctSignature)
@@ -309,14 +307,14 @@ describe('Wollok Validations', () => {
           Method('m', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true }), Parameter('p')] })(),
           Method('m2', { parameters: [Parameter('c'), Parameter('q', { isVarArg: true })] })()
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { onlyLastParameterIsVarArg } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodWithVarArgInSecondToLastParameter = classExample.members[0] as MethodNode<Linked>
-      const methodWithVarArgInLastParameter = classExample.members[1] as MethodNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodWithVarArgInSecondToLastParameter = classExample.members[0] as MethodNode
+      const methodWithVarArgInLastParameter = classExample.members[1] as MethodNode
 
       it('should pass when only the last parameter is var arg', () => {
         methodWithVarArgInLastParameter.should.pass(onlyLastParameterIsVarArg)
@@ -338,13 +336,13 @@ describe('Wollok Validations', () => {
           )(Method('m')(Super())),
 
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { methodNotOnlyCallToSuper } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[1] as ClassNode<Linked>
-      const methodWithOnlyCallToSuper = classExample.members[0] as MethodNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[1] as ClassNode
+      const methodWithOnlyCallToSuper = classExample.members[0] as MethodNode
 
       it('should not pass when the method body is only a call to super', () => {
         methodWithOnlyCallToSuper.should.not.pass(methodNotOnlyCallToSuper)
@@ -360,14 +358,14 @@ describe('Wollok Validations', () => {
             Method('m', { parameters: [Parameter('param')] })(),
           ),
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { hasDistinctSignature } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodMNoParameter = classExample.members[0] as MethodNode<Linked>
-      const methodM1Parameter = classExample.members[1] as MethodNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodMNoParameter = classExample.members[0] as MethodNode
+      const methodM1Parameter = classExample.members[1] as MethodNode
 
       it('should not confuse methods with different parameters', () => {
         methodMNoParameter.should.pass(hasDistinctSignature)
@@ -387,17 +385,17 @@ describe('Wollok Validations', () => {
           Field('b'),
           Method('m')(Assignment(Reference('p.C'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
 
       const { nonAsignationOfFullyQualifiedReferences } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodExample = classExample.members[2] as MethodNode<Linked>
-      const bodyExample = methodExample.body as BodyNode<Linked>
-      const assignmentOfFullyQualifiedReference = bodyExample.sentences[0] as AssignmentNode<Linked>
-      const validAssignment = bodyExample.sentences[1] as AssignmentNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[2] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const assignmentOfFullyQualifiedReference = bodyExample.sentences[0] as AssignmentNode
+      const validAssignment = bodyExample.sentences[1] as AssignmentNode
 
       it('should pass when assignment reference is not fully qualified', () => {
         validAssignment.should.pass(nonAsignationOfFullyQualifiedReferences)
@@ -416,17 +414,17 @@ describe('Wollok Validations', () => {
           Field('b'),
           Method('m')(Assignment(Reference('a'), Reference('a')), Assignment(Reference('a'), Reference('b'))),
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
 
       const { notAssignToItself } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodExample = classExample.members[2] as MethodNode<Linked>
-      const bodyExample = methodExample.body as BodyNode<Linked>
-      const selfAssignment = bodyExample.sentences[0] as AssignmentNode<Linked>
-      const validAssignment = bodyExample.sentences[1] as AssignmentNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[2] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const selfAssignment = bodyExample.sentences[0] as AssignmentNode
+      const validAssignment = bodyExample.sentences[1] as AssignmentNode
 
       it('should pass when not assigning to itself', () => {
         validAssignment.should.pass(notAssignToItself)
@@ -453,23 +451,23 @@ describe('Wollok Validations', () => {
           })),
           Method('m3')(Try([Reference('p')], { always: [Reference('p')] }))
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { hasCatchOrAlways } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodExample = classExample.members[0] as MethodNode<Linked>
-      const bodyExample = methodExample.body as BodyNode<Linked>
-      const tryWithEmptyAlways = bodyExample.sentences[0] as TryNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+      const bodyExample = methodExample.body as BodyNode
+      const tryWithEmptyAlways = bodyExample.sentences[0] as TryNode
 
-      const methodExample2 = classExample.members[1] as MethodNode<Linked>
-      const bodyExample2 = methodExample2.body as BodyNode<Linked>
-      const tryWithCatch = bodyExample2.sentences[0] as TryNode<Linked>
+      const methodExample2 = classExample.members[1] as MethodNode
+      const bodyExample2 = methodExample2.body as BodyNode
+      const tryWithCatch = bodyExample2.sentences[0] as TryNode
 
-      const methodExample3 = classExample.members[2] as MethodNode<Linked>
-      const bodyExample3 = methodExample3.body as BodyNode<Linked>
-      const tryWithAlways = bodyExample3.sentences[0] as TryNode<Linked>
+      const methodExample3 = classExample.members[2] as MethodNode
+      const bodyExample3 = methodExample3.body as BodyNode
+      const tryWithAlways = bodyExample3.sentences[0] as TryNode
 
       it('should pass when try has catch', () => {
         tryWithCatch.should.pass(hasCatchOrAlways)
@@ -490,15 +488,15 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(Class('C')(Method('m', { parameters: [Parameter('C'), Parameter('k')] })())),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { nameBeginsWithLowercase } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodExample = classExample.members[0] as MethodNode<Linked>
-      const uppercaseParameter = methodExample.parameters[0] as ParameterNode<Linked>
-      const lowercaseParameter = methodExample.parameters[1] as ParameterNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
+      const uppercaseParameter = methodExample.parameters[0] as ParameterNode
+      const lowercaseParameter = methodExample.parameters[1] as ParameterNode
 
       it('should pass when name is a lowercase letter', () => {
         lowercaseParameter.should.pass(nameBeginsWithLowercase)
@@ -520,14 +518,14 @@ describe('Wollok Validations', () => {
           Field('b', { value: Reference('a') }),
           Field('a'),
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { notAssignToItselfInVariableDeclaration } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const declarationWithSelfAssignment = classExample.members[0] as FieldNode<Linked>
-      const declarationWithoutSelfAssignment = classExample.members[1] as FieldNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const declarationWithSelfAssignment = classExample.members[0] as FieldNode
+      const declarationWithoutSelfAssignment = classExample.members[1] as FieldNode
 
       it('should pass when not self-assigning', () => {
         declarationWithoutSelfAssignment.should.pass(notAssignToItselfInVariableDeclaration)
@@ -544,11 +542,11 @@ describe('Wollok Validations', () => {
       const environment = link([
         WRE,
         Package('p')(Test('t')()),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { containerIsNotEmpty } = validations
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const emptyTest = packageExample.members[0] as TestNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const emptyTest = packageExample.members[0] as TestNode
 
       it('should not pass when test is empty', () => {
         emptyTest.should.not.pass(containerIsNotEmpty)
@@ -566,8 +564,8 @@ describe('Wollok Validations', () => {
         Package('c')(),
       ])
       const { notDuplicatedPackageName } = validations
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const packageExample2 = environment.members[3] as PackageNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const packageExample2 = environment.members[3] as PackageNode
       assert.ok(!!notDuplicatedPackageName(packageExample, 'duplicatedPackageName'))
       assert.ok(!notDuplicatedPackageName(packageExample2, 'duplicatedPackageName'))
     })*/
@@ -581,15 +579,15 @@ describe('Wollok Validations', () => {
           Program('pr')(Return(Self({ source: {} as any }))),
           Class('C')(Method('m')(Return(Self({ source: {} as any }))))
         ),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { selfIsNotInAProgram } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const programExample = packageExample.members[0] as ProgramNode<Linked>
-      const selfInProgram = (programExample.body.sentences[0] as ReturnNode<Linked>).value!
-      const classExample = packageExample.members[1] as ClassNode<Linked>
-      const methodExample = classExample.members[0] as MethodNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const programExample = packageExample.members[0] as ProgramNode
+      const selfInProgram = (programExample.body.sentences[0] as ReturnNode).value!
+      const classExample = packageExample.members[1] as ClassNode
+      const methodExample = classExample.members[0] as MethodNode
       const selfInMethod = (methodExample.sentences()[0] as ReturnNode).value!
 
       it('should pass when self is in a method', () => {
@@ -610,14 +608,14 @@ describe('Wollok Validations', () => {
           Field('d'),
           Method('m')(Return(Send(Reference('d'), '==', [Literal(true)])))
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { dontCompareAgainstTrueOrFalse } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const methodExample = classExample.members[1] as MethodNode<Linked>
-      const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode<Linked>).value as SendNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const methodExample = classExample.members[1] as MethodNode
+      const comparisonAgainstTrue = (methodExample.sentences()[0] as ReturnNode).value as SendNode
 
       it('should not pass when comparing against true literal', () => {
         comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
@@ -633,16 +631,16 @@ describe('Wollok Validations', () => {
           Constructor()(Super([], { source: {} as any })),
           Method('m')(Super([], { source: {} as any })),
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { noSuperInConstructorBody } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const constructorExample = classExample.members[0] as ConstructorNode<Linked>
-      const superInConstructorBody = constructorExample.body.sentences[0] as SuperNode<Linked>
-      const method = classExample.members[1] as MethodNode<Linked>
-      const superInMethodBody = method.sentences()[0] as SuperNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const constructorExample = classExample.members[0] as ConstructorNode
+      const superInConstructorBody = constructorExample.body.sentences[0] as SuperNode
+      const method = classExample.members[1] as MethodNode
+      const superInMethodBody = method.sentences()[0] as SuperNode
 
       it('should pass when super is in method body', () => {
         superInMethodBody.should.pass(noSuperInConstructorBody)
@@ -662,16 +660,16 @@ describe('Wollok Validations', () => {
           Constructor()(Return(Literal('a'), { source: {} as any })),
           Method('m')(Return(Literal('a'), { source: {} as any })),
         )),
-      ] as PackageNode<Filled>[])
+      ] as PackageNode[])
 
       const { noReturnStatementInConstructor } = validations
 
-      const packageExample = environment.members[1] as PackageNode<Linked>
-      const classExample = packageExample.members[0] as ClassNode<Linked>
-      const constructorExample = classExample.members[0] as ConstructorNode<Linked>
-      const returnInConstructor = constructorExample.body.sentences[0] as ReturnNode<Linked>
-      const method = classExample.members[1] as MethodNode<Linked>
-      const returnInMethod = method.sentences()[0] as ReturnNode<Linked>
+      const packageExample = environment.members[1] as PackageNode
+      const classExample = packageExample.members[0] as ClassNode
+      const constructorExample = classExample.members[0] as ConstructorNode
+      const returnInConstructor = constructorExample.body.sentences[0] as ReturnNode
+      const method = classExample.members[1] as MethodNode
+      const returnInMethod = method.sentences()[0] as ReturnNode
 
       it('should pass when return is in a method', () => {
         returnInMethod.should.pass(noReturnStatementInConstructor)

@@ -61,7 +61,7 @@ export class Evaluation {
       rootContext.set(module.fullyQualifiedName(), RuntimeObject.object(evaluation, module))
 
     for (const constant of globalConstants)
-      rootContext.set(constant.fullyQualifiedName(), new LazyInitializer(evaluation, rootContext, constant.fullyQualifiedName(), compile(constant.value)))
+      rootContext.set(constant.fullyQualifiedName(), new LazyInitializer(evaluation, rootContext, constant.fullyQualifiedName(), compile(constant.value!)))
 
     evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {

@@ -3,7 +3,7 @@ import { stub } from 'sinon'
 import uuid from 'uuid'
 import { Environment } from '../src/builders'
 import link from '../src/linker'
-import { Name, Linked, Node, Package, Reference, List, Environment as EnvironmentType, Id } from '../src/model'
+import { Name, Node, Package, Reference, List, Environment as EnvironmentType, Id } from '../src/model'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
@@ -20,7 +20,7 @@ const { keys } = Object
 
 declare global {
   export namespace Chai {
-    interface Assertion {
+    interface Assertion { // TODO: split into the separate modules
       also: Assertion
       parsedBy(parser: Parser<any>): Assertion
       into(expected: any): Assertion
@@ -160,8 +160,8 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   })
 
 
-  Assertion.addMethod('target', function (node: Node<Linked>) {
-    const reference: Reference<any, Linked> = this._obj
+  Assertion.addMethod('target', function (node: Node) {
+    const reference: Reference<any> = this._obj
 
     new Assertion(reference.is('Reference'), `can't check "target" of ${reference.kind} node`).to.be.true
     new Assertion(this._obj.target().id).to.equal(node.id)
@@ -174,7 +174,7 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
 export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  Assertion.addMethod('pass', function (validation: Validation<Node<Linked>>) {
+  Assertion.addMethod('pass', function (validation: Validation<Node>) {
     const result = validation(this._obj, '')
 
     this.assert(

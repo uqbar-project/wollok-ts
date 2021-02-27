@@ -1,5 +1,5 @@
 import { Evaluation, Context, RuntimeObject, Frame, LazyInitializer, WollokUnrecoverableError, WollokError } from './runtimeModel'
-import { Id, List, Field, NamedArgument } from '../model'
+import { Id, List, Field, NamedArgument, Describe } from '../model'
 import compile, { STORE, LOAD, RETURN } from './compiler'
 
 
@@ -157,12 +157,14 @@ export default function (evaluation: Evaluation): void {
         const { argumentNames } = instruction
         const self = currentFrame.popOperand()!
 
+        // TODO: Describe is module?
         if(self.module.is('Describe')) {
-          for (const variable of self.module.variables()) self.set(variable.name, undefined)
+          const describe = self.module as Describe
+          for (const variable of describe.variables()) self.set(variable.name, undefined)
 
           return evaluation.pushFrame(new Frame(self, [
-            ...self.module.variables().flatMap(field => [
-              ...compile(field.value),
+            ...describe.variables().flatMap(field => [
+              ...compile(field.value!),
               STORE(field.name, true),
             ]),
             LOAD('self'),
@@ -186,7 +188,7 @@ export default function (evaluation: Evaluation): void {
 
           if(!self.module.name) return evaluation.pushFrame(new Frame(self, [
             ...fields.filter(field => !argumentNames.includes(field.name)).flatMap(field => [
-              ...compile(field.value),
+              ...compile(field.value!),
               STORE(field.name, true),
             ]),
             LOAD('self'),
@@ -195,12 +197,12 @@ export default function (evaluation: Evaluation): void {
 
           for(const field of fields) {
             const defaultValue = (self.module.supercallArgs as List<NamedArgument>).find(arg => arg.is('NamedArgument') && arg.name === field.name)
-            self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value)))
+            self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value!)))
           }
         } else {
           for(const field of fields)
             if(!argumentNames.includes(field.name))
-              self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value)))
+              self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value!)))
         }
 
 
