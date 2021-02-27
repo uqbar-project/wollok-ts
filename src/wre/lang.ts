@@ -520,10 +520,10 @@ const lang: Natives = {
       evaluation.currentFrame!.pushOperand(coerced)
     },
 
-    '===': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    '===': (self: RuntimeObject, other?: RuntimeObject) => (evaluation: Evaluation): void => {
       self.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue === other.innerValue))
+      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue === other?.innerValue))
     },
 
     '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {

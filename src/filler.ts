@@ -66,11 +66,6 @@ export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
       value: node.value ?? NULL,
     }),
 
-    Variable: node => new Variable({
-      ...node,
-      value: node.value ?? NULL,
-    }),
-
     Node: node => node,
   }))
 

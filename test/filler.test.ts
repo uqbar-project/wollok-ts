@@ -40,11 +40,4 @@ describe('Wollok filler', () => {
     fill(Constructor({ baseCall })()).baseCall!.should.be.filledInto(baseCall)
   })
 
-  it('fills in null as default initial value for Variables', () => {
-    fill(Variable('f')).value?.should.be.filledInto(Literal(null))
-
-    const value = Literal(5)
-    fill(Variable('f', { value })).value?.should.be.filledInto(value)
-  })
-
 })

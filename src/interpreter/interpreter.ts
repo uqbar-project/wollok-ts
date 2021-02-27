@@ -164,7 +164,7 @@ export default function (evaluation: Evaluation): void {
 
           return evaluation.pushFrame(new Frame(self, [
             ...describe.variables().flatMap(field => [
-              ...compile(field.value!),
+              ...compile(field.value),
               STORE(field.name, true),
             ]),
             LOAD('self'),

@@ -61,7 +61,7 @@ const compile = (node: Node): List<Instruction> => {
   return node.match({
 
     Variable: node => [
-      ...compile(node.value!),
+      ...compile(node.value),
       STORE(node.name, false),
       PUSH(),
     ],
@@ -80,10 +80,10 @@ const compile = (node: Node): List<Instruction> => {
       INIT([]),
       INTERRUPT,
     ] : [
-      ...compile(node.value),
-      STORE(node.variable.name, true),
-      PUSH(),
-    ],
+        ...compile(node.value),
+        STORE(node.variable.name, true),
+        PUSH(),
+      ],
 
     Self: () => [
       LOAD('self'),

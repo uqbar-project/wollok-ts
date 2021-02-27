@@ -352,9 +352,11 @@ export class Variable extends $Entity {
   readonly kind = 'Variable'
   readonly name!: Name
   readonly isReadOnly!: boolean
-  readonly value?: Expression // TODO: XXX!
+  readonly value!: Expression // TODO: XXX!
 
-  constructor(payload: Payload<Variable, 'name' | 'isReadOnly'>) { super(payload) }
+  constructor({ value = new Literal({ value: null }), ...payload }: Payload<Variable, 'name' | 'isReadOnly'>) {
+    super({ value, ...payload })
+  }
 
   // TODO: Can we prevent repeating this here?
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
