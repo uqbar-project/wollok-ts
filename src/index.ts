@@ -1,7 +1,7 @@
 import { dirname } from 'path'
 import * as build from './builders'
 import link from './linker'
-import { Environment } from './model'
+import { Environment, fromJSON } from './model'
 import * as parse from './parser'
 import validate from './validator'
 import WRE from './wre/wre.json'
@@ -10,7 +10,7 @@ import compile from './interpreter/compiler'
 import garbageCollect from './interpreter/garbageCollector'
 
 
-function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = build.fromJSON<Environment>(WRE)): Environment {
+function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = fromJSON<Environment>(WRE)): Environment {
 
   return link(files.map(({ name, content }) => {
     try {

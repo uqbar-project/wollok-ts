@@ -9,24 +9,6 @@ type BuildPayload<T> = Partial<T>
 // TODO: Be able to build nodes on different stages
 // TODO: Maybe we don't need these if we make constructors a bit better with defaults and stuff?
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// NODES
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export function fromJSON<T>(json: any): T {
-  const propagate = (data: any) => {
-    if (isNode(data)) {
-      const payload = mapObject(fromJSON, data) as {kind: Kind}
-      const constructor = Model[payload.kind] as any
-      return new constructor(payload)
-    }
-    if (isArray(data)) return data.map(fromJSON)
-    if (data instanceof Object) return mapObject(fromJSON, data)
-    return data
-  }
-  return propagate(json) as T
-}
-
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
