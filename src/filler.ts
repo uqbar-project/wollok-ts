@@ -71,26 +71,6 @@ export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
       value: node.value ?? NULL,
     }),
 
-    If: node => new If({
-      ...node,
-      elseBody: node.elseBody ?? EMPTY_BODY,
-    }),
-
-    Try: node => new Try({
-      ...node,
-      always: node.always ?? EMPTY_BODY,
-    }),
-
-    Catch: node => new Catch({
-      ...node,
-      parameterType: node.parameterType ?? EXCEPTION_CLASS,
-    }),
-
-    Constructor: node => new Constructor({
-      ...node,
-      baseCall: node.baseCall ?? DEFAULT_CONSTRUCTOR.baseCall,
-    }),
-
     Node: node => node,
   }))
 

@@ -47,25 +47,4 @@ describe('Wollok filler', () => {
     fill(Variable('f', { value })).value?.should.be.filledInto(value)
   })
 
-  it('fills in missing else clause for Ifs', () => {
-    fill(If(Literal(true), [Literal(true)])).elseBody.sentences.should.be.filledInto([])
-
-    const elseBody = [Literal(false)]
-    fill(If(Literal(true), [Literal(true)], elseBody)).elseBody.sentences.should.be.filledInto(elseBody)
-  })
-
-  it('fills in missing always clause for Trys', () => {
-    fill(Try([Literal(true)], {})).always.sentences.should.be.filledInto([])
-
-    const always = [Literal(false)]
-    fill(Try([Literal(true)], { always })).always.sentences.should.be.filledInto(always)
-  })
-
-  it('fills in missing parameter type for Catches', () => {
-    fill(Catch(Parameter('e'))()).parameterType.should.be.filledInto(Reference('wollok.lang.Exception'))
-
-    const parameterType = Reference<'Module'>('foo')
-    fill(Catch(Parameter('e'), { parameterType })()).parameterType.should.be.filledInto(parameterType)
-  })
-
 })

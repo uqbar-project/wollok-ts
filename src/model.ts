@@ -692,7 +692,7 @@ export class If extends $Expression {
   readonly kind = 'If'
   readonly condition!: Expression
   readonly thenBody!: Body
-  readonly elseBody!: Body // TODO: XXX!
+  readonly elseBody!: Body
 
   constructor({ elseBody = new Body(), ...payload }: Payload<If, 'condition' | 'thenBody'>) {
     super({ elseBody, ...payload })
@@ -712,7 +712,7 @@ export class Try extends $Expression {
   readonly kind = 'Try'
   readonly body!: Body
   readonly catches!: List<Catch>
-  readonly always!: Body // TODO: XXX!
+  readonly always!: Body
 
   constructor({ catches = [], always = new Body(), ...payload }: Payload<Try, 'body'>) {
     super({ catches, always, ...payload })
@@ -724,7 +724,7 @@ export class Catch extends $Expression {
   readonly kind = 'Catch'
   readonly parameter!: Parameter
   readonly body!: Body
-  readonly parameterType!: Reference<'Module'> // TODO: XXX!
+  readonly parameterType!: Reference<'Module'>
 
   constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
     super({ parameterType, ...payload })
