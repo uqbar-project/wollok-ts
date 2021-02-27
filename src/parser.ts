@@ -1,8 +1,7 @@
 import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename } from 'path'
 import unraw from 'unraw'
-import * as build from './builders'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure } from './model'
 import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
@@ -323,7 +322,7 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
         receiver: variable,
         message: assignation.slice(0, -1),
         args: LAZY_OPERATORS.includes(assignation.slice(0, -1))
-          ? [build.Closure({ sentences: [value] })]
+          ? [Closure({ sentences: [value] })]
           : [value],
       }),
   }))
@@ -450,7 +449,7 @@ const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
       receiver,
       message: message.trim(),
       args: LAZY_OPERATORS.includes(message)
-        ? [build.Closure({ sentences: args })]
+        ? [Closure({ sentences: args })]
         : args,
       source: { start, end },
     })
@@ -494,7 +493,7 @@ const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
   ).wrap(key('{'), key('}'))
 
   return closure.mark().chain(({ start, end, value: [parameters, sentences] }) => Parsimmon((input: string, i: number) =>
-    makeSuccess(i, build.Closure({
+    makeSuccess(i, Closure({
       parameters,
       sentences,
       code: input.slice(start.offset, end.offset),

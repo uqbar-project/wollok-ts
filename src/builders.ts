@@ -1,6 +1,6 @@
-import { mapObject, last } from './extensions'
+import { mapObject } from './extensions'
 import * as Model from './model'
-import { Source, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isNode, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Category, Kind } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, ClassMember, Constructor as ConstructorNode, Describe as DescribeNode, DescribeMember, Entity, Environment as EnvironmentNode, Expression, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, isNode, List, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, ObjectMember, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Category, Kind } from './model'
 
 const { isArray } = Array
 
@@ -215,38 +215,6 @@ export const Catch = (parameter: ParameterNode, payload?: BuildPayload<CatchNode
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-export const Closure = (payload: { parameters?: List<ParameterNode>, sentences?: List<Sentence>, code?: string, source?: Source }): LiteralNode<SingletonNode> => {
-  const initialSentences = (payload.sentences ?? []).slice(0, -1)
-  const lastSentence = last(payload.sentences ?? [])
-  const sentences =
-    lastSentence?.is('Expression') ? [...initialSentences, Return(lastSentence)] :
-    lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
-    [...initialSentences, ...lastSentence ? [lastSentence] : [], Return()]
-
-  return new LiteralNode<SingletonNode>({
-    value: new SingletonNode({
-      superclassRef: new ReferenceNode({ name: 'wollok.lang.Closure' }),
-      supercallArgs: [],
-      mixins: [],
-      members: [
-        new MethodNode({
-          name: '<apply>',
-          isOverride: false,
-          parameters: payload.parameters ?? [],
-          body: new BodyNode({ sentences: sentences ?? [] }),
-        }),
-        ...payload.code ? [new FieldNode({
-          name: '<toString>',
-          isReadOnly: true,
-          isProperty: false,
-          value: new LiteralNode({ value: payload.code }),
-        })] : [],
-      ],
-    }),
-    source: payload.source,
-  })
-}
 
 export const Environment = (...members: PackageNode[]): EnvironmentNode => {
   return new EnvironmentNode({ members, id: '', scope: null as any })

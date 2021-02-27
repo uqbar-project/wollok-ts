@@ -1,5 +1,6 @@
 import { should, use } from 'chai'
-import { Assignment, Catch, Class, Closure, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
+import { Closure } from '../src'
+import { Assignment, Catch, Class, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/builders'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 

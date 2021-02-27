@@ -637,7 +637,7 @@ export class Return extends $Sentence {
   readonly kind = 'Return'
   readonly value?: Expression
 
-  constructor(payload: Payload<Return>) { super(payload) }
+  constructor(payload: Payload<Return> = {}) { super(payload) }
 }
 
 
@@ -780,6 +780,35 @@ export class Catch extends $Expression {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+type ClosurePayload = {
+  parameters?: List<Parameter>,
+  sentences?: List<Sentence>,
+  code?: string,
+  source?: Source
+}
+
+export const Closure = ({ sentences: baseSentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> => {
+  const initialSentences = (baseSentences ?? []).slice(0, -1)
+  const lastSentence = last(baseSentences ?? [])
+  const sentences =
+    lastSentence?.is('Expression') ? [...initialSentences, new Return({ value: lastSentence })] :
+    lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
+    [...initialSentences, ...lastSentence ? [lastSentence] : [], new Return()]
+
+  return new Literal<Singleton>({
+    value: new Singleton({
+      superclassRef: new Reference({ name: 'wollok.lang.Closure' }),
+      members: [
+        new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
+        ...code ? [
+          new Field({ name: '<toString>', isReadOnly: true, value: new Literal({ value: code }) }),
+        ] : [],
+      ],
+    }),
+    ...payload,
+  })
+}
 
 export class Environment extends $Node {
   readonly kind = 'Environment'

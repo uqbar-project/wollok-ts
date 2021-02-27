@@ -75,11 +75,13 @@ const compile = (node: Node): List<Instruction> => {
     ],
 
 
-    Assignment: node => node.variable.target()?.isReadOnly ? [
-      INSTANTIATE('wollok.lang.EvaluationError'),
-      INIT([]),
-      INTERRUPT,
-    ] : [
+    Assignment: node => node.variable.target()?.isReadOnly
+      ? [
+        INSTANTIATE('wollok.lang.EvaluationError'),
+        INIT([]),
+        INTERRUPT,
+      ]
+      : [
         ...compile(node.value),
         STORE(node.variable.name, true),
         PUSH(),
