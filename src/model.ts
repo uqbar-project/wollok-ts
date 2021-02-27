@@ -464,6 +464,12 @@ export class Class extends $Module {
 
   constructor({ mixins = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ mixins, members, ...payload })
+
+    if(payload.name === 'Object' && !this.constructors().length) {
+      (this.members as any[]).push(
+        new Constructor({ body: new Body() })
+      )
+    }
   }
 
   constructors(): List<Constructor> { return this.members.filter<Constructor>(is('Constructor')) }

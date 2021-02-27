@@ -3,7 +3,6 @@ import { readFileSync, writeFileSync } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join } from 'path'
 import { Package } from '../src/builders'
-import fill from '../src/filler'
 import link from '../src/linker'
 import { ConsoleLogger, LogLevel } from '../src/interpreter/log'
 import { File } from '../src/parser'
@@ -36,12 +35,8 @@ const rawWRE = sourceFiles.map(sourceFile => {
 
 log.done('\tParsing...')
 
-log.start('\tFilling...')
-const filledWRE = [...rawWRE, targetRawWRE].map(fill)
-log.done('\tFilling...')
-
 log.start('\tLinking...')
-const wre = link([...filledWRE])
+const wre = link([...rawWRE, targetRawWRE])
 log.done('\tLinking...')
 
 log.start('\tSaving...')

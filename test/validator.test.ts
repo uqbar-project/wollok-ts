@@ -19,7 +19,6 @@ import { Assignment,
   Super,
   Test,
   Try } from '../src/builders'
-import fill from '../src/filler'
 import link from '../src/linker'
 import { Assignment as AssignmentNode,
   Body as BodyNode,
@@ -46,13 +45,13 @@ should()
 
 // TODO: General cleanup
 
-const WRE = fill(Package('wollok')(
+const WRE = Package('wollok')(
   Package('lang')(
     Class('Object')(),
     Class('Closure')()
   ),
   Package('lib')(),
-))
+)
 
 describe('Wollok Validations', () => {
 
@@ -60,10 +59,10 @@ describe('Wollok Validations', () => {
     describe('Singleton is not unnamed', () => {
       const environment = link([
         WRE,
-        fill(Package('p')(
+        Package('p')(
           Singleton()(),
           Singleton('s')(),
-        )),
+        ),
       ])
 
       const { singletonIsNotUnnamed } = validations

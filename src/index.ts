@@ -1,6 +1,5 @@
 import { dirname } from 'path'
 import * as build from './builders'
-import fill from './filler'
 import link from './linker'
 import { Environment } from './model'
 import * as parse from './parser'
@@ -15,9 +14,9 @@ function buildEnvironment(files: { name: string, content: string }[], baseEnviro
 
   return link(files.map(({ name, content }) => {
     try {
-      const filePackage = fill(parse.File(name).tryParse(content))
+      const filePackage = parse.File(name).tryParse(content)
       const dir = dirname(name)
-      return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, dirName) => fill(build.Package(dirName)(entity)), filePackage)
+      return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, dirName) => build.Package(dirName)(entity), filePackage)
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }
@@ -36,7 +35,6 @@ export {
   buildEnvironment,
   build,
   parse,
-  fill,
   link,
   validate,
 }
