@@ -43,7 +43,6 @@ export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
   const result = rawNode.transform(filledNode => filledNode.match<Node>({
     Class: node => new Class({
       ...node,
-      superclassRef: node.name === 'Object' ? null : node.superclassRef ?? OBJECT_CLASS,
       members: [
         ...node.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
         ...node.members,

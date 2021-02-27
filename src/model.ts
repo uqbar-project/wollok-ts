@@ -358,7 +358,7 @@ export class Variable extends $Entity {
 
   // TODO: Can we prevent repeating this here?
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return [this.kind, 'Sentence', 'Entity'].includes(kindOrCategory)
+    return [this.kind, 'Node', 'Sentence', 'Entity'].includes(kindOrCategory)
   }
 }
 
@@ -421,17 +421,21 @@ export class Class extends $Module {
   readonly name!: Name
   readonly mixins!: List<Reference<'Mixin'>>
   readonly members!: List<ClassMember>
-  readonly superclassRef!: Reference<'Class'> | null // TODO: XXX!
+  readonly superclassRef?: Reference<'Class'>
 
-  constructor({ mixins = [], members = [], superclassRef = new Reference({ name: 'wollok.lang.Object' }), ...payload }: Payload<Class, 'name'>) {
-    super({ mixins, members, superclassRef, ...payload })
+  constructor({ mixins = [], members = [], ...payload }: Payload<Class, 'name'>) {
+    super({ mixins, members, ...payload })
   }
 
   constructors(): List<Constructor> { return this.members.filter<Constructor>(is('Constructor')) }
 
   superclass(this: Module): Class | undefined
   superclass(this: Class): Class | undefined {
-    return this.superclassRef?.target()
+    if(this.superclassRef) return this.superclassRef.target()
+    else {
+      const objectClass = this.environment().getNodeByFQN<'Class'>('wollok.lang.Object')
+      return this === objectClass ? undefined : objectClass
+    }
   }
 
   @cached

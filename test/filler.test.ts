@@ -9,13 +9,6 @@ use(fillerAssertions)
 
 describe('Wollok filler', () => {
 
-  it('fills in wollok.lang.Object as default superclass for Classes', () => {
-    fill(Class('C')()).superclassRef!.should.be.filledInto(Reference('wollok.lang.Object'))
-
-    const superclassRef = Reference<'Class'>('foo')
-    fill(Class('C', { superclassRef })()).superclassRef!.should.be.filledInto(superclassRef)
-  })
-
   it('fills non overrided accessors for properties', () => {
     fill(Class('C')(Field('p', { isProperty: true }))).methods().should.be.filledInto([
       getter('p'),

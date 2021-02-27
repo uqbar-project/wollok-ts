@@ -62,7 +62,7 @@ describe('Wollok model', () => {
 
       it('should return true for classes with abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
-        const c = new Class({ name: 'C', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
+        const c = new Class({ name: 'C', mixins: [], members: [m], id: 'c1', scope: null as any })
         stub(c, 'fullyQualifiedName').returns('C')
 
         c.hierarchy = () => [c as any]
@@ -72,7 +72,7 @@ describe('Wollok model', () => {
 
       it('should return true for classes with non-overriten inherited abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
-        const b = new Class({ name: 'B', mixins: [], members: [m], superclassRef: null, id: 'c1', scope: null as any })
+        const b = new Class({ name: 'B', mixins: [], members: [m], id: 'c1', scope: null as any })
         const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
@@ -84,7 +84,7 @@ describe('Wollok model', () => {
       })
 
       it('should return false for classes with no abstract methods', () => {
-        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: null, id: 'c1', scope: null as any })
+        const c = new Class({ name: 'C', mixins: [], members: [], id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any]
 
         c.isAbstract().should.be.false
@@ -93,7 +93,7 @@ describe('Wollok model', () => {
       it('should return false for classes with implemented inherited abstract methods', () => {
         const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2', scope: null as any, body: 'native' })
-        const b = new Class({ name: 'B', mixins: [], members: [m1], superclassRef: null, id: 'c1', scope: null as any })
+        const b = new Class({ name: 'B', mixins: [], members: [m1], id: 'c1', scope: null as any })
         const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: null as any })
