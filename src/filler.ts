@@ -46,19 +46,7 @@ export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
       members: [
         ...node.name === 'Object' ? [DEFAULT_CONSTRUCTOR] : [],
         ...node.members,
-        ...filledPropertyAccessors(node),
       ],
-    }),
-
-    Mixin: node => new Mixin({
-      ...node,
-      members: [...node.members, ...filledPropertyAccessors(node)],
-    }),
-
-    Singleton: node => new Singleton({
-      ...node,
-      superclassRef: node.superclassRef ?? OBJECT_CLASS,
-      members: [...node.members, ...filledPropertyAccessors(node)],
     }),
 
     Node: node => node,

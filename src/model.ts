@@ -373,6 +373,43 @@ export type Module = Class | Singleton | Mixin
 abstract class $Module extends $Entity {
   abstract members: List<ClassMember | DescribeMember>
 
+  constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
+    const methods = members?.filter(is('Method')) ?? []
+    const fields = members?.filter(is('Field')) ?? []
+    const properties = fields.filter(field => field.isProperty)
+
+    const propertyGetters = properties
+      .filter(field => !methods.some(method => method.matchesSignature(field.name, 0)))
+      .map(({ name }: Field) => new Method({
+        name,
+        isOverride: false,
+        parameters: [],
+        body: new Body({
+          sentences: [
+            new Return({ value: new Reference({ name }) }),
+          ],
+        }),
+      }))
+
+    const propertySetters = properties
+      .filter(field => !field.isReadOnly && !methods.some(method => method.matchesSignature(field.name, 1)))
+      .map(({ name }: Field) => new Method({
+        name,
+        isOverride: false,
+        parameters: [new Parameter({ name: '<value>', isVarArg: false })],
+        body: new Body({
+          sentences: [
+            new Assignment({
+              variable: new Reference({ name }),
+              value: new Reference({ name: '<value>' }),
+            }),
+          ],
+        }),
+      }))
+
+    super({ ...payload, members: members && [...members, ...propertyGetters, ...propertySetters] })
+  }
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
