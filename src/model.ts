@@ -352,7 +352,7 @@ export class Variable extends $Entity {
   readonly kind = 'Variable'
   readonly name!: Name
   readonly isReadOnly!: boolean
-  readonly value!: Expression // TODO: XXX!
+  readonly value!: Expression
 
   constructor({ value = new Literal({ value: null }), ...payload }: Payload<Variable, 'name' | 'isReadOnly'>) {
     super({ value, ...payload })
@@ -505,10 +505,10 @@ export class Field extends $Node {
   readonly name!: Name
   readonly isReadOnly!: boolean
   readonly isProperty!: boolean
-  readonly value?: Expression // TODO: XXX!
+  readonly value!: Expression
 
-  constructor({ isProperty = false, ...payload }: Payload<Field, 'name' | 'isReadOnly'>) {
-    super({ isProperty, ...payload })
+  constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isReadOnly'>) {
+    super({ value, isProperty, ...payload })
   }
 }
 

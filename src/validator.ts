@@ -159,7 +159,7 @@ export const validations = {
   notAssignToItself: error<Assignment>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
 
   notAssignToItselfInVariableDeclaration: error<Field>(
-    node => !(node.value!.is('Reference') && node.value!.name === node.name)
+    node => !(node.value.is('Reference') && node.value.name === node.name)
   ),
 
   dontCompareAgainstTrueOrFalse: warning<Send>(node => {

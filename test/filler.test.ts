@@ -26,18 +26,4 @@ describe('Wollok filler', () => {
     fill(Singleton('S', { superclassRef })()).superclassRef.should.be.filledInto(superclassRef)
   })
 
-  it('fills in null as default initial value for Fields', () => {
-    fill(Field('f')).value?.should.be.filledInto(Literal(null))
-
-    const value = Literal(5)
-    fill(Field('f', { value })).value?.should.be.filledInto(value)
-  })
-
-  it('fills in default base call for Constructors', () => {
-    fill(Constructor()()).baseCall!.should.be.filledInto({ callsSuper: true, args: [] })
-
-    const baseCall = { callsSuper: false, args: [] }
-    fill(Constructor({ baseCall })()).baseCall!.should.be.filledInto(baseCall)
-  })
-
 })

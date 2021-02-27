@@ -61,11 +61,6 @@ export default <K extends Kind>(rawNode: NodeOfKind<K>): NodeOfKind<K> => {
       members: [...node.members, ...filledPropertyAccessors(node)],
     }),
 
-    Field: node => new Field({
-      ...node,
-      value: node.value ?? NULL,
-    }),
-
     Node: node => node,
   }))
 

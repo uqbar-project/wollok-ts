@@ -188,7 +188,7 @@ export default function (evaluation: Evaluation): void {
 
           if(!self.module.name) return evaluation.pushFrame(new Frame(self, [
             ...fields.filter(field => !argumentNames.includes(field.name)).flatMap(field => [
-              ...compile(field.value!),
+              ...compile(field.value),
               STORE(field.name, true),
             ]),
             LOAD('self'),
@@ -197,12 +197,12 @@ export default function (evaluation: Evaluation): void {
 
           for(const field of fields) {
             const defaultValue = (self.module.supercallArgs as List<NamedArgument>).find(arg => arg.is('NamedArgument') && arg.name === field.name)
-            self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value!)))
+            self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value)))
           }
         } else {
           for(const field of fields)
             if(!argumentNames.includes(field.name))
-              self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value!)))
+              self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value)))
         }
 
 
