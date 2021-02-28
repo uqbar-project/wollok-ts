@@ -57,12 +57,11 @@ export function fromJSON<T>(json: any): T {
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: { _cache(): Cache }, ...args: any[]) {
+  descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
     const key = `${propertyKey}(${[...args]})`
-    // TODO: Could we optimize this if we avoid returning undefined in cache methods?
-    if (this._cache().has(key)) return this._cache().get(key)
+    if (this.cache.has(key)) return this.cache.get(key)
     const result = originalMethod.apply(this, args)
-    this._cache().set(key, result)
+    this.cache.set(key, result)
     return result
   }
 }
@@ -110,19 +109,16 @@ export type Node
 abstract class $Node {
   protected abstract readonly kind: Kind
 
-  readonly id!: Id        // TODO: XXX!
-  readonly scope!: Scope  // TODO: XXX!
+  readonly id!: Id
+  readonly scope!: Scope
   readonly source?: Source
   readonly problems?: List<Problem>
 
-  // TODO: Replace with #cache once TS version is updated
-  // readonly #cache: Cache = new Map()
-  _cache(): Cache { throw new Error('uninitialized cache') }
+  readonly #cache: Cache = new Map()
+  get cache() { return this.#cache }
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
-    const cache = new Map()
-    this._cache = () => cache
   }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {

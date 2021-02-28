@@ -13,10 +13,10 @@ describe('Wollok model', () => {
       const node = new Class({ name: 'C', mixins: [], members: [method] })
       stub(node, 'hierarchy').returns([node])
 
-      node._cache().size.should.equal(0)
+      node.cache.size.should.equal(0)
       const response = node.lookupMethod(method.name, method.parameters.length)
       response!.should.equal(method)
-      node._cache().get(`lookupMethod(${method.name},${method.parameters.length})`).should.equal(response)
+      node.cache.get(`lookupMethod(${method.name},${method.parameters.length})`).should.equal(response)
     })
 
     it('should prevent a second call to the same method', () => {
@@ -26,7 +26,7 @@ describe('Wollok model', () => {
       stub(node, 'hierarchy').returns([node])
 
       node.lookupMethod(method.name, method.parameters.length)
-      node._cache().set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)
+      node.cache.set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)
 
       node.lookupMethod(method.name, method.parameters.length)!.should.equal(otherMethod)
     })

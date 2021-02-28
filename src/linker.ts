@@ -130,9 +130,9 @@ export default (
   }).transform(node => node.copy({ id: uuid() }))
 
   environment.forEach((node, parent) => {
-    if(parent) node._cache().set('parent()', parent) // TODO: These strings are rather ugly...
-    node._cache().set('environment()', environment)
-    environment._cache().set(`getNodeById(${node.id})`, node)
+    if(parent) node.cache.set('parent()', parent) // TODO: These strings are rather ugly...
+    node.cache.set('environment()', environment)
+    environment.cache.set(`getNodeById(${node.id})`, node)
   })
 
   assignScopes(environment)

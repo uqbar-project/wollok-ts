@@ -9,7 +9,7 @@ const WOLLOK_LANGUAGE_FOLDER = 'language'
 
 const log = new ConsoleLogger(LogLevel.INFO)
 
-const fetchLanguage = async () => {
+const fetchLanguage = async (): Promise<void> => {
   log.start('Obtaining the Wollok Language specification')
   if (existsSync(WOLLOK_LANGUAGE_FOLDER)) {
     log.info('\tFound local version of Wollok Language!')
