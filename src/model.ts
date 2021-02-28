@@ -610,8 +610,8 @@ export class Constructor extends $Node {
   readonly body!: Body
   readonly baseCall?: { callsSuper: boolean, args: List<Expression> }
 
-  constructor({ parameters = [], baseCall = { callsSuper: true, args: [] }, ...payload }: Payload<Constructor, 'body'>) {
-    super({ parameters, baseCall, ...payload })
+  constructor({ body = new Body(), parameters = [], baseCall = { callsSuper: true, args: [] }, ...payload }: Payload<Constructor>) {
+    super({ body, parameters, baseCall, ...payload })
   }
 
   @cached
