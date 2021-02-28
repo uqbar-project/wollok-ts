@@ -728,9 +728,9 @@ describe('Wollok Validations', () => {
 
       const { selfIsNotInAProgram } = validations
 
-      const programExample = environment.getNodeByFQN<'Program'>('p.pr')
+      const programExample = environment.getNodeByFQN<Program>('p.pr')
       const selfInProgram = (programExample.body.sentences[0] as Return).value!
-      const classExample = environment.getNodeByFQN<'Class'>('p.C')
+      const classExample = environment.getNodeByFQN<Class>('p.C')
       const methodExample = classExample.members[0] as Method
       const selfInMethod = (methodExample.sentences()[0] as Return).value!
 

@@ -11,7 +11,7 @@ export type List<T> = ReadonlyArray<T>
 export type Cache = Map<string, any>
 
 export interface Scope {
-  resolve<Q extends Kind | Category>(qualifiedName: Name, allowLookup?: boolean): NodeOfKindOrCategory<Q> | undefined
+  resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
   include(...others: Scope[]): void
   register(...contributions: [Name, Node][]): void
 }
@@ -237,7 +237,7 @@ export class NamedArgument extends $Node {
 
 export class Import extends $Node {
   readonly kind = 'Import'
-  readonly entity!: Reference<'Entity'>
+  readonly entity!: Reference<Entity>
   readonly isGeneric!: boolean
 
   constructor({ isGeneric = false, ...payload }: Payload<Import, 'entity'>) {
@@ -300,8 +300,8 @@ export class Package extends $Entity {
   }
 
   @cached
-  getNodeByQN(this: Package, qualifiedName: Name): Entity {
-    const node = this.scope.resolve<'Entity'>(qualifiedName)
+  getNodeByQN<N extends Entity>(this: Package, qualifiedName: Name): N {
+    const node = this.scope.resolve<N>(qualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
     return node
   }
@@ -354,7 +354,7 @@ export class Describe extends $Entity {
   @cached
   lookupMethod(this: Describe, name: Name, arity: number): Method | undefined {
     return this.methods().find(method => method.matchesSignature(name, arity))
-      ?? this.environment().getNodeByFQN<'Class'>('wollok.lang.Object').lookupMethod(name, arity)
+      ?? this.environment().getNodeByFQN<Class>('wollok.lang.Object').lookupMethod(name, arity)
   }
 }
 
@@ -469,9 +469,9 @@ abstract class $Module extends $Entity {
 export class Class extends $Module {
   readonly kind = 'Class'
   readonly name!: Name
-  readonly mixins!: List<Reference<'Mixin'>>
+  readonly mixins!: List<Reference<Mixin>>
   readonly members!: List<ClassMember>
-  readonly superclassRef?: Reference<'Class'>
+  readonly superclassRef?: Reference<Class>
 
   constructor({ mixins = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ mixins, members, ...payload })
@@ -489,7 +489,7 @@ export class Class extends $Module {
   superclass(this: Class): Class | undefined {
     if(this.superclassRef) return this.superclassRef.target()
     else {
-      const objectClass = this.environment().getNodeByFQN<'Class'>('wollok.lang.Object')
+      const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -517,9 +517,9 @@ export class Class extends $Module {
 export class Singleton extends $Module {
   readonly kind = 'Singleton'
   readonly name?: Name
-  readonly mixins!: List<Reference<'Mixin'>>
+  readonly mixins!: List<Reference<Mixin>>
   readonly members!: List<ObjectMember>
-  readonly superclassRef!: Reference<'Class'>
+  readonly superclassRef!: Reference<Class>
   readonly supercallArgs!: List<Expression> | List<NamedArgument>
 
   constructor({ mixins = [], members = [], superclassRef = new Reference({ name: 'wollok.lang.Object' }), supercallArgs = [], ...payload }: Payload<Singleton>) {
@@ -537,7 +537,7 @@ export class Singleton extends $Module {
 export class Mixin extends $Module {
   readonly kind = 'Mixin'
   readonly name!: Name
-  readonly mixins!: List<Reference<'Mixin'>>
+  readonly mixins!: List<Reference<Mixin>>
   readonly members!: List<ObjectMember>
 
   constructor({ mixins = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
@@ -654,7 +654,7 @@ export class Return extends $Sentence {
 
 export class Assignment extends $Sentence {
   readonly kind = 'Assignment'
-  readonly variable!: Reference<'Variable' | 'Field'>
+  readonly variable!: Reference<Variable | Field>
   readonly value!: Expression
 
   constructor(payload: Payload<Assignment, 'variable' | 'value'>) { super(payload) }
@@ -665,7 +665,7 @@ export class Assignment extends $Sentence {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type Expression
-  = Reference<'Field' | 'Variable' | 'Parameter' | 'NamedArgument' | 'Singleton'>
+  = Reference<Field | Variable | Parameter | NamedArgument | Singleton>
   | Self
   | Literal<LiteralValue>
   | Send
@@ -682,15 +682,15 @@ abstract class $Expression extends $Node {
 }
 
 
-export class Reference<T extends Kind | Category> extends $Expression {
+export class Reference<N extends Node> extends $Expression {
   readonly kind = 'Reference'
   readonly name!: Name
 
-  constructor(payload: Payload<Reference<T>, 'name'>) { super(payload) }
+  constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
   @cached
-  target(this: Reference<any>): NodeOfKindOrCategory<T> | undefined {
-    return this.scope.resolve<T>(this.name)
+  target(this: Reference<any>): N | undefined {
+    return this.scope.resolve(this.name)
   }
 }
 
@@ -735,7 +735,7 @@ export class Super extends $Expression {
 
 export class New extends $Expression {
   readonly kind = 'New'
-  readonly instantiated!: Reference<'Class'>
+  readonly instantiated!: Reference<Class>
   readonly args!: List<Expression> | List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<New, 'instantiated'>) {
@@ -780,7 +780,7 @@ export class Catch extends $Expression {
   readonly kind = 'Catch'
   readonly parameter!: Parameter
   readonly body!: Body
-  readonly parameterType!: Reference<'Module'>
+  readonly parameterType!: Reference<Module>
 
   constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
     super({ parameterType, ...payload })
@@ -828,17 +828,17 @@ export class Environment extends $Node {
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   @cached
-  getNodeById<Q extends Kind | Category>(this: Environment, id: Id): NodeOfKindOrCategory<Q> {
+  getNodeById<N extends Node>(this: Environment, id: Id): N {
     throw new Error(`Missing node in node cache with id ${id}`)
   }
 
   //TODO: as function to use as safe cast instead of all the crapy casts in many methods ?
   @cached
-  getNodeByFQN<Q extends Kind | Category>(this: Environment, fullyQualifiedName: Name): NodeOfKindOrCategory<Q> {
+  getNodeByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N {
     const [, id] = fullyQualifiedName.split('#')
     if (id) return this.getNodeById(id)
 
-    const node = this.scope.resolve<Q>(fullyQualifiedName)
+    const node = this.scope.resolve<N>(fullyQualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }

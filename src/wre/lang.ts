@@ -1,6 +1,6 @@
 import compile, { CALL, CONDITIONAL_JUMP, DUP, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN,  STORE, SWAP, INIT, CALL_CONSTRUCTOR } from '../interpreter/compiler'
 import { Natives, Evaluation, RuntimeObject, Frame } from '../interpreter/runtimeModel'
-import { Id } from '../model'
+import { Class, Id } from '../model'
 
 const { random, floor, ceil } = Math
 const { UTC } = Date
@@ -70,7 +70,7 @@ const Collections: Natives = {
   },
 
   max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('max', 0)!
+    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
     evaluation.invoke(method, self)
   },
 
@@ -97,12 +97,12 @@ const Collections: Natives = {
   },
 
   join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
+    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
     evaluation.invoke(method, self, ...separator ? [separator] : [])
   },
 
   contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<'Class'>('wollok.lang.Collection').lookupMethod('contains', 1)!
+    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
     evaluation.invoke(method, self, value)
   },
 

@@ -221,9 +221,9 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const Object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
-      const p = environment.getNodeByFQN<'Package'>('p')
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const Object = environment.getNodeByFQN<Class>('wollok.lang.Object')
+      const p = environment.getNodeByFQN<Package>('p')
+      const C = environment.getNodeByFQN<Class>('p.C')
       const f = C.fields()[0]
       const g = C.fields()[1]
       const h = C.fields()[2]
@@ -284,9 +284,9 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const S = environment.getNodeByFQN<'Singleton'>('x.x')
-      const C = environment.getNodeByFQN<'Singleton'>('x.C')
-      const D = environment.getNodeByFQN<'Singleton'>('x.D')
+      const S = environment.getNodeByFQN<Singleton>('x.x')
+      const C = environment.getNodeByFQN<Singleton>('x.C')
+      const D = environment.getNodeByFQN<Singleton>('x.D')
       const f = S.fields()[0]
       const m1 = S.methods()[0]
       const closure = m1.sentences()[1] as Literal<Singleton>
@@ -343,9 +343,9 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const A = environment.getNodeByFQN<'Class'>('p.A')
-      const M = environment.getNodeByFQN<'Class'>('p.M')
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const A = environment.getNodeByFQN<Class>('p.A')
+      const M = environment.getNodeByFQN<Class>('p.M')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(A.fields()[0])
       C.methods()[0].sentences()[1].should.target(M.fields()[0])
@@ -376,7 +376,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(C.fields()[0])
     })
@@ -407,7 +407,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(C.fields()[0])
     })
@@ -442,8 +442,8 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const M = environment.getNodeByFQN<'Class'>('p.M')
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const M = environment.getNodeByFQN<Class>('p.M')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(M.fields()[0])
     })
@@ -480,8 +480,8 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const M = environment.getNodeByFQN<'Class'>('p.M')
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const M = environment.getNodeByFQN<Class>('p.M')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(M.fields()[0])
     })
@@ -514,8 +514,8 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const B = environment.getNodeByFQN<'Class'>('p.B')
-      const C = environment.getNodeByFQN<'Class'>('p.C')
+      const B = environment.getNodeByFQN<Class>('p.B')
+      const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods()[0].sentences()[0].should.target(B.fields()[0])
     })
@@ -547,10 +547,10 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const C = environment.getNodeByFQN<'Class'>('p.C')
-      const D = environment.getNodeByFQN<'Class'>('p.D')
-      const S = environment.getNodeByFQN<'Class'>('q.S')
-      const T = environment.getNodeByFQN<'Class'>('r.T')
+      const C = environment.getNodeByFQN<Class>('p.C')
+      const D = environment.getNodeByFQN<Class>('p.D')
+      const S = environment.getNodeByFQN<Class>('q.S')
+      const T = environment.getNodeByFQN<Class>('r.T')
 
       C.superclassRef!.should.target(S)
       D.superclassRef!.should.target(T)
@@ -624,7 +624,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      environment.getNodeByFQN<'Package'>('p').imports[0].entity.problems!.should.deep.equal([new LinkError('missingReference')])
+      environment.getNodeByFQN<Package>('p').imports[0].entity.problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should recover from missing reference in superclass', () => {
@@ -637,7 +637,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      environment.getNodeByFQN<'Class'>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
+      environment.getNodeByFQN<Class>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should recover from missing reference in mixin', () => {
@@ -650,7 +650,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      environment.getNodeByFQN<'Class'>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
+      environment.getNodeByFQN<Class>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should not crash if a class inherits from itself', () => {

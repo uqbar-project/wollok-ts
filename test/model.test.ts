@@ -73,7 +73,7 @@ describe('Wollok model', () => {
       it('should return true for classes with non-overriten inherited abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         const b = new Class({ name: 'B', mixins: [], members: [m], id: 'c1', scope: null as any })
-        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
+        const bRef = new Reference<Class>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
         stub(b, 'fullyQualifiedName').returns('B')
@@ -94,7 +94,7 @@ describe('Wollok model', () => {
         const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
         const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2', scope: null as any, body: 'native' })
         const b = new Class({ name: 'B', mixins: [], members: [m1], id: 'c1', scope: null as any })
-        const bRef = new Reference<'Class'>({ name: 'B', id: 'b1r', scope: null as any })
+        const bRef = new Reference<Class>({ name: 'B', id: 'b1r', scope: null as any })
         bRef.target = () => b as any
         const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: null as any })
         c.hierarchy = () => [c as any, b as any]

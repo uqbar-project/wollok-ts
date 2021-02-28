@@ -4,6 +4,7 @@ import { RuntimeObject, Frame, Evaluation } from '../src/interpreter/runtimeMode
 import compile from '../src/interpreter/compiler'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
+import { Program } from '../src'
 
 should()
 
@@ -29,7 +30,7 @@ describe('Wollok Game', () => {
 
     const runGameProgram = (programFQN: string) => {
       const evaluation = Evaluation.create(environment, natives)
-      const program = environment.getNodeByFQN<'Program'>(programFQN)
+      const program = environment.getNodeByFQN<Program>(programFQN)
 
       evaluation.log.info('Running program', programFQN)
 

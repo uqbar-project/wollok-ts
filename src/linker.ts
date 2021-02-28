@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn } from './extensions'
-import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference, NodeOfKindOrCategory, Kind, Category } from './model'
+import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference } from './model'
 const { assign } = Object
 
 
@@ -42,7 +42,7 @@ class LocalScope implements Scope {
     this.register(...contributions)
   }
 
-  resolve<Q extends Kind | Category>(qualifiedName: Name, allowLookup = true):  NodeOfKindOrCategory<Q> | undefined {
+  resolve<N extends Node>(qualifiedName: Name, allowLookup = true):  N | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
 
     const step = !allowLookup
@@ -51,7 +51,7 @@ class LocalScope implements Scope {
         found ?? included.resolve(start, false)
       , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
 
-    return rest.length ? step?.scope?.resolve<Q>(rest, false) : step as NodeOfKindOrCategory<Q>
+    return rest.length ? step?.scope?.resolve<N>(rest, false) : step as N
   }
 
   register(...contributions: [ Name, Node][]): void {
@@ -90,14 +90,14 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     if(node.is('Environment')){
       for(const globalName of GLOBAL_PACKAGES) {
-        const globalPackage = environment.scope.resolve<'Package'>(globalName)
+        const globalPackage = environment.scope.resolve<Package>(globalName)
         if(globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
 
     if(node.is('Package')) {
       for(const imported of node.imports) {
-        const entity = node.scope.resolve<'Entity'>(imported.entity.name)
+        const entity = node.scope.resolve<Entity>(imported.entity.name)
 
         if(entity) node.scope.include(imported.isGeneric
           ? entity.scope

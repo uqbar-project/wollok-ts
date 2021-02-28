@@ -494,7 +494,7 @@ export class RuntimeObject extends Context {
   }
 
   static object(evaluation: Evaluation, moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject | undefined> = {}): RuntimeObject {
-    const module = isNode(moduleOrFQN) ? moduleOrFQN : evaluation.environment.getNodeByFQN<'Module'>(moduleOrFQN)
+    const module = isNode(moduleOrFQN) ? moduleOrFQN : evaluation.environment.getNodeByFQN<Module>(moduleOrFQN)
     const instance = new RuntimeObject(
       evaluation.currentContext,
       module,

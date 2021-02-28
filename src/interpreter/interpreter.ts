@@ -1,5 +1,5 @@
 import { Evaluation, Context, RuntimeObject, Frame, LazyInitializer, WollokUnrecoverableError, WollokError } from './runtimeModel'
-import { Id, List, Field, NamedArgument, Describe } from '../model'
+import { Id, List, Field, NamedArgument, Describe, Class } from '../model'
 import compile, { STORE, LOAD, RETURN } from './compiler'
 
 
@@ -135,7 +135,7 @@ export default function (evaluation: Evaluation): void {
         const self = currentFrame.popOperand()!
         const args = Array.from({ length: arity }, () => currentFrame.popOperand()!).reverse()
         const argIds = args.map(({ id }) => id)
-        const lookupStartClass = environment.getNodeByFQN<'Class'>(lookupStart)
+        const lookupStartClass = environment.getNodeByFQN<Class>(lookupStart)
         const constructor = lookupStartClass.lookupConstructor(arity)
 
         if (!constructor) {

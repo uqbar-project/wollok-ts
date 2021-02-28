@@ -469,9 +469,9 @@ export const Literal: Parser<LiteralNode> = lazy(() => alt(
       key('false').result(false),
       regex(/-?\d+(\.\d+)?/).map(Number),
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
-        new NewNode({ instantiated: new ReferenceNode<'Class'>({ name: 'wollok.lang.List' }), args })),
+        new NewNode({ instantiated: new ReferenceNode({ name: 'wollok.lang.List' }), args })),
       Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args =>
-        new NewNode({ instantiated: new ReferenceNode<'Class'>({ name: 'wollok.lang.Set' }), args })),
+        new NewNode({ instantiated: new ReferenceNode({ name: 'wollok.lang.Set' }), args })),
       stringLiteral,
       Singleton,
     ),
