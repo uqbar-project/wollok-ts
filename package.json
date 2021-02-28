@@ -44,7 +44,7 @@
     "@typescript-eslint/parser": "^4.15.2",
     "chai": "^4.3.0",
     "chalk": "^4.1.0",
-    "eslint": "^7.20.0",
+    "eslint": "^7.21.0",
     "globby": "^11.0.2",
     "mocha": "^6.2.3",
     "simple-git": "^2.35.2",
