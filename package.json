@@ -30,7 +30,7 @@
     "@types/parsimmon": "^1.10.6",
     "parsimmon": "^1.16.0",
     "unraw": "^2.0.0",
-    "uuid": "^3.4.0"
+    "uuid": "3.4.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.15",
