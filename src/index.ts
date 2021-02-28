@@ -1,7 +1,6 @@
 import { dirname } from 'path'
-import * as build from './builders'
 import link from './linker'
-import { Environment, fromJSON } from './model'
+import { Environment, fromJSON, Package } from './model'
 import * as parse from './parser'
 import validate from './validator'
 import WRE from './wre/wre.json'
@@ -16,7 +15,7 @@ function buildEnvironment(files: { name: string, content: string }[], baseEnviro
     try {
       const filePackage = parse.File(name).tryParse(content)
       const dir = dirname(name)
-      return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, dirName) => build.Package(dirName)(entity), filePackage)
+      return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) => new Package({ name, members:[entity] }), filePackage)
     } catch (error) {
       throw new Error(`Failed to parse ${name}: ${error.message}`)
     }
@@ -33,7 +32,6 @@ export {
   compile,
   garbageCollect,
   buildEnvironment,
-  build,
   parse,
   link,
   validate,

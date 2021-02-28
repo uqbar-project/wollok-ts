@@ -1,11 +1,10 @@
 import { should, use } from 'chai'
 import { restore, stub, spy, match } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { Class, Constructor, Field, Literal, Method, Package, Parameter, Reference } from '../src/builders'
-import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, CALL_CONSTRUCTOR, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
+import { CALL, CALL_CONSTRUCTOR, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
 import * as compiler from '../src/interpreter/compiler'
 import link from '../src/linker'
-import { Constructor as ConstructorNode, Package as PackageNode } from '../src/model'
+import { Body, Class, Field, Literal, Method, Package, Parameter, Reference, Constructor } from '../src/model'
 import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
 import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
 
@@ -15,18 +14,33 @@ use(interpreterAssertions)
 use(sinonChai)
 
 
-const WRE = Package('wollok')(
-  Package('lang')(
-    Class('Object')( Method('messageNotUnderstood', { parameters: [Parameter('messageName'), Parameter('parameters')] })() ),
-    Class('Closure', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('String', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('Boolean', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('Number', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('List', { superclassRef: Reference('wollok.lang.Object') })(),
-    Class('EvaluationError', { superclassRef: Reference('wollok.lang.Object') })(),
-  ),
-  Package('lib')(),
-) as unknown as PackageNode
+const WRE = new Package({
+  name: 'wollok',
+  members:[
+    new Package({
+      name: 'lang',
+      members: [
+        new Class({
+          name: 'Object',
+          members: [
+            new Method({
+              name: 'messageNotUnderstood',
+              parameters: [new Parameter({ name: 'messageName' }), new Parameter({ name: 'parameters' })],
+              body: new Body(),
+            }),
+          ],
+        }),
+        new Class({ name: 'Closure' }),
+        new Class({ name: 'String' }),
+        new Class({ name: 'Boolean' }),
+        new Class({ name: 'Number' }),
+        new Class({ name: 'List' }),
+        new Class({ name: 'EvaluationError' }),
+      ],
+    }),
+    new Package({ name: 'lib' }),
+  ],
+})
 
 const environment = link([WRE])
 
@@ -362,9 +376,12 @@ describe('Wollok Interpreter', () => {
 
       it('should create a new instance from the given module and push it to the operand stack', () => {
         evaluation({
-          environment: link([Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode[], environment),
+          environment: link([
+            new Package({
+              name: 'test',
+              members: [new Class({ name: 'C' })],
+            }),
+          ], environment),
           frames: [
             { instructions: [INSTANTIATE('test.C')], contexts:[ctx`c1`] },
           ],
@@ -569,11 +586,22 @@ describe('Wollok Interpreter', () => {
         stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m', { parameters: [Parameter('p1'), Parameter('p2')] })(),
-            )
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C',
+                  members: [
+                    new Method({
+                      name: 'm',
+                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
+                      body: new Body(),
+                    }),
+                  ],
+                })],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -589,11 +617,22 @@ describe('Wollok Interpreter', () => {
         stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })(),
-            )
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C',
+                  members: [
+                    new Method({
+                      name: 'm',
+                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
+                      body: new Body(),
+                    }),
+                  ],
+                })],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`], contexts:[ctx`c1`] },
@@ -620,14 +659,22 @@ describe('Wollok Interpreter', () => {
         codeForMock.callThrough()
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('B', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m')(),
-            ),
-            Class('C', { superclassRef: Reference('test.B') })(
-              Method('m', { isOverride: true })()
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'B',
+                  members: [new Method({ name: 'm', body: new Body() })],
+                }),
+                new Class({
+                  name: 'C',
+                  superclassRef: new Reference({ name: 'B' }),
+                  members: [new Method({ name: 'm', body: new Body(), isOverride: true })],
+                }),
+              ],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' })],
           frames: [
             { instructions: [CALL('m', 0, 'test.C')], operands:[obj`receiver`] },
@@ -643,11 +690,22 @@ describe('Wollok Interpreter', () => {
         const native: NativeFunction = spy(() => nativeBody)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m', { parameters: [Parameter('p1'), Parameter('p2')], body: 'native' })(),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C',
+                  members: [
+                    new Method({
+                      name: 'm',
+                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
+                      body: 'native',
+                    }),
+                  ],
+                })],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -666,11 +724,22 @@ describe('Wollok Interpreter', () => {
         const native: NativeFunction = spy(() => nativeBody)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m', { parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })], body: 'native' })(),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C',
+                  members: [
+                    new Method({
+                      name: 'm',
+                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
+                      body: 'native',
+                    }),
+                  ],
+                })],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`] },
@@ -689,9 +758,12 @@ describe('Wollok Interpreter', () => {
         stub(compiler, 'default').withArgs(match({ name: 'messageNotUnderstood' })).returns(mockCode)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [new Class({ name: 'C' })],
+            }),
+          ]),
           rootContext: ctx`root`,
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
@@ -707,11 +779,17 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the current operand stack length is < arity + 1', () => {
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Method('m')(),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C',
+                  members: [new Method({ name: 'm', body: new Body() })],
+                }),
+              ],
+            }),
+          ]),
           instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [CALL('m', 2)], operands:[obj`arg1`, obj`receiver`] },
@@ -726,14 +804,23 @@ describe('Wollok Interpreter', () => {
 
       it('should pop the target instance and arguments (in reverse order) from the operand stack and create a new frame for the constructor body', () => {
         const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
+        stub(compiler, 'default').withArgs(match.instanceOf(Constructor)).returns(mockCode)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })(),
-            )
-          )] as PackageNode[]),
+          environment: link([WRE, new Package({
+            name: 'test',
+            members: [
+              new Class({
+                name: 'C',
+                members: [
+                  new Constructor({
+                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
+                    body: new Body(),
+                  }),
+                ],
+              }),
+            ],
+          })]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
@@ -746,12 +833,20 @@ describe('Wollok Interpreter', () => {
 
       it('should prepends supercall to the constructor call', () => {
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('B', { superclassRef: Reference('wollok.lang.Object') })(),
-            Class('C', { superclassRef: Reference('test.B') })(
-              Constructor({ baseCall: { callsSuper: true, args: [] } })(),
-            )
-          )] as PackageNode[]),
+          environment: link(
+            [WRE, new Package({
+              name: 'test',
+              members: [
+                new Class({ name: 'B' }),
+                new Class({
+                  name: 'C',
+                  superclassRef: new Reference({ name: 'test.B' }),
+                  members: [
+                    new Constructor({ body: new Body() }),
+                  ],
+                }),
+              ],
+            })]),
           instances: [obj`target`({ moduleFQN: 'test.C' })],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(0, 'test.C')], operands:[obj`target`] },
@@ -774,14 +869,23 @@ describe('Wollok Interpreter', () => {
 
       it('should group all trailing arguments as a single list if the constructor has a varargs parameter', () => {
         const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match.instanceOf(ConstructorNode)).returns(mockCode)
+        stub(compiler, 'default').withArgs(match.instanceOf(Constructor)).returns(mockCode)
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Constructor({ parameters: [Parameter('p1'), Parameter('p2', { isVarArg: true })] })(),
-            )
-          )] as PackageNode[]),
+          environment: link([WRE, new Package({
+            name: 'test',
+            members: [
+              new Class({
+                name: 'C',
+                members: [
+                  new Constructor({
+                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
+                    body: new Body(),
+                  }),
+                ],
+              }),
+            ],
+          })]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(3, 'test.C')], operands:[obj`target`, obj`arg3`, obj`arg2`, obj`arg1`], contexts:[ctx`c1`] },
@@ -800,9 +904,13 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the constructor is not found', () => {
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(),
-          )] as PackageNode[]),
+          environment: link([WRE, new Package({
+            name: 'test',
+            members: [
+              new Class({ name: 'C' }),
+            ],
+          }),
+          ]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
@@ -812,11 +920,20 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if the current operand stack length is < arity + 1', () => {
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Constructor({ parameters: [Parameter('p1'), Parameter('p2')] })(),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE, new Package({
+            name: 'test',
+            members: [
+              new Class({
+                name: 'C',
+                members: [
+                  new Constructor({
+                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
+                    body: new Body(),
+                  }),
+                ],
+              }),
+            ],
+          })]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg1`] },
@@ -838,16 +955,25 @@ describe('Wollok Interpreter', () => {
         codeForMock.callThrough()
 
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('B', { superclassRef: Reference('wollok.lang.Object') })(
-              Field('f1', { value: Literal(1) }),
-              Field('f2', { value: Literal(2) }),
-            ),
-            Class('C', { superclassRef: Reference('test.B') })(
-              Field('f3', { value: Literal(3) }),
-              Field('f4', { value: Literal(4) }),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'B', members: [
+                    new Field({ name: 'f1', isReadOnly: false, value: new Literal({ value: 1 }) }),
+                    new Field({ name: 'f2', isReadOnly: false, value: new Literal({ value: 2 }) }),
+                  ],
+                }),
+                new Class({
+                  name: 'C', superclassRef: new Reference({ name: 'test.B' }), members: [
+                    new Field({ name: 'f3', isReadOnly: false, value: new Literal({ value: 3 }) }),
+                    new Field({ name: 'f4', isReadOnly: false, value: new Literal({ value: 4 }) }),
+                  ],
+                }),
+              ],
+            }),
+          ]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg3`, obj`arg1`],
           frames: [
             { instructions: [INIT(['f3', 'f1'])], operands:[obj`target`, obj`arg1`, obj`arg3`] },
@@ -865,12 +991,19 @@ describe('Wollok Interpreter', () => {
 
       it('should raise an error if there are not enough operands', () => {
         evaluation({
-          environment: link([WRE, Package('test')(
-            Class('C', { superclassRef: Reference('wollok.lang.Object') })(
-              Field('f1', { value: Literal(1) }),
-              Field('f2', { value: Literal(2) }),
-            ),
-          )] as PackageNode[]),
+          environment: link([WRE,
+            new Package({
+              name: 'test',
+              members: [
+                new Class({
+                  name: 'C', members: [
+                    new Field({ name: 'f1', isReadOnly: false, value: new Literal({ value: 1 }) }),
+                    new Field({ name: 'f2', isReadOnly: false, value: new Literal({ value: 2 }) }),
+                  ],
+                }),
+              ],
+            }),
+          ]),
           instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
           frames: [
             { instructions: [INIT(['f1', 'f2'])], operands:[obj`target`, obj`arg1`] },

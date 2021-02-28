@@ -1,9 +1,8 @@
 import { formatError, Parser } from 'parsimmon'
 import { stub } from 'sinon'
 import uuid from 'uuid'
-import { Environment } from '../src/builders'
 import link from '../src/linker'
-import { Name, Node, Package, Reference, List, Environment as EnvironmentType, Id } from '../src/model'
+import { Name, Node, Package, Reference, List, Environment as EnvironmentType, Id, Environment } from '../src/model'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
@@ -27,7 +26,6 @@ declare global {
       tracedTo(start: number, end: number): Assertion
       recoveringFrom(code: Name, start: number, end: number): Assertion
       linkedInto(expected: List<Package>): Assertion
-      filledInto(expected: any): Assertion
       target(node: Node): Assertion
       pass<N extends Node>(validation: Validation<N>): Assertion
       throwException: Assertion
@@ -55,11 +53,6 @@ declare global {
 // TODO: Implement this without calling JSON?
 const dropKeys = (...keys: string[]) => (obj: any) =>
   JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
-
-// TODO: Implement this without calling JSON?
-const dropMethods = (target: any) =>
-  JSON.parse(JSON.stringify(target, (_, value) => typeof value === 'function' ? '<function>' : value))
-
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ALSO
@@ -135,17 +128,6 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// FILLER ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const fillerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
-
-  Assertion.addMethod('filledInto', function (expected: any) {
-    new Assertion(dropMethods(this._obj)).to.deep.equal(dropMethods(expected))
-  })
-
-}
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -154,7 +136,7 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   Assertion.addMethod('linkedInto', function (expected: List<Package>) {
     const dropLinkedFields = dropKeys('id', 'scope')
     const actualEnvironment = link(this._obj)
-    const expectedEnvironment = Environment(...expected)
+    const expectedEnvironment = new Environment({ members: expected })
 
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })

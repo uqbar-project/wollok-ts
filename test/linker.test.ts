@@ -1,18 +1,18 @@
 import { expect, should, use } from 'chai'
-import { Class, Describe, Field, Import, Method, Mixin, Package, Parameter, Reference, Return, Singleton, Variable, Test } from '../src/builders'
-import link from '../src/linker'
-import { Closure, Environment, fromJSON, List, Literal as LiteralNode, Package as PackageNode, Return as ReturnNode, Singleton as SingletonNode, Variable as VariableNode } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, fromJSON, Import, Literal, Method, Mixin, NamedArgument, Package, Parameter, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import link, { LinkError } from '../src/linker'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
-import { LinkError } from '../src/linker'
 
 
 should()
 use(linkerAssertions)
+
+
 // TODO: Split uber-tests into smaller tests with clearer descriptions
 // TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
 // TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ?
-const WRE: Environment = fromJSON<Environment>(wre)
+const WRE: Environment = fromJSON(wre)
 
 describe('Wollok linker', () => {
 
@@ -21,67 +21,158 @@ describe('Wollok linker', () => {
     it('should merge independent packages into a single environment', () => {
       [
         ...WRE.members,
-        Package('A')(Package('B')()),
-        Package('B')(),
-        Package('C')(Class('B', { superclassRef: Reference('Object') })()),
+        new Package({
+          name: 'A',
+          members: [
+            new Package({ name: 'B' }),
+          ],
+        }),
+        new Package({ name: 'B' }),
+        new Package({
+          name: 'C',
+          members: [
+            new Class({ name: 'B' }),
+          ],
+        }),
       ].should.be.linkedInto([
         ...WRE.members,
-        Package('A')(Package('B')()),
-        Package('B')(),
-        Package('C')(Class('B', { superclassRef: Reference('Object') })()),
-      ] as unknown as List<PackageNode>)
+        new Package({
+          name: 'A',
+          members: [
+            new Package({ name: 'B' }),
+          ],
+        }),
+        new Package({ name: 'B' }),
+        new Package({
+          name: 'C',
+          members: [
+            new Class({ name: 'B' }),
+          ],
+        }),
+      ])
     })
 
     it('should merge same name packages into a single package', () => {
       [
         ...WRE.members,
-        Package('A')(Class('X', { superclassRef: Reference('Object') })()),
-        Package('A')(Class('Y', { superclassRef: Reference('Object') })()),
-        Package('B')(Class('X', { superclassRef: Reference('Object') })()),
+        new Package({
+          name: 'A',
+          members: [
+            new Class({ name: 'X' }),
+          ],
+        }),
+        new Package({
+          name: 'A',
+          members: [
+            new Class({ name: 'Y' }),
+          ],
+        }),
+        new Package({
+          name: 'B',
+          members: [
+            new Class({ name: 'X' }),
+          ],
+        }),
       ].should.be.linkedInto([
         ...WRE.members,
-        Package('A')(
-          Class('X', { superclassRef: Reference('Object') })(),
-          Class('Y', { superclassRef: Reference('Object') })(),
-        ),
-        Package('B')(Class('X', { superclassRef: Reference('Object') })()),
-      ] as unknown as List<PackageNode>)
+        new Package({
+          name: 'A',
+          members: [
+            new Class({ name: 'X' }),
+            new Class({ name: 'Y' }),
+          ],
+        }),
+        new Package({
+          name: 'B',
+          members: [
+            new Class({ name: 'X' }),
+          ],
+        }),
+      ])
     })
 
     it('should recursively merge same name packages into a single package', () => {
       [
         ...WRE.members,
-        Package('A')(Package('B')(Class('X', { superclassRef: Reference('Object') })(Field('u')))),
-        Package('A')(Package('B')(Class('Y', { superclassRef: Reference('Object') })(Field('v')))),
+        new Package({
+          name: 'A',
+          members: [
+            new Package({
+              name: 'B',
+              members: [
+                new Class({ name: 'X' }),
+              ],
+            }),
+          ],
+        }),
+        new Package({
+          name: 'A',
+          members: [
+            new Package({
+              name: 'B',
+              members: [
+                new Class({ name: 'Y' }),
+              ],
+            }),
+          ],
+        }),
       ].should.be.linkedInto([
         ...WRE.members,
-        Package('A')(Package('B')(
-          Class('X', { superclassRef: Reference('Object') })(Field('u')),
-          Class('Y', { superclassRef: Reference('Object') })(Field('v')),
-        )),
-      ] as unknown as List<PackageNode>)
+        new Package({
+          name: 'A',
+          members: [
+            new Package({
+              name: 'B',
+              members: [
+                new Class({ name: 'X' }),
+                new Class({ name: 'Y' }),
+              ],
+            }),
+          ],
+        }),
+      ])
     })
 
     it('should replace old entities prioritizing right to left', () => {
       [
         ...WRE.members,
-        Package('p')(Class('C')(Field('x'))),
-
-        Package('p')(Class('C')(Field('y'))),
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'X', members: [new Field({ name: 'x', isReadOnly: true })] }),
+          ],
+        }),
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'X', members: [new Field({ name: 'y', isReadOnly: true })] }),
+          ],
+        }),
       ].should.be.linkedInto([
         ...WRE.members,
-        Package('p')(Class('C')(Field('y'))),
-      ] as unknown as List<PackageNode>)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'X', members: [new Field({ name: 'y', isReadOnly: true })] }),
+          ],
+        }),
+      ])
     })
 
     it('should re-scope merged packages to find new elements', () => {
       const baseEnvironment = link([
-        Package('p')(Class('X', { superclassRef: Reference('Object') })()),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [new Class({ name: 'X' })],
+        }),
+      ], WRE)
 
       const nextEnvironment = link([
-        Package('p')(Class('Y', { superclassRef: Reference('Object') })()),
-      ] as PackageNode[], baseEnvironment)
+        new Package({
+          name: 'p',
+          members: [new Class({ name: 'Y' })],
+        }),
+      ], baseEnvironment)
 
       const p = nextEnvironment.members[1]
       const Y = p.members[1]
@@ -94,27 +185,41 @@ describe('Wollok linker', () => {
 
   it('should assign an id to all nodes', () => {
     const environment = link([
-      Package('p')(
-        Class('C', { superclassRef: Reference('Object') })(),
-        Package('q')(Mixin('M')()),
-      ),
-    ] as PackageNode[], WRE)
+      new Package({
+        name: 'p',
+        members: [
+          new Class({ name: 'C' }),
+          new Package({
+            name: 'q',
+            members: [new Mixin({ name: 'X' })],
+          }),
+        ],
+      }),
+    ], WRE)
 
-    const nodes = [environment, ...environment.descendants()]
-
-    nodes.forEach(node => node.should.have.property('id'))
+    environment.should.have.property('id')
+    environment.descendants().forEach(node => node.should.have.property('id'))
   })
 
   describe('scopes', () => {
 
     it('references should target their definitions', () => {
       const environment = link([
-        Package('p')(Class('C', { superclassRef: Reference('Object') })(
-          Field('f', { value: Reference('C') }),
-          Field('g', { value: Reference('p') }),
-          Field('h', { value: Reference('f') }),
-        )),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({
+              name: 'C',
+              superclassRef: new Reference({ name: 'wollok.lang.Object' }),
+              members: [
+                new Field({ name: 'f', isReadOnly: true, value: new Reference({ name: 'C' }) }),
+                new Field({ name: 'g', isReadOnly: true, value: new Reference({ name: 'p' }) }),
+                new Field({ name: 'h', isReadOnly: true, value: new Reference({ name: 'f' }) }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const Object = environment.getNodeByFQN<'Class'>('wollok.lang.Object')
       const p = environment.getNodeByFQN<'Package'>('p')
@@ -131,44 +236,67 @@ describe('Wollok linker', () => {
 
     it('should override targets according to scope level', () => {
       const environment = link([
-        Package('x')(
-          Singleton('x', { superclassRef: Reference('Object'), supercallArgs: [Reference('x')] })(
-            Field('x', { value: Reference('x') }),
-            Method('m1', { parameters: [Parameter('x')] })(
-              Reference('x'),
-              Closure({
-                parameters: [Parameter('x')],
-                sentences: [Return(Reference('x'))],
-              })
-            ),
-            Method('m2')(
-              Variable('x', { value: Reference('x') }),
-              Reference('x')
-            ),
-            Method('m3')(Reference('x'))
-          ),
-          Class('C', { superclassRef: Reference('x') })(),
-          Class('D')(
-            Method('m4')(
-              Reference('x')
-            )
-          ),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'x',
+          members: [
+            new Singleton({
+              name: 'x',
+              supercallArgs: [new NamedArgument({ name: 'x', value: new Reference({ name: 'x' }) })],
+              members: [
+                new Field({ name: 'x', isReadOnly: false, value: new Reference({ name: 'x' }) }),
+                new Method({
+                  name: 'm1',
+                  parameters: [new Parameter({ name: 'x' })],
+                  body: new Body({
+                    sentences: [
+                      new Reference({ name: 'x' }),
+                      Closure({
+                        parameters: [new Parameter({ name: 'x' })],
+                        sentences: [
+                          new Return({ value: new Reference({ name: 'x' }) }),
+                        ],
+                      }),
+                    ],
+                  }),
+                }),
+                new Method({
+                  name: 'm2',
+                  body: new Body({
+                    sentences: [
+                      new Variable({ name: 'x', isReadOnly: false, value: new Reference({ name: 'x' }) }),
+                      new Reference({ name: 'x' }),
+                    ],
+                  }),
+                }),
+                new Method({
+                  name: 'm3',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+            new Class({ name: 'C', superclassRef: new Reference({ name: 'x' }) }),
+            new Class({
+              name: 'D', members: [
+                new Method({ name: 'm4', body: new Body({ sentences: [new Reference({ name: 'x' })] }) }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const S = environment.getNodeByFQN<'Singleton'>('x.x')
       const C = environment.getNodeByFQN<'Singleton'>('x.C')
       const D = environment.getNodeByFQN<'Singleton'>('x.D')
       const f = S.fields()[0]
       const m1 = S.methods()[0]
-      const closure = m1.sentences()[1] as LiteralNode<SingletonNode>
-      const closureReturn = closure.value.methods()[0].sentences()[0] as ReturnNode
+      const closure = m1.sentences()[1] as Literal<Singleton>
+      const closureReturn = closure.value.methods()[0].sentences()[0] as Return
       const m2 = S.methods()[1]
-      const m2var = m2.sentences()[0] as VariableNode
+      const m2var = m2.sentences()[0] as Variable
       const m3 = S.methods()[2]
-      const m4 = D.methods()[0]
+      const m4 = D.methods()[0];
 
-      S.supercallArgs[0].should.target(f)
+      (S.supercallArgs[0] as NamedArgument).value!.should.target(f)
       f.value!.should.target(f)
       m1.sentences()[0].should.target(m1.parameters[0])
       closureReturn.value!.should.target(closure.value.methods()[0].parameters[0])
@@ -181,16 +309,39 @@ describe('Wollok linker', () => {
 
     it('should target inherited members', () => {
       const environment = link([
-        Package('p')(
-          Mixin('M')(Field('y')),
-          Class('A')(Field('x')),
-          Class('B', { superclassRef: Reference('A') })(),
-          Class('C', { superclassRef: Reference('B'), mixins: [Reference('M')] })(Method('m')(
-            Reference('x'),
-            Reference('y'),
-          )),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({
+              name: 'M', members: [
+                new Field({ name: 'y', isReadOnly: false }),
+              ],
+            }),
+            new Class({
+              name: 'A', members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
+            new Class({
+              name: 'C',
+              superclassRef: new Reference({ name: 'B' }),
+              mixins: [new Reference({ name: 'M' })],
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({
+                    sentences: [
+                      new Reference({ name: 'x' }),
+                      new Reference({ name: 'y' }),
+                    ],
+                  }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const A = environment.getNodeByFQN<'Class'>('p.A')
       const M = environment.getNodeByFQN<'Class'>('p.M')
@@ -202,14 +353,28 @@ describe('Wollok linker', () => {
 
     it('should target local overriden references to members inherited from mixins', () => {
       const environment = link([
-        Package('p')(
-          Mixin('M')(Field('x')),
-          Class('C', { mixins: [Reference('M')] })(
-            Field('x'),
-            Method('m')(Reference('x'))
-          ),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({
+              name: 'M', members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({
+              name: 'C',
+              mixins: [new Reference({ name: 'M' })],
+              members: [
+                new Field({ name: 'x', isReadOnly: false }),
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
 
@@ -218,15 +383,29 @@ describe('Wollok linker', () => {
 
     it('should target local overriden references to members inherited from superclass', () => {
       const environment = link([
-        Package('p')(
-          Class('A')(Field('x')),
-          Class('B', { superclassRef: Reference('A') })(),
-          Class('C', { superclassRef: Reference('B') })(
-            Field('x'),
-            Method('m')(Reference('x'))
-          ),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({
+              name: 'A', members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
+            new Class({
+              name: 'C',
+              superclassRef: new Reference({ name: 'B' }),
+              members: [
+                new Field({ name: 'x', isReadOnly: false }),
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
 
@@ -235,12 +414,33 @@ describe('Wollok linker', () => {
 
     it('should target references overriden on mixins to members inherited from superclass', () => {
       const environment = link([
-        Package('p')(
-          Mixin('M')(Field('x')),
-          Class('A')(Field('x')),
-          Class('C', { superclassRef: Reference('A'), mixins: [Reference('M')] })(Method('m')(Reference('x'))),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({
+              name: 'M', members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({
+              name: 'A', members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({
+              name: 'C',
+              superclassRef: new Reference({ name: 'A' }),
+              mixins: [new Reference({ name: 'M' })],
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -248,14 +448,37 @@ describe('Wollok linker', () => {
       C.methods()[0].sentences()[0].should.target(M.fields()[0])
     })
 
-    it('should target references overriden on mixins to members inherited from further mixin', () => {
+    it('should target references overriden on mixins to members inherited from other mixins', () => {
       const environment = link([
-        Package('p')(
-          Mixin('M', { mixins: [Reference('N')] })(Field('x')),
-          Mixin('N')(Field('x')),
-          Class('C', { mixins: [Reference('M')] })(Method('m')(Reference('x'))),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({
+              name: 'M',
+              mixins: [new Reference({ name: 'N' })],
+              members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Mixin({
+              name: 'N',
+              members: [
+                new Field({ name: 'x', isReadOnly: false }),
+              ],
+            }),
+            new Class({
+              name: 'C',
+              mixins: [new Reference({ name: 'M' })],
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const M = environment.getNodeByFQN<'Class'>('p.M')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -265,12 +488,31 @@ describe('Wollok linker', () => {
 
     it('should target references overriden on superclass to members inherited from further superclass', () => {
       const environment = link([
-        Package('p')(
-          Class('A')(Field('x')),
-          Class('B', { superclassRef: Reference('A') })(Field('x')),
-          Class('C', { superclassRef: Reference('B') })(Method('m')(Reference('x'))),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({
+              name: 'A',
+              members: [new Field({ name: 'x', isReadOnly: false })],
+            }),
+            new Class({
+              name: 'B',
+              superclassRef: new Reference({ name: 'A' }),
+              members: [new Field({ name: 'x', isReadOnly: false })],
+            }),
+            new Class({
+              name: 'C',
+              superclassRef: new Reference({ name: 'B' }),
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
 
       const B = environment.getNodeByFQN<'Class'>('p.B')
       const C = environment.getNodeByFQN<'Class'>('p.C')
@@ -280,18 +522,30 @@ describe('Wollok linker', () => {
 
     it('should target imported references', () => {
       const environment = link([
-        Package('p', {
+        new Package({
+          name: 'p',
           imports: [
-            Import(Reference('q'), { isGeneric: true }),
-            Import(Reference('r.T')),
+            new Import({ entity: new Reference({ name: 'q' }), isGeneric: true }),
+            new Import({ entity: new Reference({ name: 'r.T' }) }),
           ],
-        })(
-          Class('C', { superclassRef: Reference('S') })(),
-          Class('D', { superclassRef: Reference('T') })(),
-        ),
-        Package('q')(Class('S', { superclassRef: Reference('Object') })()),
-        Package('r')(Class('T', { superclassRef: Reference('Object') })()),
-      ] as PackageNode[], WRE)
+          members: [
+            new Class({ name: 'C', superclassRef: new Reference({ name: 'S' }) }),
+            new Class({ name: 'D', superclassRef: new Reference({ name: 'T' }) }),
+          ],
+        }),
+        new Package({
+          name: 'q',
+          members: [
+            new Class({ name: 'S' }),
+          ],
+        }),
+        new Package({
+          name: 'r',
+          members: [
+            new Class({ name: 'T' }),
+          ],
+        }),
+      ], WRE)
 
       const C = environment.getNodeByFQN<'Class'>('p.C')
       const D = environment.getNodeByFQN<'Class'>('p.D')
@@ -304,36 +558,52 @@ describe('Wollok linker', () => {
 
     it('qualified references should not consider parent scopes for non-root steps', () => {
       const environment = link([
-        Package('p', { imports: [Import(Reference('r.C'))] })(
-          Package('q')(),
-          Singleton('s', { supercallArgs: [], superclassRef: Reference('Object') })(),
-        ),
-        Package('r')(
-          Class('C')(),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          imports: [new Import({ entity: new Reference({ name: 'r.C' }) })],
+          members: [
+            new Package({ name: 'q' }),
+            new Singleton({ name: 's' }),
+          ],
+        }),
+        new Package({
+          name: 'r',
+          members: [
+            new Class({ name: 'C' }),
+          ],
+        }),
+      ], WRE)
 
       expect(() => environment.getNodeByFQN('p.q.s')).to.throw()
     })
 
     it('packages should not make imported members referenceable from outside', () => {
       const environment = link([
-        Package('p', { imports: [Import(Reference('r.C'))] })(),
-        Package('r')(
-          Class('C')(),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          imports: [new Import({ entity: new Reference({ name: 'r.C' }) })],
+        }),
+        new Package({
+          name: 'r',
+          members: [
+            new Class({ name: 'C' }),
+          ],
+        }),
+      ], WRE)
 
       expect(() => environment.getNodeByFQN('p.C')).to.throw()
     })
 
     it('Entities with string names should not be referenceable without the quotes', () => {
       const environment = link([
-        Package('p')(
-          Describe('"G"')(),
-          Test('"T"')(),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Describe({ name: '"G"' }),
+            new Test({ name: '"T"', body: new Body() }),
+          ],
+        }),
+      ], WRE)
 
       expect(() => environment.getNodeByFQN('p.G')).to.throw()
       expect(() => environment.getNodeByFQN('p."G"')).to.not.throw()
@@ -348,58 +618,87 @@ describe('Wollok linker', () => {
 
     it('should recover from missing reference in imports', () => {
       const environment = link([
-        Package('p', { imports: [Import(Reference('q.A'))] })(),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          imports: [new Import({ entity: new Reference({ name: 'q.A' }) })],
+        }),
+      ], WRE)
 
       environment.getNodeByFQN<'Package'>('p').imports[0].entity.problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should recover from missing reference in superclass', () => {
       const environment = link([
-        Package('p')(Class('C', { superclassRef: Reference('S') })()),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'C', superclassRef: new Reference({ name: 'S' }) }),
+          ],
+        }),
+      ], WRE)
 
       environment.getNodeByFQN<'Class'>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should recover from missing reference in mixin', () => {
       const environment = link([
-        Package('p')(Class('C', { mixins: [Reference('M')] })()),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'C', mixins: [new Reference({ name: 'M' })] }),
+          ],
+        }),
+      ], WRE)
 
       environment.getNodeByFQN<'Class'>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should not crash if a class inherits from itself', () => {
       link([
-        Package('p')(Class('C', { superclassRef: Reference('C') })()),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'C', superclassRef: new Reference({ name: 'C' }) }),
+          ],
+        }),
+      ], WRE)
     })
 
     it('should not crash if there is an inheritance cycle', () => {
       link([
-        Package('p')(
-          Class('A', { superclassRef: Reference('C') })(),
-          Class('B', { superclassRef: Reference('A') })(),
-          Class('C', { superclassRef: Reference('B') })(),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Class({ name: 'A', superclassRef: new Reference({ name: 'C' }) }),
+            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
+            new Class({ name: 'C', superclassRef: new Reference({ name: 'B' }) }),
+          ],
+        }),
+      ], WRE)
     })
 
     it('should not crash if a mixin includes itself', () => {
       link([
-        Package('p')(Mixin('A', { mixins: [Reference('A')] })()),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({ name: 'M', mixins: [new Reference({ name: 'M' })] }),
+          ],
+        }),
+      ], WRE)
     })
 
-    it('should not crash if there is an linearization cycle', () => {
+    it('should not crash if there is a mixin linearization cycle', () => {
       link([
-        Package('p')(
-          Mixin('A', { mixins: [Reference('C')] })(),
-          Mixin('B', { mixins: [Reference('A')] })(),
-          Mixin('C', { mixins: [Reference('B')] })(),
-        ),
-      ] as PackageNode[], WRE)
+        new Package({
+          name: 'p',
+          members: [
+            new Mixin({ name: 'A', mixins: [new Reference({ name: 'C' })] }),
+            new Mixin({ name: 'B', mixins: [new Reference({ name: 'A' })] }),
+            new Mixin({ name: 'C', mixins: [new Reference({ name: 'B' })] }),
+          ],
+        }),
+      ], WRE)
     })
 
   })

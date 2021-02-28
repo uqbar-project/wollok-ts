@@ -631,7 +631,7 @@ export class Fixture extends $Node {
   readonly kind = 'Fixture'
   readonly body!: Body
 
-  constructor(payload: Payload<Fixture>) { super(payload) }
+  constructor({ body = new Body(), ...payload }: Payload<Fixture>) { super({ body, ...payload }) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -731,7 +731,7 @@ export class Super extends $Expression {
   readonly kind = 'Super'
   readonly args!: List<Expression>
 
-  constructor({ args = [], ...payload }: Payload<Super>) {
+  constructor({ args = [], ...payload }: Payload<Super> = {}) {
     super({ args, ...payload })
   }
 }
