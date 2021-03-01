@@ -428,7 +428,9 @@ abstract class $Module extends $Entity {
     const hierarchyExcluding = (node: Module, exclude: List<Id> = []): List<Module> => {
       if (exclude.includes(node.id!)) return []
       const modules = [
-        ...node.mixins.map(mixin => mixin.target()!).filter(mixin => mixin !== undefined),
+        ...node.is('Class')
+          ? node.mixins()
+          : node.mixins.map(mixin => mixin.target()!).filter(mixin => mixin !== undefined),
         ...node.is('Mixin') || !node.superclass() ? [] : [node.superclass()!],
       ]
       return modules.reduce<[List<Module>, List<Id>]>(([hierarchy, excluded], module) => [
@@ -464,17 +466,25 @@ abstract class $Module extends $Entity {
 export class Class extends $Module {
   readonly kind = 'Class'
   readonly name!: Name
-  readonly mixins!: List<Reference<Mixin>>
+  readonly supertypes!: List<Reference<Mixin | Class>>
   readonly members!: List<ModuleMember>
-  readonly superclassRef?: Reference<Class>
 
-  constructor({ mixins = [], members = [], ...payload }: Payload<Class, 'name'>) {
-    super({ mixins, members, ...payload })
+  constructor({ supertypes = [], members = [], ...payload }: Payload<Class, 'name'>) {
+    super({ supertypes, members, ...payload })
+  }
+
+  @cached
+  mixins(): List<Mixin> {
+    return this.supertypes
+      .flatMap(reference => reference.target() ? [reference.target()!] : [])
+      .filter(is('Mixin'))
   }
 
   superclass(this: Module): Class | undefined
+  @cached
   superclass(this: Class): Class | undefined {
-    if(this.superclassRef) return this.superclassRef.target()
+    const superclassReference = this.supertypes.find(reference => reference.target()?.is('Class'))
+    if(superclassReference) return superclassReference.target() as Class
     else {
       const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
       return this === objectClass ? undefined : objectClass

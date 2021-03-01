@@ -669,7 +669,7 @@ describe('Wollok Interpreter', () => {
                 }),
                 new Class({
                   name: 'C',
-                  superclassRef: new Reference({ name: 'B' }),
+                  supertypes: [new Reference({ name: 'B' })],
                   members: [new Method({ name: 'm', body: new Body(), isOverride: true })],
                 }),
               ],
@@ -822,7 +822,7 @@ describe('Wollok Interpreter', () => {
                   ],
                 }),
                 new Class({
-                  name: 'C', superclassRef: new Reference({ name: 'test.B' }), members: [
+                  name: 'C', supertypes: [new Reference({ name: 'test.B' })], members: [
                     new Field({ name: 'f3', isReadOnly: false, value: new Literal({ value: 3 }) }),
                     new Field({ name: 'f4', isReadOnly: false, value: new Literal({ value: 4 }) }),
                   ],

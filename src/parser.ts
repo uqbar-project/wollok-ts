@@ -214,10 +214,14 @@ const mixins = lazy(() =>
     .fallback([])
 )
 
+
+//TODO: It looks like current typing detects missing fields but not inexistent ones
 export const Class: Parser<ClassNode> = node(ClassNode)(() => key('class').then(obj({
   name,
-  superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
-  mixins,
+  supertypes: seq(
+    optional(key('inherits').then(FullyQualifiedReference)),
+    mixins,
+  ).map(([superclass, mixins]) => [...mixins, ...superclass ? [superclass] : []]),
   members: alt(Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 

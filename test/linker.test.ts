@@ -210,7 +210,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'C',
-              superclassRef: new Reference({ name: 'wollok.lang.Object' }),
+              supertypes:[new Reference({ name: 'wollok.lang.Object' })],
               members: [
                 new Field({ name: 'f', isReadOnly: true, value: new Reference({ name: 'C' }) }),
                 new Field({ name: 'g', isReadOnly: true, value: new Reference({ name: 'p' }) }),
@@ -228,7 +228,7 @@ describe('Wollok linker', () => {
       const g = C.fields()[1]
       const h = C.fields()[2]
 
-      C.superclassRef!.should.target(Object)
+      C.supertypes[0].should.target(Object)
       f.value!.should.target(C)
       g.value!.should.target(p)
       h.value!.should.target(f)
@@ -274,7 +274,7 @@ describe('Wollok linker', () => {
                 }),
               ],
             }),
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'x' }) }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'x' })] }),
             new Class({
               name: 'D', members: [
                 new Method({ name: 'm4', body: new Body({ sentences: [new Reference({ name: 'x' })] }) }),
@@ -285,8 +285,8 @@ describe('Wollok linker', () => {
       ], WRE)
 
       const S = environment.getNodeByFQN<Singleton>('x.x')
-      const C = environment.getNodeByFQN<Singleton>('x.C')
-      const D = environment.getNodeByFQN<Singleton>('x.D')
+      const C = environment.getNodeByFQN<Class>('x.C')
+      const D = environment.getNodeByFQN<Class>('x.D')
       const f = S.fields()[0]
       const m1 = S.methods()[0]
       const closure = m1.sentences()[1] as Literal<Singleton>
@@ -303,7 +303,7 @@ describe('Wollok linker', () => {
       m2var.value!.should.target(m2var)
       m2.sentences()[1].should.target(m2var)
       m3.sentences()[0].should.target(f)
-      C.superclassRef!.should.target(S)
+      C.supertypes[0].should.target(S)
       m4.sentences()[0].should.target(S)
     })
 
@@ -322,11 +322,10 @@ describe('Wollok linker', () => {
                 new Field({ name: 'x', isReadOnly: false }),
               ],
             }),
-            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
+            new Class({ name: 'B', supertypes: [new Reference({ name: 'A' })] }),
             new Class({
               name: 'C',
-              superclassRef: new Reference({ name: 'B' }),
-              mixins: [new Reference({ name: 'M' })],
+              supertypes: [new Reference({ name: 'M' }), new Reference({ name: 'B' })],
               members: [
                 new Method({
                   name: 'm',
@@ -363,7 +362,7 @@ describe('Wollok linker', () => {
             }),
             new Class({
               name: 'C',
-              mixins: [new Reference({ name: 'M' })],
+              supertypes: [new Reference({ name: 'M' })],
               members: [
                 new Field({ name: 'x', isReadOnly: false }),
                 new Method({
@@ -391,10 +390,10 @@ describe('Wollok linker', () => {
                 new Field({ name: 'x', isReadOnly: false }),
               ],
             }),
-            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
+            new Class({ name: 'B', supertypes: [new Reference({ name: 'A' })] }),
             new Class({
               name: 'C',
-              superclassRef: new Reference({ name: 'B' }),
+              supertypes: [new Reference({ name: 'B' })],
               members: [
                 new Field({ name: 'x', isReadOnly: false }),
                 new Method({
@@ -429,8 +428,7 @@ describe('Wollok linker', () => {
             }),
             new Class({
               name: 'C',
-              superclassRef: new Reference({ name: 'A' }),
-              mixins: [new Reference({ name: 'M' })],
+              supertypes: [new Reference({ name: 'M' }), new Reference({ name: 'A' })],
               members: [
                 new Method({
                   name: 'm',
@@ -468,7 +466,7 @@ describe('Wollok linker', () => {
             }),
             new Class({
               name: 'C',
-              mixins: [new Reference({ name: 'M' })],
+              supertypes: [new Reference({ name: 'M' })],
               members: [
                 new Method({
                   name: 'm',
@@ -497,12 +495,12 @@ describe('Wollok linker', () => {
             }),
             new Class({
               name: 'B',
-              superclassRef: new Reference({ name: 'A' }),
+              supertypes: [new Reference({ name: 'A' })],
               members: [new Field({ name: 'x', isReadOnly: false })],
             }),
             new Class({
               name: 'C',
-              superclassRef: new Reference({ name: 'B' }),
+              supertypes: [new Reference({ name: 'B' })],
               members: [
                 new Method({
                   name: 'm',
@@ -529,8 +527,8 @@ describe('Wollok linker', () => {
             new Import({ entity: new Reference({ name: 'r.T' }) }),
           ],
           members: [
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'S' }) }),
-            new Class({ name: 'D', superclassRef: new Reference({ name: 'T' }) }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'S' })] }),
+            new Class({ name: 'D', supertypes: [new Reference({ name: 'T' })] }),
           ],
         }),
         new Package({
@@ -552,8 +550,8 @@ describe('Wollok linker', () => {
       const S = environment.getNodeByFQN<Class>('q.S')
       const T = environment.getNodeByFQN<Class>('r.T')
 
-      C.superclassRef!.should.target(S)
-      D.superclassRef!.should.target(T)
+      C.supertypes[0].should.target(S)
+      D.supertypes[0].should.target(T)
     })
 
     it('qualified references should not consider parent scopes for non-root steps', () => {
@@ -632,12 +630,12 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'S' }) }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'S' })] }),
           ],
         }),
       ], WRE)
 
-      environment.getNodeByFQN<Class>('p.C').superclassRef!.problems!.should.deep.equal([new LinkError('missingReference')])
+      environment.getNodeByFQN<Class>('p.C').supertypes[0].problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should recover from missing reference in mixin', () => {
@@ -645,12 +643,12 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'C', mixins: [new Reference({ name: 'M' })] }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'M' })] }),
           ],
         }),
       ], WRE)
 
-      environment.getNodeByFQN<Class>('p.C').mixins[0].problems!.should.deep.equal([new LinkError('missingReference')])
+      environment.getNodeByFQN<Class>('p.C').supertypes[0].problems!.should.deep.equal([new LinkError('missingReference')])
     })
 
     it('should not crash if a class inherits from itself', () => {
@@ -658,7 +656,7 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'C' }) }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'C' })] }),
           ],
         }),
       ], WRE)
@@ -669,9 +667,9 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'A', superclassRef: new Reference({ name: 'C' }) }),
-            new Class({ name: 'B', superclassRef: new Reference({ name: 'A' }) }),
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'B' }) }),
+            new Class({ name: 'A', supertypes: [new Reference({ name: 'C' })] }),
+            new Class({ name: 'B', supertypes: [new Reference({ name: 'A' })] }),
+            new Class({ name: 'C', supertypes: [new Reference({ name: 'B' })] }),
           ],
         }),
       ], WRE)
