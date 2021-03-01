@@ -19,7 +19,7 @@ object closureErrorMock {
 
 describe 'flush events' {
 
-  fixture{
+  method initialize() {
     game.start()
   }
 

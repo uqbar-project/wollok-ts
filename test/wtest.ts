@@ -37,7 +37,6 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
           evaluation.pushFrame(new Frame(describeInstance, [
             PUSH(describeInstance.id),
             INIT([]),
-            ...node.fixtures().flatMap(fixture => compile(fixture)),
           ]))
           evaluation.stepAll()
         })

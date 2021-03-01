@@ -19,7 +19,7 @@ object visual inherits Visual { }
 
 describe 'events' {
 
-  fixture {
+  method initialize() {
     game.addVisual(visual)
   }
 

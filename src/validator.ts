@@ -228,7 +228,6 @@ export default (target: Node): List<Problem> => {
     Try: { hasCatchOrAlways },
     Environment: {},
     Describe: {},
-    Fixture: {},
   }
 
   return target.reduce<Problem[]>((found, node) => {

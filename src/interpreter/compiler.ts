@@ -273,8 +273,6 @@ const compile = (node: Node): List<Instruction> => {
 
     Test: node => compile(node.body),
 
-    Fixture: node => compile(node.body),
-
     Body: node => node.sentences.flatMap(compile),
 
     Node: () => { throw new Error(`Can't compile ${node.kind} node`) },

@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Body, Catch, Class, Closure, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -746,13 +746,6 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('members.1').tracedTo(32, 46)
       })
 
-      it('should parse describes with fixture', () => {
-        'describe "name" { fixture {} }'.should.be.parsedBy(parser).into(
-          new Describe({ name: '"name"', members: [new Fixture({})] })
-        ).and.be.tracedTo(0, 30)
-          .and.have.nested.property('members.0').tracedTo(18, 29)
-      })
-
       it('should parse describes with fields', () => {
         'describe "name" { var v }'.should.be.parsedBy(parser).into(
           new Describe({ name: '"name"', members: [new Variable({ name: 'v', isReadOnly: false })] })
@@ -1006,27 +999,6 @@ describe('Wollok parser', () => {
         'method m(p,q) native { }'.should.not.be.parsedBy(parser)
       })
 
-    })
-
-
-    describe('Fixture', () => {
-      const parser = parse.Fixture
-
-      it('should parse empty fixture', () => {
-        'fixture { }'.should.be.parsedBy(parser).into( new Fixture({})).and.be.tracedTo(0, 11)
-      })
-
-      it('should parse non-empty fixture', () => {
-        'fixture {var x}'.should.be.parsedBy(parser).into(
-          new Fixture({ body: new Body({ sentences: [new Variable({ name: 'x', isReadOnly: false })] }) })
-        ).and.be.tracedTo(0, 15)
-          .and.have.nested.property('body').tracedTo(8, 15)
-          .and.also.have.nested.property('body.sentences.0').tracedTo(9, 14)
-      })
-
-      it('should not parse "fixture" keyword without a body', () => {
-        'fixture'.should.not.be.parsedBy(parser)
-      })
     })
 
   })

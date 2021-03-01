@@ -347,7 +347,6 @@ export class Describe extends $Entity {
   tests(): List<Test> { return this.members.filter(is('Test')) }
   methods(): List<Method> { return this.members.filter(is('Method')) }
   variables(): List<Variable> { return this.members.filter(is('Variable')) }
-  fixtures(): List<Fixture> { return this.members.filter(is('Fixture')) }
 
   // TODO: Describe is a Module?
   @cached
@@ -529,7 +528,7 @@ export class Mixin extends $Module {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export type ModuleMember = Field | Method
-export type DescribeMember = Variable | Fixture | Test | Method
+export type DescribeMember = Variable | Test | Method
 
 
 export class Field extends $Node {
@@ -576,14 +575,6 @@ export class Method extends $Node {
     )
   }
 
-}
-
-
-export class Fixture extends $Node {
-  readonly kind = 'Fixture'
-  readonly body!: Body
-
-  constructor({ body = new Body(), ...payload }: Payload<Fixture>) { super({ body, ...payload }) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
