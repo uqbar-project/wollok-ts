@@ -1,6 +1,7 @@
 # Changelog
 
 ## v3.0.0
+- Removed Constructors
 
 
 ## v2.3.0
