@@ -206,6 +206,7 @@ export default (target: Node): List<Problem> => {
     }
   } = {
     Parameter: { referenceNameIsValid },
+    ParameterizedType: {},
     NamedArgument: {},
     Import: {},
     Body: {},

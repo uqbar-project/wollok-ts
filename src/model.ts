@@ -94,6 +94,7 @@ export type NodeOfKindOrCategory<Q extends Kind | Category> =
 
 export type Node
   = Parameter
+  | ParameterizedType
   | NamedArgument
   | Import
   | Body
@@ -218,6 +219,17 @@ export class Parameter extends $Node {
 
   constructor({ isVarArg = false, ...payload }: Payload<Parameter, 'name'>) {
     super({ isVarArg, ...payload })
+  }
+}
+
+
+export class ParameterizedType extends $Node {
+  readonly kind = 'ParameterizedType'
+  readonly reference!: Reference<Module>
+  readonly args!: List<NamedArgument>
+
+  constructor({ args = [], ...payload }: Payload<ParameterizedType, 'reference'>) {
+    super({ args, ...payload })
   }
 }
 
