@@ -4,7 +4,7 @@ import { join } from 'path'
 import link from '../src/linker'
 import { ConsoleLogger, LogLevel } from '../src/interpreter/log'
 import { File } from '../src/parser'
-import { Package } from '../src'
+import { Package } from '../src/model'
 
 const { writeFile, readFile } = promises
 
