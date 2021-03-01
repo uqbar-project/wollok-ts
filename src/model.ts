@@ -428,7 +428,7 @@ abstract class $Module extends $Entity {
     const hierarchyExcluding = (node: Module, exclude: List<Id> = []): List<Module> => {
       if (exclude.includes(node.id!)) return []
       const modules = [
-        ...node.is('Class')
+        ...node.is('Class') || node.is('Mixin')
           ? node.mixins()
           : node.mixins.map(mixin => mixin.target()!).filter(mixin => mixin !== undefined),
         ...node.is('Mixin') || !node.superclass() ? [] : [node.superclass()!],
@@ -522,11 +522,16 @@ export class Singleton extends $Module {
 export class Mixin extends $Module {
   readonly kind = 'Mixin'
   readonly name!: Name
-  readonly mixins!: List<Reference<Mixin>>
+  readonly supertypes!: List<Reference<Mixin>>
   readonly members!: List<ModuleMember>
 
-  constructor({ mixins = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
-    super({ mixins, members, ...payload })
+  constructor({ supertypes = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
+    super({ supertypes, members, ...payload })
+  }
+
+  @cached
+  mixins(): List<Mixin> {
+    return this.supertypes.flatMap(reference => reference.target() ? [reference.target()!] : [])
   }
 }
 

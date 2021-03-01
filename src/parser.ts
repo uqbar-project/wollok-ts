@@ -241,7 +241,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
 
 export const Mixin: Parser<MixinNode> = node(MixinNode)(() => key('mixin').then(obj({
   name,
-  mixins,
+  supertypes: mixins,
   members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 

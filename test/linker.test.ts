@@ -453,7 +453,7 @@ describe('Wollok linker', () => {
           members: [
             new Mixin({
               name: 'M',
-              mixins: [new Reference({ name: 'N' })],
+              supertypes: [new Reference({ name: 'N' })],
               members: [
                 new Field({ name: 'x', isReadOnly: false }),
               ],
@@ -680,7 +680,7 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Mixin({ name: 'M', mixins: [new Reference({ name: 'M' })] }),
+            new Mixin({ name: 'M', supertypes: [new Reference({ name: 'M' })] }),
           ],
         }),
       ], WRE)
@@ -691,9 +691,9 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Mixin({ name: 'A', mixins: [new Reference({ name: 'C' })] }),
-            new Mixin({ name: 'B', mixins: [new Reference({ name: 'A' })] }),
-            new Mixin({ name: 'C', mixins: [new Reference({ name: 'B' })] }),
+            new Mixin({ name: 'A', supertypes: [new Reference({ name: 'C' })] }),
+            new Mixin({ name: 'B', supertypes: [new Reference({ name: 'A' })] }),
+            new Mixin({ name: 'C', supertypes: [new Reference({ name: 'B' })] }),
           ],
         }),
       ], WRE)
