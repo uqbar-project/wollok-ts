@@ -1,7 +1,7 @@
 import { basename } from 'path'
 import yargs from 'yargs'
 import { Evaluation, RuntimeObject, Frame } from '../src/interpreter/runtimeModel'
-import compile, { PUSH, INIT, DUP, CALL, POP } from '../src/interpreter/compiler'
+import compile, { PUSH, INIT } from '../src/interpreter/compiler'
 import { LogLevel, ConsoleLogger } from '../src/interpreter/log'
 import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'

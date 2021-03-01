@@ -1,4 +1,4 @@
-import { is, Node, Body, Expression, Id, List, Name, NamedArgument } from '../model'
+import { is, Node, Body, Expression, Id, List, Name, NamedArgument, isNode } from '../model'
 import { InnerValue } from './runtimeModel'
 
 export const NULL_ID = 'null'
@@ -119,7 +119,7 @@ const compile = (node: Node): List<Instruction> => {
         INSTANTIATE('wollok.lang.String', node.value),
       ]
 
-      if (node.value.is('Singleton')) {
+      if (isNode(node.value) && node.value.is('Singleton')) {
         if (node.value.supercallArgs.some(is('NamedArgument'))) {
           const supercallArgs = node.value.supercallArgs as List<NamedArgument>
           return [
@@ -137,9 +137,9 @@ const compile = (node: Node): List<Instruction> => {
         }
       }
 
-      const args = node.value.args as List<Expression>
+      const [reference, args] = node.value
       return [
-        INSTANTIATE(node.value.instantiated.name, []),
+        INSTANTIATE(reference.target()!.fullyQualifiedName(), []),
         INIT([]),
         ...args.flatMap(arg => [
           DUP,
@@ -170,22 +170,13 @@ const compile = (node: Node): List<Instruction> => {
 
     New: node => {
       const fqn = node.instantiated.target()!.fullyQualifiedName()
+      const args = node.args as List<NamedArgument>
 
-      if ((node.args as any[]).some(arg => arg.is('NamedArgument'))) {
-        const args = node.args as List<NamedArgument>
-
-        return [
-          ...args.flatMap(({ value }) => compile(value)),
-          INSTANTIATE(fqn),
-          INIT(args.map(({ name }) => name)),
-        ]
-      } else {
-        return [
-          ...(node.args as List<Expression>).flatMap(arg => compile(arg)),
-          INSTANTIATE(fqn),
-          INIT([]),
-        ]
-      }
+      return [
+        ...args.flatMap(({ value }) => compile(value)),
+        INSTANTIATE(fqn),
+        INIT(args.map(({ name }) => name)),
+      ]
     },
 
 

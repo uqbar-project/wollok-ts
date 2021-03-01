@@ -2,6 +2,7 @@
 
 ## v3.0.0
 - Removed Constructors
+- Removed instantiation with unnamed arguments
 
 
 ## v2.3.0

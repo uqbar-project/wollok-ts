@@ -843,12 +843,13 @@ describe('Wollok Interpreter', () => {
           .and.onCurrentFrame.popOperands(3)
           .and.pushFrame({
             instructions: [
-            LOAD('self'),
-            CALL('initialize', 0),
-            LOAD('self'),
-            RETURN,
-          ],
-          contexts:[ctx`_new_1_`({parent: obj`target` })] })
+              LOAD('self'),
+              CALL('initialize', 0),
+              LOAD('self'),
+              RETURN,
+            ],
+            contexts:[ctx`_new_1_`({ parent: obj`target` })],
+          })
           .whenStepped()
       })
 

@@ -1609,7 +1609,7 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.1.value').tracedTo(17, 18)
         })
 
-        xit('should not parse instantiations without parameter names', () => {
+        it('should not parse instantiations without parameter names', () => {
           'new C(1,2)'.should.not.be.parsedBy(parser)
         })
 
@@ -2067,48 +2067,44 @@ describe('Wollok parser', () => {
 
           it('should parse empty lists', () => {
             '[]'.should.be.parsedBy(parser).into(
-              new Literal({ value: new New({ instantiated: new Reference({ name: 'wollok.lang.List' }), args: [] }) })
+              new Literal({ value: [new Reference({ name: 'wollok.lang.List' }), []] })
             ).and.be.tracedTo(0, 2)
           })
 
           it('should parse non-empty lists', () => {
             '[1,2,3]'.should.be.parsedBy(parser).into(
               new Literal({
-                value: new New({
-                  instantiated: new Reference({ name: 'wollok.lang.List' }), args: [
-                    new Literal({ value: 1 }),
-                    new Literal({ value: 2 }),
-                    new Literal({ value: 3 }),
-                  ],
-                }),
+                value: [new Reference({ name: 'wollok.lang.List' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2 }),
+                  new Literal({ value: 3 }),
+                ]],
               })
             ).and.be.tracedTo(0, 7)
-              .and.have.nested.property('value.args.0').tracedTo(1, 2)
-              .and.also.have.nested.property('value.args.1').tracedTo(3, 4)
-              .and.also.have.nested.property('value.args.2').tracedTo(5, 6)
+              .and.have.nested.property('value.1.0').tracedTo(1, 2)
+              .and.also.have.nested.property('value.1.1').tracedTo(3, 4)
+              .and.also.have.nested.property('value.1.2').tracedTo(5, 6)
           })
 
           it('should parse empty sets', () => {
             '#{}'.should.be.parsedBy(parser).into(
-              new Literal({ value: new New({ instantiated: new Reference({ name: 'wollok.lang.Set' }), args: [] }) })
+              new Literal({ value: [new Reference({ name: 'wollok.lang.Set' }), []] })
             ).and.be.tracedTo(0, 3)
           })
 
           it('should parse non-empty sets', () => {
             '#{1,2,3}'.should.be.parsedBy(parser).into(
               new Literal({
-                value: new New({
-                  instantiated: new Reference({ name: 'wollok.lang.Set' }), args: [
-                    new Literal({ value: 1 }),
-                    new Literal({ value: 2 }),
-                    new Literal({ value: 3 }),
-                  ],
-                }),
+                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2 }),
+                  new Literal({ value: 3 }),
+                ]],
               })
             ).and.be.tracedTo(0, 8)
-              .and.have.nested.property('value.args.0').tracedTo(2, 3)
-              .and.also.have.nested.property('value.args.1').tracedTo(4, 5)
-              .and.also.have.nested.property('value.args.2').tracedTo(6, 7)
+              .and.have.nested.property('value.1.0').tracedTo(2, 3)
+              .and.also.have.nested.property('value.1.1').tracedTo(4, 5)
+              .and.also.have.nested.property('value.1.2').tracedTo(6, 7)
           })
 
         })

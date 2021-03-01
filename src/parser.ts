@@ -349,7 +349,7 @@ export const New: Parser<NewNode | LiteralNode<SingletonNode>> = alt(
         obj({
           supercall: seq(
             FullyQualifiedReference,
-            alt(unamedArguments, namedArguments),
+            namedArguments,
           ),
           // TODO: Convince the world we need a single linearization syntax
           mixins: key('with').then(Reference).atLeast(1).map(mixins => [...mixins].reverse()),
@@ -363,7 +363,7 @@ export const New: Parser<NewNode | LiteralNode<SingletonNode>> = alt(
     key('new').then(
       obj({
         instantiated: FullyQualifiedReference,
-        args: alt(unamedArguments, namedArguments),
+        args: namedArguments,
       })
     )
   ),
@@ -456,10 +456,8 @@ export const Literal: Parser<LiteralNode> = lazy(() => alt(
       key('true').result(true),
       key('false').result(false),
       regex(/-?\d+(\.\d+)?/).map(Number),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args =>
-        new NewNode({ instantiated: new ReferenceNode({ name: 'wollok.lang.List' }), args })),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args =>
-        new NewNode({ instantiated: new ReferenceNode({ name: 'wollok.lang.Set' }), args })),
+      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
+      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
       stringLiteral,
       Singleton,
     ),

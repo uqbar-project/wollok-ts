@@ -658,7 +658,7 @@ export class Self extends $Expression {
 }
 
 
-export type LiteralValue = number | string | boolean | null | New | Singleton
+export type LiteralValue = number | string | boolean | null | Singleton | readonly [Reference<Class>, List<Expression> ]
 export class Literal<T extends LiteralValue = LiteralValue> extends $Expression {
   readonly kind = 'Literal'
   readonly value!: T
@@ -692,7 +692,7 @@ export class Super extends $Expression {
 export class New extends $Expression {
   readonly kind = 'New'
   readonly instantiated!: Reference<Class>
-  readonly args!: List<Expression> | List<NamedArgument>
+  readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<New, 'instantiated'>) {
     super({ args, ...payload })

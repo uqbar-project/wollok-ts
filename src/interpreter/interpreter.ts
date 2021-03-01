@@ -184,12 +184,12 @@ export default function (evaluation: Evaluation): void {
               self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value)))
         }
 
-          evaluation.pushFrame(new Frame(self, [
-            LOAD('self'),
-            CALL('initialize', 0),
-            LOAD('self'),
-            RETURN,
-          ]))
+        evaluation.pushFrame(new Frame(self, [
+          LOAD('self'),
+          CALL('initialize', 0),
+          LOAD('self'),
+          RETURN,
+        ]))
       })()
 
 
