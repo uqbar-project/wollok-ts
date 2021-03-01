@@ -4,7 +4,7 @@ import { RuntimeObject, Frame, Evaluation } from '../src/interpreter/runtimeMode
 import compile from '../src/interpreter/compiler'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { Program } from '../src'
+import { Environment, Program } from '../src'
 
 should()
 
@@ -17,7 +17,11 @@ describe('Wollok Game', () => {
 
   describe(basePackage, () => {
 
-    const environment = buildEnvironment('**/*.wpgm', join('test', 'game'))
+    let environment!: Environment
+
+    before(async () => {
+      environment = await buildEnvironment('**/*.wpgm', join('test', 'game'))
+    })
 
     const visualObject = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN(`${basePackage}.visual`).id)
 

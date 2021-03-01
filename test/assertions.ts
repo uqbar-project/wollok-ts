@@ -6,7 +6,7 @@ import { Name, Node, Package, Reference, List, Environment as EnvironmentType, I
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
-import { readFileSync } from 'fs'
+import { promises } from 'fs'
 import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
@@ -15,6 +15,7 @@ import { mapObject, last } from '../src/extensions'
 import { Logger, nullLogger } from '../src/interpreter/log'
 import { Instruction } from '../src/interpreter/compiler'
 
+const { readFile } = promises
 const { keys } = Object
 
 declare global {
@@ -578,11 +579,13 @@ export const evaluation = ({ environment, rootContext, instances: instanceDescri
 
 
 // TODO: check if needed
-export const buildEnvironment = (pattern: string, cwd: string, skipValidations = false): EnvironmentType => {
+export const buildEnvironment = async (pattern: string, cwd: string, skipValidations = false): Promise<EnvironmentType> => {
   const { time, timeEnd, log } = console
 
   time('Parsing files')
-  const files = globby.sync(pattern, { cwd }).map(name => ({ name, content: readFileSync(join(cwd, name), 'utf8') }))
+  const files = await Promise.all(globby.sync(pattern, { cwd }).map(async name =>
+    ({ name, content: await readFile(join(cwd, name), 'utf8') })
+  ))
   timeEnd('Parsing files')
 
 

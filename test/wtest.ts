@@ -60,11 +60,14 @@ function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
   })
 }
 
-describe(basename(ARGUMENTS.root), () => {
-  const environment = buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
+async function defineTests() {
+  const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
   const evaluation = Evaluation.create(environment, natives)
 
-  if (ARGUMENTS.verbose) evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
+  describe(basename(ARGUMENTS.root), () => {
+    if (ARGUMENTS.verbose) evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
+    registerTests(evaluation, evaluation.environment.members)
+  })
+}
 
-  registerTests(evaluation, evaluation.environment.members)
-})
+defineTests().then(run)
