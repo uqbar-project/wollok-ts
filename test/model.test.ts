@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { Class, Method, Body, Reference } from '../src/model'
+import { Class, Method, Body, Reference, ParameterizedType } from '../src/model'
 import { restore, stub } from 'sinon'
 
 should()
@@ -75,7 +75,7 @@ describe('Wollok model', () => {
         const b = new Class({ name: 'B', supertypes: [], members: [m], id: 'c1'  })
         const bRef = new Reference<Class>({ name: 'B', id: 'b1r'  })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', supertypes: [bRef], id: 'c1' })
+        const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], id: 'c1' })
         stub(b, 'fullyQualifiedName').returns('B')
         stub(c, 'fullyQualifiedName').returns('C')
         stub(c, 'hierarchy').returns([c, b])
@@ -96,7 +96,7 @@ describe('Wollok model', () => {
         const b = new Class({ name: 'B', supertypes: [], members: [m1], id: 'c1' })
         const bRef = new Reference<Class>({ name: 'B', id: 'b1r' })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', supertypes: [bRef], members: [m2], id: 'c1' })
+        const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], members: [m2], id: 'c1' })
         c.hierarchy = () => [c as any, b as any]
 
         c.isAbstract().should.be.false

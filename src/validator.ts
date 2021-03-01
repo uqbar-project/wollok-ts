@@ -7,6 +7,8 @@
 
 // Last supertype in linearization is the class (if any)
 // No more than 1 class in linearization
+// Mixins don't have class supertype
+// Default parameters don't repeat
 
 
 import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, Source, List } from './model'

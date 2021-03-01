@@ -4,7 +4,7 @@ import sinonChai from 'sinon-chai'
 import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
 import * as compiler from '../src/interpreter/compiler'
 import link from '../src/linker'
-import { Body, Class, Field, Literal, Method, Package, Parameter, Reference } from '../src/model'
+import { Body, Class, Field, Literal, Method, Package, Parameter, ParameterizedType, Reference } from '../src/model'
 import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
 import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
 
@@ -669,7 +669,7 @@ describe('Wollok Interpreter', () => {
                 }),
                 new Class({
                   name: 'C',
-                  supertypes: [new Reference({ name: 'B' })],
+                  supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })],
                   members: [new Method({ name: 'm', body: new Body(), isOverride: true })],
                 }),
               ],
@@ -822,7 +822,7 @@ describe('Wollok Interpreter', () => {
                   ],
                 }),
                 new Class({
-                  name: 'C', supertypes: [new Reference({ name: 'test.B' })], members: [
+                  name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'test.B' }) })], members: [
                     new Field({ name: 'f3', isReadOnly: false, value: new Literal({ value: 3 }) }),
                     new Field({ name: 'f4', isReadOnly: false, value: new Literal({ value: 4 }) }),
                   ],

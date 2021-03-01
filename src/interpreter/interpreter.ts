@@ -1,5 +1,5 @@
 import { Evaluation, Context, RuntimeObject, Frame, LazyInitializer, WollokUnrecoverableError, WollokError } from './runtimeModel'
-import { Id, List, Field, NamedArgument, Describe } from '../model'
+import { Id, List, Field, Describe } from '../model'
 import compile, { STORE, LOAD, RETURN, CALL } from './compiler'
 
 
@@ -175,7 +175,7 @@ export default function (evaluation: Evaluation): void {
           ]))
 
           for(const field of fields) {
-            const defaultValue = (self.module.supercallArgs as List<NamedArgument>).find(arg => arg.is('NamedArgument') && arg.name === field.name)
+            const defaultValue = self.module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)
             self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(defaultValue?.value ?? field.value)))
           }
         } else {

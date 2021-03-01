@@ -1,5 +1,5 @@
 import { last, get } from '../extensions'
-import { is, Node, Environment, Expression, Id, List, Module, Name, Variable, Singleton, isNode, Method } from '../model'
+import { Node, Environment, Id, List, Module, Name, Variable, Singleton, isNode, Method } from '../model'
 import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
 import compile, { PUSH, INIT, Instruction, NULL_ID, TRUE_ID, FALSE_ID } from './compiler'
@@ -65,19 +65,12 @@ export class Evaluation {
 
     evaluation.pushFrame(new Frame(rootContext, [
       ...globalSingletons.flatMap(singleton => {
-        if (singleton.supercallArgs.some(is('NamedArgument'))) {
-          return [
-            PUSH(singleton.id),
-            INIT([]),
-          ]
-        } else {
-          const args = singleton.supercallArgs as List<Expression>
-          return [
-            ...args.flatMap(arg => compile(arg)),
-            PUSH(singleton.id),
-            INIT([]),
-          ]
-        }
+        const supercallArgs = singleton.supertypes.flatMap(supertype => supertype.args)
+        return [
+          ...supercallArgs.flatMap(({ value }) => compile(value)),
+          PUSH(singleton.id),
+          INIT(supercallArgs.map(({ name }) => name)),
+        ]
       }),
     ]))
 

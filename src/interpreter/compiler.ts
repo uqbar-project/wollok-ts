@@ -1,4 +1,4 @@
-import { is, Node, Body, Expression, Id, List, Name, NamedArgument, isNode } from '../model'
+import { is, Node, Body, Id, List, Name, NamedArgument, isNode } from '../model'
 import { InnerValue } from './runtimeModel'
 
 export const NULL_ID = 'null'
@@ -120,21 +120,12 @@ const compile = (node: Node): List<Instruction> => {
       ]
 
       if (isNode(node.value) && node.value.is('Singleton')) {
-        if (node.value.supercallArgs.some(is('NamedArgument'))) {
-          const supercallArgs = node.value.supercallArgs as List<NamedArgument>
-          return [
-            ...supercallArgs.flatMap(({ value }) => compile(value)),
-            INSTANTIATE(node.value.fullyQualifiedName()),
-            INIT(supercallArgs.map(({ name }) => name)),
-          ]
-        } else {
-          const supercallArgs = node.value.supercallArgs as List<Expression>
-          return [
-            ...supercallArgs.flatMap(arg => compile(arg)),
-            INSTANTIATE(node.value.fullyQualifiedName()),
-            INIT([]),
-          ]
-        }
+        const supercallArgs = node.value.supertypes.flatMap(supertype => supertype.args)
+        return [
+          ...supercallArgs.flatMap(({ value }) => compile(value)),
+          INSTANTIATE(node.value.fullyQualifiedName()),
+          INIT(supercallArgs.map(({ name }) => name)),
+        ]
       }
 
       const [reference, args] = node.value

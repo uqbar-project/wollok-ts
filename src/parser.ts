@@ -1,7 +1,7 @@
 import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure, ParameterizedType } from './model'
 import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
@@ -210,8 +210,8 @@ export const Test: Parser<TestNode> = node(TestNode)(() =>
 const mixins = lazy(() =>
   key('mixed with')
     .then(FullyQualifiedReference.sepBy1(key('and')))
-    .map(_ => _.reverse())
-    .fallback([])
+    .map(_ => _.reverse().map(reference => new ParameterizedType({ reference })))
+    .fallback([] as List<ParameterizedType>)
 )
 
 
@@ -219,25 +219,23 @@ const mixins = lazy(() =>
 export const Class: Parser<ClassNode> = node(ClassNode)(() => key('class').then(obj({
   name,
   supertypes: seq(
-    optional(key('inherits').then(FullyQualifiedReference)),
+    optional(key('inherits').then(FullyQualifiedReference).map(reference => new ParameterizedType({ reference }))),
     mixins,
   ).map(([superclass, mixins]) => [...mixins, ...superclass ? [superclass] : []]),
   members: alt(Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 
-export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
-  key('object').then(obj({
-    name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)),
-    supercall: optional(key('inherits').then(seq(
+export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() => key('object').then(obj({
+  name: optional(notFollowedBy(key('inherits').or(key('mixed with'))).then(name)),
+  supertypes: seq(
+    optional(key('inherits').then(seq(
       FullyQualifiedReference,
-      alt(unamedArguments, namedArguments).fallback([]),
+      namedArguments.fallback([]),
     ))),
-    mixins,
-    members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  }))
-    .map(({ supercall, ...payload }) => ({ ...payload, superclassRef: supercall?.[0], supercallArgs: supercall?.[1] ?? [] }))
-    .map(recover)
-)
+    mixins.map(ms => ms.map((m: ParameterizedType) => new ParameterizedType({ reference: m.reference })))
+  ).map(([superCall, mixins]) => [...mixins, ...superCall ? [new ParameterizedType({ reference: superCall[0], args: superCall[1] })] : []] ),
+  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+})).map(recover))
 
 export const Mixin: Parser<MixinNode> = node(MixinNode)(() => key('mixin').then(obj({
   name,

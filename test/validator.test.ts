@@ -12,6 +12,7 @@ import { Assignment,
   New,
   Package,
   Parameter,
+  ParameterizedType,
   Program,
   Reference,
   Return,
@@ -101,8 +102,8 @@ describe('Wollok Validations', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'C', supertypes: [new Reference({ name: 'program' })] }),
-            new Class({ name: 'C2', supertypes: [new Reference({ name: 'C' })] }),
+            new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'program' }) })] }),
+            new Class({ name: 'C2', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'C' }) })] }),
             new Class({ name: 'program' }),
           ],
         }),
@@ -111,10 +112,10 @@ describe('Wollok Validations', () => {
       const { nameIsNotKeyword } = validations
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
-      const referenceWithKeywordName = classExample.supertypes[0]
+      const referenceWithKeywordName = classExample.supertypes[0].reference
 
       const classExample2 = packageExample.members[1] as Class
-      const referenceWithValidName = classExample2.supertypes[0]
+      const referenceWithValidName = classExample2.supertypes[0].reference
 
       it('should pass when name is not a keyword', () => {
         referenceWithValidName.should.pass(nameIsNotKeyword)
@@ -318,7 +319,7 @@ describe('Wollok Validations', () => {
               ],
             }),
             new Class({
-              name: 'C2', supertypes: [new Reference({ name: 'C' })], members: [
+              name: 'C2', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'C' }) })], members: [
                 new Method({ name: 'm', body: new Body({ sentences: [new Super()] }) }),
               ],
             }),

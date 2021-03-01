@@ -225,7 +225,7 @@ export class Parameter extends $Node {
 
 export class ParameterizedType extends $Node {
   readonly kind = 'ParameterizedType'
-  readonly reference!: Reference<Module>
+  readonly reference!: Reference<Module | Class>
   readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<ParameterizedType, 'reference'>) {
@@ -389,6 +389,7 @@ export class Variable extends $Entity {
 export type Module = Class | Singleton | Mixin
 
 abstract class $Module extends $Entity {
+  abstract supertypes: List<ParameterizedType>
   abstract members: List<ModuleMember | DescribeMember>
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
@@ -432,6 +433,13 @@ abstract class $Module extends $Entity {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
 
+  @cached
+  mixins(): List<Mixin> {
+    return this.supertypes
+      .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
+      .filter(is('Mixin'))
+  }
+
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
 
@@ -440,9 +448,7 @@ abstract class $Module extends $Entity {
     const hierarchyExcluding = (node: Module, exclude: List<Id> = []): List<Module> => {
       if (exclude.includes(node.id!)) return []
       const modules = [
-        ...node.is('Class') || node.is('Mixin')
-          ? node.mixins()
-          : node.mixins.map(mixin => mixin.target()!).filter(mixin => mixin !== undefined),
+        ...node.mixins(),
         ...node.is('Mixin') || !node.superclass() ? [] : [node.superclass()!],
       ]
       return modules.reduce<[List<Module>, List<Id>]>(([hierarchy, excluded], module) => [
@@ -478,24 +484,17 @@ abstract class $Module extends $Entity {
 export class Class extends $Module {
   readonly kind = 'Class'
   readonly name!: Name
-  readonly supertypes!: List<Reference<Mixin | Class>>
+  readonly supertypes!: List<ParameterizedType>
   readonly members!: List<ModuleMember>
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ supertypes, members, ...payload })
   }
 
-  @cached
-  mixins(): List<Mixin> {
-    return this.supertypes
-      .flatMap(reference => reference.target() ? [reference.target()!] : [])
-      .filter(is('Mixin'))
-  }
-
   superclass(this: Module): Class | undefined
   @cached
   superclass(this: Class): Class | undefined {
-    const superclassReference = this.supertypes.find(reference => reference.target()?.is('Class'))
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
       const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
@@ -514,36 +513,32 @@ export class Class extends $Module {
 export class Singleton extends $Module {
   readonly kind = 'Singleton'
   readonly name?: Name
-  readonly mixins!: List<Reference<Mixin>>
+  readonly supertypes!: List<ParameterizedType>
   readonly members!: List<ModuleMember>
-  readonly superclassRef!: Reference<Class>
-  readonly supercallArgs!: List<Expression> | List<NamedArgument>
 
-  constructor({ mixins = [], members = [], superclassRef = new Reference({ name: 'wollok.lang.Object' }), supercallArgs = [], ...payload }: Payload<Singleton>) {
-    super({ mixins, members, superclassRef, supercallArgs, ...payload })
+  constructor({ supertypes = [], members = [], ...payload }: Payload<Singleton>) {
+    super({ supertypes, members, ...payload })
   }
 
-  superclass(this: Singleton): Class | undefined
-  superclass(this: Module): Class | undefined
-  superclass(this: Singleton): Class | undefined {
-    return this.superclassRef.target()
+  superclass(this: Singleton): Class
+  superclass(this: Module): Class
+  superclass(this: Singleton): Class {
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
+    if(superclassReference) return superclassReference.target() as Class
+    else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
   }
+
 }
 
 
 export class Mixin extends $Module {
   readonly kind = 'Mixin'
   readonly name!: Name
-  readonly supertypes!: List<Reference<Mixin>>
+  readonly supertypes!: List<ParameterizedType>
   readonly members!: List<ModuleMember>
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
     super({ supertypes, members, ...payload })
-  }
-
-  @cached
-  mixins(): List<Mixin> {
-    return this.supertypes.flatMap(reference => reference.target() ? [reference.target()!] : [])
   }
 }
 
@@ -780,7 +775,7 @@ export const Closure = ({ sentences: baseSentences, parameters, code, ...payload
 
   return new Literal<Singleton>({
     value: new Singleton({
-      superclassRef: new Reference({ name: 'wollok.lang.Closure' }),
+      supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
       members: [
         new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
         ...code ? [
