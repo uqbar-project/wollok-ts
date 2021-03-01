@@ -338,31 +338,13 @@ export const Super: Parser<SuperNode> = node(SuperNode)(() =>
   key('super').then(obj({ args: unamedArguments }))
 )
 
-export const New: Parser<NewNode | LiteralNode<SingletonNode>> = alt(
-  node(LiteralNode)(() =>
-    key('new').then(obj({
-      value: node(SingletonNode)(() =>
-        obj({
-          supercall: seq(
-            FullyQualifiedReference,
-            namedArguments,
-          ),
-          // TODO: Convince the world we need a single linearization syntax
-          mixins: key('with').then(Reference).atLeast(1).map(mixins => [...mixins].reverse()),
-          members: of([]),
-        }).map(({ supercall, ...payload }) => ({ ...payload, superclassRef: supercall?.[0], supercallArgs: supercall?.[1] ?? [] }))
-      ),
-    }))
-  ),
-
-  node(NewNode)(() =>
-    key('new').then(
-      obj({
-        instantiated: FullyQualifiedReference,
-        args: namedArguments,
-      })
-    )
-  ),
+export const New: Parser<NewNode | LiteralNode<SingletonNode>> = node(NewNode)(() =>
+  key('new').then(
+    obj({
+      instantiated: FullyQualifiedReference,
+      args: namedArguments,
+    })
+  )
 )
 
 export const If: Parser<IfNode> = node(IfNode)(() =>

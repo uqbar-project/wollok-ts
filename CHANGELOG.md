@@ -4,6 +4,7 @@
 - Implemented Wollok 3.0.0 support
     - Removed Constructors
     - Removed instantiation with unnamed arguments
+    - Removed anonymous class instantiation in favor of unnamed object literals
     - Removed Fixtures
 
 
