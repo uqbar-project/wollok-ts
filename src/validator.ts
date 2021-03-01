@@ -5,7 +5,7 @@
 // No modules named wollok
 // Generic import of non package
 
-import { Assignment, Class, Constructor, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable, is, Source, List } from './model'
+import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, Source, List } from './model'
 import { Kind } from './model'
 
 const { keys } = Object
@@ -136,12 +136,8 @@ export const validations = {
     node => !node.variable.name.includes('.')
   ),
 
-  hasDistinctSignature: error<Constructor | Method>(node => {
-    if(node.is('Constructor')) {
-      return node.parent().constructors().every(other => node === other || !other.matchesSignature(node.parameters.length))
-    } else {
-      return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
-    }
+  hasDistinctSignature: error<Method>(node => {
+    return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
   }),
 
   methodNotOnlyCallToSuper: warning<Method>(node =>
@@ -170,8 +166,6 @@ export const validations = {
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
   selfIsNotInAProgram: isNotPresentIn<Self>('Program'),
-  noSuperInConstructorBody: isNotPresentIn<Super>('Constructor'),
-  noReturnStatementInConstructor: isNotPresentIn<Return>('Constructor'),
 
   // TODO: Packages inside packages
   // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
@@ -194,8 +188,6 @@ export default (target: Node): List<Problem> => {
     containerIsNotEmpty,
     notAssignToItselfInVariableDeclaration,
     singletonIsNotUnnamed,
-    noReturnStatementInConstructor,
-    noSuperInConstructorBody,
     selfIsNotInAProgram,
     nonAsignationOfFullyQualifiedReferences,
     hasCatchOrAlways,
@@ -220,18 +212,17 @@ export default (target: Node): List<Problem> => {
     Class: { nameBeginsWithUppercase, nameIsNotKeyword },
     Singleton: { nameBeginsWithLowercase, singletonIsNotUnnamed, nameIsNotKeyword },
     Mixin: { nameBeginsWithUppercase },
-    Constructor: { hasDistinctSignature },
     Field: { notAssignToItselfInVariableDeclaration },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
     Variable: { referenceNameIsValid, nameIsNotKeyword },
-    Return: { noReturnStatementInConstructor },
+    Return: {  },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
     Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
     Literal: {},
     Send: { dontCompareAgainstTrueOrFalse },
-    Super: { noSuperInConstructorBody },
+    Super: {  },
     If: {},
     Throw: {},
     Try: { hasCatchOrAlways },

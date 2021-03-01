@@ -6,7 +6,6 @@ import { Assignment,
   Body,
   Catch,
   Class,
-  Constructor,
   Field,
   Literal,
   Method,
@@ -271,72 +270,6 @@ describe('Wollok Validations', () => {
 
       it('should not pass when instantiating an abstract class', () => {
         instantiationOfAbstractClass.should.not.pass(instantiationIsNotAbstractClass)
-      })
-    })
-  })
-
-  describe('Constructors', () => {
-
-    describe('Constructors have distinct arity', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'c', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'k' }), new Parameter({ name: 'l' })] }),
-              ],
-            }),
-            new Class({
-              name: 'c2', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'q', isVarArg: true })] }),
-              ],
-            }),
-            new Class({
-              name: 'c3', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'a' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' }), new Parameter({ name: 'q', isVarArg: true })] }),
-              ],
-            }),
-            new Class({
-              name: 'c4', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' })] }),
-              ],
-            }),
-          ],
-        }),
-      ])
-
-      const packageExample = environment.members[1]
-      const classWithConstructorsOfSameArity = packageExample.members[0] as Class
-      const conflictingArityConstructor = classWithConstructorsOfSameArity.members[0]
-
-      const classWithVarArgConflictingConstructors = packageExample.members[1] as Class
-      const conflictingArityWithVarArgConstructor = classWithVarArgConflictingConstructors.members[0]
-
-      const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as Class
-      const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0]
-
-      const { hasDistinctSignature } = validations
-      const classWithSingleConstructor = packageExample.members[3] as Class
-      const singleConstructor = classWithSingleConstructor.members[0]
-
-      it('should pass when constructors have distinct arity', () => {
-        distinctArityWithVarArgConstructor.should.pass(hasDistinctSignature)
-      })
-
-      it('should not pass when constructors have the same arity', () => {
-        conflictingArityConstructor.should.not.pass(hasDistinctSignature)
-      })
-
-      it('should not pass when constructors can be called with the same amount of arguments', () => {
-        conflictingArityWithVarArgConstructor.should.not.pass(hasDistinctSignature)
-      })
-
-      it('should pass when single constructor defined', () => {
-        singleConstructor.should.pass(hasDistinctSignature)
       })
     })
   })
@@ -780,76 +713,6 @@ describe('Wollok Validations', () => {
 
       it('should not pass when comparing against true literal', () => {
         comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
-      })
-    })
-  })
-
-  describe('Super', () => {
-    describe('No super in constructor body', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'c', members: [
-                new Constructor({ body: new Body({ sentences: [new Super({ source: {} as Source })] }) }),
-                new Method({ name: 'm', body: new Body({ sentences: [new Super({ source: {} as Source })] }) }),
-              ],
-            }),
-          ],
-        })])
-
-      const { noSuperInConstructorBody } = validations
-
-      const packageExample = environment.members[1] as Package
-      const classExample = packageExample.members[0] as Class
-      const constructorExample = classExample.members[0] as Constructor
-      const superInConstructorBody = constructorExample.body.sentences[0] as Super
-      const method = classExample.members[1] as Method
-      const superInMethodBody = method.sentences()[0] as Super
-
-      it('should pass when super is in method body', () => {
-        superInMethodBody.should.pass(noSuperInConstructorBody)
-      })
-
-      it('should not pass when super is in constructor body', () => {
-        superInConstructorBody.should.not.pass(noSuperInConstructorBody)
-      })
-    })
-  })
-
-  describe('Return', () => {
-    describe('No return statement in constructor', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'C', members: [
-                new Constructor({ body: new Body({ sentences: [new Return({ value: new Literal({ value: 'a' }), source: {} as Source })] }) }),
-                new Method({ name: 'm', body: new Body({ sentences:  [new Return({ value: new Literal({ value: 'a' }), source: {} as Source })]  }) }),
-              ],
-            }),
-          ],
-        }),
-      ])
-
-      const { noReturnStatementInConstructor } = validations
-
-      // TODO: Use the proper methods instead of casting
-      const packageExample = environment.members[1] as Package
-      const classExample = packageExample.members[0] as Class
-      const constructorExample = classExample.members[0] as Constructor
-      const returnInConstructor = constructorExample.body.sentences[0] as Return
-      const method = classExample.members[1] as Method
-      const returnInMethod = method.sentences()[0] as Return
-
-      it('should pass when return is in a method', () => {
-        returnInMethod.should.pass(noReturnStatementInConstructor)
-      })
-
-      it('should not pass when return is in a constructor', () => {
-        returnInConstructor.should.not.pass(noReturnStatementInConstructor)
       })
     })
   })

@@ -1,7 +1,7 @@
 import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Constructor as ConstructorNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, Fixture as FixtureNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure } from './model'
 import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
@@ -218,7 +218,7 @@ export const Class: Parser<ClassNode> = node(ClassNode)(() => key('class').then(
   name,
   superclassRef: optional(key('inherits').then(FullyQualifiedReference)),
   mixins,
-  members: alt(Constructor, Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+  members: alt(Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
 })).map(recover))
 
 export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
@@ -273,18 +273,6 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
       optional(Body),
     ),
   })
-)
-
-export const Constructor: Parser<ConstructorNode> = node(ConstructorNode)(() =>
-  key('constructor').then(obj({
-    parameters,
-    baseCall: optional(key('=').then(seqMap(
-      alt(key('self').result(false), key('super').result(true)),
-      unamedArguments,
-      (callsSuper, args) => ({ callsSuper, args })
-    ))),
-    body: Body.fallback(new BodyNode({ sentences: [] })),
-  }))
 )
 
 export const Fixture: Parser<FixtureNode> = node(FixtureNode)(() =>

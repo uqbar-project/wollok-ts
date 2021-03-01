@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Body, Catch, Class, Closure, Constructor, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Assignment, Body, Catch, Class, Closure, Describe, Field, Fixture, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -1004,97 +1004,6 @@ describe('Wollok parser', () => {
 
       it('should not parse development with closures of native methods', () => {
         'method m(p,q) native { }'.should.not.be.parsedBy(parser)
-      })
-
-    })
-
-
-    describe('Constructors', () => {
-
-      const parser = parse.Constructor
-
-      it('should parse empty constructors', () => {
-        'constructor () { }'.should.be.parsedBy(parser).into(
-          new Constructor({ body: new Body() })
-        ).and.be.tracedTo(0, 18)
-      })
-
-      it('should parse constructors with explicit builder ', () => {
-        'constructor(p, q) {}'.should.be.parsedBy(parser).into(
-          new Constructor({
-            parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q' })],
-            body: new Body(),
-          })
-        ).and.be.tracedTo(0, 20)
-          .and.have.nested.property('parameters.0').tracedTo(12, 13)
-          .and.also.have.nested.property('parameters.1').tracedTo(15, 16)
-      })
-
-      it('should parse constructors with explicit builder with vararg parameters', () => {
-        'constructor(p, q...) {}'.should.be.parsedBy(parser).into(
-          new Constructor({
-            parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q', isVarArg: true })],
-            body: new Body(),
-          })
-        ).and.be.tracedTo(0, 23)
-          .and.have.nested.property('parameters.0').tracedTo(12, 13)
-          .and.also.have.nested.property('parameters.1').tracedTo(15, 19)
-      })
-
-      it('should parse non-empty constructors', () => {
-        'constructor() {var x}'.should.be.parsedBy(parser).into(
-          new Constructor({
-            body: new Body({
-              sentences: [
-                new Variable({ name: 'x', isReadOnly: false }),
-              ],
-            }),
-          })
-        ).and.be.tracedTo(0, 21)
-          .and.have.nested.property('body').tracedTo(14, 21)
-          .and.also.have.nested.property('body.sentences.0').tracedTo(15, 20)
-      })
-
-      it('should parse should parse constructor delegations to another constructor in the same class, with a body', () => {
-        'constructor() = self(5) {}'.should.be.parsedBy(parser).into(
-          new Constructor({
-            body: new Body(),
-            baseCall: {
-              callsSuper: false,
-              args: [new Literal({ value: 5 })],
-            },
-          })
-        ).and.be.tracedTo(0, 26)
-          .and.have.nested.property('baseCall.args.0').tracedTo(21, 22)
-      })
-
-      it('should parse constructor delegations to a superclass and a body', () => {
-        'constructor() = super(5) {}'.should.be.parsedBy(parser).into(
-          new Constructor({
-            body: new Body(),
-            baseCall: {
-              callsSuper: true,
-              args: [new Literal({ value: 5 })],
-            },
-          })
-        ).and.be.tracedTo(0, 27)
-          .and.have.nested.property('baseCall.args.0').tracedTo(22, 23)
-      })
-
-      it('should not parse "constructor" keyword without a body', () => {
-        'constructor'.should.not.be.parsedBy(parser)
-      })
-
-      it('should not parse constructor delegations without a reference to a superclass or a constructor in the same class', () => {
-        'constructor() = { }'.should.not.be.parsedBy(parser)
-      })
-
-      it('should not parse constructor delegations to another constructor in the same class, thats use "self" keyword without ()', () => {
-        'constructor() = self'.should.not.be.parsedBy(parser)
-      })
-
-      it('should not parse  constructor delegations to a superclass, that use "super" keyword without parentheses', () => {
-        'constructor() = super'.should.not.be.parsedBy(parser)
       })
 
     })

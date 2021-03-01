@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.0
+
+
 ## v2.3.0
 - Fixing building process in bad release
 

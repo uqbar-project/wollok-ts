@@ -100,7 +100,7 @@ export type Node
   | Catch
   | Entity
   | DescribeMember
-  | ClassMember
+  | ModuleMember
   | Sentence
   | Reference<any>
   | Environment
@@ -144,8 +144,7 @@ abstract class $Node {
   @cached
   parent():
     this extends Module | Describe | Import ? Package :
-    this extends Constructor ? Class :
-    this extends ObjectMember ? Module :
+    this extends ModuleMember ? Module :
     Node {
     throw new Error(`Missing parent in cache for node ${this.id}`)
   }
@@ -382,7 +381,7 @@ export class Variable extends $Entity {
 export type Module = Class | Singleton | Mixin
 
 abstract class $Module extends $Entity {
-  abstract members: List<ClassMember | DescribeMember>
+  abstract members: List<ModuleMember | DescribeMember>
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
     const methods = members?.filter(is('Method')) ?? []
@@ -470,20 +469,12 @@ export class Class extends $Module {
   readonly kind = 'Class'
   readonly name!: Name
   readonly mixins!: List<Reference<Mixin>>
-  readonly members!: List<ClassMember>
+  readonly members!: List<ModuleMember>
   readonly superclassRef?: Reference<Class>
 
   constructor({ mixins = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ mixins, members, ...payload })
-
-    if(payload.name === 'Object' && !this.constructors().length) {
-      (this.members as any[]).push(
-        new Constructor({ body: new Body() })
-      )
-    }
   }
-
-  constructors(): List<Constructor> { return this.members.filter<Constructor>(is('Constructor')) }
 
   superclass(this: Module): Class | undefined
   superclass(this: Class): Class | undefined {
@@ -492,18 +483,6 @@ export class Class extends $Module {
       const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
       return this === objectClass ? undefined : objectClass
     }
-  }
-
-  @cached
-  lookupConstructor(this: Class, arity: number): Constructor | undefined {
-    const ownConstructor = this.constructors().find(member => member.matchesSignature(arity))
-
-    if (ownConstructor) return ownConstructor
-
-    const isNotDefaultConstructor = (constructor: Constructor) => constructor.body.sentences.length !== 0 || constructor.baseCall
-    return this.constructors().filter(isNotDefaultConstructor).length
-      ? undefined
-      : this.superclass?.()?.lookupConstructor?.(arity)
   }
 
   @cached
@@ -518,7 +497,7 @@ export class Singleton extends $Module {
   readonly kind = 'Singleton'
   readonly name?: Name
   readonly mixins!: List<Reference<Mixin>>
-  readonly members!: List<ObjectMember>
+  readonly members!: List<ModuleMember>
   readonly superclassRef!: Reference<Class>
   readonly supercallArgs!: List<Expression> | List<NamedArgument>
 
@@ -538,7 +517,7 @@ export class Mixin extends $Module {
   readonly kind = 'Mixin'
   readonly name!: Name
   readonly mixins!: List<Reference<Mixin>>
-  readonly members!: List<ObjectMember>
+  readonly members!: List<ModuleMember>
 
   constructor({ mixins = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
     super({ mixins, members, ...payload })
@@ -549,8 +528,7 @@ export class Mixin extends $Module {
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ObjectMember = Field | Method
-export type ClassMember = Constructor | ObjectMember
+export type ModuleMember = Field | Method
 export type DescribeMember = Variable | Fixture | Test | Method
 
 
@@ -598,28 +576,6 @@ export class Method extends $Node {
     )
   }
 
-}
-
-export class Constructor extends $Node {
-  readonly kind = 'Constructor'
-  readonly parameters!: List<Parameter>
-  readonly body!: Body
-  readonly baseCall?: { callsSuper: boolean, args: List<Expression> }
-
-  constructor({ body = new Body(), parameters = [], baseCall = { callsSuper: true, args: [] }, ...payload }: Payload<Constructor>) {
-    super({ body, parameters, baseCall, ...payload })
-  }
-
-  @cached
-  hasVarArgs(): boolean {
-    return !!last(this.parameters)?.isVarArg
-  }
-
-  @cached
-  matchesSignature(this: Constructor, arity: number): boolean {
-    return this.hasVarArgs() && this.parameters.length - 1 <= arity ||
-      this.parameters.length === arity
-  }
 }
 
 

@@ -23,7 +23,6 @@ export type Instruction
   | { kind: 'JUMP', count: number }
   | { kind: 'CONDITIONAL_JUMP', count: number }
   | { kind: 'CALL', message: Name, arity: number, lookupStartFQN?: Name }
-  | { kind: 'CALL_CONSTRUCTOR', arity: number, lookupStart: Name, optional?: boolean }
   | { kind: 'INIT', argumentNames: List<Name> }
   | { kind: 'INTERRUPT' }
   | { kind: 'RETURN' }
@@ -41,7 +40,6 @@ export const INHERITS = (module: Name): Instruction => ({ kind: 'INHERITS', modu
 export const JUMP = (count: number): Instruction => ({ kind: 'JUMP', count })
 export const CONDITIONAL_JUMP = (count: number): Instruction => ({ kind: 'CONDITIONAL_JUMP', count })
 export const CALL = (message: Name, arity: number, lookupStartFQN?: Name): Instruction => ({ kind: 'CALL', message, arity, lookupStartFQN })
-export const CALL_CONSTRUCTOR = (arity: number, lookupStart: Name, optional = false): Instruction => ({ kind: 'CALL_CONSTRUCTOR', arity, lookupStart, optional })
 export const INIT = (argumentNames: List<Name>): Instruction => ({ kind: 'INIT', argumentNames })
 export const INTERRUPT: Instruction = { kind: 'INTERRUPT' }
 export const RETURN: Instruction = { kind: 'RETURN' }
@@ -128,7 +126,6 @@ const compile = (node: Node): List<Instruction> => {
             ...supercallArgs.flatMap(({ value }) => compile(value)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT(supercallArgs.map(({ name }) => name)),
-            CALL_CONSTRUCTOR(0, node.value.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
           const supercallArgs = node.value.supercallArgs as List<Expression>
@@ -136,7 +133,6 @@ const compile = (node: Node): List<Instruction> => {
             ...supercallArgs.flatMap(arg => compile(arg)),
             INSTANTIATE(node.value.fullyQualifiedName()),
             INIT([]),
-            CALL_CONSTRUCTOR(node.value.supercallArgs.length, node.value.superclass()!.fullyQualifiedName()),
           ]
         }
       }
@@ -145,7 +141,6 @@ const compile = (node: Node): List<Instruction> => {
       return [
         INSTANTIATE(node.value.instantiated.name, []),
         INIT([]),
-        CALL_CONSTRUCTOR(0, node.value.instantiated.name),
         ...args.flatMap(arg => [
           DUP,
           ...compile(arg),
@@ -183,14 +178,12 @@ const compile = (node: Node): List<Instruction> => {
           ...args.flatMap(({ value }) => compile(value)),
           INSTANTIATE(fqn),
           INIT(args.map(({ name }) => name)),
-          CALL_CONSTRUCTOR(0, fqn, true),
         ]
       } else {
         return [
           ...(node.args as List<Expression>).flatMap(arg => compile(arg)),
           INSTANTIATE(fqn),
           INIT([]),
-          CALL_CONSTRUCTOR(node.args.length, fqn),
         ]
       }
     },
@@ -288,28 +281,6 @@ const compile = (node: Node): List<Instruction> => {
     Program: node => compile(node.body),
 
     Test: node => compile(node.body),
-
-    Constructor: node => {
-      const constructorClass = node.parent()
-      return [
-        ...node.baseCall && constructorClass.superclass() ? [
-          ...node.baseCall.args.flatMap(arg => compile(arg)),
-          LOAD('self'),
-          CALL_CONSTRUCTOR(
-            node.baseCall.args.length,
-            node.baseCall.callsSuper
-              ? constructorClass.superclass()!.fullyQualifiedName()
-              : constructorClass.fullyQualifiedName(),
-            true,
-          ),
-        ] : [],
-        ...compile(node.body),
-        LOAD('self'),
-        CALL('initialize', 0),
-        LOAD('self'),
-        RETURN,
-      ]
-    },
 
     Fixture: node => compile(node.body),
 

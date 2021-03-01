@@ -1,4 +1,4 @@
-import compile, { CALL, CONDITIONAL_JUMP, DUP, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN,  STORE, SWAP, INIT, CALL_CONSTRUCTOR } from '../interpreter/compiler'
+import compile, { CALL, CONDITIONAL_JUMP, DUP, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN,  STORE, SWAP, INIT } from '../interpreter/compiler'
 import { Natives, Evaluation, RuntimeObject, Frame } from '../interpreter/runtimeModel'
 import { Class, Id } from '../model'
 
@@ -268,12 +268,10 @@ const lang: Natives = {
         PUSH(self.id),
         INSTANTIATE(self.module.fullyQualifiedName(), []),
         INIT([]),
-        CALL_CONSTRUCTOR(0, self.module.fullyQualifiedName()),
         STORE('<lessers>', false),
         PUSH(self.id),
         INSTANTIATE(self.module.fullyQualifiedName(), []),
         INIT([]),
-        CALL_CONSTRUCTOR(0, self.module.fullyQualifiedName()),
         STORE('<biggers>', false),
         ...[...self.innerValue.slice(1)].flatMap((id: Id) => [
           PUSH(closure.id),
@@ -360,7 +358,6 @@ const lang: Natives = {
         PUSH(self.id),
         INSTANTIATE(self.module.fullyQualifiedName(), []),
         INIT([]),
-        CALL_CONSTRUCTOR(0, self.module.fullyQualifiedName()),
         STORE('<answer>', false),
         ...self.innerValue.flatMap((id: Id) => [
           LOAD('<answer>'),

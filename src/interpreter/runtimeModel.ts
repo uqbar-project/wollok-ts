@@ -2,7 +2,7 @@ import { last, get } from '../extensions'
 import { is, Node, Environment, Expression, Id, List, Module, Name, Variable, Singleton, isNode, Method } from '../model'
 import { v4 as uuid } from 'uuid'
 import { Logger, nullLogger } from './log'
-import compile, { PUSH, INIT, CALL_CONSTRUCTOR, Instruction, NULL_ID, TRUE_ID, FALSE_ID } from './compiler'
+import compile, { PUSH, INIT, Instruction, NULL_ID, TRUE_ID, FALSE_ID } from './compiler'
 import takeStep from './interpreter'
 
 const { isArray } = Array
@@ -69,7 +69,6 @@ export class Evaluation {
           return [
             PUSH(singleton.id),
             INIT([]),
-            CALL_CONSTRUCTOR(0, singleton.superclass()!.fullyQualifiedName(), true),
           ]
         } else {
           const args = singleton.supercallArgs as List<Expression>
@@ -77,7 +76,6 @@ export class Evaluation {
             ...args.flatMap(arg => compile(arg)),
             PUSH(singleton.id),
             INIT([]),
-            CALL_CONSTRUCTOR(args.length, singleton.superclass()!.fullyQualifiedName()),
           ]
         }
       }),

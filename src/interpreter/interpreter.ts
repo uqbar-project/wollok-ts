@@ -1,6 +1,6 @@
 import { Evaluation, Context, RuntimeObject, Frame, LazyInitializer, WollokUnrecoverableError, WollokError } from './runtimeModel'
-import { Id, List, Field, NamedArgument, Describe, Class } from '../model'
-import compile, { STORE, LOAD, RETURN } from './compiler'
+import { Id, List, Field, NamedArgument, Describe } from '../model'
+import compile, { STORE, LOAD, RETURN, CALL } from './compiler'
 
 
 export default function (evaluation: Evaluation): void {
@@ -130,29 +130,6 @@ export default function (evaluation: Evaluation): void {
       })()
 
 
-      case 'CALL_CONSTRUCTOR': return (() => {
-        const { arity, lookupStart, optional } = instruction
-        const self = currentFrame.popOperand()!
-        const args = Array.from({ length: arity }, () => currentFrame.popOperand()!).reverse()
-        const argIds = args.map(({ id }) => id)
-        const lookupStartClass = environment.getNodeByFQN<Class>(lookupStart)
-        const constructor = lookupStartClass.lookupConstructor(arity)
-
-        if (!constructor) {
-          if (optional) return evaluation.currentFrame?.pushOperand(self)
-          else throw new Error(`Missing constructor/${arity} on ${lookupStartClass.fullyQualifiedName()}`)
-        }
-
-        evaluation.pushFrame(new Frame(
-          self,
-          compile(constructor),
-          new Map(constructor.parameters.map(({ name, isVarArg }, index) =>
-            [name, isVarArg ? RuntimeObject.list(evaluation, argIds.slice(index)) : args[index]]
-          ))
-        ))
-      })()
-
-
       case 'INIT': return (() => {
         const { argumentNames } = instruction
         const self = currentFrame.popOperand()!
@@ -167,6 +144,8 @@ export default function (evaluation: Evaluation): void {
               ...compile(field.value),
               STORE(field.name, true),
             ]),
+            LOAD('self'),
+            CALL('initialize', 0),
             LOAD('self'),
             RETURN,
           ]))
@@ -205,8 +184,12 @@ export default function (evaluation: Evaluation): void {
               self.set(field.name, new LazyInitializer(evaluation, self, field.name, compile(field.value)))
         }
 
-
-          evaluation.currentFrame!.pushOperand(self)
+          evaluation.pushFrame(new Frame(self, [
+            LOAD('self'),
+            CALL('initialize', 0),
+            LOAD('self'),
+            RETURN,
+          ]))
       })()
 
 

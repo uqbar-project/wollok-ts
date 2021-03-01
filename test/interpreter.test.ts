@@ -1,10 +1,10 @@
 import { should, use } from 'chai'
 import { restore, stub, spy, match } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { CALL, CALL_CONSTRUCTOR, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
+import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
 import * as compiler from '../src/interpreter/compiler'
 import link from '../src/linker'
-import { Body, Class, Field, Literal, Method, Package, Parameter, Reference, Constructor } from '../src/model'
+import { Body, Class, Field, Literal, Method, Package, Parameter, Reference } from '../src/model'
 import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
 import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
 
@@ -800,150 +800,6 @@ describe('Wollok Interpreter', () => {
     })
 
 
-    describe('CALL_CONSTRUCTOR', () => {
-
-      it('should pop the target instance and arguments (in reverse order) from the operand stack and create a new frame for the constructor body', () => {
-        const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match.instanceOf(Constructor)).returns(mockCode)
-
-        evaluation({
-          environment: link([WRE, new Package({
-            name: 'test',
-            members: [
-              new Class({
-                name: 'C',
-                members: [
-                  new Constructor({
-                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
-                    body: new Body(),
-                  }),
-                ],
-              }),
-            ],
-          })]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
-          frames: [
-            { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(3)
-          .and.pushFrame({ instructions: mockCode, contexts:[ctx`_new_1_`({ locals: { p1: obj`arg1`, p2: obj`arg2` }, parent: obj`target` })] })
-          .whenStepped()
-      })
-
-      it('should prepends supercall to the constructor call', () => {
-        evaluation({
-          environment: link(
-            [WRE, new Package({
-              name: 'test',
-              members: [
-                new Class({ name: 'B' }),
-                new Class({
-                  name: 'C',
-                  superclassRef: new Reference({ name: 'test.B' }),
-                  members: [
-                    new Constructor({ body: new Body() }),
-                  ],
-                }),
-              ],
-            })]),
-          instances: [obj`target`({ moduleFQN: 'test.C' })],
-          frames: [
-            { instructions: [CALL_CONSTRUCTOR(0, 'test.C')], operands:[obj`target`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.pushFrame({
-            instructions: [
-              LOAD('self'),
-              CALL_CONSTRUCTOR(0, 'test.B', true),
-              LOAD('self'),
-              CALL('initialize', 0),
-              LOAD('self'),
-              RETURN,
-            ],
-            contexts:[ctx`_new_1_`({ parent: obj`target` })],
-          })
-          .whenStepped()
-      })
-
-      it('should group all trailing arguments as a single list if the constructor has a varargs parameter', () => {
-        const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match.instanceOf(Constructor)).returns(mockCode)
-
-        evaluation({
-          environment: link([WRE, new Package({
-            name: 'test',
-            members: [
-              new Class({
-                name: 'C',
-                members: [
-                  new Constructor({
-                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
-                    body: new Body(),
-                  }),
-                ],
-              }),
-            ],
-          })]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
-          frames: [
-            { instructions: [CALL_CONSTRUCTOR(3, 'test.C')], operands:[obj`target`, obj`arg3`, obj`arg2`, obj`arg1`], contexts:[ctx`c1`] },
-          ],
-        }).should
-          .createInstance(obj`_new_1_`({
-            moduleFQN: 'wollok.lang.List',
-            locals:{ self: obj`_new_1_` },
-            innerValue: ['arg2', 'arg3'],
-            parent: ctx`c1`,
-          }))
-          .onCurrentFrame.popOperands(4)
-          .and.pushFrame({ instructions: mockCode, contexts:[ctx`_new_2_`({ locals: { p1: obj`arg1`, p2: obj`_new_1_` }, parent: obj`target` })] })
-          .whenStepped()
-      })
-
-      it('should raise an error if the constructor is not found', () => {
-        evaluation({
-          environment: link([WRE, new Package({
-            name: 'test',
-            members: [
-              new Class({ name: 'C' }),
-            ],
-          }),
-          ]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
-          frames: [
-            { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg2`, obj`arg1`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if the current operand stack length is < arity + 1', () => {
-        evaluation({
-          environment: link([WRE, new Package({
-            name: 'test',
-            members: [
-              new Class({
-                name: 'C',
-                members: [
-                  new Constructor({
-                    parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
-                    body: new Body(),
-                  }),
-                ],
-              }),
-            ],
-          })]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
-          frames: [
-            { instructions: [CALL_CONSTRUCTOR(2, 'test.C')], operands:[obj`target`, obj`arg1`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
     describe('INIT', () => {
 
       it('should pop the instance and arguments and initialize all fields', () => {
@@ -985,7 +841,14 @@ describe('Wollok Interpreter', () => {
           .setLocal('f1', obj`arg1`)
           .setLocal('f2', lazy`f2`(obj`target`, f2InitMockCode))
           .and.onCurrentFrame.popOperands(3)
-          .and.pushOperands(obj`target`)
+          .and.pushFrame({
+            instructions: [
+            LOAD('self'),
+            CALL('initialize', 0),
+            LOAD('self'),
+            RETURN,
+          ],
+          contexts:[ctx`_new_1_`({parent: obj`target` })] })
           .whenStepped()
       })
 
