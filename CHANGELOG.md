@@ -1,6 +1,9 @@
 # Changelog
 
 ## v2.3.0
+- Fixing building process in bad release
+
+## v2.3.0
 - Removed Stages from model so TypeScript stops crashing :(
 - Replaced model builders with better constructors
 - Discarded unnecesary Filler pipeline stage (filling is now handled in the constructors)
