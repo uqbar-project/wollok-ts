@@ -8,6 +8,7 @@ const { raw } = String
 use(parserAssertions)
 should()
 
+
 describe('Wollok parser', () => {
 
   describe('Comments', () => {
@@ -249,17 +250,35 @@ describe('Wollok parser', () => {
       it('should parse classes that inherit from other class', () => {
         'class C inherits D {}'.should.be.parsedBy(parser).into(new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'D' }) })] }))
           .and.be.tracedTo(0, 21)
-          .and.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 18)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
+      })
+
+      it('should parse classes that inherit from other class with parameters', () => {
+        'class C inherits D(x = 1) {}'.should.be.parsedBy(parser).into(
+          new Class({
+            name: 'C',
+            supertypes: [
+              new ParameterizedType({
+                reference: new Reference({ name: 'D' }),
+                args: [new NamedArgument({ name: 'x', value: new Literal({ value: 1 }) })],
+              }),
+            ],
+          })
+        ).and.be.tracedTo(0, 28)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 26)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
       })
 
       it('should parse classes that inherit from other class referenced with their qualified name', () => {
         'class C inherits p.D {}'.should.be.parsedBy(parser).into(new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'p.D' }) })] }))
           .and.be.tracedTo(0, 23)
-          .and.have.nested.property('supertypes.0.reference').tracedTo(17, 20)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 20)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 20)
       })
 
       it('should parse classes that inherit from other class and have a mixin', () => {
-        'class C inherits D mixed with M {}'.should.be.parsedBy(parser).into(
+        'class C inherits M and D {}'.should.be.parsedBy(parser).into(
           new Class({
             name: 'C',
             supertypes: [
@@ -267,9 +286,11 @@ describe('Wollok parser', () => {
               new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
             ],
           })
-        ).and.be.tracedTo(0, 34)
-          .and.have.nested.property('supertypes.1.reference').tracedTo(17, 18)
-          .and.also.have.nested.property('supertypes.0.reference').tracedTo(30, 31)
+        ).and.be.tracedTo(0, 27)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 18)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
+          .and.also.have.nested.property('supertypes.1').tracedTo(23, 24)
+          .and.also.have.nested.property('supertypes.1.reference').tracedTo(23, 24)
       })
 
       it('should recover from member parse error', () => {
@@ -350,13 +371,22 @@ describe('Wollok parser', () => {
         'class C inherits'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse the "mixed with" keyword without a mixin', () => {
-        'class C mixed with {}'.should.not.be.parsedBy(parser)
+      it('should not parse the "and" keyword without "inherits"', () => {
+        'class C and D {}'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse the "class C mixed with" keyword without a body and mixin ', () => {
-        'class C mixed with'.should.not.be.parsedBy(parser)
+      it('should not parse the "and" keyword without inherits or supertype', () => {
+        'class C and {}'.should.not.be.parsedBy(parser)
       })
+
+      it('should not parse the "and" keyword without a trailing supertype', () => {
+        'class C inherits M and {}'.should.not.be.parsedBy(parser)
+      })
+
+      it('should not parse the "and" keyword without a trailing supertype or body', () => {
+        'class C inherits M and'.should.not.be.parsedBy(parser)
+      })
+
     })
 
 
@@ -368,7 +398,36 @@ describe('Wollok parser', () => {
         'mixin M {}'.should.be.parsedBy(parser).into(new Mixin({ name: 'M' })).and.be.tracedTo(0, 10)
       })
 
-      it('should parse non-empty programs', () => {
+      it('should parse mixins that inherit from other mixins', () => {
+        'mixin M inherits D {}'.should.be.parsedBy(parser).into(
+          new Mixin({
+            name: 'M',
+            supertypes: [
+              new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
+            ],
+          })
+        ).and.be.tracedTo(0, 21)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 18)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
+      })
+
+      it('should parse mixins that inherit from other mixins with parameters', () => {
+        'mixin M inherits D(x = 1) {}'.should.be.parsedBy(parser).into(
+          new Mixin({
+            name: 'M',
+            supertypes: [
+              new ParameterizedType({
+                reference: new Reference({ name: 'D' }),
+                args: [new NamedArgument({ name: 'x', value: new Literal({ value: 1 }) })],
+              }),
+            ],
+          })
+        ).and.be.tracedTo(0, 28)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 26)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
+      })
+
+      it('should parse non-empty mixins', () => {
         'mixin M { var v method m(){} }'.should.be.parsedBy(parser).into(
           new Mixin({
             name: 'M',
@@ -437,12 +496,6 @@ describe('Wollok parser', () => {
           )
       })
 
-
-      it('should not parse mixins with a constructor', () => {
-        'mixin M { constructor(){} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 25)
-      })
-
       it('should not parse "mixin" keyword without name and body', () => {
         'mixin'.should.not.be.parsedBy(parser)
       })
@@ -487,10 +540,11 @@ describe('Wollok parser', () => {
             supertypes: [new ParameterizedType({ reference: new Reference({ name: 'D' }) })],
           })
         ).and.be.tracedTo(0, 22)
-          .and.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
       })
 
-      it('should parse objects that inherit from a class with named arguments', () => {
+      it('should parse objects that inherit from a class with multiple parameters', () => {
         'object o inherits D(a = 5, b = 7) {}'.should.be.parsedBy(parser).into(
           new Singleton({
             name: 'o',
@@ -503,7 +557,8 @@ describe('Wollok parser', () => {
             })],
           })
         ).and.be.tracedTo(0, 36)
-          .and.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 34)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
           .and.also.have.nested.property('supertypes.0.args.0').tracedTo(20, 25)
           .and.also.have.nested.property('supertypes.0.args.0.value').tracedTo(24, 25)
           .and.also.have.nested.property('supertypes.0.args.1').tracedTo(27, 32)
@@ -511,7 +566,7 @@ describe('Wollok parser', () => {
       })
 
       it('should parse objects that inherit from a class and have a mixin', () => {
-        'object o inherits D mixed with M {}'.should.be.parsedBy(parser).into(
+        'object o inherits M and D {}'.should.be.parsedBy(parser).into(
           new Singleton({
             name: 'o',
             supertypes: [
@@ -519,13 +574,15 @@ describe('Wollok parser', () => {
               new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
             ],
           })
-        ).and.be.tracedTo(0, 35)
-          .and.have.nested.property('supertypes.1.reference').tracedTo(18, 19)
-          .and.also.have.nested.property('supertypes.0.reference').tracedTo(31, 32)
+        ).and.be.tracedTo(0, 28)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.1').tracedTo(24, 25)
+          .and.also.have.nested.property('supertypes.1.reference').tracedTo(24, 25)
       })
 
       it('should parse objects that inherit from a class and have a mixin referenced by a FQN', () => {
-        'object o inherits D mixed with p.M {}'.should.be.parsedBy(parser).into(
+        'object o inherits p.M and D {}'.should.be.parsedBy(parser).into(
           new Singleton({
             name: 'o',
             supertypes: [
@@ -533,13 +590,15 @@ describe('Wollok parser', () => {
               new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
             ],
           })
-        ).and.be.tracedTo(0, 37)
-          .and.have.nested.property('supertypes.1.reference').tracedTo(18, 19)
-          .and.also.have.nested.property('supertypes.0.reference').tracedTo(31, 34)
+        ).and.be.tracedTo(0, 30)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 21)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 21)
+          .and.also.have.nested.property('supertypes.1').tracedTo(26, 27)
+          .and.also.have.nested.property('supertypes.1.reference').tracedTo(26, 27)
       })
 
       it('should parse objects that inherit from a class and have multiple mixins', () => {
-        'object o inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(
+        'object o inherits N and M and D {}'.should.be.parsedBy(parser).into(
           new Singleton({
             name: 'o',
             supertypes: [
@@ -548,14 +607,17 @@ describe('Wollok parser', () => {
               new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
             ],
           })
-        ).and.be.tracedTo(0, 41)
-          .and.have.nested.property('supertypes.2.reference').tracedTo(18, 19)
-          .and.also.have.nested.property('supertypes.0.reference').tracedTo(37, 38)
-          .and.also.have.nested.property('supertypes.1.reference').tracedTo(31, 32)
+        ).and.be.tracedTo(0, 34)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.1').tracedTo(24, 25)
+          .and.also.have.nested.property('supertypes.1.reference').tracedTo(24, 25)
+          .and.also.have.nested.property('supertypes.2').tracedTo(30, 31)
+          .and.also.have.nested.property('supertypes.2.reference').tracedTo(30, 31)
       })
 
       it('should parse objects thats have multiple mixins ', () => {
-        'object o mixed with M and N {}'.should.be.parsedBy(parser).into(
+        'object o inherits N and M {}'.should.be.parsedBy(parser).into(
           new Singleton({
             name: 'o',
             supertypes: [
@@ -563,9 +625,11 @@ describe('Wollok parser', () => {
               new ParameterizedType({ reference: new Reference({ name: 'M' }) }),
             ],
           })
-        ).and.be.tracedTo(0, 30)
-          .and.have.nested.property('supertypes.0.reference').tracedTo(26, 27)
-          .and.also.have.nested.property('supertypes.1.reference').tracedTo(20, 21)
+        ).and.be.tracedTo(0, 28)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
+          .and.also.have.nested.property('supertypes.1').tracedTo(24, 25)
+          .and.also.have.nested.property('supertypes.1.reference').tracedTo(24, 25)
       })
 
 
@@ -623,11 +687,6 @@ describe('Wollok parser', () => {
           )
       })
 
-      it('should not parse objects with a constructor', () => {
-        'object O { constructor(){} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 25)
-      })
-
       it('should not parse the "object" keyword without a body', () => {
         'object'.should.not.be.parsedBy(parser)
       })
@@ -648,12 +707,20 @@ describe('Wollok parser', () => {
         'object o inherits'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse objects thats use "mixed with" keyword without a mixin', () => {
-        'object o mixed with {}'.should.not.be.parsedBy(parser)
+      it('should not parse the "and" keyword without "inherits"', () => {
+        'object o and D {}'.should.not.be.parsedBy(parser)
       })
 
-      it('should not parse objects thats use "mixed with" keyword without a mixin and a body', () => {
-        'object o mixed with'.should.not.be.parsedBy(parser)
+      it('should not parse the "and" keyword without inherits or supertype', () => {
+        'object o and {}'.should.not.be.parsedBy(parser)
+      })
+
+      it('should not parse the "and" keyword without a trailing supertype', () => {
+        'object o inherits M and {}'.should.not.be.parsedBy(parser)
+      })
+
+      it('should not parse the "and" keyword without a trailing supertype or body', () => {
+        'object o inherits M and'.should.not.be.parsedBy(parser)
       })
 
     })
@@ -2116,7 +2183,8 @@ describe('Wollok parser', () => {
                 }),
               })
             ).and.be.tracedTo(0, 20)
-              .and.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
           })
 
           it('should parse literal objects that inherit from a class referenced with a FQN', () => {
@@ -2129,7 +2197,8 @@ describe('Wollok parser', () => {
                 }),
               })
             ).and.be.tracedTo(0, 22)
-              .and.have.nested.property('value.supertypes.0.reference').tracedTo(16, 19)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 19)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 19)
           })
 
           it('should parse literal objects that inherit from a class with explicit builders', () => {
@@ -2146,12 +2215,13 @@ describe('Wollok parser', () => {
                 }),
               })
             ).and.be.tracedTo(0, 27)
-              .and.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 25)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
               .and.also.have.nested.property('value.supertypes.0.args.0').tracedTo(18, 23)
           })
 
           it('should parse literal objects that inherit from a class and have a mixin', () => {
-            'object inherits D mixed with M {}'.should.be.parsedBy(parser).into(
+            'object inherits M and D {}'.should.be.parsedBy(parser).into(
               new Literal({
                 value: new Singleton({
                   supertypes: [
@@ -2160,13 +2230,15 @@ describe('Wollok parser', () => {
                   ],
                 }),
               })
-            ).and.be.tracedTo(0, 33)
-              .and.have.nested.property('value.supertypes.1.reference').tracedTo(16, 17)
-              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(29, 30)
+            ).and.be.tracedTo(0, 26)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.1').tracedTo(22, 23)
+              .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(22, 23)
           })
 
           it('should parse literal objects that inherit from a class and have multiple mixins', () => {
-            'object inherits D mixed with M and N {}'.should.be.parsedBy(parser).into(
+            'object inherits N and M and D {}'.should.be.parsedBy(parser).into(
               new Literal({
                 value: new Singleton({
                   supertypes: [
@@ -2176,14 +2248,17 @@ describe('Wollok parser', () => {
                   ],
                 }),
               })
-            ).and.be.tracedTo(0, 39)
-              .and.have.nested.property('value.supertypes.2.reference').tracedTo(16, 17)
-              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(35, 36)
-              .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(29, 30)
+            ).and.be.tracedTo(0, 32)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.1').tracedTo(22, 23)
+              .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(22, 23)
+              .and.also.have.nested.property('value.supertypes.2').tracedTo(28, 29)
+              .and.also.have.nested.property('value.supertypes.2.reference').tracedTo(28, 29)
           })
 
           it('should parse literal objects that have multiple mixins', () => {
-            'object mixed with M and N {}'.should.be.parsedBy(parser).into(
+            'object inherits N and M {}'.should.be.parsedBy(parser).into(
               new Literal({
                 value: new Singleton({
                   supertypes: [
@@ -2192,14 +2267,11 @@ describe('Wollok parser', () => {
                   ],
                 }),
               })
-            ).and.be.tracedTo(0, 28)
-              .and.have.nested.property('value.supertypes.0.reference').tracedTo(24, 25)
-              .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(18, 19)
-          })
-
-          it('should not parse literal objects with a constructor', () => {
-            'object { constructor(){} }'.should.be.parsedBy(parser)
-              .recoveringFrom('malformedMember', 8, 23)
+            ).and.be.tracedTo(0, 26)
+              .and.have.nested.property('value.supertypes.0').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.0.reference').tracedTo(16, 17)
+              .and.also.have.nested.property('value.supertypes.1').tracedTo(22, 23)
+              .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(22, 23)
           })
 
           it('should not parse the "object" keyword without a body', () => {
@@ -2218,12 +2290,16 @@ describe('Wollok parser', () => {
             'object inherits'.should.not.be.parsedBy(parser)
           })
 
-          it('should not parse the "mixed with" keyword without a mixin', () => {
-            'object mixed with {}'.should.not.be.parsedBy(parser)
+          it('should not parse the "and" keyword without "inherits"', () => {
+            'object and D {}'.should.not.be.parsedBy(parser)
           })
 
-          it('should not parse the "object mixed with" keyword without a body and mixin', () => {
-            'object mixed with'.should.not.be.parsedBy(parser)
+          it('should not parse the "and" keyword without a trailing supertype', () => {
+            'object inherits M and {}'.should.not.be.parsedBy(parser)
+          })
+
+          it('should not parse the "and" keyword without a trailing supertype or body', () => {
+            'object inherits M and'.should.not.be.parsedBy(parser)
           })
         })
 

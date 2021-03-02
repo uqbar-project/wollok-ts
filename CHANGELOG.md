@@ -6,6 +6,7 @@
     - Removed instantiation with unnamed arguments
     - Removed anonymous class instantiation in favor of unnamed object literals
     - Removed Fixtures
+    - New homogeneous linearization syntax
 
 
 ## v2.3.0

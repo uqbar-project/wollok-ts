@@ -7,6 +7,8 @@ import { List, Node, Module } from '../src/model'
 import natives from '../src/wre/wre.natives'
 import { buildEnvironment } from './assertions'
 
+const { error } = console
+
 const ARGUMENTS = yargs
   .option('verbose', {
     alias: 'v',
@@ -70,4 +72,7 @@ async function defineTests() {
   })
 }
 
-defineTests().then(run)
+defineTests().then(run).catch(e => {
+  error(e)
+  process.exit(1)
+})

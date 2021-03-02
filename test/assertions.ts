@@ -588,7 +588,6 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
   ))
   timeEnd('Parsing files')
 
-
   time('Building environment')
   const environment = buildEnv(files)
   timeEnd('Building environment')
