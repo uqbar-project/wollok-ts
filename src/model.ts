@@ -478,6 +478,15 @@ abstract class $Module extends $Entity {
     return undefined
   }
 
+  @cached
+  defaultFieldValues(this: Module): Map<Field, Expression | undefined> {
+    return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
+      field,
+      this.hierarchy().reduceRight((defaultValue, module) =>
+        module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
+      , field.value),
+    ]))
+  }
 }
 
 
@@ -745,8 +754,8 @@ export class Try extends $Expression {
 export class Catch extends $Expression {
   readonly kind = 'Catch'
   readonly parameter!: Parameter
+  readonly parameterType!: Reference<Module> // TODO: use NamedParameter instead
   readonly body!: Body
-  readonly parameterType!: Reference<Module>
 
   constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
     super({ parameterType, ...payload })
