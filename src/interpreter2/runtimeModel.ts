@@ -1,11 +1,11 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton } from '../model'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression } from '../model'
 import { get } from '../extensions'
 
 const { isArray } = Array
 const { entries } = Object
 
 
-export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
+export type NativeFunction = (this: Runner, self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
 export interface Natives { [name: string]: NativeFunction | Natives }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -14,7 +14,7 @@ export interface Natives { [name: string]: NativeFunction | Natives }
 
 export class Context {
   readonly parentContext?: Context
-  protected readonly locals: Map<Name, RuntimeObject | undefined> = new Map()
+  protected readonly locals: Map<Name, RuntimeObject | Generator<Node, RuntimeObject> | undefined> = new Map()
 
   constructor(parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
     this.parentContext = parentContext
@@ -22,10 +22,15 @@ export class Context {
   }
 
   get(local: Name): RuntimeObject | undefined {
-    return this.locals.get(local) ?? this.parentContext?.get(local)
+    const found = this.locals.get(local) ?? this.parentContext?.get(local)
+    if (!found || found instanceof RuntimeObject) return found
+    let lazy = found.next()
+    while(!lazy.done) lazy = found.next()
+    this.set(local, lazy.value)
+    return lazy.value
   }
 
-  set(local: Name, value: RuntimeObject | undefined): void {
+  set(local: Name, value: RuntimeObject | Generator<Node, RuntimeObject>  | undefined): void {
     this.locals.set(local, value)
   }
 }
@@ -68,7 +73,20 @@ export class Runner {
 
     this.generator = this.exec(node, this.rootContext)
 
-    if(!rootContext) [...this.initialize()]
+    if(!rootContext) {
+      this.rootContext.set('null', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Object'), this.rootContext))
+      this.rootContext.set('true', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
+      this.rootContext.set('false', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
+
+      const globalConstants = this.environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
+      const globalSingletons = this.environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
+
+      for (const module of globalSingletons)
+        this.rootContext.set(module.fullyQualifiedName(), this.instantiate(module, this.rootContext))
+
+      for (const constant of globalConstants)
+        this.rootContext.set(constant.fullyQualifiedName(), this.exec(constant.value, this.rootContext) as Generator<Node, RuntimeObject>)
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -92,40 +110,21 @@ export class Runner {
   // EXECUTION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  *initialize(): Generator<Node, undefined> {
-    this.rootContext.set('null', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Object'), this.rootContext))
-    this.rootContext.set('true', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
-    this.rootContext.set('false', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
-
-    const globalConstants = this.environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
-    const globalSingletons = this.environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
-
-    for (const module of globalSingletons)
-      this.rootContext.set(module.fullyQualifiedName(), yield* this.instantiate(module, this.rootContext))
-
-    for (const constant of globalConstants)
-      this.rootContext.set(constant.fullyQualifiedName(), yield* this.exec(constant.value, this.rootContext))
-
-    return
-  }
-
-  // TODO: change type so expressions always return an object
+  exec(node: Expression, context: Context): Generator<Node, RuntimeObject>
+  exec(node: Node, context: Context): Generator<Node, undefined>
   *exec(node: Node, context: Context): Generator<Node, RuntimeObject | undefined> {
 
     if(node.is('Body')) {
       yield node
-
-      let result: RuntimeObject | undefined
-      for(const sentence of node.sentences)
-        result = yield* this.exec(sentence, context)
-
-      return result
+      for(const sentence of node.sentences) yield* this.exec(sentence, context)
+      return
     }
 
 
     if(node.is('Variable')) {
       yield node
       context.set(node.name, yield * this.exec(node.value, context))
+      return
     }
 
 
@@ -133,12 +132,13 @@ export class Runner {
       const value = yield* this.exec(node.value, context)
       yield node
       context.set(node.variable.name, value)
+      return
     }
 
 
     if(node.is('Return')) {
       yield node
-      throw new WollokReturn(node.value && (yield * this.exec(node.value, context)))
+      throw new WollokReturn(node.value && (yield* this.exec(node.value, context)))
     }
 
 
@@ -185,7 +185,7 @@ export class Runner {
 
     if(node.is('New')) {
       const args: Record<Name, RuntimeObject> = {}
-      for(const arg of node.args) args[arg.name] = (yield* this.exec(arg.value, context))!
+      for(const arg of node.args) args[arg.name] = yield* this.exec(arg.value, context)
 
       yield node
 
@@ -196,7 +196,9 @@ export class Runner {
 
     if(node.is('Send')) {
       const receiver = yield* this.exec(node.receiver, context)
-      if(!receiver) throw new Error('Unexistent receiver')
+      if(!receiver) {
+        throw new Error('Unexistent receiver')
+      }
 
       const values: RuntimeObject[] = []
       for(const arg of node.args) {
@@ -279,11 +281,17 @@ export class Runner {
       const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
       const native = get<NativeFunction>(this.natives, nativeFQN)
       if(!native) throw new Error(`Missing native ${nativeFQN}`)
-      return yield* native(receiver, ...args)
+      return yield* native.bind(this)(receiver, ...args)
     } else {
       let result: RuntimeObject | undefined
+      const locals: Record<Name, RuntimeObject> = {}
+      for(let index = 0; index < method.parameters.length; index++){
+        const { name, isVarArg } = method.parameters[index]
+        locals[name] = isVarArg ? yield* this.list(args.slice(index)) : args[index]
+      }
+
       try {
-        result = yield* this.exec(method.body!, new Context(receiver))
+        result = yield* this.exec(method.body!, new Context(receiver, locals))
       } catch(error) {
         if(!(error instanceof WollokReturn)) throw error
         else result = error.instance
@@ -312,7 +320,7 @@ export class Runner {
     return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootContext, value)
   }
 
-  *instantiate(module: Module, context: Context, locals: Record<Name, RuntimeObject | undefined> = {}): Generator<Node, RuntimeObject> {
+  *instantiate(module: Module, context: Context, locals: Record<Name, RuntimeObject> = {}): Generator<Node, RuntimeObject> {
     const defaults = module.defaultFieldValues()
     const instance = new RuntimeObject(module, context)
     for(const [field, defaultValue] of defaults)

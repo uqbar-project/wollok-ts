@@ -1,9 +1,10 @@
 import { expect, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { restore, stub } from 'sinon'
-import { Class, Package, Reference } from '../src'
-import { Context, Runner, RuntimeObject } from '../src/interpreter2/runtimeModel'
+import { Class, Node, Package, Reference } from '../src'
+import { Context, Natives, Runner, RuntimeObject } from '../src/interpreter2/runtimeModel'
 import link from '../src/linker'
+import { buildEnvironment } from './assertions'
 
 use(sinonChai)
 
@@ -26,6 +27,66 @@ const WRE = link([
 describe('Wollok Node Interpreter', () => {
 
   afterEach(restore)
+
+  describe('Sanity', () => {
+    it('Correr todos a ver qué pasa', async () => {
+      const nativesFalopa: Natives = {
+        wollok:{ //
+          game:{ //
+            game: { //
+              *title(this: Runner): Generator<Node, RuntimeObject | undefined> { return yield* this.reify('') },
+              *width(this: Runner): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(10) },
+              *height(this: Runner): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(10) },
+              *doCellSize(this: Runner): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(10) },
+              *ground(this: Runner): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(null) },
+            },
+          },
+          lang:{ //
+            Number: { //
+              *['<'](this: Runner, self: RuntimeObject, other: RuntimeObject): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(self.innerValue as number < (other.innerValue as number)) },
+              *['*'](this: Runner, self: RuntimeObject, other: RuntimeObject): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(self.innerValue as number * (other.innerValue as number)) },
+            },
+            Boolean: { //
+              *['||'](this: Runner, self: RuntimeObject, other: RuntimeObject): Generator<Node, RuntimeObject | undefined> { return yield* this.reify(self === self.get('true') || other === self.get('true')) },
+            },
+            Dictionary: { //
+              *initialize(this: Runner, self: RuntimeObject): Generator<Node, RuntimeObject | undefined> { return yield * this.invoke('clear', self) },
+              *clear(this: Runner, self: RuntimeObject): Generator<Node, RuntimeObject | undefined> {
+                self.set('<keys>', yield * this.list([]))
+                self.set('<values>', yield * this.list([]))
+                return
+              },
+            },
+          },
+        },
+      }
+
+      const environment = await buildEnvironment('**/*.@(wlk|wtest)', 'language/test/sanity', true)
+      // TODO: Maybe runner should have a message run(node) that returns a controller, so the node is not an argument at creation
+      const rootContext = new Runner(environment, nativesFalopa, environment).rootContext
+
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      console.time('CORRIENDO TESTS')
+      const results = environment.reduce((results, node) => {
+        if(!node.is('Test')) return results
+
+        try {
+          new Runner(environment, nativesFalopa, node.body).resume()
+          return { success: results.success + 1, failure: results.failure }
+        } catch (error) {
+          console.log('######', error)
+          return { success: results.success, failure: results.failure + 1 }
+        }
+      }, { success: 0, failure: 0 })
+      console.timeEnd('CORRIENDO TESTS')
+      console.log(results)
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+      console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    })
+  })
 
   describe('Runner', () => {
 
