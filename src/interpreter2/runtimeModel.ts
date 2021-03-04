@@ -1,29 +1,25 @@
-import { Body, Environment, Id, is, isNode, List, Method, Module, Name, Node } from '../model'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton } from '../model'
 import { get } from '../extensions'
-import { env } from 'yargs'
 
 const { isArray } = Array
+const { entries } = Object
+
 
 export type NativeFunction = (self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
 export interface Natives { [name: string]: NativeFunction | Natives }
 
-// const CREATE_OR_RETRIEVE_INSTANCE = Symbol('createOrRetrieveInstance')
-
-// export class Evaluation {
-//   protected instances: Map<Id, RuntimeObject> = new Map()
-
-//   allInstances(): IterableIterator<RuntimeObject> { return this.instances.values() }
-//   instance(id: Id): RuntimeObject | undefined { return this.instances.get(id) }
-//   [CREATE_OR_RETRIEVE_INSTANCE](instance: RuntimeObject) {
-
-//   }
-// }
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CONTEXTS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Context {
-  constructor(
-    protected readonly parentContext?: Context,
-    protected readonly locals: Map<Name, RuntimeObject | undefined> = new Map(),
-  ){}
+  readonly parentContext?: Context
+  protected readonly locals: Map<Name, RuntimeObject | undefined> = new Map()
+
+  constructor(parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
+    this.parentContext = parentContext
+    for(const [name, value] of entries(locals)) this.locals.set(name, value)
+  }
 
   get(local: Name): RuntimeObject | undefined {
     return this.locals.get(local) ?? this.parentContext?.get(local)
@@ -38,251 +34,14 @@ export class Context {
 export type InnerValue = string | number | RuntimeObject[]
 
 export class RuntimeObject extends Context {
+  readonly module: Module
+  readonly innerValue?: InnerValue
 
-  static * Boolean(environment: Environment, context: Context, value: boolean): Generator<Node, RuntimeObject> {
-    return context.get(`${value}`)!
-  }
-
-  static * Number(environment: Environment, context: Context, value: number): Generator<Node, RuntimeObject> {
-    return new RuntimeObject(environment.getNodeByFQN('wollok.lang.Number'), context, new Map(), value)
-  }
-
-  static * String(environment: Environment, context: Context, value: string): Generator<Node, RuntimeObject> {
-    return new RuntimeObject(environment.getNodeByFQN('wollok.lang.String'), context, new Map(), value)
-  }
-
-  static * List(environment: Environment, context: Context, value: RuntimeObject[]): Generator<Node, RuntimeObject> {
-    return new RuntimeObject(environment.getNodeByFQN('wollok.lang.List'), context, new Map(), value)
-  }
-
-  static * Set(environment: Environment, context: Context, value: RuntimeObject[]): Generator<Node, RuntimeObject> {
-    return new RuntimeObject(environment.getNodeByFQN('wollok.lang.Set'), context, new Map(), value)
-  }
-
-  static * Object(module: Module, context: Context, locals: Map<Name, RuntimeObject | undefined> = new Map()): Generator<Node, RuntimeObject> {
-    const defaults = module.defaultFieldValues()
-    const instance = new RuntimeObject(module, context, locals)
-    for(const [field, value] of defaults)
-      if(!locals.has(field.name)) instance.set(field.name, yield* exec(value, context))
-
-    yield * invoke(environment, natives)('initialize', instance)
-
-    return instance
-  }
-
-  protected constructor(readonly module: Module, parentContext: Context, locals: Map<Name, RuntimeObject | undefined>, public innerValue?: InnerValue) {
+  constructor(module: Module, parentContext: Context, innerValue?: InnerValue) {
     super(parentContext)
-    for(const [name, value] of locals) this.set(name, value)
+    this.module = module
+    this.innerValue = innerValue
     this.set('self', this)
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EXECUTION
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-class WollokReturn { constructor(readonly instance?: RuntimeObject){} }
-class WollokException { constructor(readonly instance: RuntimeObject){} }
-
-const exec = (environment: Environment, natives: Natives) => function* exec(node: Node, context: Context): Generator<Node, RuntimeObject | undefined> {
-
-  if(node.is('Body')) {
-    yield node
-
-    let result: RuntimeObject | undefined
-    for(const sentence of node.sentences)
-      result = yield* exec(sentence, context)
-
-    return result
-  }
-
-
-  if(node.is('Variable')) {
-    yield node
-    context.set(node.name, yield * exec(node.value, context))
-  }
-
-
-  if(node.is('Assignment')) {
-    const value = yield* exec(node.value, context)
-    yield node
-    context.set(node.variable.name, value)
-  }
-
-
-  if(node.is('Return')) {
-    yield node
-    throw new WollokReturn(node.value && (yield * exec(node.value, context)))
-  }
-
-
-  if(node.is('Reference')) {
-    yield node
-    return context.get(node.name)
-  }
-
-
-  if(node.is('Self')) {
-    yield node
-    return context.get('self')
-  }
-
-
-  if(node.is('Literal')) {
-    if (node.value === null) {
-      yield node
-      return context.get('null')
-    }
-
-    if (typeof node.value === 'boolean') {
-      yield node
-      return context.get(`${node.value}`)
-    }
-
-    if (typeof node.value === 'number') {
-      yield node
-      return yield* RuntimeObject.Number(environment, context, node.value)
-    }
-
-    if (typeof node.value === 'string') {
-      yield node
-      return yield* RuntimeObject.String(environment, context, node.value)
-    }
-
-    if(isArray(node.value)) {
-      const [reference, args] = node.value
-      const module = reference.target()!
-
-      const values: RuntimeObject[] = []
-      for(const arg of args) {
-        const value = yield * exec(arg, context)
-        if(value === undefined) throw new Error('Unexistent argument')
-        values.push(value)
-      }
-
-      yield node
-
-      return yield* (module.name === 'List' ? RuntimeObject.List : RuntimeObject.Set)(environment, context, values)
-    }
-
-    if (isNode(node.value)) {
-      yield node
-      return yield* RuntimeObject.Object(node.value, context)
-    }
-  }
-
-
-  if(node.is('New')) {
-    const args: [Name, RuntimeObject][] = []
-    for(const arg of node.args) args.push([arg.name, (yield* exec(arg.value, context))!])
-
-    yield node
-
-    if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
-    return yield* RuntimeObject.Object(node.instantiated.target()!, context, new Map(args))
-  }
-
-
-  if(node.is('Send')) {
-    const receiver = yield* exec(node.receiver, context)
-    if(!receiver) throw new Error('Unexistent receiver')
-
-    const values: RuntimeObject[] = []
-    for(const arg of node.args) {
-      const value = yield * exec(arg, context)
-      if(value === undefined) throw new Error('Unexistent argument')
-      values.push(value)
-    }
-
-    yield node
-
-    return yield* invoke(environment, natives)(node.message, receiver, ...values)
-  }
-
-
-  if(node.is('Super')) {
-    const values: RuntimeObject[] = []
-    for(const arg of node.args) {
-      const value = yield * exec(arg, context)
-      if(value === undefined) throw new Error('Unexistent argument')
-      values.push(value)
-    }
-
-    yield node
-
-    const receiver = context.get('self')!
-    const currentMethod = node.ancestors().find(is('Method'))!
-    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
-    return yield* invoke(environment, natives)(method, receiver, ...values)
-  }
-
-
-  if(node.is('If')) {
-    const condition = yield* exec(node.condition, context)
-
-    yield node
-
-    return yield* exec(condition === (yield* RuntimeObject.Boolean(environment, context, true)) ? node.thenBody : node.elseBody, new Context(context))
-  }
-
-  if(node.is('Throw')) {
-    const exception = yield* exec(node.exception, context)
-    yield node
-    throw new WollokException(exception!)
-  }
-
-  if(node.is('Try')) {
-    let result: RuntimeObject | undefined
-
-    yield node
-
-    try {
-      result = yield* exec(node.body, new Context(context))
-    } catch(error) {
-      if(!(error instanceof WollokException)) throw error
-      const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
-      if(handler) result = yield * exec(handler.body, new Context(context, new Map([[handler.parameter.name, error.instance]])))
-      else throw error
-    } finally {
-      yield* exec(node.always, new Context(context))
-    }
-
-    return result
-  }
-
-  throw new Error(`${node.kind} nodes can't be executed`)
-}
-
-
-const invoke = (environment: Environment, natives: Natives) => function* invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Generator<Node, RuntimeObject | undefined> {
-  const method = methodOrMessage instanceof Method ? methodOrMessage :
-    typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
-    methodOrMessage
-
-  if (!method) return yield* invoke(
-    'messageNotUnderstood',
-    receiver,
-    yield* RuntimeObject.String(environment, context, methodOrMessage),
-    yield* RuntimeObject.List(environment, context, args),
-  )
-
-  if (method.isAbstract()) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
-  if (methodOrMessage instanceof Method && !method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
-
-  if(method.body === 'native') {
-    const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
-    const native = get<NativeFunction>(natives, nativeFQN)
-    if(!native) throw new Error(`Missing native ${nativeFQN}`)
-    return yield* native(receiver, ...args)
-  } else {
-    let result: RuntimeObject | undefined
-    try {
-      result = yield* exec(environment, natives)(method.body!, new Context(receiver))
-    } catch(error) {
-      if(!(error instanceof WollokReturn)) throw error
-      else result = error.instance
-    }
-    return result
   }
 }
 
@@ -290,13 +49,31 @@ const invoke = (environment: Environment, natives: Natives) => function* invoke(
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class Runner {
-  done = false
-  generator: Generator<Node, RuntimeObject | undefined>
+class WollokReturn { constructor(readonly instance?: RuntimeObject){} }
+class WollokException { constructor(readonly instance: RuntimeObject){} }
 
-  constructor(environment: Environment, natives: Natives, node: Node, context: Context = new Context()) {
-    this.generator = exec(environment, natives)(node, context)
+export class Runner {
+  readonly environment: Environment
+  readonly natives: Natives
+  readonly rootContext: Context
+  readonly generator: Generator<Node, RuntimeObject | undefined>
+  done = false
+
+  constructor(environment: Environment, natives: Natives, node: Node, rootContext?: Context) {
+    this.environment = environment
+    this.natives = natives
+
+    this.rootContext = rootContext ?? new Context()
+    while(this.rootContext.parentContext) this.rootContext = this.rootContext.parentContext
+
+    this.generator = this.exec(node, this.rootContext)
+
+    if(!rootContext) [...this.initialize()]
   }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // CONTROLS
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   resume(breakpoints: Node[] = []): RuntimeObject | undefined {
     if(this.done) throw new Error('Evaluation is already finished')
@@ -309,5 +86,240 @@ export class Runner {
 
     this.done = true
     return next.value
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // EXECUTION
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  *initialize(): Generator<Node, undefined> {
+    this.rootContext.set('null', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Object'), this.rootContext))
+    this.rootContext.set('true', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
+    this.rootContext.set('false', new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext))
+
+    const globalConstants = this.environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
+    const globalSingletons = this.environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
+
+    for (const module of globalSingletons)
+      this.rootContext.set(module.fullyQualifiedName(), yield* this.instantiate(module, this.rootContext))
+
+    for (const constant of globalConstants)
+      this.rootContext.set(constant.fullyQualifiedName(), yield* this.exec(constant.value, this.rootContext))
+
+    return
+  }
+
+  // TODO: change type so expressions always return an object
+  *exec(node: Node, context: Context): Generator<Node, RuntimeObject | undefined> {
+
+    if(node.is('Body')) {
+      yield node
+
+      let result: RuntimeObject | undefined
+      for(const sentence of node.sentences)
+        result = yield* this.exec(sentence, context)
+
+      return result
+    }
+
+
+    if(node.is('Variable')) {
+      yield node
+      context.set(node.name, yield * this.exec(node.value, context))
+    }
+
+
+    if(node.is('Assignment')) {
+      const value = yield* this.exec(node.value, context)
+      yield node
+      context.set(node.variable.name, value)
+    }
+
+
+    if(node.is('Return')) {
+      yield node
+      throw new WollokReturn(node.value && (yield * this.exec(node.value, context)))
+    }
+
+
+    if(node.is('Reference')) {
+      yield node
+      return context.get(node.name)
+    }
+
+
+    if(node.is('Self')) {
+      yield node
+      return context.get('self')
+    }
+
+
+    if(node.is('Literal')) {
+      if(isArray(node.value)) {
+        const [reference, args] = node.value
+        const module = reference.target()!
+
+        const values: RuntimeObject[] = []
+        for(const arg of args) {
+          const value = yield * this.exec(arg, context)
+          if(value === undefined) throw new Error('Unexistent argument')
+          values.push(value)
+        }
+
+        yield node
+
+        return yield* module.name === 'List' ? this.list(values) : this.set(values)
+
+      }
+
+      if (isNode(node.value)) {
+        yield node
+        return yield* this.instantiate(node.value, context)
+
+      }
+
+      yield node
+      return yield* this.reify(node.value as any)
+    }
+
+
+    if(node.is('New')) {
+      const args: Record<Name, RuntimeObject> = {}
+      for(const arg of node.args) args[arg.name] = (yield* this.exec(arg.value, context))!
+
+      yield node
+
+      if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
+      return yield* this.instantiate(node.instantiated.target()!, context, args)
+    }
+
+
+    if(node.is('Send')) {
+      const receiver = yield* this.exec(node.receiver, context)
+      if(!receiver) throw new Error('Unexistent receiver')
+
+      const values: RuntimeObject[] = []
+      for(const arg of node.args) {
+        const value = yield * this.exec(arg, context)
+        if(value === undefined) throw new Error('Unexistent argument')
+        values.push(value)
+      }
+
+      yield node
+
+      return yield* this.invoke(node.message, receiver, ...values)
+    }
+
+
+    if(node.is('Super')) {
+      const values: RuntimeObject[] = []
+      for(const arg of node.args) {
+        const value = yield * this.exec(arg, context)
+        if(value === undefined) throw new Error('Unexistent argument')
+        values.push(value)
+      }
+
+      yield node
+
+      const receiver = context.get('self')!
+      const currentMethod = node.ancestors().find(is('Method'))!
+      const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
+      return yield* this.invoke(method, receiver, ...values)
+    }
+
+
+    if(node.is('If')) {
+      const condition = yield* this.exec(node.condition, context)
+
+      yield node
+
+      return yield* this.exec(condition === (yield* this.reify(true)) ? node.thenBody : node.elseBody, new Context(context))
+    }
+
+    if(node.is('Throw')) {
+      const exception = yield* this.exec(node.exception, context)
+      yield node
+      throw new WollokException(exception!)
+    }
+
+    if(node.is('Try')) {
+      let result: RuntimeObject | undefined
+
+      yield node
+
+      try {
+        result = yield* this.exec(node.body, new Context(context))
+      } catch(error) {
+        if(!(error instanceof WollokException)) throw error
+        const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
+        if(handler) result = yield * this.exec(handler.body, new Context(context, { [handler.parameter.name]: error.instance }))
+        else throw error
+      } finally {
+        yield* this.exec(node.always, new Context(context))
+      }
+
+      return result
+    }
+
+    throw new Error(`${node.kind} nodes can't be executed`)
+  }
+
+
+  *invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Generator<Node, RuntimeObject | undefined> {
+    const method = methodOrMessage instanceof Method ? methodOrMessage :
+      typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
+      methodOrMessage
+
+    if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(args))
+
+    if (method.isAbstract()) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
+    if (methodOrMessage instanceof Method && !method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
+
+    if(method.body === 'native') {
+      const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
+      const native = get<NativeFunction>(this.natives, nativeFQN)
+      if(!native) throw new Error(`Missing native ${nativeFQN}`)
+      return yield* native(receiver, ...args)
+    } else {
+      let result: RuntimeObject | undefined
+      try {
+        result = yield* this.exec(method.body!, new Context(receiver))
+      } catch(error) {
+        if(!(error instanceof WollokReturn)) throw error
+        else result = error.instance
+      }
+      return result
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  // INSTANCIATION
+  // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  *reify(value: boolean | number | string | null): Generator<Node, RuntimeObject> {
+    if(value === null) return this.rootContext.get(`${value}`)!
+    if(typeof value === 'boolean') return this.rootContext.get(`${value}`)!
+    if(typeof value === 'number') return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, value)
+    if(typeof value === 'string') return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.String'), this.rootContext, value)
+    throw new Error(`Unreifiable value ${value}`)
+  }
+
+  *list(value: RuntimeObject[]): Generator<Node, RuntimeObject> {
+    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.rootContext, value)
+  }
+
+  *set(value: RuntimeObject[]): Generator<Node, RuntimeObject> {
+    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootContext, value)
+  }
+
+  *instantiate(module: Module, context: Context, locals: Record<Name, RuntimeObject | undefined> = {}): Generator<Node, RuntimeObject> {
+    const defaults = module.defaultFieldValues()
+    const instance = new RuntimeObject(module, context)
+    for(const [field, defaultValue] of defaults)
+      instance.set(field.name, field.name in locals ? locals[field.name] : defaultValue && (yield* this.exec(defaultValue, instance)))
+
+    yield * this.invoke('initialize', instance)
+
+    return instance
   }
 }

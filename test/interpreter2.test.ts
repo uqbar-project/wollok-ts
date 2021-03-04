@@ -1,10 +1,27 @@
 import { expect, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { restore, stub } from 'sinon'
-import { Reference } from '../src'
-import { Runner, RuntimeObject } from '../src/interpreter2/runtimeModel'
+import { Class, Package, Reference } from '../src'
+import { Context, Runner, RuntimeObject } from '../src/interpreter2/runtimeModel'
+import link from '../src/linker'
 
 use(sinonChai)
+
+
+const WRE = link([
+  new Package({
+    name: 'wollok',
+    members: [
+      new Package({
+        name: 'lang',
+        members: [
+          new Class({ name: 'Object' }),
+        ],
+      }),
+    ],
+  }),
+])
+
 
 describe('Wollok Node Interpreter', () => {
 
@@ -21,12 +38,11 @@ describe('Wollok Node Interpreter', () => {
 
       it('should return the object referenced on the given context, if any', () => {
         const node = new Reference({ name: 'x' })
-        const context = new Map([
-          ['x', new RuntimeObject()],
-          ['y', new RuntimeObject()],
-        ])
-
-        const runner = new Runner(node, context)
+        const context = new Context(undefined, {
+          x: new RuntimeObject(WRE.getNodeByFQN('wollok.lang.Object'), null as any),
+          y: new RuntimeObject(WRE.getNodeByFQN('wollok.lang.Object'), null as any),
+        })
+        const runner = new Runner(WRE, {}, node, context)
 
         const result = runner.resume()!
 
@@ -36,11 +52,9 @@ describe('Wollok Node Interpreter', () => {
 
       it('should return undefined if the is no referenced object on the given context', () => {
         const node = new Reference({ name: 'x' })
-        const context = new Map([
-          ['y', new RuntimeObject()],
-        ])
+        const context = new Context(undefined, { y: new RuntimeObject(WRE.getNodeByFQN('wollok.lang.Object'), null as any) })
+        const runner = new Runner(WRE, {}, node, context)
 
-        const runner = new Runner(node, context)
 
         const result = runner.resume()
 
@@ -49,10 +63,10 @@ describe('Wollok Node Interpreter', () => {
 
       it('should break before executing', () => {
         const node = new Reference({ name: 'x' })
-        const context = new Map()
-        stub(context, 'get').throws('Should not have reached this point')
+        const context = new Context()
+        const runner = new Runner(WRE, {}, node, context)
 
-        const runner = new Runner(node, context)
+        stub(context, 'get').throws('Should not have reached this point')
 
         const result = runner.resume([node])!
 
