@@ -26,9 +26,16 @@ declare global {
       into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
       recoveringFrom(code: Name, start: number, end: number): Assertion
+
       linkedInto(expected: List<Package>): Assertion
       target(node: Node): Assertion
+
       pass<N extends Node>(validation: Validation<N>): Assertion
+
+      exactly: Assertion
+      yield(expected: any): Assertion
+      return(expected: any): Assertion
+
       throwException: Assertion
       onCurrentFrame: Assertion
       onBaseFrame: Assertion
@@ -172,7 +179,37 @@ export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// INTERPRETER ASSERTIONS
+// BYTECODE INTERPRETER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const interpreter2Assertions: Chai.ChaiPlugin = (chai, utils) => {
+  const { Assertion } = chai
+  const { flag } = utils
+
+  Assertion.addProperty('exactly', function () {
+    flag(this, 'exactly', true)
+  })
+
+  Assertion.addMethod('yield', function (expected: any) {
+    const generator: Generator = this._obj
+
+    const { done, value } = generator.next()
+    new Assertion(done, 'Generator unexpectedly finished').to.be.false
+    new Assertion(value).to.deep.equal(expected)
+  })
+
+  Assertion.addMethod('return', function (expected: any) {
+    const generator: Generator = this._obj
+
+    const { done, value } = generator.next()
+    new Assertion(done, `Generator did not finish and yielded ${JSON.stringify(value)} instead`).to.be.true
+    if(flag(this, 'exactly')) new Assertion(value).to.equal(expected)
+    else new Assertion(value).to.deep.equal(expected)
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// BYTECODE INTERPRETER ASSERTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const interpreterAssertions: Chai.ChaiPlugin = (chai, utils) => {
