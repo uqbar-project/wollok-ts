@@ -361,7 +361,16 @@ export class Describe extends $Entity {
   @cached
   lookupMethod(this: Describe, name: Name, arity: number): Method | undefined {
     return this.methods().find(method => method.matchesSignature(name, arity))
-      ?? this.environment().getNodeByFQN<Class>('wollok.lang.Object').lookupMethod(name, arity)
+    ?? this.environment().getNodeByFQN<Class>('wollok.lang.Object').lookupMethod(name, arity)
+  }
+
+  // TODO: Describe is a Module?
+  @cached
+  defaultFieldValues(): Map<Field, Expression | undefined> {
+    return new Map(this.variables().map(variable => [
+      variable as unknown as Field,
+      variable.value,
+    ]))
   }
 }
 

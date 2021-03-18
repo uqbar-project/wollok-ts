@@ -1,8 +1,11 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression } from '../model'
-import { get } from '../extensions'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class } from '../model'
+import { get, last } from '../extensions'
+import { v4 as uuid } from 'uuid'
 
 const { isArray } = Array
-const { entries } = Object
+const { keys, entries } = Object
+
+const DECIMAL_PRECISION = 5
 
 
 export type NativeFunction = (this: Runner, self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
@@ -16,7 +19,7 @@ export class Context {
   readonly parentContext?: Context
   protected readonly locals: Map<Name, RuntimeObject | Generator<Node, RuntimeObject> | undefined> = new Map()
 
-  constructor(parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
+  constructor(parentContext?: Context, locals: Record<Name, RuntimeObject | Generator<Node, RuntimeObject>> = {}) {
     this.parentContext = parentContext
     for(const [name, value] of entries(locals)) this.locals.set(name, value)
   }
@@ -30,15 +33,17 @@ export class Context {
     return lazy.value
   }
 
-  set(local: Name, value: RuntimeObject | Generator<Node, RuntimeObject>  | undefined): void {
-    this.locals.set(local, value)
+  set(local: Name, value: RuntimeObject | Generator<Node, RuntimeObject>  | undefined, lookup = false): void {
+    if(!lookup || this.locals.has(local)) this.locals.set(local, value)
+    else this.parentContext?.set(local, value, lookup)
   }
 }
 
 
-export type InnerValue = string | number | RuntimeObject[]
+export type InnerValue = boolean | string | number | RuntimeObject[] | Error
 
 export class RuntimeObject extends Context {
+  readonly id = uuid()
   readonly module: Module
   readonly innerValue?: InnerValue
 
@@ -47,6 +52,28 @@ export class RuntimeObject extends Context {
     this.module = module
     this.innerValue = innerValue
     this.set('self', this)
+  }
+
+  assertIsException(): asserts this is RuntimeObject & { innerValue?: Error } {
+    if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
+  }
+
+  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: boolean } { this.assertIs('wollok.lang.Boolean', 'boolean') }
+
+  assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
+
+  assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
+
+  assertIsCollection(): asserts this is RuntimeObject & { innerValue: RuntimeObject[] } {
+    if (!isArray(this.innerValue) || this.innerValue.length && !(this.innerValue[0] instanceof RuntimeObject))
+      throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
+  }
+
+  protected assertIs(moduleFQN: Name, innerValueType: string): void {
+    if (this.module.fullyQualifiedName() !== moduleFQN)
+      throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
+    if (typeof this.innerValue !== innerValueType)
+      throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 }
 
@@ -80,8 +107,8 @@ class RunnerController {
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-class WollokReturn { constructor(readonly instance?: RuntimeObject){} }
-class WollokException { constructor(readonly instance: RuntimeObject){} }
+export class WollokReturn extends Error { constructor(readonly instance?: RuntimeObject){ super() } }
+export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super() } }
 
 
 export default class Interpreter {
@@ -95,25 +122,35 @@ export default class Interpreter {
 }
 
 
+export class Frame {
+  readonly node: Node
+  readonly context: Context
+
+  constructor(node: Node, context: Context) {
+    this.node = node
+    this.context = context
+  }
+}
+
+
 export class Runner {
-  readonly environment: Environment
   readonly natives: Natives
-  readonly rootContext: Context
-  currentContext: Context
+  readonly frameStack: Frame[] = []
+
+  get currentContext(): Context { return last(this.frameStack)!.context }
+  get rootContext(): Context { return this.frameStack[0].context }
+  get environment(): Environment { return this.frameStack[0].node as Environment }
 
   constructor(environment: Environment, natives: Natives) {
-    this.environment = environment
     this.natives = natives
-    this.rootContext = new Context()
-    this.currentContext = this.rootContext
+    this.frameStack.push(new Frame(environment, new Context()))
 
     this.rootContext.set('null', this.instantiate(this.environment.getNodeByFQN('wollok.lang.Object')))
-    this.rootContext.set('true', this.instantiate(this.environment.getNodeByFQN('wollok.lang.Boolean')))
-    this.rootContext.set('false', this.instantiate(this.environment.getNodeByFQN('wollok.lang.Boolean')))
 
     const globalSingletons = this.environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
       this.rootContext.set(module.fullyQualifiedName(), this.instantiate(module))
+
 
     const globalConstants = this.environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     for (const constant of globalConstants)
@@ -127,15 +164,15 @@ export class Runner {
   exec(node: Expression, context?: Context): Generator<Node, RuntimeObject>
   exec(node: Node, context?: Context): Generator<Node, undefined>
   *exec(node: Node, context: Context = this.currentContext): Generator<Node, RuntimeObject | undefined> {
-    const previousContext = this.currentContext
-    this.currentContext = context
+    this.frameStack.push(new Frame(node, context))
 
     try {
-
       if(node.is('Body')) {
         yield node
-        for(const sentence of node.sentences) yield* this.exec(sentence)
-        return
+
+        let result: RuntimeObject | undefined
+        for(const sentence of node.sentences) result = yield* this.exec(sentence)
+        return result
       }
 
 
@@ -150,7 +187,8 @@ export class Runner {
       if(node.is('Assignment')) {
         const value = yield* this.exec(node.value)
         yield node
-        context.set(node.variable.name, value)
+        if(node.variable.target()?.isReadOnly) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+        context.set(node.variable.name, value, true)
         return
       }
 
@@ -164,7 +202,14 @@ export class Runner {
 
       if(node.is('Reference')) {
         yield node
-        return context.get(node.name)
+
+        const target = node.target()
+
+        return context.get(
+          target.is('Module') || target.is('Variable') && target.parent().is('Package')
+            ? target.fullyQualifiedName()
+            : node.name
+        )
       }
 
 
@@ -204,16 +249,13 @@ export class Runner {
         yield node
 
         if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
+
         return yield* this.instantiate(node.instantiated.target()!, args)
       }
 
 
       if(node.is('Send')) {
         const receiver = yield* this.exec(node.receiver)
-        if(!receiver) {
-          throw new Error('Unexistent receiver')
-        }
-
         const values: RuntimeObject[] = []
         for(const arg of node.args) values.push(yield * this.exec(arg))
 
@@ -237,11 +279,12 @@ export class Runner {
 
 
       if(node.is('If')) {
-        const condition = yield* this.exec(node.condition)
+        const condition: RuntimeObject = yield* this.exec(node.condition)
+        condition.assertIsBoolean()
 
         yield node
 
-        return yield* this.exec(condition === (yield* this.reify(true)) ? node.thenBody : node.elseBody, new Context(context))
+        return yield* this.exec(condition.innerValue ? node.thenBody : node.elseBody, new Context(context))
       }
 
       if(node.is('Throw')) {
@@ -249,7 +292,7 @@ export class Runner {
 
         yield node
 
-        throw new WollokException(exception)
+        throw new WollokException([...this.frameStack], exception)
       }
 
       if(node.is('Try')) {
@@ -272,8 +315,17 @@ export class Runner {
         return result
       }
 
+    } catch(error) {
+      if(error instanceof WollokException || error instanceof WollokReturn) throw error
+      else {
+        const module = this.environment.getNodeByFQN<Class>(error.message === 'Maximum call stack size exceeded'
+          ? 'wollok.lang.StackOverflowException'
+          : 'wollok.lang.EvaluationError'
+        )
+        throw new WollokException([...this.frameStack], new RuntimeObject(module, context, error))
+      }
     } finally {
-      this.currentContext = previousContext
+      this.frameStack.pop()
     }
 
     throw new Error(`${node.kind} nodes can't be executed`)
@@ -294,11 +346,10 @@ export class Runner {
       const native = get<NativeFunction>(this.natives, nativeFQN)
       if(!native) throw new Error(`Missing native ${nativeFQN}`)
 
-      const previousContext = this.currentContext
-      this.currentContext = new Context(receiver)
+      this.frameStack.push(new Frame(method, new Context(receiver)))
       try {
         return yield* native.bind(this)(receiver, ...args)
-      } finally { this.currentContext = previousContext }
+      } finally { this.frameStack.pop() }
     } else {
       let result: RuntimeObject | undefined
       const locals: Record<Name, RuntimeObject> = {}
@@ -323,10 +374,11 @@ export class Runner {
 
   *reify(value: boolean | number | string | null): Generator<Node, RuntimeObject> {
     if(typeof value === 'number') {
-      const existing = this.rootContext.get(`N!${value}`)
+      const stringValue = value.toFixed(DECIMAL_PRECISION)
+      const existing = this.rootContext.get(`N!${stringValue}`)
       if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, value)
-      this.rootContext.set(`N!${value}`, instance)
+      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, Number(stringValue))
+      this.rootContext.set(`N!${stringValue}`, instance)
       return instance
     }
 
@@ -338,6 +390,14 @@ export class Runner {
       return instance
     }
 
+    if(typeof value === 'boolean'){
+      const existing = this.rootContext.get(`${value}`)
+      if(existing) return existing
+      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext, value)
+      this.rootContext.set(`${value}`, instance)
+      return instance
+    }
+
     return this.rootContext.get(`${value}`)!
   }
 
@@ -346,16 +406,31 @@ export class Runner {
   }
 
   *set(value: RuntimeObject[]): Generator<Node, RuntimeObject> {
-    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.currentContext, value)
+    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.currentContext, [])
+    for(const elem of value)
+      yield* this.invoke('add', result, elem)
+    return result
   }
 
   *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): Generator<Node, RuntimeObject> {
-    const defaults = module.defaultFieldValues()
+    const defaultFieldValues = module.defaultFieldValues()
+
+    const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
+    for(const local of keys(locals))
+      if(!allFieldNames.includes(local))
+        throw new Error(`Can't instantiate ${module.fullyQualifiedName()} with value for unexistent field ${local}`)
+
     const instance = new RuntimeObject(module, this.currentContext)
-    for(const [field, defaultValue] of defaults)
-      instance.set(field.name, field.name in locals ? locals[field.name] : defaultValue && (yield* this.exec(defaultValue, instance)))
+
+    for(const [field, defaultValue] of defaultFieldValues) {
+      instance.set(field.name, field.name in locals ? locals[field.name] : defaultValue && this.exec(defaultValue, instance))
+    }
 
     yield * this.invoke('initialize', instance)
+
+    if(!module.name)
+      for (const [field] of defaultFieldValues)
+        instance.get(field.name)
 
     return instance
   }

@@ -4,7 +4,7 @@ import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Referen
 const { assign } = Object
 
 
-const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib']
+export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib']
 
 
 export class LinkError extends Problem {
