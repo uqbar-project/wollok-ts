@@ -136,7 +136,6 @@ class RunnerController {
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class WollokReturn extends Error { constructor(readonly instance?: RuntimeObject){ super() } }
 export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super() } }
 
 
@@ -250,7 +249,7 @@ export class Runner {
       if(node.is('Return')) {
         const value = node.value && (yield* this.exec(node.value))
         yield node
-        throw new WollokReturn(value)
+        throw value
       }
 
 
@@ -370,7 +369,7 @@ export class Runner {
       }
 
     } catch(error) {
-      if(error instanceof WollokException || error instanceof WollokReturn) throw error
+      if(error instanceof WollokException || error instanceof RuntimeObject) throw error
       else {
         const module = this.environment.getNodeByFQN<Class>(error.message === 'Maximum call stack size exceeded'
           ? 'wollok.lang.StackOverflowException'
@@ -415,8 +414,8 @@ export class Runner {
       try {
         result = yield* this.exec(method.body!, new Context(receiver, locals))
       } catch(error) {
-        if(!(error instanceof WollokReturn)) throw error
-        else result = error.instance
+        if(!(error instanceof RuntimeObject)) throw error
+        else result = error
       }
       return result
     }
