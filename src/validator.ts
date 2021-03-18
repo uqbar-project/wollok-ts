@@ -94,7 +94,7 @@ export const validations = {
     return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
   }),
 
-  nameIsNotKeyword: error<Reference<any> | Method | Variable | Class | Singleton>(node =>
+  nameIsNotKeyword: error<Reference<Node> | Method | Variable | Class | Singleton>(node =>
     ![
       'import',
       'package',

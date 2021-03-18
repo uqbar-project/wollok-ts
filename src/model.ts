@@ -103,7 +103,7 @@ export type Node
   | DescribeMember
   | ModuleMember
   | Sentence
-  | Reference<any>
+  | Reference<any> //TODO: This any makes the target be any
   | Environment
 
 
@@ -283,6 +283,7 @@ abstract class $Entity extends $Node {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
   }
 
+  @cached
   fullyQualifiedName(this: Entity): Name {
     const parent = this.parent()
     const label = this.is('Singleton')
@@ -385,6 +386,11 @@ export class Variable extends $Entity {
     super({ value, ...payload })
   }
 
+  @cached
+  runtimeName(): string {
+    return this.parent().is('Package') ? this.fullyQualifiedName() : this.name
+  }
+
   // TODO: Can we prevent repeating this here?
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return [this.kind, 'Node', 'Sentence', 'Entity'].includes(kindOrCategory)
@@ -451,6 +457,9 @@ abstract class $Module extends $Entity {
 
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
+
+  @cached
+  runtimeName(this: Module): string { return this.fullyQualifiedName() }
 
   @cached
   hierarchy(this: Module): List<Module> {
@@ -673,7 +682,7 @@ export class Reference<N extends Node> extends $Expression {
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
   @cached
-  target(this: Reference<any>): N | undefined {
+  target(this: Reference<N>): N | undefined {
     return this.scope.resolve(this.name)
   }
 }

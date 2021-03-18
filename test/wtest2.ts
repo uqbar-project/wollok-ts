@@ -21,14 +21,15 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(nodes: List<Node>) {
+function registerTests(nodes: List<Node>, evaluation: Runner) {
   nodes.forEach(node => {
-    if (node.is('Package') || node.is('Describe')) describe(node.name, () => registerTests(node.members))
+    if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
+
+    else if (node.is('Describe')) describe(node.name, () => registerTests(node.tests(), evaluation))
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
-        const runner = new Runner(node.environment(), natives)
-
+        const runner = evaluation.copy()
         const runTest = function* () {
           const context = node.parent().is('Describe')
             ? yield* runner.instantiate(node.parent() as unknown as Module)
@@ -54,9 +55,6 @@ function registerTests(nodes: List<Node>) {
 
 function logError(error: any) {
   if(error instanceof WollokException) {
-    // console.log('########################')
-    // console.log(error.frameStack[error.frameStack.length - 1].context)
-    // console.log('########################')
     const errorInstance: RuntimeObject = error.instance
     errorInstance.assertIsException()
     console.log(errorInstance.innerValue ? `Unhandled Native Exception: ${errorInstance.innerValue.constructor.name} "${errorInstance.innerValue.message}"` : `Unhandled Wollok Exception: ${error.instance.module.fullyQualifiedName()} "${error.instance.get('message')?.innerValue}"`)
@@ -91,7 +89,7 @@ function logError(error: any) {
 
 (async function () {
   const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
-  describe(basename(ARGUMENTS.root), () => registerTests(environment.members))
+  describe(basename(ARGUMENTS.root), () => registerTests(environment.members, Runner.build(environment, natives)))
 })().then(run).catch(e => {
   error(e)
   process.exit(1)

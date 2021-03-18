@@ -48,7 +48,7 @@ describe('Wollok Node Interpreter', () => {
     describe('Reference', () => {
 
       it('should return the object referenced on the given context, if any', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Reference<Variable>({ name: 'x' })
         const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
         const context = new Context(runner.rootContext, { x: instance })
@@ -61,7 +61,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return the object referenced on an inherited context, if any', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Reference<Variable>({ name: 'x' })
         const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
         const parentContext = new Context(runner.rootContext, { x: instance })
@@ -74,7 +74,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return undefined if the is no referenced object on the given context', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Reference<Variable>({ name: 'x' })
         const context = new Context(runner.rootContext, { })
 
@@ -86,7 +86,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should yield before executing', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Reference({ name: 'x' })
         const context = new Context(runner.rootContext)
         stub(context, 'get').throws('Should not have reached this point')
@@ -102,7 +102,7 @@ describe('Wollok Node Interpreter', () => {
     describe('Self', () => {
 
       it('should return the object referenced on the given context, if any', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Self()
         const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
         const context = new Context(runner.rootContext, { self: instance })
@@ -115,7 +115,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return the object referenced on an inherited context, if any', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Self()
         const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
         const parentContext = new Context(runner.rootContext, { self: instance })
@@ -128,7 +128,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return undefined if the is no referenced object on the given context', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Self()
         const context = new Context(runner.rootContext)
 
@@ -140,7 +140,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should yield before executing', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Self()
         const context = new Context(runner.rootContext)
         stub(context, 'get').throws('Should not have reached this point')
@@ -156,7 +156,7 @@ describe('Wollok Node Interpreter', () => {
     describe('Literal', () => {
 
       it('numeric literals should return the reified Number', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({ value: 5 })
         const context = new Context(runner.rootContext)
 
@@ -168,7 +168,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('string literals should return the reified String', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({ value: 'foo' })
         const context = new Context(runner.rootContext)
 
@@ -180,7 +180,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('boolean literals should return the reified Boolean', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({ value: true })
         const context = new Context(runner.rootContext)
 
@@ -192,7 +192,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('null literals should return the reified null', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({ value: null })
         const context = new Context(runner.rootContext)
 
@@ -204,7 +204,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('List literals should return the reified List', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({
           value: [
             new Reference({ name: 'wollok.lang.List' }),
@@ -225,7 +225,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('Set literals should return the reified Set', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({
           value: [
             new Reference({ name: 'wollok.lang.Set' }),
@@ -246,7 +246,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('singleton literals should return the given singleton instance', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({ value: new Singleton({ members: [new Method({ name: 'initialize', body: new Body() })] }) })
         stub(node.value, 'superclass').returns(WRE.getNodeByFQN<Class>('wollok.lang.Object'))
         const context = new Context(runner.rootContext)
@@ -260,7 +260,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should yield before executing', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new Literal({
           value: [
             new Reference({ name: 'wollok.lang.List' }),
@@ -285,7 +285,7 @@ describe('Wollok Node Interpreter', () => {
     describe('New', () => {
 
       it('should return a new initialized instance of the given module', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new New({ instantiated: new Reference({ name: 'wollok.lang.Object' }) })
         const context = new Context(runner.rootContext)
 
@@ -300,7 +300,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return a new initialized instance of the given module, setting the instantiation parameters', () => {
-        const runner = new Runner(link([
+        const runner = Runner.build(link([
           new Package({
             name: 'p',
             members: [
@@ -331,7 +331,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('should return a new initialized instance of the given module, setting the default values when there are no instantiation arguments', () => {
-        const runner = new Runner(link([
+        const runner = Runner.build(link([
           new Package({
             name: 'p',
             members: [
@@ -362,7 +362,7 @@ describe('Wollok Node Interpreter', () => {
       })
 
       it('Should yield before executing', () => {
-        const runner = new Runner(WRE, {})
+        const runner = Runner.build(WRE, {})
         const node = new New({ instantiated: new Reference({ name: 'p.C' }) })
         const context = new Context(runner.rootContext)
 

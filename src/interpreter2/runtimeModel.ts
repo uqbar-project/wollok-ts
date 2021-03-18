@@ -1,4 +1,4 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class } from '../model'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id } from '../model'
 import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
 
@@ -6,7 +6,6 @@ const { isArray } = Array
 const { keys, entries } = Object
 
 const DECIMAL_PRECISION = 5
-
 
 export type NativeFunction = (this: Runner, self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
 export interface Natives { [name: string]: NativeFunction | Natives }
@@ -16,6 +15,7 @@ export interface Natives { [name: string]: NativeFunction | Natives }
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class Context {
+  readonly id: Id = uuid()
   readonly parentContext?: Context
   protected readonly locals: Map<Name, RuntimeObject | Generator<Node, RuntimeObject> | undefined> = new Map()
 
@@ -37,13 +37,32 @@ export class Context {
     if(!lookup || this.locals.has(local)) this.locals.set(local, value)
     else this.parentContext?.set(local, value, lookup)
   }
+
+  copy(contextCache: Map<Id, Context>): this {
+    if(contextCache.has(this.id)) return contextCache.get(this.id) as this
+
+    const copy = this.baseCopy(contextCache) as this
+    contextCache.set(this.id, copy)
+
+    for(const [name, value] of this.locals.entries())
+      copy.set(name,
+        value instanceof RuntimeObject ? value.copy(contextCache) :
+        value ? this.get(name) :
+        value
+      )
+
+    return copy
+  }
+
+  protected baseCopy(contextCache: Map<Id, Context>): Context {
+    return new Context(this.parentContext?.copy(contextCache))
+  }
 }
 
 
 export type InnerValue = boolean | string | number | RuntimeObject[] | Error
 
 export class RuntimeObject extends Context {
-  readonly id = uuid()
   readonly module: Module
   readonly innerValue?: InnerValue
 
@@ -53,6 +72,16 @@ export class RuntimeObject extends Context {
     this.innerValue = innerValue
     this.set('self', this)
   }
+
+
+  protected baseCopy(contextCache: Map<Id, Context>): RuntimeObject {
+    return new RuntimeObject(
+      this.module,
+      this.parentContext!.copy(contextCache),
+      isArray(this.innerValue) ? this.innerValue.map(elem => elem.copy(contextCache)) : this.innerValue
+    )
+  }
+
 
   assertIsException(): asserts this is RuntimeObject & { innerValue?: Error } {
     if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
@@ -130,31 +159,56 @@ export class Frame {
     this.node = node
     this.context = context
   }
+
+  copy(contextCache: Map<Id, Context>): Frame {
+    return new Frame(this.node, this.context.copy(contextCache))
+  }
 }
 
 
 export class Runner {
   readonly natives: Natives
-  readonly frameStack: Frame[] = []
+  readonly frameStack: Frame[]
 
   get currentContext(): Context { return last(this.frameStack)!.context }
   get rootContext(): Context { return this.frameStack[0].context }
   get environment(): Environment { return this.frameStack[0].node as Environment }
 
-  constructor(environment: Environment, natives: Natives) {
-    this.natives = natives
-    this.frameStack.push(new Frame(environment, new Context()))
+  static build(environment: Environment, natives: Natives): Runner {
+    const evaluation = new Runner(natives, [new Frame(environment, new Context())])
 
-    this.rootContext.set('null', this.instantiate(this.environment.getNodeByFQN('wollok.lang.Object')))
+    evaluation.rootContext.set('null', evaluation.instantiate(environment.getNodeByFQN('wollok.lang.Object')))
 
-    const globalSingletons = this.environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
+    const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
-      this.rootContext.set(module.fullyQualifiedName(), this.instantiate(module))
+      evaluation.rootContext.set(module.fullyQualifiedName(), evaluation.instantiate(module))
 
 
-    const globalConstants = this.environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
+    const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
     for (const constant of globalConstants)
-      this.rootContext.set(constant.fullyQualifiedName(), this.exec(constant.value, this.rootContext))
+      evaluation.rootContext.set(constant.fullyQualifiedName(), evaluation.exec(constant.value, evaluation.rootContext))
+
+
+    for (const module of globalSingletons) {
+      const instance = evaluation.rootContext.get(module.fullyQualifiedName())
+      for (const field of module.defaultFieldValues().keys())
+        instance!.get(field.name)
+    }
+
+    for (const constant of globalConstants)
+      evaluation.rootContext.get(constant.fullyQualifiedName())
+
+
+    return evaluation
+  }
+
+  protected constructor(natives: Natives, frameStack: Frame[]) {
+    this.natives = natives
+    this.frameStack = frameStack
+  }
+
+  copy(contextCache: Map<Id, Context> = new Map()): Runner {
+    return new Runner(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -177,7 +231,7 @@ export class Runner {
 
 
       if(node.is('Variable')) {
-        const value = yield * this.exec(node.value)
+        const value = yield* this.exec(node.value)
         yield node
         context.set(node.name, value)
         return

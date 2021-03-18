@@ -11,7 +11,7 @@ export class LinkError extends Problem {
   constructor(public code: Name){ super() }
 }
 
-const fail = (code: Name) => (node: Reference<any>) =>
+const fail = (code: Name) => (node: Reference<Node>) =>
   assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
