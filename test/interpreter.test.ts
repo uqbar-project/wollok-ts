@@ -1,1026 +1,442 @@
-import { should, use } from 'chai'
-import { restore, stub, spy, match } from 'sinon'
+import { expect, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { CALL, CONDITIONAL_JUMP, DUP, INHERITS, INIT, INSTANTIATE, INTERRUPT, JUMP, LOAD, POP, POP_CONTEXT, PUSH, PUSH_CONTEXT, RETURN, STORE, SWAP } from '../src/interpreter/compiler'
-import * as compiler from '../src/interpreter/compiler'
+import { restore, stub } from 'sinon'
+import { Class, Package, Reference, Self, Variable, Literal, Method, Body, Singleton, New, Field, NamedArgument } from '../src/model'
+import { Context, Runner, RuntimeObject } from '../src/interpreter/runtimeModel'
 import link from '../src/linker'
-import { Body, Class, Field, Literal, Method, Package, Parameter, ParameterizedType, Reference } from '../src/model'
-import { interpreterAssertions, evaluation, obj, ctx, lazy } from './assertions'
-import { NativeFunction, Evaluation } from '../src/interpreter/runtimeModel'
+import { interpreter2Assertions } from './assertions'
 
 
-should()
-use(interpreterAssertions)
 use(sinonChai)
+use(interpreter2Assertions)
+
+const WRE = link([
+  new Package({
+    name: 'wollok',
+    members: [
+      new Package({
+        name: 'lang',
+        members: [
+          new Class({ name: 'Object', members: [new Method({ name: 'initialize', body: new Body() })] }),
+          new Class({ name: 'Boolean' }),
+          new Class({ name: 'Number' }),
+          new Class({ name: 'String' }),
+          new Class({ name: 'List' }),
+          new Class({ name: 'Set' }),
+          new Class({ name: 'EvaluationError' }),
+        ],
+      }),
+    ],
+  }),
+])
+
+
+function resultOf<T>(generator: Generator<unknown, T>): T {
+  let result = generator.next()
+  while(!result.done) result = generator.next()
+  return result.value
+}
+
+//TODO: These tests are stupid. We should already be covering all this in the sanities, so why double our work?
+//      We should replace these with short, to-the-point tests for the interpreter itself and the orchestrator
+describe('Wollok Node Interpreter', () => {
+
+  // afterEach(restore)
+
+  // describe('Execution', () => {
+
+  //   describe('Reference', () => {
+
+  //     it('should return the object referenced on the given context, if any', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Reference<Variable>({ name: 'x' })
+  //       const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
+  //       const context = new Context(runner.rootContext, { x: instance })
 
+  //       const execution = runner.exec(node, context)
 
-const WRE = new Package({
-  name: 'wollok',
-  members:[
-    new Package({
-      name: 'lang',
-      members: [
-        new Class({
-          name: 'Object',
-          members: [
-            new Method({
-              name: 'messageNotUnderstood',
-              parameters: [new Parameter({ name: 'messageName' }), new Parameter({ name: 'parameters' })],
-              body: new Body(),
-            }),
-          ],
-        }),
-        new Class({ name: 'Closure' }),
-        new Class({ name: 'String' }),
-        new Class({ name: 'Boolean' }),
-        new Class({ name: 'Number' }),
-        new Class({ name: 'List' }),
-        new Class({ name: 'EvaluationError' }),
-      ],
-    }),
-    new Package({ name: 'lib' }),
-  ],
-})
-
-const environment = link([WRE])
-
-
-afterEach(restore)
-
-
-describe('Wollok Interpreter', () => {
-
-  describe('evaluation of Instructions', () => {
-
-    describe('LOAD', () => {
-
-      it('should push the local with the given name from the current locals into the current operand stack', () => {
-        evaluation({
-          environment,
-          instances: [obj`target`, obj`other`],
-          frames: [
-            { instructions: [LOAD('x')], operands: [obj`other`], contexts: [ctx`c1`({ locals:{ x: obj`target` } })] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(obj`target`)
-          .whenStepped()
-      })
-
-      it('should search it through the context hierarchy if the local is missing in the current context of the frame', () => {
-        evaluation({
-          environment,
-          instances: [
-            obj`target`,
-            obj`ctx`({ locals: { 'x': obj`target` } }),
-          ],
-          frames: [
-            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{ }, parent: obj`ctx` })] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(obj`target`)
-          .whenStepped()
-      })
-
-      it('should push a void value if the local is not in the context hierarchy', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{} })] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(undefined)
-          .whenStepped()
-      })
-
-      it('should not search through the frame stack', () => {
-        evaluation({
-          environment,
-          instances: [obj`wrong`],
-          frames: [
-            { instructions: [LOAD('x')], contexts: [ctx`c1`({ locals:{} })] },
-            { contexts: [ctx`c1`({ locals:{ x: obj`wrong` } })] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(undefined)
-          .whenStepped()
-      })
-
-      it('should trigger lazy initialization for uninitialized lazy references', () => {
-        evaluation({
-          environment,
-          instances: [obj`target`({ locals: { x: lazy`x`(obj`target`, [INSTANTIATE('wollok.lang.Number', 7)]) } })],
-          frames: [
-            { instructions: [LOAD('x')], contexts: [ctx`c1`({ parent: obj`target` })] },
-          ],
-        }).should
-          .createInstance(obj`N!7.00000`({ moduleFQN: 'wollok.lang.Number', locals: { self: obj`N!7.00000` }, innerValue: 7 }))
-          .onInstance(obj`target`).setLocal('x', obj`N!7.00000`)
-          .onCurrentFrame.pushOperands(obj`N!7.00000`)
-          .whenStepped()
-      })
-
-    })
-
-
-    describe('STORE', () => {
-
-      it('should pop the current operand stack and save it to the given name in the current locals', () => {
-        evaluation({
-          environment,
-          instances: [obj`value`, obj`other`],
-          frames: [
-            { instructions: [STORE('x', false)], operands: [obj`value`, obj`other`], contexts: [ctx`c1`({ locals:{ } })] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.setLocal('x', obj`value`)
-          .whenStepped()
-      })
-
-      it('should override the current local value, if present', () => {
-        evaluation({
-          environment,
-          instances: [obj`old`, obj`new`],
-          frames: [
-            { instructions: [STORE('x', false)], operands: [obj`new`], contexts: [ctx`c1`({ locals:{ x: obj`old` } })] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.setLocal('x', obj`new`)
-          .whenStepped()
-      })
-
-      it('should search the local through the frame stack if lookup is active and the local is missing in the current frame', () => {
-        evaluation({
-          environment,
-          instances: [
-            obj`old`,
-            obj`new`,
-            obj`context`({ locals:{ x: obj`old` } }),
-          ],
-          frames: [
-            { instructions: [STORE('x', true)], operands: [obj`new`], contexts: [ctx`c1`({ locals:{ }, parent: obj`context` })] },
-          ],
-        }).should
-          .onInstance(obj`context`).setLocal('x', obj`new`)
-          .and.onCurrentFrame.popOperands(1)
-          .whenStepped()
-      })
-
-      it('should add the local to the current frame context if lookup is active but local is not present in the context hierarchy', () => {
-        evaluation({
-          environment,
-          instances: [
-            obj`value`,
-            obj`context`({ locals:{ } }),
-          ],
-          frames: [
-            { instructions: [STORE('x', true)], operands: [obj`value`], contexts: [ctx`c1`({ locals:{ }, parent: obj`context` })] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.setLocal('x', obj`value`)
-          .whenStepped()
-      })
-
-    })
-
-
-    describe('PUSH', () => {
-
-      it('should push the instance with the given id to the current operand stack', () => {
-        evaluation({
-          environment,
-          instances: [obj`value`, obj`other`],
-          frames: [
-            { instructions: [PUSH('value')], operands: [obj`other`] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(obj`value`)
-          .whenStepped()
-      })
-
-    })
-
-
-    describe('POP', () => {
-
-      it('should pop the top of the operand stack and discard it', () => {
-        evaluation({
-          environment,
-          instances: [obj`value`, obj`other`],
-          frames: [
-            { instructions: [POP], operands:[obj`value`, obj`other`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand is empty', () => {
-        evaluation({
-          environment,
-          instances: [obj`value`],
-          frames: [
-            { instructions: [POP], operands:[] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('PUSH_CONTEXT', () => {
-
-      it('should push a new, empty context to the current frame context stack', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [PUSH_CONTEXT()], contexts: [ctx`base`] },
-          ],
-        }).should
-          .onCurrentFrame.pushContexts(ctx`_new_1_`({ parent: ctx`base` }))
-          .whenStepped()
-      })
-
-      it('if argument is provided, should set the contexts exception handler index relative to the instruction position', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, PUSH_CONTEXT(7)], nextInstructionIndex: 1, contexts: [ctx`base`] },
-          ],
-        }).should
-          .onCurrentFrame.pushContexts(ctx`_new_1_`({ parent: ctx`base`, exceptionHandlerIndex: 9 }))
-          .whenStepped()
-      })
-
-    })
-
-
-    describe('POP_CONTEXT', () => {
-
-      it('should discard the current frame context and replace it with its parent', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP_CONTEXT], contexts: [ctx`top`, ctx`middle`, ctx`base`] },
-          ],
-        }).should
-          .onCurrentFrame.popContexts(1)
-          .whenStepped()
-      })
-
-      it('should raise an error if the frame base context would be popped', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP_CONTEXT], contexts: [ctx`base`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('SWAP', () => {
-
-      it('should swap the top two operands of the stack if no distance is specified', () => {
-        evaluation({
-          environment,
-          instances: [obj`v1`, obj`v2`, obj`v3`],
-          frames: [
-            { instructions: [SWAP()], operands:[obj`v2`, obj`v1`, obj`v3`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(2)
-          .and.pushOperands(obj`v1`, obj`v2`)
-          .whenStepped()
-      })
-
-      it('should swap the top two operands of the stack if distance 0 is specified', () => {
-        evaluation({
-          environment,
-          instances: [obj`v1`, obj`v2`],
-          frames: [
-            { instructions: [SWAP(0)], operands:[obj`v2`, obj`v1`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(2)
-          .and.pushOperands(obj`v1`, obj`v2`)
-          .whenStepped()
-      })
-
-      it('should swap the top operand with the one N levels below, if distance N is specified', () => {
-        evaluation({
-          environment,
-          instances: [obj`v1`, obj`v2`, obj`v3`, obj`v4`, obj`v5`],
-          frames: [
-            { instructions: [SWAP(3)], operands:[obj`v5`, obj`v2`, obj`v3`, obj`v4`, obj`v1`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(5)
-          .and.pushOperands(obj`v1`, obj`v2`, obj`v3`, obj`v4`, obj`v5`)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack has length < 2, if distance is not specified', () => {
-        evaluation({
-          environment,
-          instances: [obj`v1`],
-          frames: [
-            { instructions: [SWAP()], operands:[obj`v1`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if the current operand stack has length < 2, if distance is not specified', () => {
-        evaluation({
-          environment,
-          instances: [obj`v1`, obj`v2`],
-          frames: [
-            { instructions: [SWAP(1)], operands:[obj`v1`, obj`v2`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('DUP', () => {
-
-      it('should duplicate the top operand of the stack', () => {
-        evaluation({
-          environment,
-          instances: [obj`right`, obj`wrong`],
-          frames: [
-            { instructions: [DUP], operands:[obj`right`, obj`wrong`] },
-          ],
-        }).should
-          .onCurrentFrame.pushOperands(obj`right`)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack is empty', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [DUP], operands:[] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('INSTANTIATE', () => {
-
-      it('should create a new instance from the given module and push it to the operand stack', () => {
-        evaluation({
-          environment: link([
-            new Package({
-              name: 'test',
-              members: [new Class({ name: 'C' })],
-            }),
-          ], environment),
-          frames: [
-            { instructions: [INSTANTIATE('test.C')], contexts:[ctx`c1`] },
-          ],
-        }).should
-          .createInstance(obj`_new_1_`({ moduleFQN: 'test.C', locals: { self: obj`_new_1_` }, parent: ctx`c1` }))
-          .and.onCurrentFrame.pushOperands(obj`_new_1_`)
-          .whenStepped()
-      })
-
-      it('should set the inner value if one is specified', () => {
-        const innerValue = ['42', '17', '5']
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [INSTANTIATE('wollok.lang.List', innerValue)], contexts:[ctx`c1`] },
-          ],
-        }).should
-          .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.List', locals: { self: obj`_new_1_` }, innerValue, parent: ctx`c1` }))
-          .and.onCurrentFrame.pushOperands(obj`_new_1_`)
-          .whenStepped()
-      })
-
-    })
-
-
-    describe('INHERITS', () => {
-
-      it('should pop an object from the operand stack and push true if it inherits the given module', () => {
-        evaluation({
-          environment,
-          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
-          frames: [
-            { instructions: [INHERITS('wollok.lang.Object')], operands: [obj`target`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .and.pushOperands(obj`true`)
-          .whenStepped()
-      })
-
-      it('should pop an object from the operand stack and push false if it does not inherits the given module', () => {
-        evaluation({
-          environment,
-          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
-          frames: [
-            { instructions: [INHERITS('wollok.lang.Number')], operands: [obj`target`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .and.pushOperands(obj`false`)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack is empty', () => {
-        evaluation({
-          environment,
-          instances: [obj`target`({ moduleFQN: 'wollok.lang.List', innerValue: [] })],
-          frames: [
-            { instructions: [INHERITS('wollok.lang.List')], operands: [] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('JUMP', () => {
-
-      it('should increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, JUMP(2), POP, POP, POP], nextInstructionIndex: 1 },
-          ],
-        }).should.onCurrentFrame
-          .jumpTo(4)
-          .whenStepped()
-      })
-
-      it('should decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, POP, POP, JUMP(-2), POP], nextInstructionIndex: 3 },
-          ],
-        }).should.onCurrentFrame
-          .jumpTo(2)
-          .whenStepped()
-      })
-
-      it('should cause no effect when a N == 0 jump is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, JUMP(0), POP], nextInstructionIndex: 1 },
-          ],
-        }).should.whenStepped()
-      })
-
-      it('should raise an error if the given count overflows the instruction list', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [JUMP(1), POP] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if the given count underflows the instruction list', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, JUMP(-3), POP], nextInstructionIndex: 1 },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('CONDITIONAL_JUMP', () => {
-
-      it('should pop a boolean from the operand stack and, if it is true, increment the current frame pc (skipping the next N instructions) when a N > 0 jump is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, CONDITIONAL_JUMP(2), POP, POP, POP], nextInstructionIndex: 1, operands:[obj`true`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .and.jumpTo(4)
-          .whenStepped()
-      })
-
-      it('should pop a boolean from the operand stack and, if it is true, decrement the current frame pc (moving back to the previous N-1 instruction) when a N < 0 jump is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, POP, POP, CONDITIONAL_JUMP(-2), POP], nextInstructionIndex: 3, operands:[obj`true`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .and.jumpTo(2)
-          .whenStepped()
-      })
-
-      it('should pop a boolean from the operand stack and, if it is true, cause no jump if N == 0 is provided', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [CONDITIONAL_JUMP(0), POP], operands:[obj`true`] },
-          ],
-        }).should.onCurrentFrame.popOperands(1)
-          .whenStepped()
-      })
-
-      it('should pop a boolean from the operand stack and, if it is false, cause no jump', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [CONDITIONAL_JUMP(1)], operands:[obj`false`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .whenStepped()
-      })
-
-      it('should raise an error if the operand stack is empty', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [CONDITIONAL_JUMP(1), POP, POP], operands:[] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if true is popped and the given count overflows the instruction list', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [CONDITIONAL_JUMP(1), POP], operands:[obj`true`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if true is popped and the given count underflows the instruction list', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [POP, CONDITIONAL_JUMP(-3), POP], nextInstructionIndex: 1, operands:[obj`true`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('CALL', () => {
-
-      it('should pop the arguments (in reverse order) and receiver from the operand stack and create a new frame for the method body', () => {
-        const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C',
-                  members: [
-                    new Method({
-                      name: 'm',
-                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
-                      body: new Body(),
-                    }),
-                  ],
-                })],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
-          frames: [
-            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(3)
-          .and.pushFrame({ instructions: mockCode, contexts:[ctx`_new_1_`({ locals: { p1: obj`arg1`, p2: obj`arg2` }, parent: obj`receiver` })] })
-          .whenStepped()
-      })
-
-      it('should group all trailing arguments as a single list if the method has a varargs parameter', () => {
-        const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match({ name: 'm' })).returns(mockCode)
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C',
-                  members: [
-                    new Method({
-                      name: 'm',
-                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
-                      body: new Body(),
-                    }),
-                  ],
-                })],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
-          frames: [
-            { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`], contexts:[ctx`c1`] },
-          ],
-        }).should
-          .createInstance(obj`_new_1_`({
-            moduleFQN: 'wollok.lang.List',
-            locals:{ self: obj`_new_1_` },
-            innerValue: ['arg2', 'arg3'],
-            parent: ctx`c1`,
-          }))
-          .onCurrentFrame.popOperands(4)
-          .and.pushFrame({
-            instructions: mockCode,
-            contexts:[ctx`_new_2_`({ locals: { p1: obj`arg1`, p2: obj`_new_1_` }, parent: obj`receiver` })],
-          })
-          .whenStepped()
-      })
-
-      it('lookup should start on lookup start if one is provided', () => {
-        const mockCode = [POP, POP, POP]
-        const codeForMock = stub(compiler, 'default')
-        codeForMock.withArgs(match({ name: 'm', isOverride: false })).returns(mockCode)
-        codeForMock.callThrough()
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'B',
-                  members: [new Method({ name: 'm', body: new Body() })],
-                }),
-                new Class({
-                  name: 'C',
-                  supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })],
-                  members: [new Method({ name: 'm', body: new Body(), isOverride: true })],
-                }),
-              ],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' })],
-          frames: [
-            { instructions: [CALL('m', 0, 'test.C')], operands:[obj`receiver`] },
-          ],
-        }).should
-          .onCurrentFrame.popOperands(1)
-          .and.pushFrame({ instructions: mockCode, contexts:[ctx`_new_1_`({ parent: obj`receiver` })] })
-          .whenStepped()
-      })
-
-      it('if method is native it should pop the arguments and receiver and use them to call the native function', () => {
-        const nativeBody = spy(() => {})
-        const native: NativeFunction = spy(() => nativeBody)
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C',
-                  members: [
-                    new Method({
-                      name: 'm',
-                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2' })],
-                      body: 'native',
-                    }),
-                  ],
-                })],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
-          frames: [
-            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`] },
-          ],
-          natives: { test: { C: { m: native } } },
-        }).should
-          .onCurrentFrame.popOperands(3)
-          .whenStepped()
-
-        native.should.have.been.calledWithMatch({ id: 'receiver' }, { id: 'arg1' }, { id:'arg2' })
-        nativeBody.should.have.been.calledWithMatch((arg: any) => arg instanceof Evaluation)
-      })
-
-      it('if method is native and has varargs the arguments are spread on the native instead of grouped in an array', () => {
-        const nativeBody = spy(() => {})
-        const native: NativeFunction = spy(() => nativeBody)
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C',
-                  members: [
-                    new Method({
-                      name: 'm',
-                      parameters: [new Parameter({ name: 'p1' }), new Parameter({ name: 'p2', isVarArg: true })],
-                      body: 'native',
-                    }),
-                  ],
-                })],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`, obj`arg3`],
-          frames: [
-            { instructions: [CALL('m', 3)], operands:[obj`arg3`, obj`arg2`, obj`arg1`, obj`receiver`] },
-          ],
-          natives: { test: { C: { m: native } } },
-        }).should
-          .onCurrentFrame.popOperands(4)
-          .whenStepped()
-
-        native.should.have.been.calledWithMatch({ id: 'receiver' }, { id: 'arg1' }, { id:'arg2' }, { id:'arg3' })
-        nativeBody.should.have.been.calledWithMatch((arg: any) => arg instanceof Evaluation)
-      })
-
-      it('should pop the arguments and receiver and use them to call messageNotUnderstood if method is not found', () => {
-        const mockCode = [POP, POP, POP]
-        stub(compiler, 'default').withArgs(match({ name: 'messageNotUnderstood' })).returns(mockCode)
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [new Class({ name: 'C' })],
-            }),
-          ]),
-          rootContext: ctx`root`,
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`, obj`arg2`],
-          frames: [
-            { instructions: [CALL('m', 2)], operands:[obj`arg2`, obj`arg1`, obj`receiver`], contexts: [ctx`c1`] },
-          ],
-        }).should
-          .createInstance(obj`S!m`({ moduleFQN: 'wollok.lang.String', locals: { self: obj`S!m` }, innerValue: 'm', parent: ctx`root` }))
-          .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.List', locals: { self: obj`_new_1_` }, innerValue: ['arg1', 'arg2'], parent: ctx`c1` }))
-          .onCurrentFrame.popOperands(3)
-          .and.pushFrame({ instructions: mockCode, contexts:[ctx`_new_2_`({ locals: { messageName: obj`S!m`, parameters: obj`_new_1_` }, parent: obj`receiver` })] })
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack length is < arity + 1', () => {
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C',
-                  members: [new Method({ name: 'm', body: new Body() })],
-                }),
-              ],
-            }),
-          ]),
-          instances: [obj`receiver`({ moduleFQN: 'test.C' }), obj`arg1`],
-          frames: [
-            { instructions: [CALL('m', 2)], operands:[obj`arg1`, obj`receiver`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('INIT', () => {
-
-      it('should pop the instance and arguments and initialize all fields', () => {
-        const f2InitMockCode = [POP, POP, POP]
-        const f4InitMockCode = [POP, POP, POP, POP, POP]
-        const codeForMock = stub(compiler, 'default')
-        codeForMock.withArgs(match({ value: 4 })).returns(f4InitMockCode)
-        codeForMock.withArgs(match({ value: 2 })).returns(f2InitMockCode)
-        codeForMock.callThrough()
-
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'B', members: [
-                    new Field({ name: 'f1', isReadOnly: false, value: new Literal({ value: 1 }) }),
-                    new Field({ name: 'f2', isReadOnly: false, value: new Literal({ value: 2 }) }),
-                  ],
-                }),
-                new Class({
-                  name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'test.B' }) })], members: [
-                    new Field({ name: 'f3', isReadOnly: false, value: new Literal({ value: 3 }) }),
-                    new Field({ name: 'f4', isReadOnly: false, value: new Literal({ value: 4 }) }),
-                  ],
-                }),
-              ],
-            }),
-          ]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg3`, obj`arg1`],
-          frames: [
-            { instructions: [INIT(['f3', 'f1'])], operands:[obj`target`, obj`arg1`, obj`arg3`] },
-          ],
-        }).should
-          .onInstance(obj`target`)
-          .setLocal('f3', obj`arg3`)
-          .setLocal('f4', lazy`f4`(obj`target`, f4InitMockCode))
-          .setLocal('f1', obj`arg1`)
-          .setLocal('f2', lazy`f2`(obj`target`, f2InitMockCode))
-          .and.onCurrentFrame.popOperands(3)
-          .and.pushFrame({
-            instructions: [
-              LOAD('self'),
-              CALL('initialize', 0),
-              LOAD('self'),
-              RETURN,
-            ],
-            contexts:[ctx`_new_1_`({ parent: obj`target` })],
-          })
-          .whenStepped()
-      })
-
-      it('should raise an error if there are not enough operands', () => {
-        evaluation({
-          environment: link([WRE,
-            new Package({
-              name: 'test',
-              members: [
-                new Class({
-                  name: 'C', members: [
-                    new Field({ name: 'f1', isReadOnly: false, value: new Literal({ value: 1 }) }),
-                    new Field({ name: 'f2', isReadOnly: false, value: new Literal({ value: 2 }) }),
-                  ],
-                }),
-              ],
-            }),
-          ]),
-          instances: [obj`target`({ moduleFQN: 'test.C' }), obj`arg1`],
-          frames: [
-            { instructions: [INIT(['f1', 'f2'])], operands:[obj`target`, obj`arg1`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('INTERRUPT', () => {
-
-      it('should drop contexts until one with an exception handler is dropped and jump to the handler index', () => {
-        evaluation({
-          environment,
-          instances: [obj`exception`],
-          frames: [
-            {
-              instructions: [POP, POP, INTERRUPT],
-              nextInstructionIndex: 2,
-              operands:[obj`exception`],
-              contexts:[ctx`c4`, ctx`c3`, ctx`c2`({ exceptionHandlerIndex: 1 }), ctx`c1`],
-            },
-          ],
-        }).should.onCurrentFrame
-          .popContexts(3)
-          .and.jumpTo(1)
-          .whenStepped()
-      })
-
-      it('if no context in the current frame has an exception handler it should drop frames until one is found', () => {
-        evaluation({
-          environment,
-          instances: [obj`exception`],
-          frames: [
-            { instructions: [INTERRUPT], operands:[obj`exception`], contexts:[ctx`c4`] },
-            { },
-            { instructions: [POP, POP], contexts:[ctx`c3`, ctx`c2`({ exceptionHandlerIndex: 1 }), ctx`c1`] },
-          ],
-        }).should.onCurrentFrame
-          .popOperands(1)
-          .and.popFrames(2)
-          .and.onBaseFrame
-          .popContexts(2)
-          .and.pushOperands(obj`exception`)
-          .and.jumpTo(1)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack is empty', () => {
-        evaluation({
-          environment,
-          rootContext: ctx`root`,
-          frames: [
-            {
-              instructions: [INTERRUPT],
-              operands:[],
-              contexts:[ctx`c2`({ exceptionHandlerIndex: 0 }), ctx`c1`],
-            },
-          ],
-        }).should
-          .createInstance(obj`_new_1_`({ moduleFQN: 'wollok.lang.EvaluationError', parent: ctx`c2`, locals:{ self: obj`_new_1_`, message: obj`S!Stack underflow` } }))
-          .createInstance(obj`S!Stack underflow`({ moduleFQN: 'wollok.lang.String', parent: ctx`root`, locals:{ self: obj`S!Stack underflow` }, innerValue: 'Stack underflow' }))
-          .and.onCurrentFrame
-          .popContexts(1)
-          .jumpTo(0)
-          .pushOperands(obj`_new_1_`)
-          .whenStepped()
-      })
-
-      it('should raise an error if the handler index is out of range', () => {
-        evaluation({
-          environment,
-          instances: [obj`exception`],
-          frames: [
-            {
-              instructions: [INTERRUPT],
-              operands:[obj`exception`],
-              contexts:[ctx`c2`({ exceptionHandlerIndex: 1 }), ctx`c1`],
-            },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if the handler context is the frame base context', () => {
-        evaluation({
-          environment,
-          instances: [obj`exception`],
-          frames: [
-            {
-              instructions: [INTERRUPT],
-              operands:[obj`exception`],
-              contexts:[ctx`c1`({ exceptionHandlerIndex: 0 })],
-            },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if there is no handler context', () => {
-        evaluation({
-          environment,
-          instances: [obj`exception`],
-          frames: [
-            {
-              instructions: [INTERRUPT],
-              operands:[obj`exception`],
-              contexts:[ctx`c1`],
-            },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-
-    describe('RETURN', () => {
-
-      it('should drop the current frame and push the top of its operand stack to the next active frame', () => {
-        evaluation({
-          environment,
-          instances: [obj`result`, obj`other`],
-          frames: [
-            { instructions: [RETURN], operands:[obj`result`] },
-            { operands:[obj`other`] },
-          ],
-        }).should
-          .popFrames(1)
-          .and.onBaseFrame.pushOperands(obj`result`)
-          .whenStepped()
-      })
-
-      it('should raise an error if the current operand stack is empty', () => {
-        evaluation({
-          environment,
-          frames: [
-            { instructions: [RETURN], operands:[] },
-            { operands:[] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-      it('should raise an error if the frame stack length is < 2', () => {
-        evaluation({
-          environment,
-          instances: [obj`result`],
-          frames: [
-            { instructions: [RETURN], operands:[obj`result`] },
-          ],
-        }).should.throwException.whenStepped()
-      })
-
-    })
-
-  })
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(instance)
+  //     })
+
+  //     it('should return the object referenced on an inherited context, if any', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Reference<Variable>({ name: 'x' })
+  //       const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
+  //       const parentContext = new Context(runner.rootContext, { x: instance })
+
+  //       const execution = runner.exec(node, new Context(parentContext))
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(instance)
+  //     })
+
+  //     it('should return undefined if the is no referenced object on the given context', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Reference<Variable>({ name: 'x' })
+  //       const context = new Context(runner.rootContext, { })
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(undefined)
+  //     })
+
+  //     it('should yield before executing', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Reference({ name: 'x' })
+  //       const context = new Context(runner.rootContext)
+  //       stub(context, 'get').throws('Should not have reached this point')
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution).to.yield(node)
+  //     })
+
+  //   })
+
+
+  //   describe('Self', () => {
+
+  //     it('should return the object referenced on the given context, if any', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Self()
+  //       const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
+  //       const context = new Context(runner.rootContext, { self: instance })
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(instance)
+  //     })
+
+  //     it('should return the object referenced on an inherited context, if any', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Self()
+  //       const instance = resultOf(runner.instantiate(WRE.getNodeByFQN('wollok.lang.Object')))
+  //       const parentContext = new Context(runner.rootContext, { self: instance })
+
+  //       const execution = runner.exec(node, new Context(parentContext))
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(instance)
+  //     })
+
+  //     it('should return undefined if the is no referenced object on the given context', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Self()
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.return(undefined)
+  //     })
+
+  //     it('should yield before executing', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Self()
+  //       const context = new Context(runner.rootContext)
+  //       stub(context, 'get').throws('Should not have reached this point')
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution).to.yield(node)
+  //     })
+
+  //   })
+
+
+  //   describe('Literal', () => {
+
+  //     it('numeric literals should return the reified Number', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({ value: 5 })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.exactly.return(resultOf(runner.reify(node.value)))
+  //     })
+
+  //     it('string literals should return the reified String', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({ value: 'foo' })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.exactly.return(resultOf(runner.reify(node.value)))
+  //     })
+
+  //     it('boolean literals should return the reified Boolean', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({ value: true })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.exactly.return(resultOf(runner.reify(node.value)))
+  //     })
+
+  //     it('null literals should return the reified null', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({ value: null })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.exactly.return(resultOf(runner.reify(node.value)))
+  //     })
+
+  //     it('List literals should return the reified List', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({
+  //         value: [
+  //           new Reference({ name: 'wollok.lang.List' }),
+  //           [new Literal({ value: 1 }), new Literal({ value: 2 }), new Literal({ value: 3 })],
+  //         ],
+  //       })
+  //       stub(node.value[0], 'target').returns(WRE.getNodeByFQN<Class>('wollok.lang.List'))
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node.value[1][0])
+  //         .and.yield(node.value[1][1])
+  //         .and.yield(node.value[1][2])
+  //         .and.yield(node)
+  //         .and.return(resultOf(runner.list([resultOf(runner.reify(1)), resultOf(runner.reify(2)), resultOf(runner.reify(3))])))
+  //     })
+
+  //     it('Set literals should return the reified Set', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({
+  //         value: [
+  //           new Reference({ name: 'wollok.lang.Set' }),
+  //           [new Literal({ value: 1 }), new Literal({ value: 2 }), new Literal({ value: 3 })],
+  //         ],
+  //       })
+  //       stub(node.value[0], 'target').returns(WRE.getNodeByFQN<Class>('wollok.lang.Set'))
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node.value[1][0])
+  //         .and.yield(node.value[1][1])
+  //         .and.yield(node.value[1][2])
+  //         .and.yield(node)
+  //         .and.return(resultOf(runner.set([resultOf(runner.reify(1)), resultOf(runner.reify(2)), resultOf(runner.reify(3))])))
+  //     })
+
+  //     it('singleton literals should return the given singleton instance', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({ value: new Singleton({ members: [new Method({ name: 'initialize', body: new Body() })] }) })
+  //       stub(node.value, 'superclass').returns(WRE.getNodeByFQN<Class>('wollok.lang.Object'))
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.yield(node.value.methods()[0].body)
+  //         .and.return(new RuntimeObject(node.value, context))
+  //     })
+
+  //     it('should yield before executing', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new Literal({
+  //         value: [
+  //           new Reference({ name: 'wollok.lang.List' }),
+  //           [new Literal({ value: 1 }), new Literal({ value: 2 }), new Literal({ value: 3 })],
+  //         ],
+  //       })
+  //       stub(node.value[0], 'target').returns(WRE.getNodeByFQN<Class>('wollok.lang.List'))
+  //       stub(runner, 'list').throws('Should not have reached this point')
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node.value[1][0])
+  //         .and.yield(node.value[1][1])
+  //         .and.yield(node.value[1][2])
+  //         .and.yield(node)
+  //     })
+  //   })
+
+
+  //   describe('New', () => {
+
+  //     it('should return a new initialized instance of the given module', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new New({ instantiated: new Reference({ name: 'wollok.lang.Object' }) })
+  //       const context = new Context(runner.rootContext)
+
+  //       stub(node.instantiated, 'target').returns(WRE.getNodeByFQN<Class>('wollok.lang.Object'))
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.yield(WRE.getNodeByFQN<Class>('wollok.lang.Object').lookupMethod('initialize', 0)?.body)
+  //         .and.return(new RuntimeObject(WRE.getNodeByFQN<Class>('wollok.lang.Object'), context))
+  //     })
+
+  //     it('should return a new initialized instance of the given module, setting the instantiation parameters', () => {
+  //       const runner = Runner.build(link([
+  //         new Package({
+  //           name: 'p',
+  //           members: [
+  //             new Class({
+  //               name: 'C',
+  //               members: [
+  //                 new Field({ name: 'x', isReadOnly: true, value: new Literal({ value: 0 }) }),
+  //                 new Method({ name: 'initialize', body: new Body() }),
+  //               ],
+  //             }),
+  //           ],
+  //         }),
+  //       ], WRE), {})
+  //       const node = new New({ instantiated: new Reference({ name: 'p.C' }), args: [new NamedArgument({ name: 'x', value: new Literal({ value: 5 }) })] })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+  //       stub(node.instantiated, 'target').returns(runner.environment.getNodeByFQN<Class>('p.C'))
+
+  //       const expected = new RuntimeObject(runner.environment.getNodeByFQN<Class>('p.C'), context)
+  //       expected.set('x', resultOf(runner.reify(5)))
+
+  //       expect(execution)
+  //         .to.yield(node.args[0].value)
+  //         .and.yield(node)
+  //         .and.yield(runner.environment.getNodeByFQN<Class>('p.C').methods()[0].body)
+  //         .and.return(expected)
+  //     })
+
+  //     it('should return a new initialized instance of the given module, setting the default values when there are no instantiation arguments', () => {
+  //       const runner = Runner.build(link([
+  //         new Package({
+  //           name: 'p',
+  //           members: [
+  //             new Class({
+  //               name: 'C',
+  //               members: [
+  //                 new Field({ name: 'x', isReadOnly: true, value: new Literal({ value: 0 }) }),
+  //                 new Method({ name: 'initialize', body: new Body() }),
+  //               ],
+  //             }),
+  //           ],
+  //         }),
+  //       ], WRE), {})
+  //       const node = new New({ instantiated: new Reference({ name: 'p.C' }) })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+  //       stub(node.instantiated, 'target').returns(runner.environment.getNodeByFQN<Class>('p.C'))
+
+  //       const expected = new RuntimeObject(runner.environment.getNodeByFQN<Class>('p.C'), context)
+  //       expected.set('x', resultOf(runner.reify(0)))
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //         .and.yield(runner.environment.getNodeByFQN<Class>('p.C').fields()[0].value)
+  //         .and.yield(runner.environment.getNodeByFQN<Class>('p.C').methods()[0].body)
+  //         .and.return(expected)
+  //     })
+
+  //     it('Should yield before executing', () => {
+  //       const runner = Runner.build(WRE, {})
+  //       const node = new New({ instantiated: new Reference({ name: 'p.C' }) })
+  //       const context = new Context(runner.rootContext)
+
+  //       const execution = runner.exec(node, context)
+
+  //       expect(execution)
+  //         .to.yield(node)
+  //     })
+
+  //   })
+
+
+  //   describe('Send', () => {
+  //     it('should lookup method and invoke it in new context if non-native or abstract')
+  //     it('should lookup method and invoke it in new context if native')
+  //     it('should lookup method and invoke "messageNotUnderstood" if not found')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Super', () => {
+  //     it('should lookup method and invoke it in new context if non-native or abstract')
+  //     it('should lookup method and invoke it in new context if native')
+  //     it('should lookup method and invoke "messageNotUnderstood" if not found')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('If', () => {
+  //     it('should execute thenBody in a new context when the condition is true')
+  //     it('should execute elseBody in a new context when the condition is false')
+  //     it('should throw an error if the condition is not boolean')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Try', () => {
+  //     it('should execute body and return the result if no exception is thrown')
+  //     it('should execute body and handle thrown exceptions with matching catch')
+  //     it('should prioritize catches in descending order')
+  //     it('should let the error bubble up if no catch matches the thrown exception')
+  //     it('should execute always when no exception is thrown')
+  //     it('should execute always when a catch handles the thrown exception')
+  //     it('should execute always when a no catch handles the thrown exception')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Throw', () => {
+  //     it('should interrupt excution raising the given exception')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Variable', () => {
+  //     it('should save the variable and its default value to the current context')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Assignment', () => {
+  //     it('should override the referenced name with the given value on the current context')
+  //     it('should override the referenced name with the given value on an inherited context')
+  //     it('should throw an error if assigning a constant')
+  //     it('should yield before executing')
+  //   })
+
+
+  //   describe('Return', () => {
+  //     it('should interrupt current execution returning the given value')
+  //     it('should interrupt nested non-method executions returning the given value')
+  //     it('should yield before executing')
+  //   })
+
+  // })
 
 })

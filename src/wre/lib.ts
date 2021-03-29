@@ -1,32 +1,25 @@
-import { Evaluation, RuntimeObject, Natives } from '../interpreter/runtimeModel'
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { Natives, RuntimeObject } from '../interpreter/runtimeModel'
 
 const lib: Natives = {
 
   console: {
 
-    // TODO:
-    println: (_self: RuntimeObject, obj: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.invoke('toString', obj)
-      evaluation.stepOut()
-      const message: RuntimeObject = evaluation.currentFrame!.operandStack.pop()!
-      message.assertIsString()
-      evaluation.log.info(message.innerValue)
-      evaluation.currentFrame!.pushOperand(undefined)
+    *println(_self: RuntimeObject, obj: RuntimeObject) {
+      const message = yield* this.invoke('toString', obj)
+      this.console.log(message!.innerValue)
+      return undefined
     },
 
-    // TODO:
-    readLine: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented console.readLine')
-    },
+    // TODO: Pending Implementation
+    // readLine(_self: RuntimeObject),
 
     // TODO:
-    readInt: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented console.readInt')
-    },
+    // readInt(_self: RuntimeObject) { }
 
-    newline: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *newline(_self: RuntimeObject) {
       const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, newline))
+      return yield* this.reify(newline)
     },
 
   },

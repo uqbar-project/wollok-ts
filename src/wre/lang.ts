@@ -1,644 +1,571 @@
-import compile, { CALL, CONDITIONAL_JUMP, DUP, INSTANTIATE, JUMP, LOAD, POP, PUSH, RETURN,  STORE, SWAP, INIT } from '../interpreter/compiler'
-import { Natives, Evaluation, RuntimeObject, Frame } from '../interpreter/runtimeModel'
-import { Class, Id } from '../model'
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { Natives, Runner, RuntimeObject } from '../interpreter/runtimeModel'
+import { Class, List, Node } from '../model'
 
-const { random, floor, ceil } = Math
+const { abs, ceil, random, floor } = Math
 const { UTC } = Date
-
-const Collections: Natives = {
-
-  findOrElse: (self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    evaluation.pushFrame(new Frame(self, [
-      ...self.innerValue.flatMap((id: Id) => [
-        PUSH(predicate.id),
-        PUSH(id),
-        CALL('apply', 1),
-        CALL('negate', 0),
-        CONDITIONAL_JUMP(2),
-        PUSH(id),
-        RETURN,
-      ]),
-      PUSH(continuation.id),
-      CALL('apply', 0),
-      RETURN,
-    ]))
-  },
-
-  add: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    self.innerValue.push(element.id)
-    evaluation.currentFrame!.pushOperand(undefined)
-  },
-
-  fold: (self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    evaluation.pushFrame(new Frame(self, [
-      ...[...self.innerValue].reverse().flatMap((id: Id) => [
-        PUSH(closure.id),
-        PUSH(id),
-      ]),
-      PUSH(initialValue.id),
-      ...self.innerValue.flatMap(() => [
-        SWAP(),
-        CALL('apply', 2),
-      ]),
-      RETURN,
-    ]))
-  },
-
-  filter: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    evaluation.pushFrame(new Frame(self, [
-      INSTANTIATE(self.module.fullyQualifiedName(), [...self.innerValue]),
-      ...[...self.innerValue].reverse().flatMap((id: Id) => [
-        DUP,
-        PUSH(closure.id),
-        PUSH(id),
-        CALL('apply', 1),
-        CONDITIONAL_JUMP(3),
-        PUSH(id),
-        CALL('remove', 1),
-        POP,
-      ]),
-      RETURN,
-    ]))
-  },
-
-  max: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
-    evaluation.invoke(method, self)
-  },
-
-  remove: (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    const index = self.innerValue.indexOf(element.id)
-    if (index >= 0) self.innerValue.splice(index, 1)
-
-    evaluation.currentFrame!.pushOperand(undefined)
-  },
-
-  size: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue.length))
-  },
-
-  clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-    self.assertIsCollection()
-
-    self.innerValue.splice(0, self.innerValue.length)
-    evaluation.currentFrame!.pushOperand(undefined)
-  },
-
-  join: (self: RuntimeObject, separator?: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
-    evaluation.invoke(method, self, ...separator ? [separator] : [])
-  },
-
-  contains: (self: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-    const method = evaluation.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
-    evaluation.invoke(method, self, value)
-  },
-
-}
 
 const lang: Natives = {
 
   Exception: {
+    // TODO: Pending Implementation
+    // *getFullStackTrace(_self: RuntimeObject) { },
 
     // TODO:
-    getFullStackTrace: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
-    },
-
-    // TODO:
-    getStackTrace: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
-    },
-
+    // *getStackTrace(_self: RuntimeObject) { },
   },
 
 
   Object: {
 
-    identity: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.id))
+    *identity(self: RuntimeObject) {
+      return yield* this.reify(self.id)
     },
 
-    // TODO:
-    instanceVariables: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
+    // TODO: Pending Implementation
+    // *instanceVariables(self: RuntimeObject) { },
+
+    // TODO: Pending Implementation
+    // *instanceVariableFor(self: RuntimeObject, name: RuntimeObject) { }
+
+    // TODO: Pending Implementation
+    // *resolve(self: RuntimeObject, name: RuntimeObject) { },
+
+    *kindName(self: RuntimeObject) {
+      return yield* this.reify(self.module.fullyQualifiedName())
     },
 
-    // TODO:
-    instanceVariableFor: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
+    *className(self: RuntimeObject) {
+      return yield* this.reify(self.module.fullyQualifiedName())
     },
 
-    // TODO:
-    resolve: (_self: RuntimeObject, _name: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented')
+    *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject) {
+      target.assertIsString()
+      messageName.assertIsString()
+      parametersSize.assertIsNumber()
+
+      const argsText = new Array(parametersSize.innerValue).fill(null).map((_, i) => `arg ${i}`)
+      const text = `${target.innerValue} does not undersand ${messageName.innerValue}(${argsText})`
+
+      return yield* this.reify(text)
     },
 
-    kindName: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.module.fullyQualifiedName()))
-    },
-
-    className: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.module.fullyQualifiedName()))
-    },
-
-    generateDoesNotUnderstandMessage:
-      (_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject) =>
-        (evaluation: Evaluation): void => {
-          target.assertIsString()
-          messageName.assertIsString()
-          parametersSize.assertIsNumber()
-
-          const argsText = new Array(parametersSize.innerValue).fill(null).map((_, i) => `arg ${i}`)
-          const text = `${target.innerValue} does not undersand ${messageName.innerValue}(${argsText})`
-
-          evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, text))
-        },
-
-    checkNotNull: (_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
+    *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject) {
       message.assertIsString()
 
-      if (value === RuntimeObject.null(evaluation)) throw new TypeError(message.innerValue)
-      else evaluation.currentFrame!.pushOperand(undefined)
+      if (value === (yield * this.reify(null))) throw new TypeError(message.innerValue)
+      return undefined
     },
 
   },
 
 
-  Collection: { findOrElse: Collections.findOrElse },
+  Collection: {
+    *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) {
+      self.assertIsCollection()
+
+      for(const elem of [...self.innerValue])
+        if((yield* this.invoke('apply', predicate, elem))!.innerValue) return elem
+
+      return yield* this.invoke('apply', continuation)
+    },
+  },
 
 
   Set: {
 
-    'anyOne': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *anyOne(self: RuntimeObject) {
       self.assertIsCollection()
 
-      evaluation.currentFrame!.pushOperand(evaluation.instance(self.innerValue[floor(random() * self.innerValue.length)]))
+      if(self.innerValue.length === 0) throw new RangeError('anyOne')
+
+      return self.innerValue[floor(random() * self.innerValue.length)]
     },
 
-    'fold': Collections.fold,
+    *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) {
+      self.assertIsCollection()
 
-    'filter': Collections.filter,
+      let acum = initialValue
+      for(const elem of [...self.innerValue])
+        acum = (yield* this.invoke('apply', closure, acum, elem))!
 
-    'max': Collections.max,
-
-    'findOrElse': Collections.findOrElse,
-
-    'add': (self: RuntimeObject, element: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.pushFrame(new Frame(self, [
-        PUSH(self.id),
-        PUSH(element.id),
-        CALL('contains', 1),
-        CONDITIONAL_JUMP(3),
-        PUSH(self.id),
-        PUSH(element.id),
-        CALL('unsafeAdd', 1),
-        PUSH(),
-        RETURN,
-      ]))
+      return acum
     },
 
-    'unsafeAdd': Collections.add,
+    *filter(self: RuntimeObject, closure: RuntimeObject) {
+      self.assertIsCollection()
 
-    'remove': Collections.remove,
+      const result: RuntimeObject[] = []
+      for(const elem of [...self.innerValue])
+        if((yield* this.invoke('apply', closure, elem))!.innerValue)
+          result.push(elem)
 
-    'size': Collections.size,
+      return yield* this.set(result)
+    },
 
-    'clear': Collections.clear,
+    *max(self: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
+      return yield* this.invoke(method, self)
+    },
 
-    'join': Collections.join,
+    *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) {
+      self.assertIsCollection()
 
-    'contains': Collections.contains,
+      for(const elem of [...self.innerValue])
+        if((yield* this.invoke('apply', predicate, elem))!.innerValue) return elem
 
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.module !== other.module) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
+      return yield* this.invoke('apply', continuation)
+    },
+
+    *add(self: RuntimeObject, element: RuntimeObject) {
+      if(!(yield* this.invoke('contains', self, element))!.innerValue)
+        return yield* this.invoke('unsafeAdd', self, element)
+
+      return undefined
+    },
+
+    *unsafeAdd(self: RuntimeObject, element: RuntimeObject) {
+      self.assertIsCollection()
+
+      self.innerValue.push(element)
+      return undefined
+    },
+
+    *remove(self: RuntimeObject, element: RuntimeObject) {
+      self.assertIsCollection()
+
+      const index = self.innerValue.indexOf(element)
+      if (index >= 0) self.innerValue.splice(index, 1)
+
+      return undefined
+    },
+
+    *size(self: RuntimeObject) {
+      self.assertIsCollection()
+
+      return yield* this.reify(self.innerValue.length)
+    },
+
+    *clear(self: RuntimeObject) {
+      self.assertIsCollection()
+
+      self.innerValue.splice(0, self.innerValue.length)
+      return undefined
+    },
+
+    *join(self: RuntimeObject, separator?: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)
+      return yield* this.invoke(method, self, ...separator ? [separator]: [])
+    },
+
+    *contains(self: RuntimeObject, value: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
+      return yield* this.invoke(method, self, value)
+    },
+
+    *['=='](self: RuntimeObject, other: RuntimeObject) {
+      if (self.module !== other.module) return yield* this.reify(false)
 
       self.assertIsCollection()
       other.assertIsCollection()
 
-      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
-      if (!self.innerValue.length) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, true))
+      if (self.innerValue.length !== other.innerValue.length) return yield* this.reify(false)
 
-      evaluation.pushFrame(new Frame(self, [
-        ...[...self.innerValue].flatMap((id: Id) => [
-          PUSH(other.id),
-          PUSH(id),
-          CALL('contains', 1),
-          DUP,
-          CONDITIONAL_JUMP(1),
-          RETURN,
-        ]),
-        PUSH(RuntimeObject.boolean(evaluation, true).id),
-        RETURN,
-      ]))
+      for(const elem of [...self.innerValue])
+        if(!(yield* this.invoke('contains', other, elem))!.innerValue)
+          return yield* this.reify(false)
+
+      return yield* this.reify(true)
     },
-
   },
 
 
   List: {
 
-    'get': (self: RuntimeObject, index: RuntimeObject) => (evaluation: Evaluation): void => {
+    *get(self: RuntimeObject, index: RuntimeObject) {
       self.assertIsCollection()
       index.assertIsNumber()
 
-      const valueId = self.innerValue[index.innerValue]
-      if (!valueId) throw new RangeError('index')
-      evaluation.currentFrame!.pushOperand(evaluation.instance(valueId))
+      if(index.innerValue < 0 || index.innerValue >= self.innerValue.length) throw new RangeError('index')
+
+      return self.innerValue[index.innerValue]
     },
 
-    'sortBy': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
+    *sortBy(self: RuntimeObject, closure: RuntimeObject) {
+      function* quickSort(this: Runner, list: List<RuntimeObject>): Generator<Node, List<RuntimeObject>> {
+        if(list.length < 2) return [...list]
+
+        const [head, ...tail] = list
+        const before: RuntimeObject[] = []
+        const after: RuntimeObject[] = []
+
+        for(const elem of tail)
+          if((yield* this.invoke('apply', closure, elem, head))!.innerValue)
+            before.push(elem)
+          else
+            after.push(elem)
+
+        const sortedBefore = yield* quickSort.bind(this)(before)
+        const sortedAfter = yield* quickSort.bind(this)(after)
+
+        return [...sortedBefore, head, ...sortedAfter]
+      }
+
       self.assertIsCollection()
 
-      if (self.innerValue.length < 2) return evaluation.currentFrame!.pushOperand(self)
+      const sorted = yield* quickSort.bind(this)(self.innerValue)
 
-      evaluation.pushFrame(new Frame(self, [
-        PUSH(self.id),
-        INSTANTIATE(self.module.fullyQualifiedName(), []),
-        INIT([]),
-        STORE('<lessers>', false),
-        PUSH(self.id),
-        INSTANTIATE(self.module.fullyQualifiedName(), []),
-        INIT([]),
-        STORE('<biggers>', false),
-        ...[...self.innerValue.slice(1)].flatMap((id: Id) => [
-          PUSH(closure.id),
-          PUSH(id),
-          PUSH(self.innerValue[0]),
-          CALL('apply', 2),
-          CONDITIONAL_JUMP(2),
-          LOAD('<biggers>'),
-          JUMP(1),
-          LOAD('<lessers>'),
-          PUSH(id),
-          CALL('add', 1),
-        ]),
-        LOAD('<lessers>'),
-        PUSH(closure.id),
-        CALL('sortBy', 1),
-        LOAD('<biggers>'),
-        PUSH(closure.id),
-        CALL('sortBy', 1),
-        PUSH(self.id),
-        CALL('clear', 0),
-        PUSH(self.id),
-        LOAD('<lessers>'),
-        CALL('addAll', 1),
-        PUSH(self.id),
-        PUSH(self.innerValue[0]),
-        CALL('add', 1),
-        PUSH(self.id),
-        LOAD('<biggers>'),
-        CALL('addAll', 1),
-        RETURN,
-      ]))
+      self.innerValue.splice(0, self.innerValue.length)
+      self.innerValue.push(...sorted)
+
+      return undefined
     },
 
-    'filter': Collections.filter,
-
-    'contains': Collections.contains,
-
-    'max': Collections.max,
-
-    'fold': Collections.fold,
-
-    'findOrElse': Collections.findOrElse,
-
-    'add': Collections.add,
-
-    'remove': Collections.remove,
-
-    'size': Collections.size,
-
-    'clear': Collections.clear,
-
-    'join': Collections.join,
-
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *filter(self: RuntimeObject, closure: RuntimeObject) {
       self.assertIsCollection()
 
-      if (self.module !== other.module) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
+      const result: RuntimeObject[] = []
+      for(const elem of [...self.innerValue])
+        if((yield* this.invoke('apply', closure, elem))!.innerValue)
+          result.push(elem)
+
+      return yield* this.list(result)
+    },
+
+    *contains(self: RuntimeObject, value: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
+      return yield* this.invoke(method, self, value)
+    },
+
+    *max(self: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
+      return yield* this.invoke(method, self)
+    },
+
+    *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject) {
+      self.assertIsCollection()
+
+      let acum = initialValue
+      for(const elem of [...self.innerValue])
+        acum = (yield* this.invoke('apply', closure, acum, elem))!
+
+      return acum
+    },
+
+    *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject) {
+      self.assertIsCollection()
+
+      for(const elem of [...self.innerValue])
+        if((yield* this.invoke('apply', predicate, elem))!.innerValue) return elem
+
+      return yield* this.invoke('apply', continuation)
+    },
+
+    *add(self: RuntimeObject, element: RuntimeObject) {
+      self.assertIsCollection()
+
+      self.innerValue.push(element)
+      return undefined
+    },
+
+    *remove(self: RuntimeObject, element: RuntimeObject) {
+      self.assertIsCollection()
+
+      const index = self.innerValue.indexOf(element)
+      if (index >= 0) self.innerValue.splice(index, 1)
+
+      return undefined
+    },
+
+    *size(self: RuntimeObject) {
+      self.assertIsCollection()
+
+      return yield* this.reify(self.innerValue.length)
+    },
+
+    *clear(self: RuntimeObject) {
+      self.assertIsCollection()
+
+      self.innerValue.splice(0, self.innerValue.length)
+      return undefined
+    },
+
+    *join(self: RuntimeObject, separator?: RuntimeObject) {
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)
+      return yield* this.invoke(method, self, ...separator ? [separator]: [])
+    },
+
+    *['=='](self: RuntimeObject, other: RuntimeObject) {
+      self.assertIsCollection()
+
+      if (self.module !== other.module) return yield* this.reify(false)
 
       other.assertIsCollection()
 
-      if (self.innerValue.length !== other.innerValue.length) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
-      if (!self.innerValue.length) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, true))
+      if (self.innerValue.length !== other.innerValue.length) return yield* this.reify(false)
 
-      evaluation.pushFrame(new Frame(self, [
-        ...self.innerValue.flatMap((id, index) => [
-          PUSH(id),
-          PUSH(other.innerValue[index]),
-          CALL('==', 1),
-          DUP,
-          CONDITIONAL_JUMP(1),
-          RETURN,
-          POP,
-        ]),
-        PUSH(RuntimeObject.boolean(evaluation, true).id),
-        RETURN,
-      ]))
+      for(let index = 0; index < self.innerValue.length; index++)
+        if(!(yield* this.invoke('==', self.innerValue[index], other.innerValue[index]))!.innerValue)
+          return yield* this.reify(false)
+
+      return yield* this.reify(true)
     },
 
-    'withoutDuplicates': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *withoutDuplicates(self: RuntimeObject) {
       self.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(self, [
-        PUSH(self.id),
-        INSTANTIATE(self.module.fullyQualifiedName(), []),
-        INIT([]),
-        STORE('<answer>', false),
-        ...self.innerValue.flatMap((id: Id) => [
-          LOAD('<answer>'),
-          PUSH(id),
-          CALL('contains', 1),
-          CONDITIONAL_JUMP(3),
-          LOAD('<answer>'),
-          PUSH(id),
-          CALL('add', 1),
-        ]),
-        LOAD('<answer>'),
-        RETURN,
-      ]))
-    },
+      const result: RuntimeObject[] = []
+      for(const elem of [...self.innerValue]) {
+        let alreadyIncluded = false
+        for(const included of result)
+          if((yield* this.invoke('==', elem, included))!.innerValue) {
+            alreadyIncluded = true
+            break
+          }
+        if(!alreadyIncluded) result.push(elem)
+      }
 
+      return yield* this.list(result)
+    },
   },
 
   Dictionary: {
 
-    initialize: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.invoke('clear', self)
+    *initialize(self: RuntimeObject) {
+      return yield* this.invoke('clear', self)
     },
 
-    put: (self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (key === RuntimeObject.null(evaluation)) throw new TypeError('key')
-      if (value === RuntimeObject.null(evaluation)) throw new TypeError('value')
+    *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject) {
+      if (key === (yield* this.reify(null))) throw new TypeError('key') // TODO: null as inner value to avoid these checks
+      if (value === (yield* this.reify(null))) throw new TypeError('value')
 
-      evaluation.pushFrame(new Frame(self, [
-        PUSH(self.id),
-        PUSH(key.id),
-        CALL('remove', 1),
-        LOAD('<keys>'),
-        PUSH(key.id),
-        CALL('add', 1),
-        LOAD('<values>'),
-        PUSH(value.id),
-        CALL('add', 1),
-        RETURN,
-      ]))
-    },
+      yield* this.invoke('remove', self, key)
 
-    basicGet: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): void => {
       const keys: RuntimeObject = self.get('<keys>')!
-
       keys.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(self, [
-        ...keys.innerValue.flatMap((id, index) => [
-          PUSH(key.id),
-          PUSH(id),
-          CALL('!=', 1),
-          CONDITIONAL_JUMP(4),
-          LOAD('<values>'),
-          INSTANTIATE('wollok.lang.Number', index),
-          CALL('get', 1),
-          RETURN,
-        ]),
-        PUSH(RuntimeObject.null(evaluation).id),
-        RETURN,
-      ]))
-    },
-
-    remove: (self: RuntimeObject, key: RuntimeObject) => (evaluation: Evaluation): void => {
-      const keys: RuntimeObject = self.get('<keys>')!
       const values: RuntimeObject = self.get('<values>')!
-
-      keys.assertIsCollection()
       values.assertIsCollection()
 
-      evaluation.pushFrame(new Frame(self, [
-        ...keys.innerValue.flatMap((id, index) => {
-          return [
-            PUSH(key.id),
-            PUSH(id),
-            CALL('!=', 1),
-            CONDITIONAL_JUMP(6),
+      keys.innerValue.push(key)
+      values.innerValue.push(value)
 
-            INSTANTIATE(values.module.fullyQualifiedName(), [...values.innerValue.slice(0, index), ...values.innerValue.slice(index + 1)]),
-            STORE('<values>', true),
-
-            INSTANTIATE(keys.module.fullyQualifiedName(), [...keys.innerValue.slice(0, index), ...keys.innerValue.slice(index + 1)]),
-            STORE('<keys>', true),
-
-            PUSH(),
-            RETURN,
-          ]
-        }),
-        PUSH(),
-        RETURN,
-      ]))
+      return undefined
     },
 
-    keys: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(self.get('<keys>'))
-    },
-
-    values: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(self.get('<values>'))
-    },
-
-    forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
+    *basicGet(self: RuntimeObject, key: RuntimeObject) {
       const keys: RuntimeObject = self.get('<keys>')!
-      const values: RuntimeObject = self.get('<values>')!
-
       keys.assertIsCollection()
+
+      const values: RuntimeObject = self.get('<values>')!
       values.assertIsCollection()
 
-      const keyList = [...keys.innerValue].reverse()
-      const valueList = [...values.innerValue].reverse()
+      for(let index = 0; index < keys.innerValue.length; index++)
+        if((yield* this.invoke('==', keys.innerValue[index], key))?.innerValue) {
+          return values.innerValue[index]
+        }
 
-      evaluation.pushFrame(new Frame(self, [
-        ...keyList.flatMap((key, index) => [
-          PUSH(closure.id),
-          PUSH(key),
-          PUSH(valueList[index]),
-          CALL('apply', 2),
-        ]),
-        PUSH(),
-        RETURN,
-      ]))
+      return yield* this.reify(null)
     },
 
-    clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('<keys>', RuntimeObject.list(evaluation, []))
-      self.set('<values>', RuntimeObject.list(evaluation, []))
+    *remove(self: RuntimeObject, key: RuntimeObject) {
+      const keys: RuntimeObject = self.get('<keys>')!
+      keys.assertIsCollection()
 
-      evaluation.currentFrame!.pushOperand(undefined)
+      const values: RuntimeObject = self.get('<values>')!
+      values.assertIsCollection()
+
+      const updatedKeys: RuntimeObject[] = []
+      const updatedValues: RuntimeObject[] = []
+      for(let index = 0; index < keys.innerValue.length; index++)
+        if(!(yield* this.invoke('==', keys.innerValue[index], key))?.innerValue) {
+          updatedKeys.push(keys.innerValue[index])
+          updatedValues.push(values.innerValue[index])
+        }
+
+      self.set('<keys>', yield* this.list(updatedKeys))
+      self.set('<values>', yield* this.list(updatedValues))
+
+      return undefined
+    },
+
+    *keys(self: RuntimeObject) {
+      return self.get('<keys>')
+    },
+
+    *values(self: RuntimeObject) {
+      return self.get('<values>')
+    },
+
+    *forEach(self: RuntimeObject, closure: RuntimeObject) {
+      const keys: RuntimeObject = self.get('<keys>')!
+      keys.assertIsCollection()
+
+      const values: RuntimeObject = self.get('<values>')!
+      values.assertIsCollection()
+
+      for(let index = 0; index < keys.innerValue.length; index++)
+        yield* this.invoke('apply', closure, keys.innerValue[index], values.innerValue[index])
+
+      return undefined
+    },
+
+    *clear(self: RuntimeObject) {
+      self.set('<keys>', yield* this.list([]))
+      self.set('<values>', yield* this.list([]))
+
+      return undefined
     },
 
   },
 
   Number: {
 
-    'coerceToInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *coerceToInteger(self: RuntimeObject) {
       self.assertIsNumber()
 
       const num = self.innerValue.toString()
       const decimalPosition = num.indexOf('.')
-      const coerced = decimalPosition >= 0
-        ? RuntimeObject.number(evaluation, Number(num.slice(0, decimalPosition + 1)))
-        : self
 
-      evaluation.currentFrame!.pushOperand(coerced)
+      return decimalPosition >= 0
+        ? yield* this.reify(Number(num.slice(0, decimalPosition + 1)))
+        : self
     },
 
-    'coerceToPositiveInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *coerceToPositiveInteger(self: RuntimeObject) {
       self.assertIsNumber()
 
       if (self.innerValue < 0) throw new RangeError('self')
 
       const num = self.innerValue.toString()
       const decimalPosition = num.indexOf('.')
-      const coerced = decimalPosition >= 0
-        ? RuntimeObject.number(evaluation, Number(num.slice(0, decimalPosition + 1)))
+      return decimalPosition >= 0
+        ? yield* this.reify(Number(num.slice(0, decimalPosition + 1)))
         : self
-
-      evaluation.currentFrame!.pushOperand(coerced)
     },
 
-    '===': (self: RuntimeObject, other?: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['==='](self: RuntimeObject, other?: RuntimeObject) {
       self.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue === other?.innerValue))
+      return yield* this.reify(self.innerValue === other?.innerValue)
     },
 
-    '+': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['+'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue + other.innerValue))
+      return yield* this.reify(self.innerValue + other.innerValue)
     },
 
-    '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['-'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue - other.innerValue))
+      return yield* this.reify(self.innerValue - other.innerValue)
     },
 
-    '*': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['*'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue * other.innerValue))
+      return yield* this.reify(self.innerValue * other.innerValue)
     },
 
-    '/': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['/'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
+
       if (other.innerValue === 0) throw new RangeError('other')
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue / other.innerValue))
+      return yield* this.reify(self.innerValue / other.innerValue)
     },
 
-    '**': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['**'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue ** other.innerValue))
+      return yield* this.reify(self.innerValue ** other.innerValue)
     },
 
-    '%': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['%'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue % other.innerValue))
+      return yield* this.reify(self.innerValue % other.innerValue)
     },
 
-    'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, `${self.innerValue}`))
+    *toString(this: Runner, self: RuntimeObject) {
+      self.assertIsNumber()
+
+      return yield* this.reify(`${self.innerValue}`)
     },
 
-    '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['>'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue > other.innerValue))
+      return yield* this.reify(self.innerValue > other.innerValue)
     },
 
-    '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['<'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue < other.innerValue))
+      return yield* this.reify(self.innerValue < other.innerValue)
     },
 
-    'abs': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *abs(self: RuntimeObject) {
       self.assertIsNumber()
 
-      if (self.innerValue > 0) evaluation.currentFrame!.pushOperand(self)
-      else evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, -self.innerValue))
+      return yield* this.reify(abs(self.innerValue))
     },
 
-    'invert': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *invert(self: RuntimeObject) {
       self.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, -self.innerValue))
+      return yield* this.reify(-self.innerValue)
     },
 
-    'roundUp': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {
+    *roundUp(self: RuntimeObject, decimals: RuntimeObject) {
       self.assertIsNumber()
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, ceil(self.innerValue * 10 ** decimals.innerValue) / 10 ** decimals.innerValue))
+      return yield* this.reify(ceil(self.innerValue * 10 ** decimals.innerValue) / 10 ** decimals.innerValue)
     },
 
-    'truncate': (self: RuntimeObject, decimals: RuntimeObject) => (evaluation: Evaluation): void => {
+    *truncate(self: RuntimeObject, decimals: RuntimeObject) {
       self.assertIsNumber()
       decimals.assertIsNumber()
       if (decimals.innerValue < 0) throw new RangeError('decimals')
 
       const num = self.innerValue.toString()
       const decimalPosition = num.indexOf('.')
-      const truncated = decimalPosition >= 0
-        ? RuntimeObject.number(evaluation, Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
+      return decimalPosition >= 0
+        ? yield* this.reify(Number(num.slice(0, decimalPosition + decimals.innerValue + 1)))
         : self
-
-      evaluation.currentFrame!.pushOperand(truncated)
     },
 
-    'randomUpTo': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *randomUpTo(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, random() * (other.innerValue - self.innerValue) + self.innerValue))
+      return yield* this.reify(random() * (other.innerValue - self.innerValue) + self.innerValue)
     },
 
-    'gcd': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *gcd(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsNumber()
       other.assertIsNumber()
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, gcd(self.innerValue, other.innerValue)))
+      return yield* this.reify(gcd(self.innerValue, other.innerValue))
     },
 
-    'isInteger': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *isInteger(self: RuntimeObject) {
       self.assertIsNumber()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue % 1 === 0))
+      return yield* this.reify(self.innerValue % 1 === 0)
     },
 
   },
@@ -646,338 +573,390 @@ const lang: Natives = {
 
   String: {
 
-    'length': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *length(self: RuntimeObject) {
       self.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, self.innerValue.length))
+      return yield* this.reify(self.innerValue.length)
     },
 
-    'concat': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *concat(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.innerValue + other.innerValue))
+      return yield* this.reify(self.innerValue + other.innerValue)
     },
 
-    'startsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.assertIsString()
-      other.assertIsString()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue.startsWith(other.innerValue)))
-    },
-
-    'endsWith': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *startsWith(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue.endsWith(other.innerValue)))
+      return yield* this.reify(self.innerValue.startsWith(other.innerValue))
     },
 
-    'indexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *endsWith(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      const value = self.innerValue.indexOf(other.innerValue)
-
-      if (value < 0) throw new RangeError('other')
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, value))
+      return yield* this.reify(self.innerValue.endsWith(other.innerValue))
     },
 
-    'lastIndexOf': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *indexOf(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      const value = self.innerValue.lastIndexOf(other.innerValue)
+      const index = self.innerValue.indexOf(other.innerValue)
 
-      if (value < 0) throw new RangeError('other')
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, value))
+      if (index < 0) throw new RangeError('other')
+      return yield* this.reify(index)
     },
 
-    'toLowerCase': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.assertIsString()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.innerValue.toLowerCase()))
-    },
-
-    'toUpperCase': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.assertIsString()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.innerValue.toUpperCase()))
-    },
-
-    'trim': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.assertIsString()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.innerValue.trim()))
-    },
-
-    'reverse': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.assertIsString()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self.innerValue.split('').reverse().join('')))
-    },
-
-    '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *lastIndexOf(self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue < other.innerValue))
+      const index = self.innerValue.lastIndexOf(other.innerValue)
+
+      if (index < 0) throw new RangeError('other')
+      return yield* this.reify(index)
     },
 
-    '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *toLowerCase(self: RuntimeObject) {
+      self.assertIsString()
+
+      return yield* this.reify(self.innerValue.toLowerCase())
+    },
+
+    *toUpperCase(self: RuntimeObject) {
+      self.assertIsString()
+
+      return yield* this.reify(self.innerValue.toUpperCase())
+    },
+
+    *trim(self: RuntimeObject) {
+      self.assertIsString()
+
+      return yield* this.reify(self.innerValue.trim())
+    },
+
+    *reverse(self: RuntimeObject) {
+      self.assertIsString()
+
+      return yield* this.reify(self.innerValue.split('').reverse().join(''))
+    },
+
+    *['<'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue > other.innerValue))
+      return yield* this.reify(self.innerValue < other.innerValue)
     },
 
-    'contains': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['>'](self: RuntimeObject, other: RuntimeObject) {
       self.assertIsString()
       other.assertIsString()
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue.indexOf(other.innerValue) >= 0))
+      return yield* this.reify(self.innerValue > other.innerValue)
     },
 
-    'substring': (self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) => (evaluation: Evaluation): void => {
+    *contains(self: RuntimeObject, other: RuntimeObject) {
+      self.assertIsString()
+      other.assertIsString()
+
+      return yield* this.reify(self.innerValue.indexOf(other.innerValue) >= 0)
+    },
+
+    *substring(self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject) {
       self.assertIsString()
       startIndex.assertIsNumber()
 
       if (startIndex.innerValue < 0) throw new RangeError('startIndex')
 
+      let endIndexValue: number | undefined
       if (endIndex) {
         const endIndexInstance: RuntimeObject = endIndex
         endIndexInstance.assertIsNumber()
         if (endIndexInstance.innerValue < 0) throw new RangeError('endIndex')
+        endIndexValue = endIndexInstance.innerValue
       }
 
-      const value = self.innerValue.substring(startIndex.innerValue, endIndex && endIndex.innerValue as number)
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, value))
+      return yield* this.reify(self.innerValue.substring(startIndex.innerValue, endIndexValue))
     },
 
-    'replace': (self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) => (evaluation: Evaluation): void => {
+    *replace(self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject) {
       self.assertIsString()
       expression.assertIsString()
       replacement.assertIsString()
 
-      const value = self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue)
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, value))
+      return yield* this.reify(self.innerValue.replace(new RegExp(expression.innerValue, 'g'), replacement.innerValue))
     },
 
-    'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(self)
+    *toString(self: RuntimeObject) {
+      return self
     },
 
-    'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(self)
+    *toSmartString(self: RuntimeObject) {
+      return self
     },
 
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.innerValue === other.innerValue))
+    *['=='](self: RuntimeObject, other: RuntimeObject) {
+      return yield* this.reify(self.innerValue === other.innerValue)
     },
   },
 
   Boolean: {
-
-    '&&': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.currentFrame!.pushOperand(self)
-
-      evaluation.invoke('apply', closure)
+    *['&&'](self: RuntimeObject, closure: RuntimeObject) {
+      if(!self.innerValue) return self
+      return yield* this.invoke('apply', closure)
     },
 
-    'and': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === RuntimeObject.boolean(evaluation, false)) return evaluation.currentFrame!.pushOperand(self)
-
-      evaluation.invoke('apply', closure)
+    *and(self: RuntimeObject, closure: RuntimeObject) {
+      return yield* this.invoke('&&', self, closure)
     },
 
-    '||': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.currentFrame!.pushOperand(self)
-
-      evaluation.invoke('apply', closure)
+    *['||'](self: RuntimeObject, closure: RuntimeObject) {
+      if(self.innerValue) return self
+      return yield* this.invoke('apply', closure)
     },
 
-    'or': (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self === RuntimeObject.boolean(evaluation, true)) return evaluation.currentFrame!.pushOperand(self)
-
-      evaluation.invoke('apply', closure)
+    *or(self: RuntimeObject, closure: RuntimeObject) {
+      return yield* this.invoke('||', self, closure)
     },
 
-    'toString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self === RuntimeObject.boolean(evaluation, true) ? 'true' : 'false'))
+    *toString(this: Runner, self: RuntimeObject) {
+      return yield* this.reify(`${self.innerValue}`)
     },
 
-    'toSmartString': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, self === RuntimeObject.boolean(evaluation, true) ? 'true' : 'false'))
+    *toSmartString(self: RuntimeObject) {
+      return yield* this.reify(`${self.innerValue}`)
     },
 
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self === other))
+    *['=='](self: RuntimeObject, other: RuntimeObject) {
+      return yield* this.reify(self === other)
     },
 
-    'negate': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self === RuntimeObject.boolean(evaluation, false)))
+    *negate(self: RuntimeObject) {
+      return yield* this.reify(!self.innerValue)
     },
   },
 
   Range: {
 
-    forEach: (self: RuntimeObject, closure: RuntimeObject) => (evaluation: Evaluation): void => {
+    *forEach(self: RuntimeObject, closure: RuntimeObject) {
       const start: RuntimeObject = self.get('start')!
-      const end: RuntimeObject = self.get('end')!
-      const step: RuntimeObject = self.get('step')!
-
       start.assertIsNumber()
+
+      const end: RuntimeObject = self.get('end')!
       end.assertIsNumber()
+
+      const step: RuntimeObject = self.get('step')!
       step.assertIsNumber()
 
-      const values = []
+      const values: RuntimeObject[] = []
+
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
-        for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue) values.unshift(i)
+        for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
+          values.push(yield* this.reify(i))
 
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
-        for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
+        for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue)
+          values.push(yield* this.reify(i))
 
-      const valueIds = values.map(v => RuntimeObject.number(evaluation, v).id).reverse()
+      for(const value of values)
+        yield* this.invoke('apply', closure, value)
 
-      evaluation.pushFrame(new Frame(self, [
-        ...valueIds.flatMap((id: Id) => [
-          PUSH(closure.id),
-          PUSH(id),
-          CALL('apply', 1),
-          POP,
-        ]),
-        PUSH(),
-        RETURN,
-      ]))
+      return undefined
     },
 
-    anyOne: (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *anyOne(self: RuntimeObject) {
       const start: RuntimeObject = self.get('start')!
-      const end: RuntimeObject = self.get('end')!
-      const step: RuntimeObject = self.get('step')!
-
       start.assertIsNumber()
+
+      const end: RuntimeObject = self.get('end')!
       end.assertIsNumber()
+
+      const step: RuntimeObject = self.get('step')!
       step.assertIsNumber()
 
-      const values = []
+      const values: RuntimeObject[] = []
+
       if (start.innerValue <= end.innerValue && step.innerValue > 0)
-        for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue) values.unshift(i)
+        for (let i = start.innerValue; i <= end.innerValue; i += step.innerValue)
+          values.push(yield* this.reify(i))
 
       if (start.innerValue >= end.innerValue && step.innerValue < 0)
-        for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue) values.unshift(i)
+        for (let i = start.innerValue; i >= end.innerValue; i += step.innerValue)
+          values.push(yield* this.reify(i))
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, values[floor(random() * values.length)]))
+      return values[floor(random() * values.length)]
     },
 
   },
 
   Closure: {
 
-    apply: (self: RuntimeObject, ...args: (RuntimeObject | undefined)[]) => (evaluation: Evaluation): void => {
-      const method = self.module.lookupMethod('<apply>', args.length)!
-      evaluation.pushFrame(new Frame(self.parentContext,
-        compile(method),
-        new Map(method.parameters.map(({ name, isVarArg }, index) =>
-          [name, isVarArg ? RuntimeObject.list(evaluation, args.map(arg => arg!.id).slice(index)) : args[index]]
-        ))
-      ))
+    *apply(self: RuntimeObject, ...args: RuntimeObject[]) {
+      try {
+        self.set('self', self.parentContext?.get('self'))
+        return yield* this.invoke('<apply>', self, ...args)
+      } finally {
+        self.set('self', self)
+      }
     },
 
-    toString: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-       evaluation.currentFrame!.pushOperand(self.get('<toString>') ?? RuntimeObject.string(evaluation, `Closure#${self.id} `))
+    *toString(this: Runner, self: RuntimeObject) {
+      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName()}#${self.id}`))
     },
 
   },
 
   Date: {
 
-    'initialize': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *initialize(self: RuntimeObject) {
       const day = self.get('day')
       const month = self.get('month')
       const year = self.get('year')
 
       const today = new Date()
 
-      if (!day || day === RuntimeObject.null(evaluation))
-        self.set('day', RuntimeObject.number(evaluation, today.getDate()))
-      if (!month || month === RuntimeObject.null(evaluation))
-        self.set('month', RuntimeObject.number(evaluation, today.getMonth() + 1))
-      if (!year || year === RuntimeObject.null(evaluation))
-        self.set('year', RuntimeObject.number(evaluation, today.getFullYear()))
+      if (!day || day === (yield* this.reify(null))) self.set('day', yield* this.reify(today.getDate()))
+      if (!month || month === (yield* this.reify(null))) self.set('month', yield* this.reify(today.getMonth() + 1))
+      if (!year || year === (yield* this.reify(null))) self.set('year', yield* this.reify(today.getFullYear()))
 
-      evaluation.currentFrame!.pushOperand(undefined)
+      return undefined
     },
 
-    '==': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (other.module !== self.module) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
-
-      const day = self.get('day')!.innerValue
-      const month = self.get('month')!.innerValue
-      const year = self.get('year')!.innerValue
-
-      const otherDay = other.get('day')!.innerValue
-      const otherMonth = other.get('month')!.innerValue
-      const otherYear = other.get('year')!.innerValue
-
-      const answer = day === otherDay && month === otherMonth && year === otherYear
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, answer))
-    },
-
-    'plusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): void => {
+    *shortDescription(self: RuntimeObject) {
       const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
       day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
       month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
       year.assertIsNumber()
+
+      return yield* this.reify(`${month.innerValue}/${day.innerValue}/${year.innerValue}`)
+    },
+
+    *isLeapYear(self: RuntimeObject) {
+      const year: RuntimeObject = self.get('year')!
+      year.assertIsNumber()
+
+      const value = new Date(year.innerValue, 1, 29)
+
+      return yield* this.reify(value.getDate() === 29)
+    },
+
+    *internalDayOfWeek(self: RuntimeObject) {
+      const day: RuntimeObject = self.get('day')!
+      day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
+      month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
+      year.assertIsNumber()
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+
+      return yield* this.reify(value.getDay() == 0 ? 7 : value.getDay())
+    },
+
+    *plusDays(self: RuntimeObject, days: RuntimeObject) {
+      const day: RuntimeObject = self.get('day')!
+      day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
+      month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
+      year.assertIsNumber()
+
       days.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue + floor(days.innerValue))
 
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
       })
-
-      evaluation.currentFrame!.pushOperand(instance)
     },
 
-    'plusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): void => {
+    *minusDays(self: RuntimeObject, days: RuntimeObject) {
       const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
       day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
       month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
       year.assertIsNumber()
+
+      days.assertIsNumber()
+
+      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
+
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
+      })
+    },
+
+    *plusMonths(self: RuntimeObject, months: RuntimeObject) {
+      const day: RuntimeObject = self.get('day')!
+      day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
+      month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
+      year.assertIsNumber()
+
       months.assertIsNumber()
 
       const value = new Date(year.innerValue, month.innerValue - 1 + floor(months.innerValue), day.innerValue)
       while (months.innerValue > 0 && value.getMonth() > (month.innerValue - 1 + months.innerValue) % 12)
         value.setDate(value.getDate() - 1)
 
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
       })
-
-      evaluation.currentFrame!.pushOperand(instance)
     },
 
-    'plusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): void => {
+    *minusMonths(self: RuntimeObject, months: RuntimeObject) {
       const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
       day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
       month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
       year.assertIsNumber()
+
+      months.assertIsNumber()
+
+      const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
+
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
+      })
+    },
+
+    *plusYears(self: RuntimeObject, years: RuntimeObject) {
+      const day: RuntimeObject = self.get('day')!
+      day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
+      month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
+      year.assertIsNumber()
+
       years.assertIsNumber()
 
       const value = new Date(year.innerValue + floor(years.innerValue), month.innerValue - 1, day.innerValue)
@@ -985,114 +964,23 @@ const lang: Natives = {
         value.setDate(value.getDate() - 1)
       }
 
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
       })
-
-      evaluation.currentFrame!.pushOperand(instance)
     },
 
-    'isLeapYear': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const year: RuntimeObject = self.get('year')!
-
-      year.assertIsNumber()
-
-      const value = new Date(year.innerValue, 1, 29)
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, value.getDate() === 29))
-    },
-
-    'internalDayOfWeek': (self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *minusYears(self: RuntimeObject, years: RuntimeObject) {
       const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
       day.assertIsNumber()
+
+      const month: RuntimeObject = self.get('month')!
       month.assertIsNumber()
+
+      const year: RuntimeObject = self.get('year')!
       year.assertIsNumber()
 
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
-      const dayOfWeek = value.getDay() == 0 ? 7 : value.getDay()
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, dayOfWeek))
-    },
-
-    '-': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (other.module !== self.module) throw new TypeError('other')
-
-      const ownDay: RuntimeObject = self.get('day')!
-      const ownMonth: RuntimeObject = self.get('month')!
-      const ownYear: RuntimeObject = self.get('year')!
-
-      const otherDay: RuntimeObject = other.get('day')!
-      const otherMonth: RuntimeObject = other.get('month')!
-      const otherYear: RuntimeObject = other.get('year')!
-
-      ownDay.assertIsNumber()
-      ownMonth.assertIsNumber()
-      ownYear.assertIsNumber()
-
-      otherDay.assertIsNumber()
-      otherMonth.assertIsNumber()
-      otherYear.assertIsNumber()
-
-      const msPerDay = 1000 * 60 * 60 * 24
-      const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
-      const otherUTC = UTC(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
-      evaluation.currentFrame!.pushOperand(RuntimeObject.number(evaluation, floor((ownUTC - otherUTC) / msPerDay)))
-    },
-
-    'minusDays': (self: RuntimeObject, days: RuntimeObject) => (evaluation: Evaluation): void => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      days.assertIsNumber()
-
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue - floor(days.innerValue))
-
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
-      })
-
-      evaluation.currentFrame!.pushOperand(instance)
-    },
-
-    'minusMonths': (self: RuntimeObject, months: RuntimeObject) => (evaluation: Evaluation): void => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-      months.assertIsNumber()
-
-      const value = new Date(year.innerValue, month.innerValue - 1 - floor(months.innerValue), day.innerValue)
-
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
-      })
-
-      evaluation.currentFrame!.pushOperand(instance)
-    },
-
-    'minusYears': (self: RuntimeObject, years: RuntimeObject) => (evaluation: Evaluation): void => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
       years.assertIsNumber()
 
       const value = new Date(year.innerValue - floor(years.innerValue), month.innerValue - 1, day.innerValue)
@@ -1100,71 +988,101 @@ const lang: Natives = {
         value.setDate(value.getDate() - 1)
       }
 
-      const instance = RuntimeObject.object(evaluation, self.module, {
-        day: RuntimeObject.number(evaluation, value.getDate()),
-        month: RuntimeObject.number(evaluation, value.getMonth() + 1),
-        year: RuntimeObject.number(evaluation, value.getFullYear()),
+      return yield* this.instantiate(self.module, {
+        day: yield* this.reify(value.getDate()),
+        month: yield* this.reify(value.getMonth() + 1),
+        year: yield* this.reify(value.getFullYear()),
       })
-
-      evaluation.currentFrame!.pushOperand(instance)
     },
 
-    '<': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['=='](self: RuntimeObject, other: RuntimeObject) {
+      return yield* this.reify(
+        self.module === other.module &&
+        self.get('day') === other.get('day') &&
+        self.get('month') === other.get('month') &&
+        self.get('year') === other.get('year')
+      )
+    },
+
+    *['-'](self: RuntimeObject, other: RuntimeObject) {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
+      const ownDay: RuntimeObject = self.get('day')!
+      ownDay.assertIsNumber()
+
+      const ownMonth: RuntimeObject = self.get('month')!
+      ownMonth.assertIsNumber()
+
+      const ownYear: RuntimeObject = self.get('year')!
+      ownYear.assertIsNumber()
 
       const otherDay: RuntimeObject = other.get('day')!
-      const otherMonth: RuntimeObject = other.get('month')!
-      const otherYear: RuntimeObject = other.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-
       otherDay.assertIsNumber()
+
+      const otherMonth: RuntimeObject = other.get('month')!
       otherMonth.assertIsNumber()
+
+      const otherYear: RuntimeObject = other.get('year')!
       otherYear.assertIsNumber()
 
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
-      const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
-
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, value < otherValue))
+      const msPerDay = 1000 * 60 * 60 * 24
+      const ownUTC = UTC(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
+      const otherUTC = UTC(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
+      return yield* this.reify(floor((ownUTC - otherUTC) / msPerDay))
     },
 
-    '>': (self: RuntimeObject, other: RuntimeObject) => (evaluation: Evaluation): void => {
+    *['<'](self: RuntimeObject, other: RuntimeObject) {
       if (other.module !== self.module) throw new TypeError('other')
 
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
+      const ownDay: RuntimeObject = self.get('day')!
+      ownDay.assertIsNumber()
+
+      const ownMonth: RuntimeObject = self.get('month')!
+      ownMonth.assertIsNumber()
+
+      const ownYear: RuntimeObject = self.get('year')!
+      ownYear.assertIsNumber()
 
       const otherDay: RuntimeObject = other.get('day')!
-      const otherMonth: RuntimeObject = other.get('month')!
-      const otherYear: RuntimeObject = other.get('year')!
-
-      day.assertIsNumber()
-      month.assertIsNumber()
-      year.assertIsNumber()
-
       otherDay.assertIsNumber()
+
+      const otherMonth: RuntimeObject = other.get('month')!
       otherMonth.assertIsNumber()
+
+      const otherYear: RuntimeObject = other.get('year')!
       otherYear.assertIsNumber()
 
-      const value = new Date(year.innerValue, month.innerValue - 1, day.innerValue)
+      const value = new Date(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
       const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, value > otherValue))
+      return yield* this.reify(value < otherValue)
     },
 
-    'shortDescription': (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const day: RuntimeObject = self.get('day')!
-      const month: RuntimeObject = self.get('month')!
-      const year: RuntimeObject = self.get('year')!
+    *['>'](self: RuntimeObject, other: RuntimeObject) {
+      if (other.module !== self.module) throw new TypeError('other')
 
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, `${month.innerValue}/${day.innerValue}/${year.innerValue}`))
+      const ownDay: RuntimeObject = self.get('day')!
+      ownDay.assertIsNumber()
+
+      const ownMonth: RuntimeObject = self.get('month')!
+      ownMonth.assertIsNumber()
+
+      const ownYear: RuntimeObject = self.get('year')!
+      ownYear.assertIsNumber()
+
+      const otherDay: RuntimeObject = other.get('day')!
+      otherDay.assertIsNumber()
+
+      const otherMonth: RuntimeObject = other.get('month')!
+      otherMonth.assertIsNumber()
+
+      const otherYear: RuntimeObject = other.get('year')!
+      otherYear.assertIsNumber()
+
+      const value = new Date(ownYear.innerValue, ownMonth.innerValue - 1, ownDay.innerValue)
+      const otherValue = new Date(otherYear.innerValue, otherMonth.innerValue - 1, otherDay.innerValue)
+
+      return yield* this.reify(value > otherValue)
     },
 
   },

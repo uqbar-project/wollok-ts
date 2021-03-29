@@ -2,7 +2,6 @@ import { promises } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join } from 'path'
 import link from '../src/linker'
-import { ConsoleLogger, LogLevel } from '../src/interpreter/log'
 import { File } from '../src/parser'
 import { Package } from '../src/model'
 
@@ -11,10 +10,9 @@ const { writeFile, readFile } = promises
 const WRE_SRC_PATH = 'language/src'
 const WRE_TARGET_PATH = 'src/wre'
 
-const log = new ConsoleLogger(LogLevel.INFO)
-
 async function buildWRE() {
-  log.start('Building WRE')
+  console.group('Building WRE')
+  console.time('Building WRE')
 
   // TODO: Can we move this to lang? See wollok-language/issues/48
   const targetRawWRE = new Package({
@@ -27,7 +25,8 @@ async function buildWRE() {
 
   const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
 
-  log.start('\tParsing...')
+  console.info('Parsing...')
+  console.time('Parsed')
   const rawWRE = await Promise.all(sourceFiles.map(async sourceFile => {
     const sourceFilePath = sourceFile.split('/')
     const sourceFileName = sourceFilePath.splice(-1)[0].split('.')[0]
@@ -40,17 +39,20 @@ async function buildWRE() {
   })
   )
 
-  log.done('\tParsing...')
+  console.timeEnd('Parsed')
 
-  log.start('\tLinking...')
+  console.info('Linking...')
+  console.time('Linked')
   const wre = link([...rawWRE, targetRawWRE])
-  log.done('\tLinking...')
+  console.timeEnd('Linked')
 
-  log.start('\tSaving...')
+  console.info('Saving...')
+  console.time('Saved')
   await writeFile(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, undefined, 2))
-  log.done('\tSaving...')
+  console.timeEnd('Saved')
 
-  log.done('Building WRE')
+  console.groupEnd()
+  console.timeEnd('Building WRE')
 }
 
 buildWRE()

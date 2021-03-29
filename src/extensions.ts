@@ -43,3 +43,9 @@ export const mapObject = <T, R = any>(tx: (value: T[keyof T], key: keyof T) => R
 
 export const sum = (array: ReadonlyArray<number>): number => array.reduce((acum, elem) => acum + elem, 0)
 export const sumBy = <T>(array: ReadonlyArray<T>, tx: (elem: T) => number): number => array.reduce((acum, elem) => acum + tx(elem), 0)
+
+export const traverse = <R>(generator: Generator<unknown, R>): R => {
+  let result = generator.next()
+  while(!result.done) result = generator.next()
+  return result.value
+}

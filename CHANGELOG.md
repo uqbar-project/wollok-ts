@@ -7,7 +7,7 @@
     - Removed anonymous class instantiation in favor of unnamed object literals
     - Removed Fixtures
     - New homogeneous linearization syntax
-
+    - Replaced bytecode compiler with (a little slower, but easier to maintain) pure AST interpreter
 
 ## v2.3.0
 - Fixing building process in bad release

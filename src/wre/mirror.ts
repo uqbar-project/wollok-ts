@@ -1,12 +1,13 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { Natives, RuntimeObject } from '../interpreter/runtimeModel'
 
 const mirror: Natives = {
 
   ObjectMirror: {
 
-    resolve: (self: RuntimeObject, attributeName: RuntimeObject) => (evaluation: Evaluation): void => {
+    *resolve(self: RuntimeObject, attributeName: RuntimeObject) {
       attributeName.assertIsString()
-      evaluation.currentFrame!.pushOperand(self.get('target')?.get(attributeName.innerValue))
+      return self.get('target')?.get(attributeName.innerValue)
     },
 
   },

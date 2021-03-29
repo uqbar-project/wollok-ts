@@ -1,11 +1,11 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { Natives } from '../interpreter/runtimeModel'
 
 const vm: Natives = {
 
   runtime: {
-
-    isInteractive: () => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
+    *isInteractive() {
+      return yield* this.reify(false)
     },
 
   },

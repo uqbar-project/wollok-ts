@@ -1,11 +1,10 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Evaluation, RuntimeObject, Frame } from '../src/interpreter/runtimeModel'
-import compile, { PUSH, INIT } from '../src/interpreter/compiler'
-import { LogLevel, ConsoleLogger } from '../src/interpreter/log'
-import { List, Node, Module } from '../src/model'
-import natives from '../src/wre/wre.natives'
+import { is, List, Module, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
+import { Runner, WollokException, Context, RuntimeObject } from '../src/interpreter/runtimeModel'
+import natives from '../src/wre/wre.natives'
+import { traverse } from '../src/extensions'
 
 const { error } = console
 
@@ -23,56 +22,78 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(baseEvaluation: Evaluation, nodes: List<Node>) {
+function registerTests(nodes: List<Node>, evaluation: Runner) {
   nodes.forEach(node => {
-    if (node.is('Package')) describe(node.name, () => registerTests(baseEvaluation, node.members))
+    if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
 
-    else if (node.is('Describe')) {
-      const evaluation = baseEvaluation.copy()
-
-      describe(node.name, () => {
-        before(() => {
-          // TODO: Describe is a module?
-          // TODO: If the GC runs after describe is initialized it will destroy the instance. Maybe they should be treated as singletons...
-          const describeInstance = RuntimeObject.object(evaluation, node as unknown as Module)
-
-          evaluation.pushFrame(new Frame(describeInstance, [
-            PUSH(describeInstance.id),
-            INIT([]),
-          ]))
-          evaluation.stepAll()
-        })
-
-        registerTests(evaluation, node.members)
-      })
-    }
+    else if (node.is('Describe')) describe(node.name, () => registerTests(node.tests(), evaluation))
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
-        const evaluation = baseEvaluation.copy()
-        const instructions = compile(node)
+        const runner = evaluation.copy()
+        const runTest = function* () {
+          const context = node.parent().is('Describe')
+            ? yield* runner.instantiate(node.parent() as unknown as Module)
+            : new Context(runner.currentContext)
 
-        evaluation.log.separator(node.name)
-        evaluation.log.resetStep()
+          return yield* runner.exec(node.body, context)
+        }
 
-        evaluation.pushFrame(new Frame(node.parent().is('Describe') ? evaluation.instance(node.parent().id) : evaluation.currentContext, instructions))
-        evaluation.stepAll()
+        const generator = runTest()
+        try {
+          // TODO: Use a run controller
+          traverse(generator)
+        } catch (error) {
+          logError(error)
+          throw error
+        }
       })
 
   })
 }
 
-async function defineTests() {
-  const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
-  const evaluation = Evaluation.create(environment, natives)
+// TODO: This is quite ugly...
+function logError(error: any) {
+  if(error instanceof WollokException) {
+    const errorInstance: RuntimeObject = error.instance
+    errorInstance.assertIsException()
+    console.group(errorInstance.innerValue ? `Unhandled Native Exception: ${errorInstance.innerValue.constructor.name} "${errorInstance.innerValue.message}"` : `Unhandled Wollok Exception: ${error.instance.module.fullyQualifiedName()} "${error.instance.get('message')?.innerValue}"`)
+    for(const frame of [...error.frameStack].reverse()) {
+      let label: string
+      if(frame.node.is('Body')) {
+        const parent = frame.node.parent()
+        if(parent.is('Method')) label = `${parent.parent().fullyQualifiedName()}.${parent.name}`
+        else if(parent.is('Entity')) label = `${parent.fullyQualifiedName()}`
+        else {
+          const container = parent.ancestors().find(is('Method'))
+          label = container
+            ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${parent.kind}`
+            : `${parent.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${parent.kind}`
+        }
+      } else if(frame.node.is('Method')) {
+        label = `${frame.node.parent().fullyQualifiedName()}.${frame.node.name}`
+      } else if(frame.node.is('Environment')) {
+        label = frame.node.kind
+      } else {
+        const container = frame.node.ancestors().find(is('Method'))
+        label = container
+          ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
+          : `${frame.node.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
+      }
 
-  describe(basename(ARGUMENTS.root), () => {
-    if (ARGUMENTS.verbose) evaluation.log = new ConsoleLogger(LogLevel.DEBUG)
-    registerTests(evaluation, evaluation.environment.members)
-  })
+      console.info(`at wollok ${label}(${frame.node.source?.start?.line ?? '--'}:${frame.node.source?.start?.column ?? '--'})`)
+    }
+    console.groupEnd()
+  }
 }
 
-defineTests().then(run).catch(e => {
-  error(e)
-  process.exit(1)
-})
+
+(async function () {
+  const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
+  describe(basename(ARGUMENTS.root), () => registerTests(environment.members, Runner.build(environment, natives)))
+})()
+  .then(run)
+  .catch(e => {
+    error(e)
+    process.exit(1)
+  })

@@ -1,279 +1,265 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
-import { Id } from '../model'
-
-const returnVoid = (evaluation: Evaluation) => {
-  evaluation.currentFrame!.pushOperand(undefined)
-}
-
-const get = (self: RuntimeObject, key: string) => (evaluation: Evaluation) => {
-  evaluation.currentFrame!.pushOperand(self.get(key))
-}
-
-const set = (self: RuntimeObject, key: string, value: RuntimeObject) => (evaluation: Evaluation) => {
-  self.set(key, value)
-  returnVoid(evaluation)
-}
-
-const property = (self: RuntimeObject, key: string, value?: RuntimeObject) => (evaluation: Evaluation) => {
-  if (value)
-    set(self, key, value)(evaluation)
-  else
-    get(self, key)(evaluation)
-}
-
-//TODO: Do we still need this?
-const redirectTo = (receiver: (evaluation: Evaluation) => string, voidMessage = true) => (message: string, ...params: string[]) =>
-  (evaluation: Evaluation) => {
-    const receiverInstance = evaluation.instance(receiver(evaluation))
-    evaluation.invoke(message, receiverInstance, ...params.map(param => evaluation.instance(param)))
-    if (voidMessage) returnVoid(evaluation)
-  }
-
-const mirror = (evaluation: Evaluation) => evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id
-
-const wGame = (evaluation: Evaluation) => evaluation.instance(evaluation.environment.getNodeByFQN('wollok.game.game').id)
-
-const getPosition = (id: Id) => (evaluation: Evaluation) => {
-  const instance = evaluation.instance(id)
-  const position = instance.get('position')
-  if (position) return position
-  const currentFrame = evaluation.currentFrame!
-  evaluation.invoke('position', instance)
-  evaluation.stepOut() // TODO: we should avoid steping in all these cases. Create the frame to execute, so it can be debugged
-
-  return currentFrame.popOperand()
-}
-
-const samePosition = (evaluation: Evaluation, position: RuntimeObject) => (id: Id) => {
-  const visualPosition = getPosition(id)(evaluation)!
-  return position.get('x') === visualPosition.get('x')
-    && position.get('y') === visualPosition.get('y')
-}
-
-const addToInnerCollection = (evaluation: Evaluation, wObject: RuntimeObject, element: RuntimeObject, fieldName: string) => {
-  if (!wObject.get(fieldName))
-    wObject.set(fieldName, RuntimeObject.list(evaluation, []))
-
-  const fieldList: RuntimeObject = wObject.get(fieldName)!
-  fieldList.assertIsCollection()
-  if (fieldList.innerValue.includes(element.id)) throw new TypeError(element.module.fullyQualifiedName())
-  else fieldList.innerValue.push(element.id)
-}
-
-const addSound = (evaluation: Evaluation, gameObject: RuntimeObject, sound: RuntimeObject) => {
-  return addToInnerCollection(evaluation, gameObject, sound, 'sounds')
-}
-
-const removeFromInnerCollection = (wObject: RuntimeObject, elementToRemove: RuntimeObject, fieldName: string) => {
-  const fieldList = wObject.get(fieldName)
-  if (fieldList) {
-    const currentElements: RuntimeObject = fieldList
-    currentElements.assertIsCollection()
-    currentElements.innerValue.splice(0, currentElements.innerValue.length)
-    currentElements.innerValue.push(...currentElements.innerValue.filter((id: Id) => id !== elementToRemove.id))
-  }
-}
-
-const removeSound = (gameObject: RuntimeObject, sound: RuntimeObject) => {
-  removeFromInnerCollection(gameObject, sound, 'sounds')
-}
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import { Natives, RuntimeObject } from '../interpreter/runtimeModel'
 
 const game: Natives = {
   game: {
-    addVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
+    *addVisual(self: RuntimeObject, visual: RuntimeObject) {
+      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
-      addToInnerCollection(evaluation, self, visual, 'visuals')
-      returnVoid(evaluation)
+
+      const visuals: RuntimeObject = self.get('visuals')!
+      if (!visuals) self.set('visuals', yield* this.list([visual]))
+      else {
+        visuals.assertIsCollection()
+        if(visuals.innerValue.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
+        visuals.innerValue.push(visual)
+      }
+
+      return undefined
     },
 
-    addVisualIn: (self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
-      if (position === RuntimeObject.null(evaluation)) throw new TypeError('position')
+    *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) {
+      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
+      if (position === (yield* this.reify(null))) throw new TypeError('position')
+
+      const visuals: RuntimeObject = self.get('visuals')!
+      if (!visuals) self.set('visuals', yield* this.list([visual]))
+      else {
+        visuals.assertIsCollection()
+        if(visuals.innerValue.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
+        visuals.innerValue.push(visual)
+      }
+
       visual.set('position', position)
-      addToInnerCollection(evaluation, self, visual, 'visuals')
-      returnVoid(evaluation)
+
+      return undefined
     },
 
-    addVisualCharacter: (_self: RuntimeObject, visual: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('addVisualCharacter', visual.id),
+    *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject) {
+      return yield* this.invoke('addVisualCharacter', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual)
+    },
 
+    *addVisualCharacterIn(_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject) {
+      return yield* this.invoke('addVisualCharacterIn', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, position)
+    },
 
-    addVisualCharacterIn: (_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('addVisualCharacterIn', visual.id, position.id),
-
-    removeVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
+    *removeVisual(self: RuntimeObject, visual: RuntimeObject) {
       const visuals = self.get('visuals')
-      if (visuals) evaluation.invoke('remove', visuals, visual)
-      else evaluation.currentFrame!.pushOperand(undefined)
+      if (visuals) yield* this.invoke('remove', visuals, visual)
+      return undefined
     },
 
-    whenKeyPressedDo: (_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('whenKeyPressedDo', event.id, action.id),
-
-    whenCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('whenCollideDo', visual.id, action.id),
-
-    onCollideDo: (_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('onCollideDo', visual.id, action.id),
-
-    onTick: (_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('onTick', milliseconds.id, name.id, action.id),
-
-    schedule: (_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('schedule', milliseconds.id, action.id),
-
-    removeTickEvent: (_self: RuntimeObject, event: RuntimeObject): (evaluation: Evaluation) => void =>
-      redirectTo(mirror)('removeTickEvent', event.id),
-
-    allVisuals: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
-      const currentVisuals: RuntimeObject = visuals
-      currentVisuals.assertIsCollection()
-      evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, currentVisuals.innerValue))
+    *whenKeyPressedDo(_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject){
+      return yield* this.invoke('whenKeyPressedDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, event, action)
     },
 
-    hasVisual: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
-      const currentVisuals: RuntimeObject = visuals
-      currentVisuals.assertIsCollection()
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, currentVisuals.innerValue.includes(visual.id)))
+    *whenCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject) {
+      return yield* this.invoke('whenCollideDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
-    getObjectsIn: (self: RuntimeObject, position: RuntimeObject) => (evaluation: Evaluation): void => {
-      const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
-      const currentVisuals: RuntimeObject = visuals
-      currentVisuals.assertIsCollection()
-      const result = RuntimeObject.list(evaluation, currentVisuals.innerValue.filter(samePosition(evaluation, position)))
-      evaluation.currentFrame!.pushOperand(result)
+    *onCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject){
+      return yield* this.invoke('onCollideDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
-    say: (_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) => (evaluation: Evaluation): void => {
-      const currentFrame = evaluation.currentFrame!
-      const ioInstance = evaluation.instance(mirror(evaluation))
-      evaluation.invoke('currentTime', ioInstance)
-      evaluation.stepOut()
+    *onTick(_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject){
+      return yield* this.invoke('onTick', this.currentContext.get('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
+    },
 
-      const currentTime: RuntimeObject = currentFrame.popOperand()!
+    *schedule(_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject){
+      return yield* this.invoke('schedule', this.currentContext.get('wollok.gameMirror.gameMirror')!, milliseconds, action)
+    },
+
+    *removeTickEvent(_self: RuntimeObject, event: RuntimeObject){
+      return yield* this.invoke('removeTickEvent', this.currentContext.get('wollok.gameMirror.gameMirror')!, event)
+    },
+
+    *allVisuals(self: RuntimeObject) {
+      const visuals: RuntimeObject = self.get('visuals')!
+      if (!visuals) return yield* this.list([])
+      visuals.assertIsCollection()
+      return yield* this.list(visuals.innerValue)
+    },
+
+    *hasVisual(self: RuntimeObject, visual: RuntimeObject) {
+      const visuals: RuntimeObject = self.get('visuals')!
+      return yield* !visuals ? this.reify(false) : this.invoke('contains', visuals, visual)
+    },
+
+    *getObjectsIn(self: RuntimeObject, position: RuntimeObject) {
+      const visuals: RuntimeObject = (yield* this.invoke('allVisuals', self))!
+      visuals.assertIsCollection()
+
+      const result: RuntimeObject[] = []
+      for(const otherVisual of visuals.innerValue) {
+        const otherPosition = otherVisual.get('position') ?? (yield* this.invoke('position', otherVisual))!
+        if((yield *this.invoke('==', position, otherPosition))!.innerValue)
+          result.push(otherVisual)
+      }
+
+      return yield* this.list(result)
+    },
+
+    *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject) {
+      const currentTime: RuntimeObject = (yield* this.invoke('currentTime', this.currentContext.get('wollok.gameMirror.gameMirror')!))!
       currentTime.assertIsNumber()
-      const messageTime = RuntimeObject.number(evaluation, currentTime.innerValue + 2 * 1000)
-      set(visual, 'message', message)(evaluation)
-      set(visual, 'messageTime', messageTime)(evaluation)
+
+      const messageTime = yield* this.reify(currentTime.innerValue + 2 * 1000)
+
+      visual.set('message', message)
+      visual.set('messageTime', messageTime)
+
+      return undefined
     },
 
-    clear: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.invoke('clear', evaluation.instance(mirror(evaluation)))
-      evaluation.stepOut()
+    *clear(self: RuntimeObject) {
+      yield* this.invoke('clear', this.currentContext.get('wollok.gameMirror.gameMirror')!)
 
-      self.set('visuals', RuntimeObject.list(evaluation, []))
-      returnVoid(evaluation)
+      self.set('visuals', yield* this.list([]))
+      return undefined
     },
 
-    colliders: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (visual === RuntimeObject.null(evaluation)) throw new TypeError('visual')
-      const visuals = self.get('visuals')
-      if (!visuals) return evaluation.currentFrame!.pushOperand(RuntimeObject.list(evaluation, []))
-      const currentVisuals: RuntimeObject = visuals
-      currentVisuals.assertIsCollection()
-      const position = getPosition(visual.id)(evaluation)!
-      const result = RuntimeObject.list(evaluation, currentVisuals.innerValue
-        .filter(samePosition(evaluation, position))
-        .filter(id => id !== visual.id)
-      )
-      evaluation.currentFrame!.pushOperand(result)
+    *colliders(self: RuntimeObject, visual: RuntimeObject) {
+      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
+
+      const position = visual.get('position') ?? (yield* this.invoke('position', visual))!
+      const visualsAtPosition: RuntimeObject = (yield* this.invoke('getObjectsIn', self, position))!
+
+      yield* this.invoke('remove', visualsAtPosition, visual)
+
+      return visualsAtPosition
     },
 
-    title: (self: RuntimeObject, title?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'title', title),
-
-    width: (self: RuntimeObject, width?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'width', width),
-
-    height: (self: RuntimeObject, height?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'height', height),
-
-    ground: (self: RuntimeObject, ground: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'ground', ground),
-
-    boardGround: (self: RuntimeObject, boardGround: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'boardGround', boardGround),
-
-    doCellSize: (self: RuntimeObject, size: RuntimeObject): (evaluation: Evaluation) => void => set(self, 'cellSize', size),
-
-    stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('running', RuntimeObject.boolean(evaluation, false))
-      returnVoid(evaluation)
+    *title(self: RuntimeObject, title?: RuntimeObject) {
+      if(!title) return self.get('title')
+      self.set('title', title)
+      return undefined
     },
 
-    hideAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      visual.set('showAttributes', RuntimeObject.boolean(evaluation, false))
-      returnVoid(evaluation)
+    *width(self: RuntimeObject, width?: RuntimeObject) {
+      if(!width) return self.get('width')
+      self.set('width', width)
+      return undefined
     },
 
-    showAttributes: (_self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
-      visual.set('showAttributes', RuntimeObject.boolean(evaluation, true))
-      returnVoid(evaluation)
+    *height(self: RuntimeObject, height?: RuntimeObject) {
+      if(!height) return self.get('height')
+      self.set('height', height)
+      return undefined
     },
 
-    errorReporter: (self: RuntimeObject, visual: RuntimeObject) => (evaluation: Evaluation): void => {
+    *ground(self: RuntimeObject, ground: RuntimeObject) {
+      self.set('ground', ground)
+      return undefined
+    },
+
+    *boardGround(self: RuntimeObject, boardGround: RuntimeObject) {
+      self.set('boardGround', boardGround)
+      return undefined
+    },
+
+    *doCellSize(self: RuntimeObject, size: RuntimeObject) {
+      self.set('cellSize', size)
+      return undefined
+    },
+
+    *stop(self: RuntimeObject) {
+      self.set('running', yield* this.reify(false))
+      return undefined
+    },
+
+    *showAttributes(_self: RuntimeObject, visual: RuntimeObject) {
+      visual.set('showAttributes', yield* this.reify(true))
+      return undefined
+    },
+
+    *hideAttributes(_self: RuntimeObject, visual: RuntimeObject) {
+      visual.set('showAttributes', yield* this.reify(false))
+      return undefined
+    },
+
+    *errorReporter(self: RuntimeObject, visual: RuntimeObject) {
       self.set('errorReporter', visual)
-      returnVoid(evaluation)
+      return undefined
     },
 
-    doStart: (self: RuntimeObject, _isRepl: RuntimeObject) => (evaluation: Evaluation): void => {
-      self.set('running', RuntimeObject.boolean(evaluation, true))
-      evaluation.invoke('doStart', evaluation.instance(evaluation.environment.getNodeByFQN('wollok.gameMirror.gameMirror').id))
+    *doStart(self: RuntimeObject) {
+      self.set('running', yield* this.reify(true))
+      return yield* this.invoke('doStart', this.currentContext.get('wollok.gameMirror.gameMirror')!)
     },
   },
 
   Sound: {
-    play: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (wGame(evaluation).get('running') !== RuntimeObject.boolean(evaluation, true))
-        throw new Error('You cannot play a sound if game has not started')
-      self.set('status', RuntimeObject.string(evaluation, 'played'))
-      addSound(evaluation, wGame(evaluation), self)
-      returnVoid(evaluation)
-    },
+    *play(self: RuntimeObject) {
+      const game = this.currentContext.get('wollok.game.game')!
+      if (!game.get('running')?.innerValue) throw new Error('You cannot play a sound if game has not started')
 
-    played: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.get('status')?.innerValue === 'played'))
-    },
-
-    stop: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.get('status')?.innerValue !== 'played')
-        throw new Error('You cannot stop a sound that is not played')
-      self.set('status', RuntimeObject.string(evaluation, 'stopped'))
-      removeSound(wGame(evaluation), self)
-      returnVoid(evaluation)
-    },
-
-    pause: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.get('status')?.innerValue !== 'played')
-        throw new Error('You cannot pause a sound that is not played')
-      self.set('status', RuntimeObject.string(evaluation, 'paused'))
-      returnVoid(evaluation)
-    },
-
-    resume: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (self.get('status')?.innerValue !== 'paused')
-        throw new Error('You cannot resume a sound that is not paused')
-      self.set('status', RuntimeObject.string(evaluation, 'played'))
-      returnVoid(evaluation)
-    },
-
-    paused: (self: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, self.get('status')?.innerValue === 'paused'))
-    },
-
-    volume: (self: RuntimeObject, newVolume?: RuntimeObject) => (evaluation: Evaluation): void => {
-      if (newVolume) {
-        const volume: RuntimeObject = newVolume
-        volume.assertIsNumber()
-        if (volume.innerValue < 0 || volume.innerValue > 1)
-          throw new RangeError('newVolume')
+      const sounds: RuntimeObject = game.get('sounds')!
+      if (!game.get('sounds')) game.set('sounds', yield* this.list([self]))
+      else {
+        sounds.assertIsCollection()
+        if (sounds.innerValue.includes(self)) throw new TypeError(self.module.fullyQualifiedName())
+        else sounds.innerValue.push(self)
       }
-      property(self, 'volume', newVolume)(evaluation)
+
+      self.set('status', this.reify('played'))
+
+      return undefined
     },
 
-    shouldLoop: (self: RuntimeObject, looping?: RuntimeObject): (evaluation: Evaluation) => void => property(self, 'loop', looping),
+    *stop(self: RuntimeObject) {
+      if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot stop a sound that is not played')
+
+      const game = this.currentContext.get('wollok.game.game')!
+      const sounds = game.get('sounds')
+      if(sounds) yield* this.invoke('remove', sounds, self)
+
+      self.set('status', yield * this.reify('stopped'))
+
+      return undefined
+    },
+
+    *pause(self: RuntimeObject) {
+      if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot pause a sound that is not played')
+
+      self.set('status', this.reify('paused'))
+
+      return undefined
+    },
+
+    *resume(self: RuntimeObject) {
+      if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that is not paused')
+
+      self.set('status', this.reify('played'))
+
+      return undefined
+    },
+
+    *played(self: RuntimeObject) {
+      return yield* this.reify(self.get('status')?.innerValue === 'played')
+    },
+
+    *paused(self: RuntimeObject) {
+      return yield* this.reify(self.get('status')?.innerValue === 'paused')
+    },
+
+    *volume(self: RuntimeObject, newVolume?: RuntimeObject) {
+      if(!newVolume) return self.get('volume')
+
+      const volume: RuntimeObject = newVolume
+      volume.assertIsNumber()
+
+      if (volume.innerValue < 0 || volume.innerValue > 1) throw new RangeError('newVolume')
+
+      self.set('volume', volume)
+
+      return undefined
+    },
+
+    *shouldLoop(self: RuntimeObject, looping?: RuntimeObject) {
+      if(!looping) return self.get('loop')
+      self.set('loop', looping)
+      return undefined
+    },
 
   },
 }

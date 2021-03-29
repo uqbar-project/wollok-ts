@@ -5,8 +5,6 @@ import * as parse from './parser'
 import validate from './validator'
 import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
-import compile from './interpreter/compiler'
-import garbageCollect from './interpreter/garbageCollector'
 
 
 function buildEnvironment(files: { name: string, content: string }[], baseEnvironment: Environment = fromJSON<Environment>(WRE)): Environment {
@@ -25,12 +23,9 @@ function buildEnvironment(files: { name: string, content: string }[], baseEnviro
 
 export * from './model'
 export * from './interpreter/runtimeModel'
-export * from './interpreter/log'
 export {
   WRE,
   WRENatives,
-  compile,
-  garbageCollect,
   buildEnvironment,
   parse,
   link,
