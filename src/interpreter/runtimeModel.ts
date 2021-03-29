@@ -1,4 +1,4 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id } from '../model'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw } from '../model'
 import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
 
@@ -222,154 +222,22 @@ export class Runner {
     this.frameStack.push(new Frame(node, context))
 
     try {
-      if(node.is('Body')) {
-        yield node
-
-        let result: RuntimeObject | undefined
-        for(const sentence of node.sentences) result = yield* this.exec(sentence)
-        return result
-      }
-
-
-      if(node.is('Variable')) {
-        const value = yield* this.exec(node.value)
-        yield node
-        context.set(node.name, value)
-        return
-      }
-
-
-      if(node.is('Assignment')) {
-        const value = yield* this.exec(node.value)
-        yield node
-        if(node.variable.target()?.isReadOnly) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
-        context.set(node.variable.name, value, true)
-        return
-      }
-
-
-      if(node.is('Return')) {
-        const value = node.value && (yield* this.exec(node.value))
-        yield node
-        throw new WollokReturn(value)
-      }
-
-
-      if(node.is('Reference')) {
-        yield node
-
-        const target = node.target()
-
-        return context.get(
-          target.is('Module') || target.is('Variable') && target.parent().is('Package')
-            ? target.fullyQualifiedName()
-            : node.name
-        )
-      }
-
-
-      if(node.is('Self')) {
-        yield node
-        return context.get('self')
-      }
-
-
-      if(node.is('Literal')) {
-        if(isArray(node.value)) {
-          const [reference, args] = node.value
-          const module = reference.target()!
-
-          const values: RuntimeObject[] = []
-          for(const arg of args) values.push(yield * this.exec(arg))
-
-          yield node
-
-          return yield* module.name === 'List' ? this.list(values) : this.set(values)
-        }
-
-        if (isNode(node.value)) {
-          yield node
-          return yield* this.instantiate(node.value)
-        }
-
-        yield node
-        return yield* this.reify(node.value as any)
-      }
-
-
-      if(node.is('New')) {
-        const args: Record<Name, RuntimeObject> = {}
-        for(const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
-
-        yield node
-
-        if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
-
-        return yield* this.instantiate(node.instantiated.target()!, args)
-      }
-
-
-      if(node.is('Send')) {
-        const receiver = yield* this.exec(node.receiver)
-        const values: RuntimeObject[] = []
-        for(const arg of node.args) values.push(yield * this.exec(arg))
-
-        yield node
-
-        return yield* this.invoke(node.message, receiver, ...values)
-      }
-
-
-      if(node.is('Super')) {
-        const values: RuntimeObject[] = []
-        for(const arg of node.args) values.push(yield * this.exec(arg))
-
-        yield node
-
-        const receiver = context.get('self')!
-        const currentMethod = node.ancestors().find(is('Method'))!
-        const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
-        return yield* this.invoke(method, receiver, ...values)
-      }
-
-
-      if(node.is('If')) {
-        const condition: RuntimeObject = yield* this.exec(node.condition)
-        condition.assertIsBoolean()
-
-        yield node
-
-        return yield* this.exec(condition.innerValue ? node.thenBody : node.elseBody, new Context(context))
-      }
-
-      if(node.is('Throw')) {
-        const exception = yield* this.exec(node.exception)
-
-        yield node
-
-        throw new WollokException([...this.frameStack], exception)
-      }
-
-      if(node.is('Try')) {
-        yield node
-
-        let result: RuntimeObject | undefined
-        try {
-          result = yield* this.exec(node.body, new Context(context))
-        } catch(error) {
-          if(!(error instanceof WollokException)) throw error
-
-          const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
-
-          if(handler) result = yield* this.exec(handler.body, new Context(context, { [handler.parameter.name]: error.instance }))
-          else throw error
-        } finally {
-          yield* this.exec(node.always, new Context(context))
-        }
-
-        return result
-      }
-
+      return yield* node.match({
+        Body: node => this.execBody(node),
+        Variable: node => this.execVariable(node),
+        Assignment: node => this.execAssignment(node),
+        Return: node => this.execReturn(node),
+        Reference: node => this.execReference(node),
+        Self: node => this.execSelf(node),
+        Literal: node => this.execLiteral(node),
+        New: node => this.execNew(node),
+        Send: node => this.execSend(node),
+        Super: node => this.execSuper(node),
+        If: node => this.execIf(node),
+        Try: node => this.execTry(node),
+        Throw: node => this.execThrow(node),
+        Node() { throw new Error(`${node.kind} node can't be executed`) },
+      })
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
       else {
@@ -382,8 +250,149 @@ export class Runner {
     } finally {
       this.frameStack.pop()
     }
+  }
 
-    throw new Error(`${node.kind} nodes can't be executed`)
+
+  protected *execBody(node: Body): Generator<Node, RuntimeObject | undefined> {
+    yield node
+
+    let result: RuntimeObject | undefined
+    for(const sentence of node.sentences) result = yield* this.exec(sentence)
+    return result
+  }
+
+  protected *execVariable(node: Variable): Generator<Node, RuntimeObject | undefined> {
+    const value = yield* this.exec(node.value)
+    yield node
+    this.currentContext.set(node.name, value)
+    return
+  }
+
+  protected *execAssignment(node: Assignment): Generator<Node, RuntimeObject | undefined> {
+    const value = yield* this.exec(node.value)
+    yield node
+    if(node.variable.target()?.isReadOnly) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+    this.currentContext.set(node.variable.name, value, true)
+    return
+  }
+
+  protected *execReturn(node: Return): Generator<Node, RuntimeObject | undefined> {
+    const value = node.value && (yield* this.exec(node.value))
+    yield node
+    throw new WollokReturn(value)
+  }
+
+  protected *execReference(node: Reference<Node>): Generator<Node, RuntimeObject | undefined> {
+    yield node
+
+    const target = node.target()!
+
+    return this.currentContext.get(
+      target.is('Module') || target.is('Variable') && target.parent().is('Package')
+        ? target.fullyQualifiedName()
+        : node.name
+    )
+  }
+
+  protected *execSelf(node: Self): Generator<Node, RuntimeObject | undefined> {
+    yield node
+    return this.currentContext.get('self')
+  }
+
+  protected *execLiteral(node: Literal<LiteralValue>): Generator<Node, RuntimeObject | undefined> {
+    if(isArray(node.value)) {
+      const [reference, args] = node.value
+      const module = reference.target()!
+
+      const values: RuntimeObject[] = []
+      for(const arg of args) values.push(yield * this.exec(arg))
+
+      yield node
+
+      return yield* module.name === 'List' ? this.list(values) : this.set(values)
+    }
+
+    if (isNode(node.value)) {
+      yield node
+      return yield* this.instantiate(node.value)
+    }
+
+    yield node
+
+    return yield* this.reify(node.value as any)
+  }
+
+  protected *execNew(node: New): Generator<Node, RuntimeObject | undefined> {
+    const args: Record<Name, RuntimeObject> = {}
+    for(const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
+
+    yield node
+
+    if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
+
+    return yield* this.instantiate(node.instantiated.target()!, args)
+  }
+
+  protected *execSend(node: Send): Generator<Node, RuntimeObject | undefined> {
+    const receiver = yield* this.exec(node.receiver)
+    const values: RuntimeObject[] = []
+    for(const arg of node.args) values.push(yield * this.exec(arg))
+
+    yield node
+
+    return yield* this.invoke(node.message, receiver, ...values)
+  }
+
+  protected *execSuper(node: Super): Generator<Node, RuntimeObject | undefined> {
+    const values: RuntimeObject[] = []
+    for(const arg of node.args) values.push(yield * this.exec(arg))
+
+    yield node
+
+    const receiver = this.currentContext.get('self')!
+    const currentMethod = node.ancestors().find(is('Method'))!
+    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
+
+    return yield* this.invoke(method, receiver, ...values)
+  }
+
+  protected *execIf(node: If): Generator<Node, RuntimeObject | undefined> {
+    const condition: RuntimeObject = yield* this.exec(node.condition)
+    condition.assertIsBoolean()
+
+    yield node
+
+    return yield* this.exec(condition.innerValue ? node.thenBody : node.elseBody, new Context(this.currentContext))
+  }
+
+  protected *execTry(node: Try): Generator<Node, RuntimeObject | undefined> {
+    yield node
+
+    let result: RuntimeObject | undefined
+    try {
+      result = yield* this.exec(node.body, new Context(this.currentContext))
+    } catch(error) {
+      if(!(error instanceof WollokException)) throw error
+
+      const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
+
+      if(handler) result = yield* this.exec(handler.body, new Context(this.currentContext, { [handler.parameter.name]: error.instance }))
+      else throw error
+    } finally {
+      yield* this.exec(node.always, new Context(this.currentContext))
+    }
+
+    return result
+
+  }
+
+  protected *execThrow(node: Throw): Generator<Node, RuntimeObject | undefined> {
+    const exception = yield* this.exec(node.exception)
+
+    yield node
+
+    throw new WollokException([...this.frameStack], exception)
+
   }
 
 

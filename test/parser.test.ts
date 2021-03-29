@@ -1020,11 +1020,11 @@ describe('Wollok parser', () => {
         'method m() = 5'.should.be.parsedBy(parser).into(
           new Method({
             name: 'm',
-            body: new Body({ sentences: [new Return({ value: new Literal({ value: 5 }) })] }),
+            body: new Body({ sentences: [new Literal({ value: 5 })] }),
           })
         ).and.be.tracedTo(0, 14)
           .and.have.nested.property('body').tracedTo(13, 14)
-          .and.also.have.nested.property('body.sentences.0.value').tracedTo(13, 14)
+          .and.also.have.nested.property('body.sentences.0').tracedTo(13, 14)
       })
 
       it('should parse override methods', () => {
@@ -1043,18 +1043,16 @@ describe('Wollok parser', () => {
             name: 'm',
             body: new Body({
               sentences: [
-                new Return({
-                  value: Closure({
-                    sentences: [new Return({ value: new Literal({ value: 5 }) })],
-                    code: '{ 5 }',
-                  }),
+                Closure({
+                  sentences: [new Literal({ value: 5 })],
+                  code: '{ 5 }',
                 }),
               ],
             }),
           })
         ).and.be.tracedTo(0, 18)
           .and.have.nested.property('body').tracedTo(13, 18)
-          .and.also.have.nested.property('body.sentences.0.value').tracedTo(13, 18)
+          .and.also.have.nested.property('body.sentences.0').tracedTo(13, 18)
       })
 
       it('should not parse incomplete methods', () => {
@@ -1246,17 +1244,13 @@ describe('Wollok parser', () => {
             value: new Send({
               receiver: new Reference({ name: 'a' }),
               message: '||',
-              args: [Closure({
-                sentences: [
-                  new Return({ value: new Reference({ name: 'b' }) }),
-                ],
-              })],
+              args: [Closure({ sentences: [new Reference({ name: 'b' })] })],
             }),
           })
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('variable').tracedTo(0, 1)
           .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
-          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
+          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0').tracedTo(6, 7)
 
       })
 
@@ -1267,16 +1261,12 @@ describe('Wollok parser', () => {
             value: new Send({
               receiver: new Reference({ name: 'a' }),
               message: '&&',
-              args: [Closure({
-                sentences: [
-                  new Return({ value: new Reference({ name: 'b' }) }),
-                ],
-              })],
+              args: [Closure({ sentences: [new Reference({ name: 'b' })] })],
             }),
           })
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('variable').tracedTo(0, 1)
-          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0.value').tracedTo(6, 7)
+          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0').tracedTo(6, 7)
       })
 
       it('should not parse assignments that have other assignment at the right', () => {
@@ -1393,28 +1383,24 @@ describe('Wollok parser', () => {
               args: [
                 Closure({
                   sentences: [
-                    new Return({
-                      value: new Send({
-                        receiver: new Reference({ name: 'c' }),
-                        message: '&&',
-                        args: [
-                          Closure({
-                            sentences: [
-                              new Return({
-                                value: new Send({
-                                  receiver: new Send({
-                                    receiver: new Reference({ name: 'd' }),
-                                    message: '+',
-                                    args: [new Reference({ name: 'e' })],
-                                  }),
-                                  message: '==',
-                                  args: [new Reference({ name: 'f' })],
-                                }),
+                    new Send({
+                      receiver: new Reference({ name: 'c' }),
+                      message: '&&',
+                      args: [
+                        Closure({
+                          sentences: [
+                            new Send({
+                              receiver: new Send({
+                                receiver: new Reference({ name: 'd' }),
+                                message: '+',
+                                args: [new Reference({ name: 'e' })],
                               }),
-                            ],
-                          }),
-                        ],
-                      }),
+                              message: '==',
+                              args: [new Reference({ name: 'f' })],
+                            }),
+                          ],
+                        }),
+                      ],
                     }),
                   ],
                 }),
@@ -1424,13 +1410,13 @@ describe('Wollok parser', () => {
             .and.have.nested.property('receiver').tracedTo(0, 5)
             .and.also.have.nested.property('receiver.receiver').tracedTo(0, 1)
             .and.also.have.nested.property('receiver.args.0').tracedTo(4, 5)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value').tracedTo(9, 24)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.receiver').tracedTo(9, 10)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value').tracedTo(14, 24)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver').tracedTo(14, 19)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver.receiver').tracedTo(14, 15)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.receiver.args.0').tracedTo(18, 19)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value.args.0.value.members.0.body.sentences.0.value.args.0').tracedTo(23, 24)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0').tracedTo(9, 24)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.receiver').tracedTo(9, 10)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0').tracedTo(14, 24)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver').tracedTo(14, 19)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.receiver').tracedTo(14, 15)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.args.0').tracedTo(18, 19)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.args.0').tracedTo(23, 24)
         })
 
         describe('**', () => {
@@ -1540,7 +1526,7 @@ describe('Wollok parser', () => {
               args: [
                 Closure({
                   parameters: [new Parameter({ name: 'p' })],
-                  sentences: [new Return({ value: new Reference({ name: 'p' }) })],
+                  sentences: [new Reference({ name: 'p' })],
                   code: '{p => p}',
                 }),
               ],
@@ -1549,7 +1535,7 @@ describe('Wollok parser', () => {
             .and.have.nested.property('receiver').tracedTo(0, 1)
             .and.also.have.nested.property('args.0').tracedTo(3, 11)
             .and.also.have.nested.property('args.0.value.members.0.parameters.0').tracedTo(4, 5)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.value').tracedTo(9, 10)
+            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0').tracedTo(9, 10)
         })
 
         it('should parse compound sending messages', () => {
@@ -2307,21 +2293,21 @@ describe('Wollok parser', () => {
 
           it('should parse empty closures', () => {
             '{}'.should.be.parsedBy(parser).into(
-              Closure({ sentences: [new Return()], code: '{}' })
+              Closure({ sentences: [], code: '{}' })
             ).and.be.tracedTo(0, 2)
           })
 
           it('should parse closures that do not receive parameters and returns nothing', () => {
             '{ => }'.should.be.parsedBy(parser).into(
-              Closure({ sentences: [new Return()], code: '{ => }' })
+              Closure({ sentences: [], code: '{ => }' })
             ).and.be.tracedTo(0, 6)
           })
 
           it('should parse closures without parameters', () => {
             '{ a }'.should.be.parsedBy(parser).into(
-              Closure({ sentences: [new Return({ value: new Reference({ name: 'a' }) })], code: '{ a }' })
+              Closure({ sentences: [new Reference({ name: 'a' })], code: '{ a }' })
             ).and.be.tracedTo(0, 5)
-              .and.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(2, 3)
+              .and.have.nested.property('value.members.0.body.sentences.0').tracedTo(2, 3)
           })
 
           it('should parse closures with return in their body', () => {
@@ -2334,7 +2320,7 @@ describe('Wollok parser', () => {
 
           it('should parse closure with parameters and no body', () => {
             '{ a => }'.should.be.parsedBy(parser).into(
-              Closure({ parameters: [new Parameter({ name: 'a' })], sentences: [new Return()], code: '{ a => }' })
+              Closure({ parameters: [new Parameter({ name: 'a' })], sentences: [], code: '{ a => }' })
             ).and.be.tracedTo(0, 8)
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
           })
@@ -2343,12 +2329,12 @@ describe('Wollok parser', () => {
             '{ a => a }'.should.be.parsedBy(parser).into(
               Closure({
                 parameters: [new Parameter({ name: 'a' })],
-                sentences: [new Return({ value: new Reference({ name: 'a' }) })],
+                sentences: [new Reference({ name: 'a' })],
                 code: '{ a => a }',
               })
             ).and.be.tracedTo(0, 10)
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
-              .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(7, 8)
+              .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
 
           })
 
@@ -2358,40 +2344,40 @@ describe('Wollok parser', () => {
                 parameters: [new Parameter({ name: 'a' })],
                 sentences: [
                   new Reference({ name: 'a' }),
-                  new Return({ value: new Reference({ name: 'b' }) }),
+                  new Reference({ name: 'b' }),
                 ],
                 code: '{ a => a; b }',
               })
             ).and.be.tracedTo(0, 13)
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
               .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(7, 8)
-              .and.also.have.nested.property('value.members.0.body.sentences.1.value').tracedTo(10, 11)
+              .and.also.have.nested.property('value.members.0.body.sentences.1').tracedTo(10, 11)
           })
 
           it('should parse closures that receive two parameters and return the first one', () => {
             '{ a,b => a }'.should.be.parsedBy(parser).into(
               Closure({
                 parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' })],
-                sentences: [new Return({ value: new Reference({ name: 'a' }) })],
+                sentences: [new Reference({ name: 'a' })],
                 code: '{ a,b => a }',
               })
             ).and.be.tracedTo(0, 12)
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
               .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 5)
-              .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(9, 10)
+              .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(9, 10)
           })
 
           it('should parse closures with vararg parameters', () => {
             '{ a,b... => a }'.should.be.parsedBy(parser).into(
               Closure({
                 parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b', isVarArg: true })],
-                sentences: [new Return({ value: new Reference({ name: 'a' }) })],
+                sentences: [new Reference({ name: 'a' })],
                 code: '{ a,b... => a }',
               })
             ).and.be.tracedTo(0, 15)
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
               .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 8)
-              .and.also.have.nested.property('value.members.0.body.sentences.0.value').tracedTo(12, 13)
+              .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(12, 13)
           })
 
           it('should not parse malformed closures', () => {

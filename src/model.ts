@@ -418,11 +418,7 @@ abstract class $Module extends $Entity {
         name,
         isOverride: false,
         parameters: [],
-        body: new Body({
-          sentences: [
-            new Return({ value: new Reference({ name }) }),
-          ],
-        }),
+        body: new Body({ sentences: [new Reference({ name })] }),
       }))
 
     const propertySetters = properties
@@ -792,15 +788,8 @@ type ClosurePayload = {
   source?: Source
 }
 
-export const Closure = ({ sentences: baseSentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> => {
-  const initialSentences = (baseSentences ?? []).slice(0, -1)
-  const lastSentence = last(baseSentences ?? [])
-  const sentences =
-    lastSentence?.is('Expression') ? [...initialSentences, new Return({ value: lastSentence })] :
-    lastSentence?.is('Return') ? [...initialSentences, lastSentence] :
-    [...initialSentences, ...lastSentence ? [lastSentence] : [], new Return()]
-
-  return new Literal<Singleton>({
+export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> =>
+  new Literal<Singleton>({
     value: new Singleton({
       supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
       members: [
@@ -812,7 +801,6 @@ export const Closure = ({ sentences: baseSentences, parameters, code, ...payload
     }),
     ...payload,
   })
-}
 
 export class Environment extends $Node {
   readonly kind = 'Environment'

@@ -263,7 +263,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
     parameters,
     body: alt(
       key('=').then(Expression.map(value => new BodyNode({
-        sentences: [new ReturnNode({ value })],
+        sentences: [value],
         source: value.source,
       }))),
 
