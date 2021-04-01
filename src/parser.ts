@@ -49,7 +49,7 @@ const error = (code: string) => (...safewords: string[]) =>
     new ParseError(code, { start, end, file: SOURCE_FILE })
   )
 
-const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems : List<ParseError>} => {
+const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
   const problems: ParseError[] = []
   const purged = mapObject((value: any) => {
     if(isArray(value)) {

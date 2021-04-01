@@ -5,9 +5,15 @@ import { v4 as uuid } from 'uuid'
 const { isArray } = Array
 const { keys, entries } = Object
 
+
 const DECIMAL_PRECISION = 5
 
-export type NativeFunction = (this: Runner, self: RuntimeObject, ...args: RuntimeObject[]) => Generator<Node, RuntimeObject | undefined>
+
+export type Execution<T> = Generator<Node, T>
+
+export type RuntimeValue = RuntimeObject | undefined
+
+export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: RuntimeObject[]) => Execution<RuntimeValue>
 export interface Natives { [name: string]: NativeFunction | Natives }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -17,14 +23,14 @@ export interface Natives { [name: string]: NativeFunction | Natives }
 export class Context {
   readonly id: Id = uuid()
   readonly parentContext?: Context
-  protected readonly locals: Map<Name, RuntimeObject | Generator<Node, RuntimeObject> | undefined> = new Map()
+  protected readonly locals: Map<Name, RuntimeValue | Execution<RuntimeObject>> = new Map()
 
-  constructor(parentContext?: Context, locals: Record<Name, RuntimeObject | Generator<Node, RuntimeObject>> = {}) {
+  constructor(parentContext?: Context, locals: Record<Name, RuntimeObject | Execution<RuntimeObject>> = {}) {
     this.parentContext = parentContext
     for(const [name, value] of entries(locals)) this.locals.set(name, value)
   }
 
-  get(local: Name): RuntimeObject | undefined {
+  get(local: Name): RuntimeValue {
     const found = this.locals.get(local) ?? this.parentContext?.get(local)
     if (!found || found instanceof RuntimeObject) return found
     let lazy = found.next()
@@ -33,7 +39,7 @@ export class Context {
     return lazy.value
   }
 
-  set(local: Name, value: RuntimeObject | Generator<Node, RuntimeObject>  | undefined, lookup = false): void {
+  set(local: Name, value: RuntimeValue | Execution<RuntimeObject>, lookup = false): void {
     if(!lookup || this.locals.has(local)) this.locals.set(local, value)
     else this.parentContext?.set(local, value, lookup)
   }
@@ -106,25 +112,40 @@ export class RuntimeObject extends Context {
   }
 }
 
+
+export class Frame {
+  readonly node: Node
+  readonly context: Context
+
+  constructor(node: Node, context: Context) {
+    this.node = node
+    this.context = context
+  }
+
+  copy(contextCache: Map<Id, Context>): Frame {
+    return new Frame(this.node, this.context.copy(contextCache))
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // RUNNER CONTROLLER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-class RunnerController {
-  generator: Generator<Node, RuntimeObject | undefined>
+class ExecutionDirector {
+  execution: Execution<RuntimeValue>
   done = false
 
-  constructor(runner: Runner, node: Node) {
-    this.generator = runner.exec(node)
+  constructor(runner: Evaluation, node: Node) {
+    this.execution = runner.exec(node)
   }
 
-  resume(breakpoints: Node[] = []): RuntimeObject | undefined {
+  resume(breakpoints: Node[] = []): RuntimeValue {
     if(this.done) throw new Error('Evaluation is already finished')
 
-    let next = this.generator.next()
+    let next = this.execution.next()
     while(!next.done) {
       if(breakpoints.includes(next.value)) return
-      next = this.generator.next()
+      next = this.execution.next()
     }
 
     this.done = true
@@ -151,22 +172,7 @@ export default class Interpreter {
 }
 
 
-export class Frame {
-  readonly node: Node
-  readonly context: Context
-
-  constructor(node: Node, context: Context) {
-    this.node = node
-    this.context = context
-  }
-
-  copy(contextCache: Map<Id, Context>): Frame {
-    return new Frame(this.node, this.context.copy(contextCache))
-  }
-}
-
-
-export class Runner {
+export class Evaluation {
   readonly natives: Natives
   readonly frameStack: Frame[]
   console: Console = console
@@ -175,8 +181,8 @@ export class Runner {
   get rootContext(): Context { return this.frameStack[0].context }
   get environment(): Environment { return this.frameStack[0].node as Environment }
 
-  static build(environment: Environment, natives: Natives): Runner {
-    const evaluation = new Runner(natives, [new Frame(environment, new Context())])
+  static build(environment: Environment, natives: Natives): Evaluation {
+    const evaluation = new Evaluation(natives, [new Frame(environment, new Context())])
 
     evaluation.rootContext.set('null', evaluation.instantiate(environment.getNodeByFQN('wollok.lang.Object')))
 
@@ -208,17 +214,17 @@ export class Runner {
     this.frameStack = frameStack
   }
 
-  copy(contextCache: Map<Id, Context> = new Map()): Runner {
-    return new Runner(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
+  copy(contextCache: Map<Id, Context> = new Map()): Evaluation {
+    return new Evaluation(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // EXECUTION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  exec(node: Expression, context?: Context): Generator<Node, RuntimeObject>
+  exec(node: Expression, context?: Context): Execution<RuntimeObject>
   exec(node: Node, context?: Context): Generator<Node, undefined>
-  *exec(node: Node, context: Context = this.currentContext): Generator<Node, RuntimeObject | undefined> {
+  *exec(node: Node, context: Context = this.currentContext): Execution<RuntimeValue> {
     this.frameStack.push(new Frame(node, context))
 
     try {
@@ -253,36 +259,44 @@ export class Runner {
   }
 
 
-  protected *execBody(node: Body): Generator<Node, RuntimeObject | undefined> {
+  protected *execBody(node: Body): Execution<RuntimeValue> {
     yield node
 
-    let result: RuntimeObject | undefined
+    let result: RuntimeValue
     for(const sentence of node.sentences) result = yield* this.exec(sentence)
+
     return result
   }
 
-  protected *execVariable(node: Variable): Generator<Node, RuntimeObject | undefined> {
+  protected *execVariable(node: Variable): Execution<RuntimeValue> {
     const value = yield* this.exec(node.value)
+
     yield node
+
     this.currentContext.set(node.name, value)
+
     return
   }
 
-  protected *execAssignment(node: Assignment): Generator<Node, RuntimeObject | undefined> {
+  protected *execAssignment(node: Assignment): Execution<RuntimeValue> {
     const value = yield* this.exec(node.value)
+
     yield node
+
     if(node.variable.target()?.isReadOnly) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+
     this.currentContext.set(node.variable.name, value, true)
+
     return
   }
 
-  protected *execReturn(node: Return): Generator<Node, RuntimeObject | undefined> {
+  protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
     yield node
     throw new WollokReturn(value)
   }
 
-  protected *execReference(node: Reference<Node>): Generator<Node, RuntimeObject | undefined> {
+  protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
     const target = node.target()!
@@ -294,12 +308,12 @@ export class Runner {
     )
   }
 
-  protected *execSelf(node: Self): Generator<Node, RuntimeObject | undefined> {
+  protected *execSelf(node: Self): Execution<RuntimeValue> {
     yield node
     return this.currentContext.get('self')
   }
 
-  protected *execLiteral(node: Literal<LiteralValue>): Generator<Node, RuntimeObject | undefined> {
+  protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
     if(isArray(node.value)) {
       const [reference, args] = node.value
       const module = reference.target()!
@@ -322,7 +336,7 @@ export class Runner {
     return yield* this.reify(node.value as any)
   }
 
-  protected *execNew(node: New): Generator<Node, RuntimeObject | undefined> {
+  protected *execNew(node: New): Execution<RuntimeValue> {
     const args: Record<Name, RuntimeObject> = {}
     for(const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
 
@@ -333,7 +347,7 @@ export class Runner {
     return yield* this.instantiate(node.instantiated.target()!, args)
   }
 
-  protected *execSend(node: Send): Generator<Node, RuntimeObject | undefined> {
+  protected *execSend(node: Send): Execution<RuntimeValue> {
     const receiver = yield* this.exec(node.receiver)
     const values: RuntimeObject[] = []
     for(const arg of node.args) values.push(yield * this.exec(arg))
@@ -343,7 +357,7 @@ export class Runner {
     return yield* this.invoke(node.message, receiver, ...values)
   }
 
-  protected *execSuper(node: Super): Generator<Node, RuntimeObject | undefined> {
+  protected *execSuper(node: Super): Execution<RuntimeValue> {
     const values: RuntimeObject[] = []
     for(const arg of node.args) values.push(yield * this.exec(arg))
 
@@ -356,7 +370,7 @@ export class Runner {
     return yield* this.invoke(method, receiver, ...values)
   }
 
-  protected *execIf(node: If): Generator<Node, RuntimeObject | undefined> {
+  protected *execIf(node: If): Execution<RuntimeValue> {
     const condition: RuntimeObject = yield* this.exec(node.condition)
     condition.assertIsBoolean()
 
@@ -365,10 +379,10 @@ export class Runner {
     return yield* this.exec(condition.innerValue ? node.thenBody : node.elseBody, new Context(this.currentContext))
   }
 
-  protected *execTry(node: Try): Generator<Node, RuntimeObject | undefined> {
+  protected *execTry(node: Try): Execution<RuntimeValue> {
     yield node
 
-    let result: RuntimeObject | undefined
+    let result: RuntimeValue
     try {
       result = yield* this.exec(node.body, new Context(this.currentContext))
     } catch(error) {
@@ -386,7 +400,7 @@ export class Runner {
 
   }
 
-  protected *execThrow(node: Throw): Generator<Node, RuntimeObject | undefined> {
+  protected *execThrow(node: Throw): Execution<RuntimeValue> {
     const exception = yield* this.exec(node.exception)
 
     yield node
@@ -396,7 +410,7 @@ export class Runner {
   }
 
 
-  *invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Generator<Node, RuntimeObject | undefined> {
+  *invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
     const method = methodOrMessage instanceof Method ? methodOrMessage :
       typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
       methodOrMessage
@@ -405,7 +419,7 @@ export class Runner {
     if (method.isAbstract()) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
     if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
-    if(method.body === 'native') {
+    if(method.body === 'native') { //TODO: method.isNative(): this & {body: 'native'}
       const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
       const native = get<NativeFunction>(this.natives, nativeFQN)
       if(!native) throw new Error(`Missing native ${nativeFQN}`)
@@ -415,7 +429,7 @@ export class Runner {
         return yield* native.bind(this)(receiver, ...args)
       } finally { this.frameStack.pop() }
     } else {
-      let result: RuntimeObject | undefined
+      let result: RuntimeValue
       const locals: Record<Name, RuntimeObject> = {}
       for(let index = 0; index < method.parameters.length; index++){
         const { name, isVarArg } = method.parameters[index]
@@ -436,7 +450,7 @@ export class Runner {
   // INSTANCIATION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  *reify(value: boolean | number | string | null): Generator<Node, RuntimeObject> {
+  *reify(value: boolean | number | string | null): Execution<RuntimeObject> {
     if(typeof value === 'number') {
       const stringValue = value.toFixed(DECIMAL_PRECISION)
       const existing = this.rootContext.get(`N!${stringValue}`)
@@ -465,18 +479,18 @@ export class Runner {
     return this.rootContext.get(`${value}`)!
   }
 
-  *list(value: RuntimeObject[]): Generator<Node, RuntimeObject> {
+  *list(value: RuntimeObject[]): Execution<RuntimeObject> {
     return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.currentContext, value)
   }
 
-  *set(value: RuntimeObject[]): Generator<Node, RuntimeObject> {
+  *set(value: RuntimeObject[]): Execution<RuntimeObject> {
     const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.currentContext, [])
     for(const elem of value)
       yield* this.invoke('add', result, elem)
     return result
   }
 
-  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): Generator<Node, RuntimeObject> {
+  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): Execution<RuntimeObject> {
     const defaultFieldValues = module.defaultFieldValues()
 
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)

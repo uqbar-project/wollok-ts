@@ -163,6 +163,9 @@
         "asyncArrow": "always",
         "named": "never"
       }
+    ],
+    "@typescript-eslint/type-annotation-spacing": [
+      "warn"
     ]
   }
 }

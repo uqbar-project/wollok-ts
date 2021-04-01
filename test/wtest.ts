@@ -2,7 +2,7 @@ import { basename } from 'path'
 import yargs from 'yargs'
 import { is, List, Module, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import { Runner, WollokException, Context, RuntimeObject } from '../src/interpreter/runtimeModel'
+import { Evaluation, WollokException, Context, RuntimeObject } from '../src/interpreter/runtimeModel'
 import natives from '../src/wre/wre.natives'
 import { traverse } from '../src/extensions'
 
@@ -22,7 +22,7 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(nodes: List<Node>, evaluation: Runner) {
+function registerTests(nodes: List<Node>, evaluation: Evaluation) {
   nodes.forEach(node => {
     if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
 
@@ -39,10 +39,10 @@ function registerTests(nodes: List<Node>, evaluation: Runner) {
           return yield* runner.exec(node.body, context)
         }
 
-        const generator = runTest()
+        const execution = runTest()
         try {
           // TODO: Use a run controller
-          traverse(generator)
+          traverse(execution)
         } catch (error) {
           logError(error)
           throw error
@@ -90,7 +90,7 @@ function logError(error: any) {
 
 (async function () {
   const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
-  describe(basename(ARGUMENTS.root), () => registerTests(environment.members, Runner.build(environment, natives)))
+  describe(basename(ARGUMENTS.root), () => registerTests(environment.members, Evaluation.build(environment, natives)))
 })()
   .then(run)
   .catch(e => {

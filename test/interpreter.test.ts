@@ -2,7 +2,7 @@ import { expect, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { restore, stub } from 'sinon'
 import { Class, Package, Reference, Self, Variable, Literal, Method, Body, Singleton, New, Field, NamedArgument } from '../src/model'
-import { Context, Runner, RuntimeObject } from '../src/interpreter/runtimeModel'
+import { Context, Evaluation, RuntimeObject } from '../src/interpreter/runtimeModel'
 import link from '../src/linker'
 import { interpreter2Assertions } from './assertions'
 

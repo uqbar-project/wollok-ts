@@ -1,23 +1,26 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { Natives, RuntimeObject } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const lib: Natives = {
 
   console: {
 
-    *println(_self: RuntimeObject, obj: RuntimeObject) {
+    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<RuntimeValue> {
       const message = yield* this.invoke('toString', obj)
       this.console.log(message!.innerValue)
       return undefined
     },
 
-    // TODO: Pending Implementation
-    // readLine(_self: RuntimeObject),
+    *readLine(_self: RuntimeObject): Execution<RuntimeValue> {
+      // TODO: Pending Implementation
+      throw new Error('Native not yet implemented: console.readLine')
+    },
 
-    // TODO:
-    // readInt(_self: RuntimeObject) { }
+    *readInt(_self: RuntimeObject): Execution<RuntimeValue> {
+      // TODO: Pending Implementation
+      throw new Error('Native not yet implemented: console.readInt')
+    },
 
-    *newline(_self: RuntimeObject) {
+    *newline(_self: RuntimeObject): Execution<RuntimeValue> {
       const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
       return yield* this.reify(newline)
     },

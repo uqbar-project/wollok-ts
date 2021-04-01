@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-import { Natives } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeValue } from '../interpreter/runtimeModel'
 
 const vm: Natives = {
 
   runtime: {
-    *isInteractive() {
+    *isInteractive(): Execution<RuntimeValue> {
       return yield* this.reify(false)
     },
 

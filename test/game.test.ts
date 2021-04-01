@@ -2,7 +2,7 @@ import { should } from 'chai'
 import { join } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { Environment, Program, Runner } from '../src'
+import { Environment, Program, Evaluation } from '../src'
 import { traverse } from '../src/extensions'
 
 should()
@@ -20,7 +20,7 @@ describe('Wollok Game', () => {
     })
 
     const runGameProgram = (programFQN: string) => {
-      const evaluation = Runner.build(environment, natives)
+      const evaluation = Evaluation.build(environment, natives)
       const program = environment.getNodeByFQN<Program>(programFQN)
 
       console.info('Running program', programFQN)
@@ -58,7 +58,7 @@ describe('Wollok Game', () => {
     })
 
     it('flush event', () => traverse(function*() {
-      const evaluation = Runner.build(environment, natives)
+      const evaluation = Evaluation.build(environment, natives)
       const gameMirror = evaluation.currentContext.get('wollok.gameMirror.gameMirror')!
       const time = yield* evaluation.reify(1)
       yield* evaluation.invoke('flushEvents', gameMirror, time)
