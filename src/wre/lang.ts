@@ -62,7 +62,8 @@ const lang: Natives = {
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
       message.assertIsString()
 
-      if (value === (yield * this.reify(null))) throw new TypeError(message.innerValue)
+      if (value.innerValue === null) yield* this.invoke('error', value, message)
+
       return undefined
     },
 
@@ -345,8 +346,8 @@ const lang: Natives = {
     },
 
     *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
-      if (key === (yield* this.reify(null))) throw new TypeError('key') // TODO: null as inner value to avoid these checks
-      if (value === (yield* this.reify(null))) throw new TypeError('value')
+      key.assertIsNotNull()
+      value.assertIsNotNull()
 
       yield* this.invoke('remove', self, key)
 
@@ -826,9 +827,9 @@ const lang: Natives = {
 
       const today = new Date()
 
-      if (!day || day === (yield* this.reify(null))) self.set('day', yield* this.reify(today.getDate()))
-      if (!month || month === (yield* this.reify(null))) self.set('month', yield* this.reify(today.getMonth() + 1))
-      if (!year || year === (yield* this.reify(null))) self.set('year', yield* this.reify(today.getFullYear()))
+      if (!day || day.innerValue === null) self.set('day', yield* this.reify(today.getDate()))
+      if (!month || month.innerValue === null) self.set('month', yield* this.reify(today.getMonth() + 1))
+      if (!year || year.innerValue === null) self.set('year', yield* this.reify(today.getFullYear()))
 
       return undefined
     },

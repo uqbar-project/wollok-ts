@@ -3,7 +3,7 @@ import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
+      visual.assertIsNotNull()
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
 
       const visuals: RuntimeObject = self.get('visuals')!
@@ -18,8 +18,8 @@ const game: Natives = {
     },
 
     *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
-      if (position === (yield* this.reify(null))) throw new TypeError('position')
+      visual.assertIsNotNull()
+      position.assertIsNotNull()
 
       const visuals: RuntimeObject = self.get('visuals')!
       if (!visuals) self.set('visuals', yield* this.list([visual]))
@@ -118,7 +118,7 @@ const game: Natives = {
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      if (visual === (yield* this.reify(null))) throw new TypeError('visual')
+      visual.assertIsNotNull()
 
       const position = visual.get('position') ?? (yield* this.invoke('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.invoke('getObjectsIn', self, position))!

@@ -66,7 +66,7 @@ export class Context {
 }
 
 
-export type InnerValue = boolean | string | number | RuntimeObject[] | Error
+export type InnerValue = null | boolean | string | number | RuntimeObject[] | Error
 
 export class RuntimeObject extends Context {
   readonly module: Module
@@ -88,11 +88,6 @@ export class RuntimeObject extends Context {
     )
   }
 
-
-  assertIsException(): asserts this is RuntimeObject & { innerValue?: Error } {
-    if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
-  }
-
   assertIsBoolean(): asserts this is RuntimeObject & { innerValue: boolean } { this.assertIs('wollok.lang.Boolean', 'boolean') }
 
   assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
@@ -102,6 +97,14 @@ export class RuntimeObject extends Context {
   assertIsCollection(): asserts this is RuntimeObject & { innerValue: RuntimeObject[] } {
     if (!isArray(this.innerValue) || this.innerValue.length && !(this.innerValue[0] instanceof RuntimeObject))
       throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
+  }
+
+  assertIsException(): asserts this is RuntimeObject & { innerValue?: Error } {
+    if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
+  }
+
+  assertIsNotNull(): asserts this is RuntimeObject & { innerValue?: Exclude<InnerValue, null> } {
+    if(this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
   }
 
   protected assertIs(moduleFQN: Name, innerValueType: string): void {
@@ -183,8 +186,6 @@ export class Evaluation {
 
   static build(environment: Environment, natives: Natives): Evaluation {
     const evaluation = new Evaluation(natives, [new Frame(environment, new Context())])
-
-    evaluation.rootContext.set('null', evaluation.instantiate(environment.getNodeByFQN('wollok.lang.Object')))
 
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
@@ -451,6 +452,14 @@ export class Evaluation {
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   *reify(value: boolean | number | string | null): Execution<RuntimeObject> {
+    if(typeof value === 'boolean'){
+      const existing = this.rootContext.get(`${value}`)
+      if(existing) return existing
+      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext, value)
+      this.rootContext.set(`${value}`, instance)
+      return instance
+    }
+
     if(typeof value === 'number') {
       const stringValue = value.toFixed(DECIMAL_PRECISION)
       const existing = this.rootContext.get(`N!${stringValue}`)
@@ -468,15 +477,11 @@ export class Evaluation {
       return instance
     }
 
-    if(typeof value === 'boolean'){
-      const existing = this.rootContext.get(`${value}`)
-      if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootContext, value)
-      this.rootContext.set(`${value}`, instance)
-      return instance
-    }
-
-    return this.rootContext.get(`${value}`)!
+    const existing = this.rootContext.get('null')
+    if(existing) return existing
+    const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Object'), this.rootContext, value)
+    this.rootContext.set('null', instance)
+    return instance
   }
 
   *list(value: RuntimeObject[]): Execution<RuntimeObject> {
