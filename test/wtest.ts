@@ -2,9 +2,8 @@ import { basename } from 'path'
 import yargs from 'yargs'
 import { is, List, Module, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import { Evaluation, WollokException, Context, RuntimeObject } from '../src/interpreter/runtimeModel'
+import { Evaluation, WollokException, Context, RuntimeObject, ExecutionDirector } from '../src/interpreter/runtimeModel'
 import natives from '../src/wre/wre.natives'
-import { traverse } from '../src/extensions'
 
 const { error } = console
 
@@ -30,19 +29,18 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
-        const runner = evaluation.copy()
+        const testEvaluation = evaluation.copy()
         const runTest = function* () {
           const context = node.parent().is('Describe')
-            ? yield* runner.instantiate(node.parent() as unknown as Module)
-            : new Context(runner.currentContext)
+            ? yield* testEvaluation.instantiate(node.parent() as unknown as Module)
+            : new Context(testEvaluation.currentContext)
 
-          return yield* runner.exec(node.body, context)
+          return yield* testEvaluation.exec(node.body, context)
         }
 
-        const execution = runTest()
+        const execution = new ExecutionDirector(testEvaluation, runTest())
         try {
-          // TODO: Use a run controller
-          traverse(execution)
+          execution.resume()
         } catch (error) {
           logError(error)
           throw error

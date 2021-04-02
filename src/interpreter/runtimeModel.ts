@@ -44,6 +44,10 @@ export class Context {
     else this.parentContext?.set(local, value, lookup)
   }
 
+  contextHierarchy(): List<Context> {
+    return [this, ...this.parentContext?.contextHierarchy() ?? []]
+  }
+
   copy(contextCache: Map<Id, Context>): this {
     if(contextCache.has(this.id)) return contextCache.get(this.id) as this
 
@@ -134,26 +138,65 @@ export class Frame {
 // RUNNER CONTROLLER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-class ExecutionDirector {
-  execution: Execution<RuntimeValue>
-  done = false
+export type ExecutionState = Readonly<
+  { done: false, evaluation: Evaluation, next: Node } |
+  { done: true, evaluation: Evaluation, error: WollokException } |
+  { done: true, evaluation: Evaluation, result: RuntimeValue }
+>
 
-  constructor(runner: Evaluation, node: Node) {
-    this.execution = runner.exec(node)
+// TODO:
+// - track history
+// - breakpoints
+// - conditional breakpoints?
+// - break on exception
+
+export class ExecutionDirector {
+  readonly evaluation: Evaluation
+  readonly execution: Execution<RuntimeValue>
+
+  constructor(evaluation: Evaluation, execution: Execution<RuntimeValue>) {
+    this.evaluation = evaluation
+    this.execution = execution
   }
 
-  resume(breakpoints: Node[] = []): RuntimeValue {
-    if(this.done) throw new Error('Evaluation is already finished')
+  resume(shouldHalt: (next: Node, evaluation: Evaluation) => boolean = () => false): ExecutionState {
+    try {
+      let next = this.execution.next()
+      while(!next.done) {
+        if(shouldHalt(next.value, this.evaluation)) return { done: false, evaluation: this.evaluation, next: next.value }
 
-    let next = this.execution.next()
-    while(!next.done) {
-      if(breakpoints.includes(next.value)) return
-      next = this.execution.next()
+        next = this.execution.next()
+      }
+      return { done: true, evaluation: this.evaluation, result: next.value }
+    } catch (error) {
+      if (error instanceof WollokException) return { done: true, evaluation: this.evaluation, error }
+      throw error
     }
-
-    this.done = true
-    return next.value
   }
+
+  stepIn(): ExecutionState {
+    return this.resume(() => true)
+  }
+
+  stepOut(): ExecutionState {
+    const currentHeight = this.evaluation.frameStack.length
+    return this.resume((_, evaluation) => evaluation.frameStack.length < currentHeight)
+  }
+
+  stepOver(): ExecutionState {
+    const currentHeight = this.evaluation.frameStack.length
+    return this.resume((_, evaluation) => evaluation.frameStack.length <= currentHeight)
+  }
+
+  stepThrough(): ExecutionState {
+    const currentHeight = this.evaluation.frameStack.length
+    const currentContext = this.evaluation.currentContext
+    return this.resume((_, evaluation) =>
+      evaluation.frameStack.length <= currentHeight ||
+      evaluation.currentContext.contextHierarchy().includes(currentContext)
+    )
+  }
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
