@@ -286,15 +286,16 @@ export class Evaluation {
         If: node => this.execIf(node),
         Try: node => this.execTry(node),
         Throw: node => this.execThrow(node),
-        Node() { throw new Error(`${node.kind} node can't be executed`) },
       })
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
       else {
-        const module = this.environment.getNodeByFQN<Class>(error.message === 'Maximum call stack size exceeded'
-          ? 'wollok.lang.StackOverflowException'
-          : 'wollok.lang.EvaluationError'
+        const module = this.environment.getNodeByFQN<Class>(
+          error.message === 'Maximum call stack size exceeded'
+            ? 'wollok.lang.StackOverflowException'
+            : 'wollok.lang.EvaluationError'
         )
+
         throw new WollokException([...this.frameStack], new RuntimeObject(module, context, error))
       }
     } finally {
@@ -470,7 +471,7 @@ export class Evaluation {
 
       this.frameStack.push(new Frame(method, new Context(receiver)))
       try {
-        return yield* native.bind(this)(receiver, ...args)
+        return yield* native.call(this, receiver, ...args)
       } finally { this.frameStack.pop() }
     } else {
       let result: RuntimeValue

@@ -1,9 +1,9 @@
 import { Index } from 'parsimmon'
-import { keys, mapObject, last } from './extensions'
+import { mapObject, last } from './extensions'
 import * as Models from './model'
 
 const { isArray } = Array
-const { values, assign } = Object
+const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
@@ -175,9 +175,9 @@ abstract class $Node {
   environment(): Environment { throw new Error('Unlinked node has no Environment') }
 
   match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
-    const matched = keys(cases).find(key => this.is(key))
-    if (!matched) throw new Error(`Unmatched kind ${this.kind}`)
-    return (cases[matched] as (node: Node) => T)(this)
+    for(const [key, handler] of entries(cases))
+      if(this.is(key as Kind)) return (handler as (node: Node) => T)(this)
+    throw new Error(`Unmatched kind ${this.kind}`)
   }
 
   transform(tx: (node: Node) => Node): this {

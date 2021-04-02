@@ -215,15 +215,15 @@ const lang: Natives = {
           else
             after.push(elem)
 
-        const sortedBefore = yield* quickSort.bind(this)(before)
-        const sortedAfter = yield* quickSort.bind(this)(after)
+        const sortedBefore = yield* quickSort.call(this, before)
+        const sortedAfter = yield* quickSort.call(this, after)
 
         return [...sortedBefore, head, ...sortedAfter]
       }
 
       self.assertIsCollection()
 
-      const sorted = yield* quickSort.bind(this)(self.innerValue)
+      const sorted = yield* quickSort.call(this, self.innerValue)
 
       self.innerValue.splice(0, self.innerValue.length)
       self.innerValue.push(...sorted)
