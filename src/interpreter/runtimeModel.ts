@@ -153,6 +153,7 @@ export type ExecutionState = Readonly<
 export class ExecutionDirector {
   readonly evaluation: Evaluation
   readonly execution: Execution<RuntimeValue>
+  readonly breakpoints: Node[] = []
 
   constructor(evaluation: Evaluation, execution: Execution<RuntimeValue>) {
     this.evaluation = evaluation
@@ -163,7 +164,8 @@ export class ExecutionDirector {
     try {
       let next = this.execution.next()
       while(!next.done) {
-        if(shouldHalt(next.value, this.evaluation)) return { done: false, evaluation: this.evaluation, next: next.value }
+        if(this.breakpoints.includes(next.value) || shouldHalt(next.value, this.evaluation))
+          return { done: false, evaluation: this.evaluation, next: next.value }
 
         next = this.execution.next()
       }
