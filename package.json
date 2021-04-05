@@ -10,7 +10,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp",
+    "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && cp -r language/src/* dist/wre/",
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",

@@ -30,6 +30,7 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
         const testEvaluation = evaluation.copy()
+        // TODO: Don't repeat this in the debugger
         const runTest = function* () {
           const context = node.parent().is('Describe')
             ? yield* testEvaluation.instantiate(node.parent() as unknown as Module)

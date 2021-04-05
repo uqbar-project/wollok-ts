@@ -8,6 +8,7 @@
     - Removed Fixtures
     - New homogeneous linearization syntax
     - Replaced bytecode compiler with (a little slower, but easier to maintain) pure AST interpreter
+    - Fixed filenames in node's source: Now is the whole filename, with extension and dirs
 
 ## v2.3.0
 - Fixing building process in bad release

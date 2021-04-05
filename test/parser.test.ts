@@ -69,13 +69,16 @@ describe('Wollok parser', () => {
 
 
   describe('Files', () => {
-    const parser = parse.File('foo')
 
     it('should parse empty packages', () => {
+      const parser = parse.File('foo.wlk')
+
       ''.should.be.parsedBy(parser).into(new Package({ name:'foo' })).and.be.tracedTo(0, 0)
     })
 
     it('should parse non-empty packages', () => {
+      const parser = parse.File('foo.wlk')
+
       'import p import q class C {}'.should.be.parsedBy(parser).into(
         new Package({
           name:'foo',
@@ -91,6 +94,24 @@ describe('Wollok parser', () => {
         .and.have.nested.property('imports.0').tracedTo(0, 8)
         .and.also.have.nested.property('imports.1').tracedTo(9, 17)
         .and.also.have.nested.property('members.0').tracedTo(18, 28)
+    })
+
+    it('should nest parsed file inside the dir packages', () => {
+      const parser = parse.File('a/b/foo.wlk')
+
+      ''.should.be.parsedBy(parser).into(
+        new Package({
+          name: 'a',
+          members: [
+            new Package({
+              name: 'b',
+              members: [
+                new Package({ name:'foo' }),
+              ],
+            }),
+          ],
+        })
+      ).and.have.nested.property('members.0.members.0').tracedTo(0, 0)
     })
 
   })

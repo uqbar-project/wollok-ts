@@ -4,7 +4,7 @@ import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Referen
 const { assign } = Object
 
 
-export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib']
+export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game']
 
 
 export class LinkError extends Problem {
@@ -139,7 +139,8 @@ export default (
 
   // TODO: Move to validator?
   environment.forEach(node => {
-    if(node.is('Reference') && !node.target()) fail('missingReference')(node)
+    if(node.is('Reference') && !node.target())
+      fail('missingReference')(node)
   })
 
   return environment

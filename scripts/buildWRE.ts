@@ -3,7 +3,6 @@ import { sync as listFiles } from 'globby'
 import { join } from 'path'
 import link from '../src/linker'
 import { File } from '../src/parser'
-import { Package } from '../src/model'
 
 const { writeFile, readFile } = promises
 
@@ -14,36 +13,24 @@ async function buildWRE() {
   console.group('Building WRE')
   console.time('Building WRE')
 
-  // TODO: Can we move this to lang? See wollok-language/issues/48
-  const targetRawWRE = new Package({
-    name: 'wollok',
-    members: await Promise.all([
-      File('io').tryParse(await readFile(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
-      File('gameMirror').tryParse(await readFile(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
-    ]),
-  })
-
-  const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
-
   console.info('Parsing...')
   console.time('Parsed')
+  // TODO: Can we move this to lang? See wollok-language/issues/48
+  const targetRawWRE = await Promise.all([
+    File('wollok/io.wlk').tryParse(await readFile(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
+    File('wollok/gameMirror.wlk').tryParse(await readFile(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
+  ])
+
+  const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
   const rawWRE = await Promise.all(sourceFiles.map(async sourceFile => {
-    const sourceFilePath = sourceFile.split('/')
-    const sourceFileName = sourceFilePath.splice(-1)[0].split('.')[0]
     const fileContent = await readFile(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8')
-
-    return sourceFilePath.reduce(
-      (node, name) => new Package({ name, members: [node] }),
-      File(sourceFileName).tryParse(fileContent)
-    )
-  })
-  )
-
+    return File(sourceFile).tryParse(fileContent)
+  }))
   console.timeEnd('Parsed')
 
   console.info('Linking...')
   console.time('Linked')
-  const wre = link([...rawWRE, targetRawWRE])
+  const wre = link([...rawWRE, ...targetRawWRE])
   console.timeEnd('Linked')
 
   console.info('Saving...')

@@ -23,7 +23,7 @@ export interface Natives { [name: string]: NativeFunction | Natives }
 export class Context {
   readonly id: Id = uuid()
   readonly parentContext?: Context
-  protected readonly locals: Map<Name, RuntimeValue | Execution<RuntimeObject>> = new Map()
+  readonly locals: Map<Name, RuntimeValue | Execution<RuntimeObject>> = new Map()
 
   constructor(parentContext?: Context, locals: Record<Name, RuntimeObject | Execution<RuntimeObject>> = {}) {
     this.parentContext = parentContext
@@ -206,7 +206,7 @@ export class ExecutionDirector {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class WollokReturn extends Error { constructor(readonly instance?: RuntimeObject){ super() } }
-export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super() } }
+export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super(`WollokException: ${instance.module.name}`) } }
 
 
 export default class Interpreter {
@@ -226,6 +226,7 @@ export class Evaluation {
   console: Console = console
 
   get currentContext(): Context { return last(this.frameStack)!.context }
+  get currentNode(): Node { return last(this.frameStack)!.node }
   get rootContext(): Context { return this.frameStack[0].context }
   get environment(): Environment { return this.frameStack[0].node as Environment }
 
@@ -262,6 +263,20 @@ export class Evaluation {
 
   copy(contextCache: Map<Id, Context> = new Map()): Evaluation {
     return new Evaluation(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
+  }
+
+  allInstances(): Set<RuntimeObject> {
+    function contextInstances(context?: Context): List<RuntimeObject> {
+      if(!context) return []
+      const localInstances = [...context.locals.values()].filter((value): value is RuntimeObject => value instanceof RuntimeObject)
+      return [
+        ...contextInstances(context.parentContext),
+        ...context instanceof RuntimeObject ? [context, ...isArray(context.innerValue) ? context.innerValue.flatMap(contextInstances) : []] : [],
+        ...localInstances.flatMap(contextInstances),
+      ]
+    }
+
+    return new Set(this.frameStack.flatMap(frame => contextInstances(frame.context)))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
