@@ -25,7 +25,10 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
   nodes.forEach(node => {
     if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
 
-    else if (node.is('Describe')) describe(node.name, () => registerTests(node.tests(), evaluation))
+    else if (node.is('Describe')) describe(node.name, () => {
+      const onlyTest = node.tests().find(test => test.isOnly)
+      registerTests(onlyTest ? [onlyTest] : node.tests(), evaluation)
+    })
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
