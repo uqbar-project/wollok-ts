@@ -1,4 +1,4 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw } from '../model'
+import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
 import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
 
@@ -139,9 +139,9 @@ export class Frame {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export type ExecutionState = Readonly<
-  { done: false, evaluation: Evaluation, next: Node } |
+  { done: false, evaluation: Evaluation, next: Node, error?: undefined } |
   { done: true, evaluation: Evaluation, error: WollokException } |
-  { done: true, evaluation: Evaluation, result: RuntimeValue }
+  { done: true, evaluation: Evaluation, result: RuntimeValue, error?: undefined }
 >
 
 // TODO:
@@ -290,6 +290,8 @@ export class Evaluation {
 
     try {
       return yield* node.match({
+        Test: node => this.execTest(node),
+        Program: node => this.execProgram(node),
         Body: node => this.execBody(node),
         Variable: node => this.execVariable(node),
         Assignment: node => this.execAssignment(node),
@@ -320,6 +322,25 @@ export class Evaluation {
     }
   }
 
+
+  protected *execTest(node: Test): Execution<undefined> {
+    yield node
+
+    yield* this.exec(node.body, node.parent().is('Describe')
+      ? yield* this.instantiate(node.parent() as unknown as Module) // TODO: Describe is Module?
+      : new Context(this.currentContext)
+    )
+
+    return undefined
+  }
+
+  protected *execProgram(node: Program): Execution<undefined> {
+    yield node
+
+    yield* this.exec(node.body)
+
+    return undefined
+  }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
     yield node
