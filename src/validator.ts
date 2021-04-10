@@ -11,7 +11,7 @@
 // Default parameters don't repeat
 
 
-import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, Source, List } from './model'
+import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, SourceMap, List } from './model'
 import { Kind } from './model'
 
 const { keys } = Object
@@ -26,10 +26,10 @@ export interface Problem {
   readonly level: Level
   readonly node: Node
   readonly values: List<string>
-  readonly source: Source // TODO: Wouldn't it be best if this is an optional field?
+  readonly source: SourceMap // TODO: Wouldn't it be best if this is an optional field?
 }
 
-const EMPTY_SOURCE: Source = {
+const EMPTY_SOURCE: SourceMap = {
   start: { offset: 0, line: 0, column: 0 },
   end: { offset: 0, line: 0, column: 0 },
 }
@@ -37,7 +37,7 @@ const EMPTY_SOURCE: Source = {
 const problem = (level: Level) => <N extends Node>(
   condition: (node: N) => boolean,
   values: (node: N) => string[] = () => [],
-  source: (node: N) => Source = (node) => ({ start: node.source!.start, end: node.source!.end, file: node.source!.file }),
+  source: (node: N) => SourceMap = (node) => ({ start: node.sourceMap!.start, end: node.sourceMap!.end }),
 ) => (node: N, code: Code): Problem | null =>
     !condition(node)
       ? {
@@ -45,7 +45,7 @@ const problem = (level: Level) => <N extends Node>(
         code,
         node,
         values: values(node),
-        source: node.source ? source(node) : EMPTY_SOURCE,
+        source: node.sourceMap ? source(node) : EMPTY_SOURCE,
       }
       : null
 
@@ -59,7 +59,7 @@ const error = problem('Error')
 
 const isNotEmpty = (node: Program | Test | Method) => node.sentences().length !== 0
 
-const isNotPresentIn = <N extends Node>(kind: Kind) => error<N>((node: N) => !node.source || !node.ancestors().some(is(kind)))
+const isNotPresentIn = <N extends Node>(kind: Kind) => error<N>((node: N) => !node.sourceMap || !node.ancestors().some(is(kind)))
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {
@@ -68,7 +68,7 @@ export const validations = {
     node => [node.name],
     node => {
       const nodeOffset = node.kind.length + 1
-      const { start, end } = node.source!
+      const { start, end } = node.sourceMap!
       return {
         start: {
           ...start,
@@ -243,7 +243,7 @@ export default (target: Node): List<Problem> => {
     }
     return [
       ...found,
-      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.source ?? EMPTY_SOURCE } as const)  ) ?? [],
+      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap ?? EMPTY_SOURCE } as const)  ) ?? [],
       ...keys(checks)
         .map(code => checks[code](node, code)!)
         .filter(result => result !== null),

@@ -1,7 +1,7 @@
 import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, Source, Closure, ParameterizedType as ParameterizedTypeNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode } from './model'
 import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
@@ -34,11 +34,8 @@ const ALL_OPERATORS = [
   ...INFIX_OPERATORS.flat(),
 ].sort((a, b) => b.localeCompare(a))
 
-// TODO: Resolve this without effect. Maybe moving the file to a field in Package?
-let SOURCE_FILE: string | undefined
-
 export class ParseError extends Problem {
-  constructor(public code: Name, public source: Source){ super() }
+  constructor(public code: Name, public sourceMap: SourceMap){ super() }
 }
 
 const error = (code: string) => (...safewords: string[]) =>
@@ -46,7 +43,7 @@ const error = (code: string) => (...safewords: string[]) =>
     seq(string('{'), takeWhile(c => c !== '}'), string('}')),
     any
   )).atLeast(1).mark().map(({ start, end }) =>
-    new ParseError(code, { start, end, file: SOURCE_FILE })
+    new ParseError(code, { start, end })
   )
 
 const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
@@ -88,26 +85,24 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
     lazy(parser),
     index
   ).map(([start, payload, end]) => {
-    return new constructor({ ...payload, source: { start, end, file: SOURCE_FILE } })
+    return new constructor({ ...payload, sourceMap: { start, end } })
   }
   )
 
 
-export const File = (fileName: string): Parser<PackageNode> => {
-  SOURCE_FILE = fileName
-  return node(PackageNode)(() =>
-    obj({
-      name: of(basename(fileName).split('.')[0]),
-      imports: Import.sepBy(optional(_)).skip(optional(_)),
-      members: Entity.sepBy(optional(_)),
-    }).skip(optional(_))
-  ).map(filePackage => {
-    const dir = dirname(fileName)
-    return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
-      new PackageNode({ name, members:[entity] })
-    , filePackage)
-  })
-}
+export const File = (fileName: string): Parser<PackageNode> => node(PackageNode)(() =>
+  obj({
+    fileName: of(fileName),
+    name: of(basename(fileName).split('.')[0]),
+    imports: Import.sepBy(optional(_)).skip(optional(_)),
+    members: Entity.sepBy(optional(_)),
+  }).skip(optional(_))
+).map(filePackage => {
+  const dir = dirname(fileName)
+  return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
+    new PackageNode({ name, members:[entity] })
+  , filePackage)
+})
 
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
@@ -270,7 +265,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
     body: alt(
       key('=').then(Expression.map(value => new BodyNode({
         sentences: [value],
-        source: value.source,
+        sourceMap: value.sourceMap,
       }))),
 
       key('native'),
@@ -391,7 +386,7 @@ export const Send: Parser<ExpressionNode> = lazy(() =>
     ).atLeast(1),
     (start, initial, calls) => calls.reduce(
       (receiver, [message, args, end]) =>
-        new SendNode({ receiver, message, args, source: { start, end } })
+        new SendNode({ receiver, message, args, sourceMap: { start, end } })
       , initial
     )
   ))
@@ -402,7 +397,7 @@ const prefixOperation = seq(
   index,
 ).map(([calls, initial, end]) => calls.reduceRight<ExpressionNode>(
   (receiver, [start, message]) =>
-    new SendNode({ receiver, message: PREFIX_OPERATORS[message], args: [], source: { start, end } })
+    new SendNode({ receiver, message: PREFIX_OPERATORS[message], args: [], sourceMap: { start, end } })
   , initial
 ))
 
@@ -422,7 +417,7 @@ const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
       args: LAZY_OPERATORS.includes(message)
         ? [Closure({ sentences: args })]
         : args,
-      source: { start, end },
+      sourceMap: { start, end },
     })
   , initial))
 }
@@ -466,7 +461,7 @@ const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
       parameters,
       sentences,
       code: input.slice(start.offset, end.offset),
-      source:{ start, end, file: SOURCE_FILE },
+      sourceMap:{ start, end },
     }))
   ))
 })

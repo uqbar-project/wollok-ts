@@ -73,7 +73,7 @@ describe('Wollok parser', () => {
     it('should parse empty packages', () => {
       const parser = parse.File('foo.wlk')
 
-      ''.should.be.parsedBy(parser).into(new Package({ name:'foo' })).and.be.tracedTo(0, 0)
+      ''.should.be.parsedBy(parser).into(new Package({ fileName: 'foo.wlk', name:'foo' })).and.be.tracedTo(0, 0)
     })
 
     it('should parse non-empty packages', () => {
@@ -81,6 +81,7 @@ describe('Wollok parser', () => {
 
       'import p import q class C {}'.should.be.parsedBy(parser).into(
         new Package({
+          fileName: 'foo.wlk',
           name:'foo',
           imports: [
             new Import({ entity: new Reference({ name: 'p' }) }),
@@ -106,7 +107,7 @@ describe('Wollok parser', () => {
             new Package({
               name: 'b',
               members: [
-                new Package({ name:'foo' }),
+                new Package({ fileName: 'a/b/foo.wlk', name:'foo' }),
               ],
             }),
           ],

@@ -86,9 +86,9 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
 
   Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
-    const plucked = dropKeys('source', 'problems')
+    const plucked = dropKeys('sourceMap', 'problems')
     const expectedProblems = flag(this, 'expectedProblems') ?? []
-    const actualProblems = this._obj.problems?.map(({ code, source: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
+    const actualProblems = this._obj.problems?.map(({ code, sourceMap: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
 
     new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
     new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
@@ -99,8 +99,8 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
   Assertion.addMethod('tracedTo', function (start: number, end: number) {
     new Assertion(this._obj)
-      .to.have.nested.property('source.start.offset', start).and.also
-      .to.have.nested.property('source.end.offset', end)
+      .to.have.nested.property('sourceMap.start.offset', start).and.also
+      .to.have.nested.property('sourceMap.end.offset', end)
   })
 
 
@@ -169,7 +169,7 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
 
   if(!skipValidations) {
     const problems = validate(environment)
-    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, source: node.source })).join('\n')}`)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, sourceMap: node.sourceMap })).join('\n')}`)
     else log('No problems found building the environment!')
   }
 

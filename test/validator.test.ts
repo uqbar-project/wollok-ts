@@ -19,7 +19,7 @@ import { Assignment,
   Self,
   Send,
   Singleton,
-  Source,
+  SourceMap,
   Super,
   Test,
   Try } from '../src/model'
@@ -642,7 +642,7 @@ describe('Wollok Validations', () => {
             new Program({
               name: 'pr', body: new Body({
                 sentences: [
-                  new Return({ value: new Self({ source: {} as Source }) }),
+                  new Return({ value: new Self({ sourceMap: {} as SourceMap }) }),
                 ],
               }),
             }),
@@ -651,7 +651,7 @@ describe('Wollok Validations', () => {
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
-                      new Return({ value: new Self({ source: {} as Source }) }),
+                      new Return({ value: new Self({ sourceMap: {} as SourceMap }) }),
                     ],
                   }),
                 }),
@@ -723,9 +723,8 @@ describe('Wollok Validations', () => {
     const problems = validate(environment).map(
       ({ code, node }) => ({
         code,
-        file: node.source?.file,
-        line: node.source?.start.line,
-        offset: node.source?.start.offset,
+        line: node.sourceMap?.start.line,
+        offset: node.sourceMap?.start.offset,
       })
     )
 

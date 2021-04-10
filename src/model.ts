@@ -16,8 +16,7 @@ export interface Scope {
   register(...contributions: [Name, Node][]): void
 }
 
-export interface Source {
-  readonly file?: string
+export interface SourceMap {
   readonly start: Index
   readonly end: Index
 }
@@ -112,7 +111,7 @@ abstract class $Node {
 
   readonly id!: Id
   readonly scope!: Scope
-  readonly source?: Source
+  readonly sourceMap?: SourceMap
   readonly problems?: List<Problem>
 
   readonly #cache: Cache = new Map()
@@ -129,6 +128,11 @@ abstract class $Node {
   copy(delta: Record<string, unknown>): Node {
     return new (this.constructor as any)({ ...this, ...delta })
   }
+
+  isSynthetic(): this is this & { sourceMap: undefined } { return !this.sourceMap }
+
+  @cached
+  sourceFileName(): string | undefined { return this.parent().sourceFileName() }
 
   @cached
   children(): List<Node> {
@@ -303,10 +307,14 @@ export class Package extends $Entity {
   readonly name!: Name
   readonly imports!: List<Import>
   readonly members!: List<Entity>
+  readonly fileName?: string
 
   constructor({ imports = [], members = [], ...payload }: Payload<Package, 'name'>) {
     super({ imports, members, ...payload })
   }
+
+  @cached
+  sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName() }
 
   @cached
   getNodeByQN<N extends Entity>(this: Package, qualifiedName: Name): N {
@@ -785,7 +793,7 @@ type ClosurePayload = {
   parameters?: List<Parameter>,
   sentences?: List<Sentence>,
   code?: string,
-  source?: Source
+  sourceMap?: SourceMap
 }
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> =>
@@ -807,6 +815,8 @@ export class Environment extends $Node {
   readonly members!: List<Package>
 
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
+
+  sourceFileName(): string | undefined { return undefined }
 
   @cached
   getNodeById<N extends Node>(this: Environment, id: Id): N {

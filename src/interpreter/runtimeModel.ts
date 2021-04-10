@@ -382,6 +382,8 @@ export class Evaluation {
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
+    if(!node.scope) return this.currentContext.get(node.name)
+
     const target = node.target()!
 
     return this.currentContext.get(

@@ -73,7 +73,7 @@ function logError(error: any) {
           : `${frame.node.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
       }
 
-      console.info(`at wollok ${label}(${frame.node.source?.start?.line ?? '--'}:${frame.node.source?.start?.column ?? '--'})`)
+      console.info(`at wollok ${label}(${frame.node.sourceMap?.start?.line ?? '--'}:${frame.node.sourceMap?.start?.column ?? '--'})`)
     }
     console.groupEnd()
   }
