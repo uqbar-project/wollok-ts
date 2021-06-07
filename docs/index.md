@@ -1,7 +1,3 @@
-{% hint style="info" %}
-Hello world
-{% endhint %}
-
 Se puede usar html puro, si no ponemos ícono en el fallback:
 
 <blockquote class="warning">
