@@ -1,63 +1,51 @@
-# Table of Content
+Se puede usar html puro, pero eso no deja escribir markdown en el contenido:
 
-* [Intro](#Intro)
-* [Evaluation State](#Evaluation-State)
-  * [Runtime Objects](#Runtime-Objects)
-  * [The Two-Stack Model](#The-Two-Stack-Model)
-* [Instructions](#Instructions)
-  * [LOAD](#LOADname)
-  * [STORE](#STOREname-lookup)
-  * [PUSH](#PUSHid)
-  * [POP](#POP)
-  * [PUSH_CONTEXT](#PUSH_CONTEXTexceptionHandler)
-  * [POP_CONTEXT](#POP_CONTEXT)
-  * [SWAP](#SWAP)
-  * [DUP](#DUP)
-  * [INSTANTIATE](#INSTANTIATEmodulefullyqualifiedname-innervalue)
-  * [INHERITS](#INHERITSmoduleFullyQualifiedName)
-  * [JUMP](#JUMPamount)
-  * [CONDITIONAL_JUMP](#CONDITIONAL_JUMPamount)
-  * [CALL](#CALLmessage-arity-lookupstart)
-  * [INIT](#INITarity-lookupstart-optional)
-  * [INIT_NAMED](#INIT_NAMEDargumentNames)
-  * [INTERRUPT](#INTERRUPT)
-  * [RETURN](#RETURN)
-* [Natives](#Natives)
+<blockquote class="warning">
+ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+</blockquote>
 
-Some text here
+La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante potable, pero el wrappeo de linea no queda alineado con el ícono (aunque no es tan grave).
 
->---
-> ℹ️ This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-> 
-> ---
+> ℹ️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
-<blockquote class="warning">Something something</blockquote>
+> ⚠️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
->#### ~⚠️~ This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+> 💡 This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+
+This is uglier, but makes them anchorable:
+
+> # 💡
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+
+> ## 💡
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+
+> ### 💡
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+
+> #### 💡
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+
+> ### 💡 WARNING
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
 
-⚠️
-: This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+> #### 💡 WARNING
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
 
-> *⚠️* This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
-> **💡** This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+Usar una tabla te deja separar el contenido pero si usas el header el texto queda centrado y en negrita y si usas un row queda el header vacío. Además de ser bastante verbosos...
 
-> | ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
+>  ⚠️ | This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+> ---|---
 
-> | | |
-> |-|-|
-> | ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
+>| | |
+>|-|-|
+>| ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
 
 
-| | |
-|-|-|
-| ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
 
----
-
-Some other text
 
 ```mermaid
 pie title Pets adopted by volunteers
