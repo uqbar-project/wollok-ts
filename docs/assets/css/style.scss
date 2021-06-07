@@ -6,3 +6,7 @@
 .inner {
   max-width: 75%;
 }
+
+blockquote:has(> hr) {
+  background-color: yellow;
+}
