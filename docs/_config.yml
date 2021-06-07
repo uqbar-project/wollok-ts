@@ -1,1 +1,6 @@
 theme: jekyll-theme-minimal
+
+title: Wollok-TS Documentation
+description: Documentation site for the TypeScript-based Wollok Language implementation
+logo: /assets/images/wollok-ts.png
+show_downloads: true
