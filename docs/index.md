@@ -24,6 +24,19 @@
   * [RETURN](#RETURN)
 * [Natives](#Natives)
 
+Some text here
+
+> ---
+> ℹ️ This is important
+> 
+> ---
+
+> *⚠️* This is dangerous
+
+> **💡** This is too much?
+
+Some other text
+
 ```mermaid
 pie title Pets adopted by volunteers
   "Dogs" : 386
