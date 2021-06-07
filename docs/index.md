@@ -12,7 +12,7 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 
 > ⚠️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
-> 💡 This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
+> ⓘ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
 This is uglier, but makes them anchorable:
 
