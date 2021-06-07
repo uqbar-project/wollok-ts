@@ -24,7 +24,7 @@
   * [RETURN](#RETURN)
 * [Natives](#Natives)
 
-```mermaid!
+```mermaid
 pie title Pets adopted by volunteers
   "Dogs" : 386
   "Cats" : 85
