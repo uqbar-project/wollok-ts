@@ -31,6 +31,8 @@ This is uglier, but makes them anchorable:
 > ### 💡 WARNING
 > This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
+> #### 💡 WARNING
+> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
 > ##### 💡 WARNING
 > This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
