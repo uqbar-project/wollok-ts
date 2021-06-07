@@ -25,13 +25,14 @@
 * [Natives](#Natives)
 
 
+
 # Intro
 
 The **Interpreter** provides a set of tools to perform the evaluation of Wollok code. It can be used to build an **Evaluation State** from a **final stage `Environment` node** and use it to execute a *Program*, run a *Test* or evaluate any *Sentence*, either atomically or step-by-step.
 
 In order to evaluate a *Sentence*, it is first necessary to compile its nodes into **Pseudo-Bytecode** that can be interpreted to perform changes on the evaluation state. This is done so to have a smaller granularity on the evaluation process, which is a requirement for step-by-step debugging.
 
-Following is a summary of the main abstractions and concepts involved in this process.
+Following is a summary of the main concepts involved in this process.
 
 
 # Evaluation State
