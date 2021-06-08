@@ -48,24 +48,36 @@ html {
     
     nav {
       display: flex;
+    
+      ul {
+        list-style: none;
+        height: unset;
+        padding: unset;
+        background: unset;
+        border-radius: unset;
+        border: unset;
+        width: unset;
+
+        li {
+          width: unset;
+          float: unset;
+          border-right: unset;
+          height: unset;
+
+          a {
+            font-size: unset;
+            color: unset;
+            background-color: unset;
+
+            &.active {
+              text-decoration: underline;
+              font-weight: bold;
+            }
+          }
+        }
+      }
     }
     
-    ul {
-      list-style: none;
-      height: unset;
-      padding: unset;
-      background: unset;
-      border-radius: unset;
-      border: unset;
-      width: unset;
-    }
-    
-    li {
-      width: unset;
-      float: unset;
-      border-right: unset;
-      height: unset;
-    }
   }
   
   section {
