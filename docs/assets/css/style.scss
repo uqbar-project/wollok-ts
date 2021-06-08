@@ -3,6 +3,13 @@
 
 @import "{{ site.theme }}";
 
-.inner {
-  
+@media print, screen and (min-width: 960px) {
+  body {
+    padding: 0;
+  }
+
+  div.wrapper {
+    margin: 0;
+  }
+
 }
