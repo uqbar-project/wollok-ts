@@ -57,6 +57,10 @@
     {% endif %}
     
     <script>
+      document.querySelectorAll(`nav a[href^='${location.pathname}']`).forEach(a => a.className += 'active');
+    </script>
+    
+    <script>
       var config = {
         startOnLoad:true,
         theme: 'forest',
