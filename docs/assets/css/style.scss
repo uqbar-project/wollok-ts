@@ -144,15 +144,15 @@ footer {
       opacity: 0.5;
       z-index: 2;
       
-      &:unchecked ~ #hamburger {
-        background-image: url(/assets/images/hamburger.svg);
+      &:not(checked) ~ #hamburger {
+        background-image: url(wollok-ts/assets/images/hamburger.svg);
       }
       
       &:checked ~ #hamburger {
-        background-image: url(/assets/images/close.svg);
+        background-image: url(wollok-ts/assets/images/close.svg);
       }
       
-      &:unchecked ~ nav {
+      &:not(checked) ~ nav {
         display: none;
       }
     }
