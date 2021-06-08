@@ -11,6 +11,64 @@ html {
   box-sizing: inherit;
 }
 
+
+header {
+  background-color: #ac4142;
+  color: #ffffff;
+
+  a, ul a {
+    color: #2fa3f1;
+  }
+
+  div.places {
+    display: flex;
+    justify-content: flex-end;
+
+    a img {
+      max-width: 32px;
+    }
+  }
+
+  nav {
+    display: flex;
+
+    ul {
+      list-style: none;
+      height: unset;
+      padding: unset;
+      background: unset;
+      border-radius: unset;
+      border: unset;
+      width: unset;
+
+      li {
+        width: unset;
+        float: unset;
+        border-right: unset;
+        height: unset;
+
+        a, a:active, a:hover {
+          font-size: unset;
+          color: unset;
+          background-color: unset;
+
+          &.active {
+            text-decoration: underline;
+            font-weight: bold;
+          }
+        }
+      }
+    }
+  }
+
+}
+
+footer {
+  a {
+    color: #2fa3f1;
+  }
+}
+
 @media print, screen and (min-width: 961px) {
   body {
     padding: 0;
@@ -25,59 +83,11 @@ html {
   header {
     height: 100%;
     padding: 8px;
-    background-color: #ac4142;
-    color: #ffffff;
     box-shadow: 2px 0 5px 0 #00000029, 2px 0 10px 0 #0000001f;
     
     h1 {
       margin-bottom: 0px;
     }
-    
-    a, ul a {
-      color: #2fa3f1;
-    }
-    
-    div.places {
-      display: flex;
-      justify-content: flex-end;
-      
-      a img {
-        max-width: 32px;
-      }
-    }
-    
-    nav {
-      display: flex;
-    
-      ul {
-        list-style: none;
-        height: unset;
-        padding: unset;
-        background: unset;
-        border-radius: unset;
-        border: unset;
-        width: unset;
-
-        li {
-          width: unset;
-          float: unset;
-          border-right: unset;
-          height: unset;
-
-          a, a:active, a:hover {
-            font-size: unset;
-            color: unset;
-            background-color: unset;
-
-            &.active {
-              text-decoration: underline;
-              font-weight: bold;
-            }
-          }
-        }
-      }
-    }
-    
   }
   
   section {
@@ -94,10 +104,6 @@ html {
     p {
       margin: 0;
       text-align: right;
-    }
-    
-    a {
-      color: #2fa3f1;
     }
   }
 }
