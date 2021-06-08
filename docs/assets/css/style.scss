@@ -11,6 +11,10 @@ html {
   box-sizing: inherit;
 }
 
+body {
+  padding: 0;
+  margin: 0;
+}
 
 header {
   background-color: #ac4142;
@@ -70,11 +74,6 @@ footer {
 }
 
 @media print, screen and (min-width: 961px) {
-  body {
-    padding: 0;
-    margin: 0;
-  }
-
   div.wrapper {
     margin: 0;
     width: auto;
