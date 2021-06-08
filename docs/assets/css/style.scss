@@ -67,7 +67,15 @@ header {
 
 }
 
-footer {
+footer {  
+  padding: 8px;
+  bottom: 0px;
+
+  p {
+    margin: 0;
+    text-align: right;
+  }
+  
   a {
     color: #2fa3f1;
   }
@@ -96,13 +104,6 @@ footer {
   }
   
   footer {
-    padding: 8px;
     color: #ffffff;
-    bottom: 0px;
-    
-    p {
-      margin: 0;
-      text-align: right;
-    }
   }
 }
