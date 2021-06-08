@@ -73,6 +73,10 @@ html {
               text-decoration: underline;
               font-weight: bold;
             }
+            &:hover {
+              color: unset;
+              font-weight: bold;
+            }
           }
         }
       }
