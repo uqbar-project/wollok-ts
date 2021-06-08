@@ -141,7 +141,7 @@ footer {
     }
     
     #menu {
-      opacity: 0;
+      opacity: 0.5;
       z-index: 2;
       
       &:unchecked ~ #hamburguer {
