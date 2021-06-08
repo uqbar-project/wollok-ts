@@ -93,6 +93,10 @@ footer {
     padding: 8px;
     box-shadow: 2px 0 5px 0 #00000029, 2px 0 10px 0 #0000001f;
     
+    #menu, #hamburger {
+      display: none;
+    }
+    
     h1 {
       margin-bottom: 0px;
     }
@@ -117,6 +121,42 @@ footer {
   
   header {
     box-shadow: 0 2px 5px 0 #00000029, 0 2px 10px 0 #0000001f;
+    
+    #menu, #hamburguer {
+      display: block;
+      width: 40px;
+      height: 32px;
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      cursor: pointer;
+      margin: 8px;
+    }
+    
+    #hamburguer {
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      background-color: transparent;
+    }
+    
+    #menu {
+      opacity: 0;
+      z-index: 2;
+      
+      &:unchecked ~ #hamburguer {
+        background-image: url(/assets/images/hamburger.svg);
+      }
+      
+      &:checked ~ #hamburguer {
+        background-image: url(/assets/images/close.svg);
+      }
+      
+      &:unchecked ~ nav {
+        display: none;
+      }
+    }
+    
   }
   
   nav {
