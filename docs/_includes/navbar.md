@@ -1,2 +1,2 @@
-- [A Page]({% link /pages/a.md %})
-- [B Page]({% link /pages/b.md %})
+- [A Page](/wollok-ts/pages/a)
+- [B Page](/wollok-ts/pages/b)
