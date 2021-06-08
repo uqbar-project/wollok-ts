@@ -49,6 +49,23 @@ html {
         max-width: 32px;
       }
     }
+    
+    ul {
+      list-style: none;
+      height: unset;
+      padding: unset;
+      background: unset;
+      border-radius: unset;
+      border: unset;
+      width: unset;
+    }
+    
+    li {
+      width: unset;
+      float: unset;
+      border-right: unset;
+      height: unset;
+    }
   }
   
   section {
