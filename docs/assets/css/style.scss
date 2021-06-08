@@ -109,7 +109,7 @@ footer {
   }
 }
 
-@media print, screen and (min-width: 721px) {
+@media print, screen and (max-width: 960px) {
   section {
     padding: 24px;
     margin: 0;
