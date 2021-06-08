@@ -3,6 +3,14 @@
 
 @import "{{ site.theme }}";
 
+html {
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
 @media print, screen and (min-width: 961px) {
   body {
     padding: 0;
@@ -45,6 +53,7 @@
   
   section {
     max-width: calc(100% - 270px);
+    width: auto;
     padding: 24px;
   }
   
