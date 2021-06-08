@@ -122,7 +122,7 @@ footer {
   header {
     box-shadow: 0 2px 5px 0 #00000029, 0 2px 10px 0 #0000001f;
     
-    #menu, #hamburguer {
+    #menu, #hamburger {
       display: block;
       width: 40px;
       height: 32px;
@@ -133,7 +133,7 @@ footer {
       margin: 8px;
     }
     
-    #hamburguer {
+    #hamburger {
       background-position: center;
       background-repeat: no-repeat;
       background-size: cover;
@@ -144,11 +144,11 @@ footer {
       opacity: 0.5;
       z-index: 2;
       
-      &:unchecked ~ #hamburguer {
+      &:unchecked ~ #hamburger {
         background-image: url(/assets/images/hamburger.svg);
       }
       
-      &:checked ~ #hamburguer {
+      &:checked ~ #hamburger {
         background-image: url(/assets/images/close.svg);
       }
       
