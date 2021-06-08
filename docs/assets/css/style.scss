@@ -124,8 +124,8 @@ footer {
     
     #menu, #hamburger {
       display: block;
-      width: 40px;
-      height: 32px;
+      width: 42px;
+      height: 42px;
       position: fixed;
       bottom: 0;
       right: 0;
@@ -137,11 +137,14 @@ footer {
       background-position: center;
       background-repeat: no-repeat;
       background-size: cover;
-      background-color: transparent;
+      background-color: #ac4142;
+      border: 5px solid #ac4142;
+      border-radius: 50%;
+      z-index: 1;
     }
     
     #menu {
-      opacity: 0.5;
+      opacity: 0;
       z-index: 2;
       
       &:not(checked) ~ #hamburger {
@@ -152,8 +155,8 @@ footer {
         background-image: url(/wollok-ts/assets/images/close.svg);
       }
       
-      &:not(checked) ~ nav {
-        display: none;
+      &:checked ~ nav {
+        transform: none;
       }
     }
     
@@ -167,6 +170,9 @@ footer {
     right: 0;
     top: 0;
     box-shadow: 2px 0 5px 0 #00000029, 2px 0 10px 0 #0000001f;
+    
+    transform: translate(100%, 0);
+    transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
     
     ul {
       position: unset;
