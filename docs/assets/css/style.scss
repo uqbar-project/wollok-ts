@@ -145,11 +145,11 @@ footer {
       z-index: 2;
       
       &:not(checked) ~ #hamburger {
-        background-image: url(wollok-ts/assets/images/hamburger.svg);
+        background-image: url(/wollok-ts/assets/images/hamburger.svg);
       }
       
       &:checked ~ #hamburger {
-        background-image: url(wollok-ts/assets/images/close.svg);
+        background-image: url(/wollok-ts/assets/images/close.svg);
       }
       
       &:not(checked) ~ nav {
