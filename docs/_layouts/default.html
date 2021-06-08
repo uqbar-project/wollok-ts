@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-{% seo %}
+    {% seo %}
     
     <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
     <link rel="shortcut icon" type="image/png" href="{{ "/assets/images/wollok-ts.png"  | absolute_url }}">
@@ -24,6 +24,8 @@
         <div class="places">
           <a href="{{ site.github.repository_url }}"><img src="{{ "/assets/images/github.png"  | absolute_url }}" alt="GitHub"/></a>
         </div>
+        
+        <input id="menu" type="checkbox"/>
         
         <nav>
           {% capture navbar %}{% include navbar.md %}{% endcapture %}{{ navbar | markdownify }}
