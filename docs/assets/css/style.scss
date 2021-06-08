@@ -64,17 +64,13 @@ html {
           border-right: unset;
           height: unset;
 
-          a, a:active {
+          a, a:active, a:hover {
             font-size: unset;
             color: unset;
             background-color: unset;
 
             &.active {
               text-decoration: underline;
-              font-weight: bold;
-            }
-            &:hover {
-              color: unset;
               font-weight: bold;
             }
           }
