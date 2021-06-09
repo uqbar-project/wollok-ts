@@ -63,7 +63,7 @@
     
     <script>
       [...document.querySelectorAll(`nav a`)]
-        .filter(a => location.pathname === '{{ "/" | absolute_url }}'
+        .filter(a => a.getAttribute('href') === '{{ "/" | absolute_url }}'
                 ? location.pathname === a.getAttribute('href')
                 : location.pathname.startsWith(a.getAttribute('href'))
         )
