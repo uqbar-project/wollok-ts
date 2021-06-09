@@ -1,0 +1,8 @@
+theme: jekyll-theme-minimal
+
+title: Wollok-TS Documentation
+description: Documentation site for the TypeScript-based Wollok Language implementation
+
+share:
+  email: mailto:info@uqbar.org
+  discord: https://discord.com/invite/WHnVdvhP4W

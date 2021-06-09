@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: "en-US" }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {% seo %}
+    
+    <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
+    <link rel="shortcut icon" type="image/png" href="{{ "/assets/images/wollok-ts.png"  | absolute_url }}">
+    
+    <!--[if lt IE 9]>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.9.3/mermaid.min.js"></script>
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <!-- <h1><a href="{{ "/" | absolute_url }}">{{ site.title | default: site.github.repository_name }}</a></h1> -->
+        <h1><a href="{{ "/" | absolute_url }}"><img src="{{ "/assets/images/wollok-doc-dark.png"  | absolute_url }}" alt="wollok-doc"/></a></h1>
+        <div class="places">
+          <a href="{{ site.github.repository_url }}" target="_blank"><img src="{{ "/assets/images/github.png"  | absolute_url }}" alt="GitHub"/></a>
+          <a href="{{ site.share.discord }}" target="_blank"><img src="{{ "/assets/images/discord.png"  | absolute_url }}" alt="Discord"/></a>
+          <a href="{{ site.share.email }}" target="_blank"><img src="{{ "/assets/images/email.png"  | absolute_url }}" alt="Email"/></a>
+        </div>
+        
+        <input id="menu" type="checkbox"/>
+        <div id="hamburger"></div>
+        
+        <nav>
+          {% capture navbar %}{% include navbar.md %}{% endcapture %}{{ navbar | markdownify }}
+        </nav>
+        
+      </header>
+      
+      <section>
+
+      {{ content }}
+
+      </section>
+      
+      <footer>
+        <p>Maintained by <a href="{{ site.github.owner_url }}">The Uqbar Foundation</a></p>
+      </footer>
+      
+    </div>
+    
+    <script src="{{ "/assets/js/scale.fix.js" | relative_url }}"></script>
+    
+    {% if site.google_analytics %}
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+      ga('create', '{{ site.google_analytics }}', 'auto');
+      ga('send', 'pageview');
+    </script>
+    {% endif %}
+    
+    <script>
+      [...document.querySelectorAll(`nav a`)]
+        .filter(a =>
+          a.getAttribute('href') === '{{ "/" | relative_url }}'
+            ? location.pathname === a.getAttribute('href')
+            : location.pathname.startsWith(a.getAttribute('href'))
+        )
+        .forEach(a => a.className += 'active');
+    </script>
+    
+    <script>
+      var config = {
+        startOnLoad:true,
+        theme: 'forest',
+        flowchart:{
+          useMaxWidth: true,
+          htmlLabels:true
+        }
+      };
+      mermaid.initialize(config);
+      window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+    </script>
+    
+  </body>
+</html>
