@@ -32,6 +32,10 @@ header {
       max-width: 32px;
     }
   }
+  
+  ul li+li+li {
+    width: 100%;
+  }
 
   nav {
     display: flex;
