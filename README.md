@@ -3,9 +3,8 @@
 TypeScript based Wollok language implementation
 
 ## Usage 
-[[TODO]]
-- modules description
-- examples
+
+For an in-dept explanation of the API and how to use it please refer to [the documentation page](https://uqbar-project.github.io/wollok-ts/).
 
 
 ## Contributing
@@ -24,30 +23,6 @@ Before anything else, you will need a *TypeScript* editor. We recomend [Visual S
 - [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
 - [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
 
-You might also want to copy the following configurations to your user settings (`ctrl+,`):
-
-```json
-  "window.menuBarVisibility": "default",
-  "workbench.activityBar.visible": false,
-  "workbench.startupEditor": "none",
-  "explorer.openEditors.visible": 0,
-  "files.exclude": {
-    "dist": true,
-    ".vscode": true,
-    "node_modules": true,
-  },
-  "git.enabled": false,
-  "editor.tabSize": 2,
-  "explorer.autoReveal": true,
-  "editor.formatOnSave": true,
-  "tslint.autoFixOnSave": true,
-  "tslint.alwaysShowStatus": true,
-  "workbench.statusBar.feedback.visible": false,
-  "window.zoomLevel": 0,
-  "workbench.colorTheme": "Visual Studio Dark",
-  "typescript.updateImportsOnFileMove.enabled": "always",
-  "editor.foldingStrategy": "indentation",
-```
 
 ### Node
 
