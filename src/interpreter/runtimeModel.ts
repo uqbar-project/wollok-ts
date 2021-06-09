@@ -146,7 +146,6 @@ export type ExecutionState = Readonly<
 
 // TODO:
 // - track history
-// - breakpoints
 // - conditional breakpoints?
 // - break on exception
 
@@ -158,6 +157,16 @@ export class ExecutionDirector {
   constructor(evaluation: Evaluation, execution: Execution<RuntimeValue>) {
     this.evaluation = evaluation
     this.execution = execution
+  }
+
+  addBreakpoint(breakpoint: Node): void {
+    this.breakpoints.push(breakpoint)
+  }
+
+  removeBreakpoint(breakpoint: Node): void {
+    const nextBreakpoints = this.breakpoints.filter(node => node !== breakpoint)
+    this.breakpoints.splice(0, this.breakpoints.length)
+    this.breakpoints.push(...nextBreakpoints)
   }
 
   resume(shouldHalt: (next: Node, evaluation: Evaluation) => boolean = () => false): ExecutionState {
@@ -266,8 +275,11 @@ export class Evaluation {
   }
 
   allInstances(): Set<RuntimeObject> {
+    const visitedContexts: Id[] = []
+
     function contextInstances(context?: Context): List<RuntimeObject> {
-      if(!context) return []
+      if(!context || visitedContexts.includes(context.id)) return []
+      visitedContexts.push(context.id)
       const localInstances = [...context.locals.values()].filter((value): value is RuntimeObject => value instanceof RuntimeObject)
       return [
         ...contextInstances(context.parentContext),

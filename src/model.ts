@@ -115,7 +115,7 @@ abstract class $Node {
   readonly problems?: List<Problem>
 
   readonly #cache: Cache = new Map()
-  get cache() { return this.#cache }
+  get cache(): Cache { return this.#cache }
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
@@ -141,7 +141,6 @@ abstract class $Node {
       if (isArray(owner)) return owner.flatMap(extractChildren)
       return []
     }
-
     return values(this).flatMap(extractChildren)
   }
 

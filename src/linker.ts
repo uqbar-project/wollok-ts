@@ -34,7 +34,7 @@ const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => 
 // SCOPES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-class LocalScope implements Scope {
+export class LocalScope implements Scope {
   protected contributions = new Map<Name, Node>()
   protected includedScopes: Scope[] = []
 
@@ -58,7 +58,7 @@ class LocalScope implements Scope {
     for(const [name, node] of contributions) this.contributions.set(name, node)
   }
 
-  include(...others: Scope[]) { this.includedScopes.push(...others) }
+  include(...others: Scope[]): void { this.includedScopes.push(...others) }
 }
 
 
@@ -77,7 +77,7 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
-        node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin'))
+        node.is('Reference') && parent!.is('ParameterizedType')
           ? parent!.parent().scope
           : parent?.scope
       ),
