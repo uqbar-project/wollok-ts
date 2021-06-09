@@ -127,6 +127,10 @@ footer {
     
     h1 {
       margin: 8px;
+      
+      img {
+        max-height: 100%;
+      }
     }
     
     #menu, #hamburger {
