@@ -44,7 +44,7 @@ header {
       background: unset;
       border-radius: unset;
       border: unset;
-      width: unset;
+      width: 100%;
 
       li {
         width: unset;
@@ -56,6 +56,7 @@ header {
           font-size: unset;
           color: unset;
           background-color: unset;
+          text-align: left;
 
           &.active {
             text-decoration: underline;
