@@ -1,4 +1,4 @@
-# Wollok-TS [![Build Status](https://travis-ci.com/uqbar-project/wollok-ts.svg?branch=master)](https://travis-ci.com/uqbar-project/wollok-ts)
+# Wollok-TS
 
 TypeScript based Wollok language implementation
 
