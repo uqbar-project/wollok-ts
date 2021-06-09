@@ -1,3 +1,3 @@
-- [Home](/wollok-ts/)
+- [Home](/wollok-ts/index)
 - [A Page](/wollok-ts/pages/a)
 - [B Page](/wollok-ts/pages/b)
