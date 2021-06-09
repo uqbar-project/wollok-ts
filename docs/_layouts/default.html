@@ -63,9 +63,10 @@
     
     <script>
       [...document.querySelectorAll(`nav a`)]
-        .filter(a => a.getAttribute('href') === '{{ "/" | absolute_url }}'
-                ? location.pathname === a.getAttribute('href')
-                : location.pathname.startsWith(a.getAttribute('href'))
+        .filter(a =>
+          a.getAttribute('href') === '{{ "/" | relative_url }}'
+            ? location.pathname === a.getAttribute('href')
+            : location.pathname.startsWith(a.getAttribute('href'))
         )
         .forEach(a => a.className += 'active');
     </script>
