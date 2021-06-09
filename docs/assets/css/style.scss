@@ -123,6 +123,11 @@ footer {
     display: flex;
     padding: 8px;
     box-shadow: 0 2px 5px 0 #00000029, 0 2px 10px 0 #0000001f;
+    max-height: 128px;
+    
+    h1 {
+      margin: 8px;
+    }
     
     #menu, #hamburger {
       display: block;
@@ -166,6 +171,10 @@ footer {
       display: flex;
       flex-direction: column;
       justify-content: space-around;
+      
+      a {
+        line-height: 10px;
+      }
     }
     
   }
