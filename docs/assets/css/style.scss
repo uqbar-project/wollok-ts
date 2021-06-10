@@ -97,8 +97,8 @@ section blockquote.hint {
   
   .hint-emoji {
     display: flex;
-    font-size: 1.25em;
-    align-items: center;
+    font-size: 1.2em;
+    margin-top: 18px;
     margin-left: 10px;
     margin-right: 15px;
   }
@@ -109,6 +109,26 @@ section blockquote.hint {
     & > *:last-child {
       margin-bottom: 0;
     }
+  }
+  
+  &.hint-💡 {
+    background-color: #d7effd;
+    border-left-color: #00a1ff;
+  }
+  
+  &.hint-☠️ {
+    background-color: #f3edfd;
+    border-left-color: #d800ff;
+  }
+  
+  &.hint-⚠️ {
+    background-color: #fbffc4;
+    border-left-color: #ffe000;
+  }
+  
+  &.hint-🛠️ {
+    background-color: #fdecd7;
+    border-left-color: #ff4700;
   }
 }
 
