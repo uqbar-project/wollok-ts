@@ -94,7 +94,7 @@
           
           hint.textContent = hint.textContent.slice(emoji.length).trim();
           emojiSection.textContent += emoji;
-          emojiSection.id = `hint-$index`
+          emojiSection.id = `hint-${index}`
           contentSection.append(...blockquote.children);
           blockquote.append(emojiSection, contentSection);
           blockquote.classList.add('hint', `hint-${emoji}`);
