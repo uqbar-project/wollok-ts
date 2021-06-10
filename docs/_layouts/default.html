@@ -96,7 +96,7 @@
           emojiSection.textContent += emoji;
           contentSection.append(...blockquote.children);
           blockquote.append(emojiSection, contentSection);
-          blockquote.classList.add('hint');
+          blockquote.classList.add('hint', `hint-${emoji}`);
           emojiSection.classList.add('hint-emoji');
           contentSection.classList.add('hint-content');
         }
