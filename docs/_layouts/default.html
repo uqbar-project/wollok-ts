@@ -85,7 +85,7 @@
     </script>
     
     <script>
-      [...document.querySelectorAll('section blockquote *:first-child')].forEach(hint => {
+      [...document.querySelectorAll('section blockquote *:first-child')].forEach((hint, index) => {
         const emoji = hint.textContent.match(/([^\x00-\xFF]*).*/)[1];
         if(emoji.length) {
           const blockquote = hint.parentElement;
@@ -94,6 +94,7 @@
           
           hint.textContent = hint.textContent.slice(emoji.length).trim();
           emojiSection.textContent += emoji;
+          emojiSection.id = `hint-$index`
           contentSection.append(...blockquote.children);
           blockquote.append(emojiSection, contentSection);
           blockquote.classList.add('hint', `hint-${emoji}`);
