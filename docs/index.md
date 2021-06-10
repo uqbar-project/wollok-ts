@@ -10,87 +10,54 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 
 -------
 
-> 🔍
+> Normal quote
 
-> ⚠️ some paragraph
+> Normal
 > 
-> some other paragraph in the same quote
-
-> ### 🔎
-> **A hint** with some emoji header
-
-> ### 💡 In Construction
-> `A hint` with some emoji title
-
-> ☠️ ¿Just a pretty hint? Yes. Just a pretty hint
-
-> 🛠️ `another` pretty hint
-
-> Just a plain old quote
-
-> ¿Another old quote? Yes. another old quote.
+> yet multiline
 >
-> And look. Another paragraph as well.
+> quote
 
-No how about some plain text surrounding a regular quote
-> There
+> ### Normal quote with header
+> and some text bellow
 
-Good chap.
 
-Here some more text surrounding a hint this time
-> 🛠️ something something
+> ⚠️ An important warning
 
-Bully.
+> 💡 A smart tip
 
-Here some more text surrounding a titled hint this time
-> ### 🔎
-> **A hint** with some emoji header
+> ☠️ A deprecation notice
 
-Yep
+> 🛠️ A currently in-develop notice
+>
+> That happens to be multiline
+>
+> Cool, right?
+>
+> Yeah...
+
+----
+
+
+> ⚠️ # Warning
+> An important warning
+
+> 💡 # Note
+> A smart tip
+
+> ☠️ # Deprecated
+> A deprecation notice
+
+> 🛠️ # Under Construction
+> A currently in-develop notice
+>
+> That happens to be multiline
+>
+> Cool, right?
+>
+> Yeah...
 
 -------
-
-> # Spacing?
-
-> ℹ️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ⚠️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ⓘ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-This is uglier, but makes them anchorable:
-
-> # 💡
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ## 💡
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ### 💡
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> #### 💡
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ### 💡 WARNING
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> #### 💡 WARNING
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-> ##### 💡 WARNING
-> This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-
-
-Usar una tabla te deja separar el contenido pero si usas el header el texto queda centrado y en negrita y si usas un row queda el header vacío. Además de ser bastante verbosos...
-
->  ⚠️ | This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-> ---|---
-
->| | |
->|-|-|
->| ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
 
 ```typescript
 const regular code = this
