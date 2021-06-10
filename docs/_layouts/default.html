@@ -84,5 +84,18 @@
       window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
     </script>
     
+    <script>
+      [...document.querySelectorAll('section blockquote *:first-child')].forEach(hint => {
+        const emoji = hint.textContent.match(/([^\x00-\x7F]*).*/)[1];
+        if(emoji.length) {
+          hint.textContent = hint.textContent.slice(1);
+          const emojiSection = document.createElement('div');
+          hint.parentElement.prepend(emojiSection);
+          emojiSection.textContent += emoji;
+          hint.parentElement.classList.add('hint');
+        }
+      });
+    </script>
+    
   </body>
 </html>
