@@ -87,6 +87,14 @@ footer {
   }
 }
 
+section blockquote.hint {
+  display: flex;
+  
+  .hint-content > *:last-child {
+    margin-bottom: 0;
+  }
+}
+
 @media print, screen and (min-width: 961px) {
   div.wrapper {
     margin: 0;
