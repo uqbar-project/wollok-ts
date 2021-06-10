@@ -8,32 +8,18 @@ Se puede usar html puro, si no ponemos ícono en el fallback:
 
 La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante potable, pero el wrappeo de linea no queda alineado con el ícono (aunque no es tan grave).
 
-> ✔️
-
-> 💡
-
-> 🛈
-
-> ℹ️
-
-> 📓
-
-> 📔
-
-> 🗒️
+-------
 
 > 🔍
 
-> 🔎
+> ⚠️ some paragraph
+> 
+> some other paragraph in the same quote
 
-> ⚠️ lalalala
-
--------
-
-> ### ✖️
+> ### 🔎
 > **A hint** with some emoji header
 
-> ### 💀 In Construction
+> ### 💡 In Construction
 > `A hint` with some emoji title
 
 > ☠️ ¿Just a pretty hint? Yes. Just a pretty hint
@@ -43,6 +29,8 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 > Just a plain old quote
 
 > ¿Another old quote? Yes. another old quote.
+>
+> And look. Another paragraph as well.
 
 
 
