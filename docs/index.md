@@ -19,9 +19,14 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 > 🔍
 > 🔎
 
-> ⚠️
-> ✖️
-> 💀
+> ⚠️ lalalala
+
+> #### ✖️
+> f asasldk adad adlaksdjadl kadja dlakdjad
+
+> ### 💀 In Construction
+> sdadalkdjasdl kadjalskdjalskd
+
 > ☠️
 
 > 🛠️
