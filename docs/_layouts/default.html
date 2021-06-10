@@ -97,6 +97,8 @@
           contentSection.append(...blockquote.children);
           blockquote.append(emojiSection, contentSection);
           blockquote.classList.add('hint');
+          emojiSection.classList.add('hint-emoji');
+          contentSection.classList.add('hint-content');
         }
       });
     </script>
