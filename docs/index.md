@@ -31,19 +31,19 @@ Some random text. Please ignore...
 
 ----
 
-> 👪 # A generic hint
+> # 👪 A generic hint
 > Will be vaguely highlighted.
 
-> ⚠️ # Warning
+> # ⚠️ Warning
 > An important warning
 
-> 💡 # Note
+> # 💡 Note
 > A smart tip
 
-> ☠️ # Deprecated
+> # ☠️ Deprecated
 > A deprecation notice
 
-> 🛠️ # Under Construction
+> # 🛠️ Under Construction
 > A currently in-develop notice
 >
 > That happens to be multiline
