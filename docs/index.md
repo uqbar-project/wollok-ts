@@ -50,6 +50,8 @@ Yep
 
 -------
 
+> # Spacing?
+
 > ℹ️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
 
 > ⚠️ This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
@@ -90,7 +92,9 @@ Usar una tabla te deja separar el contenido pero si usas el header el texto qued
 >|-|-|
 >| ⚠️ | This is something I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it.|
 
-
+```typescript
+const regular code = this
+```
 
 
 ```mermaid
