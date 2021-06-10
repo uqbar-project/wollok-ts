@@ -90,9 +90,24 @@ footer {
 section blockquote.hint {
   display: flex;
   margin-bottom: 20px;
+  background-color: #f8f8f8;
+  border-left-width: 4px;
+  border-radius: 3px;
   
-  .hint-content > *:last-child {
-    margin-bottom: 0;
+  .hiny-emoji {
+    display: flex;
+    font-size: 1.25em;
+    align-items: center;
+    margin-left: 10px;
+    margin-right: 15px;
+  }
+  
+  .hint-content {
+    margin: 20px 20px 20px 0px;
+    
+    & > *:last-child {
+      margin-bottom: 0;
+    }
   }
 }
 
