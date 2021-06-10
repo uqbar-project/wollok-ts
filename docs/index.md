@@ -37,7 +37,7 @@ Some random text. Please ignore...
 > #### ⚠️ Warning
 > An important warning
 
-> ### 💡 Note
+> #### 💡 Note
 > A smart tip
 
 > #### ☠️ Deprecated
