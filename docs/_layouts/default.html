@@ -92,7 +92,7 @@
           const emojiSection = document.createElement('div');
           const contentSection = document.createElement('div');
           
-          hint.textContent = hint.textContent.slice(emoji.length);
+          hint.textContent = hint.textContent.slice(emoji.length).trim();
           emojiSection.textContent += emoji;
           contentSection.append(...blockquote.children);
           blockquote.append(emojiSection, contentSection);
