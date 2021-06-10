@@ -34,15 +34,18 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 
 No how about some plain text surrounding a regular quote
 > There
+
 Good chap.
 
 Here some more text surrounding a hint this time
 > 🛠️ something something
+
 Bully.
 
 Here some more text surrounding a titled hint this time
 > ### 🔎
 > **A hint** with some emoji header
+
 Yep
 
 -------
