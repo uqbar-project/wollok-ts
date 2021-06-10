@@ -1,12 +1,4 @@
-Se puede usar html puro, si no ponemos ícono en el fallback:
-
-<blockquote class="warning">
- 
- This is **something** I want you to notice. It has a lot of text, and I want that text to wrap within a cell to the right of the `NOTE`, instead of under it
-
-</blockquote>
-
-La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante potable, pero el wrappeo de linea no queda alineado con el ícono (aunque no es tan grave).
+Some random text. Please ignore...
 
 -------
 
@@ -21,6 +13,7 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 > ### Normal quote with header
 > and some text bellow
 
+> 🥶 A generic hint. Will be vaguely highlighted.
 
 > ⚠️ An important warning
 
@@ -38,6 +31,8 @@ La forma más simple es usar blockquotes con un icono Unicode. Se ve bastante po
 
 ----
 
+> 👪 # A generic hint
+> Will be vaguely highlighted.
 
 > ⚠️ # Warning
 > An important warning
