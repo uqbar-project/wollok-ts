@@ -86,7 +86,7 @@
     
     <script>
       [...document.querySelectorAll('section blockquote *:first-child')].forEach(hint => {
-        const emoji = hint.textContent.match(/([^\x00-\x7F]*).*/)[1];
+        const emoji = hint.textContent.match(/([^\x00-\xFF]*).*/)[1];
         if(emoji.length) {
           const blockquote = hint.parentElement;
           const emojiSection = document.createElement('div');
