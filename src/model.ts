@@ -99,8 +99,9 @@ export type Node
   | Body
   | Catch
   | Entity
-  | DescribeMember
-  | ModuleMember
+  | Field
+  | Method
+  | Test
   | Sentence
   | Reference<any> //TODO: This any makes the target be any
   | Environment
@@ -146,8 +147,10 @@ abstract class $Node {
 
   @cached
   parent():
-    this extends Module | Describe | Import ? Package :
-    this extends ModuleMember ? Module :
+    this extends Module | Import ? Package :
+    this extends Method ? Module :
+    this extends Field ? Class | Mixin | Singleton :
+    this extends Test ? Describe :
     Node {
     throw new Error(`Missing parent in cache for node ${this.id}`)
   }
@@ -274,7 +277,6 @@ export type Entity
   = Package
   | Program
   | Test
-  | Describe
   | Module
   | Variable
 
@@ -352,37 +354,6 @@ export class Test extends $Entity {
 }
 
 
-export class Describe extends $Entity {
-  readonly kind = 'Describe'
-  readonly name!: Name
-  readonly members!: List<DescribeMember>
-
-  constructor({ members = [], ...payload }: Payload<Describe, 'name'>) {
-    super({ members, ...payload })
-  }
-
-  tests(): List<Test> { return this.members.filter(is('Test')) }
-  methods(): List<Method> { return this.members.filter(is('Method')) }
-  variables(): List<Variable> { return this.members.filter(is('Variable')) }
-
-  // TODO: Describe is a Module?
-  @cached
-  lookupMethod(this: Describe, name: Name, arity: number): Method | undefined {
-    return this.methods().find(method => method.matchesSignature(name, arity))
-    ?? this.environment().getNodeByFQN<Class>('wollok.lang.Object').lookupMethod(name, arity)
-  }
-
-  // TODO: Describe is a Module?
-  @cached
-  defaultFieldValues(): Map<Field, Expression | undefined> {
-    return new Map(this.variables().map(variable => [
-      variable as unknown as Field,
-      variable.value,
-    ]))
-  }
-}
-
-
 export class Variable extends $Entity {
   readonly kind = 'Variable'
   readonly name!: Name
@@ -408,11 +379,11 @@ export class Variable extends $Entity {
 // MODULES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Module = Class | Singleton | Mixin
+export type Module = Class | Singleton | Mixin | Describe
 
 abstract class $Module extends $Entity {
   abstract supertypes: List<ParameterizedType>
-  abstract members: List<ModuleMember | DescribeMember>
+  abstract members: List<Field | Method | Variable | Test >
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
     const methods = members?.filter(is('Method')) ?? []
@@ -500,7 +471,12 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  defaultFieldValues(this: Module): Map<Field, Expression | undefined> {
+  defaultFieldValues(this: Module): Map<Field | Variable, Expression | undefined> {
+    // TODO: Unify
+    if (this.is('Describe')) {
+      return new Map(this.variables().map(variable => [variable, variable.value]))
+    }
+
     return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
       field,
       this.hierarchy().reduceRight((defaultValue, module) =>
@@ -515,7 +491,7 @@ export class Class extends $Module {
   readonly kind = 'Class'
   readonly name!: Name
   readonly supertypes!: List<ParameterizedType>
-  readonly members!: List<ModuleMember>
+  readonly members!: List<Field | Method>
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ supertypes, members, ...payload })
@@ -544,7 +520,7 @@ export class Singleton extends $Module {
   readonly kind = 'Singleton'
   readonly name?: Name
   readonly supertypes!: List<ParameterizedType>
-  readonly members!: List<ModuleMember>
+  readonly members!: List<Field | Method>
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Singleton>) {
     super({ supertypes, members, ...payload })
@@ -565,19 +541,32 @@ export class Mixin extends $Module {
   readonly kind = 'Mixin'
   readonly name!: Name
   readonly supertypes!: List<ParameterizedType>
-  readonly members!: List<ModuleMember>
+  readonly members!: List<Field | Method>
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
     super({ supertypes, members, ...payload })
   }
 }
 
+
+export class Describe extends $Module {
+  readonly kind = 'Describe'
+  readonly name!: Name
+  readonly members!: List<Variable | Test | Method> // TODO: Change variables to fields?
+  readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
+
+  constructor({ members = [], ...payload }: Payload<Describe, 'name'>) {
+    super({ members, ...payload })
+  }
+
+  tests(): List<Test> { return this.members.filter(is('Test')) }
+  variables(): List<Variable> { return this.members.filter(is('Variable')) }
+  superclass(): Class { return this.supertypes[0].reference.target()! as Class }
+}
+
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-export type ModuleMember = Field | Method
-export type DescribeMember = Variable | Test | Method
 
 
 export class Field extends $Node {

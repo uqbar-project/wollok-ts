@@ -350,7 +350,7 @@ export class Evaluation {
     yield node
 
     yield* this.exec(node.body, node.parent().is('Describe')
-      ? yield* this.instantiate(node.parent() as unknown as Module) // TODO: Describe is Module?
+      ? yield* this.instantiate(node.parent())
       : new Context(this.currentContext)
     )
 
