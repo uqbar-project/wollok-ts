@@ -383,6 +383,7 @@ export type Module = Class | Singleton | Mixin | Describe
 
 abstract class $Module extends $Entity {
   abstract supertypes: List<ParameterizedType>
+  abstract superclass(this: Module): Class | undefined
   abstract members: List<Field | Method | Variable | Test >
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
@@ -441,7 +442,7 @@ abstract class $Module extends $Entity {
       if (exclude.includes(node.id!)) return []
       const modules = [
         ...node.mixins(),
-        ...node.is('Mixin') || !node.superclass() ? [] : [node.superclass()!],
+        ...!node.superclass() ? [] : [node.superclass()!],
       ]
       return modules.reduce<[List<Module>, List<Id>]>(([hierarchy, excluded], module) => [
         [...hierarchy, ...hierarchyExcluding(module, excluded)],
@@ -497,9 +498,8 @@ export class Class extends $Module {
     super({ supertypes, members, ...payload })
   }
 
-  superclass(this: Module): Class | undefined
   @cached
-  superclass(this: Class): Class | undefined {
+  superclass(): Class | undefined {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
@@ -526,9 +526,7 @@ export class Singleton extends $Module {
     super({ supertypes, members, ...payload })
   }
 
-  superclass(this: Singleton): Class
-  superclass(this: Module): Class
-  superclass(this: Singleton): Class {
+  superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
@@ -546,6 +544,8 @@ export class Mixin extends $Module {
   constructor({ supertypes = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
     super({ supertypes, members, ...payload })
   }
+
+  superclass(): undefined { return undefined }
 }
 
 
