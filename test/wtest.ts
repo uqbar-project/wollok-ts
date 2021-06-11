@@ -81,8 +81,8 @@ function logError(error: any) {
 
 
 (async function () {
-  const environment = await buildEnvironment('**/*.@(wlk|wtest)', ARGUMENTS.root, true)
-  describe(basename(ARGUMENTS.root), () => registerTests(environment.members, Evaluation.build(environment, natives)))
+  const environment = await buildEnvironment('**/*.@(wlk|wtest)', (await ARGUMENTS).root, true)
+  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, Evaluation.build(environment, natives)))
 })()
   .then(run)
   .catch(e => {
