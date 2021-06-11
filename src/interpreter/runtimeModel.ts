@@ -169,6 +169,17 @@ export class ExecutionDirector {
     this.breakpoints.push(...nextBreakpoints)
   }
 
+  fork(continuation: (evaluation: Evaluation) => Execution<RuntimeValue>): ExecutionDirector {
+    const copyEvaluation = this.evaluation.copy()
+    return new ExecutionDirector(copyEvaluation, continuation(copyEvaluation))
+  }
+
+  finish(): ExecutionState & {done: true} {
+    let result = this.resume()
+    while(!result.done) result = this.resume()
+    return result
+  }
+
   resume(shouldHalt: (next: Node, evaluation: Evaluation) => boolean = () => false): ExecutionState {
     try {
       let next = this.execution.next()

@@ -34,7 +34,7 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
       it(node.name, () => {
         const testEvaluation = evaluation.copy()
         const execution = new ExecutionDirector(testEvaluation, testEvaluation.exec(node))
-        const result = execution.resume()
+        const result = execution.finish()
         if(result.error) {
           logError(result.error)
           throw result.error
