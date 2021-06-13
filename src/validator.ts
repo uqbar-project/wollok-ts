@@ -9,7 +9,7 @@
 // No more than 1 class in linearization
 // Mixins don't have class supertype
 // Default parameters don't repeat
-
+// Describes should never contain accesors, just plain fields
 
 import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, SourceMap, List } from './model'
 import { Kind } from './model'

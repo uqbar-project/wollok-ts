@@ -103,7 +103,7 @@ export type Node
   | Method
   | Test
   | Sentence
-  | Reference<any> //TODO: This any makes the target be any
+  | Reference<Node>
   | Environment
 
 
@@ -669,7 +669,7 @@ export class Reference<N extends Node> extends $Expression {
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
   @cached
-  target(this: Reference<N>): N | undefined {
+  target(): N | undefined {
     return this.scope.resolve(this.name)
   }
 }
@@ -759,7 +759,7 @@ export class Try extends $Expression {
 export class Catch extends $Expression {
   readonly kind = 'Catch'
   readonly parameter!: Parameter
-  readonly parameterType!: Reference<Module> // TODO: use NamedParameter instead
+  readonly parameterType!: Reference<Module>
   readonly body!: Body
 
   constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
@@ -806,7 +806,6 @@ export class Environment extends $Node {
     throw new Error(`Missing node in node cache with id ${id}`)
   }
 
-  //TODO: as function to use as safe cast instead of all the crapy casts in many methods ?
   @cached
   getNodeByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N {
     const [, id] = fullyQualifiedName.split('#')
