@@ -10,14 +10,14 @@ On this section we will address a general description of each step. For a more i
 
 ![Pipeline](https://drive.google.com/uc?authuser=0&id=1ruqzhAAsIbbnEfH8tNoFYfHHk-2Yp0ZQ&export=download)
 
-### [Parser](Parser)
+## [Parser](Parser)
 
 The **[Parser](Parser)** is the first step of the pipeline. It takes **Wollok Code** and builds an **Abstract Syntax Tree** based on its content. Different parsers are provided, designed to parse specific *Wollok* abstractions, such as a single expression or a whole source file.
 
-### [Linker](Linker)
+## [Linker](Linker)
 
 The **[Linker](Linker)** takes multiple isolated **AST**s and connects them together to form a **Linked Environment**. During this process it also assigns each node with a unique id and generates the **Visibility Scope** for it, used to identify what node is each reference targeting and ensure there are no missing definitions.
 
-### [Validator](Validator)
+## [Validator](Validator)
 
 The **[Validator](Validator)** checks a **Linked Environment** searching for possible issues that the previous steps are unable to detect and returns a **List of Problems**. If this list is empty the environment can be considered a **Valid Linked Environment** and thus, ready to be interpreted or used for refactors and code analysis routines.
