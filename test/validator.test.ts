@@ -376,8 +376,8 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'a', isReadOnly: false }),
-                new Field({ name: 'b', isReadOnly: false }),
+                new Field({ name: 'a', isConstant: false }),
+                new Field({ name: 'b', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
@@ -417,8 +417,8 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'a', isReadOnly: false }),
-                new Field({ name: 'b', isReadOnly: false }),
+                new Field({ name: 'a', isConstant: false }),
+                new Field({ name: 'b', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
@@ -574,9 +574,9 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'v', isReadOnly: false, value: new Reference({ name: 'v' }) }),
-                new Field({ name: 'b', isReadOnly: false, value: new Reference({ name: 'v' }) }),
-                new Field({ name: 'a', isReadOnly: false }),
+                new Field({ name: 'v', isConstant: false, value: new Reference({ name: 'v' }) }),
+                new Field({ name: 'b', isConstant: false, value: new Reference({ name: 'v' }) }),
+                new Field({ name: 'a', isConstant: false }),
               ],
             }),
           ],
@@ -686,7 +686,7 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'd', isReadOnly: false }),
+                new Field({ name: 'd', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [

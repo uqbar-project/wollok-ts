@@ -357,10 +357,10 @@ export class Test extends $Entity {
 export class Variable extends $Entity {
   readonly kind = 'Variable'
   readonly name!: Name
-  readonly isReadOnly!: boolean
+  readonly isConstant!: boolean
   readonly value!: Expression
 
-  constructor({ value = new Literal({ value: null }), ...payload }: Payload<Variable, 'name' | 'isReadOnly'>) {
+  constructor({ value = new Literal({ value: null }), ...payload }: Payload<Variable, 'name' | 'isConstant'>) {
     super({ value, ...payload })
   }
 
@@ -401,7 +401,7 @@ abstract class $Module extends $Entity {
       }))
 
     const propertySetters = properties
-      .filter(field => !field.isReadOnly && !methods.some(method => method.matchesSignature(field.name, 1)))
+      .filter(field => !field.isConstant && !methods.some(method => method.matchesSignature(field.name, 1)))
       .map(({ name }: Field) => new Method({
         name,
         isOverride: false,
@@ -567,11 +567,11 @@ export class Describe extends $Module {
 export class Field extends $Node {
   readonly kind = 'Field'
   readonly name!: Name
-  readonly isReadOnly!: boolean
+  readonly isConstant!: boolean
   readonly isProperty!: boolean
   readonly value!: Expression
 
-  constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isReadOnly'>) {
+  constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isConstant'>) {
     super({ value, isProperty, ...payload })
   }
 }
@@ -786,7 +786,7 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
       members: [
         new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
         ...code ? [
-          new Field({ name: '<toString>', isReadOnly: true, value: new Literal({ value: code }) }),
+          new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
         ] : [],
       ],
     }),

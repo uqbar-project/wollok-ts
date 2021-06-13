@@ -271,7 +271,7 @@ const classMemberError = error('malformedMember')('method', 'var', 'const', '}')
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
-    isReadOnly: alt(key('var').result(false), key('const').result(true)),
+    isConstant: alt(key('var').result(false), key('const').result(true)),
     isProperty: check(key('property')),
     name,
     value: optional(key('=').then(Expression)),
@@ -304,7 +304,7 @@ export const Sentence: Parser<SentenceNode> = lazy(() => alt(Variable, Return, A
 
 export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
-    isReadOnly: alt(key('var').result(false), key('const').result(true)),
+    isConstant: alt(key('var').result(false), key('const').result(true)),
     name,
     value: optional(key('=').then(Expression)),
   })

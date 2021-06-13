@@ -8,6 +8,7 @@
     - Removed Fixtures
     - New homogeneous linearization syntax
 - Describes are now Modules and have Fields instead of Variables
+- Fields and Variables' attribute `isReadOnly` has been renamed to `isConstant`
 - Replaced bytecode compiler with (a little slower, but easier to maintain) pure AST interpreter
 - Fixed filenames in node's source: Now is the whole filename, with extension and dirs
 - The source's file is now defined as a `fileName` property in Package so it doesn't need to be saved in each node

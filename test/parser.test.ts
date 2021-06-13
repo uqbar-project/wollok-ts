@@ -260,7 +260,7 @@ describe('Wollok parser', () => {
           new Class({
             name: 'C',
             members: [
-              new Field({ name: 'v', isReadOnly: false }),
+              new Field({ name: 'v', isConstant: false }),
               new Method({ name: 'm', body: new Body() }),
             ],
           })
@@ -322,8 +322,8 @@ describe('Wollok parser', () => {
             new Class({
               name: 'C',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -336,8 +336,8 @@ describe('Wollok parser', () => {
             new Class({
               name: 'C',
               members: [
-                new Field({ name: 'var2', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var2', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -350,8 +350,8 @@ describe('Wollok parser', () => {
             new Class({
               name: 'C',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var2', isConstant: false }),
               ],
             })
           )
@@ -364,7 +364,7 @@ describe('Wollok parser', () => {
           .into(
             new Class({
               name: 'C',
-              members: [new Field({ name: 'var4', isReadOnly: false })],
+              members: [new Field({ name: 'var4', isConstant: false })],
             })
           )
       })
@@ -454,7 +454,7 @@ describe('Wollok parser', () => {
           new Mixin({
             name: 'M',
             members: [
-              new Field({ name: 'v', isReadOnly: false }),
+              new Field({ name: 'v', isConstant: false }),
               new Method({ name: 'm', body: new Body() }),
             ],
           })
@@ -471,8 +471,8 @@ describe('Wollok parser', () => {
             new Mixin({
               name: 'M',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -485,8 +485,8 @@ describe('Wollok parser', () => {
             new Mixin({
               name: 'M',
               members: [
-                new Field({ name: 'var2', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var2', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -499,8 +499,8 @@ describe('Wollok parser', () => {
             new Mixin({
               name: 'M',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var2', isConstant: false }),
               ],
             })
           )
@@ -513,7 +513,7 @@ describe('Wollok parser', () => {
           .into(
             new Mixin({
               name: 'M',
-              members: [new Field({ name: 'var4', isReadOnly: false })],
+              members: [new Field({ name: 'var4', isConstant: false })],
             })
           )
       })
@@ -546,7 +546,7 @@ describe('Wollok parser', () => {
           new Singleton({
             name: 'o',
             members: [
-              new Field({ name: 'v', isReadOnly: false }),
+              new Field({ name: 'v', isConstant: false }),
               new Method({ name: 'm', body: new Body() }),
             ],
           })
@@ -662,8 +662,8 @@ describe('Wollok parser', () => {
             new Singleton({
               name: 'o',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -676,8 +676,8 @@ describe('Wollok parser', () => {
             new Singleton({
               name: 'o',
               members: [
-                new Field({ name: 'var2', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var2', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -690,8 +690,8 @@ describe('Wollok parser', () => {
             new Singleton({
               name: 'o',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var2', isConstant: false }),
               ],
             })
           )
@@ -704,7 +704,7 @@ describe('Wollok parser', () => {
           .into(
             new Singleton({
               name: 'o',
-              members: [new Field({ name: 'var4', isReadOnly: false })],
+              members: [new Field({ name: 'var4', isConstant: false })],
             })
           )
       })
@@ -759,7 +759,7 @@ describe('Wollok parser', () => {
           new Program({
             name: 'name', body: new Body({
               sentences: [
-                new Variable({ name: 'x', isReadOnly: false }),
+                new Variable({ name: 'x', isConstant: false }),
               ],
             }),
           })
@@ -791,7 +791,7 @@ describe('Wollok parser', () => {
           new Test({
             name: '"name"', body: new Body({
               sentences: [
-                new Variable({ name: 'x', isReadOnly: false }),
+                new Variable({ name: 'x', isConstant: false }),
               ],
             }),
           })
@@ -840,7 +840,7 @@ describe('Wollok parser', () => {
 
       it('should parse describes with fields', () => {
         'describe "name" { var v }'.should.be.parsedBy(parser).into(
-          new Describe({ name: '"name"', members: [new Field({ name: 'v', isReadOnly: false })] })
+          new Describe({ name: '"name"', members: [new Field({ name: 'v', isConstant: false })] })
         ).and.be.tracedTo(0, 25)
           .and.have.nested.property('members.0').tracedTo(18, 23)
       })
@@ -860,8 +860,8 @@ describe('Wollok parser', () => {
             new Describe({
               name: '"name"',
               members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -874,8 +874,8 @@ describe('Wollok parser', () => {
             new Describe({
               name: '"name"',
               members: [
-                new Field({ name: 'var2', isReadOnly: false }),
-                new Field({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var2', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
               ],
             })
           )
@@ -887,8 +887,8 @@ describe('Wollok parser', () => {
           .into(
             new Describe({
               name: '"name"', members: [
-                new Field({ name: 'var1', isReadOnly: false }),
-                new Field({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var2', isConstant: false }),
               ],
             })
           )
@@ -898,7 +898,7 @@ describe('Wollok parser', () => {
         'describe "name" {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 17, 40)
           .recoveringFrom('malformedMember', 50, 65)
-          .into(new Describe({ name: '"name"', members: [new Field({ name: 'var4', isReadOnly: false })] }))
+          .into(new Describe({ name: '"name"', members: [new Field({ name: 'var4', isConstant: false })] }))
       })
 
 
@@ -924,7 +924,7 @@ describe('Wollok parser', () => {
       const parser = parse.Field
 
       it('should parse var declaration', () => {
-        'var v'.should.be.parsedBy(parser).into(new Field({ name: 'v', isReadOnly: false })).and.be.tracedTo(0, 5)
+        'var v'.should.be.parsedBy(parser).into(new Field({ name: 'v', isConstant: false })).and.be.tracedTo(0, 5)
       })
 
 
@@ -933,7 +933,7 @@ describe('Wollok parser', () => {
           new Field(
             {
               name: 'v',
-              isReadOnly: false,
+              isConstant: false,
               value: new Literal({ value: 5 }),
             })
         ).and.be.tracedTo(0, 9)
@@ -942,7 +942,7 @@ describe('Wollok parser', () => {
       })
 
       it('should parse const declaration', () => {
-        'const v'.should.be.parsedBy(parser).into(new Field({ name: 'v', isReadOnly: true })).and.be.tracedTo(0, 7)
+        'const v'.should.be.parsedBy(parser).into(new Field({ name: 'v', isConstant: true })).and.be.tracedTo(0, 7)
       })
 
       it('should parse const declaration and asignation', () => {
@@ -950,7 +950,7 @@ describe('Wollok parser', () => {
           new Field(
             {
               name: 'v',
-              isReadOnly: true,
+              isConstant: true,
               value: new Literal({ value: 5 }),
             })
         ).and.be.tracedTo(0, 11)
@@ -962,7 +962,7 @@ describe('Wollok parser', () => {
           new Field(
             {
               name: 'v',
-              isReadOnly: false,
+              isConstant: false,
               isProperty: true,
             })
         ).and.be.tracedTo(0, 14)
@@ -1031,7 +1031,7 @@ describe('Wollok parser', () => {
         'method m() {var x}'.should.be.parsedBy(parser).into(
           new Method({
             name: 'm',
-            body: new Body({ sentences: [new Variable({ name: 'x', isReadOnly: false })] }),
+            body: new Body({ sentences: [new Variable({ name: 'x', isConstant: false })] }),
           })
         ).and.be.tracedTo(0, 18)
           .and.have.nested.property('body').tracedTo(11, 18)
@@ -1098,7 +1098,7 @@ describe('Wollok parser', () => {
     describe('Variables', () => {
       const parser = parse.Variable
       it('should parse var declaration', () => {
-        'var v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isReadOnly: false })).and.be.tracedTo(0, 5)
+        'var v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isConstant: false })).and.be.tracedTo(0, 5)
       })
 
 
@@ -1106,7 +1106,7 @@ describe('Wollok parser', () => {
         'var v = 5'.should.be.parsedBy(parser).into(
           new Variable({
             name: 'v',
-            isReadOnly: false,
+            isConstant: false,
             value: new Literal({ value: 5 }),
           })
         ).and.be.tracedTo(0, 9)
@@ -1114,14 +1114,14 @@ describe('Wollok parser', () => {
       })
 
       it('should parse const declaration', () => {
-        'const v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isReadOnly: true })).and.be.tracedTo(0, 7)
+        'const v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isConstant: true })).and.be.tracedTo(0, 7)
       })
 
       it('should parse const asignation', () => {
         'const v = 5'.should.be.parsedBy(parser).into(
           new Variable({
             name: 'v',
-            isReadOnly: true,
+            isConstant: true,
             value: new Literal({ value: 5 }),
           })
         ).and.be.tracedTo(0, 11)
@@ -2171,7 +2171,7 @@ describe('Wollok parser', () => {
               new Literal({
                 value: new Singleton({
                   members: [
-                    new Field({ name: 'v', isReadOnly: false }),
+                    new Field({ name: 'v', isConstant: false }),
                     new Method({ name: 'm', body: new Body() }),
                   ],
                 }),

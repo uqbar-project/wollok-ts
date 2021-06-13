@@ -139,13 +139,13 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'X', members: [new Field({ name: 'x', isReadOnly: true })] }),
+            new Class({ name: 'X', members: [new Field({ name: 'x', isConstant: true })] }),
           ],
         }),
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'X', members: [new Field({ name: 'y', isReadOnly: true })] }),
+            new Class({ name: 'X', members: [new Field({ name: 'y', isConstant: true })] }),
           ],
         }),
       ].should.be.linkedInto([
@@ -153,7 +153,7 @@ describe('Wollok linker', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'X', members: [new Field({ name: 'y', isReadOnly: true })] }),
+            new Class({ name: 'X', members: [new Field({ name: 'y', isConstant: true })] }),
           ],
         }),
       ])
@@ -212,9 +212,9 @@ describe('Wollok linker', () => {
               name: 'C',
               supertypes:[new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })],
               members: [
-                new Field({ name: 'f', isReadOnly: true, value: new Reference({ name: 'C' }) }),
-                new Field({ name: 'g', isReadOnly: true, value: new Reference({ name: 'p' }) }),
-                new Field({ name: 'h', isReadOnly: true, value: new Reference({ name: 'f' }) }),
+                new Field({ name: 'f', isConstant: true, value: new Reference({ name: 'C' }) }),
+                new Field({ name: 'g', isConstant: true, value: new Reference({ name: 'p' }) }),
+                new Field({ name: 'h', isConstant: true, value: new Reference({ name: 'f' }) }),
               ],
             }),
           ],
@@ -248,7 +248,7 @@ describe('Wollok linker', () => {
                 }),
               ],
               members: [
-                new Field({ name: 'x', isReadOnly: false, value: new Reference({ name: 'x' }) }),
+                new Field({ name: 'x', isConstant: false, value: new Reference({ name: 'x' }) }),
                 new Method({
                   name: 'm1',
                   parameters: [new Parameter({ name: 'x' })],
@@ -268,7 +268,7 @@ describe('Wollok linker', () => {
                   name: 'm2',
                   body: new Body({
                     sentences: [
-                      new Variable({ name: 'x', isReadOnly: false, value: new Reference({ name: 'x' }) }),
+                      new Variable({ name: 'x', isConstant: false, value: new Reference({ name: 'x' }) }),
                       new Reference({ name: 'x' }),
                     ],
                   }),
@@ -319,12 +319,12 @@ describe('Wollok linker', () => {
           members: [
             new Mixin({
               name: 'M', members: [
-                new Field({ name: 'y', isReadOnly: false }),
+                new Field({ name: 'y', isConstant: false }),
               ],
             }),
             new Class({
               name: 'A', members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({ name: 'B', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A' }) })] }),
@@ -365,14 +365,14 @@ describe('Wollok linker', () => {
           members: [
             new Mixin({
               name: 'M', members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({
               name: 'C',
               supertypes: [new ParameterizedType({ reference: new Reference({ name: 'M' }) })],
               members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
                 new Method({
                   name: 'm',
                   body: new Body({ sentences: [new Reference({ name: 'x' })] }),
@@ -395,7 +395,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'A', members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({ name: 'B', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A' }) })] }),
@@ -403,7 +403,7 @@ describe('Wollok linker', () => {
               name: 'C',
               supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })],
               members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
                 new Method({
                   name: 'm',
                   body: new Body({ sentences: [new Reference({ name: 'x' })] }),
@@ -426,12 +426,12 @@ describe('Wollok linker', () => {
           members: [
             new Mixin({
               name: 'M', members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({
               name: 'A', members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({
@@ -466,13 +466,13 @@ describe('Wollok linker', () => {
               name: 'M',
               supertypes: [new ParameterizedType({ reference: new Reference({ name: 'N' }) })],
               members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Mixin({
               name: 'N',
               members: [
-                new Field({ name: 'x', isReadOnly: false }),
+                new Field({ name: 'x', isConstant: false }),
               ],
             }),
             new Class({
@@ -502,12 +502,12 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'A',
-              members: [new Field({ name: 'x', isReadOnly: false })],
+              members: [new Field({ name: 'x', isConstant: false })],
             }),
             new Class({
               name: 'B',
               supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A' }) })],
-              members: [new Field({ name: 'x', isReadOnly: false })],
+              members: [new Field({ name: 'x', isConstant: false })],
             }),
             new Class({
               name: 'C',

@@ -389,7 +389,7 @@ export class Evaluation {
 
     yield node
 
-    if(node.variable.target()?.isReadOnly) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+    if(node.variable.target()?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
 
     this.currentContext.set(node.variable.name, value, true)
 
