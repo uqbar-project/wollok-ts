@@ -1,4 +1,4 @@
-Compilation Pipeline
+# Compilation Pipeline
 
 > ### ☠️ Out Of Date!
 > This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
@@ -18,6 +18,6 @@ The **[Parser](Parser)** is the first step of the pipeline. It takes **Wollok Co
 
 The **[Linker](Linker)** takes multiple isolated **AST**s and connects them together to form a **Linked Environment**. During this process it also assigns each node with a unique id and generates the **Visibility Scope** for it, used to identify what node is each reference targeting and ensure there are no missing definitions.
 
-### [Validator]
+### [Validator](Validator)
 
 The **[Validator](Validator)** checks a **Linked Environment** searching for possible issues that the previous steps are unable to detect and returns a **List of Problems**. If this list is empty the environment can be considered a **Valid Linked Environment** and thus, ready to be interpreted or used for refactors and code analysis routines.
