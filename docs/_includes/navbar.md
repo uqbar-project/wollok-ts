@@ -6,6 +6,6 @@
     - [Parser](/wollok-ts/pages/Implementation-Details/The-Compilation-Pipeline/Parser)
     - [Linker](/wollok-ts/pages/Implementation-Details/The-Compilation-Pipeline/Linker)
     - [Validator](/wollok-ts/pages/Implementation-Details/The-Compilation-Pipeline/Validator)
-  - [The Interpreter](/wollok-ts/pages/Implementation-Details/Interpreter)
+  - [Interpreter](/wollok-ts/pages/Implementation-Details/Interpreter)
 - [How To Contribute](/wollok-ts/pages/How-To-Contribute)
   - [Developer Environment](/wollok-ts/pages/How-To-Contribute/Developer-environment)
