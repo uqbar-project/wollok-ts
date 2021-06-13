@@ -1,7 +1,7 @@
-import Parsimmon, { takeWhile, alt, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
+import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue } from './model'
 import { mapObject, discriminate } from './extensions'
 
 const { keys, values } = Object
@@ -38,6 +38,13 @@ export class ParseError extends Problem {
   constructor(public code: Name, public sourceMap: SourceMap){ super() }
 }
 
+// TODO: Contribute this type so we don't have to do it here
+function alt<T1, T2>(p1: Parser<T1>, p2: Parser<T2>): Parser<T1 | T2>
+function alt<T1, T2, T3>(p1: Parser<T1>, p2: Parser<T2>, p3: Parser<T3>): Parser<T1 | T2 | T3>
+function alt<T1, T2, T3, T4>(p1: Parser<T1>, p2: Parser<T2>, p3: Parser<T3>, p4: Parser<T4>): Parser<T1 | T2 | T3 | T4>
+function alt<T>(...parsers: Parser<T>[]): Parser<T>
+function alt<T>(...parsers: Parser<T>[]): Parser<T> { return alt_parser(...parsers) }
+
 const error = (code: string) => (...safewords: string[]) =>
   notFollowedBy(alt(...safewords.map(key))).then(alt(
     seq(string('{'), takeWhile(c => c !== '}'), string('}')),
@@ -69,7 +76,7 @@ const optional = <T>(parser: Parser<T>) => parser.fallback(undefined)
 const obj = <T>(parsers: {[K in keyof T]: Parser<T[K]>}): Parser<T> =>
   seqObj<T>(...keys(parsers).map(fieldName => [fieldName, parsers[fieldName as keyof T]] as any))
 
-const key = (str: string) => (
+const key = <T extends string>(str: T): Parser<T> => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
     : string(str)
@@ -144,10 +151,10 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
   obj({ sentences: Sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), key('}'))
 )
 
-const inlineableBody: Parser<BodyNode> = alt(
-  Body,
-  node(BodyNode)(() => obj({ sentences: Sentence.times(1) })),
+const inlineableBody: Parser<BodyNode> = Body.or(
+  node(BodyNode)(() => obj({ sentences: Sentence.times(1) }))
 )
+
 
 const parameters: Parser<List<ParameterNode>> = lazy(() =>
   Parameter.sepBy(key(',')).wrap(key('('), key(')')))
@@ -167,7 +174,7 @@ const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.m
 
 const entityError = error('malformedEntity')('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const', '}')
 
-export const Entity: Parser<EntityNode> = lazy(() => alt(
+export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
   Package,
   Class,
   Singleton,
@@ -193,13 +200,6 @@ export const Program: Parser<ProgramNode> = node(ProgramNode)(() =>
   }))
 )
 
-export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
-  key('describe').then(obj({
-    name: stringLiteral.map(name => `"${name}"`),
-    members: alt(Field, Method, Test).or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-  })).map(recover)
-)
-
 export const Test: Parser<TestNode> = node(TestNode)(() =>
   obj({
     isOnly: check(key('only')),
@@ -223,23 +223,44 @@ const supertypes = lazy(() => key('inherits').then(ParameterizedType.sepBy1(key(
 
 
 //TODO: It looks like current typing detects missing fields but not inexistent ones
-export const Class: Parser<ClassNode> = node(ClassNode)(() => key('class').then(obj({
-  name,
-  supertypes,
-  members: alt(Field, Method, classMemberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-})).map(recover))
+export const Class: Parser<ClassNode> = node(ClassNode)(() =>
+  key('class').then(obj({
+    name,
+    supertypes,
+    members: alt(Field, Method, classMemberError)
+      .sepBy(optional(_))
+      .wrap(key('{'), key('}')),
+  })).map(recover)
+)
 
-export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() => key('object').then(obj({
-  name: optional(notFollowedBy(key('inherits')).then(name)),
-  supertypes,
-  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-})).map(recover))
+export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
+  key('object').then(obj({
+    name: optional(notFollowedBy(key('inherits')).then(name)),
+    supertypes,
+    members: alt(Field, Method, memberError)
+      .sepBy(optional(_))
+      .wrap(key('{'), key('}')),
+  })).map(recover)
+)
 
-export const Mixin: Parser<MixinNode> = node(MixinNode)(() => key('mixin').then(obj({
-  name,
-  supertypes,
-  members: alt(Field, Method, memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
-})).map(recover))
+export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
+  key('mixin').then(obj({
+    name,
+    supertypes,
+    members: alt(Field, Method, memberError)
+      .sepBy(optional(_))
+      .wrap(key('{'), key('}')),
+  })).map(recover)
+)
+
+export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
+  key('describe').then(obj({
+    name: stringLiteral.map(name => `"${name}"`),
+    members: alt(Field, Method, Test, memberError)
+      .sepBy(optional(_))
+      .wrap(key('{'), key('}')),
+  })).map(recover)
+)
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MEMBERS
@@ -429,7 +450,7 @@ const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
 export const Literal: Parser<LiteralNode> = lazy(() => alt(
   closureLiteral,
   node(LiteralNode)(() => obj({
-    value: alt(
+    value: alt<LiteralValue>(
       key('null').result(null),
       key('true').result(true),
       key('false').result(false),
