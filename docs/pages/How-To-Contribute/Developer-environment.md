@@ -3,51 +3,25 @@
 
 Before anything else, you will need a *TypeScript* editor. We recomend [Visual Studio Code](https://code.visualstudio.com/) along with the following plugins:
 
-- [TSLint](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
+- [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
+- [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
+ 
+There are also other plugins that some people on the team find interesting and you might like:
+
+- [TODO Highlight](https://marketplace.visualstudio.com/items?itemName=wayou.vscode-todo-highlight)
 - [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
 - [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
-- [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
 - [Git Lens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 - [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer)
 - [Mocha Test Explorer](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-mocha-test-adapter)
- 
-Optional extra plugins could be:
-
-- [Prettier - Code Formatter](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 - [TypeScript Extension Pack](https://marketplace.visualstudio.com/items?itemName=loiane.ts-extension-pack)
 
-### Settings
-
-You might also want to copy the following configurations to your user settings (`ctrl+,` or File > Preferences > Settings, search for TSLint, tab User, look for Edit in settings.json link):
-
-```json
-{
-  "window.menuBarVisibility": "default",
-  "window.zoomLevel": 0,
-  "workbench.statusBar.feedback.visible": false,
-  "workbench.startupEditor": "none",
-  "explorer.openEditors.visible": 0,
-  "files.exclude": {
-    "dist": true,
-    ".vscode": true,
-    "node_modules": true,
-  },
-  "explorer.autoReveal": true,
-  "editor.tabSize": 2,
-  "editor.formatOnSave": true,
-  "editor.fontFamily": "Fira Code",    
-  "editor.fontLigatures": true,
-  "editor.foldingStrategy": "indentation",
-  "tslint.autoFixOnSave": true,
-  "tslint.alwaysShowStatus": true,
-  "typescript.updateImportsOnFileMove.enabled": "always",
-  "javascript.implicitProjectConfig.checkJs": true
-}
-```
 
 ### Node
 
-You need to install [node](https://nodejs.org/es/) > 11, which provides VM environment, and [nvm - Node Version Manager](https://github.com/nvm-sh/nvm). Before anything make sure you'll use the right version of node by running this command:
+You need to install [NodeJS](https://nodejs.org/es/), which provides VM environment, and [NVM - Node Version Manager](https://github.com/nvm-sh/nvm).
+
+Make sure you are using the right version of node by running this command:
 
 ```bash
 nvm use
@@ -59,8 +33,6 @@ Expected output is the node version that will be used, for example:
 Found '/home/wollok-ts/.nvmrc' with version <v11.15.0>
 Now using node v11.15.0 (npm v6.7.0)
 ```
-
-> Please remember anytime you add 
 
 ### NPM
 
@@ -82,7 +54,7 @@ A full list of the available scripts is listed on the `package.json` file, on th
 
 ## Linter
 
-Linter should follow settings above defined. Be sure to use Typescript version from the Workspace and not from current VSC installation:
+We use [ESLint](https://eslint.org/) to make sure our code complies with our codestyle standards. Be sure to use Typescript version from the Workspace and not from current VSC installation:
 
 ![settingTSversion](https://user-images.githubusercontent.com/4549002/71355632-68957400-255e-11ea-808b-39ec97abff5c.gif)
 
@@ -94,6 +66,12 @@ We use [BDD chai unit testing style](https://www.chaijs.com/api/bdd/), in partic
 - expect
 
 They are located in `test` folder.
+
+You can run all the project tests from the console by executing:
+
+```bash
+npm test
+```
 
 ## Debugging
 

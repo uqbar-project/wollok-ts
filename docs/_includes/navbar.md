@@ -1,5 +1,4 @@
 - [Home](/wollok-ts/)
-- [General Design & Main Concerns](/wollok-ts/pages/General-Design-and-Main-Concerns)
 - [Implementation Details](/wollok-ts/pages/Implementation-Details)
   - [Model Overview](/wollok-ts/pages/Implementation-Details/Model-Overview)
   - [The Compilation Pipeline](/wollok-ts/pages/Implementation-Details/The-Compilation-Pipeline)
@@ -8,4 +7,5 @@
     - [Validator](/wollok-ts/pages/Implementation-Details/The-Compilation-Pipeline/Validator)
   - [Interpreter](/wollok-ts/pages/Implementation-Details/Interpreter)
 - [How To Contribute](/wollok-ts/pages/How-To-Contribute)
+  - [General Design & Main Concerns](/wollok-ts/pages/How-To-Contribute/General-Design-and-Main-Concerns)
   - [Developer Environment](/wollok-ts/pages/How-To-Contribute/Developer-environment)
