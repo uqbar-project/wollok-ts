@@ -1,12 +1,12 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const mirror: Natives = {
 
   ObjectMirror: {
 
-    resolve: (self: RuntimeObject, attributeName: RuntimeObject) => (evaluation: Evaluation): void => {
+    *resolve(self: RuntimeObject, attributeName: RuntimeObject): Execution<RuntimeValue> {
       attributeName.assertIsString()
-      evaluation.currentFrame!.pushOperand(self.get('target')?.get(attributeName.innerValue))
+      return self.get('target')?.get(attributeName.innerValue)
     },
 
   },

@@ -1,11 +1,10 @@
-import { Evaluation, Natives, RuntimeObject } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeValue } from '../interpreter/runtimeModel'
 
 const vm: Natives = {
 
   runtime: {
-
-    isInteractive: () => (evaluation: Evaluation): void => {
-      evaluation.currentFrame!.pushOperand(RuntimeObject.boolean(evaluation, false))
+    *isInteractive(): Execution<RuntimeValue> {
+      return yield* this.reify(false)
     },
 
   },

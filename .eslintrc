@@ -100,9 +100,21 @@
         "flatTernaryExpressions": true
       }
     ],
+    "require-yield": "off",
     "no-case-declarations": "off",
     "no-console": [
-      "warn"
+      "warn",
+      {
+        "allow": [
+          "info",
+          "warn",
+          "error",
+          "time",
+          "timeEnd",
+          "group",
+          "groupEnd"
+        ]
+      }
     ],
     "no-constant-condition": [
       "warn"
@@ -151,6 +163,9 @@
         "asyncArrow": "always",
         "named": "never"
       }
+    ],
+    "@typescript-eslint/type-annotation-spacing": [
+      "warn"
     ]
   }
 }

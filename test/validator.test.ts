@@ -6,20 +6,20 @@ import { Assignment,
   Body,
   Catch,
   Class,
-  Constructor,
   Field,
   Literal,
   Method,
   New,
   Package,
   Parameter,
+  ParameterizedType,
   Program,
   Reference,
   Return,
   Self,
   Send,
   Singleton,
-  Source,
+  SourceMap,
   Super,
   Test,
   Try } from '../src/model'
@@ -102,8 +102,8 @@ describe('Wollok Validations', () => {
         new Package({
           name: 'p',
           members: [
-            new Class({ name: 'C', superclassRef: new Reference({ name: 'program' }) }),
-            new Class({ name: 'C2', superclassRef: new Reference({ name: 'C' }) }),
+            new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'program' }) })] }),
+            new Class({ name: 'C2', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'C' }) })] }),
             new Class({ name: 'program' }),
           ],
         }),
@@ -112,10 +112,10 @@ describe('Wollok Validations', () => {
       const { nameIsNotKeyword } = validations
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
-      const referenceWithKeywordName = classExample.superclassRef!
+      const referenceWithKeywordName = classExample.supertypes[0].reference
 
       const classExample2 = packageExample.members[1] as Class
-      const referenceWithValidName = classExample2.superclassRef!
+      const referenceWithValidName = classExample2.supertypes[0].reference
 
       it('should pass when name is not a keyword', () => {
         referenceWithValidName.should.pass(nameIsNotKeyword)
@@ -275,72 +275,6 @@ describe('Wollok Validations', () => {
     })
   })
 
-  describe('Constructors', () => {
-
-    describe('Constructors have distinct arity', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'c', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'k' }), new Parameter({ name: 'l' })] }),
-              ],
-            }),
-            new Class({
-              name: 'c2', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'p' }), new Parameter({ name: 'q' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'q', isVarArg: true })] }),
-              ],
-            }),
-            new Class({
-              name: 'c3', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'a' })] }),
-                new Constructor({ parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' }), new Parameter({ name: 'q', isVarArg: true })] }),
-              ],
-            }),
-            new Class({
-              name: 'c4', members: [
-                new Constructor({ parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' })] }),
-              ],
-            }),
-          ],
-        }),
-      ])
-
-      const packageExample = environment.members[1]
-      const classWithConstructorsOfSameArity = packageExample.members[0] as Class
-      const conflictingArityConstructor = classWithConstructorsOfSameArity.members[0]
-
-      const classWithVarArgConflictingConstructors = packageExample.members[1] as Class
-      const conflictingArityWithVarArgConstructor = classWithVarArgConflictingConstructors.members[0]
-
-      const classWithVarArgAndDistinctSignatureConstructors = packageExample.members[2] as Class
-      const distinctArityWithVarArgConstructor = classWithVarArgAndDistinctSignatureConstructors.members[0]
-
-      const { hasDistinctSignature } = validations
-      const classWithSingleConstructor = packageExample.members[3] as Class
-      const singleConstructor = classWithSingleConstructor.members[0]
-
-      it('should pass when constructors have distinct arity', () => {
-        distinctArityWithVarArgConstructor.should.pass(hasDistinctSignature)
-      })
-
-      it('should not pass when constructors have the same arity', () => {
-        conflictingArityConstructor.should.not.pass(hasDistinctSignature)
-      })
-
-      it('should not pass when constructors can be called with the same amount of arguments', () => {
-        conflictingArityWithVarArgConstructor.should.not.pass(hasDistinctSignature)
-      })
-
-      it('should pass when single constructor defined', () => {
-        singleConstructor.should.pass(hasDistinctSignature)
-      })
-    })
-  })
-
   describe('Methods', () => {
 
     describe('Only last parameter is var arg', () => {
@@ -385,7 +319,7 @@ describe('Wollok Validations', () => {
               ],
             }),
             new Class({
-              name: 'C2', superclassRef: new Reference({ name: 'C' }), members: [
+              name: 'C2', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'C' }) })], members: [
                 new Method({ name: 'm', body: new Body({ sentences: [new Super()] }) }),
               ],
             }),
@@ -442,8 +376,8 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'a', isReadOnly: false }),
-                new Field({ name: 'b', isReadOnly: false }),
+                new Field({ name: 'a', isConstant: false }),
+                new Field({ name: 'b', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
@@ -483,8 +417,8 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'a', isReadOnly: false }),
-                new Field({ name: 'b', isReadOnly: false }),
+                new Field({ name: 'a', isConstant: false }),
+                new Field({ name: 'b', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
@@ -640,9 +574,9 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'v', isReadOnly: false, value: new Reference({ name: 'v' }) }),
-                new Field({ name: 'b', isReadOnly: false, value: new Reference({ name: 'v' }) }),
-                new Field({ name: 'a', isReadOnly: false }),
+                new Field({ name: 'v', isConstant: false, value: new Reference({ name: 'v' }) }),
+                new Field({ name: 'b', isConstant: false, value: new Reference({ name: 'v' }) }),
+                new Field({ name: 'a', isConstant: false }),
               ],
             }),
           ],
@@ -708,7 +642,7 @@ describe('Wollok Validations', () => {
             new Program({
               name: 'pr', body: new Body({
                 sentences: [
-                  new Return({ value: new Self({ source: {} as Source }) }),
+                  new Return({ value: new Self({ sourceMap: {} as SourceMap }) }),
                 ],
               }),
             }),
@@ -717,7 +651,7 @@ describe('Wollok Validations', () => {
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
-                      new Return({ value: new Self({ source: {} as Source }) }),
+                      new Return({ value: new Self({ sourceMap: {} as SourceMap }) }),
                     ],
                   }),
                 }),
@@ -752,7 +686,7 @@ describe('Wollok Validations', () => {
           name: 'p', members: [
             new Class({
               name: 'C', members: [
-                new Field({ name: 'd', isReadOnly: false }),
+                new Field({ name: 'd', isConstant: false }),
                 new Method({
                   name: 'm', body: new Body({
                     sentences: [
@@ -784,84 +718,13 @@ describe('Wollok Validations', () => {
     })
   })
 
-  describe('Super', () => {
-    describe('No super in constructor body', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'c', members: [
-                new Constructor({ body: new Body({ sentences: [new Super({ source: {} as Source })] }) }),
-                new Method({ name: 'm', body: new Body({ sentences: [new Super({ source: {} as Source })] }) }),
-              ],
-            }),
-          ],
-        })])
-
-      const { noSuperInConstructorBody } = validations
-
-      const packageExample = environment.members[1] as Package
-      const classExample = packageExample.members[0] as Class
-      const constructorExample = classExample.members[0] as Constructor
-      const superInConstructorBody = constructorExample.body.sentences[0] as Super
-      const method = classExample.members[1] as Method
-      const superInMethodBody = method.sentences()[0] as Super
-
-      it('should pass when super is in method body', () => {
-        superInMethodBody.should.pass(noSuperInConstructorBody)
-      })
-
-      it('should not pass when super is in constructor body', () => {
-        superInConstructorBody.should.not.pass(noSuperInConstructorBody)
-      })
-    })
-  })
-
-  describe('Return', () => {
-    describe('No return statement in constructor', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'C', members: [
-                new Constructor({ body: new Body({ sentences: [new Return({ value: new Literal({ value: 'a' }), source: {} as Source })] }) }),
-                new Method({ name: 'm', body: new Body({ sentences:  [new Return({ value: new Literal({ value: 'a' }), source: {} as Source })]  }) }),
-              ],
-            }),
-          ],
-        }),
-      ])
-
-      const { noReturnStatementInConstructor } = validations
-
-      // TODO: Use the proper methods instead of casting
-      const packageExample = environment.members[1] as Package
-      const classExample = packageExample.members[0] as Class
-      const constructorExample = classExample.members[0] as Constructor
-      const returnInConstructor = constructorExample.body.sentences[0] as Return
-      const method = classExample.members[1] as Method
-      const returnInMethod = method.sentences()[0] as Return
-
-      it('should pass when return is in a method', () => {
-        returnInMethod.should.pass(noReturnStatementInConstructor)
-      })
-
-      it('should not pass when return is in a constructor', () => {
-        returnInConstructor.should.not.pass(noReturnStatementInConstructor)
-      })
-    })
-  })
-
   describe('Wollok Core Library Health', () => {
     const environment = buildEnvironment([{ name: 'zarlanga.wlk', content: '' }])
     const problems = validate(environment).map(
       ({ code, node }) => ({
         code,
-        file: node.source?.file,
-        line: node.source?.start.line,
-        offset: node.source?.start.offset,
+        line: node.sourceMap?.start.line,
+        offset: node.sourceMap?.start.offset,
       })
     )
 

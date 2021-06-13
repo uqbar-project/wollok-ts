@@ -4,14 +4,14 @@ import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Referen
 const { assign } = Object
 
 
-const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib']
+export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game']
 
 
 export class LinkError extends Problem {
   constructor(public code: Name){ super() }
 }
 
-const fail = (code: Name) => (node: Reference<any>) =>
+const fail = (code: Name) => (node: Reference<Node>) =>
   assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -34,7 +34,7 @@ const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => 
 // SCOPES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-class LocalScope implements Scope {
+export class LocalScope implements Scope {
   protected contributions = new Map<Name, Node>()
   protected includedScopes: Scope[] = []
 
@@ -58,7 +58,7 @@ class LocalScope implements Scope {
     for(const [name, node] of contributions) this.contributions.set(name, node)
   }
 
-  include(...others: Scope[]) { this.includedScopes.push(...others) }
+  include(...others: Scope[]): void { this.includedScopes.push(...others) }
 }
 
 
@@ -77,7 +77,7 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
-        node.is('Reference') && (parent!.is('Class') || parent!.is('Mixin'))
+        node.is('Reference') && parent!.is('ParameterizedType')
           ? parent!.parent().scope
           : parent?.scope
       ),
@@ -139,7 +139,8 @@ export default (
 
   // TODO: Move to validator?
   environment.forEach(node => {
-    if(node.is('Reference') && !node.target()) fail('missingReference')(node)
+    if(node.is('Reference') && !node.target())
+      fail('missingReference')(node)
   })
 
   return environment

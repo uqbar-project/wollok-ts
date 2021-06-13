@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { Class, Method, Body, Reference } from '../src/model'
+import { Class, Method, Body, Reference, ParameterizedType } from '../src/model'
 import { restore, stub } from 'sinon'
 
 should()
@@ -10,7 +10,7 @@ describe('Wollok model', () => {
 
     it('should be populated the first time the node is used', () => {
       const method = new Method({ name: 'm', body: 'native', isOverride: false, parameters: [] })
-      const node = new Class({ name: 'C', mixins: [], members: [method] })
+      const node = new Class({ name: 'C', supertypes: [], members: [method] })
       stub(node, 'hierarchy').returns([node])
 
       node.cache.size.should.equal(0)
@@ -22,7 +22,7 @@ describe('Wollok model', () => {
     it('should prevent a second call to the same method', () => {
       const method = new Method({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
       const otherMethod = new Method({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
-      const node = new Class({ name: 'C', mixins: [], members: [method] })
+      const node = new Class({ name: 'C', supertypes: [], members: [method] })
       stub(node, 'hierarchy').returns([node])
 
       node.lookupMethod(method.name, method.parameters.length)
@@ -37,17 +37,17 @@ describe('Wollok model', () => {
 
     describe('isAbstract', () => {
       it('should return true for methods with no body', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
         m.isAbstract().should.be.true
       })
 
       it('should return false for native methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any, body: 'native' })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1',  body: 'native' })
         m.isAbstract().should.be.false
       })
 
       it('should return false for non-abstract non-native methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any, body: new Body({ id: 'b1', scope: null as any, sentences: [] }) })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1',  body: new Body({ id: 'b1',  sentences: [] }) })
         m.isAbstract().should.be.false
       })
     })
@@ -61,8 +61,8 @@ describe('Wollok model', () => {
       afterEach(restore)
 
       it('should return true for classes with abstract methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
-        const c = new Class({ name: 'C', mixins: [], members: [m], id: 'c1', scope: null as any })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
+        const c = new Class({ name: 'C', supertypes: [], members: [m], id: 'c1'  })
         stub(c, 'fullyQualifiedName').returns('C')
 
         c.hierarchy = () => [c as any]
@@ -71,11 +71,11 @@ describe('Wollok model', () => {
       })
 
       it('should return true for classes with non-overriten inherited abstract methods', () => {
-        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
-        const b = new Class({ name: 'B', mixins: [], members: [m], id: 'c1', scope: null as any })
-        const bRef = new Reference<Class>({ name: 'B', id: 'b1r', scope: null as any })
+        const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
+        const b = new Class({ name: 'B', supertypes: [], members: [m], id: 'c1'  })
+        const bRef = new Reference<Class>({ name: 'B', id: 'b1r'  })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', mixins: [], members: [], superclassRef: bRef, id: 'c1', scope: null as any })
+        const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], id: 'c1' })
         stub(b, 'fullyQualifiedName').returns('B')
         stub(c, 'fullyQualifiedName').returns('C')
         stub(c, 'hierarchy').returns([c, b])
@@ -84,19 +84,19 @@ describe('Wollok model', () => {
       })
 
       it('should return false for classes with no abstract methods', () => {
-        const c = new Class({ name: 'C', mixins: [], members: [], id: 'c1', scope: null as any })
+        const c = new Class({ name: 'C', id: 'c1' })
         c.hierarchy = () => [c as any]
 
         c.isAbstract().should.be.false
       })
 
       it('should return false for classes with implemented inherited abstract methods', () => {
-        const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1', scope: null as any })
-        const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2', scope: null as any, body: 'native' })
-        const b = new Class({ name: 'B', mixins: [], members: [m1], id: 'c1', scope: null as any })
-        const bRef = new Reference<Class>({ name: 'B', id: 'b1r', scope: null as any })
+        const m1 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
+        const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2',  body: 'native' })
+        const b = new Class({ name: 'B', supertypes: [], members: [m1], id: 'c1' })
+        const bRef = new Reference<Class>({ name: 'B', id: 'b1r' })
         bRef.target = () => b as any
-        const c = new Class({ name: 'C', mixins: [], members: [m2], superclassRef: bRef, id: 'c1', scope: null as any })
+        const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], members: [m2], id: 'c1' })
         c.hierarchy = () => [c as any, b as any]
 
         c.isAbstract().should.be.false

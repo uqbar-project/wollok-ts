@@ -1,32 +1,28 @@
-import { Evaluation, RuntimeObject, Natives } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const lib: Natives = {
 
   console: {
 
-    // TODO:
-    println: (_self: RuntimeObject, obj: RuntimeObject) => (evaluation: Evaluation): void => {
-      evaluation.invoke('toString', obj)
-      evaluation.stepOut()
-      const message: RuntimeObject = evaluation.currentFrame!.operandStack.pop()!
-      message.assertIsString()
-      evaluation.log.info(message.innerValue)
-      evaluation.currentFrame!.pushOperand(undefined)
+    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<RuntimeValue> {
+      const message = yield* this.invoke('toString', obj)
+      this.console.log(message!.innerValue)
+      return undefined
     },
 
-    // TODO:
-    readLine: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented console.readLine')
+    *readLine(_self: RuntimeObject): Execution<RuntimeValue> {
+      // TODO: Pending Implementation
+      throw new Error('Native not yet implemented: console.readLine')
     },
 
-    // TODO:
-    readInt: (_self: RuntimeObject) => (_evaluation: Evaluation): void => {
-      throw new ReferenceError('To be implemented console.readInt')
+    *readInt(_self: RuntimeObject): Execution<RuntimeValue> {
+      // TODO: Pending Implementation
+      throw new Error('Native not yet implemented: console.readInt')
     },
 
-    newline: (_self: RuntimeObject) => (evaluation: Evaluation): void => {
+    *newline(_self: RuntimeObject): Execution<RuntimeValue> {
       const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
-      evaluation.currentFrame!.pushOperand(RuntimeObject.string(evaluation, newline))
+      return yield* this.reify(newline)
     },
 
   },

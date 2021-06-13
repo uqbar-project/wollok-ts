@@ -5,7 +5,13 @@
 // No modules named wollok
 // Generic import of non package
 
-import { Assignment, Class, Constructor, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Try, Variable, is, Source, List } from './model'
+// Last supertype in linearization is the class (if any)
+// No more than 1 class in linearization
+// Mixins don't have class supertype
+// Default parameters don't repeat
+// Describes should never contain accesors, just plain fields
+
+import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, SourceMap, List } from './model'
 import { Kind } from './model'
 
 const { keys } = Object
@@ -20,10 +26,10 @@ export interface Problem {
   readonly level: Level
   readonly node: Node
   readonly values: List<string>
-  readonly source: Source // TODO: Wouldn't it be best if this is an optional field?
+  readonly source: SourceMap // TODO: Wouldn't it be best if this is an optional field?
 }
 
-const EMPTY_SOURCE: Source = {
+const EMPTY_SOURCE: SourceMap = {
   start: { offset: 0, line: 0, column: 0 },
   end: { offset: 0, line: 0, column: 0 },
 }
@@ -31,7 +37,7 @@ const EMPTY_SOURCE: Source = {
 const problem = (level: Level) => <N extends Node>(
   condition: (node: N) => boolean,
   values: (node: N) => string[] = () => [],
-  source: (node: N) => Source = (node) => ({ start: node.source!.start, end: node.source!.end, file: node.source!.file }),
+  source: (node: N) => SourceMap = (node) => ({ start: node.sourceMap!.start, end: node.sourceMap!.end }),
 ) => (node: N, code: Code): Problem | null =>
     !condition(node)
       ? {
@@ -39,7 +45,7 @@ const problem = (level: Level) => <N extends Node>(
         code,
         node,
         values: values(node),
-        source: node.source ? source(node) : EMPTY_SOURCE,
+        source: node.sourceMap ? source(node) : EMPTY_SOURCE,
       }
       : null
 
@@ -53,7 +59,7 @@ const error = problem('Error')
 
 const isNotEmpty = (node: Program | Test | Method) => node.sentences().length !== 0
 
-const isNotPresentIn = <N extends Node>(kind: Kind) => error<N>((node: N) => !node.source || !node.ancestors().some(is(kind)))
+const isNotPresentIn = <N extends Node>(kind: Kind) => error<N>((node: N) => !node.sourceMap || !node.ancestors().some(is(kind)))
 
 // TODO: Why are we exporting this as a single object?
 export const validations = {
@@ -62,7 +68,7 @@ export const validations = {
     node => [node.name],
     node => {
       const nodeOffset = node.kind.length + 1
-      const { start, end } = node.source!
+      const { start, end } = node.sourceMap!
       return {
         start: {
           ...start,
@@ -88,7 +94,7 @@ export const validations = {
     return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
   }),
 
-  nameIsNotKeyword: error<Reference<any> | Method | Variable | Class | Singleton>(node =>
+  nameIsNotKeyword: error<Reference<Node> | Method | Variable | Class | Singleton>(node =>
     ![
       'import',
       'package',
@@ -136,12 +142,8 @@ export const validations = {
     node => !node.variable.name.includes('.')
   ),
 
-  hasDistinctSignature: error<Constructor | Method>(node => {
-    if(node.is('Constructor')) {
-      return node.parent().constructors().every(other => node === other || !other.matchesSignature(node.parameters.length))
-    } else {
-      return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
-    }
+  hasDistinctSignature: error<Method>(node => {
+    return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
   }),
 
   methodNotOnlyCallToSuper: warning<Method>(node =>
@@ -170,8 +172,6 @@ export const validations = {
 
   // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
   selfIsNotInAProgram: isNotPresentIn<Self>('Program'),
-  noSuperInConstructorBody: isNotPresentIn<Super>('Constructor'),
-  noReturnStatementInConstructor: isNotPresentIn<Return>('Constructor'),
 
   // TODO: Packages inside packages
   // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
@@ -194,8 +194,6 @@ export default (target: Node): List<Problem> => {
     containerIsNotEmpty,
     notAssignToItselfInVariableDeclaration,
     singletonIsNotUnnamed,
-    noReturnStatementInConstructor,
-    noSuperInConstructorBody,
     selfIsNotInAProgram,
     nonAsignationOfFullyQualifiedReferences,
     hasCatchOrAlways,
@@ -210,6 +208,7 @@ export default (target: Node): List<Problem> => {
     }
   } = {
     Parameter: { referenceNameIsValid },
+    ParameterizedType: {},
     NamedArgument: {},
     Import: {},
     Body: {},
@@ -220,24 +219,22 @@ export default (target: Node): List<Problem> => {
     Class: { nameBeginsWithUppercase, nameIsNotKeyword },
     Singleton: { nameBeginsWithLowercase, singletonIsNotUnnamed, nameIsNotKeyword },
     Mixin: { nameBeginsWithUppercase },
-    Constructor: { hasDistinctSignature },
     Field: { notAssignToItselfInVariableDeclaration },
     Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
     Variable: { referenceNameIsValid, nameIsNotKeyword },
-    Return: { noReturnStatementInConstructor },
+    Return: {  },
     Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
     Reference: { nameIsNotKeyword },
     Self: { selfIsNotInAProgram },
     New: { instantiationIsNotAbstractClass },
     Literal: {},
     Send: { dontCompareAgainstTrueOrFalse },
-    Super: { noSuperInConstructorBody },
+    Super: {  },
     If: {},
     Throw: {},
     Try: { hasCatchOrAlways },
     Environment: {},
     Describe: {},
-    Fixture: {},
   }
 
   return target.reduce<Problem[]>((found, node) => {
@@ -246,7 +243,7 @@ export default (target: Node): List<Problem> => {
     }
     return [
       ...found,
-      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.source ?? EMPTY_SOURCE } as const)  ) ?? [],
+      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap ?? EMPTY_SOURCE } as const)  ) ?? [],
       ...keys(checks)
         .map(code => checks[code](node, code)!)
         .filter(result => result !== null),
