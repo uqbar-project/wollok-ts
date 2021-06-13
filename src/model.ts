@@ -472,12 +472,7 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  defaultFieldValues(this: Module): Map<Field | Variable, Expression | undefined> {
-    // TODO: Unify
-    if (this.is('Describe')) {
-      return new Map(this.variables().map(variable => [variable, variable.value]))
-    }
-
+  defaultFieldValues(this: Module): Map<Field, Expression | undefined> {
     return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
       field,
       this.hierarchy().reduceRight((defaultValue, module) =>
@@ -552,16 +547,16 @@ export class Mixin extends $Module {
 export class Describe extends $Module {
   readonly kind = 'Describe'
   readonly name!: Name
-  readonly members!: List<Variable | Test | Method> // TODO: Change variables to fields?
+  readonly members!: List<Field | Method | Test>
   readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
 
   constructor({ members = [], ...payload }: Payload<Describe, 'name'>) {
     super({ members, ...payload })
   }
 
-  tests(): List<Test> { return this.members.filter(is('Test')) }
-  variables(): List<Variable> { return this.members.filter(is('Variable')) }
   superclass(): Class { return this.supertypes[0].reference.target()! as Class }
+
+  tests(): List<Test> { return this.members.filter(is('Test')) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

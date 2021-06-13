@@ -840,7 +840,7 @@ describe('Wollok parser', () => {
 
       it('should parse describes with fields', () => {
         'describe "name" { var v }'.should.be.parsedBy(parser).into(
-          new Describe({ name: '"name"', members: [new Variable({ name: 'v', isReadOnly: false })] })
+          new Describe({ name: '"name"', members: [new Field({ name: 'v', isReadOnly: false })] })
         ).and.be.tracedTo(0, 25)
           .and.have.nested.property('members.0').tracedTo(18, 23)
       })
@@ -860,8 +860,8 @@ describe('Wollok parser', () => {
             new Describe({
               name: '"name"',
               members: [
-                new Variable({ name: 'var1', isReadOnly: false }),
-                new Variable({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var1', isReadOnly: false }),
+                new Field({ name: 'var3', isReadOnly: false }),
               ],
             })
           )
@@ -874,8 +874,8 @@ describe('Wollok parser', () => {
             new Describe({
               name: '"name"',
               members: [
-                new Variable({ name: 'var2', isReadOnly: false }),
-                new Variable({ name: 'var3', isReadOnly: false }),
+                new Field({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var3', isReadOnly: false }),
               ],
             })
           )
@@ -887,8 +887,8 @@ describe('Wollok parser', () => {
           .into(
             new Describe({
               name: '"name"', members: [
-                new Variable({ name: 'var1', isReadOnly: false }),
-                new Variable({ name: 'var2', isReadOnly: false }),
+                new Field({ name: 'var1', isReadOnly: false }),
+                new Field({ name: 'var2', isReadOnly: false }),
               ],
             })
           )
@@ -898,7 +898,7 @@ describe('Wollok parser', () => {
         'describe "name" {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
           .recoveringFrom('malformedMember', 17, 40)
           .recoveringFrom('malformedMember', 50, 65)
-          .into(new Describe({ name: '"name"', members: [new Variable({ name: 'var4', isReadOnly: false })] }))
+          .into(new Describe({ name: '"name"', members: [new Field({ name: 'var4', isReadOnly: false })] }))
       })
 
 

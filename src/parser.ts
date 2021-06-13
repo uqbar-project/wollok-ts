@@ -196,7 +196,7 @@ export const Program: Parser<ProgramNode> = node(ProgramNode)(() =>
 export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
   key('describe').then(obj({
     name: stringLiteral.map(name => `"${name}"`),
-    members: alt(Variable, Test, Method).or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
+    members: alt(Field, Method, Test).or(memberError).sepBy(optional(_)).wrap(key('{'), key('}')),
   })).map(recover)
 )
 
