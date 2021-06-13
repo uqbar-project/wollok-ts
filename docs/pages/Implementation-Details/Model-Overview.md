@@ -3,7 +3,7 @@
 > ### ☠️ Deprecated!
 > This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
 
-> ### ☠️ Deprecated!
+> #### ☠️ Deprecated!
 > This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
 
 
