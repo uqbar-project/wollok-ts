@@ -1,4 +1,9 @@
-The main bricks conforming [[the Language Pipeline]] phases' output are **AST Nodes**. Each node represents a core concept of Wollok's syntax so any program can be represented with some combination of them. Even though all nodes are equally important, they might be naturally categorized as follows:
+# Model Overview
+
+> # ☠️ Deprecated!
+> This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
+
+The main bricks conforming the [Compilation Pipeline](Compilation-Pipeline) stages' output are **AST Nodes**. Each node represents a core concept of Wollok's syntax so any program can be represented with some combination of them. Even though all nodes are equally important, they might be naturally categorized as follows:
 
 - **Top Level Entities**: These nodes are the root containers for all others. They represent high level concepts and require little-to-none context to exist.
 
