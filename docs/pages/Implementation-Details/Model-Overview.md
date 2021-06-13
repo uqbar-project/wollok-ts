@@ -1,6 +1,6 @@
 # Model Overview
 
-> ### ☠️ Deprecated!
+> ### ☠️ Out Of Date!
 > This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
 
 

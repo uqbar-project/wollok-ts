@@ -1,35 +1,55 @@
-What does this module do? [[TODO]]
+# Parser
 
-About parser combinators and how they are defined [[TODO]]
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
 
-Where do I start reading [[TODO]]
 
-What tools do I need to know? [[TODO]]
+## Parser Combinators
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
 
-General tips [[TODO]]
-- _ (mind the spaces)
+## Specially Interesting Parsers
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
 
-About the testing... [[TODO]]
-
-I don't understand xxx parser, what can I do? [[TODO]]
-
-Specially complex cases:
 - node
 - sourced
 - Operation
 
- [[TODO]]
+## General tips
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
 
-# FAQ
+- mind the spaces (_)
+
+## Testing
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
+
+- custom asserts
+
+
+## FAQ
+
+* **I've never created a parser before... What do I need to know? Where can I start reading?**
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
+
 
 * **Why [Parsimon](https://github.com/jneen/parsimmon)? Why not <your favorite parser library>?**
 
- [[TODO]]
+  *Parsimon* accommodates greatly to our syntax needs and is, as far a we know, the library that provides the best balance between performance and expressiveness without recurring to heavy dependencies or hard-to-debug DSLs.
 
-* **Why aren't you using Parsimmon's [`createlanguage`](https://github.com/jneen/parsimmon/blob/master/API.md#parsimmoncreatelanguageparsers) function?**
+  If you believe you know of a better alternative, let us know!
 
- [[TODO]]
+* **Why aren't you using Parsimmon's [`createLanguage`](https://github.com/jneen/parsimmon/blob/master/API.md#parsimmoncreatelanguageparsers) function?**
+
+  The `createLanguage` method is great and would make some parts of our code way cleaner but, sadly, it does not work so well with typechecking. When any part of the configuration fails to type, the whole language gets painted red by the IDE, making it so much harder to find and correct any problems.
+
+  If this improves in the future wi will surely consider it, though!
 
 * **Why do all parsers have explicit types? Can't TypeScript just infer it?**
 
- [[TODO]]
+  Yes, but we find that it's best to explicit the types to avoid having to deduce them from the (sometimes quite long) code.
+
+  Also, we tend to preffer explicitly typing any exported functions, so we can be sure we don't accidentally change it's type and cause a regression.

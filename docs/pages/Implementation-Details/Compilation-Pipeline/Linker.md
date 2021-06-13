@@ -1,4 +1,11 @@
-# Table of Content
+# Linker
+
+> ### ☠️ Out Of Date!
+> This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
+
+
+
+## Table of Content
 
 * [Intro](#Intro)
 * [Purpose](#Purpose)
@@ -10,25 +17,25 @@
 * [Updating an Environment](Updating-an-Environment)
 
 
-# Intro
+## Intro
 
-The **Linking** phase of [[the Language Pipeline]] takes place after all nodes have been [[filled|Filler]] and combines them to form a single linked **[Environment](#Environment)**, where all nodes are uniquely identified and all **References** are traceable to their target node.
+The **Linking** phase of the [Compilation Pipeline](index) takes place after all nodes have been parsed and combines them to form a single linked **[Environment](#Environment)**, where all nodes are uniquely identified and all **References** are traceable to their target node.
 
 ![linker](https://drive.google.com/uc?authuser=0&id=1HHoVx2HYtlWZPTCHclYUaL8cm5WsuNtZ&export=download)
 
-# Purpose
+## Purpose
 
 Up to the *Linking* phase, the pipeline throughput might consist of many separate ASTs, obtained from parsing different files or manually generated. These ASTs might contain references to each other (e.g. a Class whose superclass is defined in another file), which means that **Reference**'s targets are undefined (or ambiguous) until those ASTs are put together. Isolated ASTs might also contain duplicated/redundant synthetic package definitions, created to represent folder structures, that need to be merged together to conform a consistent and unambiguous definition.
 
-# Environment
+## Environment
 
 The **Environment** is a synthetic node created by the *Linker* to serve as a container and single-entry-point to all the static definitions of a valid Wollok program. It contains all root-level **Packages** which guarantees that iterating its branches one passes through every single node in the static definition.
 
 There is no syntax in Wollok for defining an Environment, which means that it can only be synthetically generated (usually, by the *Linker*).
 
-# Linking Process
+## Linking Process
 
-The *Linker* phase receives as input a set of isolated [[filled|Filler]] packages and, optionally, a previously existent *Environment*. The complete linking process can be summarized in the following general steps:
+The *Linker* phase receives as input a set of isolated *Package* nodes and, optionally, a previously existent *Environment*. The complete linking process can be summarized in the following general steps:
 
 ### Package Merging
 
@@ -55,6 +62,10 @@ Constructing the scopes is, by far, the most complex and time-consuming process 
   - After that, a second iteration is made, fully assigning the complete scope to each node.
 - The scope for a node is defined as its parent's scope, plus any contributions that its parent and siblings make. Most named scopes contribute themselves, so any sibling can reference them, but some other nodes (like **Imports**) might also contribute names from other branches.
 
-# Updating an Environment
+## Updating an Environment
 
 After the linking phase is finished the Linker outputs an *Environment* tree, which is considered to be in the **Linked** stage of the pipeline. From this point on, the AST should be considered frozen and no nodes should be added or subtracted from it or any of it's copies. If a change is needed on a Linked Node, that node (and thus, all the Environment) should be immediately re-linked to avoid miss-references and cache issues.
+
+## FAQ
+> ### 🛠️ Work In Progress!
+> This section is a stub. [Help to expand it!](/wollok-ts/pages/How-To-Contribute)
