@@ -12,19 +12,19 @@ Following is a summary of the main abstractions and concepts involved in the int
 
 ### Evaluation
 
-An *Evaluation State* (or just `Evaluation`) for short)represents an isolated *runtime environment*. It is the main data structure used by the *Interpreter* to represent the complete state of an execution at any given moment. It contains the [Frame Stack](#Frame-Stack) and references to all the [Runtime Objects](#Runtime-Objects) along with an interface that allows it to instantiate new objects and trigger the execution of AST Nodes.
+An *Evaluation State* (or just `Evaluation`) for short)represents an isolated *runtime environment*. It is the main data structure used by the *Interpreter* to represent the complete state of an execution at any given moment. It contains the [Frame Stack](#frame-stack) and references to all the [Runtime Objects](#runtime-objects) along with an interface that allows it to instantiate new objects and trigger the execution of AST Nodes.
 
-The *Evaluation* is built from an **Environment** that provides it with all the static definitions and a set of [natives](#Native-Functions) that implement any *native methods* used.
+The *Evaluation* is built from an **Environment** that provides it with all the static definitions and a set of [natives](#native-functions) that implement any *native methods* used.
 
 Due to performance reasons, the evaluation and many of its sub-structures, are **stateful mutable objects** and most operations on it are destructive, so special care should be taken of making a copy of any instance which state is meant to be preserved.
 
 ### Frame Stack
-The *Frame Stack* consist of a stack of [Contexts](#Contexts). Its main purpose is to keep track of the diferent lexical scopes during nested method calls.
+The *Frame Stack* consist of a stack of [Contexts](#contexts). Its main purpose is to keep track of the diferent lexical scopes during nested method calls.
 
-[Evaluations](#Evaluation) initialize their *Frame Stack* with a **Root Context** cointaining all global definitions.
+[Evaluations](#evaluation) initialize their *Frame Stack* with a **Root Context** cointaining all global definitions.
 
 ### Contexts
-**Contexts** are hierarchical structures that represent the current stored named references in an evaluation scope. You can think of *Contexts* as Maps that relate each locally accessible reference name to the [Runtime Object](#Runtime-Objects) that is its current value.
+**Contexts** are hierarchical structures that represent the current stored named references in an evaluation scope. You can think of *Contexts* as Maps that relate each locally accessible reference name to the [Runtime Object](#runtime-objects) that is its current value.
 
 Every Node is executed within a *Context* that provides values for *References*. When a Node needs to be executed in a separate lexical scope a new *Context* is created to allow it to maintain it's own namespace.
 
@@ -32,11 +32,11 @@ Every *Context* except the **Root Context** has a parent Context. When a *Contex
 
 ### Runtime Objects
 
-**Runtime Objects** are special [Contexts](#Contexts) that, as their name implies, act as the runtime representation of Wollok objects. An Evaluation contains one RuntimeObject for every *Singleton* and *Class instance* used during an execution. These have an unique **Id**, its associated **Module** and, sometimes, an **Inner Value** used to store primitive data (such as *TypeScript Numbers* for instances of `wollok.lang.Number`).
+**Runtime Objects** are special [Contexts](#contexts) that, as their name implies, act as the runtime representation of Wollok objects. An Evaluation contains one RuntimeObject for every *Singleton* and *Class instance* used during an execution. These have an unique **Id**, its associated **Module** and, sometimes, an **Inner Value** used to store primitive data (such as *TypeScript Numbers* for instances of `wollok.lang.Number`).
 
 The instance's fields and `self` reference are stored as part of its *Context* mapping allowing *Runtime Objects* to be lexical scopes themselves.
 
-Although most RuntimeObjects are generated as result of the explicit instantiation of a *Class*, some others need to be created as part of the [Evaluation](#Evaluation) initialization (such as the named Singleton instances and special objects like `null`) and many are built on demand (like numbers, strings and other literals).
+Although most RuntimeObjects are generated as result of the explicit instantiation of a *Class*, some others need to be created as part of the [Evaluation](#evaluation) initialization (such as the named Singleton instances and special objects like `null`) and many are built on demand (like numbers, strings and other literals).
 
 
 ## Executions as Typescript Generators
@@ -45,7 +45,7 @@ One of the Wollok Interpreter's main goals is to provide an adequate support for
 
 For the purpose of our implementation, you can think of a *Generator Function* like a regular function that can *yield* other values before returning a result. Each time the function yields the control is returned to the caller, who can choose to resume the function if he chooses to.
 
-We define the execution of a *Node* as a *Generator Function* that yields each *Node* it visits and ends up returning the result of the *Node*'s execution (usually a [Runtime Object](#Runtime-Objects)). So, every time we want to execute something we can just ask the execution function to keep yielding nodes until either it yields a *Node* at which we should stop or it returns the final result. 
+We define the execution of a *Node* as a *Generator Function* that yields each *Node* it visits and ends up returning the result of the *Node*'s execution (usually a [Runtime Object](#runtime-objects)). So, every time we want to execute something we can just ask the execution function to keep yielding nodes until either it yields a *Node* at which we should stop or it returns the final result. 
 
 This implementation has some drawbacks, but it allow us to define the execution of each type of *Node* in a very clean way, with little boilerplate and nearly no execution overhead. The main difficulty that arises from this approach is the need to keep asking the generator for results and detecting when a final state has been reached. To do this we modeled one more abstraction: The **Execution Director**
 
@@ -65,7 +65,7 @@ In most cases, a tool that wishes to run a Wollok expression should:
 ## Natives
 Wollok methods defined as `native` require primitive implementations written in the host language. These implementations need to be provided to the interpreter in order to successfully evaluate most code.
 
-In Wollok-TS, native implementations are modeled as [Generator Functions](#Execution-Directors) that execute in the context of an Evaluation and have the following type:
+In Wollok-TS, native implementations are modeled as [Generator Functions](#execution-directors) that execute in the context of an Evaluation and have the following type:
 
 ```ts
 export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: RuntimeObject[]) => Execution<RuntimeValue>
