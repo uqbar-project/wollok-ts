@@ -119,21 +119,6 @@ export class RuntimeObject extends Context {
   }
 }
 
-
-export class Frame {
-  readonly node: Node
-  readonly context: Context
-
-  constructor(node: Node, context: Context) {
-    this.node = node
-    this.context = context
-  }
-
-  copy(contextCache: Map<Id, Context>): Frame {
-    return new Frame(this.node, this.context.copy(contextCache))
-  }
-}
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // RUNNER CONTROLLER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -229,6 +214,7 @@ export class WollokReturn extends Error { constructor(readonly instance?: Runtim
 export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super(`WollokException: ${instance.module.name}`) } }
 
 
+// TODO: Either expand this interface or remove it
 export default class Interpreter {
   readonly environment: Environment
   readonly natives: Natives
@@ -239,6 +225,19 @@ export default class Interpreter {
   }
 }
 
+export class Frame {
+  readonly node: Node
+  readonly context: Context
+
+  constructor(node: Node, context: Context) {
+    this.node = node
+    this.context = context
+  }
+
+  copy(contextCache: Map<Id, Context>): Frame {
+    return new Frame(this.node, this.context.copy(contextCache))
+  }
+}
 
 export class Evaluation {
   readonly natives: Natives
