@@ -382,9 +382,10 @@ export class Variable extends $Entity {
 export type Module = Class | Singleton | Mixin | Describe
 
 abstract class $Module extends $Entity {
-  abstract supertypes: List<ParameterizedType>
+  abstract readonly name?: Name
+  abstract readonly supertypes: List<ParameterizedType>
+  abstract readonly members: List<Field | Method | Variable | Test>
   abstract superclass(this: Module): Class | undefined
-  abstract members: List<Field | Method | Variable | Test >
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
     const methods = members?.filter(is('Method')) ?? []
