@@ -1,242 +1,69 @@
 # Model Overview
 
+The main goal of the [Compilation Pipeline](Compilation-Pipeline) is to turn a text-based piece of *Wollok* code into more computer-friendly data representations, so it can be queried, manipulated and even executed with ease.
+
+## AST Nodes
+
+By far the most important of these structures is the **Abstract Syntax Tree** (or **AST**, for short). This **immutable** assortment of interconnected **Nodes** contains all the information distilled from the *Static Model* described in the source code. Each **Node** on the tree represents a core concept of Wollok's syntax so any program can be represented with some combination of them.
+
+Every *Node* has a unique `id`, a `kind` label identifying its type and a `sourceMap` attribute that serves to link the *Node* to its original position in the source code. Some *Nodes* might also contain a list of `problems` that arised during the compilation and indicate that some parts of it might be invalid or broken.
+
+Even though all nodes represent a different syntactic concept, some of them can be grouped together based on their key characteristics:
+
+### Entities
+These Nodes are the top-level definitions of *Wollok*. They represent any declaration that can exists at package or file level and have a **Fully Qualified Name** that uniquely identifies them.
+
+*Entities* include:
+  - **Packages**
+  - **Programs**
+  - **Tests**
+  - **Variables**
+  - **Modules**
+
+
+### Modules
+**Modules** are a special subtype of **Entity** that englobes all those entities that act as method providers and can be **linearized** to take part in the **Method Lookup** process.
+
+*Modules* include:
+  - **Classes**
+  - **Singletons**
+  - **Mixins**
+  - **Describes**
+
+### Sentences
+These nodes represent logic computations and conform the bulk of any Wollok *AST*. They are usually contained within the scope of a **Body** and constitute the building blocks for **Methods**, **Tests** and **Programs**.
+
+*Sentences* include:
+  - **Variables**
+  - **Returns**
+  - **Assignments**
+  - **Expressions**
+
+### Expressions
+**Expressions** are particular cases of **Sentences**, which are guaranteed to return a value (as oposite of regular *Sentences* that might only produce an effect and return nothing).
+
+*Expressions* include:
+  - **References**
+  - **Selfs**
+  - **Literals**
+  - **Sends**
+  - **Super**
+  - **News**
+  - **Ifs**
+  - **Throws**
+  - **Tries**
+
+## Synthetic Nodes
+Some *Nodes* are not directly derived from a syntactic element and cannot be directly mapped to a source file. Some of them, like the **Environment** or the accesor methods of **Property Fields**, are created as part of the [Compilation Pipeline](Compilation-Pipeline); others can be the result of direct manipulation of the *AST* by a program or IDE. Whatever the reason, these nodes are usually called **Synthetic Nodes** and can be identified by their lack of `sourceMap`.
+
+## Surrogated Nodes
+Some syntactic elements can easily be expressed in terms of others and don't require their own kind of *Node*. These abstractions (such as **Closures** and some **Special Assignation Operators**), that are compiled into a combination of other constructions instead of having their own, are often refered as "**Surrogated Nodes**".
+
+## Class Diagram
+
 > ### ☠️ Out Of Date!
 > This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
 
-
-The main bricks conforming the [Compilation Pipeline](Compilation-Pipeline) stages' output are **AST Nodes**. Each node represents a core concept of Wollok's syntax so any program can be represented with some combination of them. Even though all nodes are equally important, they might be naturally categorized as follows:
-
-- **Top Level Entities**: These nodes are the root containers for all others. They represent high level concepts and require little-to-none context to exist.
-
-- **Modules**: These are special **Entities** used to define and shape Objects.
-
-- **Class/Object Members**: These nodes define each posible content of a **Module** definition.
-
-- **Sentences**: These nodes represent computations and conform the bulk of any Wollok program.
-
-- **Expressions**: These nodes are particular cases of **Sentences**, which return a value instead of only producing an effect.
-
-- **Synthetics**: Some nodes have no syntax associated with them and can only be created as part of the Language Pipeline process or through IDE manipulation. The **Environment** node is an example of this.
-
 The following diagram shows all the different nodes types, how they relate to each other, and a general overview of their most important attributes.
-
-```mermaid
-classDiagram
-
-class Node {
-  +Kind kind
-  +Id id
-  +Scope scope
-  +SourceMap sourceMap
-  +List~Problem~? problems
-}
-
-Node <|-- Parameter
-class Parameter {
-  +Name name
-  +boolean isVarArg
-}
-
-Node <|-- ParameterizedType
-class ParameterizedType {
-  +Reference~Module | Class~ reference
-  +List~NamedArgument~ args
-}
-
-Node <|-- NamedArgument
-class NamedArgument {
-  +Name name
-  +Expression value
-}
-
-Node <|-- Import
-class Import {
-  +Reference~Entity~ entity
-  +boolean isGeneric
-}
-
-Node <|-- Body
-class Body {
-  +List~Sentence~ sentences
-}
-
-Node <|-- Entity
-class Entity {
-  +Name name
-
-  +fullyQualifiedName() Name
-}
-
-Entity <|-- Package
-class Package {
-  +List~Import~ imports
-  +List~Entity~ members
-  +string? fileName
-
-  +getNodeByQN~N~(qualifiedName: Name) N
-}
-
-Entity <|-- Program
-class Program {
-  +Body body
-}
-
-Entity <|-- Test
-class Test {
-  +boolean isOnly
-  +Body body
-}
-
-Entity <|-- Variable
-Sentence <|-- Variable
-class Variable {
-  +boolean isConstant
-  +Expression value
-}
-
-Entity <|-- Module
-class Module {
-  +List~ParameterizedType~ supertypes
-  +List~Field | Method | Variable | Test~ members
-
-  +mixins() List~Mixin~
-  +methods() List~Method~
-  +fields() List~Field~
-  +superclass() Class?
-  +hierarchy() List~Module~
-  +inherits(other: Module) boolean
-  +lookupMethod(name: Name, arity: number, lookupStartFQN?: Name) Method?
-}
-
-Module <|-- Class
-class Class {
-  +List~Field | Method~ members
-  +isAbstract() boolean
-}
-
-Module <|-- Singleton
-class Singleton {
-  +Name? name
-  +List~Field | Method~ members
-}
-
-Module <|-- Mixin
-class Mixin {
-  +List~Field | Method~ members
-}
-
-Module <|-- Describe
-class Describe {
-  +List~Field | Method | Test~ members
-
-  +tests() List~Test~
-}
-
-
-Node <|-- Field
-class Field {
-  +Name name
-  +boolean isConstant
-  +boolean isProperty
-  +Expression value
-}
-
-Node <|-- Method
-class Method {
-  +Name name
-  +boolean isOverride
-  +List~Parameter~ parameters
-  +Body? | 'native' body
-
-  +isAbstract() boolean
-  +hasVarArgs() boolean
-  +matchesSignature(name: Name, arity: number) boolean
-}
-
-
-Node <|-- Sentence
-
-
-Sentence <|-- Return
-class Return {
-  +Expression? value
-}
-
-Sentence <|-- Assignment
-class Assignment {
-  +Reference~Variable | Field~ variable
-  +Expression value
-}
-
-
-Sentence <|-- Expression
-
-
-Expression <|-- Reference
-class Reference~N~ {
-  +Name name
-  +target(): N?
-}
-
-Expression <|-- Self
-class Self { }
-
-Expression <|-- Literal
-class Literal~T~ {
-  +T value
-}
-
-Expression <|-- Send
-class Send {
-  +Expression receiver
-  +Name message
-  +List~Expression~ args
-}
-
-Expression <|-- Super
-class Super {
-  +List~Expression~ args
-}
-
-Expression <|-- New
-class New {
-  +Reference~Class~ instantiated
-  +List~NamedArgument~ args
-}
-
-Expression <|-- If
-class If {
-  +Expression condition!: Expression
-  +Body thenBody
-  +Body elseBody
-}
-
-Expression <|-- Throw
-class Throw {
-  +Expression exception
-}
-
-Expression <|-- Try
-class Try {
-  +Body body
-  +List~Catch~ catches
-  +Body always
-}
-
-Node <|-- Catch
-class Catch {
-  +Parameter parameter
-  +Reference~Module~ parameterType
-  +Body body
-}
-
-Node <|-- Environment
-class Environment {
-  +List~Package~ members
-
-  +getNodeById~N~(id: Id) N
-  +getNodeByFQN~N~(fullyQualifiedName: Name) N
-}
-```
 
 ![General Class Diagram](https://drive.google.com/uc?authuser=0&id=1pYLoOemQYWZye-rV0k-UK5TW10aX-o2Z&export=download)

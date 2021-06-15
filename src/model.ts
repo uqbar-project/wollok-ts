@@ -101,7 +101,6 @@ export type Node
   | Entity
   | Field
   | Method
-  | Test
   | Sentence
   | Reference<Node>
   | Environment
@@ -282,7 +281,7 @@ export type Entity
 
 
 abstract class $Entity extends $Node {
-  abstract readonly name?: Name
+  abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
