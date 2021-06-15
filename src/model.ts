@@ -588,7 +588,9 @@ export class Method extends $Node {
     super({ isOverride, parameters, ...payload })
   }
 
-  isAbstract(): boolean { return !this.body }
+  isAbstract(): this is {body: undefined} { return !this.body }
+  isNative(): this is {body?: Body} { return this.body === 'native' }
+  isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
 
   @cached
   hasVarArgs(): boolean {
@@ -597,7 +599,7 @@ export class Method extends $Node {
 
   @cached
   sentences(): List<Sentence> {
-    return !this.body || this.body === 'native' ? [] : this.body.sentences
+    return this.isConcrete() ? this.body.sentences : []
   }
 
   @cached

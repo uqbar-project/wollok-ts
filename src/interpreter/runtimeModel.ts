@@ -523,10 +523,9 @@ export class Evaluation {
       methodOrMessage
 
     if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(args))
-    if (method.isAbstract()) throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
     if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
-    if(method.body === 'native') { //TODO: method.isNative(): this & {body: 'native'}
+    if(method.isNative()) {
       const nativeFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
       const native = get<NativeFunction>(this.natives, nativeFQN)
       if(!native) throw new Error(`Missing native ${nativeFQN}`)
@@ -535,7 +534,7 @@ export class Evaluation {
       try {
         return yield* native.call(this, receiver, ...args)
       } finally { this.frameStack.pop() }
-    } else {
+    } else if(method.isConcrete()) {
       let result: RuntimeValue
       const locals: Record<Name, RuntimeObject> = {}
       for(let index = 0; index < method.parameters.length; index++){
@@ -550,7 +549,7 @@ export class Evaluation {
         else result = error.instance
       }
       return result
-    }
+    } else throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

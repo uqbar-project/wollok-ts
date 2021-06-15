@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.1.0
+- Methods now have `isConcrete` and `isNative` methods.
+
 ## v3.0.0
 - Implemented Wollok 3.0.0 support
     - Removed Constructors
