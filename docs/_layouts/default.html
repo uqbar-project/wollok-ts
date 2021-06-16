@@ -15,6 +15,11 @@
     <![endif]-->
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.9.3/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@hpcc-js/wasm/dist/index.min.js"></script>
+    <script>
+        var hpccWasm = window["@hpcc-js/wasm"];
+    </script>
+    
   </head>
   <body>
     <div class="wrapper">
@@ -83,6 +88,20 @@
       mermaid.initialize(config);
       window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
     </script>
+    
+    <script>
+        // Asynchronous call to layout
+        //hpccWasm.graphviz.layout(dot, "svg", "dot").then(svg => {
+        //    const div = document.getElementById("placeholder");
+        //    div.innerHTML = svg;
+        //});
+        document.querySelectorAll('.language-dot').forEach(elem =>
+          hpccWasm.graphvizSync().then(graphviz => {
+              elem.innerHTML = graphviz.layout(elem.textContent, "svg", "dot");
+          });
+        );
+    </script>
+    
     
     <script>
       [...document.querySelectorAll('section blockquote *:first-child')].forEach((hint, index) => {
