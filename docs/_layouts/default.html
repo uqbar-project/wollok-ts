@@ -98,6 +98,7 @@
         document.querySelectorAll('.language-dot').forEach(elem =>
           hpccWasm.graphvizSync().then(graphviz => {
               elem.innerHTML = graphviz.layout(elem.textContent, "svg", "dot");
+              elem.classList.add('dotGraph');
           })
         );
     </script>
