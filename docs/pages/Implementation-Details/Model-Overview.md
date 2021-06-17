@@ -60,10 +60,6 @@ Some *Nodes* are not directly derived from a syntactic element and cannot be dir
 Some syntactic elements can easily be expressed in terms of others and don't require their own kind of *Node*. These abstractions (such as **Closures** and some **Special Assignation Operators**), that are compiled into a combination of other constructions instead of having their own, are often refered as "**Surrogated Nodes**".
 
 ## Class Diagram
-
-> ### ☠️ Out Of Date!
-> This section of the documentation is based on an out-of-date version of the code and might no longer apply. Proceed at your own risk...
-
-The following diagram shows all the different nodes types, how they relate to each other, and a general overview of their most important attributes.
+The following diagram shows all the different nodes types, how they relate to each other, and a general overview of their most important attributes and responsibilities.
 
 ![General Class Diagram](https://drive.google.com/uc?authuser=0&id=1Hh83jSBeKmwjPIVB-vRK-l0cCVVCSqTx&export=download)
