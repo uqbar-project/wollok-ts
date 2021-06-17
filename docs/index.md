@@ -1,31 +1,5 @@
 Welcome to the Wollok-TS documentation!
 
-```dot
-digraph G {
+If you are new to the project and need help setting up, take a look to the [How To Contribute](How-To-Contribute) section.
 
-	subgraph cluster_0 {
-		style=filled;
-		color=lightgrey;
-		node [style=filled,color=white];
-		a0 -> a1 -> a2 -> a3;
-		label = "process #1";
-	}
-
-	subgraph cluster_1 {
-		node [style=filled];
-		b0 -> b1 -> b2 -> b3;
-		label = "process #2";
-		color=blue
-	}
-	start -> a0;
-	start -> b0;
-	a1 -> b3;
-	b2 -> a3;
-	a3 -> a0;
-	a3 -> end;
-	b3 -> end;
-
-	start [shape=Mdiamond];
-	end [shape=Msquare];
-}
-```
+If you want to know more about the compiler and how to use it check the [Implementation Details](Implementation-Details).
