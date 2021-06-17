@@ -66,4 +66,4 @@ Some syntactic elements can easily be expressed in terms of others and don't req
 
 The following diagram shows all the different nodes types, how they relate to each other, and a general overview of their most important attributes.
 
-![General Class Diagram](https://drive.google.com/uc?authuser=0&id=1pYLoOemQYWZye-rV0k-UK5TW10aX-o2Z&export=download)
+![General Class Diagram](https://drive.google.com/uc?authuser=0&id=1Hh83jSBeKmwjPIVB-vRK-l0cCVVCSqTx&export=download)
