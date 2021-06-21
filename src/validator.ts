@@ -10,11 +10,48 @@
 // Mixins don't have class supertype
 // Default parameters don't repeat
 // Describes should never contain accesors, just plain fields
+// No two entities should have the same name
 
-import { Assignment, Class, Field, Method, Mixin, New, Node, NodeOfKind, Parameter, Program, Reference, Self, Send, Singleton, Test, Try, Variable, is, SourceMap, List } from './model'
-import { Kind } from './model'
 
-const { keys } = Object
+// WISHLIST:
+// - Define against categories
+// - Level could be different for the same Expectation on different nodes
+// - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
+// - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
+
+
+import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
+
+const { entries } = Object
+
+const KEYWORDS = [
+  'import',
+  'package',
+  'program',
+  'test',
+  'class',
+  'inherits',
+  'object',
+  'mixin',
+  'var',
+  'const',
+  'override',
+  'method',
+  'native',
+  'self',
+  'super',
+  'new',
+  'if',
+  'else',
+  'return',
+  'throw',
+  'try',
+  'then always',
+  'catch',
+  'null',
+  'false',
+  'true',
+]
 
 type Code = string
 type Level = 'Warning' | 'Error'
@@ -26,26 +63,21 @@ export interface Problem {
   readonly level: Level
   readonly node: Node
   readonly values: List<string>
-  readonly source: SourceMap // TODO: Wouldn't it be best if this is an optional field?
-}
-
-const EMPTY_SOURCE: SourceMap = {
-  start: { offset: 0, line: 0, column: 0 },
-  end: { offset: 0, line: 0, column: 0 },
+  readonly source?: SourceMap
 }
 
 const problem = (level: Level) => <N extends Node>(
-  condition: (node: N) => boolean,
+  expectation: (node: N) => boolean,
   values: (node: N) => string[] = () => [],
-  source: (node: N) => SourceMap = (node) => ({ start: node.sourceMap!.start, end: node.sourceMap!.end }),
+  source: (node: N) => SourceMap | undefined = (node) => node.sourceMap,
 ) => (node: N, code: Code): Problem | null =>
-    !condition(node)
+    !expectation(node)
       ? {
         level,
         code,
         node,
         values: values(node),
-        source: node.sourceMap ? source(node) : EMPTY_SOURCE,
+        source: source(node),
       }
       : null
 
@@ -57,196 +89,117 @@ const error = problem('Error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const isNotEmpty = (node: Program | Test | Method) => node.sentences().length !== 0
+export const isNotEmpty = warning<Body>(node =>
+  node.isSynthetic() || node.parent().is('Method') || node.sentences.length > 0
+)
 
-const isNotPresentIn = <N extends Node>(kind: Kind) => error<N>((node: N) => !node.sourceMap || !node.ancestors().some(is(kind)))
+export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
+  error(node => !node.sourceMap || !node.ancestors().some(is(kind)))
 
-// TODO: Why are we exporting this as a single object?
-export const validations = {
-  nameBeginsWithUppercase: warning<Mixin | Class>(
-    node => /^[A-Z]/.test(node.name),
-    node => [node.name],
+export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
+  warning(
+    node => !node.name || regex.test(node.name),
+    node => [node.name ?? ''],
     node => {
       const nodeOffset = node.kind.length + 1
-      const { start, end } = node.sourceMap!
-      return {
+      return node.sourceMap && {
         start: {
-          ...start,
+          ...node.sourceMap.start,
           offset: nodeOffset,
         },
         end: {
-          ...end,
-          offset: node.name.length + nodeOffset,
+          ...node.sourceMap.end,
+          offset: node.name?.length ?? 0 + nodeOffset,
         },
       }
     }
-  ),
+  )
 
-  nameBeginsWithLowercase: warning<Singleton>(
-    node => /^[a-z_<]/.test(node.name ?? 'ok'),
-    node => [node.name ?? '']
-  ),
+export const nameBeginsWithUppercase = nameMatches(/^[A-Z]/)
 
-  referenceNameIsValid: warning<Parameter | Variable>(node => /^[a-z_<]/.test(node.name ?? 'ok')),
+export const nameBeginsWithLowercase = nameMatches(/^[a-z_<]/)
 
-  onlyLastParameterIsVarArg: error<Method>(node => {
-    const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
-    return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
-  }),
+export const nameIsNotKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
+  !KEYWORDS.includes(node.name || ''),
+node => [node.name || ''],
+)
 
-  nameIsNotKeyword: error<Reference<Node> | Method | Variable | Class | Singleton>(node =>
-    ![
-      'import',
-      'package',
-      'program',
-      'test',
-      'mixed with',
-      'class',
-      'inherits',
-      'object',
-      'mixin',
-      'var',
-      'const',
-      'override',
-      'method',
-      'native',
-      'constructor',
-      'self',
-      'super',
-      'new',
-      'if',
-      'else',
-      'return',
-      'throw',
-      'try',
-      'then always',
-      'catch',
-      'null',
-      'false',
-      'true',
-    ].includes(node.name || ''),
-  node => [node.name || ''],
-  ),
+export const singletonIsUnnamedIffIsLiteral = error<Singleton>(
+  singleton => singleton.parent().is('Package') === !!singleton.name,
+)
 
-  hasCatchOrAlways: error<Try>(
-    t =>
-      t.catches?.length > 0 ||
-      t.always?.sentences.length > 0 && t.body?.sentences.length > 0
-  ),
+export const onlyLastParameterIsVarArg = error<Method>(node => {
+  const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
+  return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
+})
 
-  singletonIsNotUnnamed: error<Singleton>(
-    singleton => singleton.parent().is('Literal') || !!singleton.name,
-  ),
+export const hasCatchOrAlways = error<Try>(node =>
+  node.catches.length > 0 || node.always.sentences.length > 0
+)
 
-  nonAsignationOfFullyQualifiedReferences: error<Assignment>(
-    node => !node.variable.name.includes('.')
-  ),
+export const hasDistinctSignature = error<Method>(node => {
+  return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+})
 
-  hasDistinctSignature: error<Method>(node => {
-    return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
-  }),
+export const methodNotOnlyCallToSuper = warning<Method>(node =>
+  !node.sentences().length || !node.sentences().every(sentence =>
+    sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+  )
+)
 
-  methodNotOnlyCallToSuper: warning<Method>(node =>
-    !node.sentences().length || !node.sentences().every(sentence =>
-      sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
-    )
-  ),
+export const instantiationIsNotAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
 
-  containerIsNotEmpty: warning<Test | Program>(node =>
-    isNotEmpty(node)
-  ),
+export const noIdentityAssignment = error<Assignment>(node => !node.value.is('Reference') || node.value.target() !== node.variable.target())
 
-  instantiationIsNotAbstractClass: error<New>(node => !node.instantiated.target()?.isAbstract()),
+export const noIdentityDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
 
-  notAssignToItself: error<Assignment>(node => !(node.value.is('Reference') && node.value.name === node.variable.name)),
-
-  notAssignToItselfInVariableDeclaration: error<Field>(
-    node => !(node.value.is('Reference') && node.value.name === node.name)
-  ),
-
-  dontCompareAgainstTrueOrFalse: warning<Send>(node => {
-    if(node.message !== '==') return true
-    const arg = node.args[0]
-    return !arg.is('Literal') || arg.value !== true && arg.value !== false
-  }),
-
-  // TODO: Change to a validation on ancestor of can't contain certain type of descendant. More reusable.
-  selfIsNotInAProgram: isNotPresentIn<Self>('Program'),
-
-  // TODO: Packages inside packages
-  // notDuplicatedPackageName: error<Package>(node => !firstAncestorOfKind('Environment', node)
-  // .members.some(packages => packages.name === node.name)),
-}
+export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
+  const arg: Expression = node.args[0]
+  return node.message !== '==' || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
+})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (target: Node): List<Problem> => {
-  const {
-    nameBeginsWithUppercase,
-    nameBeginsWithLowercase,
-    referenceNameIsValid,
-    nameIsNotKeyword,
-    onlyLastParameterIsVarArg,
-    hasDistinctSignature,
-    methodNotOnlyCallToSuper,
-    containerIsNotEmpty,
-    notAssignToItselfInVariableDeclaration,
-    singletonIsNotUnnamed,
-    selfIsNotInAProgram,
-    nonAsignationOfFullyQualifiedReferences,
-    hasCatchOrAlways,
-    instantiationIsNotAbstractClass,
-    dontCompareAgainstTrueOrFalse,
-    notAssignToItself,
-  } = validations
-
-  const problemsByKind: {
-    [K in Kind]: {
-      [code: string]: (n: NodeOfKind<K>, c: Code) => Problem | null
-    }
-  } = {
-    Parameter: { referenceNameIsValid },
-    ParameterizedType: {},
-    NamedArgument: {},
-    Import: {},
-    Body: {},
-    Catch: {},
-    Package: {},
-    Program: { containerIsNotEmpty },
-    Test: { containerIsNotEmpty },
-    Class: { nameBeginsWithUppercase, nameIsNotKeyword },
-    Singleton: { nameBeginsWithLowercase, singletonIsNotUnnamed, nameIsNotKeyword },
-    Mixin: { nameBeginsWithUppercase },
-    Field: { notAssignToItselfInVariableDeclaration },
-    Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
-    Variable: { referenceNameIsValid, nameIsNotKeyword },
-    Return: {  },
-    Assignment: { nonAsignationOfFullyQualifiedReferences, notAssignToItself },
-    Reference: { nameIsNotKeyword },
-    Self: { selfIsNotInAProgram },
-    New: { instantiationIsNotAbstractClass },
-    Literal: {},
-    Send: { dontCompareAgainstTrueOrFalse },
-    Super: {  },
-    If: {},
-    Throw: {},
-    Try: { hasCatchOrAlways },
-    Environment: {},
-    Describe: {},
-  }
-
-  return target.reduce<Problem[]>((found, node) => {
-    const checks = problemsByKind[node.kind] as {
-      [code: string]: (n: Node, c: Code) => Problem | null
-    }
-    return [
-      ...found,
-      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap ?? EMPTY_SOURCE } as const)  ) ?? [],
-      ...keys(checks)
-        .map(code => checks[code](node, code)!)
-        .filter(result => result !== null),
-    ]
-  }, [])
+const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
+  Parameter: { nameBeginsWithLowercase },
+  ParameterizedType: {},
+  NamedArgument: {},
+  Import: {},
+  Body: { isNotEmpty },
+  Catch: {},
+  Package: {},
+  Program: { },
+  Test: { },
+  Class: { nameBeginsWithUppercase, nameIsNotKeyword },
+  Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
+  Mixin: { nameBeginsWithUppercase },
+  Field: { nameBeginsWithLowercase, noIdentityDeclaration },
+  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
+  Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
+  Return: {  },
+  Assignment: { notAssignToItself: noIdentityAssignment },
+  Reference: { },
+  Self: { isNotWithinProgram: isNotWithin('Program') },
+  New: { instantiationIsNotAbstractClass },
+  Literal: {},
+  Send: { dontCheckEqualityAgainstBooleanLiterals },
+  Super: {  },
+  If: {},
+  Throw: {},
+  Try: { hasCatchOrAlways },
+  Environment: {},
+  Describe: {},
 }
+
+export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
+  const checks = validationsByKind[node.kind] as Record<Code, Validation<Node>>
+  return [
+    ...found,
+    ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap } as const)  ) ?? [],
+    ...entries(checks)
+      .map(([code, validation]) => validation(node, code)!)
+      .filter(result => result !== null),
+  ]
+}, [])

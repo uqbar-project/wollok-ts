@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { buildEnvironment } from '../src'
-import validate from '../src/validator'
+import validate, { isNotEmpty, dontCheckEqualityAgainstBooleanLiterals, hasCatchOrAlways, isNotWithin, hasDistinctSignature, instantiationIsNotAbstractClass, methodNotOnlyCallToSuper, nameBeginsWithLowercase, nameBeginsWithUppercase, nameIsNotKeyword, noIdentityAssignment, noIdentityDeclaration, onlyLastParameterIsVarArg } from '../src/validator'
 import link from '../src/linker'
 import { Assignment,
   Body,
@@ -23,8 +23,8 @@ import { Assignment,
   Super,
   Test,
   Try } from '../src/model'
-import { validations } from '../src/validator'
 import { validatorAssertions } from './assertions'
+import { singletonIsUnnamedIffIsLiteral } from '../src/validator'
 
 
 use(validatorAssertions)
@@ -61,17 +61,17 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { singletonIsNotUnnamed } = validations
+
       const packageExample = environment.members[1]
       const unnamedSingleton = packageExample.members[0]
       const namedSingleton = packageExample.members[1]
 
       it('should pass when singleton has a name', () => {
-        namedSingleton.should.pass(singletonIsNotUnnamed)
+        namedSingleton.should.pass(singletonIsUnnamedIffIsLiteral)
       })
 
       it('should not pass when singleton has no name', () => {
-        unnamedSingleton.should.not.pass(singletonIsNotUnnamed)
+        unnamedSingleton.should.not.pass(singletonIsUnnamedIffIsLiteral)
       })
     })
   })
@@ -89,7 +89,7 @@ describe('Wollok Validations', () => {
 
       const packageExample = enviroment.members[1] as PackageNode
       const importExample = packageExample.imports[0]
-      const { importHasNotLocalReference } = validations(enviroment)
+(enviroment)
 
       assert.ok(!!importHasNotLocalReference(importExample, 'importHasNotLocalReference'))
     })
@@ -109,7 +109,7 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { nameIsNotKeyword } = validations
+
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
       const referenceWithKeywordName = classExample.supertypes[0].reference
@@ -144,7 +144,7 @@ describe('Wollok Validations', () => {
       const packageExample = environment.members[1]
       const classWithLowercaseName = packageExample.members[0]
       const classWithUppercaseName = packageExample.members[1]
-      const { nameBeginsWithUppercase } = validations
+
 
       it('should pass when name begins with uppercase', () => {
         classWithUppercaseName.should.pass(nameBeginsWithUppercase)
@@ -199,7 +199,6 @@ describe('Wollok Validations', () => {
       const classWithOverlappingVarArgSignature = packageExample.members[2] as Class
       const classWithDistinctSignaturesAndVarArg = packageExample.members[3] as Class
 
-      const { hasDistinctSignature } = validations
 
       it('should pass when there is a method with the same name and different arity', () => {
         classWithDistinctSignatures.methods()[0].should.pass(hasDistinctSignature)
@@ -263,7 +262,6 @@ describe('Wollok Validations', () => {
       const instantiationOfAbstractClass = (packageExample.members[2] as Test).body.sentences[0] as New
       const instantiationOfConcreteClass = (packageExample.members[3] as Test).body.sentences[0] as New
 
-      const { instantiationIsNotAbstractClass } = validations
 
       it('should pass when instantiating a concrete class', () => {
         instantiationOfConcreteClass.should.pass(instantiationIsNotAbstractClass)
@@ -292,7 +290,6 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { onlyLastParameterIsVarArg } = validations
 
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
@@ -326,7 +323,6 @@ describe('Wollok Validations', () => {
           ],
         })])
 
-      const { methodNotOnlyCallToSuper } = validations
 
       const packageExample = environment.members[1]
       const classExample = packageExample.members[1] as Class
@@ -352,7 +348,6 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { hasDistinctSignature } = validations
 
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
@@ -368,47 +363,6 @@ describe('Wollok Validations', () => {
   })
 
   describe('Assignments', () => {
-
-    describe('Non assignation of fully qualified references', () => {
-      const environment = link([
-        WRE,
-        new Package({
-          name: 'p', members: [
-            new Class({
-              name: 'C', members: [
-                new Field({ name: 'a', isConstant: false }),
-                new Field({ name: 'b', isConstant: false }),
-                new Method({
-                  name: 'm', body: new Body({
-                    sentences: [
-                      new Assignment({ variable: new Reference({ name: 'p.C' }), value: new Reference({ name: 'a' }) }),
-                      new Assignment({ variable: new Reference({ name: 'a' }), value: new Reference({ name: 'b' }) }),
-                    ],
-                  }),
-                }),
-              ],
-            }),
-          ],
-        }),
-      ])
-
-      const { nonAsignationOfFullyQualifiedReferences } = validations
-
-      const packageExample = environment.members[1]
-      const classExample = packageExample.members[0] as Class
-      const methodExample = classExample.members[2] as Method
-      const bodyExample = methodExample.body as Body
-      const assignmentOfFullyQualifiedReference = bodyExample.sentences[0]
-      const validAssignment = bodyExample.sentences[1]
-
-      it('should pass when assignment reference is not fully qualified', () => {
-        validAssignment.should.pass(nonAsignationOfFullyQualifiedReferences)
-      })
-
-      it('should not pass when assignment reference is fully qualified', () => {
-        assignmentOfFullyQualifiedReference.should.not.pass(nonAsignationOfFullyQualifiedReferences)
-      })
-    })
 
     describe('Not assign to itself', () => {
       const environment = link([
@@ -433,8 +387,6 @@ describe('Wollok Validations', () => {
         })])
 
 
-      const { notAssignToItself } = validations
-
       const packageExample = environment.members[1]
       const classExample = packageExample.members[0] as Class
       const methodExample = classExample.members[2] as Method
@@ -443,11 +395,11 @@ describe('Wollok Validations', () => {
       const validAssignment = bodyExample.sentences[1]
 
       it('should pass when not assigning to itself', () => {
-        validAssignment.should.pass(notAssignToItself)
+        validAssignment.should.pass(noIdentityAssignment)
       })
 
       it('should not pass when assigning to itself', () => {
-        selfAssignment.should.not.pass(notAssignToItself)
+        selfAssignment.should.not.pass(noIdentityAssignment)
       })
     })
   })
@@ -502,7 +454,6 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { hasCatchOrAlways } = validations
 
       const packageExample = environment.members[1] as Package
       const classExample = packageExample.members[0] as Class
@@ -547,7 +498,6 @@ describe('Wollok Validations', () => {
         }),
       ])
 
-      const { nameBeginsWithLowercase } = validations
 
       const packageExample = environment.members[1] as Package
       const classExample = packageExample.members[0] as Class
@@ -582,7 +532,6 @@ describe('Wollok Validations', () => {
           ],
         })])
 
-      const { notAssignToItselfInVariableDeclaration } = validations
 
       const packageExample = environment.members[1] as Package
       const classExample = packageExample.members[0] as Class
@@ -590,11 +539,11 @@ describe('Wollok Validations', () => {
       const declarationWithoutSelfAssignment = classExample.members[1]
 
       it('should pass when not self-assigning', () => {
-        declarationWithoutSelfAssignment.should.pass(notAssignToItselfInVariableDeclaration)
+        declarationWithoutSelfAssignment.should.pass(noIdentityDeclaration)
       })
 
       it('should not pass when self-assigning', () => {
-        declarationWithSelfAssignment.should.not.pass(notAssignToItselfInVariableDeclaration)
+        declarationWithSelfAssignment.should.not.pass(noIdentityDeclaration)
       })
     })
   })
@@ -603,15 +552,14 @@ describe('Wollok Validations', () => {
     describe('Test is not empty', () => {
       const environment = link([
         WRE,
-        new Package({ name: 'p', members: [new Test({ name: 't', body: new Body() })] }
+        new Package({ name: 'p', members: [new Test({ name: 't', body: new Body({ sourceMap: { start: { offset: 0, line: 0, column: 0 }, end: { offset: 0, line: 0, column: 0 } } }) })] }
         )])
 
-      const { containerIsNotEmpty } = validations
-      const packageExample = environment.members[1] as Package
-      const emptyTest = packageExample.members[0]
+
+      const emptyTest = environment.getNodeByFQN<Test>('p.t')
 
       it('should not pass when test is empty', () => {
-        emptyTest.should.not.pass(containerIsNotEmpty)
+        emptyTest.body.should.not.pass(isNotEmpty)
       })
     })
   })
@@ -625,7 +573,7 @@ describe('Wollok Validations', () => {
         Package('p')(),
         Package('c')(),
       ])
-      const { notDuplicatedPackageName } = validations
+
       const packageExample = environment.members[1] as PackageNode
       const packageExample2 = environment.members[3] as PackageNode
       assert.ok(!!notDuplicatedPackageName(packageExample, 'duplicatedPackageName'))
@@ -660,7 +608,6 @@ describe('Wollok Validations', () => {
           ],
         })])
 
-      const { selfIsNotInAProgram } = validations
 
       const programExample = environment.getNodeByFQN<Program>('p.pr')
       const selfInProgram = (programExample.body.sentences[0] as Return).value!
@@ -669,11 +616,11 @@ describe('Wollok Validations', () => {
       const selfInMethod = (methodExample.sentences()[0] as Return).value!
 
       it('should pass when self is in a method', () => {
-        selfInMethod.should.pass(selfIsNotInAProgram)
+        selfInMethod.should.pass(isNotWithin('Program'))
       })
 
       it('should not pass when self is in a program', () => {
-        selfInProgram.should.not.pass(selfIsNotInAProgram)
+        selfInProgram.should.not.pass(isNotWithin('Program'))
       })
     })
   })
@@ -705,7 +652,6 @@ describe('Wollok Validations', () => {
           ],
         })])
 
-      const { dontCompareAgainstTrueOrFalse } = validations
 
       const packageExample = environment.members[1] as Package
       const classExample = packageExample.members[0] as Class
@@ -713,16 +659,17 @@ describe('Wollok Validations', () => {
       const comparisonAgainstTrue = (methodExample.sentences()[0] as Return).value as Send
 
       it('should not pass when comparing against true literal', () => {
-        comparisonAgainstTrue.should.not.pass(dontCompareAgainstTrueOrFalse)
+        comparisonAgainstTrue.should.not.pass(dontCheckEqualityAgainstBooleanLiterals)
       })
     })
   })
 
   describe('Wollok Core Library Health', () => {
-    const environment = buildEnvironment([{ name: 'zarlanga.wlk', content: '' }])
+    const environment = buildEnvironment([])
     const problems = validate(environment).map(
-      ({ code, node }) => ({
+      ({ code, node: { scope, ...node } }) => ({
         code,
+        node,
         line: node.sourceMap?.start.line,
         offset: node.sourceMap?.start.offset,
       })
