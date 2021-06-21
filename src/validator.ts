@@ -13,12 +13,12 @@
 // No two entities should have the same name
 
 
-// WISHLIST:
+// TODO: WISHLIST
 // - Define against categories
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-
+// - Unified problem type
 
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 
@@ -194,11 +194,10 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
 }
 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
-  const checks = validationsByKind[node.kind] as Record<Code, Validation<Node>>
   return [
     ...found,
     ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap } as const)  ) ?? [],
-    ...entries(checks)
+    ...entries(validationsByKind[node.kind] as Record<Code, Validation<Node>>)
       .map(([code, validation]) => validation(node, code)!)
       .filter(result => result !== null),
   ]
