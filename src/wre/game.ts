@@ -1,4 +1,4 @@
-import { Execution, InnerValue, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const game: Natives = {
   game: {
@@ -88,20 +88,17 @@ const game: Natives = {
       const visuals: RuntimeObject = (yield* this.invoke('allVisuals', self))!
       visuals.assertIsCollection()
 
-      const samePosition = (position1: RuntimeObject, position2: RuntimeObject): Boolean => {
-        
+      const samePosition = (position1: RuntimeObject, position2: RuntimeObject): boolean => {
         const truncateAxis = (position: RuntimeObject, axis: string) => { 
           const wPosition = position.get(axis)
           wPosition?.assertIsNumber()
           const tsPosition = wPosition?.innerValue
           return Math.trunc(Number(tsPosition)) 
         }
-
         const x1 = truncateAxis.call(self, position1, 'x')
         const y1 = truncateAxis.call(self, position1, 'y')
         const x2 = truncateAxis.call(self, position2, 'x')
         const y2 = truncateAxis.call(self, position2, 'y')
-
         return x1 == x2 && y1 == y2
       }
 
