@@ -1,5 +1,7 @@
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
+const { round } = Math
+
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -89,16 +91,16 @@ const game: Natives = {
       visuals.assertIsCollection()
 
       const samePosition = (position1: RuntimeObject, position2: RuntimeObject): boolean => {
-        const truncateAxis = (position: RuntimeObject, axis: string) => { 
+        const roundAxis = (position: RuntimeObject, axis: string) => {
           const wPosition = position.get(axis)
           wPosition?.assertIsNumber()
           const tsPosition = wPosition?.innerValue
-          return Math.trunc(Number(tsPosition)) 
+          return round(Number(tsPosition))
         }
-        const x1 = truncateAxis.call(self, position1, 'x')
-        const y1 = truncateAxis.call(self, position1, 'y')
-        const x2 = truncateAxis.call(self, position2, 'x')
-        const y2 = truncateAxis.call(self, position2, 'y')
+        const x1 = roundAxis.call(self, position1, 'x')
+        const y1 = roundAxis.call(self, position1, 'y')
+        const x2 = roundAxis.call(self, position2, 'x')
+        const y2 = roundAxis.call(self, position2, 'y')
         return x1 == x2 && y1 == y2
       }
 
