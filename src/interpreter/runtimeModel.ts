@@ -436,7 +436,7 @@ export class Evaluation {
 
     if (isNode(node.value)) {
       yield node
-      return yield* this.instantiate(node.value)
+      return yield* this.instantiate(node.value, {}, true)
     }
 
     yield node
@@ -452,7 +452,7 @@ export class Evaluation {
 
     if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
 
-    return yield* this.instantiate(node.instantiated.target()!, args, false)
+    return yield* this.instantiate(node.instantiated.target()!, args)
   }
 
   protected *execSend(node: Send): Execution<RuntimeValue> {
@@ -601,7 +601,7 @@ export class Evaluation {
     return result
   }
 
-  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, bindToContext = true): Execution<RuntimeObject> {
+  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, retainContext = false): Execution<RuntimeObject> {
     const defaultFieldValues = module.defaultFieldValues()
 
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
@@ -609,7 +609,7 @@ export class Evaluation {
       if(!allFieldNames.includes(local))
         throw new Error(`Can't instantiate ${module.fullyQualifiedName()} with value for unexistent field ${local}`)
 
-    const instance = new RuntimeObject(module, bindToContext ? this.currentContext : this.rootContext)
+    const instance = new RuntimeObject(module, retainContext ? this.currentContext : this.rootContext)
 
     for(const [field, defaultValue] of defaultFieldValues) {
       instance.set(field.name, field.name in locals

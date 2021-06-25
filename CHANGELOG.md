@@ -1,6 +1,9 @@
 # Changelog
 
-## v3.1.0
+## v3.0.2
+- Only anonymous object literals will save their context from now on.
+
+## v3.0.1
 - Methods now have `isConcrete` and `isNative` methods.
 
 ## v3.0.0
