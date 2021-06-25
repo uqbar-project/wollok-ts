@@ -1,6 +1,11 @@
 # Changelog
 
-## v3.1.0
+## v3.0.2
+- Only anonymous object literals and closures will be bound to their original context from now on.
+- Number and String uniqueness will be maintained with weak references from now on.
+- Dropped float number uniqueness.
+
+## v3.0.1
 - Methods now have `isConcrete` and `isNative` methods.
 
 ## v3.0.0

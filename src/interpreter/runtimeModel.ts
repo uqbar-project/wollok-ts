@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid'
 
 const { isArray } = Array
 const { keys, entries } = Object
-
+const { isInteger } = Number
 
 const DECIMAL_PRECISION = 5
 
@@ -243,6 +243,8 @@ export class Evaluation {
   readonly natives: Natives
   readonly frameStack: Frame[]
   console: Console = console
+  protected readonly numberCache: Map<number, WeakRef<RuntimeObject>>
+  protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
 
   get currentContext(): Context { return last(this.frameStack)!.context }
   get currentNode(): Node { return last(this.frameStack)!.node }
@@ -250,7 +252,7 @@ export class Evaluation {
   get environment(): Environment { return this.frameStack[0].node as Environment }
 
   static build(environment: Environment, natives: Natives): Evaluation {
-    const evaluation = new Evaluation(natives, [new Frame(environment, new Context())])
+    const evaluation = new Evaluation(natives, [new Frame(environment, new Context())], new Map(), new Map())
 
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
@@ -275,13 +277,26 @@ export class Evaluation {
     return evaluation
   }
 
-  protected constructor(natives: Natives, frameStack: Frame[]) {
+  protected constructor(natives: Natives, frameStack: Frame[], numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
     this.natives = natives
     this.frameStack = frameStack
+    this.numberCache = numberCache
+    this.stringCache = stringCache
   }
 
   copy(contextCache: Map<Id, Context> = new Map()): Evaluation {
-    return new Evaluation(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
+    return new Evaluation(
+      this.natives,
+      this.frameStack.map(frame => frame.copy(contextCache)),
+      new Map([...this.numberCache.entries()].flatMap(([key, value]) => {
+        const instanceCopy = value.deref()?.copy(contextCache)
+        return instanceCopy ? [[key, new WeakRef(instanceCopy)]] : []
+      })),
+      new Map([...this.stringCache.entries()].flatMap(([key, value]) => {
+        const instanceCopy = value.deref()?.copy(contextCache)
+        return instanceCopy ? [[key, new WeakRef(instanceCopy)]] : []
+      })),
+    )
   }
 
   allInstances(): Set<RuntimeObject> {
@@ -291,6 +306,7 @@ export class Evaluation {
       if(!context || visitedContexts.includes(context.id)) return []
       visitedContexts.push(context.id)
       const localInstances = [...context.locals.values()].filter((value): value is RuntimeObject => value instanceof RuntimeObject)
+
       return [
         ...contextInstances(context.parentContext),
         ...context instanceof RuntimeObject ? [context, ...isArray(context.innerValue) ? context.innerValue.flatMap(contextInstances) : []] : [],
@@ -435,7 +451,7 @@ export class Evaluation {
 
     if (isNode(node.value)) {
       yield node
-      return yield* this.instantiate(node.value)
+      return yield* this.instantiate(node.value, {}, true)
     }
 
     yield node
@@ -566,19 +582,24 @@ export class Evaluation {
     }
 
     if(typeof value === 'number') {
-      const stringValue = value.toFixed(DECIMAL_PRECISION)
-      const existing = this.rootContext.get(`N!${stringValue}`)
-      if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, Number(stringValue))
-      this.rootContext.set(`N!${stringValue}`, instance)
+      const isRound = isInteger(value)
+      const preciseValue = isRound ? value : Number(value.toFixed(DECIMAL_PRECISION))
+
+      if(isRound) {
+        const existing = this.numberCache.get(preciseValue)?.deref()
+        if(existing) return existing
+      }
+
+      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, preciseValue)
+      if(isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
       return instance
     }
 
     if(typeof value === 'string'){
-      const existing = this.rootContext.get(`S!${value}`)
+      const existing = this.stringCache.get(value)?.deref()
       if(existing) return existing
       const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.String'), this.rootContext, value)
-      this.rootContext.set(`S!${value}`, instance)
+      this.stringCache.set(value, new WeakRef(instance))
       return instance
     }
 
@@ -590,17 +611,17 @@ export class Evaluation {
   }
 
   *list(value: RuntimeObject[]): Execution<RuntimeObject> {
-    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.currentContext, value)
+    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.rootContext, value)
   }
 
   *set(value: RuntimeObject[]): Execution<RuntimeObject> {
-    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.currentContext, [])
+    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootContext, [])
     for(const elem of value)
       yield* this.invoke('add', result, elem)
     return result
   }
 
-  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): Execution<RuntimeObject> {
+  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, retainContext = false): Execution<RuntimeObject> {
     const defaultFieldValues = module.defaultFieldValues()
 
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
@@ -608,10 +629,13 @@ export class Evaluation {
       if(!allFieldNames.includes(local))
         throw new Error(`Can't instantiate ${module.fullyQualifiedName()} with value for unexistent field ${local}`)
 
-    const instance = new RuntimeObject(module, this.currentContext)
+    const instance = new RuntimeObject(module, retainContext ? this.currentContext : this.rootContext)
 
     for(const [field, defaultValue] of defaultFieldValues) {
-      instance.set(field.name, field.name in locals ? locals[field.name] : defaultValue && this.exec(defaultValue, instance))
+      instance.set(field.name, field.name in locals
+        ? locals[field.name]
+        : defaultValue && this.exec(defaultValue, instance)
+      )
     }
 
     yield * this.invoke('initialize', instance)
