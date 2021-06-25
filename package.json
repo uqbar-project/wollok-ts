@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "wollokVersion": "2.1.1:new-linearization-syntax",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",

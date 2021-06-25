@@ -4,7 +4,7 @@ import { v4 as uuid } from 'uuid'
 
 const { isArray } = Array
 const { keys, entries } = Object
-
+const { isInteger } = Number
 
 const DECIMAL_PRECISION = 5
 
@@ -243,6 +243,8 @@ export class Evaluation {
   readonly natives: Natives
   readonly frameStack: Frame[]
   console: Console = console
+  protected readonly numberCache: Map<number, WeakRef<RuntimeObject>>
+  protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
 
   get currentContext(): Context { return last(this.frameStack)!.context }
   get currentNode(): Node { return last(this.frameStack)!.node }
@@ -250,7 +252,7 @@ export class Evaluation {
   get environment(): Environment { return this.frameStack[0].node as Environment }
 
   static build(environment: Environment, natives: Natives): Evaluation {
-    const evaluation = new Evaluation(natives, [new Frame(environment, new Context())])
+    const evaluation = new Evaluation(natives, [new Frame(environment, new Context())], new Map(), new Map())
 
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
@@ -275,13 +277,26 @@ export class Evaluation {
     return evaluation
   }
 
-  protected constructor(natives: Natives, frameStack: Frame[]) {
+  protected constructor(natives: Natives, frameStack: Frame[], numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
     this.natives = natives
     this.frameStack = frameStack
+    this.numberCache = numberCache
+    this.stringCache = stringCache
   }
 
   copy(contextCache: Map<Id, Context> = new Map()): Evaluation {
-    return new Evaluation(this.natives, this.frameStack.map(frame => frame.copy(contextCache)))
+    return new Evaluation(
+      this.natives,
+      this.frameStack.map(frame => frame.copy(contextCache)),
+      new Map([...this.numberCache.entries()].flatMap(([key, value]) => {
+        const instanceCopy = value.deref()?.copy(contextCache)
+        return instanceCopy ? [[key, new WeakRef(instanceCopy)]] : []
+      })),
+      new Map([...this.stringCache.entries()].flatMap(([key, value]) => {
+        const instanceCopy = value.deref()?.copy(contextCache)
+        return instanceCopy ? [[key, new WeakRef(instanceCopy)]] : []
+      })),
+    )
   }
 
   allInstances(): Set<RuntimeObject> {
@@ -567,19 +582,24 @@ export class Evaluation {
     }
 
     if(typeof value === 'number') {
-      const stringValue = value.toFixed(DECIMAL_PRECISION)
-      const existing = this.rootContext.get(`N!${stringValue}`)
-      if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, Number(stringValue))
-      this.rootContext.set(`N!${stringValue}`, instance)
+      const isRound = isInteger(value)
+      const preciseValue = isRound ? value : Number(value.toFixed(DECIMAL_PRECISION))
+
+      if(isRound) {
+        const existing = this.numberCache.get(preciseValue)?.deref()
+        if(existing) return existing
+      }
+
+      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootContext, preciseValue)
+      if(isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
       return instance
     }
 
     if(typeof value === 'string'){
-      const existing = this.rootContext.get(`S!${value}`)
+      const existing = this.stringCache.get(value)?.deref()
       if(existing) return existing
       const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.String'), this.rootContext, value)
-      this.rootContext.set(`S!${value}`, instance)
+      this.stringCache.set(value, new WeakRef(instance))
       return instance
     }
 
