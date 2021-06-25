@@ -291,6 +291,7 @@ export class Evaluation {
       if(!context || visitedContexts.includes(context.id)) return []
       visitedContexts.push(context.id)
       const localInstances = [...context.locals.values()].filter((value): value is RuntimeObject => value instanceof RuntimeObject)
+
       return [
         ...contextInstances(context.parentContext),
         ...context instanceof RuntimeObject ? [context, ...isArray(context.innerValue) ? context.innerValue.flatMap(contextInstances) : []] : [],
@@ -451,7 +452,7 @@ export class Evaluation {
 
     if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
 
-    return yield* this.instantiate(node.instantiated.target()!, args)
+    return yield* this.instantiate(node.instantiated.target()!, args, false)
   }
 
   protected *execSend(node: Send): Execution<RuntimeValue> {
@@ -590,17 +591,17 @@ export class Evaluation {
   }
 
   *list(value: RuntimeObject[]): Execution<RuntimeObject> {
-    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.currentContext, value)
+    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.rootContext, value)
   }
 
   *set(value: RuntimeObject[]): Execution<RuntimeObject> {
-    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.currentContext, [])
+    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootContext, [])
     for(const elem of value)
       yield* this.invoke('add', result, elem)
     return result
   }
 
-  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): Execution<RuntimeObject> {
+  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, bindToContext = true): Execution<RuntimeObject> {
     const defaultFieldValues = module.defaultFieldValues()
 
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
@@ -608,10 +609,13 @@ export class Evaluation {
       if(!allFieldNames.includes(local))
         throw new Error(`Can't instantiate ${module.fullyQualifiedName()} with value for unexistent field ${local}`)
 
-    const instance = new RuntimeObject(module, this.currentContext)
+    const instance = new RuntimeObject(module, bindToContext ? this.currentContext : this.rootContext)
 
     for(const [field, defaultValue] of defaultFieldValues) {
-      instance.set(field.name, field.name in locals ? locals[field.name] : defaultValue && this.exec(defaultValue, instance))
+      instance.set(field.name, field.name in locals
+        ? locals[field.name]
+        : defaultValue && this.exec(defaultValue, instance)
+      )
     }
 
     yield * this.invoke('initialize', instance)
