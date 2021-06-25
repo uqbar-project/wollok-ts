@@ -63,7 +63,7 @@ export interface Problem {
   readonly level: Level
   readonly node: Node
   readonly values: List<string>
-  readonly source?: SourceMap
+  readonly sourceMap?: SourceMap
 }
 
 const problem = (level: Level) => <N extends Node>(
@@ -77,7 +77,7 @@ const problem = (level: Level) => <N extends Node>(
         code,
         node,
         values: values(node),
-        source: source(node),
+        sourceMap: source(node),
       }
       : null
 
