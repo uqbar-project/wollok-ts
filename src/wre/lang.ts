@@ -1,7 +1,7 @@
 import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
-const { abs, ceil, random, floor } = Math
+const { abs, ceil, random, round, floor } = Math
 const { UTC } = Date
 
 const lang: Natives = {
@@ -198,7 +198,7 @@ const lang: Natives = {
 
       if(index.innerValue < 0 || index.innerValue >= self.innerValue.length) throw new RangeError('index')
 
-      return self.innerValue[Math.trunc(index.innerValue)]
+      return self.innerValue[round(index.innerValue)]
     },
 
     *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
