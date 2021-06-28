@@ -49,10 +49,11 @@ describe('Wollok Interpreter', () => {
       })
 
       const evaluation = Evaluation.build(WRE, {})
-      const director = new ExecutionDirector(evaluation, evaluation.exec(expression))
+      const director = new ExecutionDirector(evaluation, function*(){ yield* this.exec(expression) })
       director.breakpoints.push(breakpoint)
 
       const state = director.resume()
+
 
       state.done.should.be.false
       state.should.have.property('next').equal(breakpoint)

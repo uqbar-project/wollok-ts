@@ -8,13 +8,12 @@ const { isInteger } = Number
 
 const DECIMAL_PRECISION = 5
 
-
 export type Execution<T> = Generator<Node, T>
 
 export type RuntimeValue = RuntimeObject | undefined
 
-export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: RuntimeObject[]) => Execution<RuntimeValue>
 export interface Natives { [name: string]: NativeFunction | Natives }
+export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: RuntimeObject[]) => Execution<RuntimeValue | void>
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CONTEXTS
@@ -136,12 +135,12 @@ export type ExecutionState = Readonly<
 
 export class ExecutionDirector {
   readonly evaluation: Evaluation
-  readonly execution: Execution<RuntimeValue>
+  readonly execution: Execution<RuntimeValue | void>
   readonly breakpoints: Node[] = []
 
-  constructor(evaluation: Evaluation, execution: Execution<RuntimeValue>) {
+  constructor(evaluation: Evaluation, execution: (this: Evaluation) => Execution<RuntimeValue | void>) {
     this.evaluation = evaluation
-    this.execution = execution
+    this.execution = execution.call(evaluation)
   }
 
   addBreakpoint(breakpoint: Node): void {
@@ -152,11 +151,6 @@ export class ExecutionDirector {
     const nextBreakpoints = this.breakpoints.filter(node => node !== breakpoint)
     this.breakpoints.splice(0, this.breakpoints.length)
     this.breakpoints.push(...nextBreakpoints)
-  }
-
-  fork(continuation: (evaluation: Evaluation) => Execution<RuntimeValue>): ExecutionDirector {
-    const copyEvaluation = this.evaluation.copy()
-    return new ExecutionDirector(copyEvaluation, continuation(copyEvaluation))
   }
 
   finish(): ExecutionState & {done: true} {
@@ -174,7 +168,7 @@ export class ExecutionDirector {
 
         next = this.execution.next()
       }
-      return { done: true, evaluation: this.evaluation, result: next.value }
+      return { done: true, evaluation: this.evaluation, result: next.value ?? undefined }
     } catch (error) {
       if (error instanceof WollokException) return { done: true, evaluation: this.evaluation, error }
       throw error
@@ -214,15 +208,19 @@ export class WollokReturn extends Error { constructor(readonly instance?: Runtim
 export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super(`WollokException: ${instance.module.name}`) } }
 
 
-// TODO: Either expand this interface or remove it
-export default class Interpreter {
-  readonly environment: Environment
-  readonly natives: Natives
+export default (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
-  constructor(environment: Environment, natives: Natives) {
-    this.environment = environment
-    this.natives = natives
+export class Interpreter {
+  readonly evaluation: Evaluation
+
+  constructor(evaluation: Evaluation) {
+    this.evaluation = evaluation
   }
+
+  fork(): Interpreter {
+    return new Interpreter(this.evaluation.copy())
+  }
+
 }
 
 export class Frame {
@@ -327,7 +325,7 @@ export class Evaluation {
     this.frameStack.push(new Frame(node, context))
 
     try {
-      return yield* node.match({
+      return (yield* node.match<Execution<RuntimeValue | void>>({
         Test: node => this.execTest(node),
         Program: node => this.execProgram(node),
         Body: node => this.execBody(node),
@@ -343,7 +341,7 @@ export class Evaluation {
         If: node => this.execIf(node),
         Try: node => this.execTry(node),
         Throw: node => this.execThrow(node),
-      })
+      })) ?? undefined
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
       else {
@@ -361,23 +359,19 @@ export class Evaluation {
   }
 
 
-  protected *execTest(node: Test): Execution<undefined> {
+  protected *execTest(node: Test): Execution<void> {
     yield node
 
     yield* this.exec(node.body, node.parent().is('Describe')
       ? yield* this.instantiate(node.parent())
       : new Context(this.currentContext)
     )
-
-    return undefined
   }
 
-  protected *execProgram(node: Program): Execution<undefined> {
+  protected *execProgram(node: Program): Execution<void> {
     yield node
 
     yield* this.exec(node.body)
-
-    return undefined
   }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
@@ -389,17 +383,15 @@ export class Evaluation {
     return result
   }
 
-  protected *execVariable(node: Variable): Execution<RuntimeValue> {
+  protected *execVariable(node: Variable): Execution<void> {
     const value = yield* this.exec(node.value)
 
     yield node
 
     this.currentContext.set(node.name, value)
-
-    return
   }
 
-  protected *execAssignment(node: Assignment): Execution<RuntimeValue> {
+  protected *execAssignment(node: Assignment): Execution<void> {
     const value = yield* this.exec(node.value)
 
     yield node
@@ -407,8 +399,6 @@ export class Evaluation {
     if(node.variable.target()?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
 
     this.currentContext.set(node.variable.name, value, true)
-
-    return
   }
 
   protected *execReturn(node: Return): Execution<RuntimeValue> {
@@ -548,7 +538,7 @@ export class Evaluation {
 
       this.frameStack.push(new Frame(method, new Context(receiver)))
       try {
-        return yield* native.call(this, receiver, ...args)
+        return (yield* native.call(this, receiver, ...args)) ?? undefined
       } finally { this.frameStack.pop() }
     } else if(method.isConcrete()) {
       let result: RuntimeValue

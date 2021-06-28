@@ -2,7 +2,7 @@ import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/
 
 const game: Natives = {
   game: {
-    *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
+    *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.assertIsNotNull()
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
 
@@ -13,11 +13,9 @@ const game: Natives = {
         if(visuals.innerValue.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
         visuals.innerValue.push(visual)
       }
-
-      return undefined
     },
 
-    *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
+    *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<void> {
       visual.assertIsNotNull()
       position.assertIsNotNull()
 
@@ -30,8 +28,6 @@ const game: Natives = {
       }
 
       visual.set('position', position)
-
-      return undefined
     },
 
     *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -42,10 +38,9 @@ const game: Natives = {
       return yield* this.invoke('addVisualCharacterIn', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, position)
     },
 
-    *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
+    *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       const visuals = self.get('visuals')
       if (visuals) yield* this.invoke('remove', visuals, visual)
-      return undefined
     },
 
     *whenKeyPressedDo(_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
@@ -98,7 +93,7 @@ const game: Natives = {
       return yield* this.list(result)
     },
 
-    *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
+    *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
       const currentTime: RuntimeObject = (yield* this.invoke('currentTime', this.currentContext.get('wollok.gameMirror.gameMirror')!))!
       currentTime.assertIsNumber()
 
@@ -106,15 +101,12 @@ const game: Natives = {
 
       visual.set('message', message)
       visual.set('messageTime', messageTime)
-
-      return undefined
     },
 
-    *clear(self: RuntimeObject): Execution<RuntimeValue> {
+    *clear(self: RuntimeObject): Execution<void> {
       yield* this.invoke('clear', this.currentContext.get('wollok.gameMirror.gameMirror')!)
 
       self.set('visuals', yield* this.list([]))
-      return undefined
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -131,54 +123,44 @@ const game: Natives = {
     *title(self: RuntimeObject, title?: RuntimeObject): Execution<RuntimeValue> {
       if(!title) return self.get('title')
       self.set('title', title)
-      return undefined
     },
 
     *width(self: RuntimeObject, width?: RuntimeObject): Execution<RuntimeValue> {
       if(!width) return self.get('width')
       self.set('width', width)
-      return undefined
     },
 
     *height(self: RuntimeObject, height?: RuntimeObject): Execution<RuntimeValue> {
       if(!height) return self.get('height')
       self.set('height', height)
-      return undefined
     },
 
-    *ground(self: RuntimeObject, ground: RuntimeObject): Execution<RuntimeValue> {
+    *ground(self: RuntimeObject, ground: RuntimeObject): Execution<void> {
       self.set('ground', ground)
-      return undefined
     },
 
-    *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<RuntimeValue> {
+    *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<void> {
       self.set('boardGround', boardGround)
-      return undefined
     },
 
-    *doCellSize(self: RuntimeObject, size: RuntimeObject): Execution<RuntimeValue> {
+    *doCellSize(self: RuntimeObject, size: RuntimeObject): Execution<void> {
       self.set('cellSize', size)
-      return undefined
     },
 
-    *stop(self: RuntimeObject): Execution<RuntimeValue> {
+    *stop(self: RuntimeObject): Execution<void> {
       self.set('running', yield* this.reify(false))
-      return undefined
     },
 
-    *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
+    *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.set('showAttributes', yield* this.reify(true))
-      return undefined
     },
 
-    *hideAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
+    *hideAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.set('showAttributes', yield* this.reify(false))
-      return undefined
     },
 
-    *errorReporter(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
+    *errorReporter(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       self.set('errorReporter', visual)
-      return undefined
     },
 
     *doStart(self: RuntimeObject): Execution<RuntimeValue> {
@@ -188,7 +170,7 @@ const game: Natives = {
   },
 
   Sound: {
-    *play(self: RuntimeObject): Execution<RuntimeValue> {
+    *play(self: RuntimeObject): Execution<void> {
       const game = this.currentContext.get('wollok.game.game')!
       if (!game.get('running')?.innerValue) throw new Error('You cannot play a sound if game has not started')
 
@@ -201,11 +183,9 @@ const game: Natives = {
       }
 
       self.set('status', this.reify('played'))
-
-      return undefined
     },
 
-    *stop(self: RuntimeObject): Execution<RuntimeValue> {
+    *stop(self: RuntimeObject): Execution<void> {
       if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot stop a sound that is not played')
 
       const game = this.currentContext.get('wollok.game.game')!
@@ -213,24 +193,18 @@ const game: Natives = {
       if(sounds) yield* this.invoke('remove', sounds, self)
 
       self.set('status', yield * this.reify('stopped'))
-
-      return undefined
     },
 
-    *pause(self: RuntimeObject): Execution<RuntimeValue> {
+    *pause(self: RuntimeObject): Execution<void> {
       if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot pause a sound that is not played')
 
       self.set('status', this.reify('paused'))
-
-      return undefined
     },
 
-    *resume(self: RuntimeObject): Execution<RuntimeValue> {
+    *resume(self: RuntimeObject): Execution<void> {
       if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that is not paused')
 
       self.set('status', this.reify('played'))
-
-      return undefined
     },
 
     *played(self: RuntimeObject): Execution<RuntimeValue> {
@@ -250,14 +224,11 @@ const game: Natives = {
       if (volume.innerValue < 0 || volume.innerValue > 1) throw new RangeError('newVolume')
 
       self.set('volume', volume)
-
-      return undefined
     },
 
     *shouldLoop(self: RuntimeObject, looping?: RuntimeObject): Execution<RuntimeValue> {
       if(!looping) return self.get('loop')
       self.set('loop', looping)
-      return undefined
     },
 
   },

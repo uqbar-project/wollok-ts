@@ -59,12 +59,10 @@ const lang: Natives = {
       return yield* this.reify(text)
     },
 
-    *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
+    *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
       message.assertIsString()
 
       if (value.innerValue === null) yield* this.invoke('error', value, message)
-
-      return undefined
     },
 
   },
@@ -130,24 +128,19 @@ const lang: Natives = {
     *add(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
       if(!(yield* this.invoke('contains', self, element))!.innerValue)
         return yield* this.invoke('unsafeAdd', self, element)
-
-      return undefined
     },
 
-    *unsafeAdd(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
+    *unsafeAdd(self: RuntimeObject, element: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       self.innerValue.push(element)
-      return undefined
     },
 
-    *remove(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
+    *remove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       const index = self.innerValue.indexOf(element)
       if (index >= 0) self.innerValue.splice(index, 1)
-
-      return undefined
     },
 
     *size(self: RuntimeObject): Execution<RuntimeValue> {
@@ -156,11 +149,10 @@ const lang: Natives = {
       return yield* this.reify(self.innerValue.length)
     },
 
-    *clear(self: RuntimeObject): Execution<RuntimeValue> {
+    *clear(self: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       self.innerValue.splice(0, self.innerValue.length)
-      return undefined
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
@@ -201,7 +193,7 @@ const lang: Natives = {
       return self.innerValue[index.innerValue]
     },
 
-    *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
+    *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
       function*quickSort(this: Evaluation, list: List<RuntimeObject>): Generator<Node, List<RuntimeObject>> {
         if(list.length < 2) return [...list]
 
@@ -227,8 +219,6 @@ const lang: Natives = {
 
       self.innerValue.splice(0, self.innerValue.length)
       self.innerValue.push(...sorted)
-
-      return undefined
     },
 
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
@@ -271,20 +261,17 @@ const lang: Natives = {
       return yield* this.invoke('apply', continuation)
     },
 
-    *add(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
+    *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       self.innerValue.push(element)
-      return undefined
     },
 
-    *remove(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
+    *remove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       const index = self.innerValue.indexOf(element)
       if (index >= 0) self.innerValue.splice(index, 1)
-
-      return undefined
     },
 
     *size(self: RuntimeObject): Execution<RuntimeValue> {
@@ -293,11 +280,10 @@ const lang: Natives = {
       return yield* this.reify(self.innerValue.length)
     },
 
-    *clear(self: RuntimeObject): Execution<RuntimeValue> {
+    *clear(self: RuntimeObject): Execution<void> {
       self.assertIsCollection()
 
       self.innerValue.splice(0, self.innerValue.length)
-      return undefined
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
@@ -345,7 +331,7 @@ const lang: Natives = {
       return yield* this.invoke('clear', self)
     },
 
-    *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
+    *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<void> {
       key.assertIsNotNull()
       value.assertIsNotNull()
 
@@ -359,8 +345,6 @@ const lang: Natives = {
 
       keys.innerValue.push(key)
       values.innerValue.push(value)
-
-      return undefined
     },
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
@@ -378,7 +362,7 @@ const lang: Natives = {
       return yield* this.reify(null)
     },
 
-    *remove(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
+    *remove(self: RuntimeObject, key: RuntimeObject): Execution<void> {
       const keys: RuntimeObject = self.get('<keys>')!
       keys.assertIsCollection()
 
@@ -395,8 +379,6 @@ const lang: Natives = {
 
       self.set('<keys>', yield* this.list(updatedKeys))
       self.set('<values>', yield* this.list(updatedValues))
-
-      return undefined
     },
 
     *keys(self: RuntimeObject): Execution<RuntimeValue> {
@@ -407,7 +389,7 @@ const lang: Natives = {
       return self.get('<values>')
     },
 
-    *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
+    *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
       const keys: RuntimeObject = self.get('<keys>')!
       keys.assertIsCollection()
 
@@ -416,15 +398,11 @@ const lang: Natives = {
 
       for(let index = 0; index < keys.innerValue.length; index++)
         yield* this.invoke('apply', closure, keys.innerValue[index], values.innerValue[index])
-
-      return undefined
     },
 
-    *clear(self: RuntimeObject): Execution<RuntimeValue> {
+    *clear(self: RuntimeObject): Execution<void> {
       self.set('<keys>', yield* this.list([]))
       self.set('<values>', yield* this.list([]))
-
-      return undefined
     },
 
   },
@@ -750,7 +728,7 @@ const lang: Natives = {
 
   Range: {
 
-    *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
+    *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
       const start: RuntimeObject = self.get('start')!
       start.assertIsNumber()
 
@@ -772,8 +750,6 @@ const lang: Natives = {
 
       for(const value of values)
         yield* this.invoke('apply', closure, value)
-
-      return undefined
     },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
@@ -820,7 +796,7 @@ const lang: Natives = {
 
   Date: {
 
-    *initialize(self: RuntimeObject): Execution<RuntimeValue> {
+    *initialize(self: RuntimeObject): Execution<void> {
       const day = self.get('day')
       const month = self.get('month')
       const year = self.get('year')
@@ -830,8 +806,6 @@ const lang: Natives = {
       if (!day || day.innerValue === null) self.set('day', yield* this.reify(today.getDate()))
       if (!month || month.innerValue === null) self.set('month', yield* this.reify(today.getMonth() + 1))
       if (!year || year.innerValue === null) self.set('year', yield* this.reify(today.getFullYear()))
-
-      return undefined
     },
 
     *shortDescription(self: RuntimeObject): Execution<RuntimeValue> {

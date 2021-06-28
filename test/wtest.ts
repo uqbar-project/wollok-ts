@@ -33,7 +33,7 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => {
         const testEvaluation = evaluation.copy()
-        const execution = new ExecutionDirector(testEvaluation, testEvaluation.exec(node))
+        const execution = new ExecutionDirector(testEvaluation, function*(){ yield* this.exec(node) })
         const result = execution.finish()
         if(result.error) {
           logError(result.error)

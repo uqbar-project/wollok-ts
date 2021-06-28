@@ -4,10 +4,9 @@ const lib: Natives = {
 
   console: {
 
-    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<RuntimeValue> {
+    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
       const message = yield* this.invoke('toString', obj)
       this.console.log(message!.innerValue)
-      return undefined
     },
 
     *readLine(_self: RuntimeObject): Execution<RuntimeValue> {
