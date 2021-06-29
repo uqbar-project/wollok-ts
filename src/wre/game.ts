@@ -29,11 +29,11 @@ const game: Natives = {
     },
 
     *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('addVisualCharacter', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual)
+      return yield* this.invoke('addVisualCharacter', this.object('wollok.gameMirror.gameMirror')!, visual)
     },
 
     *addVisualCharacterIn(_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('addVisualCharacterIn', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, position)
+      return yield* this.invoke('addVisualCharacterIn', this.object('wollok.gameMirror.gameMirror')!, visual, position)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -42,27 +42,27 @@ const game: Natives = {
     },
 
     *whenKeyPressedDo(_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('whenKeyPressedDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, event, action)
+      return yield* this.invoke('whenKeyPressedDo', this.object('wollok.gameMirror.gameMirror')!, event, action)
     },
 
     *whenCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('whenCollideDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, action)
+      return yield* this.invoke('whenCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
     *onCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('onCollideDo', this.currentContext.get('wollok.gameMirror.gameMirror')!, visual, action)
+      return yield* this.invoke('onCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
     *onTick(_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('onTick', this.currentContext.get('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
+      return yield* this.invoke('onTick', this.object('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
     },
 
     *schedule(_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('schedule', this.currentContext.get('wollok.gameMirror.gameMirror')!, milliseconds, action)
+      return yield* this.invoke('schedule', this.object('wollok.gameMirror.gameMirror')!, milliseconds, action)
     },
 
     *removeTickEvent(_self: RuntimeObject, event: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('removeTickEvent', this.currentContext.get('wollok.gameMirror.gameMirror')!, event)
+      return yield* this.invoke('removeTickEvent', this.object('wollok.gameMirror.gameMirror')!, event)
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
@@ -88,8 +88,7 @@ const game: Natives = {
     },
 
     *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime = (yield* this.invoke('currentTime', this.rootContext.get('wollok.gameMirror.gameMirror')!))!.innerNumber!
-
+      const currentTime = (yield* this.invoke('currentTime', this.object('wollok.gameMirror.gameMirror')!))!.innerNumber!
       const messageTime = yield* this.reify(currentTime + 2 * 1000)
 
       visual.set('message', message)
@@ -97,7 +96,7 @@ const game: Natives = {
     },
 
     *clear(self: RuntimeObject): Execution<void> {
-      yield* this.invoke('clear', this.currentContext.get('wollok.gameMirror.gameMirror')!)
+      yield* this.invoke('clear', this.object('wollok.gameMirror.gameMirror')!)
 
       self.set('visuals', yield* this.list())
     },
@@ -158,13 +157,13 @@ const game: Natives = {
 
     *doStart(self: RuntimeObject): Execution<RuntimeValue> {
       self.set('running', yield* this.reify(true))
-      return yield* this.invoke('doStart', this.currentContext.get('wollok.gameMirror.gameMirror')!)
+      return yield* this.invoke('doStart', this.object('wollok.gameMirror.gameMirror')!)
     },
   },
 
   Sound: {
     *play(self: RuntimeObject): Execution<void> {
-      const game = this.rootContext.get('wollok.game.game')!
+      const game = this.object('wollok.game.game')!
       if (!game.get('running')?.innerBoolean) throw new Error('You cannot play a sound if game has not started')
 
       const sounds = game.get('sounds')?.innerCollection
@@ -180,7 +179,7 @@ const game: Natives = {
     *stop(self: RuntimeObject): Execution<void> {
       if (self.get('status')?.innerString !== 'played') throw new Error('You cannot stop a sound that is not played')
 
-      const game = this.currentContext.get('wollok.game.game')!
+      const game = this.object('wollok.game.game')!
       const sounds = game.get('sounds')
       if(sounds) yield* this.invoke('remove', sounds, self)
 

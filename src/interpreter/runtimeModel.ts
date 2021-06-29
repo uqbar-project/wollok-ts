@@ -326,13 +326,13 @@ export class Evaluation {
 
 
     for (const module of globalSingletons) {
-      const instance = evaluation.rootContext.get(module.fullyQualifiedName())
+      const instance = evaluation.object(module.fullyQualifiedName())
       for (const field of module.defaultFieldValues().keys())
         instance!.get(field.name)
     }
 
     for (const constant of globalConstants)
-      evaluation.rootContext.get(constant.fullyQualifiedName())
+      evaluation.object(constant.fullyQualifiedName())
 
 
     return evaluation

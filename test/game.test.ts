@@ -35,31 +35,31 @@ describe('Wollok Game', () => {
 
     it('addVisual', () => {
       const evaluation = runGameProgram('actions.addVisual')
-      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(1)
     })
 
     it('removeVisual', () => {
       const evaluation = runGameProgram('actions.removeVisual')
-      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
     it('say', () => {
       const evaluation = runGameProgram('actions.say')
-      evaluation.currentContext.get('actions.visual')!.get('message')!.innerValue!.should.equal('Hi!')
-      evaluation.currentContext.get('actions.visual')!.get('messageTime')!.innerValue!.should.equal(2000)
+      evaluation.object('actions.visual')!.get('message')!.innerValue!.should.equal('Hi!')
+      evaluation.object('actions.visual')!.get('messageTime')!.innerValue!.should.equal(2000)
     })
 
     it('clear', () => {
       const evaluation = runGameProgram('actions.clear')
-      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
     it('flush event', () => traverse(function*() {
       const evaluation = Evaluation.build(environment, natives)
-      const gameMirror = evaluation.rootContext.get('wollok.gameMirror.gameMirror')!
+      const gameMirror = evaluation.object('wollok.gameMirror.gameMirror')!
       const time = yield* evaluation.reify(1)
       yield* evaluation.invoke('flushEvents', gameMirror, time)
     }()))
