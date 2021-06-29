@@ -35,13 +35,13 @@ describe('Wollok Game', () => {
 
     it('addVisual', () => {
       const evaluation = runGameProgram('actions.addVisual')
-      const visuals = evaluation.currentContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(1)
     })
 
     it('removeVisual', () => {
       const evaluation = runGameProgram('actions.removeVisual')
-      const visuals = evaluation.currentContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
@@ -53,13 +53,13 @@ describe('Wollok Game', () => {
 
     it('clear', () => {
       const evaluation = runGameProgram('actions.clear')
-      const visuals = evaluation.currentContext.get('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = evaluation.rootContext.get('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
     it('flush event', () => traverse(function*() {
       const evaluation = Evaluation.build(environment, natives)
-      const gameMirror = evaluation.currentContext.get('wollok.gameMirror.gameMirror')!
+      const gameMirror = evaluation.rootContext.get('wollok.gameMirror.gameMirror')!
       const time = yield* evaluation.reify(1)
       yield* evaluation.invoke('flushEvents', gameMirror, time)
     }()))

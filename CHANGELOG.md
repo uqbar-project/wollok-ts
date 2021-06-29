@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.0.4
+- Executions now admit to have `void` return type, to avoid forcing unnecesary return of `undefined`.
+- Evaluation `list` and `set` methods now have varargs.
+- *RuntimeObjects* now have a series of messages to retrieve their inner values by type
+- New *Interpreter* interface
+
+## v3.0.3
+- Updated to official Wollok Language 3.0.0 version.
+
 ## v3.0.2
 - Only anonymous object literals and closures will be bound to their original context from now on.
 - Number and String uniqueness will be maintained with weak references from now on.

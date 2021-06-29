@@ -9,6 +9,7 @@ const { isInteger } = Number
 const DECIMAL_PRECISION = 5
 
 export type Execution<T> = Generator<Node, T>
+export type ExecutionDefinition<T> = (this: Evaluation) => Execution<T>
 
 export type RuntimeValue = RuntimeObject | undefined
 
@@ -70,16 +71,38 @@ export class Context {
 
 
 export type InnerValue = null | boolean | string | number | RuntimeObject[] | Error
+export type BasicRuntimeObject<T extends InnerValue | undefined> = RuntimeObject & { innerValue: T }
 
 export class RuntimeObject extends Context {
   readonly module: Module
   readonly innerValue?: InnerValue
+
 
   constructor(module: Module, parentContext: Context, innerValue?: InnerValue) {
     super(parentContext)
     this.module = module
     this.innerValue = innerValue
     this.set('self', this)
+  }
+
+  get innerNumber(): this['innerValue'] & (number | undefined) {
+    if(typeof this.innerValue !== 'number') return undefined
+    return this.innerValue
+  }
+
+  get innerString(): this['innerValue'] & (string | undefined) {
+    if(typeof this.innerValue !== 'string') return undefined
+    return this.innerValue
+  }
+
+  get innerBoolean(): this['innerValue'] & (boolean | undefined) {
+    if(typeof this.innerValue !== 'boolean') return undefined
+    return this.innerValue
+  }
+
+  get innerCollection(): this['innerValue'] & (RuntimeObject[] | undefined) {
+    if (!isArray(this.innerValue)) return undefined
+    return this.innerValue
   }
 
 
@@ -91,30 +114,33 @@ export class RuntimeObject extends Context {
     )
   }
 
-  assertIsBoolean(): asserts this is RuntimeObject & { innerValue: boolean } { this.assertIs('wollok.lang.Boolean', 'boolean') }
-
-  assertIsNumber(): asserts this is RuntimeObject & { innerValue: number } { this.assertIs('wollok.lang.Number', 'number') }
-
-  assertIsString(): asserts this is RuntimeObject & { innerValue: string } { this.assertIs('wollok.lang.String', 'string') }
-
-  assertIsCollection(): asserts this is RuntimeObject & { innerValue: RuntimeObject[] } {
-    if (!isArray(this.innerValue) || this.innerValue.length && !(this.innerValue[0] instanceof RuntimeObject))
-      throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
+  assertIsNumber(): asserts this is BasicRuntimeObject<number> {
+    this.assertIs('wollok.lang.Number', this.innerNumber)
   }
 
-  assertIsException(): asserts this is RuntimeObject & { innerValue?: Error } {
+  assertIsBoolean(): asserts this is BasicRuntimeObject<boolean> {
+    this.assertIs('wollok.lang.Boolean', this.innerBoolean)
+  }
+
+  assertIsString(): asserts this is BasicRuntimeObject<string> {
+    this.assertIs('wollok.lang.String', this.innerString)
+  }
+
+  assertIsCollection(): asserts this is BasicRuntimeObject<RuntimeObject[]> {
+    if (!this.innerCollection) throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
+  }
+
+  assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
     if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
   }
 
-  assertIsNotNull(): asserts this is RuntimeObject & { innerValue?: Exclude<InnerValue, null> } {
+  assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
     if(this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
   }
 
-  protected assertIs(moduleFQN: Name, innerValueType: string): void {
-    if (this.module.fullyQualifiedName() !== moduleFQN)
-      throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
-    if (typeof this.innerValue !== innerValueType)
-      throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
+  protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
+    if (this.module.fullyQualifiedName() !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
+    if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 }
 
@@ -138,7 +164,7 @@ export class ExecutionDirector {
   readonly execution: Execution<RuntimeValue | void>
   readonly breakpoints: Node[] = []
 
-  constructor(evaluation: Evaluation, execution: (this: Evaluation) => Execution<RuntimeValue | void>) {
+  constructor(evaluation: Evaluation, execution: ExecutionDefinition<RuntimeValue | void>) {
     this.evaluation = evaluation
     this.execution = execution.call(evaluation)
   }
@@ -219,6 +245,43 @@ export class Interpreter {
 
   fork(): Interpreter {
     return new Interpreter(this.evaluation.copy())
+  }
+
+  do<T>(executionDefinition: ExecutionDefinition<T>): T {
+    const execution = executionDefinition.call(this.evaluation)
+    let next = execution.next()
+    while(!next.done) next = execution.next()
+    return next.value
+  }
+
+  exec(node: Expression): RuntimeObject
+  exec(node: Node): void
+  exec(node: Node): RuntimeObject | void {
+    return this.do(function*() { return yield* this.exec(node) })
+  }
+
+  invoke(methodOrMessage: Method | Name, receiver: RuntimeObject, ...args: RuntimeObject[]): RuntimeValue {
+    return this.do(function*() { return yield* this.invoke(methodOrMessage, receiver, ...args) })
+  }
+
+  object(fullyQualifiedName: Name): RuntimeObject {
+    return this.evaluation.object(fullyQualifiedName)
+  }
+
+  reify(value: boolean | number | string | null): RuntimeObject {
+    return this.do(function*() { return yield* this.reify(value) })
+  }
+
+  list(...value: RuntimeObject[]): RuntimeObject {
+    return this.do(function*() { return yield* this.list(...value) })
+  }
+
+  set(...value: RuntimeObject[]): RuntimeObject {
+    return this.do(function*() { return yield* this.set(...value) })
+  }
+
+  instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, retainContext = false): RuntimeObject {
+    return this.do(function*() { return yield* this.instantiate(module, locals, retainContext) })
   }
 
 }
@@ -307,7 +370,7 @@ export class Evaluation {
 
       return [
         ...contextInstances(context.parentContext),
-        ...context instanceof RuntimeObject ? [context, ...isArray(context.innerValue) ? context.innerValue.flatMap(contextInstances) : []] : [],
+        ...context instanceof RuntimeObject ? [context, ...context.innerCollection?.flatMap(contextInstances) ?? []] : [],
         ...localInstances.flatMap(contextInstances),
       ]
     }
@@ -436,7 +499,7 @@ export class Evaluation {
 
       yield node
 
-      return yield* module.name === 'List' ? this.list(values) : this.set(values)
+      return yield* module.name === 'List' ? this.list(...values) : this.set(...values)
     }
 
     if (isNode(node.value)) {
@@ -489,7 +552,7 @@ export class Evaluation {
 
     yield node
 
-    return yield* this.exec(condition.innerValue ? node.thenBody : node.elseBody, new Context(this.currentContext))
+    return yield* this.exec(condition.innerBoolean ? node.thenBody : node.elseBody, new Context(this.currentContext))
   }
 
   protected *execTry(node: Try): Execution<RuntimeValue> {
@@ -528,7 +591,7 @@ export class Evaluation {
       typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
       methodOrMessage
 
-    if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(args))
+    if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(...args))
     if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
     if(method.isNative()) {
@@ -545,7 +608,7 @@ export class Evaluation {
       const locals: Record<Name, RuntimeObject> = {}
       for(let index = 0; index < method.parameters.length; index++){
         const { name, isVarArg } = method.parameters[index]
-        locals[name] = isVarArg ? yield* this.list(args.slice(index)) : args[index]
+        locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
       }
 
       try {
@@ -559,8 +622,14 @@ export class Evaluation {
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  // INSTANCIATION
+  // INSTANTIATION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  object(fullyQualifiedName: Name): RuntimeObject {
+    const instance = this.rootContext.get(fullyQualifiedName)
+    if(!instance) throw new Error(`WKO not found: ${fullyQualifiedName}`)
+    return instance
+  }
 
   *reify(value: boolean | number | string | null): Execution<RuntimeObject> {
     if(typeof value === 'boolean'){
@@ -600,11 +669,11 @@ export class Evaluation {
     return instance
   }
 
-  *list(value: RuntimeObject[]): Execution<RuntimeObject> {
+  *list(...value: RuntimeObject[]): Execution<RuntimeObject> {
     return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.rootContext, value)
   }
 
-  *set(value: RuntimeObject[]): Execution<RuntimeObject> {
+  *set(...value: RuntimeObject[]): Execution<RuntimeObject> {
     const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootContext, [])
     for(const elem of value)
       yield* this.invoke('add', result, elem)

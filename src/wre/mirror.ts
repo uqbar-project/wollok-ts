@@ -6,7 +6,7 @@ const mirror: Natives = {
 
     *resolve(self: RuntimeObject, attributeName: RuntimeObject): Execution<RuntimeValue> {
       attributeName.assertIsString()
-      return self.get('target')?.get(attributeName.innerValue)
+      return self.get('target')?.get(attributeName.innerString)
     },
 
   },

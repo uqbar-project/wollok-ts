@@ -6,25 +6,23 @@ const game: Natives = {
       visual.assertIsNotNull()
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
 
-      const visuals: RuntimeObject = self.get('visuals')!
-      if (!visuals) self.set('visuals', yield* this.list([visual]))
-      else {
-        visuals.assertIsCollection()
-        if(visuals.innerValue.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
-        visuals.innerValue.push(visual)
-      }
+      const visuals = self.get('visuals')?.innerCollection
+
+      if (!visuals) return self.set('visuals', yield* this.list(visual))
+      if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
+
+      visuals.push(visual)
     },
 
     *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<void> {
       visual.assertIsNotNull()
       position.assertIsNotNull()
 
-      const visuals: RuntimeObject = self.get('visuals')!
-      if (!visuals) self.set('visuals', yield* this.list([visual]))
+      const visuals = self.get('visuals')?.innerCollection
+      if (!visuals) self.set('visuals', yield* this.list(visual))
       else {
-        visuals.assertIsCollection()
-        if(visuals.innerValue.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
-        visuals.innerValue.push(visual)
+        if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
+        visuals.push(visual)
       }
 
       visual.set('position', position)
@@ -68,10 +66,7 @@ const game: Natives = {
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
-      const visuals: RuntimeObject = self.get('visuals')!
-      if (!visuals) return yield* this.list([])
-      visuals.assertIsCollection()
-      return yield* this.list(visuals.innerValue)
+      return yield* this.list(...self.get('visuals')?.innerCollection ?? [])
     },
 
     *hasVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -80,24 +75,22 @@ const game: Natives = {
     },
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      const visuals: RuntimeObject = (yield* this.invoke('allVisuals', self))!
-      visuals.assertIsCollection()
+      const visuals = (yield* this.invoke('allVisuals', self))!.innerCollection!
 
       const result: RuntimeObject[] = []
-      for(const otherVisual of visuals.innerValue) {
-        const otherPosition = otherVisual.get('position') ?? (yield* this.invoke('position', otherVisual))!
-        if((yield *this.invoke('==', position, otherPosition))!.innerValue)
-          result.push(otherVisual)
+      for(const visual of visuals) {
+        const otherPosition = visual.get('position') ?? (yield* this.invoke('position', visual))!
+        if((yield *this.invoke('==', position, otherPosition))!.innerBoolean)
+          result.push(visual)
       }
 
-      return yield* this.list(result)
+      return yield* this.list(...result)
     },
 
     *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime: RuntimeObject = (yield* this.invoke('currentTime', this.currentContext.get('wollok.gameMirror.gameMirror')!))!
-      currentTime.assertIsNumber()
+      const currentTime = (yield* this.invoke('currentTime', this.rootContext.get('wollok.gameMirror.gameMirror')!))!.innerNumber!
 
-      const messageTime = yield* this.reify(currentTime.innerValue + 2 * 1000)
+      const messageTime = yield* this.reify(currentTime + 2 * 1000)
 
       visual.set('message', message)
       visual.set('messageTime', messageTime)
@@ -106,7 +99,7 @@ const game: Natives = {
     *clear(self: RuntimeObject): Execution<void> {
       yield* this.invoke('clear', this.currentContext.get('wollok.gameMirror.gameMirror')!)
 
-      self.set('visuals', yield* this.list([]))
+      self.set('visuals', yield* this.list())
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -171,22 +164,21 @@ const game: Natives = {
 
   Sound: {
     *play(self: RuntimeObject): Execution<void> {
-      const game = this.currentContext.get('wollok.game.game')!
-      if (!game.get('running')?.innerValue) throw new Error('You cannot play a sound if game has not started')
+      const game = this.rootContext.get('wollok.game.game')!
+      if (!game.get('running')?.innerBoolean) throw new Error('You cannot play a sound if game has not started')
 
-      const sounds: RuntimeObject = game.get('sounds')!
-      if (!game.get('sounds')) game.set('sounds', yield* this.list([self]))
+      const sounds = game.get('sounds')?.innerCollection
+      if (!sounds) game.set('sounds', yield* this.list(self))
       else {
-        sounds.assertIsCollection()
-        if (sounds.innerValue.includes(self)) throw new TypeError(self.module.fullyQualifiedName())
-        else sounds.innerValue.push(self)
+        if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName())
+        else sounds.push(self)
       }
 
       self.set('status', this.reify('played'))
     },
 
     *stop(self: RuntimeObject): Execution<void> {
-      if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot stop a sound that is not played')
+      if (self.get('status')?.innerString !== 'played') throw new Error('You cannot stop a sound that is not played')
 
       const game = this.currentContext.get('wollok.game.game')!
       const sounds = game.get('sounds')
@@ -196,23 +188,23 @@ const game: Natives = {
     },
 
     *pause(self: RuntimeObject): Execution<void> {
-      if (self.get('status')?.innerValue !== 'played') throw new Error('You cannot pause a sound that is not played')
+      if (self.get('status')?.innerString !== 'played') throw new Error('You cannot pause a sound that is not played')
 
       self.set('status', this.reify('paused'))
     },
 
     *resume(self: RuntimeObject): Execution<void> {
-      if (self.get('status')?.innerValue !== 'paused') throw new Error('You cannot resume a sound that is not paused')
+      if (self.get('status')?.innerString !== 'paused') throw new Error('You cannot resume a sound that is not paused')
 
       self.set('status', this.reify('played'))
     },
 
     *played(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.get('status')?.innerValue === 'played')
+      return yield* this.reify(self.get('status')?.innerString === 'played')
     },
 
     *paused(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.get('status')?.innerValue === 'paused')
+      return yield* this.reify(self.get('status')?.innerString === 'paused')
     },
 
     *volume(self: RuntimeObject, newVolume?: RuntimeObject): Execution<RuntimeValue> {
@@ -221,7 +213,7 @@ const game: Natives = {
       const volume: RuntimeObject = newVolume
       volume.assertIsNumber()
 
-      if (volume.innerValue < 0 || volume.innerValue > 1) throw new RangeError('newVolume')
+      if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('newVolume')
 
       self.set('volume', volume)
     },
