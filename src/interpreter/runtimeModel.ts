@@ -82,6 +82,11 @@ export class Frame extends Context {
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
     return new Frame(this.label, this.node, this.parentContext?.copy(contextCache))
   }
+
+  override toString(): string {
+    const sourceInfo = `${this.node.sourceFileName() ?? '--'}:${this.node.sourceMap ? this.node.sourceMap.start.line + ':' + this.node.sourceMap.start.column : '--'}`
+    return `${this.label}[${this.node.kind}](${sourceInfo})`
+  }
 }
 
 export type InnerValue = null | boolean | string | number | RuntimeObject[] | Error
@@ -244,8 +249,21 @@ export class ExecutionDirector {
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super(`WollokException: ${instance.module.name}`) } }
 export class WollokReturn extends Error { constructor(readonly frameStack: List<Frame>, readonly instance?: RuntimeObject){ super('Unhandled Wollok Return') } }
+export class WollokException extends Error {
+  constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){
+    super(`WollokException: ${instance.module.name}`)
+
+    instance.assertIsException() // TODO: implement innerError instead ?
+
+    const header = instance.innerValue
+      ? `Unhandled TypeScript Exception Within Wollok: ${instance.innerValue}`
+      : `Unhandled Wollok Exception: ${instance.module.fullyQualifiedName()}: "${instance.get('message')?.innerString}"`
+    const wollokStack = [...this.frameStack].reverse().map(frame => `at ${frame}`).join('\n\t')
+
+    this.stack = `${header}\n\t${wollokStack}\nDuring TypeScript ${this.stack ?? ''}`
+  }
+}
 
 
 export default (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
@@ -425,7 +443,7 @@ export class Evaluation {
   protected *execTest(node: Test): Execution<void> {
     yield node
 
-    yield* this.exec(node.body, new Frame(`test ${node.fullyQualifiedName()}`, node, node.parent().is('Describe')
+    yield* this.exec(node.body, new Frame(`${node.fullyQualifiedName()}`, node, node.parent().is('Describe')
       ? yield* this.instantiate(node.parent())
       : this.currentContext
     ))
@@ -554,7 +572,7 @@ export class Evaluation {
     yield node
 
     const continuation = condition.innerBoolean ? node.thenBody : node.elseBody
-    return yield* this.exec(continuation, new Frame(`if(${condition.innerBoolean}) {...}`, continuation, this.currentContext))
+    return yield* this.exec(continuation, new Frame(`${this.currentContext.label}>if(${condition.innerBoolean})`, continuation, this.currentContext))
   }
 
   protected *execTry(node: Try): Execution<RuntimeValue> {
@@ -562,16 +580,16 @@ export class Evaluation {
 
     let result: RuntimeValue
     try {
-      result = yield* this.exec(node.body, new Frame('try {...}', node, this.currentContext))
+      result = yield* this.exec(node.body, new Frame(`${this.currentContext.label}>try`, node, this.currentContext))
     } catch(error) {
       if(!(error instanceof WollokException)) throw error
 
       const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
 
-      if(handler) result = yield* this.exec(handler.body, new Frame(`catch(${handler.parameter.name}: ${handler.parameterType.name}) {...}`, handler, this.currentContext, { [handler.parameter.name]: error.instance }))
+      if(handler) result = yield* this.exec(handler.body, new Frame(`${this.currentContext.label}>catch(${handler.parameter.name}: ${handler.parameterType.name})`, handler, this.currentContext, { [handler.parameter.name]: error.instance }))
       else throw error
     } finally {
-      yield* this.exec(node.always, new Frame('then always {...}', node.always, this.currentContext))
+      yield* this.exec(node.always, new Frame(`${this.currentContext.label}>then always`, node.always, this.currentContext))
     }
 
     return result

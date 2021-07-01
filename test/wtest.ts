@@ -2,7 +2,7 @@ import { basename } from 'path'
 import yargs from 'yargs'
 import { List, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import { Evaluation, WollokException, RuntimeObject, ExecutionDirector } from '../src/interpreter/runtimeModel'
+import { Evaluation, ExecutionDirector } from '../src/interpreter/runtimeModel'
 import natives from '../src/wre/wre.natives'
 
 const { error } = console
@@ -35,26 +35,11 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
         const testEvaluation = evaluation.copy()
         const execution = new ExecutionDirector(testEvaluation, function*(){ yield* this.exec(node) })
         const result = execution.finish()
-        if(result.error) {
-          logError(result.error)
-          throw result.error
-        }
+        if(result.error) throw result.error
       })
 
   })
 }
-
-function logError(error: any) {
-  if(error instanceof WollokException) {
-    const errorInstance: RuntimeObject = error.instance // TODO: implement innerError instead ?
-    errorInstance.assertIsException()
-    console.group(errorInstance.innerValue ? `Unhandled TypeScript Exception during Wollok evaluation - ${errorInstance.innerValue}` : `Unhandled Wollok Exception - ${errorInstance.module.fullyQualifiedName()}: "${errorInstance.get('message')?.innerString}"`)
-    for(const frame of [...error.frameStack].reverse())
-      console.info(`at ${frame.label} [${frame.node.kind}:${frame.node.id.slice(-5)}](${frame.node.sourceFileName() ?? '--'}:${frame.node.sourceMap ? frame.node.sourceMap.start.line + ':' + frame.node.sourceMap.start.column : '--'})`)
-    console.groupEnd()
-  }
-}
-
 
 (async function () {
   const environment = await buildEnvironment('**/*.@(wlk|wtest)', (await ARGUMENTS).root, true)
@@ -62,6 +47,6 @@ function logError(error: any) {
 })()
   .then(run)
   .catch(e => {
-    error(e)
+    error(e.stack)
     process.exit(1)
   })
