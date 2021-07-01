@@ -230,8 +230,8 @@ export class ExecutionDirector {
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class WollokReturn extends Error { constructor(readonly instance?: RuntimeObject){ super() } }
 export class WollokException extends Error { constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){ super(`WollokException: ${instance.module.name}`) } }
+export class WollokReturn extends Error { constructor(readonly frameStack: List<Frame>, readonly instance?: RuntimeObject){ super('Unhandled Wollok Return') } }
 
 
 export default (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
@@ -414,7 +414,7 @@ export class Evaluation {
             : 'wollok.lang.EvaluationError'
         )
 
-        throw new WollokException([...this.frameStack], new RuntimeObject(module, context, error))
+        throw new WollokException([...this.frameStack], new RuntimeObject(module, this.rootContext, error))
       }
     } finally {
       this.frameStack.pop()
@@ -467,7 +467,7 @@ export class Evaluation {
   protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
     yield node
-    throw new WollokReturn(value)
+    throw new WollokReturn(this.frameStack, value)
   }
 
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
