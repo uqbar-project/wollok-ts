@@ -6,6 +6,7 @@
 - *RuntimeObjects* now have a series of messages to retrieve their inner values by type
 - New *Interpreter* interface
 - Evaluation can now retrieve WKO with the `object` message.
+- Frames are now contexts themselves and contain more debugging info.
 
 ## v3.0.3
 - Updated to official Wollok Language 3.0.0 version.

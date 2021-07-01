@@ -1,6 +1,6 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { is, List, Node } from '../src/model'
+import { List, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
 import { Evaluation, WollokException, RuntimeObject, ExecutionDirector } from '../src/interpreter/runtimeModel'
 import natives from '../src/wre/wre.natives'
@@ -44,37 +44,13 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
   })
 }
 
-// TODO: This is quite ugly...
 function logError(error: any) {
   if(error instanceof WollokException) {
-    const errorInstance: RuntimeObject = error.instance
+    const errorInstance: RuntimeObject = error.instance // TODO: implement innerError instead ?
     errorInstance.assertIsException()
-    console.group(errorInstance.innerValue ? `Unhandled Native Exception: ${errorInstance.innerValue.constructor.name} "${errorInstance.innerValue.message}"` : `Unhandled Wollok Exception: ${error.instance.module.fullyQualifiedName()} "${error.instance.get('message')?.innerValue}"`)
-    for(const frame of [...error.frameStack].reverse()) {
-      let label: string
-      if(frame.node.is('Body')) {
-        const parent = frame.node.parent()
-        if(parent.is('Method')) label = `${parent.parent().fullyQualifiedName()}.${parent.name}`
-        else if(parent.is('Entity')) label = `${parent.fullyQualifiedName()}`
-        else {
-          const container = parent.ancestors().find(is('Method'))
-          label = container
-            ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${parent.kind}`
-            : `${parent.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${parent.kind}`
-        }
-      } else if(frame.node.is('Method')) {
-        label = `${frame.node.parent().fullyQualifiedName()}.${frame.node.name}`
-      } else if(frame.node.is('Environment')) {
-        label = frame.node.kind
-      } else {
-        const container = frame.node.ancestors().find(is('Method'))
-        label = container
-          ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
-          : `${frame.node.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
-      }
-
-      console.info(`at wollok ${label}(${frame.node.sourceMap?.start?.line ?? '--'}:${frame.node.sourceMap?.start?.column ?? '--'})`)
-    }
+    console.group(errorInstance.innerValue ? `Unhandled TypeScript Exception during Wollok evaluation - ${errorInstance.innerValue}` : `Unhandled Wollok Exception - ${errorInstance.module.fullyQualifiedName()}: "${errorInstance.get('message')?.innerString}"`)
+    for(const frame of [...error.frameStack].reverse())
+      console.info(`at ${frame.label} [${frame.node.kind}:${frame.node.id.slice(-5)}](${frame.node.sourceFileName() ?? '--'}:${frame.node.sourceMap ? frame.node.sourceMap.start.line + ':' + frame.node.sourceMap.start.column : '--'})`)
     console.groupEnd()
   }
 }
