@@ -125,7 +125,6 @@ export class RuntimeObject extends Context {
     return this.innerValue
   }
 
-
   protected baseCopy(contextCache: Map<Id, Context>): RuntimeObject {
     return new RuntimeObject(
       this.module,
@@ -151,6 +150,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
+    if (!this.module.inherits(this.module.environment().getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
     if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
   }
 
@@ -255,7 +255,7 @@ export class WollokException extends Error {
   constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){
     super(`WollokException: ${instance.module.name}`)
 
-    instance.assertIsException() // TODO: implement innerError instead ?
+    instance.assertIsException()
 
     const header = instance.innerValue
       ? `Unhandled TypeScript Exception Within Wollok: ${instance.innerValue}`
@@ -425,13 +425,13 @@ export class Evaluation {
         Throw: node => this.execThrow(node),
       })) ?? undefined
     } catch(error) {
-      throw this.wrapError(error)
+      throw yield* this.wrapError(error)
     } finally {
       if(frame) this.frameStack.pop()
     }
   }
 
-  protected wrapError(error: Error): Error {
+  protected *wrapError(error: Error): Execution<Error> {
     if(error instanceof WollokException || error instanceof WollokReturn) return error
 
     const module = this.environment.getNodeByFQN<Class>(
@@ -440,7 +440,7 @@ export class Evaluation {
         : 'wollok.lang.EvaluationError'
     )
 
-    return new WollokException([...this.frameStack], new RuntimeObject(module, this.rootContext, error))
+    return new WollokException([...this.frameStack], yield* this.error(module, {}, error))
   }
 
   protected *execTest(node: Test): Execution<void> {
@@ -608,7 +608,6 @@ export class Evaluation {
 
   }
 
-
   *invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
     const method = methodOrMessage instanceof Method ? methodOrMessage :
       typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
@@ -627,7 +626,7 @@ export class Evaluation {
       try {
         return (yield* native.call(this, receiver, ...args)) ?? undefined
       } catch(error) {
-        throw this.wrapError(error)
+        throw yield* this.wrapError(error)
       } finally { this.frameStack.pop() }
     } else if(method.isConcrete()) {
       let result: RuntimeValue
@@ -706,16 +705,27 @@ export class Evaluation {
     return result
   }
 
-  *instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}, retainContext = false): Execution<RuntimeObject> {
-    const defaultFieldValues = module.defaultFieldValues()
 
+  *error(module: Module, locals?: Record<Name, RuntimeObject>, error?: Error): Execution<RuntimeObject> {
+    const instance = new RuntimeObject(module, this.rootContext, error)
+    yield* this.init(instance, locals)
+    return instance
+  }
+
+  *instantiate(module: Module, locals?: Record<Name, RuntimeObject>, retainContext = false): Execution<RuntimeObject> {
+    const instance = new RuntimeObject(module, retainContext ? this.currentContext : this.rootContext)
+    yield* this.init(instance, locals)
+    return instance
+  }
+
+  protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
+    const defaultFieldValues = instance.module.defaultFieldValues()
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
     for(const local of keys(locals))
       if(!allFieldNames.includes(local))
-        throw new Error(`Can't instantiate ${module.fullyQualifiedName()} with value for unexistent field ${local}`)
+        throw new Error(`Can't initialize ${instance.module.fullyQualifiedName()} with value for unexistent field ${local}`)
 
-    const instance = new RuntimeObject(module, retainContext ? this.currentContext : this.rootContext)
-    const initializationFrame = new Frame(`new ${module.fullyQualifiedName()}`, this.currentNode, instance)
+    const initializationFrame = new Frame(`new ${instance.module.fullyQualifiedName()}`, this.currentNode, instance)
 
     for(const [field, defaultValue] of defaultFieldValues) {
       instance.set(field.name, field.name in locals
@@ -726,10 +736,8 @@ export class Evaluation {
 
     yield * this.invoke('initialize', instance)
 
-    if(!module.name || module.is('Describe'))
+    if(!instance.module.name || instance.module.is('Describe'))
       for (const [field] of defaultFieldValues)
         instance.get(field.name)
-
-    return instance
   }
 }
