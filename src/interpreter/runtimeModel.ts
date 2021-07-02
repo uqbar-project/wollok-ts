@@ -84,7 +84,8 @@ export class Frame extends Context {
   }
 
   override toString(): string {
-    const sourceInfo = `${this.node.sourceFileName() ?? '--'}:${this.node.sourceMap ? this.node.sourceMap.start.line + ':' + this.node.sourceMap.start.column : '--'}`
+    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined) // TODO: Make singleton an expression and avoid the literal here
+    const sourceInfo = `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
     return `${this.label}[${this.node.kind}](${sourceInfo})`
   }
 }
@@ -424,21 +425,23 @@ export class Evaluation {
         Throw: node => this.execThrow(node),
       })) ?? undefined
     } catch(error) {
-      if(error instanceof WollokException || error instanceof WollokReturn) throw error
-      else {
-        const module = this.environment.getNodeByFQN<Class>(
-          error.message === 'Maximum call stack size exceeded'
-            ? 'wollok.lang.StackOverflowException'
-            : 'wollok.lang.EvaluationError'
-        )
-
-        throw new WollokException([...this.frameStack], new RuntimeObject(module, this.rootContext, error))
-      }
+      throw this.wrapError(error)
     } finally {
       if(frame) this.frameStack.pop()
     }
   }
 
+  protected wrapError(error: Error): Error {
+    if(error instanceof WollokException || error instanceof WollokReturn) return error
+
+    const module = this.environment.getNodeByFQN<Class>(
+      error.message === 'Maximum call stack size exceeded'
+        ? 'wollok.lang.StackOverflowException'
+        : 'wollok.lang.EvaluationError'
+    )
+
+    return new WollokException([...this.frameStack], new RuntimeObject(module, this.rootContext, error))
+  }
 
   protected *execTest(node: Test): Execution<void> {
     yield node
@@ -623,6 +626,8 @@ export class Evaluation {
       this.frameStack.push(new Frame(`${methodFQN}/${args.length}`, method, receiver))
       try {
         return (yield* native.call(this, receiver, ...args)) ?? undefined
+      } catch(error) {
+        throw this.wrapError(error)
       } finally { this.frameStack.pop() }
     } else if(method.isConcrete()) {
       let result: RuntimeValue
