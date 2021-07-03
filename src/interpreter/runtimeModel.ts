@@ -259,10 +259,10 @@ export class WollokException extends Error {
 
     const wollokStack = [...frameStack].reverse().map(frame => `at ${frame}`).join('\n    ')
     this.name = this.constructor.name
-    this.stack = `    ${wollokStack}\n   Derived from TypeScript stack:${this.stack?.slice(this.stack?.indexOf('\n')) ?? ''}`
     this.message = instance.innerValue
       ? `TypeScript ${instance.innerValue}`
       : `${instance.module.fullyQualifiedName()}: ${instance.get('message')?.innerString}`
+    this.stack = `${this.message}\n    ${wollokStack}\n   Derived from TypeScript stack:${this.stack?.slice(this.stack?.indexOf('\n')) ?? ''}`
   }
 }
 
@@ -439,8 +439,9 @@ export class Evaluation {
         ? 'wollok.lang.StackOverflowException'
         : 'wollok.lang.EvaluationError'
     )
+    const instance = yield* this.error(module, {}, error)
 
-    return new WollokException([...this.frameStack], yield* this.error(module, {}, error))
+    return new WollokException([...this.frameStack], instance)
   }
 
   protected *execTest(node: Test): Execution<void> {
