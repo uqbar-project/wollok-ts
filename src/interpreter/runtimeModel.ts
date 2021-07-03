@@ -250,19 +250,37 @@ export class ExecutionDirector {
 // RUNNER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class WollokReturn extends Error { constructor(readonly frameStack: List<Frame>, readonly instance?: RuntimeObject){ super('Unhandled Wollok Return') } }
-export class WollokException extends Error {
-  constructor(frameStack: List<Frame>, readonly instance: RuntimeObject){
+class WollokEvent extends Error {
+  constructor(frameStack: List<Frame>) {
     super()
+    const wollokStack = [...frameStack].reverse().map(frame => `at ${frame}`).join('\n      ')
+    this.message = `      ${wollokStack}\n     Derived from TypeScript stack`
+  }
+}
+
+export class WollokReturn extends WollokEvent {
+  constructor(frameStack: List<Frame>, readonly instance?: RuntimeObject){
+    super(frameStack)
+    this.name = this.constructor.name
+
+    this.message = 'Unhandled return on empty stack'
+  }
+}
+
+export class WollokException extends WollokEvent {
+  constructor(frameStack: List<Frame>, readonly instance: RuntimeObject){
+    super(frameStack)
 
     instance.assertIsException()
 
-    const wollokStack = [...frameStack].reverse().map(frame => `at ${frame}`).join('\n    ')
-    this.name = this.constructor.name
-    this.message = instance.innerValue
-      ? `TypeScript ${instance.innerValue}`
-      : `${instance.module.fullyQualifiedName()}: ${instance.get('message')?.innerString}`
-    this.stack = `${this.message}\n    ${wollokStack}\n   Derived from TypeScript stack:${this.stack?.slice(this.stack?.indexOf('\n')) ?? ''}`
+    const tsError = instance.innerValue
+    if(tsError) {
+      this.name = `TypeScript ${tsError.name}`
+      this.message = `${tsError.message}\n${this.message}`
+    } else {
+      this.name = instance.module.fullyQualifiedName()
+      this.message = `${instance.get('message')?.innerString ?? ''}\n${this.message}`
+    }
   }
 }
 
@@ -490,7 +508,7 @@ export class Evaluation {
   protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
     yield node
-    throw new WollokReturn(this.frameStack, value)
+    throw new WollokReturn([...this.frameStack], value)
   }
 
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
