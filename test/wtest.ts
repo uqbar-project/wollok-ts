@@ -47,6 +47,6 @@ function registerTests(nodes: List<Node>, evaluation: Evaluation) {
 })()
   .then(run)
   .catch(e => {
-    error(e.stack)
+    error(`${e.message}\n${e.stack}`)
     process.exit(1)
   })

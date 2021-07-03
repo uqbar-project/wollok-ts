@@ -252,17 +252,17 @@ export class ExecutionDirector {
 
 export class WollokReturn extends Error { constructor(readonly frameStack: List<Frame>, readonly instance?: RuntimeObject){ super('Unhandled Wollok Return') } }
 export class WollokException extends Error {
-  constructor(readonly frameStack: List<Frame>, readonly instance: RuntimeObject){
-    super(`WollokException: ${instance.module.name}`)
+  constructor(frameStack: List<Frame>, readonly instance: RuntimeObject){
+    super()
 
     instance.assertIsException()
 
-    const header = instance.innerValue
-      ? `Unhandled TypeScript Exception Within Wollok: ${instance.innerValue}`
-      : `Unhandled Wollok Exception: ${instance.module.fullyQualifiedName()}: "${instance.get('message')?.innerString}"`
-    const wollokStack = [...this.frameStack].reverse().map(frame => `at ${frame}`).join('\n\t')
-
-    this.stack = `${header}\n\t${wollokStack}\nDuring TypeScript ${this.stack ?? ''}`
+    const wollokStack = [...frameStack].reverse().map(frame => `at ${frame}`).join('\n    ')
+    this.name = this.constructor.name
+    this.stack = `    ${wollokStack}\n   Derived from TypeScript stack:${this.stack?.slice(this.stack?.indexOf('\n')) ?? ''}`
+    this.message = instance.innerValue
+      ? `TypeScript ${instance.innerValue}`
+      : `${instance.module.fullyQualifiedName()}: ${instance.get('message')?.innerString}`
   }
 }
 
@@ -617,12 +617,13 @@ export class Evaluation {
     if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
     const methodFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
+    const frame = new Frame(`${methodFQN}(${method.parameters.map(parameter => parameter.name).join(', ')})`, method, receiver)
 
     if(method.isNative()) {
       const native = get<NativeFunction>(this.natives, methodFQN)
       if(!native) throw new Error(`Missing native ${methodFQN}`)
 
-      this.frameStack.push(new Frame(`${methodFQN}/${args.length}`, method, receiver))
+      this.frameStack.push(frame)
       try {
         return (yield* native.call(this, receiver, ...args)) ?? undefined
       } catch(error) {
@@ -630,18 +631,19 @@ export class Evaluation {
       } finally { this.frameStack.pop() }
     } else if(method.isConcrete()) {
       let result: RuntimeValue
-      const locals: Record<Name, RuntimeObject> = {}
+
       for(let index = 0; index < method.parameters.length; index++){
         const { name, isVarArg } = method.parameters[index]
-        locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
+        frame.set(name, isVarArg ? yield* this.list(...args.slice(index)) : args[index])
       }
 
       try {
-        result = yield* this.exec(method.body!, new Frame(`${methodFQN}/${args.length}`, method, receiver, locals))
+        result = yield* this.exec(method.body!, frame)
       } catch(error) {
         if(!(error instanceof WollokReturn)) throw error
         else result = error.instance
       }
+
       return result
     } else throw new Error(`Can't invoke abstract method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
   }
