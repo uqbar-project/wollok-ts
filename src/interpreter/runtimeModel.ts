@@ -20,14 +20,14 @@ export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: Ru
 // CONTEXTS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export class Context {
+export abstract class Context {
   readonly id: Id = uuid()
   readonly parentContext?: Context
-  readonly locals: Map<Name, RuntimeValue | Execution<RuntimeObject>> = new Map()
+  readonly locals: Map<Name, RuntimeValue | Execution<RuntimeObject>>
 
-  protected constructor(parentContext?: Context, locals: Record<Name, RuntimeObject | Execution<RuntimeObject>> = {}) {
+  protected constructor(parentContext?: Context, locals: Map<Name, RuntimeValue | Execution<RuntimeObject>> = new Map()) {
     this.parentContext = parentContext
-    for(const [name, value] of entries(locals)) this.locals.set(name, value)
+    this.locals = locals
   }
 
   get(local: Name): RuntimeValue {
@@ -64,9 +64,7 @@ export class Context {
     return copy
   }
 
-  protected baseCopy(contextCache: Map<Id, Context>): Context {
-    return new Context(this.parentContext?.copy(contextCache))
-  }
+  protected abstract baseCopy(contextCache: Map<Id, Context>): Context
 }
 
 export class Frame extends Context {
@@ -82,7 +80,7 @@ export class Frame extends Context {
   }
 
   constructor(label: string, node: Node, parentContext?: Context, returnContext?: Frame, locals: Record<Name, RuntimeObject> = {}) {
-    super(parentContext, locals)
+    super(parentContext, new Map(entries(locals)))
     this.returnContext = returnContext
     this.label = label
     this.node = node
@@ -97,13 +95,13 @@ export class Frame extends Context {
   }
 }
 
+
 export type InnerValue = null | boolean | string | number | RuntimeObject[] | Error
 export type BasicRuntimeObject<T extends InnerValue | undefined> = RuntimeObject & { innerValue: T }
 
 export class RuntimeObject extends Context {
   readonly module: Module
   readonly innerValue?: InnerValue
-
 
   constructor(module: Module, parentContext: Context, innerValue?: InnerValue) {
     super(parentContext)
@@ -345,10 +343,10 @@ export class Interpreter {
 }
 
 export class Evaluation {
-  readonly natives: Natives
-  console: Console = console
+  protected readonly natives: Map<Method, NativeFunction>
   protected readonly numberCache: Map<number, WeakRef<RuntimeObject>>
   protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
+  console: Console = console
 
   readonly rootFrame: Frame
   #currentFrame: Frame
@@ -360,7 +358,12 @@ export class Evaluation {
 
   static build(environment: Environment, natives: Natives): Evaluation {
     const rootFrame = new Frame('root', environment)
-    const evaluation = new Evaluation(natives, rootFrame, rootFrame, new Map(), new Map())
+    const evaluation = new Evaluation(new Map(), rootFrame, rootFrame, new Map(), new Map())
+
+    environment.forEach(node => {
+      if(node.is('Method') && node.isNative())
+        evaluation.natives.set(node, get(natives, `${node.parent()!.fullyQualifiedName()}.${node.name}`)!)
+    })
 
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
     for (const module of globalSingletons)
@@ -385,7 +388,7 @@ export class Evaluation {
     return evaluation
   }
 
-  protected constructor(natives: Natives, rootContext: Frame, currentContext: Frame, numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
+  protected constructor(natives: Map<Method, NativeFunction>, rootContext: Frame, currentContext: Frame, numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
     this.natives = natives
     this.rootFrame = rootContext
     this.#currentFrame = currentContext
@@ -443,24 +446,25 @@ export class Evaluation {
   exec(node: Node): Execution<undefined>
   *exec(node: Node): Execution<RuntimeValue> {
     try {
-      return (yield* node.match<Execution<RuntimeValue | void>>({
-        Test: node => this.execTest(node),
-        Program: node => this.execProgram(node),
-        Method: node => this.execMethod(node),
-        Body: node => this.execBody(node),
-        Variable: node => this.execVariable(node),
-        Assignment: node => this.execAssignment(node),
-        Return: node => this.execReturn(node),
-        Reference: node => this.execReference(node),
-        Self: node => this.execSelf(node),
-        Literal: node => this.execLiteral(node),
-        New: node => this.execNew(node),
-        Send: node => this.execSend(node),
-        Super: node => this.execSuper(node),
-        If: node => this.execIf(node),
-        Try: node => this.execTry(node),
-        Throw: node => this.execThrow(node),
-      })) ?? undefined
+      switch(node.kind) {
+        case 'Test': yield* this.execTest(node); return
+        case 'Program': yield* this.execProgram(node); return
+        case 'Method': return yield* this.execMethod(node)
+        case 'Body': return yield* this.execBody(node)
+        case 'Variable': yield* this.execVariable(node); return
+        case 'Assignment': yield* this.execAssignment(node); return
+        case 'Return': return yield* this.execReturn(node)
+        case 'Reference': return yield* this.execReference(node)
+        case 'Self': return yield* this.execSelf(node)
+        case 'Literal': return yield* this.execLiteral(node)
+        case 'New': return yield* this.execNew(node)
+        case 'Send': return yield* this.execSend(node)
+        case 'Super': return yield* this.execSuper(node)
+        case 'If': return yield* this.execIf(node)
+        case 'Try': return yield* this.execTry(node)
+        case 'Throw': return yield* this.execThrow(node)
+        default: throw new Error(`Can't execute ${node.kind} node`)
+      }
     } catch(error) {
       throw yield* this.wrapError(error)
     }
@@ -502,10 +506,8 @@ export class Evaluation {
     yield node
 
     if(node.isNative()) {
-      const nativeFQN = `${node.parent().fullyQualifiedName()}.${node.name}`
-      const native = get<NativeFunction>(this.natives, nativeFQN)
-
-      if(!native) throw new Error(`Missing native ${nativeFQN}`)
+      const native = this.natives.get(node)
+      if(!native) throw new Error(`Missing native for ${node.parent()?.fullyQualifiedName()}.${node.name}`)
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
