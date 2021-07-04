@@ -1,4 +1,4 @@
-import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
+import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue, Frame } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
 const { abs, ceil, random, floor } = Math
@@ -8,14 +8,16 @@ const { UTC } = Date
 const lang: Natives = {
 
   Exception: {
-    *getFullStackTrace(_self: RuntimeObject): Execution<RuntimeValue> {
-      // TODO: Pending Implementation
-      throw new Error('Native not yet implemented: Exception.getFullStackTrace')
+    *getFullStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
+      const elements: RuntimeObject[] = []
+      for(const frame of (self.parentContext as Frame).frameStack)
+        elements.push((yield* this.invoke('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo)))!)
+
+      return yield* this.list(...elements)
     },
 
-    *getStackTrace(_self: RuntimeObject): Execution<RuntimeValue> {
-      // TODO: Pending Implementation
-      throw new Error('Native not yet implemented: Exception.getStackTrace')
+    *getStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
+      return yield* this.invoke('getFullStackTrace', self)
     },
   },
 
@@ -650,10 +652,12 @@ const lang: Natives = {
 
   Closure: {
 
-    *apply(self: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
+    *apply(this: Evaluation, self: RuntimeObject, args: RuntimeObject): Execution<RuntimeValue> {
+      args.assertIsCollection()
+
       try {
         self.set('self', self.parentContext?.get('self'))
-        return yield* this.invoke('<apply>', self, ...args)
+        return yield* this.invoke('<apply>', self, ...args.innerCollection)
       } finally {
         self.set('self', self)
       }
