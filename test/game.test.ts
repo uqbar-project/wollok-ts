@@ -21,28 +21,28 @@ describe('Wollok Game', () => {
 
     it('addVisual', () => {
       const interpreter = interpret(environment, natives)
-      interpreter.exec(environment.getNodeByFQN('actions.addVisual'))
+      interpreter.run('actions.addVisual')
       const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
       visuals.should.have.length(1)
     })
 
     it('removeVisual', () => {
       const interpreter = interpret(environment, natives)
-      interpreter.exec(environment.getNodeByFQN('actions.removeVisual'))
+      interpreter.run('actions.removeVisual')
       const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
     it('say', () => {
       const interpreter = interpret(environment, natives)
-      interpreter.exec(environment.getNodeByFQN('actions.say'))
+      interpreter.run('actions.say')
       interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('Hi!')
       interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
     it('clear', () => {
       const interpreter = interpret(environment, natives)
-      interpreter.exec(environment.getNodeByFQN('actions.clear'))
+      interpreter.run('actions.clear')
       const visuals = interpreter.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })

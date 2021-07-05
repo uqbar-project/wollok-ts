@@ -68,23 +68,32 @@ export abstract class Context {
 }
 
 export class Frame extends Context {
-  readonly label: string  // TODO: calculate this here instead
   readonly node: Node
 
-  get description(): string { return `${this.label}[${this.node.kind}]` }
-  get sourceInfo(): string {
-    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined) // TODO: Make singleton an expression and avoid the literal here
-    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
-  }
-
-  constructor(label: string, node: Node, parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
+  constructor(node: Node, parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
     super(parentContext, new Map(entries(locals)))
-    this.label = label
     this.node = node
   }
 
+  get description(): string {
+    return this.node.match({
+      Entity: node => `${node.fullyQualifiedName()}`,
+      // TODO: Add fqn to method
+      Method: node => `${node.parent().fullyQualifiedName()}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`,
+      Catch: node => `catch(${node.parameter.name}: ${node.parameterType.name})`,
+      Environment: () => 'root',
+      Node: node => `${node.kind}`,
+    })
+  }
+
+  get sourceInfo(): string {
+    // TODO: Make singleton an expression and avoid the literal here
+    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined)
+    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
+  }
+
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
-    return new Frame(this.label, this.node,  this.parentContext?.copy(contextCache))
+    return new Frame(this.node,  this.parentContext?.copy(contextCache))
   }
 
   override toString(): string {
@@ -300,17 +309,14 @@ export class Interpreter {
     return new Interpreter(this.evaluation.copy())
   }
 
-  do<T>(executionDefinition: ExecutionDefinition<T>): T {
-    const execution = executionDefinition.call(this.evaluation)
-    let next = execution.next()
-    while(!next.done) next = execution.next()
-    return next.value
-  }
-
   exec(node: Expression): RuntimeObject
   exec(node: Node): void
   exec(node: Node): RuntimeObject | void {
     return this.do(function*() { return yield* this.exec(node) })
+  }
+
+  run(programOrTestFQN: Name): void {
+    this.exec(this.evaluation.environment.getNodeByFQN(programOrTestFQN))
   }
 
   send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): RuntimeValue {
@@ -337,6 +343,13 @@ export class Interpreter {
     return this.do(function*() { return yield* this.instantiate(module, locals) })
   }
 
+  protected do<T>(executionDefinition: ExecutionDefinition<T>): T {
+    const execution = executionDefinition.call(this.evaluation)
+    let next = execution.next()
+    while(!next.done) next = execution.next()
+    return next.value
+  }
+
 }
 
 export class Evaluation {
@@ -353,7 +366,7 @@ export class Evaluation {
   get environment(): Environment { return this.rootFrame.node as Environment }
 
   static build(environment: Environment, natives: Natives): Evaluation {
-    const evaluation = new Evaluation(new Map(), [new Frame('root', environment)], new Map(), new Map())
+    const evaluation = new Evaluation(new Map(), [new Frame(environment)], new Map(), new Map())
 
     environment.forEach(node => {
       if(node.is('Method') && node.isNative())
@@ -465,19 +478,16 @@ export class Evaluation {
   protected *execTest(node: Test): Execution<void> {
     yield node
 
-    yield* this.exec(node.body, new Frame(
-      `${node.fullyQualifiedName()}`,
-      node,
-      node.parent().is('Describe')
-        ? yield* this.instantiate(node.parent())
-        : this.currentFrame,
+    yield* this.exec(node.body, new Frame(node, node.parent().is('Describe')
+      ? yield* this.instantiate(node.parent())
+      : this.currentFrame,
     ))
   }
 
   protected *execProgram(node: Program): Execution<void> {
     yield node
 
-    yield* this.exec(node.body)
+    yield* this.exec(node.body, new Frame(node, this.currentFrame))
   }
 
   protected *execMethod(node: Method): Execution<RuntimeValue> {
@@ -619,12 +629,7 @@ export class Evaluation {
 
     yield node
 
-    const continuation = condition.innerBoolean ? node.thenBody : node.elseBody
-    return yield* this.exec(continuation, new Frame(
-      `${this.currentFrame.label}>if(${condition.innerBoolean})`,
-      continuation,
-      this.currentFrame
-    ))
+    return yield* this.exec(condition.innerBoolean ? node.thenBody : node.elseBody, new Frame(node, this.currentFrame))
   }
 
   protected *execTry(node: Try): Execution<RuntimeValue> {
@@ -632,30 +637,17 @@ export class Evaluation {
 
     let result: RuntimeValue
     try {
-      result = yield* this.exec(node.body, new Frame(
-        `${this.currentFrame.label}>try`,
-        node,
-        this.currentFrame
-      ))
+      result = yield* this.exec(node.body, new Frame(node, this.currentFrame))
     } catch(error) {
       if(!(error instanceof WollokException)) throw error
 
       const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
 
       if(handler) {
-        result = yield* this.exec(handler.body, new Frame(
-          `${this.currentFrame.label}>catch(${handler.parameter.name}: ${handler.parameterType.name})`,
-          handler,
-          this.currentFrame,
-          { [handler.parameter.name]: error.instance }
-        ))
+        result = yield* this.exec(handler.body, new Frame(handler, this.currentFrame, { [handler.parameter.name]: error.instance }))
       } else throw error
     } finally {
-      yield* this.exec(node.always, new Frame(
-        `${this.currentFrame.label}>then always`,
-        node.always,
-        this.currentFrame,
-      ))
+      yield* this.exec(node.always, new Frame(node, this.currentFrame))
     }
 
     return result
@@ -679,16 +671,13 @@ export class Evaluation {
   }
 
   *invoke(method: Method, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
-    const methodFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
-    const frameLabel = `${methodFQN}(${method.parameters.map(parameter => parameter.name).join(', ')})`
-
     const locals: Record<string, RuntimeObject> = {}
     for(let index = 0; index < method.parameters.length; index++) {
       const { name, isVarArg } = method.parameters[index]
       locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
     }
 
-    return yield* this.exec(method, new Frame(frameLabel, method, receiver, locals))
+    return yield* this.exec(method, new Frame(method, receiver, locals))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -773,11 +762,7 @@ export class Evaluation {
     for(const [field, defaultValue] of defaultFieldValues) {
       instance.set(field.name, field.name in locals
         ? locals[field.name]
-        : defaultValue && this.exec(defaultValue, new Frame(
-          `new ${instance.module.fullyQualifiedName()}`,
-          this.currentNode,
-          instance
-        ))
+        : defaultValue && this.exec(defaultValue, new Frame(defaultValue, instance))
       )
     }
 
