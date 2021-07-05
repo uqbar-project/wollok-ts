@@ -699,6 +699,7 @@ export class Evaluation {
       typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
       methodOrMessage
 
+    // TODO: The methodOrMessage cast here might be undefined if method was undefined, this messageNotUnderstood is broken!
     if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(...args))
     if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
 
