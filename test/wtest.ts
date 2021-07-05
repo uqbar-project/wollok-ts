@@ -2,7 +2,7 @@ import { basename } from 'path'
 import yargs from 'yargs'
 import { List, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import { Evaluation, ExecutionDirector } from '../src/interpreter/runtimeModel'
+import interpret, { Interpreter } from '../src/interpreter/runtimeModel'
 import natives from '../src/wre/wre.natives'
 
 const { error } = console
@@ -21,29 +21,24 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(nodes: List<Node>, evaluation: Evaluation) {
+function registerTests(nodes: List<Node>, interpreter: Interpreter) {
   nodes.forEach(node => {
-    if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
+    if (node.is('Package')) describe(node.name, () => registerTests(node.members, interpreter))
 
     else if (node.is('Describe')) describe(node.name, () => {
       const onlyTest = node.tests().find(test => test.isOnly)
-      registerTests(onlyTest ? [onlyTest] : node.tests(), evaluation)
+      registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
     })
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
-      it(node.name, () => {
-        const testEvaluation = evaluation.copy()
-        const execution = new ExecutionDirector(testEvaluation, function*(){ yield* this.exec(node) })
-        const result = execution.finish()
-        if(result.error) throw result.error
-      })
+      it(node.name, () => interpreter.fork().exec(node) )
 
   })
 }
 
 (async function () {
   const environment = await buildEnvironment('**/*.@(wlk|wtest)', (await ARGUMENTS).root, true)
-  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, Evaluation.build(environment, natives)))
+  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, interpret(environment, natives)))
 })()
   .then(run)
   .catch(e => {

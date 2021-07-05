@@ -7,6 +7,7 @@
 - New *Interpreter* interface
 - Evaluation can now retrieve WKO with the `object` message.
 - Frames are now contexts themselves and contain more debugging info.
+- Exceptions now delegate on inner Wollok Exception instances to get the stack trace.
 
 ## v3.0.3
 - Updated to official Wollok Language 3.0.0 version.

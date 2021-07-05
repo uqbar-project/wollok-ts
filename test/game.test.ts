@@ -2,8 +2,8 @@ import { should } from 'chai'
 import { join } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { Environment, Program, Evaluation } from '../src'
-import { traverse } from '../src/extensions'
+import { Environment } from '../src'
+import interpret from '../src/interpreter/runtimeModel'
 
 should()
 
@@ -13,55 +13,45 @@ describe('Wollok Game', () => {
 
   describe('actions', () => {
 
-    let environment!: Environment
+    let environment: Environment
 
     before(async () => {
       environment = await buildEnvironment('**/*.wpgm', join('test', 'game'))
     })
 
-    const runGameProgram = (programFQN: string) => {
-      const evaluation = Evaluation.build(environment, natives)
-      const program = environment.getNodeByFQN<Program>(programFQN)
-
-      console.info('Running program', programFQN)
-
-      const gen = evaluation.exec(program.body)
-      traverse(gen)
-
-      console.info('Done!')
-
-      return evaluation
-    }
-
     it('addVisual', () => {
-      const evaluation = runGameProgram('actions.addVisual')
-      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
+      const interpreter = interpret(environment, natives)
+      interpreter.exec(environment.getNodeByFQN('actions.addVisual'))
+      const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
       visuals.should.have.length(1)
     })
 
     it('removeVisual', () => {
-      const evaluation = runGameProgram('actions.removeVisual')
-      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
+      const interpreter = interpret(environment, natives)
+      interpreter.exec(environment.getNodeByFQN('actions.removeVisual'))
+      const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
     it('say', () => {
-      const evaluation = runGameProgram('actions.say')
-      evaluation.object('actions.visual')!.get('message')!.innerValue!.should.equal('Hi!')
-      evaluation.object('actions.visual')!.get('messageTime')!.innerValue!.should.equal(2000)
+      const interpreter = interpret(environment, natives)
+      interpreter.exec(environment.getNodeByFQN('actions.say'))
+      interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('Hi!')
+      interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
     it('clear', () => {
-      const evaluation = runGameProgram('actions.clear')
-      const visuals = evaluation.object('wollok.game.game')!.get('visuals')!.innerValue!
+      const interpreter = interpret(environment, natives)
+      interpreter.exec(environment.getNodeByFQN('actions.clear'))
+      const visuals = interpreter.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
-    it('flush event', () => traverse(function*() {
-      const evaluation = Evaluation.build(environment, natives)
-      const gameMirror = evaluation.object('wollok.gameMirror.gameMirror')!
-      const time = yield* evaluation.reify(1)
-      yield* evaluation.invoke('flushEvents', gameMirror, time)
-    }()))
+    it('flush event', () => {
+      const interpreter = interpret(environment, natives)
+      const gameMirror = interpreter.object('wollok.gameMirror.gameMirror')!
+      const time = interpreter.reify(1)
+      interpreter.invoke('flushEvents', gameMirror, time)
+    })
   })
 })
