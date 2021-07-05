@@ -1,12 +1,14 @@
 import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Class, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
-import { get } from '../extensions'
+import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
 
 const { isArray } = Array
 const { keys, entries } = Object
 const { isInteger } = Number
 
+// TODO: Parameterize these
 const DECIMAL_PRECISION = 5
+const MAX_STACK_DEPTH = 500
 
 export type Execution<T> = Generator<Node, T>
 export type ExecutionDefinition<T> = (this: Evaluation) => Execution<T>
@@ -68,26 +70,23 @@ export abstract class Context {
 }
 
 export class Frame extends Context {
-  readonly returnContext?: Frame
   readonly label: string
   readonly node: Node // TODO: do we need this?
 
-  get frameStack(): List<Frame> { return [this, ...this.returnContext ? this.returnContext.frameStack : []] }
   get description(): string { return `${this.label}[${this.node.kind}]` }
   get sourceInfo(): string {
     const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined) // TODO: Make singleton an expression and avoid the literal here
     return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
   }
 
-  constructor(label: string, node: Node, parentContext?: Context, returnContext?: Frame, locals: Record<Name, RuntimeObject> = {}) {
+  constructor(label: string, node: Node, parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
     super(parentContext, new Map(entries(locals)))
-    this.returnContext = returnContext
     this.label = label
     this.node = node
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
-    return new Frame(this.label, this.node,  this.parentContext?.copy(contextCache), this.returnContext?.copy(contextCache))
+    return new Frame(this.label, this.node,  this.parentContext?.copy(contextCache))
   }
 
   override toString(): string {
@@ -277,7 +276,7 @@ export class WollokException extends Error {
     return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     Derived from TypeScript stack`
   }
 
-  // TODO: Do we need to take this into consideration for Evaluation.copy()?
+  // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
   constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject){
     super()
 
@@ -348,17 +347,15 @@ export class Evaluation {
   protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
   console: Console = console
 
-  readonly rootFrame: Frame
-  #currentFrame: Frame
+  frameStack: Frame[]
 
-  get currentFrame(): Frame { return this.#currentFrame }
+  get rootFrame(): Frame { return this.frameStack[0] }
+  get currentFrame(): Frame { return last(this.frameStack)! }
   get currentNode(): Node { return this.currentFrame.node }
   get environment(): Environment { return this.rootFrame.node as Environment }
-  get frameStack(): List<Frame> { return this.currentFrame.frameStack }
 
   static build(environment: Environment, natives: Natives): Evaluation {
-    const rootFrame = new Frame('root', environment)
-    const evaluation = new Evaluation(new Map(), rootFrame, rootFrame, new Map(), new Map())
+    const evaluation = new Evaluation(new Map(), [new Frame('root', environment)], new Map(), new Map())
 
     environment.forEach(node => {
       if(node.is('Method') && node.isNative())
@@ -388,10 +385,9 @@ export class Evaluation {
     return evaluation
   }
 
-  protected constructor(natives: Map<Method, NativeFunction>, rootContext: Frame, currentContext: Frame, numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
+  protected constructor(natives: Map<Method, NativeFunction>, frameStack: Frame[], numberCache: Map<number, WeakRef<RuntimeObject>>, stringCache: Map<string, WeakRef<RuntimeObject>>) {
     this.natives = natives
-    this.rootFrame = rootContext
-    this.#currentFrame = currentContext
+    this.frameStack = frameStack
     this.numberCache = numberCache
     this.stringCache = stringCache
   }
@@ -399,8 +395,7 @@ export class Evaluation {
   copy(contextCache: Map<Id, Context> = new Map()): Evaluation {
     return new Evaluation(
       this.natives,
-      this.rootFrame.copy(contextCache),
-      this.currentFrame.copy(contextCache),
+      this.frameStack.map(frame => frame.copy(contextCache)),
       new Map([...this.numberCache.entries()].flatMap(([key, value]) => {
         const instanceCopy = value.deref()?.copy(contextCache)
         return instanceCopy ? [[key, new WeakRef(instanceCopy)]] : []
@@ -422,30 +417,27 @@ export class Evaluation {
 
       return [
         ...contextInstances(context.parentContext),
-        ...context instanceof Frame ? contextInstances(context.returnContext) : [],
         ...context instanceof RuntimeObject ? [context, ...context.innerCollection?.flatMap(contextInstances) ?? []] : [],
         ...localInstances.flatMap(contextInstances),
       ]
     }
 
-    return new Set(contextInstances(this.currentFrame))
+    return new Set(this.frameStack.flatMap(frame => contextInstances(frame)))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // EXECUTION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  // TODO: I don't like this...
-  protected *doOnNewFrame<T>(execution: Execution<T>, label: string, node: Node, parentContext: Context, locals: Record<Name, RuntimeObject> = {}): Execution<T> {
-    this.#currentFrame = new Frame(label, node, parentContext, this.currentFrame, locals)
-    try { return yield* execution }
-    finally { this.#currentFrame = this.#currentFrame.returnContext! }
-  }
+  exec(node: Expression, frame?: Frame): Execution<RuntimeObject>
+  exec(node: Node, frame?: Frame): Execution<undefined>
+  *exec(node: Node, frame?: Frame): Execution<RuntimeValue> {
+    if(frame) this.frameStack.push(frame)
 
-  exec(node: Expression): Execution<RuntimeObject>
-  exec(node: Node): Execution<undefined>
-  *exec(node: Node): Execution<RuntimeValue> {
     try {
+      if(this.frameStack.length === MAX_STACK_DEPTH)
+        throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN('wollok.lang.StackOverflowException')))
+
       switch(node.kind) {
         case 'Test': yield* this.execTest(node); return
         case 'Program': yield* this.execProgram(node); return
@@ -466,34 +458,22 @@ export class Evaluation {
         default: throw new Error(`Can't execute ${node.kind} node`)
       }
     } catch(error) {
-      throw yield* this.wrapError(error)
+      if(error instanceof WollokException || error instanceof WollokReturn) throw error
+      throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN('wollok.lang.EvaluationError'), {}, error))
     }
-  }
-
-  protected *wrapError(error: Error): Execution<Error> {
-    if(error instanceof WollokException || error instanceof WollokReturn) return error
-
-    const module = this.environment.getNodeByFQN<Class>(
-      error.message === 'Maximum call stack size exceeded'
-        ? 'wollok.lang.StackOverflowException'
-        : 'wollok.lang.EvaluationError'
-    )
-    const instance = yield* this.error(module, {}, error)
-
-    return new WollokException(this, instance)
+    finally { if(frame) this.frameStack.pop() }
   }
 
   protected *execTest(node: Test): Execution<void> {
     yield node
 
-    yield* this.doOnNewFrame(
-      this.exec(node.body),
+    yield* this.exec(node.body, new Frame(
       `${node.fullyQualifiedName()}`,
       node,
       node.parent().is('Describe')
         ? yield* this.instantiate(node.parent())
         : this.currentFrame,
-    )
+    ))
   }
 
   protected *execProgram(node: Program): Execution<void> {
@@ -639,12 +619,11 @@ export class Evaluation {
     yield node
 
     const continuation = condition.innerBoolean ? node.thenBody : node.elseBody
-    return yield* this.doOnNewFrame(
-      this.exec(continuation),
+    return yield* this.exec(continuation, new Frame(
       `${this.currentFrame.label}>if(${condition.innerBoolean})`,
       continuation,
       this.currentFrame
-    )
+    ))
   }
 
   protected *execTry(node: Try): Execution<RuntimeValue> {
@@ -652,33 +631,30 @@ export class Evaluation {
 
     let result: RuntimeValue
     try {
-      result = yield* this.doOnNewFrame(
-        this.exec(node.body),
+      result = yield* this.exec(node.body, new Frame(
         `${this.currentFrame.label}>try`,
         node,
         this.currentFrame
-      )
+      ))
     } catch(error) {
       if(!(error instanceof WollokException)) throw error
 
       const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
 
       if(handler) {
-        result = yield* this.doOnNewFrame(
-          this.exec(handler.body),
+        result = yield* this.exec(handler.body, new Frame(
           `${this.currentFrame.label}>catch(${handler.parameter.name}: ${handler.parameterType.name})`,
           handler,
           this.currentFrame,
           { [handler.parameter.name]: error.instance }
-        )
+        ))
       } else throw error
     } finally {
-      yield* this.doOnNewFrame(
-        this.exec(node.always),
+      yield* this.exec(node.always, new Frame(
         `${this.currentFrame.label}>then always`,
         node.always,
         this.currentFrame,
-      )
+      ))
     }
 
     return result
@@ -712,7 +688,7 @@ export class Evaluation {
       locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
     }
 
-    return yield* this.doOnNewFrame(this.exec(method), frameLabel, method, receiver, locals)
+    return yield* this.exec(method, new Frame(frameLabel, method, receiver, locals))
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -782,8 +758,7 @@ export class Evaluation {
   }
 
   *instantiate(module: Module, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
-    const retainContext = module.is('Singleton') && !module.name || module.inherits(this.environment.getNodeByFQN('wollok.lang.Exception'))
-    const instance = new RuntimeObject(module, retainContext ? this.currentFrame : this.rootFrame)
+    const instance = new RuntimeObject(module, module.is('Singleton') && !module.name ? this.currentFrame : this.rootFrame)
     yield* this.init(instance, locals)
     return instance
   }
@@ -798,12 +773,11 @@ export class Evaluation {
     for(const [field, defaultValue] of defaultFieldValues) {
       instance.set(field.name, field.name in locals
         ? locals[field.name]
-        : defaultValue && this.doOnNewFrame(
-          this.exec(defaultValue),
+        : defaultValue && this.exec(defaultValue, new Frame(
           `new ${instance.module.fullyQualifiedName()}`,
           this.currentNode,
           instance
-        )
+        ))
       )
     }
 

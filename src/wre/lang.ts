@@ -1,4 +1,4 @@
-import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue, Frame } from '../interpreter/runtimeModel'
+import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
 const { abs, ceil, random, floor } = Math
@@ -8,12 +8,17 @@ const { UTC } = Date
 const lang: Natives = {
 
   Exception: {
-    *getFullStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
-      const elements: RuntimeObject[] = []
-      for(const frame of (self.parentContext as Frame).frameStack)
-        elements.push((yield* this.invoke('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo)))!)
+    *initialize(self: RuntimeObject): Execution<void> {
+      const stackTraceElements: RuntimeObject[] = []
+      for(const frame of this.frameStack.slice(0, -1)){
+        const stackTraceElement = yield* this.invoke('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo))
+        stackTraceElements.unshift(stackTraceElement!)
+      }
+      self.set('<stackTrace>', yield* this.list(...stackTraceElements))
+    },
 
-      return yield* this.list(...elements)
+    *getFullStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
+      return self.get('<stackTrace>')
     },
 
     *getStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
