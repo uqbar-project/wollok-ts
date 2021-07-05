@@ -5,7 +5,7 @@ const lib: Natives = {
   console: {
 
     *println(_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
-      this.console.log((yield* this.invoke('toString', obj))!.innerString)
+      this.console.log((yield* this.send('toString', obj))!.innerString)
     },
 
     *readLine(_self: RuntimeObject): Execution<RuntimeValue> {

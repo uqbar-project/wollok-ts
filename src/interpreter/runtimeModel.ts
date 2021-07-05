@@ -6,9 +6,7 @@ const { isArray } = Array
 const { keys, entries } = Object
 const { isInteger } = Number
 
-// TODO: Parameterize these
 const DECIMAL_PRECISION = 5
-const MAX_STACK_DEPTH = 500
 
 export type Execution<T> = Generator<Node, T>
 export type ExecutionDefinition<T> = (this: Evaluation) => Execution<T>
@@ -70,8 +68,8 @@ export abstract class Context {
 }
 
 export class Frame extends Context {
-  readonly label: string
-  readonly node: Node // TODO: do we need this?
+  readonly label: string  // TODO: calculate this here instead
+  readonly node: Node
 
   get description(): string { return `${this.label}[${this.node.kind}]` }
   get sourceInfo(): string {
@@ -265,7 +263,7 @@ export class WollokReturn extends Error {
 export class WollokException extends Error {
   get wollokStack(): string {
     try {
-      const fullTrace: string = new Interpreter(this.evaluation).invoke('getStackTraceAsString', this.instance)!.innerString!
+      const fullTrace: string = new Interpreter(this.evaluation).send('getStackTraceAsString', this.instance)!.innerString!
       return fullTrace.slice(fullTrace.indexOf('\n') + 1).trimEnd()
     } catch (error) { return `Could not retrieve Wollok stack due to error: ${error}` }
   }
@@ -283,7 +281,7 @@ export class WollokException extends Error {
     instance.assertIsException()
 
     this.name = instance.innerValue
-      ? `TypeScript ${instance.innerValue.name}`
+      ? `${instance.module.fullyQualifiedName()} wrapping TypeScript ${instance.innerValue.name}`
       : instance.module.fullyQualifiedName()
   }
 }
@@ -315,8 +313,8 @@ export class Interpreter {
     return this.do(function*() { return yield* this.exec(node) })
   }
 
-  invoke(methodOrMessage: Method | Name, receiver: RuntimeObject, ...args: RuntimeObject[]): RuntimeValue {
-    return this.do(function*() { return yield* this.invoke(methodOrMessage, receiver, ...args) })
+  send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): RuntimeValue {
+    return this.do(function*() { return yield* this.send(message, receiver, ...args) })
   }
 
   object(fullyQualifiedName: Name): RuntimeObject {
@@ -435,9 +433,6 @@ export class Evaluation {
     if(frame) this.frameStack.push(frame)
 
     try {
-      if(this.frameStack.length === MAX_STACK_DEPTH)
-        throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN('wollok.lang.StackOverflowException')))
-
       switch(node.kind) {
         case 'Test': yield* this.execTest(node); return
         case 'Program': yield* this.execProgram(node); return
@@ -459,7 +454,10 @@ export class Evaluation {
       }
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
-      throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN('wollok.lang.EvaluationError'), {}, error))
+      const module = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
+        ? 'wollok.lang.StackOverflowException'
+        : 'wollok.lang.EvaluationError'
+      throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN(module), {}, error))
     }
     finally { if(frame) this.frameStack.pop() }
   }
@@ -596,20 +594,23 @@ export class Evaluation {
 
     yield node
 
-    return yield* this.invoke(node.message, receiver, ...values)
+    return yield* this.send(node.message, receiver, ...values)
   }
 
   protected *execSuper(node: Super): Execution<RuntimeValue> {
-    const values: RuntimeObject[] = []
-    for(const arg of node.args) values.push(yield * this.exec(arg))
+    const args: RuntimeObject[] = []
+    for(const arg of node.args) args.push(yield * this.exec(arg))
 
     yield node
 
     const receiver = this.currentFrame.get('self')!
     const currentMethod = node.ancestors().find(is('Method'))!
+    //TODO: pass just the parent (not the FQN) to lookup?
     const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
 
-    return yield* this.invoke(method, receiver, ...values)
+    if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
+
+    return yield* this.invoke(method, receiver, ...args)
   }
 
   protected *execIf(node: If): Execution<RuntimeValue> {
@@ -670,15 +671,14 @@ export class Evaluation {
 
   }
 
-  *invoke(methodOrMessage: Method | Name | undefined, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
-    const method = methodOrMessage instanceof Method ? methodOrMessage :
-      typeof methodOrMessage === 'string' ? receiver.module.lookupMethod(methodOrMessage, args.length) :
-      methodOrMessage
+  *send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
+    const method = receiver.module.lookupMethod(message, args.length)
+    if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(message as string), yield* this.list(...args))
 
-    // TODO: The methodOrMessage cast here might be undefined if method was undefined, this messageNotUnderstood is broken!
-    if (!method) return yield* this.invoke('messageNotUnderstood', receiver, yield* this.reify(methodOrMessage as string), yield* this.list(...args))
-    if (!method.matchesSignature(method.name, args.length)) throw new Error(`Wrong number of arguments (${args.length}) for method ${method.parent().fullyQualifiedName()}.${method.name}/${method.parameters.length}`)
+    return yield* this.invoke(method, receiver, ...args)
+  }
 
+  *invoke(method: Method, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
     const methodFQN = `${method.parent().fullyQualifiedName()}.${method.name}`
     const frameLabel = `${methodFQN}(${method.parameters.map(parameter => parameter.name).join(', ')})`
 
@@ -746,7 +746,7 @@ export class Evaluation {
   *set(...value: RuntimeObject[]): Execution<RuntimeObject> {
     const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootFrame, [])
     for(const elem of value)
-      yield* this.invoke('add', result, elem)
+      yield* this.send('add', result, elem)
     return result
   }
 
@@ -781,7 +781,7 @@ export class Evaluation {
       )
     }
 
-    yield * this.invoke('initialize', instance)
+    yield * this.send('initialize', instance)
 
     if(!instance.module.name || instance.module.is('Describe'))
       for (const [field] of defaultFieldValues)

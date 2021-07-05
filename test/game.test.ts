@@ -51,7 +51,7 @@ describe('Wollok Game', () => {
       const interpreter = interpret(environment, natives)
       const gameMirror = interpreter.object('wollok.gameMirror.gameMirror')!
       const time = interpreter.reify(1)
-      interpreter.invoke('flushEvents', gameMirror, time)
+      interpreter.send('flushEvents', gameMirror, time)
     })
   })
 })

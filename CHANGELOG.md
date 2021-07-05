@@ -3,6 +3,7 @@
 ## v3.0.4
 - Executions now admit to have `void` return type, to avoid forcing unnecesary return of `undefined`.
 - Evaluation `list` and `set` methods now have varargs.
+- Evaluation `invoke` method is now split into `invoke` for methods and `send` for messages.
 - *RuntimeObjects* now have a series of messages to retrieve their inner values by type
 - New *Interpreter* interface
 - Evaluation can now retrieve WKO with the `object` message.

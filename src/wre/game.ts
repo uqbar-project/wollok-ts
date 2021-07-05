@@ -29,40 +29,40 @@ const game: Natives = {
     },
 
     *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('addVisualCharacter', this.object('wollok.gameMirror.gameMirror')!, visual)
+      return yield* this.send('addVisualCharacter', this.object('wollok.gameMirror.gameMirror')!, visual)
     },
 
     *addVisualCharacterIn(_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('addVisualCharacterIn', this.object('wollok.gameMirror.gameMirror')!, visual, position)
+      return yield* this.send('addVisualCharacterIn', this.object('wollok.gameMirror.gameMirror')!, visual, position)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       const visuals = self.get('visuals')
-      if (visuals) yield* this.invoke('remove', visuals, visual)
+      if (visuals) yield* this.send('remove', visuals, visual)
     },
 
     *whenKeyPressedDo(_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('whenKeyPressedDo', this.object('wollok.gameMirror.gameMirror')!, event, action)
+      return yield* this.send('whenKeyPressedDo', this.object('wollok.gameMirror.gameMirror')!, event, action)
     },
 
     *whenCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('whenCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
+      return yield* this.send('whenCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
     *onCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('onCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
+      return yield* this.send('onCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
     },
 
     *onTick(_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('onTick', this.object('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
+      return yield* this.send('onTick', this.object('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
     },
 
     *schedule(_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('schedule', this.object('wollok.gameMirror.gameMirror')!, milliseconds, action)
+      return yield* this.send('schedule', this.object('wollok.gameMirror.gameMirror')!, milliseconds, action)
     },
 
     *removeTickEvent(_self: RuntimeObject, event: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('removeTickEvent', this.object('wollok.gameMirror.gameMirror')!, event)
+      return yield* this.send('removeTickEvent', this.object('wollok.gameMirror.gameMirror')!, event)
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
@@ -71,16 +71,16 @@ const game: Natives = {
 
     *hasVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       const visuals: RuntimeObject = self.get('visuals')!
-      return yield* !visuals ? this.reify(false) : this.invoke('contains', visuals, visual)
+      return yield* !visuals ? this.reify(false) : this.send('contains', visuals, visual)
     },
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      const visuals = (yield* this.invoke('allVisuals', self))!.innerCollection!
+      const visuals = (yield* this.send('allVisuals', self))!.innerCollection!
 
       const result: RuntimeObject[] = []
       for(const visual of visuals) {
-        const otherPosition = visual.get('position') ?? (yield* this.invoke('position', visual))!
-        if((yield *this.invoke('==', position, otherPosition))!.innerBoolean)
+        const otherPosition = visual.get('position') ?? (yield* this.send('position', visual))!
+        if((yield *this.send('==', position, otherPosition))!.innerBoolean)
           result.push(visual)
       }
 
@@ -88,7 +88,7 @@ const game: Natives = {
     },
 
     *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime = (yield* this.invoke('currentTime', this.object('wollok.gameMirror.gameMirror')!))!.innerNumber!
+      const currentTime = (yield* this.send('currentTime', this.object('wollok.gameMirror.gameMirror')!))!.innerNumber!
       const messageTime = yield* this.reify(currentTime + 2 * 1000)
 
       visual.set('message', message)
@@ -96,7 +96,7 @@ const game: Natives = {
     },
 
     *clear(self: RuntimeObject): Execution<void> {
-      yield* this.invoke('clear', this.object('wollok.gameMirror.gameMirror')!)
+      yield* this.send('clear', this.object('wollok.gameMirror.gameMirror')!)
 
       self.set('visuals', yield* this.list())
     },
@@ -104,10 +104,10 @@ const game: Natives = {
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       visual.assertIsNotNull()
 
-      const position = visual.get('position') ?? (yield* this.invoke('position', visual))!
-      const visualsAtPosition: RuntimeObject = (yield* this.invoke('getObjectsIn', self, position))!
+      const position = visual.get('position') ?? (yield* this.send('position', visual))!
+      const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
 
-      yield* this.invoke('remove', visualsAtPosition, visual)
+      yield* this.send('remove', visualsAtPosition, visual)
 
       return visualsAtPosition
     },
@@ -157,7 +157,7 @@ const game: Natives = {
 
     *doStart(self: RuntimeObject): Execution<RuntimeValue> {
       self.set('running', yield* this.reify(true))
-      return yield* this.invoke('doStart', this.object('wollok.gameMirror.gameMirror')!)
+      return yield* this.send('doStart', this.object('wollok.gameMirror.gameMirror')!)
     },
   },
 
@@ -181,7 +181,7 @@ const game: Natives = {
 
       const game = this.object('wollok.game.game')!
       const sounds = game.get('sounds')
-      if(sounds) yield* this.invoke('remove', sounds, self)
+      if(sounds) yield* this.send('remove', sounds, self)
 
       self.set('status', yield * this.reify('stopped'))
     },

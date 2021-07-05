@@ -11,7 +11,7 @@ const lang: Natives = {
     *initialize(self: RuntimeObject): Execution<void> {
       const stackTraceElements: RuntimeObject[] = []
       for(const frame of this.frameStack.slice(0, -1)){
-        const stackTraceElement = yield* this.invoke('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo))
+        const stackTraceElement = yield* this.send('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo))
         stackTraceElements.unshift(stackTraceElement!)
       }
       self.set('<stackTrace>', yield* this.list(...stackTraceElements))
@@ -22,7 +22,7 @@ const lang: Natives = {
     },
 
     *getStackTrace(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('getFullStackTrace', self)
+      return yield* this.send('getFullStackTrace', self)
     },
   },
 
@@ -70,7 +70,7 @@ const lang: Natives = {
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
       message.assertIsString()
 
-      if (value.innerValue === null) yield* this.invoke('error', value, message)
+      if (value.innerValue === null) yield* this.send('error', value, message)
     },
 
   },
@@ -79,9 +79,9 @@ const lang: Natives = {
   Collection: {
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.invoke('apply', predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send('apply', predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.invoke('apply', continuation)
+      return yield* this.send('apply', continuation)
     },
   },
 
@@ -97,7 +97,7 @@ const lang: Natives = {
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.invoke('apply', closure, acum, elem))!
+        acum = (yield* this.send('apply', closure, acum, elem))!
 
       return acum
     },
@@ -105,7 +105,7 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.invoke('apply', closure, elem))!.innerBoolean)
+        if((yield* this.send('apply', closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.set(...result)
@@ -118,14 +118,14 @@ const lang: Natives = {
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.invoke('apply', predicate, elem))!.innerBoolean!) return elem
+        if((yield* this.send('apply', predicate, elem))!.innerBoolean!) return elem
 
-      return yield* this.invoke('apply', continuation)
+      return yield* this.send('apply', continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
-      if(!(yield* this.invoke('contains', self, element))!.innerBoolean!)
-        yield* this.invoke('unsafeAdd', self, element)
+      if(!(yield* this.send('contains', self, element))!.innerBoolean!)
+        yield* this.send('unsafeAdd', self, element)
     },
 
     *unsafeAdd(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -148,7 +148,7 @@ const lang: Natives = {
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
       return yield* this.invoke(method, self, ...separator ? [separator]: [])
     },
 
@@ -162,7 +162,7 @@ const lang: Natives = {
       if (self.innerCollection!.length !== other.innerCollection!.length) return yield* this.reify(false)
 
       for(const elem of [...self.innerCollection!])
-        if(!(yield* this.invoke('contains', other, elem))!.innerBoolean)
+        if(!(yield* this.send('contains', other, elem))!.innerBoolean)
           return yield* this.reify(false)
 
       return yield* this.reify(true)
@@ -192,7 +192,7 @@ const lang: Natives = {
         const after: RuntimeObject[] = []
 
         for(const elem of tail)
-          if((yield* this.invoke('apply', closure, elem, head))!.innerBoolean)
+          if((yield* this.send('apply', closure, elem, head))!.innerBoolean)
             before.push(elem)
           else
             after.push(elem)
@@ -212,7 +212,7 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.invoke('apply', closure, elem))!.innerBoolean)
+        if((yield* this.send('apply', closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.list(...result)
@@ -231,16 +231,16 @@ const lang: Natives = {
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.invoke('apply', closure, acum, elem))!
+        acum = (yield* this.send('apply', closure, acum, elem))!
 
       return acum
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.invoke('apply', predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send('apply', predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.invoke('apply', continuation)
+      return yield* this.send('apply', continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -263,7 +263,7 @@ const lang: Natives = {
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)
+      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
       return yield* this.invoke(method, self, ...separator ? [separator]: [])
     },
 
@@ -276,7 +276,7 @@ const lang: Natives = {
       if (values.length !== otherValues.length) return yield* this.reify(false)
 
       for(let index = 0; index < values.length; index++)
-        if(!(yield* this.invoke('==', values[index], otherValues[index]))!.innerBoolean)
+        if(!(yield* this.send('==', values[index], otherValues[index]))!.innerBoolean)
           return yield* this.reify(false)
 
       return yield* this.reify(true)
@@ -287,7 +287,7 @@ const lang: Natives = {
       for(const elem of [...self.innerCollection!]) {
         let alreadyIncluded = false
         for(const included of result)
-          if((yield* this.invoke('==', elem, included))!.innerBoolean) {
+          if((yield* this.send('==', elem, included))!.innerBoolean) {
             alreadyIncluded = true
             break
           }
@@ -301,14 +301,14 @@ const lang: Natives = {
   Dictionary: {
 
     *initialize(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('clear', self)
+      return yield* this.send('clear', self)
     },
 
     *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<void> {
       key.assertIsNotNull()
       value.assertIsNotNull()
 
-      yield* this.invoke('remove', self, key)
+      yield* this.send('remove', self, key)
 
       self.get('<keys>')!.innerCollection!.push(key)
       self.get('<values>')!.innerCollection!.push(value)
@@ -319,7 +319,7 @@ const lang: Natives = {
       const values = self.get('<values>')!.innerCollection!
 
       for(let index = 0; index < keys.length; index++)
-        if((yield* this.invoke('==', keys[index], key))!.innerBoolean) {
+        if((yield* this.send('==', keys[index], key))!.innerBoolean) {
           return values[index]
         }
 
@@ -333,7 +333,7 @@ const lang: Natives = {
       const updatedKeys: RuntimeObject[] = []
       const updatedValues: RuntimeObject[] = []
       for(let index = 0; index < keys.length; index++)
-        if(!(yield* this.invoke('==', keys[index], key))?.innerBoolean) {
+        if(!(yield* this.send('==', keys[index], key))?.innerBoolean) {
           updatedKeys.push(keys[index])
           updatedValues.push(values[index])
         }
@@ -355,7 +355,7 @@ const lang: Natives = {
       const values = self.get('<values>')!.innerCollection!
 
       for(let index = 0; index < keys.length; index++)
-        yield* this.invoke('apply', closure, keys[index], values[index])
+        yield* this.send('apply', closure, keys[index], values[index])
     },
 
     *clear(self: RuntimeObject): Execution<void> {
@@ -499,7 +499,7 @@ const lang: Natives = {
     },
 
     *concat(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.innerString! + (yield * this.invoke('toString', other))!.innerString!)
+      return yield* this.reify(self.innerString! + (yield * this.send('toString', other))!.innerString!)
     },
 
     *startsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
@@ -600,20 +600,20 @@ const lang: Natives = {
   Boolean: {
     *['&&'](self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       if(!self.innerBoolean!) return self
-      return yield* this.invoke('apply', closure)
+      return yield* this.send('apply', closure)
     },
 
     *and(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('&&', self, closure)
+      return yield* this.send('&&', self, closure)
     },
 
     *['||'](self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       if(self.innerBoolean!) return self
-      return yield* this.invoke('apply', closure)
+      return yield* this.send('apply', closure)
     },
 
     *or(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('||', self, closure)
+      return yield* this.send('||', self, closure)
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
@@ -642,15 +642,15 @@ const lang: Natives = {
 
       if (start <= end && step > 0)
         for (let i = start; i <= end; i += step)
-          yield* this.invoke('apply', closure, yield* this.reify(i))
+          yield* this.send('apply', closure, yield* this.reify(i))
 
       if (start >= end && step < 0)
         for (let i = start; i >= end; i += step)
-          yield* this.invoke('apply', closure, yield* this.reify(i))
+          yield* this.send('apply', closure, yield* this.reify(i))
     },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.invoke('anyOne', (yield* this.invoke('asList', self))!)
+      return yield* this.send('anyOne', (yield* this.send('asList', self))!)
     },
 
   },
@@ -662,7 +662,7 @@ const lang: Natives = {
 
       try {
         self.set('self', self.parentContext?.get('self'))
-        return yield* this.invoke('<apply>', self, ...args.innerCollection)
+        return yield* this.send('<apply>', self, ...args.innerCollection)
       } finally {
         self.set('self', self)
       }
