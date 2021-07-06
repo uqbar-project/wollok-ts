@@ -2,8 +2,9 @@ import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { restore } from 'sinon'
 import { Class, Package, Literal, Method, Body, Send } from '../src/model'
-import { Evaluation, ExecutionDirector } from '../src/interpreter/runtimeModel'
+import { DirectedInterpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
+import { Evaluation } from '../src'
 
 
 use(sinonChai)
@@ -48,8 +49,8 @@ describe('Wollok Interpreter', () => {
         })],
       })
 
-      const evaluation = Evaluation.build(WRE, {})
-      const director = new ExecutionDirector(evaluation, function*(){ yield* this.exec(expression) })
+      const interpreter = new DirectedInterpreter(Evaluation.build(WRE, {}))
+      const director = interpreter.exec(expression)
       director.breakpoints.push(breakpoint)
 
       const state = director.resume()

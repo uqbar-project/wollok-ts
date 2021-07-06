@@ -2,7 +2,7 @@ import { basename } from 'path'
 import yargs from 'yargs'
 import { List, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import interpret, { Interpreter } from '../src/interpreter/runtimeModel'
+import interpret, { Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
 
 const { error } = console

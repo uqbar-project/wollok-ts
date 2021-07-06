@@ -641,16 +641,29 @@ const lang: Natives = {
       const step = self.get('step')!.innerNumber!
 
       if (start <= end && step > 0)
-        for (let i = start; i <= end; i += step)
-          yield* this.send('apply', closure, yield* this.reify(i))
+        for (let value = start; value <= end; value += step)
+          yield* this.send('apply', closure, yield* this.reify(value))
 
       if (start >= end && step < 0)
-        for (let i = start; i >= end; i += step)
-          yield* this.send('apply', closure, yield* this.reify(i))
+        for (let value = start; value >= end; value += step)
+          yield* this.send('apply', closure, yield* this.reify(value))
     },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('anyOne', (yield* this.send('asList', self))!)
+      const start = self.get('start')!.innerNumber!
+      const end = self.get('end')!.innerNumber!
+      const step = self.get('step')!.innerNumber!
+      const values: number[] = []
+
+      if (start <= end && step > 0)
+        for (let value = start; value <= end; value += step)
+          values.push(value)
+
+      if (start >= end && step < 0)
+        for (let value = start; value >= end; value += step)
+          values.push(value)
+
+      return yield* this.reify(values[floor(random() * values.length)])
     },
 
   },

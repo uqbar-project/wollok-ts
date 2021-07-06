@@ -1,6 +1,7 @@
 import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
 import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
+import { Interpreter } from './interpreter'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -15,6 +16,44 @@ export type RuntimeValue = RuntimeObject | undefined
 
 export interface Natives { [name: string]: NativeFunction | Natives }
 export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: RuntimeObject[]) => Execution<RuntimeValue | void>
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// EXCEPTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export class WollokReturn extends Error {
+  constructor(readonly instance?: RuntimeObject){
+    super()
+    this.name = this.constructor.name
+    this.message = 'Unhandled return on empty stack'
+  }
+}
+
+export class WollokException extends Error {
+  get wollokStack(): string {
+    try {
+      const fullTrace: string = new Interpreter(this.evaluation).send('getStackTraceAsString', this.instance)!.innerString!
+      return fullTrace.slice(fullTrace.indexOf('\n') + 1).trimEnd()
+    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error}` }
+  }
+
+  get message(): string {
+    const error: RuntimeObject = this.instance
+    error.assertIsException()
+    return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     Derived from TypeScript stack`
+  }
+
+  // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
+  constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject){
+    super()
+
+    instance.assertIsException()
+
+    this.name = instance.innerValue
+      ? `${instance.module.fullyQualifiedName()} wrapping TypeScript ${instance.innerValue.name}`
+      : instance.module.fullyQualifiedName()
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // CONTEXTS
@@ -66,6 +105,7 @@ export abstract class Context {
 
   protected abstract baseCopy(contextCache: Map<Id, Context>): Context
 }
+
 
 export class Frame extends Context {
   readonly node: Node
@@ -176,184 +216,11 @@ export class RuntimeObject extends Context {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// RUNNER CONTROLLER
+// EVALUATION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export type ExecutionState = Readonly<
-  { done: false, evaluation: Evaluation, next: Node, error?: undefined } |
-  { done: true, evaluation: Evaluation, error: WollokException } |
-  { done: true, evaluation: Evaluation, result: RuntimeValue, error?: undefined }
->
-
-// TODO:
-// - track history
-// - conditional breakpoints?
-// - break on exception
-
-export class ExecutionDirector {
-  readonly evaluation: Evaluation
-  readonly execution: Execution<RuntimeValue | void>
-  readonly breakpoints: Node[] = []
-
-  constructor(evaluation: Evaluation, execution: ExecutionDefinition<RuntimeValue | void>) {
-    this.evaluation = evaluation
-    this.execution = execution.call(evaluation)
-  }
-
-  addBreakpoint(breakpoint: Node): void {
-    this.breakpoints.push(breakpoint)
-  }
-
-  removeBreakpoint(breakpoint: Node): void {
-    const nextBreakpoints = this.breakpoints.filter(node => node !== breakpoint)
-    this.breakpoints.splice(0, this.breakpoints.length)
-    this.breakpoints.push(...nextBreakpoints)
-  }
-
-  finish(): ExecutionState & {done: true} {
-    let result = this.resume()
-    while(!result.done) result = this.resume()
-    return result
-  }
-
-  resume(shouldHalt: (next: Node, evaluation: Evaluation) => boolean = () => false): ExecutionState {
-    try {
-      let next = this.execution.next()
-      while(!next.done) {
-        if(this.breakpoints.includes(next.value) || shouldHalt(next.value, this.evaluation))
-          return { done: false, evaluation: this.evaluation, next: next.value }
-
-        next = this.execution.next()
-      }
-      return { done: true, evaluation: this.evaluation, result: next.value ?? undefined }
-    } catch (error) {
-      if (error instanceof WollokException) return { done: true, evaluation: this.evaluation, error }
-      throw error
-    }
-  }
-
-  stepIn(): ExecutionState {
-    return this.resume(() => true)
-  }
-
-  stepOut(): ExecutionState {
-    const currentHeight = this.evaluation.frameStack.length
-    return this.resume((_, evaluation) => evaluation.frameStack.length < currentHeight)
-  }
-
-  stepOver(): ExecutionState {
-    const currentHeight = this.evaluation.frameStack.length
-    return this.resume((_, evaluation) => evaluation.frameStack.length <= currentHeight)
-  }
-
-  stepThrough(): ExecutionState {
-    const currentHeight = this.evaluation.frameStack.length
-    const currentContext = this.evaluation.currentFrame
-    return this.resume((_, evaluation) =>
-      evaluation.frameStack.length <= currentHeight ||
-      evaluation.currentFrame.contextHierarchy().includes(currentContext)
-    )
-  }
-
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// RUNNER
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export class WollokReturn extends Error {
-  constructor(readonly instance?: RuntimeObject){
-    super()
-    this.name = this.constructor.name
-    this.message = 'Unhandled return on empty stack'
-  }
-}
-
-export class WollokException extends Error {
-  get wollokStack(): string {
-    try {
-      const fullTrace: string = new Interpreter(this.evaluation).send('getStackTraceAsString', this.instance)!.innerString!
-      return fullTrace.slice(fullTrace.indexOf('\n') + 1).trimEnd()
-    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error}` }
-  }
-
-  get message(): string {
-    const error: RuntimeObject = this.instance
-    error.assertIsException()
-    return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     Derived from TypeScript stack`
-  }
-
-  // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
-  constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject){
-    super()
-
-    instance.assertIsException()
-
-    this.name = instance.innerValue
-      ? `${instance.module.fullyQualifiedName()} wrapping TypeScript ${instance.innerValue.name}`
-      : instance.module.fullyQualifiedName()
-  }
-}
-
-
-export default (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
-
-export class Interpreter {
-  readonly evaluation: Evaluation
-
-  constructor(evaluation: Evaluation) {
-    this.evaluation = evaluation
-  }
-
-  fork(): Interpreter {
-    return new Interpreter(this.evaluation.copy())
-  }
-
-  exec(node: Expression): RuntimeObject
-  exec(node: Node): void
-  exec(node: Node): RuntimeObject | void {
-    return this.do(function*() { return yield* this.exec(node) })
-  }
-
-  run(programOrTestFQN: Name): void {
-    this.exec(this.evaluation.environment.getNodeByFQN(programOrTestFQN))
-  }
-
-  send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): RuntimeValue {
-    return this.do(function*() { return yield* this.send(message, receiver, ...args) })
-  }
-
-  object(fullyQualifiedName: Name): RuntimeObject {
-    return this.evaluation.object(fullyQualifiedName)
-  }
-
-  reify(value: boolean | number | string | null): RuntimeObject {
-    return this.do(function*() { return yield* this.reify(value) })
-  }
-
-  list(...value: RuntimeObject[]): RuntimeObject {
-    return this.do(function*() { return yield* this.list(...value) })
-  }
-
-  set(...value: RuntimeObject[]): RuntimeObject {
-    return this.do(function*() { return yield* this.set(...value) })
-  }
-
-  instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): RuntimeObject {
-    return this.do(function*() { return yield* this.instantiate(module, locals) })
-  }
-
-  protected do<T>(executionDefinition: ExecutionDefinition<T>): T {
-    const execution = executionDefinition.call(this.evaluation)
-    let next = execution.next()
-    while(!next.done) next = execution.next()
-    return next.value
-  }
-
-}
 
 export class Evaluation {
-  protected readonly natives: Map<Method, NativeFunction>
+  readonly natives: Map<Method, NativeFunction>
   protected readonly numberCache: Map<number, WeakRef<RuntimeObject>>
   protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
   console: Console = console
@@ -434,6 +301,12 @@ export class Evaluation {
     }
 
     return new Set(this.frameStack.flatMap(frame => contextInstances(frame)))
+  }
+
+  object(fullyQualifiedName: Name): RuntimeObject {
+    const instance = this.rootFrame.get(fullyQualifiedName)
+    if(!instance) throw new Error(`WKO not found: ${fullyQualifiedName}`)
+    return instance
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -683,12 +556,6 @@ export class Evaluation {
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   // INSTANTIATION
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-  object(fullyQualifiedName: Name): RuntimeObject {
-    const instance = this.rootFrame.get(fullyQualifiedName)
-    if(!instance) throw new Error(`WKO not found: ${fullyQualifiedName}`)
-    return instance
-  }
 
   *reify(value: boolean | number | string | null): Execution<RuntimeObject> {
     if(typeof value === 'boolean'){

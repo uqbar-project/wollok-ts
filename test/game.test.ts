@@ -3,7 +3,7 @@ import { join } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
 import { Environment } from '../src'
-import interpret from '../src/interpreter/runtimeModel'
+import interpret from '../src/interpreter/interpreter'
 
 should()
 
