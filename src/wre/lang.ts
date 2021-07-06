@@ -1,3 +1,4 @@
+import { hash } from '../extensions'
 import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
@@ -308,59 +309,92 @@ const lang: Natives = {
       key.assertIsNotNull()
       value.assertIsNotNull()
 
-      yield* this.send('remove', self, key)
+      const buckets = self.get('<buckets>')!.innerCollection!
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const bucket = buckets[index].innerCollection!
 
-      self.get('<keys>')!.innerCollection!.push(key)
-      self.get('<values>')!.innerCollection!.push(value)
+      for (let i = 0; i < bucket.length; i++) {
+        const entry = bucket[i].innerCollection!
+        if((yield* this.send('==', entry[0], key))!.innerBoolean) {
+          entry[1] = value
+          return
+        }
+      }
+
+      bucket.push(yield* this.list(key, value))
     },
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
-      const keys = self.get('<keys>')!.innerCollection!
-      const values = self.get('<values>')!.innerCollection!
+      const buckets = self.get('<buckets>')!.innerCollection!
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const bucket = buckets[index].innerCollection!
 
-      for(let index = 0; index < keys.length; index++)
-        if((yield* this.send('==', keys[index], key))!.innerBoolean) {
-          return values[index]
-        }
+      for (const entry of bucket) {
+        const [entryKey, entryValue] = entry.innerCollection!
+        if((yield* this.send('==', entryKey, key))!.innerBoolean) return entryValue
+      }
 
       return yield* this.reify(null)
     },
 
     *remove(self: RuntimeObject, key: RuntimeObject): Execution<void> {
-      const keys = self.get('<keys>')!.innerCollection!
-      const values = self.get('<values>')!.innerCollection!
+      const buckets = self.get('<buckets>')!.innerCollection!
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const bucket = buckets[index].innerCollection!
 
-      const updatedKeys: RuntimeObject[] = []
-      const updatedValues: RuntimeObject[] = []
-      for(let index = 0; index < keys.length; index++)
-        if(!(yield* this.send('==', keys[index], key))?.innerBoolean) {
-          updatedKeys.push(keys[index])
-          updatedValues.push(values[index])
+      for (let i = 0; i < bucket.length; i++) {
+        const [entryKey] = bucket[i].innerCollection!
+        if((yield* this.send('==', entryKey, key))!.innerBoolean) {
+          bucket.splice(i, 1)
+          return
         }
-
-      self.set('<keys>', yield* this.list(...updatedKeys))
-      self.set('<values>', yield* this.list(...updatedValues))
+      }
     },
 
     *keys(self: RuntimeObject): Execution<RuntimeValue> {
-      return self.get('<keys>')
+      const buckets = self.get('<buckets>')!.innerCollection!
+
+      const response: RuntimeObject[] = []
+      for (const bucket of buckets) {
+        for (const entry of bucket.innerCollection!) {
+          const [entryKey] = entry.innerCollection!
+          response.push(entryKey)
+        }
+      }
+
+      return yield* this.list(...response)
     },
 
     *values(self: RuntimeObject): Execution<RuntimeValue> {
-      return self.get('<values>')
+      const buckets = self.get('<buckets>')!.innerCollection!
+
+      const response: RuntimeObject[] = []
+      for (const bucket of buckets) {
+        for (const entry of bucket.innerCollection!) {
+          const [, entryValue] = entry.innerCollection!
+          response.push(entryValue)
+        }
+      }
+
+      return yield* this.list(...response)
     },
 
     *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
-      const keys = self.get('<keys>')!.innerCollection!
-      const values = self.get('<values>')!.innerCollection!
+      const buckets = self.get('<buckets>')!.innerCollection!
 
-      for(let index = 0; index < keys.length; index++)
-        yield* this.send('apply', closure, keys[index], values[index])
+      for (const bucket of buckets) {
+        for (const entry of bucket.innerCollection!) {
+          const [entryKey, entryValue] = entry.innerCollection!
+          yield* this.send('apply', closure, entryKey, entryValue)
+        }
+      }
     },
 
     *clear(self: RuntimeObject): Execution<void> {
-      self.set('<keys>', yield* this.list())
-      self.set('<values>', yield* this.list())
+      const buckets: RuntimeObject[] = []
+      for(let i=0; i< 16; i++) buckets.push(yield* this.list())
+
+      self.set('<buckets>', yield* this.list(...buckets))
     },
 
   },
