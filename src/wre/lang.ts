@@ -34,21 +34,6 @@ const lang: Natives = {
       return yield* this.reify(self.id)
     },
 
-    *instanceVariables(_self: RuntimeObject): Execution<RuntimeValue> {
-      // TODO: Pending Implementation
-      throw new Error('Native not yet implemented: Object.instanceVariables')
-    },
-
-    *instanceVariableFor(_self: RuntimeObject, _name: RuntimeObject): Execution<RuntimeValue> {
-      // TODO: Pending Implementation
-      throw new Error('Native not yet implemented: Object.instanceVariableFor')
-    },
-
-    *resolve(_self: RuntimeObject, _name: RuntimeObject): Execution<RuntimeValue> {
-      // TODO: Pending Implementation
-      throw new Error('Native not yet implemented: Object.resolve')
-    },
-
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
       return yield* this.reify(self.module.fullyQualifiedName())
     },

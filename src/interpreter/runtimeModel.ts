@@ -252,7 +252,7 @@ export class Evaluation {
 
     for (const module of globalSingletons) {
       const instance = evaluation.object(module.fullyQualifiedName())
-      for (const field of module.defaultFieldValues().keys())
+      for (const field of module.defaultFieldValues().keys()) // TODO: Add an allFields method
         instance!.get(field.name)
     }
 
@@ -607,12 +607,14 @@ export class Evaluation {
   }
 
 
+  // TODO: admit FQN here and in interpreter
   *error(module: Module, locals?: Record<Name, RuntimeObject>, error?: Error): Execution<RuntimeObject> {
     const instance = new RuntimeObject(module, this.currentFrame, error)
     yield* this.init(instance, locals)
     return instance
   }
 
+  // TODO: admit FQN here and in interpreter
   *instantiate(module: Module, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
     const instance = new RuntimeObject(module, module.is('Singleton') && !module.name ? this.currentFrame : this.rootFrame)
     yield* this.init(instance, locals)
