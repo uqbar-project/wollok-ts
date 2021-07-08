@@ -34,7 +34,7 @@ export class WollokException extends Error {
     try {
       const fullTrace: string = new Interpreter(this.evaluation).send('getStackTraceAsString', this.instance)!.innerString!
       return fullTrace.slice(fullTrace.indexOf('\n') + 1).trimEnd()
-    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error}` }
+    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error.stack}` }
   }
 
   get message(): string {
@@ -340,10 +340,11 @@ export class Evaluation {
       }
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
-      const module = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
+      const moduleFQN = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
         ? 'wollok.lang.StackOverflowException'
         : 'wollok.lang.EvaluationError'
-      throw new WollokException(this, yield* this.error(this.environment.getNodeByFQN(module), {}, error))
+      const exceptionInstance = new WollokException(this, yield* this.error(moduleFQN, {}, error))
+      throw exceptionInstance
     }
     finally { if(frame) this.frameStack.pop() }
   }
@@ -606,16 +607,15 @@ export class Evaluation {
     return result
   }
 
-
-  // TODO: admit FQN here and in interpreter
-  *error(module: Module, locals?: Record<Name, RuntimeObject>, error?: Error): Execution<RuntimeObject> {
+  *error(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>, error?: Error): Execution<RuntimeObject> {
+    const module = typeof moduleOrFQN === 'string' ? this.environment.getNodeByFQN<Module>(moduleOrFQN) : moduleOrFQN
     const instance = new RuntimeObject(module, this.currentFrame, error)
     yield* this.init(instance, locals)
     return instance
   }
 
-  // TODO: admit FQN here and in interpreter
-  *instantiate(module: Module, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
+  *instantiate(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
+    const module = typeof moduleOrFQN === 'string' ? this.environment.getNodeByFQN<Module>(moduleOrFQN) : moduleOrFQN
     const instance = new RuntimeObject(module, module.is('Singleton') && !module.name ? this.currentFrame : this.rootFrame)
     yield* this.init(instance, locals)
     return instance

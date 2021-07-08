@@ -12,7 +12,7 @@ const mirror: Natives = {
     *instanceVariableFor(self: RuntimeObject, name: RuntimeObject): Execution<RuntimeValue> {
       name.assertIsString()
 
-      return yield* this.instantiate(this.environment.getNodeByFQN('wollok.mirror.InstanceVariableMirror'), {
+      return yield* this.instantiate('wollok.mirror.InstanceVariableMirror', {
         target: self,
         name,
       })

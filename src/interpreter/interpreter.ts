@@ -1,4 +1,4 @@
-import { Entity, Environment, Expression, Module, Name, Node } from '../model'
+import { Entity, Environment, Expression, Method, Module, Name, Node } from '../model'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 
 
@@ -17,7 +17,7 @@ abstract class AbstractInterpreter {
   }
 
   abstract fork(): this
-  protected abstract do<T>(executionDefinition: ExecutionDefinition<T>): InterpreterResult<this, T>
+  abstract do<T>(executionDefinition: ExecutionDefinition<T>): any
 
 
   object(fullyQualifiedName: Name): RuntimeObject {
@@ -39,6 +39,10 @@ abstract class AbstractInterpreter {
     return this.do(function*() { return yield* this.send(message, receiver, ...args) })
   }
 
+  invoke(method: Method, receiver: RuntimeObject, ...args: RuntimeObject[]): InterpreterResult<this, RuntimeValue> {
+    return this.do(function*() { return yield* this.invoke(method, receiver, ...args) })
+  }
+
   reify(value: boolean | number | string | null): InterpreterResult<this, RuntimeObject> {
     return this.do(function*() { return yield* this.reify(value) })
   }
@@ -51,8 +55,12 @@ abstract class AbstractInterpreter {
     return this.do(function*() { return yield* this.set(...value) })
   }
 
-  instantiate(module: Module, locals: Record<Name, RuntimeObject> = {}): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.instantiate(module, locals) })
+  error(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>, error?: Error): InterpreterResult<this, RuntimeObject> {
+    return this.do(function*() { return yield* this.error(moduleOrFQN, locals, error) })
+  }
+
+  instantiate(moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject> = {}): InterpreterResult<this, RuntimeObject> {
+    return this.do(function*() { return yield* this.instantiate(moduleOrFQN, locals) })
   }
 
 }
@@ -61,11 +69,11 @@ abstract class AbstractInterpreter {
 export class Interpreter extends AbstractInterpreter {
   constructor(evaluation: Evaluation) { super(evaluation) }
 
-  override fork(): this {
+  fork(): this {
     return new Interpreter(this.evaluation.copy()) as this
   }
 
-  protected override do<T>(executionDefinition: ExecutionDefinition<T>): InterpreterResult<this, T> {
+  override do<T>(executionDefinition: ExecutionDefinition<T>): T {
     const execution = executionDefinition.call(this.evaluation)
     let next = execution.next()
     while(!next.done) next = execution.next()
@@ -81,7 +89,7 @@ export class DirectedInterpreter extends AbstractInterpreter {
     return new DirectedInterpreter(this.evaluation.copy()) as this
   }
 
-  protected do<T>(executionDefinition: ExecutionDefinition<T>): InterpreterResult<this, T> {
+  override do<T>(executionDefinition: ExecutionDefinition<T>): ExecutionDirector<T> {
     return new ExecutionDirector(this.evaluation, executionDefinition) as InterpreterResult<this, T>
   }
 }
