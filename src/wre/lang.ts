@@ -706,19 +706,18 @@ const lang: Natives = {
 
   },
 
-  Date: {
-
-    *initialize(self: RuntimeObject): Execution<void> {
-      const day = self.get('day')
-      const month = self.get('month')
-      const year = self.get('year')
-
+  calendar: {
+    *today(_self: RuntimeObject): Execution<RuntimeObject> {
       const today = new Date()
-
-      if (!day || day.innerValue === null) self.set('day', yield* this.reify(today.getDate()))
-      if (!month || month.innerValue === null) self.set('month', yield* this.reify(today.getMonth() + 1))
-      if (!year || year.innerValue === null) self.set('year', yield* this.reify(today.getFullYear()))
+      return yield* this.instantiate('wollok.lang.Date', {
+        day: yield* this.reify(today.getDate()),
+        month: yield* this.reify(today.getMonth() + 1),
+        year: yield* this.reify(today.getFullYear()),
+      })
     },
+  },
+
+  Date: {
 
     *shortDescription(self: RuntimeObject): Execution<RuntimeValue> {
       return yield* this.reify(`${self.get('month')!.innerNumber!}/${self.get('day')!.innerNumber!}/${self.get('year')!.innerNumber!}`)
