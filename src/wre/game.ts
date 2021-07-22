@@ -1,5 +1,7 @@
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
+const runtimePosition = '<position>'
+
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -25,7 +27,7 @@ const game: Natives = {
         visuals.push(visual)
       }
 
-      visual.set('position', position)
+      visual.set(runtimePosition, position)
     },
 
     *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -79,7 +81,7 @@ const game: Natives = {
 
       const result: RuntimeObject[] = []
       for(const visual of visuals) {
-        const otherPosition = visual.get('position') ?? (yield* this.send('position', visual))!
+        const otherPosition = visual.get(runtimePosition) ?? (yield* this.send('position', visual))!
         if((yield *this.send('==', position, otherPosition))!.innerBoolean)
           result.push(visual)
       }
@@ -104,7 +106,7 @@ const game: Natives = {
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       visual.assertIsNotNull()
 
-      const position = visual.get('position') ?? (yield* this.send('position', visual))!
+      const position = visual.get(runtimePosition) ?? (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
 
       yield* this.send('remove', visualsAtPosition, visual)
