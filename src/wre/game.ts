@@ -14,26 +14,8 @@ const game: Natives = {
       visuals.push(visual)
     },
 
-    *addVisualIn(self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<void> {
-      visual.assertIsNotNull()
-      position.assertIsNotNull()
-
-      const visuals = self.get('visuals')?.innerCollection
-      if (!visuals) self.set('visuals', yield* this.list(visual))
-      else {
-        if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
-        visuals.push(visual)
-      }
-
-      visual.set('position', position)
-    },
-
     *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       return yield* this.send('addVisualCharacter', this.object('wollok.gameMirror.gameMirror')!, visual)
-    },
-
-    *addVisualCharacterIn(_self: RuntimeObject, visual: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('addVisualCharacterIn', this.object('wollok.gameMirror.gameMirror')!, visual, position)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
