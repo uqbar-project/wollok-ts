@@ -3,6 +3,7 @@ import { sync as listFiles } from 'globby'
 import { join } from 'path'
 import link from '../src/linker'
 import { File } from '../src/parser'
+import validate from '../src/validator'
 
 const { writeFile, readFile } = promises
 
@@ -32,6 +33,16 @@ async function buildWRE() {
   console.time('Linked')
   const wre = link([...rawWRE, ...targetRawWRE])
   console.timeEnd('Linked')
+
+  console.info('Validating...')
+  console.time('Validated')
+  const problems = validate(wre)
+  if(problems.length) {
+    console.group(`${problems.length} PROBLEM(S) FOUND!:`)
+    for(const problem of problems) console.warn(problem)
+    console.groupEnd()
+  }
+  console.timeEnd('Validated')
 
   console.info('Saving...')
   console.time('Saved')
