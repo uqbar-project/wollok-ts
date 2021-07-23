@@ -241,9 +241,10 @@ export default (target: Node): List<Problem> => {
     const checks = problemsByKind[node.kind] as {
       [code: string]: (n: Node, c: Code) => Problem | null
     }
+
     return [
       ...found,
-      ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap ?? EMPTY_SOURCE } as const)  ) ?? [],
+      ...node.problems?.map(({ code }) => ({ code, level: 'Error', node, values: [], source: node.sourceMap ?? EMPTY_SOURCE } as const)  ) ?? [],
       ...keys(checks)
         .map(code => checks[code](node, code)!)
         .filter(result => result !== null),

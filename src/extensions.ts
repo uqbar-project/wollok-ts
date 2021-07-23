@@ -49,3 +49,11 @@ export const traverse = <R>(generator: Generator<unknown, R>): R => {
   while(!result.done) result = generator.next()
   return result.value
 }
+
+export const hash = (str: string): number => {
+  let hashValue = 0
+  for (let index = 0; index < str.length; index++) {
+    hashValue += str.charCodeAt(index) << index * 8
+  }
+  return hashValue
+}
