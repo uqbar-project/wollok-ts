@@ -2,6 +2,21 @@ import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/
 
 const { round } = Math
 
+const roundAxis = (position: RuntimeObject, axis: string) => {
+  const wPosition = position.get(axis)
+  wPosition?.assertIsNumber()
+  const tsPosition = wPosition?.innerValue
+  return round(Number(tsPosition))
+}
+
+const samePosition = (position1: RuntimeObject, position2: RuntimeObject): boolean => {
+  const x1 = roundAxis(position1, 'x')
+  const y1 = roundAxis(position1, 'y')
+  const x2 = roundAxis(position2, 'x')
+  const y2 = roundAxis(position2, 'y')
+  return x1 == x2 && y1 == y2
+}
+
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -90,24 +105,10 @@ const game: Natives = {
       const visuals: RuntimeObject = (yield* this.invoke('allVisuals', self))!
       visuals.assertIsCollection()
 
-      const samePosition = (position1: RuntimeObject, position2: RuntimeObject): boolean => {
-        const roundAxis = (position: RuntimeObject, axis: string) => {
-          const wPosition = position.get(axis)
-          wPosition?.assertIsNumber()
-          const tsPosition = wPosition?.innerValue
-          return round(Number(tsPosition))
-        }
-        const x1 = roundAxis.call(self, position1, 'x')
-        const y1 = roundAxis.call(self, position1, 'y')
-        const x2 = roundAxis.call(self, position2, 'x')
-        const y2 = roundAxis.call(self, position2, 'y')
-        return x1 == x2 && y1 == y2
-      }
-
       const result: RuntimeObject[] = []
       for(const otherVisual of visuals.innerValue) {
         const otherPosition = otherVisual.get('position') ?? (yield* this.invoke('position', otherVisual))!
-        if(samePosition.call(self, position, otherPosition))
+        if(samePosition(position, otherPosition))
           result.push(otherVisual)
       }
 
