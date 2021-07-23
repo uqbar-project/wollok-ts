@@ -61,7 +61,7 @@ const game: Natives = {
 
       const result: RuntimeObject[] = []
       for(const visual of visuals) {
-        const otherPosition = visual.get('position') ?? (yield* this.send('position', visual))!
+        const otherPosition = (yield* this.send('position', visual))!
         if((yield *this.send('==', position, otherPosition))!.innerBoolean)
           result.push(visual)
       }
@@ -86,7 +86,7 @@ const game: Natives = {
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       visual.assertIsNotNull()
 
-      const position = visual.get('position') ?? (yield* this.send('position', visual))!
+      const position = (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
 
       yield* this.send('remove', visualsAtPosition, visual)
