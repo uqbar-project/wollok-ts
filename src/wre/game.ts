@@ -1,22 +1,5 @@
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
-const { round } = Math
-
-const roundAxis = (position: RuntimeObject, axis: string) => {
-  const wPosition = position.get(axis)
-  wPosition?.assertIsNumber()
-  const tsPosition = wPosition?.innerValue
-  return round(Number(tsPosition))
-}
-
-const samePosition = (position1: RuntimeObject, position2: RuntimeObject): boolean => {
-  const x1 = roundAxis(position1, 'x')
-  const y1 = roundAxis(position1, 'y')
-  const x2 = roundAxis(position2, 'x')
-  const y2 = roundAxis(position2, 'y')
-  return x1 == x2 && y1 == y2
-}
-
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -98,7 +81,9 @@ const game: Natives = {
 
       for(const visual of visuals) {
         const otherPosition = visual.get('position') ?? (yield* this.send('position', visual))!
-        if(samePosition(position, otherPosition))
+        const samePosition = yield* this.send('onSameCell', position, otherPosition)
+        samePosition?.assertIsBoolean()
+        if(samePosition?.innerValue)
           result.push(visual)
       }
 

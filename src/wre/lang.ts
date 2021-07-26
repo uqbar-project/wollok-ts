@@ -2,7 +2,7 @@ import { hash } from '../extensions'
 import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
-const { abs, ceil, random, floor } = Math
+const { abs, ceil, random, floor, round } = Math
 const { isInteger } = Number
 const { UTC } = Date
 
@@ -494,6 +494,11 @@ const lang: Natives = {
     *randomUpTo(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNumber()
       return yield* this.reify(random() * (other.innerNumber! - self.innerNumber!) + self.innerNumber!)
+    },
+
+    *round(self: RuntimeObject): Execution<RuntimeValue> {
+      self.assertIsNumber()
+      return yield* this.reify(round(self.innerNumber))
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
