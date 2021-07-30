@@ -81,9 +81,8 @@ const game: Natives = {
 
       for(const visual of visuals) {
         const otherPosition = visual.get('position') ?? (yield* this.send('position', visual))!
-        const samePosition = yield* this.send('onSameCell', position, otherPosition)
-        samePosition?.assertIsBoolean()
-        if(samePosition?.innerValue)
+        const samePosition = yield* this.send('onSameCell', self, position, otherPosition)
+        if(samePosition!.innerBoolean)
           result.push(visual)
       }
 

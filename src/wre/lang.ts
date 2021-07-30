@@ -497,8 +497,7 @@ const lang: Natives = {
     },
 
     *round(self: RuntimeObject): Execution<RuntimeValue> {
-      self.assertIsNumber()
-      return yield* this.reify(round(self.innerNumber))
+      return yield* this.reify(round(self.innerNumber!))
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
