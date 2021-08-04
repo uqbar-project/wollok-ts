@@ -2,7 +2,7 @@ import { hash } from '../extensions'
 import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
-const { abs, ceil, random, floor } = Math
+const { abs, ceil, random, floor, round } = Math
 const { isInteger } = Number
 const { UTC } = Date
 
@@ -166,7 +166,7 @@ const lang: Natives = {
 
       if(indexValue < 0 || indexValue >= values.length) throw new RangeError('index')
 
-      return values[indexValue]
+      return values[round(indexValue)]
     },
 
     *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
@@ -494,6 +494,10 @@ const lang: Natives = {
     *randomUpTo(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNumber()
       return yield* this.reify(random() * (other.innerNumber! - self.innerNumber!) + self.innerNumber!)
+    },
+
+    *round(self: RuntimeObject): Execution<RuntimeValue> {
+      return yield* this.reify(round(self.innerNumber!))
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
