@@ -24,7 +24,7 @@
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
     "prepack": "npm run build",
-    "debug:game": "npm run buildWRE && npm run prepack && rm -R ../wollok-run-client/node_modules/wollok-ts/dist/ && cp -R dist/ ../wollok-run-client/node_modules/wollok-ts/"
+    "debug:game": "npm pack && cd ../wollok-run-client && npm uninstall wollok-ts && npm install ../wollok-ts/wollok-ts-$npm_package_version.tgz"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.6",
