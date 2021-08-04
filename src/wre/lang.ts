@@ -166,7 +166,7 @@ const lang: Natives = {
 
       if(indexValue < 0 || indexValue >= values.length) throw new RangeError('index')
 
-      return values[indexValue]
+      return values[round(indexValue)]
     },
 
     *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
