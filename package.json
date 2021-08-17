@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "wollokVersion": "3.0.3",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
@@ -23,8 +23,7 @@
     "test:wtest": "mocha --delay -t 10000 -r ts-node/register test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
-    "prepack": "npm run build",
-    "debug:game": "npm pack && cd ../wollok-run-client && npm uninstall wollok-ts && npm install ../wollok-ts/wollok-ts-$npm_package_version.tgz"
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@types/parsimmon": "^1.10.6",
