@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.0.6
+- Updated to official Wollok Language 3.0.3 version. 
+
+## v3.0.5
+- Updated to official Wollok Language 3.0.2 version. 
+
 ## v3.0.4
 - Executions now admit to have `void` return type, to avoid forcing unnecesary return of `undefined`.
 - Evaluation `list` and `set` methods now have varargs.
