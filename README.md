@@ -1,4 +1,4 @@
-# Wollok-TS [![npm version](https://badge.fury.io/js/wollok-ts.svg)](https://badge.fury.io/js/wollok-ts) [![Node.js CI](https://github.com/uqbar-project/wollok-ts/actions/workflows/node.js.yml/badge.svg)](https://github.com/uqbar-project/wollok-ts/actions/workflows/node.js.yml)
+# Wollok-TS [![npm version](https://badge.fury.io/js/wollok-ts.svg)](https://badge.fury.io/js/wollok-ts) [![Node.js CI](https://github.com/uqbar-project/wollok-ts/actions/workflows/node.js.yml/badge.svg)](https://github.com/uqbar-project/wollok-ts/actions/workflows/node.js.yml) ![coverage](./badges/coverage.svg)
 TypeScript based Wollok language implementation
 
 ## Usage 
