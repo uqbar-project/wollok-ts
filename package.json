@@ -16,7 +16,7 @@
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
     "test": "npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:game && npm run test:examples",
     "test:lint": "eslint .",
-    "test:coverage": "nyc --reporter=text npm run test",
+    "test:coverage": "nyc --reporter=html --reporter=text-summary --reporter=json-summary npm run test",
     "test:unit": "mocha --parallel -r ts-node/register test/**/*.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",

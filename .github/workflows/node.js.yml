@@ -22,7 +22,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
     - run: npm test
-    - uses: tintef/nyc-reporter-action
+
+    - name: Coverage badge
+      uses: demyanets/angular-coverage-badges-action@v1
       with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        REPORTER: 'text' # defaults to 'text-summary'
+        coverage-summary-path: coverage/coverage-summary.json
+        github_token: ${{ secrets.GITHUB_TOKEN }}

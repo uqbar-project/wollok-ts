@@ -8,3 +8,4 @@ test/sanity
 src/wre/wre.json
 .history
 .nyc_output
+coverage
