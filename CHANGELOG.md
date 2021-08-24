@@ -1,6 +1,30 @@
 # Changelog
 
-## v3.1.0
+## v3.0.6
+- Updated to official Wollok Language 3.0.3 version. 
+
+## v3.0.5
+- Updated to official Wollok Language 3.0.2 version. 
+
+## v3.0.4
+- Executions now admit to have `void` return type, to avoid forcing unnecesary return of `undefined`.
+- Evaluation `list` and `set` methods now have varargs.
+- Evaluation `invoke` method is now split into `invoke` for methods and `send` for messages.
+- *RuntimeObjects* now have a series of messages to retrieve their inner values by type
+- New *Interpreter* interface
+- Evaluation can now retrieve WKO with the `object` message.
+- Frames are now contexts themselves and contain more debugging info.
+- Exceptions now delegate on inner Wollok Exception instances to get the stack trace.
+
+## v3.0.3
+- Updated to official Wollok Language 3.0.0 version.
+
+## v3.0.2
+- Only anonymous object literals and closures will be bound to their original context from now on.
+- Number and String uniqueness will be maintained with weak references from now on.
+- Dropped float number uniqueness.
+
+## v3.0.1
 - Methods now have `isConcrete` and `isNative` methods.
 
 ## v3.0.0

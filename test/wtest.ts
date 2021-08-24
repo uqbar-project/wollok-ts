@@ -1,8 +1,8 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { is, List, Node } from '../src/model'
+import { List, Node } from '../src/model'
 import { buildEnvironment } from './assertions'
-import { Evaluation, WollokException, RuntimeObject, ExecutionDirector } from '../src/interpreter/runtimeModel'
+import interpret, { Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
 
 const { error } = console
@@ -21,68 +21,24 @@ const ARGUMENTS = yargs
   .argv
 
 
-function registerTests(nodes: List<Node>, evaluation: Evaluation) {
+function registerTests(nodes: List<Node>, interpreter: Interpreter) {
   nodes.forEach(node => {
-    if (node.is('Package')) describe(node.name, () => registerTests(node.members, evaluation))
+    if (node.is('Package')) describe(node.name, () => registerTests(node.members, interpreter))
 
     else if (node.is('Describe')) describe(node.name, () => {
       const onlyTest = node.tests().find(test => test.isOnly)
-      registerTests(onlyTest ? [onlyTest] : node.tests(), evaluation)
+      registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
     })
 
     else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
-      it(node.name, () => {
-        const testEvaluation = evaluation.copy()
-        const execution = new ExecutionDirector(testEvaluation, testEvaluation.exec(node))
-        const result = execution.finish()
-        if(result.error) {
-          logError(result.error)
-          throw result.error
-        }
-      })
+      it(node.name, () => interpreter.fork().exec(node) )
 
   })
 }
 
-// TODO: This is quite ugly...
-function logError(error: any) {
-  if(error instanceof WollokException) {
-    const errorInstance: RuntimeObject = error.instance
-    errorInstance.assertIsException()
-    console.group(errorInstance.innerValue ? `Unhandled Native Exception: ${errorInstance.innerValue.constructor.name} "${errorInstance.innerValue.message}"` : `Unhandled Wollok Exception: ${error.instance.module.fullyQualifiedName()} "${error.instance.get('message')?.innerValue}"`)
-    for(const frame of [...error.frameStack].reverse()) {
-      let label: string
-      if(frame.node.is('Body')) {
-        const parent = frame.node.parent()
-        if(parent.is('Method')) label = `${parent.parent().fullyQualifiedName()}.${parent.name}`
-        else if(parent.is('Entity')) label = `${parent.fullyQualifiedName()}`
-        else {
-          const container = parent.ancestors().find(is('Method'))
-          label = container
-            ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${parent.kind}`
-            : `${parent.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${parent.kind}`
-        }
-      } else if(frame.node.is('Method')) {
-        label = `${frame.node.parent().fullyQualifiedName()}.${frame.node.name}`
-      } else if(frame.node.is('Environment')) {
-        label = frame.node.kind
-      } else {
-        const container = frame.node.ancestors().find(is('Method'))
-        label = container
-          ? `${container.parent().fullyQualifiedName()}.${container.name} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
-          : `${frame.node.ancestors().find(is('Entity'))?.fullyQualifiedName()} >> ${frame.node.kind} ${frame.node.is('Send') ? frame.node.message : ''}`
-      }
-
-      console.info(`at wollok ${label}(${frame.node.sourceMap?.start?.line ?? '--'}:${frame.node.sourceMap?.start?.column ?? '--'})`)
-    }
-    console.groupEnd()
-  }
-}
-
-
 (async function () {
   const environment = await buildEnvironment('**/*.@(wlk|wtest)', (await ARGUMENTS).root, true)
-  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, Evaluation.build(environment, natives)))
+  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, interpret(environment, natives)))
 })()
   .then(run)
   .catch(e => {

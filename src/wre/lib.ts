@@ -4,10 +4,8 @@ const lib: Natives = {
 
   console: {
 
-    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<RuntimeValue> {
-      const message = yield* this.invoke('toString', obj)
-      this.console.log(message!.innerValue)
-      return undefined
+    *println(_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
+      this.console.log((yield* this.send('toString', obj))!.innerString)
     },
 
     *readLine(_self: RuntimeObject): Execution<RuntimeValue> {
@@ -21,7 +19,12 @@ const lib: Natives = {
     },
 
     *newline(_self: RuntimeObject): Execution<RuntimeValue> {
-      const newline = process.platform.toLowerCase().startsWith('win') ? '\r\n' : '\n'
+      const platform = process?.platform?.toLowerCase() ?? ''
+      const newline =
+        platform.indexOf('win') >= 0 ? '\r\n' :
+        platform.indexOf('mac') >= 0 ? '\r' :
+        '\n'
+
       return yield* this.reify(newline)
     },
 
