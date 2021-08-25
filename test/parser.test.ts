@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, LiteralValue, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -44,6 +44,45 @@ describe('Wollok parser', () => {
 
   })
 
+  describe('Annotations', () => {
+
+    const parser = parse.annotation
+
+    it('should parse annotations without parameters', () =>
+      '@Annotation'.should.be.parsedBy(parser).into(new Annotation('Annotation'))
+    )
+
+    it('should parse annotations with empty parameters', () =>
+      '@Annotation()'.should.be.parsedBy(parser).into(new Annotation('Annotation'))
+    )
+
+    it('should parse annotations with numeric parameter', () =>
+      '@Annotation(x = 1)'.should.be.parsedBy(parser).into(new Annotation('Annotation', { x: 1 }))
+    )
+
+    it('should parse annotations with string parameter', () =>
+      '@Annotation(x="a")'.should.be.parsedBy(parser).into(new Annotation('Annotation', { x: 'a' }))
+    )
+
+    it('should parse annotations with boolean parameter', () =>
+      '@Annotation(x = true)'.should.be.parsedBy(parser).into(new Annotation('Annotation', { x: true }))
+    )
+
+    it('should parse annotations with multiple parameters', () =>
+      '@Annotation (x = 1, y = "a", z=true)'.should.be.parsedBy(parser).into({ name: 'Annotation', args: new Map<Name, LiteralValue>([['x', 1], ['y', 'a'], ['z', true]]) })
+    )
+
+    it('should not parse malformed annotations', () => {
+      'Annotation'.should.not.be.parsedBy(parser)
+      'Annotation(x = true)'.should.not.be.parsedBy(parser)
+      '@ Annotation'.should.not.be.parsedBy(parser)
+      '@ Annotation(x = true)'.should.not.be.parsedBy(parser)
+      '@Annotation(x = y)'.should.not.be.parsedBy(parser)
+      '@Annotation(true)'.should.not.be.parsedBy(parser)
+      '@Annotation('.should.not.be.parsedBy(parser)
+      '@Annotation)'.should.not.be.parsedBy(parser)
+    })
+  })
 
   describe('Names', () => {
 
@@ -138,6 +177,20 @@ describe('Wollok parser', () => {
         .and.have.nested.property('entity').tracedTo(7, 10)
     })
 
+    it('should parse annotated nodes', () => {
+      '@A(x = 1) import p'.should.be.parsedBy(parser).into(
+        new Import({ entity: new Reference({ name: 'p' }), metadata: [new Annotation('A', { x: 1 })] })
+      )
+    })
+
+    it('should parse multiply annotated nodes', () => {
+      `@A(x = 1)
+       @B
+       import p`.should.be.parsedBy(parser).into(
+          new Import({ entity: new Reference({ name: 'p' }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+        )
+    })
+
     it('should not parse malformed import statements', () => {
       'importp'.should.not.be.parsedBy(parser)
     })
@@ -187,6 +240,37 @@ describe('Wollok parser', () => {
 
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) package p {}'.should.be.parsedBy(parser).into(
+          new Package({ name: 'p', metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         package p {}`.should.be.parsedBy(parser).into(
+            new Package({ name: 'p', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `package p {
+          class A {}
+          @B(x = 1)
+          class B {}
+          class C {}
+        }`.should.be.parsedBy(parser).into(
+            new Package({
+              name: 'p',
+              members: [
+                new Class({ name: 'A' }),
+                new Class({ name: 'B', metadata: [new Annotation('B', { x: 1 })] }),
+                new Class({ name: 'C' }),
+              ],
+            })
+          )
+      })
 
       it('should recover from entity parse error', () => {
         'package p { class A {} clazz B {} class C{} }'.should.be.parsedBy(parser)
@@ -313,6 +397,41 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
           .and.also.have.nested.property('supertypes.1').tracedTo(23, 24)
           .and.also.have.nested.property('supertypes.1.reference').tracedTo(23, 24)
+      })
+
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) class C {}'.should.be.parsedBy(parser).into(
+          new Class({ name: 'C', metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         class C {}`.should.be.parsedBy(parser).into(
+            new Class({ name: 'C', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `class C {
+          var f
+          @A(x = 1)
+          var g
+          @B(x = 1)
+          method m(){}
+          method n(){}
+        }`.should.be.parsedBy(parser).into(
+            new Class({
+              name: 'C',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
       })
 
       it('should recover from member parse error', () => {
@@ -463,6 +582,40 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('members.1').tracedTo(16, 29)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) mixin M {}'.should.be.parsedBy(parser).into(
+          new Mixin({ name: 'M', metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         mixin M {}`.should.be.parsedBy(parser).into(
+            new Mixin({ name: 'M', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `mixin M {
+          var f
+          @A(x = 1)
+          var g
+          @B(x = 1)
+          method m(){}
+          method n(){}
+        }`.should.be.parsedBy(parser).into(
+            new Mixin({
+              name: 'M',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
+      })
 
       it('should recover from member parse error', () => {
         'mixin M {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
@@ -654,6 +807,40 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('supertypes.1.reference').tracedTo(24, 25)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) object o {}'.should.be.parsedBy(parser).into(
+          new Singleton({ name: 'o', metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         object o {}`.should.be.parsedBy(parser).into(
+            new Singleton({ name: 'o', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `object o {
+          var f
+          @A(x = 1)
+          var g
+          @B(x = 1)
+          method m(){}
+          method n(){}
+        }`.should.be.parsedBy(parser).into(
+            new Singleton({
+              name: 'o',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
+      })
 
       it('should recover from member parse error', () => {
         'object o {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
@@ -767,6 +954,39 @@ describe('Wollok parser', () => {
           .and.have.nested.property('body.sentences.0').tracedTo(15, 20)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) program p {}'.should.be.parsedBy(parser).into(
+          new Program({ name: 'p', body: new Body(), metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         program p {}`.should.be.parsedBy(parser).into(
+            new Program({ name: 'p', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `program p {
+          var f
+          @A(x = 1)
+          var g
+          var h
+        }`.should.be.parsedBy(parser).into(
+            new Program({
+              name: 'p',
+              body: new Body({
+                sentences: [
+                  new Variable({ name: 'f', isConstant: false }),
+                  new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Variable({ name: 'h', isConstant: false }),
+                ],
+              }),
+            })
+          )
+      })
 
       it('should not parse programs without name', () => {
         'program { }'.should.not.be.parsedBy(parser)
@@ -801,6 +1021,40 @@ describe('Wollok parser', () => {
 
       it('should parse only test', () => {
         'only test "name" { }'.should.be.parsedBy(parser).into(new Test({ name: '"name"', isOnly: true, body: new Body() })).and.be.tracedTo(0, 20)
+      })
+
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) test "t" {}'.should.be.parsedBy(parser).into(
+          new Test({ name: '"t"', body: new Body(), metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         test "t" {}`.should.be.parsedBy(parser).into(
+            new Test({ name: '"t"', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `test "t" {
+          var f
+          @A(x = 1)
+          var g
+          var h
+        }`.should.be.parsedBy(parser).into(
+            new Test({
+              name: '"t"',
+              body: new Body({
+                sentences: [
+                  new Variable({ name: 'f', isConstant: false }),
+                  new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Variable({ name: 'h', isConstant: false }),
+                ],
+              }),
+            })
+          )
       })
 
       it('should not parse tests with names that aren\'t a string', () => {
@@ -852,6 +1106,45 @@ describe('Wollok parser', () => {
           .and.have.nested.property('members.0').tracedTo(18, 31)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) describe "d" {}'.should.be.parsedBy(parser).into(
+          new Describe({ name: '"d"', metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         describe "d" {}`.should.be.parsedBy(parser).into(
+            new Describe({ name: '"d"', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        `describe "d" {
+          test "t" { }
+          @A(x = 1)
+          test "u" { }
+          var f
+          @B(x = 1)
+          var g
+          method m() {}
+          @C(x = 1)
+          method n() {}
+        }`.should.be.parsedBy(parser).into(
+            new Describe({
+              name: '"d"',
+              members: [
+                new Test({ name: '"t"', body: new Body() }),
+                new Test({ name: '"u"', body: new Body(), metadata: [new Annotation('A', { x: 1 })] }),
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body() }),
+                new Method({ name: 'n', body: new Body(), metadata: [new Annotation('C', { x: 1 })] }),
+              ],
+            })
+          )
+      })
 
       it('should recover from member parse error', () => {
         'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)

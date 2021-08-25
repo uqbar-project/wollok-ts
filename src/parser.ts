@@ -1,10 +1,10 @@
 import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation } from './model'
 import { mapObject, discriminate } from './extensions'
 
-const { keys, values } = Object
+const { keys, values, fromEntries } = Object
 const { isArray } = Array
 
 const PREFIX_OPERATORS: Record<Name, Name> = {
@@ -80,20 +80,34 @@ const key = <T extends string>(str: T): Parser<T> => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
     : string(str)
-).trim(optional(_))
+).trim(_)
 
 const comment = regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)
 
-const _ = comment.or(whitespace).atLeast(1)
+const _ = optional(comment.or(whitespace).atLeast(1))
+const __ = optional(key(';').or(_))
+
+export const annotation: Parser<Annotation> = lazy(() =>
+  string('@').then(obj({
+    name,
+    args: seq(
+      name,
+      key('=').then(Literal).map(literal => literal.value),
+    ).sepBy(key(','))
+      .wrap(key('('), key(')'))
+      .fallback([]),
+  })
+  ).map(({ name, args }) => new Annotation(name, fromEntries(args)))
+)
 
 const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P>): Parser<N> =>
   seq(
-    optional(_).then(index),
+    annotation.sepBy(_).wrap(_, _),
+    index,
     lazy(parser),
     index
-  ).map(([start, payload, end]) => {
-    return new constructor({ ...payload, sourceMap: { start, end } })
-  }
+  ).map(([metadata, start, payload, end]) =>
+    new constructor({ ...payload, metadata, sourceMap: { start, end } })
   )
 
 
@@ -101,9 +115,9 @@ export const File = (fileName: string): Parser<PackageNode> => node(PackageNode)
   obj({
     fileName: of(fileName),
     name: of(basename(fileName).split('.')[0]),
-    imports: Import.sepBy(optional(_)).skip(optional(_)),
-    members: Entity.sepBy(optional(_)),
-  }).skip(optional(_))
+    imports: Import.sepBy(_).skip(_),
+    members: Entity.sepBy(_),
+  }).skip(_)
 ).map(filePackage => {
   const dir = dirname(fileName)
   return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
@@ -148,7 +162,7 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: Sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), key('}'))
+  obj({ sentences: Sentence.skip(__).many() }).wrap(key('{'), key('}'))
 )
 
 const inlineableBody: Parser<BodyNode> = Body.or(
@@ -188,8 +202,8 @@ export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
 export const Package: Parser<PackageNode> = node(PackageNode)(() =>
   key('package').then(obj({
     name: name.skip(key('{')),
-    imports: Import.skip(optional(alt(key(';'), _))).many(),
-    members: Entity.or(entityError).sepBy(optional(_)).skip(key('}')),
+    imports: Import.skip(__).many(),
+    members: Entity.or(entityError).sepBy(_).skip(key('}')),
   })).map(recover)
 )
 
@@ -228,7 +242,7 @@ export const Class: Parser<ClassNode> = node(ClassNode)(() =>
     name,
     supertypes,
     members: alt(Field, Method, classMemberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -238,7 +252,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
     name: optional(notFollowedBy(key('inherits')).then(name)),
     supertypes,
     members: alt(Field, Method, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -248,7 +262,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
     name,
     supertypes,
     members: alt(Field, Method, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -257,7 +271,7 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
   key('describe').then(obj({
     name: stringLiteral.map(name => `"${name}"`),
     members: alt(Field, Method, Test, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -474,7 +488,7 @@ const stringLiteral: Parser<string> = lazy(() =>
 const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
   const closure = seq(
     Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
-    Sentence.skip(optional(alt(key(';'), _))).many(),
+    Sentence.skip(__).many(),
   ).wrap(key('{'), key('}'))
 
   return closure.mark().chain(({ start, end, value: [parameters, sentences] }) => Parsimmon((input: string, i: number) =>

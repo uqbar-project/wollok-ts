@@ -21,9 +21,18 @@ export interface SourceMap {
   readonly end: Index
 }
 
+export class Annotation {
+  readonly name: Name
+  readonly args: ReadonlyMap<Name, LiteralValue>
+
+  constructor(name: Name, args: Record<Name, LiteralValue> = {}){
+    this.name = name
+    this.args = new Map(entries(args))
+  }
+}
+
 // TODO: Unify with Validator's problems
 export abstract class Problem { abstract code: Name }
-
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 
@@ -113,6 +122,7 @@ abstract class $Node {
   readonly scope!: Scope
   readonly sourceMap?: SourceMap
   readonly problems?: List<Problem>
+  readonly metadata: List<Annotation> = []
 
   readonly #cache: Cache = new Map()
   get cache(): Cache { return this.#cache }
