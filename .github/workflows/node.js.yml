@@ -3,11 +3,7 @@
 
 name: Node.js CI
 
-on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+on: [push, pull_request]
 
 jobs:
   build:
@@ -25,4 +21,10 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
     - run: npm ci
-    - run: npm test
+    - run: npm run test:coverage
+
+    - name: Coverage badge
+      uses: demyanets/angular-coverage-badges-action@v1
+      with:
+        coverage-summary-path: coverage/coverage-summary.json
+        github_token: ${{ secrets.GITHUB_TOKEN }}

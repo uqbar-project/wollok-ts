@@ -21,9 +21,18 @@ export interface SourceMap {
   readonly end: Index
 }
 
+export class Annotation {
+  readonly name: Name
+  readonly args: ReadonlyMap<Name, LiteralValue>
+
+  constructor(name: Name, args: Record<Name, LiteralValue> = {}){
+    this.name = name
+    this.args = new Map(entries(args))
+  }
+}
+
 // TODO: Unify with Validator's problems
 export abstract class Problem { abstract code: Name }
-
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 
@@ -113,6 +122,7 @@ abstract class $Node {
   readonly scope!: Scope
   readonly sourceMap?: SourceMap
   readonly problems?: List<Problem>
+  readonly metadata: List<Annotation> = []
 
   readonly #cache: Cache = new Map()
   get cache(): Cache { return this.#cache }
@@ -125,7 +135,7 @@ abstract class $Node {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
 
-  copy(delta: Record<string, unknown>): Node {
+  copy(delta: Record<string, unknown>): this {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
@@ -656,6 +666,7 @@ export type Expression
   | If
   | Throw
   | Try
+  | Singleton
 
 abstract class $Expression extends $Node {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
@@ -684,7 +695,7 @@ export class Self extends $Expression {
 }
 
 
-export type LiteralValue = number | string | boolean | null | Singleton | readonly [Reference<Class>, List<Expression> ]
+export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression> ]
 export class Literal<T extends LiteralValue = LiteralValue> extends $Expression {
   readonly kind = 'Literal'
   readonly value!: T
@@ -775,23 +786,22 @@ export class Catch extends $Expression {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type ClosurePayload = {
-  parameters?: List<Parameter>,
-  sentences?: List<Sentence>,
-  code?: string,
+  parameters?: List<Parameter>
+  sentences?: List<Sentence>
+  code?: string
   sourceMap?: SourceMap
+  metadata?: List<Annotation>
 }
 
-export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> =>
-  new Literal<Singleton>({
-    value: new Singleton({
-      supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
-      members: [
-        new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
-        ...code ? [
-          new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
-        ] : [],
-      ],
-    }),
+export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton =>
+  new Singleton({
+    supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
+    members: [
+      new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
+      ...code ? [
+        new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
+      ] : [],
+    ],
     ...payload,
   })
 

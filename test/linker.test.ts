@@ -1,5 +1,5 @@
 import { expect, should, use } from 'chai'
-import { Body, Class, Closure, Describe, Environment, Field, fromJSON, Import, Literal, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, fromJSON, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import link, { LinkError } from '../src/linker'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
@@ -294,8 +294,8 @@ describe('Wollok linker', () => {
       const D = environment.getNodeByFQN<Class>('x.D')
       const f = S.fields()[0]
       const m1 = S.methods()[0]
-      const closure = m1.sentences()[1] as Literal<Singleton>
-      const closureReturn = closure.value.methods()[0].sentences()[0] as Return
+      const closure = m1.sentences()[1] as Singleton
+      const closureReturn = closure.methods()[0].sentences()[0] as Return
       const m2 = S.methods()[1]
       const m2var = m2.sentences()[0] as Variable
       const m3 = S.methods()[2]
@@ -304,7 +304,7 @@ describe('Wollok linker', () => {
       S.supertypes[0].args[0].value!.should.target(f)
       f.value!.should.target(f)
       m1.sentences()[0].should.target(m1.parameters[0])
-      closureReturn.value!.should.target(closure.value.methods()[0].parameters[0])
+      closureReturn.value!.should.target(closure.methods()[0].parameters[0])
       m2var.value!.should.target(m2var)
       m2.sentences()[1].should.target(m2var)
       m3.sentences()[0].should.target(f)
