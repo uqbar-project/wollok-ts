@@ -1,4 +1,4 @@
-import { Environment, is, isNode, Method, Module, Name, Node, Variable, Singleton, Expression, List, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
+import { Environment, is, Method, Module, Name, Node, Variable, Singleton, Expression, List, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
 import { get, last } from '../extensions'
 import { v4 as uuid } from 'uuid'
 import { Interpreter } from './interpreter'
@@ -336,6 +336,7 @@ export class Evaluation {
         case 'If': return yield* this.execIf(node)
         case 'Try': return yield* this.execTry(node)
         case 'Throw': return yield* this.execThrow(node)
+        case 'Singleton': return yield* this.execSingleton(node)
         default: throw new Error(`Can't execute ${node.kind} node`)
       }
     } catch(error) {
@@ -450,11 +451,6 @@ export class Evaluation {
       return yield* module.name === 'List' ? this.list(...values) : this.set(...values)
     }
 
-    if (isNode(node.value)) {
-      yield node
-      return yield* this.instantiate(node.value, {})
-    }
-
     yield node
 
     return yield* this.reify(node.value as any)
@@ -473,6 +469,10 @@ export class Evaluation {
 
   protected *execSend(node: Send): Execution<RuntimeValue> {
     const receiver = yield* this.exec(node.receiver)
+
+    if((node.message === '&&' || node.message === 'and') && receiver.innerBoolean === false) return receiver
+    if((node.message === '||' || node.message === 'or') && receiver.innerBoolean === true) return receiver
+
     const values: RuntimeObject[] = []
     for(const arg of node.args) values.push(yield * this.exec(arg))
 
@@ -534,7 +534,11 @@ export class Evaluation {
     yield node
 
     throw new WollokException(this, exception)
+  }
 
+  protected *execSingleton(node: Singleton): Execution<RuntimeValue> {
+    yield node
+    return yield* this.instantiate(node, {})
   }
 
   *send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {

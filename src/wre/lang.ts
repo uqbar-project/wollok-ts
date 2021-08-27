@@ -621,22 +621,20 @@ const lang: Natives = {
   },
 
   Boolean: {
-    *['&&'](self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      if(!self.innerBoolean!) return self
-      return yield* this.send('apply', closure)
+    *['&&'](_self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      return other
     },
 
-    *and(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('&&', self, closure)
+    *and(_self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      return other
     },
 
-    *['||'](self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      if(self.innerBoolean!) return self
-      return yield* this.send('apply', closure)
+    *['||'](_self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      return other
     },
 
-    *or(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('||', self, closure)
+    *or(_self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      return other
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {

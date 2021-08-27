@@ -1,10 +1,12 @@
-import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqMap, seqObj, string, whitespace, any } from 'parsimmon'
+import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation, is } from './model'
 import { mapObject, discriminate } from './extensions'
 
-const { keys, values } = Object
+// TODO: Use description in lazy() for better errors
+
+const { keys, values, fromEntries } = Object
 const { isArray } = Array
 
 const PREFIX_OPERATORS: Record<Name, Name> = {
@@ -15,8 +17,6 @@ const PREFIX_OPERATORS: Record<Name, Name> = {
 }
 
 const ASSIGNATION_OPERATORS = ['=', '||=', '/=', '-=', '+=', '*=', '&&=', '%=']
-
-const LAZY_OPERATORS = ['||', '&&', 'or', 'and']
 
 const INFIX_OPERATORS = [
   ['||', 'or'],
@@ -80,20 +80,34 @@ const key = <T extends string>(str: T): Parser<T> => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
     : string(str)
-).trim(optional(_))
+).trim(_)
 
-const comment = regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)
+const comment = lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/))
 
-const _ = comment.or(whitespace).atLeast(1)
+const _ = optional(comment.or(whitespace).atLeast(1))
+const __ = optional(key(';').or(_))
+
+export const annotation: Parser<Annotation> = lazy(() =>
+  string('@').then(obj({
+    name,
+    args: seq(
+      name,
+      key('=').then(Literal).map(literal => literal.value),
+    ).sepBy(key(','))
+      .wrap(key('('), key(')'))
+      .fallback([]),
+  })
+  ).map(({ name, args }) => new Annotation(name, fromEntries(args)))
+)
 
 const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P>): Parser<N> =>
   seq(
-    optional(_).then(index),
+    annotation.sepBy(_).wrap(_, _),
+    index,
     lazy(parser),
     index
-  ).map(([start, payload, end]) => {
-    return new constructor({ ...payload, sourceMap: { start, end } })
-  }
+  ).map(([metadata, start, payload, end]) =>
+    new constructor({ metadata, sourceMap: { start, end }, ...payload })
   )
 
 
@@ -101,9 +115,9 @@ export const File = (fileName: string): Parser<PackageNode> => node(PackageNode)
   obj({
     fileName: of(fileName),
     name: of(basename(fileName).split('.')[0]),
-    imports: Import.sepBy(optional(_)).skip(optional(_)),
-    members: Entity.sepBy(optional(_)),
-  }).skip(optional(_))
+    imports: Import.sepBy(_).skip(_),
+    members: Entity.sepBy(_),
+  }).skip(_)
 ).map(filePackage => {
   const dir = dirname(fileName)
   return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
@@ -123,7 +137,7 @@ export const Import: Parser<ImportNode> = node(ImportNode)(() =>
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const name: Parser<Name> = regex(/[^\W\d]\w*/)
+export const name: Parser<Name> = lazy('identifier', () => regex(/[^\W\d]\w*/))
 
 export const FullyQualifiedReference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
   obj({ name: name.sepBy1(key('.')).tieWith('.') })
@@ -148,11 +162,16 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: Sentence.skip(optional(alt(key(';'), _))).many() }).wrap(key('{'), key('}'))
+  obj({ sentences: Sentence.skip(__).many() }).wrap(key('{'), key('}'))
 )
 
 const inlineableBody: Parser<BodyNode> = Body.or(
-  node(BodyNode)(() => obj({ sentences: Sentence.times(1) }))
+  node(BodyNode)(() => obj({ sentences: Sentence.times(1) })).map(body =>
+    body.copy({
+      metadata: [],
+      sentences: body.sentences.map(sentence => sentence.copy({ metadata: [...body.metadata, ...sentence.metadata] })),
+    })
+  )
 )
 
 
@@ -188,8 +207,8 @@ export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
 export const Package: Parser<PackageNode> = node(PackageNode)(() =>
   key('package').then(obj({
     name: name.skip(key('{')),
-    imports: Import.skip(optional(alt(key(';'), _))).many(),
-    members: Entity.or(entityError).sepBy(optional(_)).skip(key('}')),
+    imports: Import.skip(__).many(),
+    members: Entity.or(entityError).sepBy(_).skip(key('}')),
   })).map(recover)
 )
 
@@ -228,7 +247,7 @@ export const Class: Parser<ClassNode> = node(ClassNode)(() =>
     name,
     supertypes,
     members: alt(Field, Method, classMemberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -238,7 +257,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
     name: optional(notFollowedBy(key('inherits')).then(name)),
     supertypes,
     members: alt(Field, Method, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -248,7 +267,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
     name,
     supertypes,
     members: alt(Field, Method, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -257,7 +276,7 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
   key('describe').then(obj({
     name: stringLiteral.map(name => `"${name}"`),
     members: alt(Field, Method, Test, memberError)
-      .sepBy(optional(_))
+      .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
 )
@@ -300,7 +319,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Sentence: Parser<SentenceNode> = lazy(() => alt(Variable, Return, Assignment, Expression))
+export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variable, Return, Assignment, Expression))
 
 export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
@@ -326,9 +345,7 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
       : new SendNode({
         receiver: variable,
         message: assignation.slice(0, -1),
-        args: LAZY_OPERATORS.includes(assignation.slice(0, -1))
-          ? [Closure({ sentences: [value] })]
-          : [value],
+        args: [value],
       }),
   }))
 )
@@ -337,19 +354,63 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Expression: Parser<ExpressionNode> = lazy(() => infixOperation())
+export const Expression: Parser<ExpressionNode> = lazy('expression', () => infixMessageChain(0))
 
-export const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
+const infixMessageChain = (precedenceLevel = 0): Parser<ExpressionNode> => {
+  const argument = precedenceLevel < INFIX_OPERATORS.length - 1
+    ? infixMessageChain(precedenceLevel + 1)
+    : prefixMessageChain
+
+  return messageChain(argument, operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1))
+}
+
+const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
+  alt(
+    node(SendNode)(() => obj({
+      message: operator(keys(PREFIX_OPERATORS)).map(_ => PREFIX_OPERATORS[_]),
+      receiver: prefixMessageChain,
+    })),
+    postfixMessageChain
+  )
+)
+
+const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
+  messageChain(
+    primaryExpression,
+    key('.').then(name),
+    alt(unamedArguments, Closure.times(1))
+  )
+)
+
+const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
+  seq(
+    index,
+    receiver,
+    seq(message, args, index).many(),
+  ).map(([start, initialReceiver, calls]) =>
+    calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: { start, end } })
+    , initialReceiver)
+  )
+)
+
+const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   Self,
   Super,
   If,
   New,
   Throw,
   Try,
+  Singleton,
+  Closure,
   Literal,
   Reference,
-  Expression.wrap(key('('), key(')'))
+  seq(
+    annotation.sepBy(_).wrap(_, _),
+    Expression.wrap(key('('), key(')'))
+  ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
 ))
+
 
 export const Self: Parser<SelfNode> = node(SelfNode)(() =>
   key('self').result({})
@@ -359,7 +420,7 @@ export const Super: Parser<SuperNode> = node(SuperNode)(() =>
   key('super').then(obj({ args: unamedArguments }))
 )
 
-export const New: Parser<NewNode | LiteralNode<SingletonNode>> = node(NewNode)(() =>
+export const New: Parser<NewNode> = node(NewNode)(() =>
   key('new').then(
     obj({
       instantiated: FullyQualifiedReference,
@@ -396,93 +457,50 @@ export const Catch: Parser<CatchNode> = node(CatchNode)(() =>
   }))
 )
 
-export const Send: Parser<ExpressionNode> = lazy(() =>
-  seqMap(
-    index,
-    primaryExpression,
-    seq(
-      key('.').then(name),
-      alt(unamedArguments, closureLiteral.times(1)),
-      index
-    ).atLeast(1),
-    (start, initial, calls) => calls.reduce(
-      (receiver, [message, args, end]) =>
-        new SendNode({ receiver, message, args, sourceMap: { start, end } })
-      , initial
-    )
-  ))
-
-const prefixOperation = seq(
-  seq(index, operator(keys(PREFIX_OPERATORS))).many(),
-  alt(Send, primaryExpression),
-  index,
-).map(([calls, initial, end]) => calls.reduceRight<ExpressionNode>(
-  (receiver, [start, message]) =>
-    new SendNode({ receiver, message: PREFIX_OPERATORS[message], args: [], sourceMap: { start, end } })
-  , initial
-))
-
-const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
-  const argument = precedenceLevel < INFIX_OPERATORS.length - 1
-    ? infixOperation(precedenceLevel + 1)
-    : prefixOperation
-
-  return seq(
-    index,
-    argument,
-    seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
-  ).map(([start, initial, calls]) => calls.reduce((receiver, [message, args, end]) =>
-    new SendNode({
-      receiver,
-      message: message.trim(),
-      args: LAZY_OPERATORS.includes(message)
-        ? [Closure({ sentences: args })]
-        : args,
-      sourceMap: { start, end },
-    })
-  , initial))
-}
+export const Send: Parser<SendNode> = postfixMessageChain.assert(is('Send'), 'Send') as Parser<SendNode>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // LITERALS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Literal: Parser<LiteralNode> = lazy(() => alt(
-  closureLiteral,
+export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
   node(LiteralNode)(() => obj({
     value: alt<LiteralValue>(
       key('null').result(null),
       key('true').result(true),
       key('false').result(false),
-      regex(/-?\d+(\.\d+)?/).map(Number),
+      lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
       Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
       stringLiteral,
-      Singleton,
     ),
   })
   )
 ))
 
-const stringLiteral: Parser<string> = lazy(() =>
+const stringLiteral: Parser<string> = lazy('string literal', () =>
   alt(
     regex(/"((?:[^\\"]|\\[bfnrtv"\\/]|\\u[0-9a-fA-F]{4})*)"/, 1),
     regex(/'((?:[^\\']|\\[bfnrtv'\\/]|\\u[0-9a-fA-F]{4})*)'/, 1)
   ).map(unraw)
 )
 
-const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
-  const closure = seq(
-    Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
-    Sentence.skip(optional(alt(key(';'), _))).many(),
-  ).wrap(key('{'), key('}'))
-
-  return closure.mark().chain(({ start, end, value: [parameters, sentences] }) => Parsimmon((input: string, i: number) =>
-    makeSuccess(i, Closure({
-      parameters,
-      sentences,
-      code: input.slice(start.offset, end.offset),
-      sourceMap:{ start, end },
-    }))
-  ))
+const Closure: Parser<SingletonNode> = lazy(() => {
+  return seq(
+    annotation.sepBy(_).wrap(_, _),
+    seq(
+      Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
+      Sentence.skip(__).many(),
+    ).wrap(key('{'), key('}')).mark()
+  ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
+    Parsimmon((input: string, i: number) =>
+      makeSuccess(i, ClosureNode({
+        metadata,
+        parameters,
+        sentences,
+        code: input.slice(start.offset, end.offset),
+        sourceMap:{ start, end },
+      }))
+    )
+  )
 })
