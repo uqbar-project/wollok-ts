@@ -1,7 +1,7 @@
 import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation, is } from './model'
+import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation, is } from './model'
 import { mapObject, discriminate } from './extensions'
 
 // TODO: Use description in lazy() for better errors
@@ -378,7 +378,7 @@ const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
   messageChain(
     primaryExpression,
     key('.').then(name),
-    alt(unamedArguments, closureLiteral.times(1))
+    alt(unamedArguments, Closure.times(1))
   )
 )
 
@@ -401,6 +401,8 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   New,
   Throw,
   Try,
+  Singleton,
+  Closure,
   Literal,
   Reference,
   seq(
@@ -418,7 +420,7 @@ export const Super: Parser<SuperNode> = node(SuperNode)(() =>
   key('super').then(obj({ args: unamedArguments }))
 )
 
-export const New: Parser<NewNode | LiteralNode<SingletonNode>> = node(NewNode)(() =>
+export const New: Parser<NewNode> = node(NewNode)(() =>
   key('new').then(
     obj({
       instantiated: FullyQualifiedReference,
@@ -462,7 +464,6 @@ export const Send: Parser<SendNode> = postfixMessageChain.assert(is('Send'), 'Se
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
-  closureLiteral,
   node(LiteralNode)(() => obj({
     value: alt<LiteralValue>(
       key('null').result(null),
@@ -472,7 +473,6 @@ export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
       Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
       stringLiteral,
-      Singleton,
     ),
   })
   )
@@ -485,18 +485,16 @@ const stringLiteral: Parser<string> = lazy('string literal', () =>
   ).map(unraw)
 )
 
-const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
-  const closure = seq(
-    Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
-    Sentence.skip(__).many(),
-  ).wrap(key('{'), key('}'))
-
+const Closure: Parser<SingletonNode> = lazy(() => {
   return seq(
     annotation.sepBy(_).wrap(_, _),
-    closure.mark()
+    seq(
+      Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
+      Sentence.skip(__).many(),
+    ).wrap(key('{'), key('}')).mark()
   ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
     Parsimmon((input: string, i: number) =>
-      makeSuccess(i, Closure({
+      makeSuccess(i, ClosureNode({
         metadata,
         parameters,
         sentences,

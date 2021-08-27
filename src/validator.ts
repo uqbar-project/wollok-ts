@@ -135,7 +135,7 @@ export const validations = {
   ),
 
   singletonIsNotUnnamed: error<Singleton>(
-    singleton => singleton.parent().is('Literal') || !!singleton.name,
+    singleton => !singleton.parent().is('Package') || !!singleton.name,
   ),
 
   nonAsignationOfFullyQualifiedReferences: error<Assignment>(
