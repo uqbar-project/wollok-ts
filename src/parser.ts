@@ -349,6 +349,47 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+export const Expression: Parser<ExpressionNode> = lazy(() => infixMessageChain(0))
+
+const infixMessageChain = (precedenceLevel = 0): Parser<ExpressionNode> => {
+  const argument = precedenceLevel < INFIX_OPERATORS.length - 1
+    ? infixMessageChain(precedenceLevel + 1)
+    : prefixMessageChain
+
+  return messageChain(argument, operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1))
+}
+
+const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
+  alt(
+    node(SendNode)(() => obj({
+      message: operator(keys(PREFIX_OPERATORS)).map(_ => PREFIX_OPERATORS[_]),
+      receiver: prefixMessageChain,
+    })),
+    postfixMessageChain
+  )
+)
+
+const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
+  messageChain(
+    primaryExpression,
+    key('.').then(name),
+    alt(unamedArguments, closureLiteral.times(1))
+  )
+)
+
+const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
+  seq(
+    annotation.sepBy(_).wrap(_, _),
+    index,
+    receiver,
+    seq(message, args, index).many(),
+  ).map(([metadata, start, initialReceiver, calls]) =>
+    calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: { start, end } })
+    , initialReceiver).copy({ metadata })
+  )
+)
+
 const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   Self,
   Super,
@@ -361,52 +402,6 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   Expression.wrap(key('('), key(')'))
 ))
 
-const messageChain: Parser<ExpressionNode> = lazy(() => {
-  return seq(
-    index,
-    primaryExpression,
-    seq(
-      key('.').then(name),
-      alt(unamedArguments, closureLiteral.times(1)),
-      index
-    ).many()
-  ).map(([start, initial, calls]) =>
-    calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: { start, end } })
-    , initial)
-  )
-})
-
-const prefixOperation: Parser<ExpressionNode> = alt(
-  node(SendNode)(() => obj({
-    message: operator(keys(PREFIX_OPERATORS)).map(_ => PREFIX_OPERATORS[_]),
-    receiver: prefixOperation,
-  })),
-  messageChain
-)
-
-const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
-  const argument = precedenceLevel < INFIX_OPERATORS.length - 1
-    ? infixOperation(precedenceLevel + 1)
-    : prefixOperation
-
-  return seq(
-    annotation.sepBy(_).wrap(_, _),
-    index,
-    argument,
-    seq(
-      operator(INFIX_OPERATORS[precedenceLevel]),
-      argument.times(1),
-      index
-    ).many(),
-  ).map(([metadata, start, initial, calls]) =>
-    calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: { start, end } })
-    , initial).copy({ metadata })
-  )
-}
-
-export const Expression: Parser<ExpressionNode> = lazy(() => infixOperation(0))
 
 export const Self: Parser<SelfNode> = node(SelfNode)(() =>
   key('self').result({})
@@ -453,7 +448,7 @@ export const Catch: Parser<CatchNode> = node(CatchNode)(() =>
   }))
 )
 
-export const Send: Parser<SendNode> = messageChain.assert(is('Send'), 'Send') as Parser<SendNode>
+export const Send: Parser<SendNode> = postfixMessageChain.assert(is('Send'), 'Send') as Parser<SendNode>
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // LITERALS
