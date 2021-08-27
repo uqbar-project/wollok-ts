@@ -473,6 +473,10 @@ export class Evaluation {
 
   protected *execSend(node: Send): Execution<RuntimeValue> {
     const receiver = yield* this.exec(node.receiver)
+
+    if((node.message === '&&' || node.message === 'and') && receiver.innerBoolean === false) return receiver
+    if((node.message === '||' || node.message === 'or') && receiver.innerBoolean === true) return receiver
+
     const values: RuntimeObject[] = []
     for(const arg of node.args) values.push(yield * this.exec(arg))
 

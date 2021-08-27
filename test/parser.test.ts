@@ -1674,20 +1674,20 @@ describe('Wollok parser', () => {
 
       })
 
-      it('should parse ||= operation and wrap the argument in a closure', () => {
+      it('should parse ||= operation', () => {
         'a ||= b'.should.be.parsedBy(parser).into(
           new Assignment({
             variable: new Reference({ name: 'a' }),
             value: new Send({
               receiver: new Reference({ name: 'a' }),
               message: '||',
-              args: [Closure({ sentences: [new Reference({ name: 'b' })] })],
+              args: [new Reference({ name: 'b' })],
             }),
           })
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('variable').tracedTo(0, 1)
           .and.also.have.nested.property('value.receiver').tracedTo(0, 1)
-          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0').tracedTo(6, 7)
+          .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
 
       })
 
@@ -1698,12 +1698,12 @@ describe('Wollok parser', () => {
             value: new Send({
               receiver: new Reference({ name: 'a' }),
               message: '&&',
-              args: [Closure({ sentences: [new Reference({ name: 'b' })] })],
+              args: [new Reference({ name: 'b' })],
             }),
           })
         ).and.be.tracedTo(0, 7)
           .and.have.nested.property('variable').tracedTo(0, 1)
-          .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0').tracedTo(6, 7)
+          .and.also.have.nested.property('value.args.0').tracedTo(6, 7)
       })
 
       it('should parse annotated nodes', () => {
@@ -1883,9 +1883,8 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.0.args.0').tracedTo(9, 10)
         })
 
-        it('should parse infix operations with logical operators, wrapping the arguments in closures', () => {
+        it('should parse infix operations with proper precedence', () => {
           'a > b || c && d + e == f'.should.be.parsedBy(parser).into(
-
             new Send({
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
@@ -1894,26 +1893,18 @@ describe('Wollok parser', () => {
               }),
               message: '||',
               args: [
-                Closure({
-                  sentences: [
+                new Send({
+                  receiver: new Reference({ name: 'c' }),
+                  message: '&&',
+                  args: [
                     new Send({
-                      receiver: new Reference({ name: 'c' }),
-                      message: '&&',
-                      args: [
-                        Closure({
-                          sentences: [
-                            new Send({
-                              receiver: new Send({
-                                receiver: new Reference({ name: 'd' }),
-                                message: '+',
-                                args: [new Reference({ name: 'e' })],
-                              }),
-                              message: '==',
-                              args: [new Reference({ name: 'f' })],
-                            }),
-                          ],
-                        }),
-                      ],
+                      receiver: new Send({
+                        receiver: new Reference({ name: 'd' }),
+                        message: '+',
+                        args: [new Reference({ name: 'e' })],
+                      }),
+                      message: '==',
+                      args: [new Reference({ name: 'f' })],
                     }),
                   ],
                 }),
@@ -1923,13 +1914,13 @@ describe('Wollok parser', () => {
             .and.have.nested.property('receiver').tracedTo(0, 5)
             .and.also.have.nested.property('receiver.receiver').tracedTo(0, 1)
             .and.also.have.nested.property('receiver.args.0').tracedTo(4, 5)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0').tracedTo(9, 24)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.receiver').tracedTo(9, 10)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0').tracedTo(14, 24)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver').tracedTo(14, 19)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.receiver').tracedTo(14, 15)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.args.0').tracedTo(18, 19)
-            .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.args.0').tracedTo(23, 24)
+            .and.also.have.nested.property('args.0').tracedTo(9, 24)
+            .and.also.have.nested.property('args.0.receiver').tracedTo(9, 10)
+            .and.also.have.nested.property('args.0.args.0').tracedTo(14, 24)
+            .and.also.have.nested.property('args.0.args.0.receiver').tracedTo(14, 19)
+            .and.also.have.nested.property('args.0.args.0.receiver.receiver').tracedTo(14, 15)
+            .and.also.have.nested.property('args.0.args.0.receiver.args.0').tracedTo(18, 19)
+            .and.also.have.nested.property('args.0.args.0.args.0').tracedTo(23, 24)
         })
 
         it('should parse annotated nodes', () => {

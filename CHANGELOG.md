@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.0.7
+- Annotations.
+- Lazy operators are now handled in runtime instead of being filled in the parser.
+
 ## v3.0.6
 - Updated to official Wollok Language 3.0.3 version. 
 
