@@ -4,6 +4,8 @@ import unraw from 'unraw'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation } from './model'
 import { mapObject, discriminate } from './extensions'
 
+// TODO: Use description in lazy() for better errors
+
 const { keys, values, fromEntries } = Object
 const { isArray } = Array
 
@@ -82,7 +84,7 @@ const key = <T extends string>(str: T): Parser<T> => (
     : string(str)
 ).trim(_)
 
-const comment = regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)
+const comment = lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/))
 
 const _ = optional(comment.or(whitespace).atLeast(1))
 const __ = optional(key(';').or(_))
@@ -107,7 +109,7 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
     lazy(parser),
     index
   ).map(([metadata, start, payload, end]) =>
-    new constructor({ ...payload, metadata, sourceMap: { start, end } })
+    new constructor({ metadata, sourceMap: { start, end }, ...payload })
   )
 
 
@@ -137,7 +139,7 @@ export const Import: Parser<ImportNode> = node(ImportNode)(() =>
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const name: Parser<Name> = regex(/[^\W\d]\w*/)
+export const name: Parser<Name> = lazy('identifier', () => regex(/[^\W\d]\w*/))
 
 export const FullyQualifiedReference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
   obj({ name: name.sepBy1(key('.')).tieWith('.') })
@@ -351,9 +353,45 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Expression: Parser<ExpressionNode> = lazy(() => infixOperation())
+export const Expression: Parser<ExpressionNode> = lazy(() => {
 
-export const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
+
+  const prefixOperation: Parser<ExpressionNode> = node(SendNode)(() =>
+    obj({
+      message: operator(keys(PREFIX_OPERATORS)).map(_ => PREFIX_OPERATORS[_]),
+      receiver: alt(prefixOperation, Send, primaryExpression),
+    })
+  )
+
+  const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
+    const argument = precedenceLevel < INFIX_OPERATORS.length - 1
+      ? infixOperation(precedenceLevel + 1)
+      : alt(prefixOperation, Send, primaryExpression)
+
+    return seq(
+      index,
+      argument,
+      seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
+    ).map(([start, initial, calls]) => calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({
+        receiver,
+        message: message,
+        args: LAZY_OPERATORS.includes(message)
+          ? [Closure({ sentences: args })]
+          : args,
+        sourceMap: { start, end },
+      })
+    , initial))
+  }
+
+  return seqMap(
+    annotation.sepBy(_).wrap(_, _),
+    infixOperation(0),
+    (metadata, exp) => exp.copy({ metadata })
+  )
+})
+
+const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   Self,
   Super,
   If,
@@ -410,52 +448,22 @@ export const Catch: Parser<CatchNode> = node(CatchNode)(() =>
   }))
 )
 
-export const Send: Parser<ExpressionNode> = lazy(() =>
-  seqMap(
+export const Send: Parser<SendNode> = lazy(() =>
+  seq(
     index,
     primaryExpression,
     seq(
       key('.').then(name),
       alt(unamedArguments, closureLiteral.times(1)),
       index
-    ).atLeast(1),
-    (start, initial, calls) => calls.reduce(
-      (receiver, [message, args, end]) =>
-        new SendNode({ receiver, message, args, sourceMap: { start, end } })
-      , initial
+    ).atLeast(1)
+  ).map(([start, initial, calls]) =>
+    calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: { start, end } })
+    , initial as SendNode
     )
-  ))
-
-const prefixOperation = seq(
-  seq(index, operator(keys(PREFIX_OPERATORS))).many(),
-  alt(Send, primaryExpression),
-  index,
-).map(([calls, initial, end]) => calls.reduceRight<ExpressionNode>(
-  (receiver, [start, message]) =>
-    new SendNode({ receiver, message: PREFIX_OPERATORS[message], args: [], sourceMap: { start, end } })
-  , initial
-))
-
-const infixOperation = (precedenceLevel = 0): Parser<ExpressionNode> => {
-  const argument = precedenceLevel < INFIX_OPERATORS.length - 1
-    ? infixOperation(precedenceLevel + 1)
-    : prefixOperation
-
-  return seq(
-    index,
-    argument,
-    seq(operator(INFIX_OPERATORS[precedenceLevel]), argument.times(1), index).many(),
-  ).map(([start, initial, calls]) => calls.reduce((receiver, [message, args, end]) =>
-    new SendNode({
-      receiver,
-      message: message.trim(),
-      args: LAZY_OPERATORS.includes(message)
-        ? [Closure({ sentences: args })]
-        : args,
-      sourceMap: { start, end },
-    })
-  , initial))
-}
+  )
+)
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // LITERALS
@@ -468,7 +476,7 @@ export const Literal: Parser<LiteralNode> = lazy(() => alt(
       key('null').result(null),
       key('true').result(true),
       key('false').result(false),
-      regex(/-?\d+(\.\d+)?/).map(Number),
+      lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
       Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
       Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
       stringLiteral,
@@ -478,7 +486,7 @@ export const Literal: Parser<LiteralNode> = lazy(() => alt(
   )
 ))
 
-const stringLiteral: Parser<string> = lazy(() =>
+const stringLiteral: Parser<string> = lazy('string literal', () =>
   alt(
     regex(/"((?:[^\\"]|\\[bfnrtv"\\/]|\\u[0-9a-fA-F]{4})*)"/, 1),
     regex(/'((?:[^\\']|\\[bfnrtv'\\/]|\\u[0-9a-fA-F]{4})*)'/, 1)

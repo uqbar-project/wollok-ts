@@ -1261,6 +1261,30 @@ describe('Wollok parser', () => {
         ).and.be.tracedTo(0, 14)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) var f'.should.be.parsedBy(parser).into(
+          new Field({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         var f`.should.be.parsedBy(parser).into(
+            new Field({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        'var f = @A(x = 1) 5'.should.be.parsedBy(parser).into(
+          new Field({
+            name: 'f',
+            isConstant: false,
+            value: new Literal({ value: 5, metadata: [new Annotation('A', { x: 1 })] }),
+          })
+        )
+      })
+
       it('should not parse vars without name', () => {
         'var'.should.not.be.parsedBy(parser)
       })
@@ -1370,6 +1394,62 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('body.sentences.0').tracedTo(13, 18)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) method m() {}'.should.be.parsedBy(parser).into(
+          new Method({ name: 'm', body: new Body(), metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         method m() {}`.should.be.parsedBy(parser).into(
+            new Method({ name: 'm', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes within expression bodies', () => {
+        'method m() = @A(x = 1) 5'.should.be.parsedBy(parser).into(
+          new Method({
+            name: 'm', body: new Body({
+              sentences: [
+                new Literal({ value: 5, metadata: [new Annotation('A', { x: 1 })] }),
+              ],
+            }),
+          })
+        )
+      })
+
+      it('should parse annotated subnodes within multiline bodies', () => {
+        `method m() {
+          @A(x = 1)
+          var x = 5
+          5
+         }`.should.be.parsedBy(parser).into(
+            new Method({
+              name: 'm', body: new Body({
+                sentences: [
+                  new Variable({ name: 'x', isConstant: false, value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 })] }),
+                  new Literal({ value: 5 }),
+                ],
+              }),
+            })
+          )
+      })
+
+      it('should parse annotated bodies', () => {
+        'method m() @A(x = 1) { 5 }'.should.be.parsedBy(parser).into(
+          new Method({
+            name: 'm', body: new Body({
+              sentences: [
+                new Literal({ value: 5 }),
+              ],
+              metadata: [new Annotation('A', { x: 1 })],
+            }),
+          })
+        )
+      })
+
       it('should not parse incomplete methods', () => {
         'method m(p,q) ='.should.not.be.parsedBy(parser)
       })
@@ -1393,7 +1473,6 @@ describe('Wollok parser', () => {
       it('should parse var declaration', () => {
         'var v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isConstant: false })).and.be.tracedTo(0, 5)
       })
-
 
       it('should parse var asignation', () => {
         'var v = 5'.should.be.parsedBy(parser).into(
@@ -1419,6 +1498,30 @@ describe('Wollok parser', () => {
           })
         ).and.be.tracedTo(0, 11)
           .and.have.nested.property('value').tracedTo(10, 11)
+      })
+
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) var f'.should.be.parsedBy(parser).into(
+          new Variable({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         var f`.should.be.parsedBy(parser).into(
+            new Variable({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        'var f = @A(x = 1) 5'.should.be.parsedBy(parser).into(
+          new Variable({
+            name: 'f',
+            isConstant: false,
+            value: new Literal({ value: 5, metadata: [new Annotation('A', { x: 1 })] }),
+          })
+        )
       })
 
       it('should not parse vars without name', () => {
@@ -1451,6 +1554,25 @@ describe('Wollok parser', () => {
         'return'.should.be.parsedBy(parser).into(new Return()).and.be.tracedTo(0, 6)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) return 5'.should.be.parsedBy(parser).into(
+          new Return({ value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 })] })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         return 5`.should.be.parsedBy(parser).into(
+            new Return({ value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        'return @A(x = 1) 5'.should.be.parsedBy(parser).into(
+          new Return({ value: new Literal({ value: 5, metadata: [new Annotation('A', { x: 1 })] }) })
+        )
+      })
     })
 
 
@@ -1584,6 +1706,50 @@ describe('Wollok parser', () => {
           .and.also.have.nested.property('value.args.0.value.members.0.body.sentences.0').tracedTo(6, 7)
       })
 
+      it('should parse annotated nodes', () => {
+        '@A(x = 1) a = b'.should.be.parsedBy(parser).into(
+          new Assignment({
+            variable: new Reference({ name: 'a' }),
+            value: new Reference({ name: 'b' }),
+            metadata: [new Annotation('A', { x: 1 })],
+          })
+        )
+      })
+
+      it('should parse multiply annotated nodes', () => {
+        `@A(x = 1)
+         @B
+         a = b`.should.be.parsedBy(parser).into(
+            new Assignment({
+              variable: new Reference({ name: 'a' }),
+              value: new Reference({ name: 'b' }),
+              metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
+            })
+          )
+      })
+
+      it('should parse annotated subnodes', () => {
+        'a = @A(x = 1) b'.should.be.parsedBy(parser).into(
+          new Assignment({
+            variable: new Reference({ name: 'a' }),
+            value: new Reference({ name: 'b', metadata: [new Annotation('A', { x: 1 })] }),
+          })
+        )
+      })
+
+      it('should parse annotated subnodes in special assignations', () => {
+        'a += @A(x = 1) b'.should.be.parsedBy(parser).into(
+          new Assignment({
+            variable: new Reference({ name: 'a' }),
+            value: new Send({
+              receiver: new Reference({ name: 'a' }),
+              message: '+',
+              args: [new Reference({ name: 'b', metadata: [new Annotation('A', { x: 1 })] })],
+            }),
+          })
+        )
+      })
+
       it('should not parse assignments that have other assignment at the right', () => {
         'a = b = c'.should.not.be.parsedBy(parser)
       })
@@ -1610,6 +1776,20 @@ describe('Wollok parser', () => {
 
         it('should parse uppercase references', () => {
           'C'.should.be.parsedBy(parser).into(new Reference({ name: 'C' })).and.be.tracedTo(0, 1)
+        })
+
+        it('should parse annotated nodes', () => {
+          '@A(x = 1) x'.should.be.parsedBy(parser).into(
+            new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })
+          )
+        })
+
+        it('should parse multiply annotated nodes', () => {
+          `@A(x = 1)
+           @B
+           x`.should.be.parsedBy(parser).into(
+              new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+            )
         })
 
         it('should not parse references with spaces', () => {
@@ -1665,7 +1845,25 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.0').tracedTo(8, 9)
         })
 
-        it('should parse operations with parentheses to separate members', () => {
+        it('should parse operations surrounded by parenthesis', () => {
+          '(a + b + c)'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: '+',
+                args: [new Reference({ name: 'b' })],
+              }),
+              message: '+',
+              args: [new Reference({ name: 'c' })],
+            })
+          ).and.be.tracedTo(1, 10)
+            .and.have.nested.property('receiver').tracedTo(1, 6)
+            .and.also.have.nested.property('receiver.receiver').tracedTo(1, 2)
+            .and.also.have.nested.property('receiver.args.0').tracedTo(5, 6)
+            .and.also.have.nested.property('args.0').tracedTo(9, 10)
+        })
+
+        it('should parse operations with parenthesis to separate members', () => {
           'a + (b + c)'.should.be.parsedBy(parser).into(
             new Send({
               receiver: new Reference({ name: 'a' }),
@@ -1732,6 +1930,21 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.receiver').tracedTo(14, 15)
             .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.receiver.args.0').tracedTo(18, 19)
             .and.also.have.nested.property('args.0.value.members.0.body.sentences.0.args.0.value.members.0.body.sentences.0.args.0').tracedTo(23, 24)
+        })
+
+        it('should parse annotated nodes', () => {
+          '@A(x = 1)(a + b + c)'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: '+',
+                args: [new Reference({ name: 'b' })],
+              }),
+              message: '+',
+              args: [new Reference({ name: 'c' })],
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
         })
 
         describe('**', () => {

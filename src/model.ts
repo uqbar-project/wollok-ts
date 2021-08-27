@@ -135,7 +135,7 @@ abstract class $Node {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
 
-  copy(delta: Record<string, unknown>): Node {
+  copy(delta: Record<string, unknown>): this {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
