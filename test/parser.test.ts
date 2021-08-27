@@ -1938,6 +1938,32 @@ describe('Wollok parser', () => {
           )
         })
 
+        it('should parse inner annotated nodes', () => {
+          '@A(x = 1) a + b + c'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
+                message: '+',
+                args: [new Reference({ name: 'b' })],
+              }),
+              message: '+',
+              args: [new Reference({ name: 'c' })],
+            })
+          )
+
+          'a + @A(x = 1) b + c'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: '+',
+                args: [new Reference({ name: 'b', metadata: [new Annotation('A', { x: 1 })] })],
+              }),
+              message: '+',
+              args: [new Reference({ name: 'c' })],
+            })
+          )
+        })
+
         describe('**', () => {
           it('has more precedence than *', () => {
             'a * b ** c'.should.be.parsedBy(parser).into(
@@ -1992,6 +2018,41 @@ describe('Wollok parser', () => {
             .and.have.nested.property('receiver').tracedTo(1, 2)
         })
 
+        it('should parse annotated nodes', () => {
+          '@A(x = 1)!!a'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: 'negate',
+              }),
+              message: 'negate',
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          '!@A(x = 1)!a'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: 'negate',
+                metadata: [new Annotation('A', { x: 1 })],
+              }),
+              message: 'negate',
+            })
+          )
+
+          '!!@A(x = 1)a'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Send({
+                receiver: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
+                message: 'negate',
+              }),
+              message: 'negate',
+            })
+          )
+        })
 
       })
 
@@ -2103,6 +2164,60 @@ describe('Wollok parser', () => {
             .and.have.nested.property('receiver').tracedTo(0, 3)
         })
 
+        it('should parse annotated nodes', () => {
+          '@A(x = 1)a.m(5).n()'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver:new Send({
+                receiver: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
+                message: 'm',
+                args:[new Literal({ value: 5 })],
+              }),
+              message: 'n',
+              args:[],
+            })
+          )
+
+          '@A(x = 1)(a.m(5).n())'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver:new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: 'm',
+                args:[new Literal({ value: 5 })],
+              }),
+              message: 'n',
+              args:[],
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          '@A(x = 1)(a.m(5)).n()'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver:new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: 'm',
+                args:[new Literal({ value: 5 })],
+                metadata: [new Annotation('A', { x: 1 })],
+              }),
+              message: 'n',
+              args:[],
+            })
+          )
+
+          'a.m(@A(x = 1) 5).n()'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver:new Send({
+                receiver: new Reference({ name: 'a' }),
+                message: 'm',
+                args:[new Literal({ value: 5, metadata: [new Annotation('A', { x: 1 })] })],
+              }),
+              message: 'n',
+              args:[],
+            })
+          )
+        })
+
         it('should not parse sending messages calling the method with a "," at the end of the parameters', () => {
           'a.m(p,)'.should.not.be.parsedBy(parser)
         })
@@ -2156,6 +2271,31 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.1.value').tracedTo(17, 18)
         })
 
+        it('should parse annotated nodes', () => {
+          '@A(x = 1) new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
+            new New({
+              instantiated: new Reference({ name: 'C' }),
+              args: [
+                new NamedArgument({ name: 'a', value: new Literal({ value: 1 }) }),
+                new NamedArgument({ name: 'b', value: new Literal({ value: 2 }) }),
+              ],
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          'new C(a = 1,@A(x = 1) b = 2)'.should.be.parsedBy(parser).into(
+            new New({
+              instantiated: new Reference({ name: 'C' }),
+              args: [
+                new NamedArgument({ name: 'a', value: new Literal({ value: 1 }) }),
+                new NamedArgument({ name: 'b', value: new Literal({ value: 2 }), metadata: [new Annotation('A', { x: 1 })] }),
+              ],
+            })
+          )
+        })
+
         it('should not parse instantiations without parameter names', () => {
           'new C(1,2)'.should.not.be.parsedBy(parser)
         })
@@ -2171,7 +2311,7 @@ describe('Wollok parser', () => {
       })
 
 
-      describe('Super calls', () => {
+      describe('Super', () => {
         const parser = parse.Super
 
         it('should parse super call without parameters', () => {
@@ -2184,6 +2324,18 @@ describe('Wollok parser', () => {
           ).and.be.tracedTo(0, 10)
             .and.have.nested.property('args.0').tracedTo(6, 7)
             .and.also.have.nested.property('args.1').tracedTo(8, 9)
+        })
+
+        it('should parse annotated nodes', () => {
+          '@A(x = 1) super(1,2)'.should.be.parsedBy(parser).into(
+            new Super({ args: [new Literal({ value: 1 }), new Literal({ value: 2 })], metadata: [new Annotation('A', { x: 1 })] })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          'super(1,@A(x = 1) 2)'.should.be.parsedBy(parser).into(
+            new Super({ args: [new Literal({ value: 1 }), new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] })] })
+          )
         })
 
         it('should not parse "super" keyword without parentheses', () => {
@@ -2318,6 +2470,51 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
             .and.also.have.nested.property('elseBody').tracedTo(26, 27)
             .and.also.have.nested.property('elseBody.sentences.0').tracedTo(26, 27)
+        })
+
+        it('should parse annotated nodes', () => {
+          '@A(x=1) if(a) x else y'.should.be.parsedBy(parser).into(
+            new If({
+              condition: new Reference({ name: 'a' }),
+              thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          'if(@A(x=1) a) x else y'.should.be.parsedBy(parser).into(
+            new If({
+              condition: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
+              thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
+            })
+          )
+
+          'if(a) { @A(x=1) x } else y'.should.be.parsedBy(parser).into(
+            new If({
+              condition: new Reference({ name: 'a' }),
+              thenBody: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
+              elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
+            })
+          )
+
+          'if(a) @A(x=1) x else y'.should.be.parsedBy(parser).into(
+            new If({
+              condition: new Reference({ name: 'a' }),
+              thenBody: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
+              elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
+            })
+          )
+
+          'if(a) x else @A(x=1){ y }'.should.be.parsedBy(parser).into(
+            new If({
+              condition: new Reference({ name: 'a' }),
+              thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              elseBody: new Body({ sentences: [new Reference({ name: 'y' })], metadata: [new Annotation('A', { x: 1 })] }),
+            })
+          )
         })
 
         it('should not parse "if" that doesn\'t have the condition inside parentheses', () => {
@@ -2494,6 +2691,184 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('always').tracedTo(38, 39)
         })
 
+
+        it('should parse annotated nodes', () => {
+          '@A(x=1) try x catch e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+              metadata: [new Annotation('A', { x: 1 })],
+            })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          'try @A(x=1) x catch e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try @A(x=1) { x } catch e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })], metadata: [new Annotation('A', { x: 1 })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try { @A(x=1) x } catch e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x @A(x=1) catch e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                  metadata: [new Annotation('A', { x: 1 })],
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch @A(x=1)e h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e', metadata: [new Annotation('A', { x: 1 })] }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch e: @A(x=1)E h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  parameterType: new Reference({ name: 'E', metadata: [new Annotation('A', { x: 1 })] }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch e @A(x=1)h then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h', metadata: [new Annotation('A', { x: 1 })] })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch e @A(x=1){h} then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })], metadata: [new Annotation('A', { x: 1 })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch e {@A(x=1) h} then always a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h', metadata: [new Annotation('A', { x: 1 })] })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })] }),
+            })
+          )
+
+          'try x catch e h then always @A(x=1) a'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })] }),
+            })
+          )
+
+          'try x catch e h then always @A(x=1){a}'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a' })], metadata: [new Annotation('A', { x: 1 })] }),
+            })
+          )
+
+          'try x catch e h then always { @A(x=1) a }'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+              always: new Body({ sentences: [new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })] }),
+            })
+          )
+        })
+
+
         it('should not parse try expressions with an incomplete "then always" body', () => {
           'try x catch e h then always'.should.not.be.parsedBy(parser)
         })
@@ -2521,8 +2896,22 @@ describe('Wollok parser', () => {
         const parser = parse.Throw
 
         it('should parse throw expressions', () => {
-          'throw e'.should.be.parsedBy(parser).into(new Throw({ exception: new Reference({ name: 'e' }) })).and.be.tracedTo(0, 7)
+          'throw e'.should.be.parsedBy(parser).into(
+            new Throw({ exception: new Reference({ name: 'e' }) })
+          ).and.be.tracedTo(0, 7)
             .and.have.nested.property('exception').tracedTo(6, 7)
+        })
+
+        it('should parse annotated nodes', () => {
+          '@A(x=1) throw e'.should.be.parsedBy(parser).into(
+            new Throw({ exception: new Reference({ name: 'e' }), metadata: [new Annotation('A', { x: 1 })] })
+          )
+        })
+
+        it('should parse inner annotated nodes', () => {
+          'throw @A(x=1) e'.should.be.parsedBy(parser).into(
+            new Throw({ exception: new Reference({ name: 'e', metadata: [new Annotation('A', { x: 1 })] }) })
+          )
         })
 
         it('should not parse "throw" keyword without a exception', () => {
@@ -2545,6 +2934,10 @@ describe('Wollok parser', () => {
             'false'.should.be.parsedBy(parser).into(new Literal({ value: false })).and.be.tracedTo(0, 5)
           })
 
+          it('should parse annotated nodes', () => {
+            '@A(x=1) true'.should.be.parsedBy(parser).into(new Literal({ value: true, metadata: [new Annotation('A', { x: 1 })] }))
+          })
+
         })
 
         describe('Null', () => {
@@ -2553,6 +2946,9 @@ describe('Wollok parser', () => {
             'null'.should.be.parsedBy(parser).into(new Literal({ value: null })).and.be.tracedTo(0, 4)
           })
 
+          it('should parse annotated nodes', () => {
+            '@A(x=1) null'.should.be.parsedBy(parser).into(new Literal({ value: null, metadata: [new Annotation('A', { x: 1 })] }))
+          })
         })
 
         describe('Numbers', () => {
@@ -2571,6 +2967,10 @@ describe('Wollok parser', () => {
 
           it('should parse negative fractional numbers', () => {
             '-1.5'.should.be.parsedBy(parser).into(new Literal({ value: -1.5 })).and.be.tracedTo(0, 4)
+          })
+
+          it('should parse annotated nodes', () => {
+            '@A(x=1) 10'.should.be.parsedBy(parser).into(new Literal({ value: 10, metadata: [new Annotation('A', { x: 1 })] }))
           })
 
           it('should not parse fractional numbers without decimal part', () => {
@@ -2602,6 +3002,10 @@ describe('Wollok parser', () => {
 
           it('should parse strings with the escaped escape character without escaping the whole sequence', () => {
             '"foo\\\\nbar"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo\\nbar' })).and.be.tracedTo(0, 11)
+          })
+
+          it('should parse annotated nodes', () => {
+            '@A(x=1) "foo"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo', metadata: [new Annotation('A', { x: 1 })] }))
           })
 
           it('should not parse strings with invalid escape sequences', () => {
@@ -2652,6 +3056,52 @@ describe('Wollok parser', () => {
               .and.have.nested.property('value.1.0').tracedTo(2, 3)
               .and.also.have.nested.property('value.1.1').tracedTo(4, 5)
               .and.also.have.nested.property('value.1.2').tracedTo(6, 7)
+          })
+
+          it('should parse annotated nodes', () => {
+            '@A(x=1)[1,2,3]'.should.be.parsedBy(parser).into(
+              new Literal({
+                value: [new Reference({ name: 'wollok.lang.List' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2 }),
+                  new Literal({ value: 3 }),
+                ]],
+                metadata: [new Annotation('A', { x: 1 })],
+              })
+            )
+
+            '@A(x=1)#{1,2,3}'.should.be.parsedBy(parser).into(
+              new Literal({
+                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2 }),
+                  new Literal({ value: 3 }),
+                ]],
+                metadata: [new Annotation('A', { x: 1 })],
+              })
+            )
+          })
+
+          it('should parse inner annotated nodes', () => {
+            '[1,@A(x=1) 2,3]'.should.be.parsedBy(parser).into(
+              new Literal({
+                value: [new Reference({ name: 'wollok.lang.List' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Literal({ value: 3 }),
+                ]],
+              })
+            )
+
+            '#{1,@A(x=1) 2,3}'.should.be.parsedBy(parser).into(
+              new Literal({
+                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                  new Literal({ value: 1 }),
+                  new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Literal({ value: 3 }),
+                ]],
+              })
+            )
           })
 
         })
@@ -2779,6 +3229,42 @@ describe('Wollok parser', () => {
               .and.also.have.nested.property('value.supertypes.1.reference').tracedTo(22, 23)
           })
 
+          it('should parse annotated nodes', () => {
+            '@A(x = 1) object {}'.should.be.parsedBy(parser).into(
+              new Literal({ value: new Singleton({  }), metadata: [new Annotation('A', { x: 1 })] })
+            )
+          })
+
+          it('should parse multiply annotated nodes', () => {
+            `@A(x = 1)
+             @B
+             object {}`.should.be.parsedBy(parser).into(
+                new Literal({ value: new Singleton({  }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+              )
+          })
+
+          it('should parse annotated subnodes', () => {
+            `object {
+              var f
+              @A(x = 1)
+              var g
+              @B(x = 1)
+              method m(){}
+              method n(){}
+            }`.should.be.parsedBy(parser).into(
+                new Literal({
+                  value: new Singleton({
+                    members: [
+                      new Field({ name: 'f', isConstant: false }),
+                      new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                      new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                      new Method({ name: 'n', body: new Body() }),
+                    ],
+                  }),
+                })
+              )
+          })
+
           it('should not parse the "object" keyword without a body', () => {
             'object'.should.not.be.parsedBy(parser)
           })
@@ -2897,6 +3383,48 @@ describe('Wollok parser', () => {
               .and.have.nested.property('value.members.0.parameters.0').tracedTo(2, 3)
               .and.also.have.nested.property('value.members.0.parameters.1').tracedTo(4, 8)
               .and.also.have.nested.property('value.members.0.body.sentences.0').tracedTo(12, 13)
+          })
+
+          it('should parse annotated nodes', () => {
+            '@A(x = 1) { a => a }'.should.be.parsedBy(parser).into(
+              Closure({
+                parameters: [new Parameter({ name: 'a' })],
+                sentences: [new Reference({ name: 'a' })],
+                code: '{ a => a }',
+                metadata: [new Annotation('A', { x: 1 })],
+              })
+            )
+          })
+
+          it('should parse multiply annotated nodes', () => {
+            `@A(x = 1)
+             @B
+             { a => a }`.should.be.parsedBy(parser).into(
+                Closure({
+                  parameters: [new Parameter({ name: 'a' })],
+                  sentences: [new Reference({ name: 'a' })],
+                  code: '{ a => a }',
+                  metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
+                })
+              )
+          })
+
+          it('should parse annotated subnodes', () => {
+            '{ @A(x = 1) a => a }'.should.be.parsedBy(parser).into(
+              Closure({
+                parameters: [new Parameter({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })],
+                sentences: [new Reference({ name: 'a' })],
+                code: '{ @A(x = 1) a => a }',
+              })
+            )
+
+            '{ a => @A(x = 1) a }'.should.be.parsedBy(parser).into(
+              Closure({
+                parameters: [new Parameter({ name: 'a' })],
+                sentences: [new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })],
+                code: '{ a => @A(x = 1) a }',
+              })
+            )
           })
 
           it('should not parse malformed closures', () => {

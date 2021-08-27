@@ -785,10 +785,11 @@ export class Catch extends $Expression {
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type ClosurePayload = {
-  parameters?: List<Parameter>,
-  sentences?: List<Sentence>,
-  code?: string,
+  parameters?: List<Parameter>
+  sentences?: List<Sentence>
+  code?: string
   sourceMap?: SourceMap
+  metadata?: List<Annotation>
 }
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Literal<Singleton> =>

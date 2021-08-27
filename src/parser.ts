@@ -166,7 +166,12 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
 )
 
 const inlineableBody: Parser<BodyNode> = Body.or(
-  node(BodyNode)(() => obj({ sentences: Sentence.times(1) }))
+  node(BodyNode)(() => obj({ sentences: Sentence.times(1) })).map(body =>
+    body.copy({
+      metadata: [],
+      sentences: body.sentences.map(sentence => sentence.copy({ metadata: [...body.metadata, ...sentence.metadata] })),
+    })
+  )
 )
 
 
@@ -314,7 +319,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Sentence: Parser<SentenceNode> = lazy(() => alt(Variable, Return, Assignment, Expression))
+export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variable, Return, Assignment, Expression))
 
 export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
@@ -349,7 +354,7 @@ export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
 // EXPRESSIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Expression: Parser<ExpressionNode> = lazy(() => infixMessageChain(0))
+export const Expression: Parser<ExpressionNode> = lazy('expression', () => infixMessageChain(0))
 
 const infixMessageChain = (precedenceLevel = 0): Parser<ExpressionNode> => {
   const argument = precedenceLevel < INFIX_OPERATORS.length - 1
@@ -379,14 +384,13 @@ const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
 
 const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
   seq(
-    annotation.sepBy(_).wrap(_, _),
     index,
     receiver,
     seq(message, args, index).many(),
-  ).map(([metadata, start, initialReceiver, calls]) =>
+  ).map(([start, initialReceiver, calls]) =>
     calls.reduce((receiver, [message, args, end]) =>
       new SendNode({ receiver, message, args, sourceMap: { start, end } })
-    , initialReceiver).copy({ metadata })
+    , initialReceiver)
   )
 )
 
@@ -399,7 +403,10 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
   Try,
   Literal,
   Reference,
-  Expression.wrap(key('('), key(')'))
+  seq(
+    annotation.sepBy(_).wrap(_, _),
+    Expression.wrap(key('('), key(')'))
+  ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
 ))
 
 
@@ -454,7 +461,7 @@ export const Send: Parser<SendNode> = postfixMessageChain.assert(is('Send'), 'Se
 // LITERALS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const Literal: Parser<LiteralNode> = lazy(() => alt(
+export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
   closureLiteral,
   node(LiteralNode)(() => obj({
     value: alt<LiteralValue>(
@@ -484,12 +491,18 @@ const closureLiteral: Parser<LiteralNode<SingletonNode>> = lazy(() => {
     Sentence.skip(__).many(),
   ).wrap(key('{'), key('}'))
 
-  return closure.mark().chain(({ start, end, value: [parameters, sentences] }) => Parsimmon((input: string, i: number) =>
-    makeSuccess(i, Closure({
-      parameters,
-      sentences,
-      code: input.slice(start.offset, end.offset),
-      sourceMap:{ start, end },
-    }))
-  ))
+  return seq(
+    annotation.sepBy(_).wrap(_, _),
+    closure.mark()
+  ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
+    Parsimmon((input: string, i: number) =>
+      makeSuccess(i, Closure({
+        metadata,
+        parameters,
+        sentences,
+        code: input.slice(start.offset, end.offset),
+        sourceMap:{ start, end },
+      }))
+    )
+  )
 })
