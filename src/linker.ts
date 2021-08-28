@@ -97,7 +97,7 @@ const assignScopes = (environment: Environment) => {
 
     if(node.is('Package')) {
       for(const imported of node.imports) {
-        const entity = node.scope.resolve<Entity>(imported.entity.name)
+        const entity = node.parent().scope.resolve<Entity>(imported.entity.name)
 
         if(entity) node.scope.include(imported.isGeneric
           ? entity.scope
