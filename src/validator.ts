@@ -54,7 +54,7 @@ const KEYWORDS = [
 ]
 
 type Code = string
-type Level = 'Warning' | 'Error'
+type Level = 'warning' | 'error'
 
 export type Validation<N extends Node> = (node: N, code: Code) => Problem | null
 
@@ -81,9 +81,9 @@ const problem = (level: Level) => <N extends Node>(
       }
       : null
 
-const warning = problem('Warning')
+const warning = problem('warning')
 
-const error = problem('Error')
+const error = problem('error')
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
@@ -196,7 +196,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
   return [
     ...found,
-    ...target.problems?.map(({ code }) => ({ code, level: 'Error', node: target, values: [], source: node.sourceMap } as const)  ) ?? [],
+    ...target.problems?.map(({ code }) => ({ code, level: 'error', node: target, values: [], source: node.sourceMap } as const)  ) ?? [],
     ...entries(validationsByKind[node.kind] as Record<Code, Validation<Node>>)
       .map(([code, validation]) => validation(node, code)!)
       .filter(result => result !== null),

@@ -16,6 +16,7 @@ export interface Scope {
   register(...contributions: [Name, Node][]): void
 }
 
+// TODO: Use a class instead with a better interface (e.g. toString)
 export interface SourceMap {
   readonly start: Index
   readonly end: Index
