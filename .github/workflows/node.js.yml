@@ -23,8 +23,7 @@ jobs:
     - run: npm ci
     - run: npm run test:coverage
 
- #   - name: Coverage badge
- #     uses: demyanets/angular-coverage-badges-action@v1
- #     with:
- #       coverage-summary-path: coverage/coverage-summary.json
- #       github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
