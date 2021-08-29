@@ -488,6 +488,20 @@ describe('Wollok parser', () => {
           )
       })
 
+      it('should recover from annotated member parse error', () => {
+        'class C {var var1 @A vr var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 18, 28)
+          .into(
+            new Class({
+              name: 'C',
+              members: [
+                new Field({ name: 'var1', isConstant: false }),
+                new Field({ name: 'var3', isConstant: false }),
+              ],
+            })
+          )
+      })
+
       it('should not parse "class" keyword without a body', () => {
         'class'.should.not.be.parsedBy(parser)
       })
