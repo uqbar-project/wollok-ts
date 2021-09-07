@@ -108,16 +108,13 @@ describe('Wollok parser', () => {
 
 
   describe('Files', () => {
+    const parser = parse.File('foo.wlk')
 
     it('should parse empty packages', () => {
-      const parser = parse.File('foo.wlk')
-
-      ''.should.be.parsedBy(parser).into(new Package({ fileName: 'foo.wlk', name:'foo' })).and.be.tracedTo(0, 0)
+      ''.should.be.parsedBy(parser).into(new Package({ fileName: 'foo.wlk', name:'foo' }))
     })
 
     it('should parse non-empty packages', () => {
-      const parser = parse.File('foo.wlk')
-
       'import p import q class C {}'.should.be.parsedBy(parser).into(
         new Package({
           fileName: 'foo.wlk',
@@ -130,8 +127,7 @@ describe('Wollok parser', () => {
             new Class({ name: 'C' }),
           ],
         })
-      ).and.be.tracedTo(0, 28)
-        .and.have.nested.property('imports.0').tracedTo(0, 8)
+      ).and.have.nested.property('imports.0').tracedTo(0, 8)
         .and.also.have.nested.property('imports.1').tracedTo(9, 17)
         .and.also.have.nested.property('members.0').tracedTo(18, 28)
     })
@@ -151,7 +147,19 @@ describe('Wollok parser', () => {
             }),
           ],
         })
-      ).and.have.nested.property('members.0.members.0').tracedTo(0, 0)
+      )
+    })
+
+    it('should parse annotated members', () => {
+      '@A(x = 1) class C {}'.should.be.parsedBy(parser).into(
+        new Package({
+          fileName: 'foo.wlk',
+          name:'foo',
+          members: [
+            new Class({ name: 'C', metadata: [new Annotation('A', { x: 1 })] }),
+          ],
+        })
+      )
     })
 
   })
