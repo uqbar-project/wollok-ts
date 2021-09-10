@@ -111,19 +111,19 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
   )
 
 
-export const File = (fileName: string): Parser<PackageNode> => node(PackageNode)(() =>
+export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
   obj({
     fileName: of(fileName),
     name: of(basename(fileName).split('.')[0]),
     imports: Import.sepBy(_).skip(_),
     members: Entity.sepBy(_),
   }).skip(_)
-).map(filePackage => {
-  const dir = dirname(fileName)
-  return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
-    new PackageNode({ name, members:[entity] })
-  , filePackage)
-})
+    .map(filePackage => {
+      const dir = dirname(fileName)
+      return (dir === '.' ? [] : dir.split('/')).reduceRight((entity, name) =>
+        new PackageNode({ name, members:[entity] })
+      , new PackageNode(filePackage))
+    }))
 
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
