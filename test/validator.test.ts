@@ -19,8 +19,7 @@ describe('Wollok Validations', () => {
 
   const matchesExpectation = (problem: Problem, expected: Annotation) => {
     const code = expected.args.get('code')!
-    const level = expected.args.get('level')
-    return problem.code === code && problem.level === (level ?? problem.level)
+    return problem.code === code
   }
 
   for(const file of files) {
@@ -39,8 +38,13 @@ describe('Wollok Validations', () => {
 
           if(!code) fail('Missing required "code" argument in @Expect annotation')
 
-          if(!problems.some(problem => matchesExpectation(problem, expectedProblem)))
+          const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
+          if(!effectiveProblem)
             fail(`Missing expected ${code} ${level ?? 'problem'} at ${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`)
+
+          if(level && effectiveProblem.level !== level)
+            fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`)
+
         }
 
         for(const problem of problems) {
