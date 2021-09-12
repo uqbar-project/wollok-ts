@@ -142,6 +142,8 @@ abstract class $Node {
 
   isSynthetic(): this is this & { sourceMap: undefined } { return !this.sourceMap }
 
+  hasProblems(): boolean { return !!this.problems && this.problems.length > 0 }
+
   @cached
   sourceFileName(): string | undefined { return this.parent().sourceFileName() }
 

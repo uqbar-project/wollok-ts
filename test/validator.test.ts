@@ -1,3 +1,4 @@
+import { Node } from './../src/model'
 import { Annotation, buildEnvironment } from '../src'
 import globby from 'globby'
 import { readFileSync } from 'fs'
@@ -22,12 +23,20 @@ describe('Wollok Validations', () => {
     return problem.code === code
   }
 
+  const errorLocation = (node: Node): string => `${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`
+
   for(const file of files) {
     const packageName = file.name.split('.')[0]
 
     it(packageName, () => {
       const filePackage = environment.getNodeByFQN(packageName)
+
+      const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems() ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
+      if (nodesWithFileErrors.length > 0)
+        fail(`Problems in file. ${nodesWithFileErrors.map(node => node.problems![0].code + ' at ' + errorLocation(node))}`)
+
       const allProblems = validate(filePackage)
+
       filePackage.forEach(node => {
         const problems = allProblems.filter(_ => _.node === node)
         const expectedProblems = node.metadata.filter(_ => _.name === 'Expect')
@@ -38,18 +47,21 @@ describe('Wollok Validations', () => {
 
           if(!code) fail('Missing required "code" argument in @Expect annotation')
 
+          const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
+          if (errors.length > 0)
+            fail(`File contains errors: ${errors.join(', ')}`)
+
           const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
           if(!effectiveProblem)
-            fail(`Missing expected ${code} ${level ?? 'problem'} at ${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`)
+            fail(`Missing expected ${code} ${level ?? 'problem'} at ${errorLocation(node)}`)
 
           if(level && effectiveProblem.level !== level)
-            fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`)
-
+            fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${errorLocation(node)}`)
         }
 
         for(const problem of problems) {
           if(!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem)))
-            fail(`Unexpected ${problem.code} ${problem.level} at ${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`)
+            fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
         }
       })
     })
