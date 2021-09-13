@@ -1,3 +1,4 @@
+import { List } from './model'
 export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
@@ -57,3 +58,7 @@ export const hash = (str: string): number => {
   }
   return hashValue
 }
+
+export const isEmpty = <T>(value: List<T> | undefined): boolean => !notEmpty(value)
+
+export const notEmpty = <T>(value: List<T> | undefined): boolean => (value?.length ?? 0) > 0
