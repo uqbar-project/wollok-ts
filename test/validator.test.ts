@@ -6,6 +6,7 @@ import { join } from 'path'
 import validate, { Problem } from '../src/validator'
 import { should } from 'chai'
 import { fail } from 'assert'
+import { notEmpty } from '../src/extensions'
 
 const TESTS_PATH = 'language/test/validations'
 
@@ -32,7 +33,7 @@ describe('Wollok Validations', () => {
       const filePackage = environment.getNodeByFQN(packageName)
 
       const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems() ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
-      if (nodesWithFileErrors.length > 0)
+      if (notEmpty(nodesWithFileErrors))
         fail(`Problems in file. ${nodesWithFileErrors.map(node => node.problems![0].code + ' at ' + errorLocation(node))}`)
 
       const allProblems = validate(filePackage)
@@ -48,7 +49,7 @@ describe('Wollok Validations', () => {
           if(!code) fail('Missing required "code" argument in @Expect annotation')
 
           const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
-          if (errors.length > 0)
+          if (notEmpty(errors))
             fail(`File contains errors: ${errors.join(', ')}`)
 
           const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))

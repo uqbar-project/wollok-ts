@@ -57,3 +57,7 @@ export const hash = (str: string): number => {
   }
   return hashValue
 }
+
+export const isEmpty = <T>(value: ConcatArray<T>): boolean => value?.length === 0
+
+export const notEmpty = <T>(value: ConcatArray<T>): boolean => value?.length > 0

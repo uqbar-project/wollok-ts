@@ -21,6 +21,7 @@
 // - Unified problem type
 
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
+import { notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -90,7 +91,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const isNotEmpty = warning<Body>(node =>
-  node.isSynthetic() || node.parent().is('Method') || node.sentences.length > 0
+  node.isSynthetic() || node.parent().is('Method') || notEmpty(node.sentences)
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
@@ -134,7 +135,7 @@ export const onlyLastParameterIsVarArg = error<Method>(node => {
 })
 
 export const hasCatchOrAlways = error<Try>(node =>
-  node.catches.length > 0 || node.always.sentences.length > 0
+  notEmpty(node.catches) || notEmpty(node.always.sentences)
 )
 
 export const hasDistinctSignature = error<Method>(node => {

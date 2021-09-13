@@ -1,5 +1,5 @@
 import { Index } from 'parsimmon'
-import { mapObject, last } from './extensions'
+import { last, mapObject, notEmpty } from './extensions'
 import * as Models from './model'
 
 const { isArray } = Array
@@ -142,7 +142,7 @@ abstract class $Node {
 
   isSynthetic(): this is this & { sourceMap: undefined } { return !this.sourceMap }
 
-  hasProblems(): boolean { return !!this.problems && this.problems.length > 0 }
+  hasProblems(): boolean { return notEmpty(this.problems) }
 
   @cached
   sourceFileName(): string | undefined { return this.parent().sourceFileName() }
