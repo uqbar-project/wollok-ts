@@ -19,9 +19,9 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-
+import { Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { notEmpty } from './extensions'
+import { isEmpty, notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -142,11 +142,12 @@ export const hasDistinctSignature = error<Method>(node => {
   return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
 })
 
-export const methodNotOnlyCallToSuper = warning<Method>(node =>
-  !node.sentences().length || !node.sentences().every(sentence =>
-    sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+export const methodNotOnlyCallToSuper = warning<Method>(node => {
+  const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+  return isEmpty(node.sentences()) || !node.sentences().every(sentence =>
+    callsSuperWithSameArgs(sentence) || sentence.is('Return') && callsSuperWithSameArgs(sentence.value)
   )
-)
+})
 
 export const instantiationIsNotAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
 
