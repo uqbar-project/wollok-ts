@@ -76,7 +76,7 @@ const lang: Natives = {
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
       const values = self.innerCollection!
-      if(isEmpty(values.length)) throw new RangeError('anyOne')
+      if(isEmpty(values)) throw new RangeError('anyOne')
       return values[floor(random() * values.length)]
     },
 
