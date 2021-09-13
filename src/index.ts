@@ -12,7 +12,7 @@ function buildEnvironment(files: List<{ name: string, content: string }>, baseEn
     try {
       return parse.File(name).tryParse(content)
     } catch (error) {
-      throw new Error(`Failed to parse ${name}: ${error.message}`)
+      throw new Error(`Failed to parse ${name}: ${(error as Error).message}`)
     }
   }), baseEnvironment)
 }
