@@ -13,7 +13,7 @@ const TESTS_PATH = 'language/test/validations'
 should()
 
 describe('Wollok Validations', () => {
-  const files = globby.sync('**/*.@(wlk|wtest)', { cwd: TESTS_PATH }).map(name => ({
+  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
     name,
     content: readFileSync(join(TESTS_PATH, name), 'utf8'),
   }))
