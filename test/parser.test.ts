@@ -2635,27 +2635,27 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(16, 17)
         })
 
-		it('should parse try expressions with a catch with fully qualified parameter type', () => {
-			'try x catch e:wollok.lang.E h'.should.be.parsedBy(parser).into(
-			  new Try({
-				body: new Body({ sentences: [new Reference({ name: 'x' })] }),
-				catches: [
-				  new Catch({
-					parameter: new Parameter({ name: 'e' }),
-					parameterType: new Reference({ name: 'wollok.lang.E' }),
-					body: new Body({ sentences: [new Reference({ name: 'h' })] }),
-				  }),
-				],
-			  })
-			).and.be.tracedTo(0, 29)
-			  .and.have.nested.property('body').tracedTo(4, 5)
-			  .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-			  .and.also.have.nested.property('catches.0').tracedTo(6, 29)
-			  .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-			  .and.also.have.nested.property('catches.0.parameterType').tracedTo(14, 27)
-			  .and.also.have.nested.property('catches.0.body').tracedTo(28, 29)
-			  .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(28, 29)
-		  })
+        it('should parse try expressions with a catch with fully qualified parameter type', () => {
+          'try x catch e:wollok.lang.E h'.should.be.parsedBy(parser).into(
+            new Try({
+              body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+              catches: [
+                new Catch({
+                  parameter: new Parameter({ name: 'e' }),
+                  parameterType: new Reference({ name: 'wollok.lang.E' }),
+                  body: new Body({ sentences: [new Reference({ name: 'h' })] }),
+                }),
+              ],
+            })
+          ).and.be.tracedTo(0, 29)
+            .and.have.nested.property('body').tracedTo(4, 5)
+            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+            .and.also.have.nested.property('catches.0').tracedTo(6, 29)
+            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
+            .and.also.have.nested.property('catches.0.parameterType').tracedTo(14, 27)
+            .and.also.have.nested.property('catches.0.body').tracedTo(28, 29)
+            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(28, 29)
+        })
 
         it('should parse try expressions with a "then always" body', () => {
           'try x then always a'.should.be.parsedBy(parser).into(
