@@ -13,7 +13,7 @@ const TESTS_PATH = 'language/test/validations'
 should()
 
 describe('Wollok Validations', () => {
-  const files = globby.sync('**/*.@(wlk|wtest)', { cwd: TESTS_PATH }).map(name => ({
+  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
     name,
     content: readFileSync(join(TESTS_PATH, name), 'utf8'),
   }))
@@ -50,7 +50,7 @@ describe('Wollok Validations', () => {
 
           const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
           if (notEmpty(errors))
-            fail(`File contains errors: ${errors.join(', ')}`)
+            fail(`File contains errors: ${errors.map((_) => _.code).join(', ')}`)
 
           const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
           if(!effectiveProblem)

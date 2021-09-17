@@ -157,7 +157,7 @@ export const noIdentityDeclaration = error<Field | Variable>(node => !node.value
 
 export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return node.message !== '==' || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
+  return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
