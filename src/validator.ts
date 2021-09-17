@@ -165,19 +165,19 @@ export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
-  Parameter: { nameBeginsWithLowercase },
+  Parameter: { nameBeginsWithLowercase, nameIsNotKeyword },
   ParameterizedType: {},
   NamedArgument: {},
   Import: {},
   Body: { isNotEmpty },
   Catch: {},
   Package: {},
-  Program: { },
+  Program: { nameIsNotKeyword },
   Test: { },
   Class: { nameBeginsWithUppercase, nameIsNotKeyword },
   Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
   Mixin: { nameBeginsWithUppercase },
-  Field: { nameBeginsWithLowercase, noIdentityDeclaration },
+  Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
   Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
   Return: {  },
