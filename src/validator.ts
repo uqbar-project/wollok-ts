@@ -153,6 +153,8 @@ export const instantiationIsNotAbstractClass = error<New>(node => !node.instanti
 
 export const noIdentityAssignment = error<Assignment>(node => !node.value.is('Reference') || node.value.target() !== node.variable.target())
 
+export const notReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
+
 export const noIdentityDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
 
 export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
@@ -181,7 +183,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
   Return: {  },
-  Assignment: { notAssignToItself: noIdentityAssignment },
+  Assignment: { notAssignToItself: noIdentityAssignment, notReassignConst },
   Reference: { },
   Self: { isNotWithinProgram: isNotWithin('Program') },
   New: { instantiationIsNotAbstractClass },
