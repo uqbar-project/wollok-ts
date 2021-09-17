@@ -1,4 +1,4 @@
-import { hash } from '../extensions'
+import { isEmpty, hash } from '../extensions'
 import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, List, Node } from '../model'
 
@@ -76,7 +76,7 @@ const lang: Natives = {
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
       const values = self.innerCollection!
-      if(values.length === 0) throw new RangeError('anyOne')
+      if(isEmpty(values)) throw new RangeError('anyOne')
       return values[floor(random() * values.length)]
     },
 

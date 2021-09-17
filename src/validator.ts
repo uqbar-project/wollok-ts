@@ -19,8 +19,9 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-
+import { Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
+import { isEmpty, notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -90,7 +91,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const isNotEmpty = warning<Body>(node =>
-  node.isSynthetic() || node.parent().is('Method') || node.sentences.length > 0
+  node.isSynthetic() || node.parent().is('Method') || notEmpty(node.sentences)
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
@@ -134,18 +135,19 @@ export const onlyLastParameterIsVarArg = error<Method>(node => {
 })
 
 export const hasCatchOrAlways = error<Try>(node =>
-  node.catches.length > 0 || node.always.sentences.length > 0
+  notEmpty(node.catches) || notEmpty(node.always.sentences)
 )
 
 export const hasDistinctSignature = error<Method>(node => {
   return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
 })
 
-export const methodNotOnlyCallToSuper = warning<Method>(node =>
-  !node.sentences().length || !node.sentences().every(sentence =>
-    sentence.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+export const methodNotOnlyCallToSuper = warning<Method>(node => {
+  const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
+  return isEmpty(node.sentences()) || !node.sentences().every(sentence =>
+    callsSuperWithSameArgs(sentence) || sentence.is('Return') && callsSuperWithSameArgs(sentence.value)
   )
-)
+})
 
 export const instantiationIsNotAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
 
@@ -155,7 +157,7 @@ export const noIdentityDeclaration = error<Field | Variable>(node => !node.value
 
 export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return node.message !== '==' || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
+  return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
