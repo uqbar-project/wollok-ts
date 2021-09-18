@@ -22,11 +22,20 @@ export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: Ru
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class WollokReturn extends Error {
-  constructor(readonly instance?: RuntimeObject){
-    super()
-    this.name = this.constructor.name
-    this.message = 'Unhandled return on empty stack'
+  private static instance = new WollokReturn()
+
+  static of(instance?: RuntimeObject): WollokReturn {
+    WollokReturn.instance._instance = instance
+    WollokReturn.instance.name = this.name
+    WollokReturn.instance.message = 'Unhandled return on empty stack'
+    return WollokReturn.instance
   }
+
+  private _instance?: RuntimeObject
+
+  get instance(): RuntimeObject | undefined { return this._instance }
+
+  private constructor() { super() }
 }
 
 export class WollokException extends Error {
@@ -418,7 +427,7 @@ export class Evaluation {
   protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
     yield node
-    throw new WollokReturn(value)
+    throw WollokReturn.of(value)
   }
 
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
