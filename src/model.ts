@@ -521,6 +521,15 @@ export class Class extends $Module {
     const abstractMethods = this.hierarchy().flatMap(module => module.methods().filter(method => method.isAbstract()))
     return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
+
+  hasCyclicHierarchy(): boolean {
+    return this.internalHasCyclicHierarchy([])
+  }
+
+  internalHasCyclicHierarchy(classes: Class[]): boolean {
+    const superclass = this.superclass()
+    return classes.includes(this) || !!superclass && superclass.internalHasCyclicHierarchy([...classes, this])
+  }
 }
 
 
