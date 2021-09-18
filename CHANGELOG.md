@@ -5,6 +5,7 @@
 - Lazy operators are now handled in runtime instead of being filled in the parser.
 - Anonymous Singleton expressions are no longer container within a Literal node.
 - Fixed bug where imports would resolve on local definitions.
+- Fixed bug where methods with bodies would return the last expression, even without a `return` clause.
 
 ## v3.0.6
 - Updated to official Wollok Language 3.0.3 version. 
