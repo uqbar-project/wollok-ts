@@ -126,9 +126,10 @@ export class Frame extends Context {
     })
   }
 
+  // TODO: On error report, this tells the node line, but not the actual error line.
+  //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    // TODO: Make singleton an expression and avoid the literal here
-    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined)
+    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.parent().sourceMap : undefined)
     return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
   }
 
@@ -377,7 +378,8 @@ export class Evaluation {
       return (yield* native.call(this, this.currentFrame.get('self')!, ...args)) ?? undefined
     } else if(node.isConcrete()) {
       try {
-        return yield* this.exec(node.body!)
+        yield* this.exec(node.body!)
+        return
       } catch(error) {
         if(error instanceof WollokReturn) return error.instance
         else throw error

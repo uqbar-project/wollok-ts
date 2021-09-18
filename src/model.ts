@@ -381,9 +381,9 @@ export class Variable extends $Entity {
     return this.parent().is('Package') ? this.fullyQualifiedName() : this.name
   }
 
-  // TODO: Can we prevent repeating this here?
+  // TODO: Maybe use mixins to avoid these ugly redefinitions
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return [this.kind, 'Node', 'Sentence', 'Entity'].includes(kindOrCategory)
+    return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
   }
 }
 
@@ -410,7 +410,7 @@ abstract class $Module extends $Entity {
         name,
         isOverride: false,
         parameters: [],
-        body: new Body({ sentences: [new Reference({ name })] }),
+        body: new Body({ sentences: [new Return({ value: new Reference({ name }) })] }),
       }))
 
     const propertySetters = properties
@@ -532,6 +532,10 @@ export class Singleton extends $Module {
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Singleton>) {
     super({ supertypes, members, ...payload })
+  }
+
+  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
+    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
   }
 
   superclass(): Class {
@@ -671,9 +675,9 @@ export type Expression
   | Try
   | Singleton
 
-abstract class $Expression extends $Node {
+abstract class $Expression extends $Sentence {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Expression' || kindOrCategory === 'Sentence' || super.is(kindOrCategory)
+    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
   }
 }
 
@@ -796,17 +800,21 @@ type ClosurePayload = {
   metadata?: List<Annotation>
 }
 
-export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton =>
-  new Singleton({
+export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
+  const initialSentences = sentences?.slice(0, -1) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is('Expression') ? new Return({ value }) : value) ?? []
+
+  return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
     members: [
-      new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
+      new Method({ name: '<apply>', parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
         new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
       ] : [],
     ],
     ...payload,
   })
+}
 
 export class Environment extends $Node {
   readonly kind = 'Environment'
