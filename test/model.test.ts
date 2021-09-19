@@ -104,41 +104,6 @@ describe('Wollok model', () => {
 
     })
 
-    describe('notCyclicHierarchy', () => {
-
-      afterEach(restore)
-
-      it('should return true for classes with cyclic hierarchy', () => {
-        const c1 = new Class({ name: 'C1', supertypes: [], members: [], id: 'c1' })
-        const c2 = new Class({ name: 'C2', supertypes: [], members: [], id: 'c2' })
-        stub(c1, 'superclass').returns(c2)
-        stub(c2, 'superclass').returns(c1)
-        c1.hasCyclicHierarchy().should.be.true
-      })
-
-      it('should return true for classes pointing to itself', () => {
-        const c1 = new Class({ name: 'C1', supertypes: [], members: [], id: 'c1' })
-        stub(c1, 'superclass').returns(c1)
-        c1.hasCyclicHierarchy().should.be.true
-      })
-
-      it('should return false for classes with no superclass', () => {
-        const c = new Class({ name: 'C', supertypes: [], members: [], id: 'c' })
-        stub(c, 'superclass').returns(undefined)
-        c.hasCyclicHierarchy().should.be.false
-      })
-
-      it('should return false for classes with a well-formed hierarchy', () => {
-        const c1 = new Class({ name: 'C1', supertypes: [], members: [], id: 'c1' })
-        stub(c1, 'superclass').returns(undefined)
-        const c2 = new Class({ name: 'C2', supertypes: [], members: [], id: 'c2' })
-        stub(c2, 'superclass').returns(c1)
-        const c3 = new Class({ name: 'C3', supertypes: [], members: [], id: 'c2' })
-        stub(c3, 'superclass').returns(c2)
-        c3.hasCyclicHierarchy().should.be.false
-      })
-
-    })
   })
 
 })

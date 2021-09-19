@@ -19,6 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
+import { Module } from './model'
 import { Class, Mixin, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
@@ -155,7 +156,7 @@ export const noIdentityAssignment = error<Assignment>(node => !node.value.is('Re
 
 export const notReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
 
-export const notCyclicHierarchy = error<Class>(node => !node.hasCyclicHierarchy())
+export const notCyclicHierarchy = error<Class | Mixin>(node => !hasCyclicHierarchy(node))
 
 export const noIdentityDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
 
@@ -163,6 +164,10 @@ export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
   return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
 })
+
+export const hasCyclicHierarchy = (module: Module): boolean => {
+  return module.supertypes.some(supertype => supertype.reference.target()?.hierarchy().includes(module))
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
@@ -180,7 +185,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Test: { },
   Class: { nameBeginsWithUppercase, nameIsNotKeyword, notCyclicHierarchy },
   Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
-  Mixin: { nameBeginsWithUppercase },
+  Mixin: { nameBeginsWithUppercase, notCyclicHierarchy },
   Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
   Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
