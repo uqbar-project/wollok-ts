@@ -451,16 +451,22 @@ abstract class $Module extends $Entity {
 
   @cached
   hierarchy(this: Module): List<Module> {
-    const hierarchyExcluding = (node: Module, exclude: List<Id> = []): List<Module> => {
-      if (exclude.includes(node.id!)) return []
+    const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
+      if (exclude.includes(node)) return []
+
       const modules = [
         ...node.mixins(),
         ...!node.superclass() ? [] : [node.superclass()!],
       ]
-      return modules.reduce<[List<Module>, List<Id>]>(([hierarchy, excluded], module) => [
-        [...hierarchy, ...hierarchyExcluding(module, excluded)],
-        [module.id, ...excluded],
-      ], [[node], [node.id, ...exclude]])[0]
+
+      return modules.reduce<[List<Module>, List<Module>]>(([hierarchy, excluded], module) => {
+        const inheritedHierarchy = hierarchyExcluding(module, excluded)
+        const filteredHierarchy = hierarchy.filter(node => !inheritedHierarchy.includes(node))
+        return [
+          [...filteredHierarchy, ...inheritedHierarchy],
+          [module, ...excluded],
+        ]
+      }, [[node], [node, ...exclude]])[0]
     }
 
     return hierarchyExcluding(this)
