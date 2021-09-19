@@ -165,9 +165,8 @@ export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
   return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
 })
 
-export const hasCyclicHierarchy = (module: Module): boolean => {
-  return module.supertypes.some(supertype => supertype.reference.target()?.hierarchy().includes(module))
-}
+export const hasCyclicHierarchy = (module: Module): boolean =>
+  module.supertypes.some(supertype => supertype.reference.target()?.hierarchy().includes(module))
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
