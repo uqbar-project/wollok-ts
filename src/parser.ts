@@ -174,7 +174,6 @@ const inlineableBody: Parser<BodyNode> = Body.or(
   )
 )
 
-
 const parameters: Parser<List<ParameterNode>> = lazy(() =>
   Parameter.sepBy(key(',')).wrap(key('('), key(')')))
 
@@ -304,7 +303,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
     parameters,
     body: alt(
       key('=').then(Expression.map(value => new BodyNode({
-        sentences: [value],
+        sentences: [new ReturnNode({ value })],
         sourceMap: value.sourceMap,
       }))),
 
@@ -452,7 +451,7 @@ export const Try: Parser<TryNode> = node(TryNode)(() =>
 export const Catch: Parser<CatchNode> = node(CatchNode)(() =>
   key('catch').then(obj({
     parameter: Parameter,
-    parameterType: optional(key(':').then(Reference)),
+    parameterType: optional(key(':').then(FullyQualifiedReference)),
     body: inlineableBody,
   }))
 )

@@ -22,11 +22,20 @@ export type NativeFunction = (this: Evaluation, self: RuntimeObject, ...args: Ru
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export class WollokReturn extends Error {
-  constructor(readonly instance?: RuntimeObject){
-    super()
-    this.name = this.constructor.name
-    this.message = 'Unhandled return on empty stack'
+  private static instance = new WollokReturn()
+
+  static of(instance?: RuntimeObject): WollokReturn {
+    WollokReturn.instance._instance = instance
+    WollokReturn.instance.name = this.name
+    WollokReturn.instance.message = 'Unhandled return on empty stack'
+    return WollokReturn.instance
   }
+
+  private _instance?: RuntimeObject
+
+  get instance(): RuntimeObject | undefined { return this._instance }
+
+  private constructor() { super() }
 }
 
 export class WollokException extends Error {
@@ -126,9 +135,10 @@ export class Frame extends Context {
     })
   }
 
+  // TODO: On error report, this tells the node line, but not the actual error line.
+  //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    // TODO: Make singleton an expression and avoid the literal here
-    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.ancestors().find(is('Literal'))?.sourceMap : undefined)
+    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.parent().sourceMap : undefined)
     return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
   }
 
@@ -377,7 +387,8 @@ export class Evaluation {
       return (yield* native.call(this, this.currentFrame.get('self')!, ...args)) ?? undefined
     } else if(node.isConcrete()) {
       try {
-        return yield* this.exec(node.body!)
+        yield* this.exec(node.body!)
+        return
       } catch(error) {
         if(error instanceof WollokReturn) return error.instance
         else throw error
@@ -416,7 +427,7 @@ export class Evaluation {
   protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
     yield node
-    throw new WollokReturn(value)
+    throw WollokReturn.of(value)
   }
 
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
