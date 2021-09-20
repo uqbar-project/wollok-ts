@@ -171,8 +171,22 @@ export const selfAndNotSingletonReference = warning<Send>(node => {
 
 export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
-export const hasCyclicHierarchy = (module: Module): boolean =>
-  module.supertypes.some(supertype => supertype.reference.target()?.hierarchy().includes(module))
+export const shouldUseOverrideKeyword = warning<Method>(node => {
+  return node.isOverride || !allInheritedMethods(node.parent()).some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
+})
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS (WE MAY WANT TO EXPORT THEM OR MOVE TO THE CORRESPONDING MODEL)
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const hasCyclicHierarchy = (module: Module): boolean =>
+  allSuperclasses(module).some(supertype => supertype === module)
+
+const allSuperclasses = (module: Module): List<Module> =>
+  module.supertypes.flatMap(supertype => supertype.reference.target()!.hierarchy())
+
+const allInheritedMethods = (module: Module): List<Method> =>
+  allSuperclasses(module).flatMap(_ => _.methods())
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
@@ -192,7 +206,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
   Mixin: { nameBeginsWithUppercase, notCyclicHierarchy, inheritingFromMixin },
   Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
-  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
+  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper, shouldUseOverrideKeyword },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
   Return: {  },
   Assignment: { notAssignToItself: noIdentityAssignment, notReassignConst },
