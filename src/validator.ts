@@ -169,6 +169,8 @@ export const selfAndNotSingletonReference = warning<Send>(node => {
   return !receiver.is('Reference') || !receiver.ancestors().includes(receiver.target() as Node)
 })
 
+export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
+
 export const hasCyclicHierarchy = (module: Module): boolean =>
   module.supertypes.some(supertype => supertype.reference.target()?.hierarchy().includes(module))
 
@@ -188,7 +190,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Test: { },
   Class: { nameBeginsWithUppercase, nameIsNotKeyword, notCyclicHierarchy },
   Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
-  Mixin: { nameBeginsWithUppercase, notCyclicHierarchy },
+  Mixin: { nameBeginsWithUppercase, notCyclicHierarchy, inheritingFromMixin },
   Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
   Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
