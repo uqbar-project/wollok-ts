@@ -43,7 +43,7 @@ export class WollokException extends Error {
     try {
       const fullTrace: string = new Interpreter(this.evaluation).send('getStackTraceAsString', this.instance)!.innerString!
       return fullTrace.slice(fullTrace.indexOf('\n') + 1).trimEnd()
-    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error.stack}` }
+    } catch (error) { return `Could not retrieve Wollok stack due to error: ${error instanceof Error ? error.stack : error}` }
   }
 
   get message(): string {
@@ -351,10 +351,11 @@ export class Evaluation {
       }
     } catch(error) {
       if(error instanceof WollokException || error instanceof WollokReturn) throw error
+
       const moduleFQN = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
         ? 'wollok.lang.StackOverflowException'
         : 'wollok.lang.EvaluationError'
-      const exceptionInstance = new WollokException(this, yield* this.error(moduleFQN, {}, error))
+      const exceptionInstance = new WollokException(this, yield* this.error(moduleFQN, {}, error as Error))
       throw exceptionInstance
     }
     finally { if(frame) this.frameStack.pop() }
@@ -526,11 +527,16 @@ export class Evaluation {
     } catch(error) {
       if(!(error instanceof WollokException)) throw error
 
-      const handler = node.catches.find(catcher => error.instance.module.inherits(catcher.parameterType.target()))
+      const errorType = error.instance.module
+      const handler = node.catches.find(catcher => {
+        const handledType = catcher.parameterType.target()
+        return handledType && errorType.inherits(handledType)
+      })
 
       if(handler) {
         result = yield* this.exec(handler.body, new Frame(handler, this.currentFrame, { [handler.parameter.name]: error.instance }))
       } else throw error
+
     } finally {
       yield* this.exec(node.always, new Frame(node, this.currentFrame))
     }
