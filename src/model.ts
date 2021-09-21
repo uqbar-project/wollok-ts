@@ -499,6 +499,10 @@ abstract class $Module extends $Entity {
       , field.value),
     ]))
   }
+
+  get objectClass(): Class {
+    return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+  }
 }
 
 
@@ -517,7 +521,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+      const objectClass = this.objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -527,7 +531,6 @@ export class Class extends $Module {
     const abstractMethods = this.hierarchy().flatMap(module => module.methods().filter(method => method.isAbstract()))
     return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
-
 }
 
 
@@ -548,7 +551,7 @@ export class Singleton extends $Module {
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+    else return this.objectClass
   }
 
   isClosure(parametersCount = 0): boolean {
