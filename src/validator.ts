@@ -166,7 +166,7 @@ export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
 
 export const selfAndNotSingletonReference = warning<Send>(node => {
   const receiver = node.receiver
-  return !receiver.is('Reference') || !receiver.ancestors().includes(receiver.target() as Node)
+  return !receiver.is('Reference') || !receiver.ancestors().includes(receiver.target()!)
 })
 
 export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
@@ -177,7 +177,7 @@ export const shouldUseOverrideKeyword = warning<Method>(node => {
 
 export const possiblyReturningBlock = warning<Method>(node => {
   const singleSentence = node.sentences()[0]
-  return !(node.sentences().length === 1 && singleSentence!.isSynthetic() && singleSentence!.is('Return') && singleSentence!.value!.is('Singleton') && singleSentence.value.isClosure())
+  return !(node.sentences().length === 1 && singleSentence.isSynthetic() && singleSentence.is('Return') && singleSentence.value?.is('Singleton') && singleSentence.value.isClosure())
 })
 
 export const doesntOverride = error<Method>(node => {
@@ -189,10 +189,10 @@ export const doesntOverride = error<Method>(node => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const hasCyclicHierarchy = (module: Module): boolean =>
-  allSuperclasses(module).some(supertype => supertype === module)
+  allSuperclasses(module).includes(module)
 
 const allSuperclasses = (module: Module, baseClasses: Class[] = []): List<Module> =>
-  module.supertypes.map(supertype => supertype.reference.target()).concat(baseClasses).flatMap(supertype => supertype!.hierarchy())
+  module.supertypes.map(supertype => supertype.reference.target()).concat(baseClasses).flatMap(supertype => supertype?.hierarchy() ?? [])
 
 const allInheritedMethods = (module: Module): List<Method> =>
   allSuperclasses(module, [module.objectClass]).flatMap(_ => _.methods())
