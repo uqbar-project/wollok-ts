@@ -551,6 +551,9 @@ export class Singleton extends $Module {
     else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
   }
 
+  isClosure(parametersCount = 0): boolean {
+    return this.methods().some(method => method.name === '<apply>' && method.parameters.length === parametersCount)
+  }
 }
 
 

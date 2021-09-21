@@ -175,6 +175,11 @@ export const shouldUseOverrideKeyword = warning<Method>(node => {
   return node.isOverride || !allInheritedMethods(node.parent()).some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
 })
 
+export const possiblyReturningBlock = warning<Method>(node => {
+  const singleSentence = node.sentences()[0]
+  return !(node.sentences().length === 1 && singleSentence!.isSynthetic() && singleSentence!.is('Return') && singleSentence!.value!.is('Singleton') && singleSentence.value.isClosure())
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS (WE MAY WANT TO EXPORT THEM OR MOVE TO THE CORRESPONDING MODEL)
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -206,7 +211,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
   Mixin: { nameBeginsWithUppercase, notCyclicHierarchy, inheritingFromMixin },
   Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
-  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper, shouldUseOverrideKeyword },
+  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock },
   Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
   Return: {  },
   Assignment: { notAssignToItself: noIdentityAssignment, notReassignConst },
