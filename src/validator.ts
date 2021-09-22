@@ -172,7 +172,7 @@ export const selfAndNotSingletonReference = warning<Send>(node => {
 export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
 export const shouldUseOverrideKeyword = warning<Method>(node => {
-  return node.isOverride || !allInheritedMethods(node.parent()).some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
+  return node.isOverride || !node.parent().allInheritedMethods().some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
 })
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -180,22 +180,15 @@ export const possiblyReturningBlock = warning<Method>(node => {
   return !(node.sentences().length === 1 && singleSentence.isSynthetic() && singleSentence.is('Return') && singleSentence.value?.is('Singleton') && singleSentence.value.isClosure())
 })
 
-export const doesntOverride = error<Method>(node => {
-  return !(node.isOverride && !allInheritedMethods(node.parent()).some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length)))
-})
+export const doesntOverride = error<Method>(node =>
+  !node.isOverride || node.parent().allInheritedMethods().some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
+)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS (WE MAY WANT TO EXPORT THEM OR MOVE TO THE CORRESPONDING MODEL)
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const hasCyclicHierarchy = (module: Module): boolean =>
-  allSuperclasses(module).includes(module)
-
-const allSuperclasses = (module: Module, baseClasses: Class[] = []): List<Module> =>
-  module.supertypes.map(supertype => supertype.reference.target()).concat(baseClasses).flatMap(supertype => supertype?.hierarchy() ?? [])
-
-const allInheritedMethods = (module: Module): List<Method> =>
-  allSuperclasses(module, [module.objectClass]).flatMap(_ => _.methods())
+const hasCyclicHierarchy = (module: Module): boolean => module.allParents().includes(module)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND

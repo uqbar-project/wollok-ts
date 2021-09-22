@@ -446,6 +446,14 @@ abstract class $Module extends $Entity {
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
 
+  allInheritedMethods(): List<Method> {
+    return this.allParents([this.environment().objectClass]).flatMap(_ => _.methods())
+  }
+
+  allParents(baseClasses: List<Class> = []): List<Module> {
+    return this.supertypes.map(supertype => supertype.reference.target()).concat(baseClasses).flatMap(supertype => supertype?.hierarchy() ?? [])
+  }
+
   @cached
   runtimeName(this: Module): string { return this.fullyQualifiedName() }
 
@@ -499,10 +507,6 @@ abstract class $Module extends $Entity {
       , field.value),
     ]))
   }
-
-  get objectClass(): Class {
-    return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
-  }
 }
 
 
@@ -521,7 +525,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.objectClass
+      const objectClass = this.environment().objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -551,7 +555,7 @@ export class Singleton extends $Module {
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.objectClass
+    else return this.environment().objectClass
   }
 
   isClosure(parametersCount = 0): boolean {
@@ -852,4 +856,7 @@ export class Environment extends $Node {
     return node
   }
 
+  get objectClass(): Class {
+    return this.getNodeByFQN<Class>('wollok.lang.Object')
+  }
 }
