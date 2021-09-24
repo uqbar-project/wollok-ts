@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, Sentence } from './model'
+import { Class, Mixin, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -90,7 +90,7 @@ const error = problem('error')
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export const isNotEmpty = warning<Body>(node =>
+export const shouldNotBeEmpty = warning<Body>(node =>
   node.isSynthetic() || node.parent().is('Method') || notEmpty(node.sentences)
 )
 
@@ -116,60 +116,64 @@ export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | 
     }
   )
 
-export const nameBeginsWithUppercase = nameMatches(/^[A-Z]/)
+export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
 
-export const nameBeginsWithLowercase = nameMatches(/^[a-z_<]/)
+export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
-export const nameIsNotKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
+export const nameShouldBeNotKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
   !KEYWORDS.includes(node.name || ''),
 node => [node.name || ''],
 )
 
-export const singletonIsUnnamedIffIsLiteral = error<Singleton>(
-  singleton => singleton.parent().is('Package') === !!singleton.name,
+export const inlineSingletonShouldBeAnonymous = error<Singleton>(
+  singleton => singleton.parent().is('Package') || !singleton.name
 )
 
-export const onlyLastParameterIsVarArg = error<Method>(node => {
+export const topLevelSingletonShouldHaveAName = error<Singleton>(
+  singleton => !singleton.parent().is('Package') || !!singleton.name
+)
+
+export const onlyLastParameterCanBeVarArg = error<Method>(node => {
   const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
   return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
 })
 
-export const hasCatchOrAlways = error<Try>(node =>
+export const shouldHaveCatchOrAlways = error<Try>(node =>
   notEmpty(node.catches) || notEmpty(node.always.sentences)
 )
 
-export const hasDistinctSignature = error<Method>(node => {
+export const methodShouldHaveDifferentSignature = error<Method>(node => {
   return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
 })
 
-export const methodNotOnlyCallToSuper = warning<Method>(node => {
+export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is('Super') && sentence.args.every((arg, index) => arg.is('Reference') && arg.target() === node.parameters[index])
   return isEmpty(node.sentences()) || !node.sentences().every(sentence =>
     callsSuperWithSameArgs(sentence) || sentence.is('Return') && callsSuperWithSameArgs(sentence.value)
   )
 })
 
-export const instantiationIsNotAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
+export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
 
-export const noIdentityAssignment = error<Assignment>(node => !node.value.is('Reference') || node.value.target() !== node.variable.target())
+export const shouldNotAssignToItself = error<Assignment>(node => !node.value.is('Reference') || node.value.target() !== node.variable.target())
 
-export const notReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
+export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
 
-export const notCyclicHierarchy = error<Class | Mixin>(node => !hasCyclicHierarchy(node))
+export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !node.allParents().includes(node))
 
-export const noIdentityDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
+export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
 
-export const dontCheckEqualityAgainstBooleanLiterals = warning<Send>(node => {
+export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
   return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
 })
 
-export const selfAndNotSingletonReference = warning<Send>(node => {
+export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
   const receiver = node.receiver
   return !receiver.is('Reference') || !receiver.ancestors().includes(receiver.target()!)
 })
 
-export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
+export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
   node.isOverride || !node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
@@ -180,47 +184,41 @@ export const possiblyReturningBlock = warning<Method>(node => {
   return !(node.sentences().length === 1 && singleSentence.isSynthetic() && singleSentence.is('Return') && singleSentence.value?.is('Singleton') && singleSentence.value.isClosure())
 })
 
-export const doesntOverride = error<Method>(node =>
+export const shouldNotUseOverride = error<Method>(node =>
   !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
 )
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS (WE MAY WANT TO EXPORT THEM OR MOVE TO THE CORRESPONDING MODEL)
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const hasCyclicHierarchy = (module: Module): boolean => module.allParents().includes(module)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
-  Parameter: { nameBeginsWithLowercase, nameIsNotKeyword },
+  Parameter: { nameShouldBeginWithLowercase, nameShouldBeNotKeyword },
   ParameterizedType: {},
   NamedArgument: {},
   Import: {},
-  Body: { isNotEmpty },
+  Body: { shouldNotBeEmpty },
   Catch: {},
   Package: {},
-  Program: { nameIsNotKeyword },
+  Program: { nameShouldBeNotKeyword },
   Test: { },
-  Class: { nameBeginsWithUppercase, nameIsNotKeyword, notCyclicHierarchy },
-  Singleton: { nameBeginsWithLowercase, singletonIsUnnamedIffIsLiteral, nameIsNotKeyword },
-  Mixin: { nameBeginsWithUppercase, notCyclicHierarchy, inheritingFromMixin },
-  Field: { nameBeginsWithLowercase, noIdentityDeclaration, nameIsNotKeyword },
-  Method: { onlyLastParameterIsVarArg, nameIsNotKeyword, hasDistinctSignature, methodNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, doesntOverride },
-  Variable: { nameBeginsWithLowercase, nameIsNotKeyword, noIdentityDeclaration },
+  Class: { nameShouldBeginWithUppercase, nameShouldBeNotKeyword, shouldNotHaveLoopInHierarchy },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldBeNotKeyword },
+  Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
+  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldBeNotKeyword },
+  Method: { onlyLastParameterCanBeVarArg, nameShouldBeNotKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
+  Variable: { nameShouldBeginWithLowercase, nameShouldBeNotKeyword, shouldNotAssignToItselfInDeclaration },
   Return: {  },
-  Assignment: { notAssignToItself: noIdentityAssignment, notReassignConst },
+  Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
-  Self: { isNotWithinProgram: isNotWithin('Program') },
-  New: { instantiationIsNotAbstractClass },
+  Self: { shouldNotUseSelf: isNotWithin('Program') },
+  New: { shouldNotInstantiateAbstractClass },
   Literal: {},
-  Send: { dontCheckEqualityAgainstBooleanLiterals, selfAndNotSingletonReference },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
   Super: {  },
   If: {},
   Throw: {},
-  Try: { hasCatchOrAlways },
+  Try: { shouldHaveCatchOrAlways },
   Environment: {},
   Describe: {},
 }
