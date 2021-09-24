@@ -172,7 +172,7 @@ export const selfAndNotSingletonReference = warning<Send>(node => {
 export const inheritingFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !node.parent().allInheritedMethods().some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
+  node.isOverride || !node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {

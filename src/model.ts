@@ -446,10 +446,6 @@ abstract class $Module extends $Entity {
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
 
-  allInheritedMethods(): List<Method> {
-    return this.allParents().concat([this.environment().objectClass]).flatMap(_ => _.methods())
-  }
-
   allParents(): List<Module> {
     return this.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
   }
