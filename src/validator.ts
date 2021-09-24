@@ -181,7 +181,7 @@ export const possiblyReturningBlock = warning<Method>(node => {
 })
 
 export const doesntOverride = error<Method>(node =>
-  !node.isOverride || node.parent().allInheritedMethods().some(parentMethod => parentMethod !== node && parentMethod.matchesSignature(node.name, node.parameters.length))
+  !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
 )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

@@ -447,11 +447,11 @@ abstract class $Module extends $Entity {
   fields(): List<Field> { return this.members.filter(is('Field')) }
 
   allInheritedMethods(): List<Method> {
-    return this.allParents([this.environment().objectClass]).flatMap(_ => _.methods())
+    return this.allParents().concat([this.environment().objectClass]).flatMap(_ => _.methods())
   }
 
-  allParents(baseClasses: List<Class> = []): List<Module> {
-    return this.supertypes.map(supertype => supertype.reference.target()).concat(baseClasses).flatMap(supertype => supertype?.hierarchy() ?? [])
+  allParents(): List<Module> {
+    return this.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
   }
 
   @cached
@@ -485,11 +485,11 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  lookupMethod(this: Module, name: Name, arity: number, lookupStartFQN?: Name): Method | undefined {
+  lookupMethod(this: Module, name: Name, arity: number, lookupStartFQN?: Name, allowAbstractMethods = false): Method | undefined {
     let startReached = !lookupStartFQN
     for (const module of this.hierarchy()) {
       if (startReached) {
-        const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
+        const found = module.methods().find(member => (allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
         if (found) return found
       }
       if (module.fullyQualifiedName() === lookupStartFQN) startReached = true
