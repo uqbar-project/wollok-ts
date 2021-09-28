@@ -446,10 +446,6 @@ abstract class $Module extends $Entity {
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
 
-  allParents(): List<Module> {
-    return this.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
-  }
-
   @cached
   runtimeName(this: Module): string { return this.fullyQualifiedName() }
 

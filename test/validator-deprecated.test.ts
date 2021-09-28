@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { buildEnvironment } from '../src'
-import validate, { shouldNotBeEmpty, shouldNotCompareAgainstBooleanLiterals, shouldHaveCatchOrAlways, isNotWithin, methodShouldHaveDifferentSignature, shouldNotInstantiateAbstractClass, shouldNotOnlyCallToSuper, nameShouldBeginWithLowercase, nameShouldBeginWithUppercase, nameShouldBeNotKeyword, shouldNotAssignToItself, shouldNotAssignToItselfInDeclaration, onlyLastParameterCanBeVarArg, topLevelSingletonShouldHaveAName } from '../src/validator'
+import validate, { shouldNotBeEmpty, shouldNotCompareAgainstBooleanLiterals, shouldHaveCatchOrAlways, isNotWithin, methodShouldHaveDifferentSignature, shouldNotInstantiateAbstractClass, shouldNotOnlyCallToSuper, nameShouldBeginWithLowercase, nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotAssignToItself, shouldNotAssignToItselfInDeclaration, onlyLastParameterCanBeVarArg, topLevelSingletonShouldHaveAName } from '../src/validator'
 import link from '../src/linker'
 import { Assignment,
   Body,
@@ -116,11 +116,11 @@ describe('Wollok Validator', () => {
       const referenceWithValidName = classExample2.supertypes[0].reference
 
       it('should pass when name is not a keyword', () => {
-        referenceWithValidName.should.pass(nameShouldBeNotKeyword)
+        referenceWithValidName.should.pass(nameShouldNotBeKeyword)
       })
 
       it('should not pass when name is a keyword', () => {
-        referenceWithKeywordName.should.not.pass(nameShouldBeNotKeyword)
+        referenceWithKeywordName.should.not.pass(nameShouldNotBeKeyword)
       })
     })
   })

@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Sentence } from './model'
+import { Class, Mixin, Module, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -120,7 +120,7 @@ export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
 
 export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
-export const nameShouldBeNotKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
+export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
   !KEYWORDS.includes(node.name || ''),
 node => [node.name || ''],
 )
@@ -159,7 +159,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => !node.value.is(
 
 export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
 
-export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !node.allParents().includes(node))
+export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
 export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
 
@@ -189,25 +189,32 @@ export const shouldNotUseOverride = error<Method>(node =>
 )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const allParents = (module: Module) =>
+  module.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
-  Parameter: { nameShouldBeginWithLowercase, nameShouldBeNotKeyword },
+  Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword },
   ParameterizedType: {},
   NamedArgument: {},
   Import: {},
   Body: { shouldNotBeEmpty },
   Catch: {},
   Package: {},
-  Program: { nameShouldBeNotKeyword },
+  Program: { nameShouldNotBeKeyword },
   Test: { },
-  Class: { nameShouldBeginWithUppercase, nameShouldBeNotKeyword, shouldNotHaveLoopInHierarchy },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldBeNotKeyword },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
-  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldBeNotKeyword },
-  Method: { onlyLastParameterCanBeVarArg, nameShouldBeNotKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
-  Variable: { nameShouldBeginWithLowercase, nameShouldBeNotKeyword, shouldNotAssignToItselfInDeclaration },
+  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword },
+  Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
+  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
