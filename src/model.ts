@@ -849,6 +849,6 @@ export class Environment extends $Node {
   }
 
   get objectClass(): Class {
-    return this.getNodeByFQN<Class>('wollok.lang.Object')
+    return this.getNodeByFQN('wollok.lang.Object')
   }
 }
