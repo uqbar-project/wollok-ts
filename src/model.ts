@@ -67,7 +67,7 @@ export function fromJSON<T>(json: any): T {
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
   descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
-    const key = `${propertyKey}(${[...args]})`
+    const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
     if (this.cache.has(key)) return this.cache.get(key)
     const result = originalMethod.apply(this, args)
     this.cache.set(key, result)
@@ -477,14 +477,14 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  lookupMethod(this: Module, name: Name, arity: number, lookupStartFQN?: Name, allowAbstractMethods = false): Method | undefined {
-    let startReached = !lookupStartFQN
+  lookupMethod(this: Module, name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
+    let startReached = !options?.lookupStartFQN
     for (const module of this.hierarchy()) {
       if (startReached) {
-        const found = module.methods().find(member => (allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
+        const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
         if (found) return found
       }
-      if (module.fullyQualifiedName() === lookupStartFQN) startReached = true
+      if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
     }
 
     return undefined

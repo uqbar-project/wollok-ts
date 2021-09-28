@@ -179,7 +179,7 @@ export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
 export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
+  node.isOverride || !node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -188,7 +188,7 @@ export const possiblyReturningBlock = warning<Method>(node => {
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
-  !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, node.parent().fullyQualifiedName(), true)
+  !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
 )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
