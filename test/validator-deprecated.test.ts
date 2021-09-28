@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { buildEnvironment } from '../src'
-import validate, { isNotEmpty, dontCheckEqualityAgainstBooleanLiterals, hasCatchOrAlways, isNotWithin, hasDistinctSignature, instantiationIsNotAbstractClass, methodNotOnlyCallToSuper, nameBeginsWithLowercase, nameBeginsWithUppercase, nameIsNotKeyword, noIdentityAssignment, noIdentityDeclaration, onlyLastParameterIsVarArg } from '../src/validator'
+import validate, { shouldNotBeEmpty, shouldNotCompareAgainstBooleanLiterals, shouldHaveCatchOrAlways, isNotWithin, methodShouldHaveDifferentSignature, shouldNotInstantiateAbstractClass, shouldNotOnlyCallToSuper, nameShouldBeginWithLowercase, nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotAssignToItself, shouldNotAssignToItselfInDeclaration, onlyLastParameterCanBeVarArg, topLevelSingletonShouldHaveAName } from '../src/validator'
 import link from '../src/linker'
 import { Assignment,
   Body,
@@ -24,7 +24,6 @@ import { Assignment,
   Test,
   Try } from '../src/model'
 import { validatorAssertions } from './assertions'
-import { singletonIsUnnamedIffIsLiteral } from '../src/validator'
 
 use(validatorAssertions)
 should()
@@ -66,11 +65,11 @@ describe('Wollok Validator', () => {
       const namedSingleton = packageExample.members[1]
 
       it('should pass when singleton has a name', () => {
-        namedSingleton.should.pass(singletonIsUnnamedIffIsLiteral)
+        namedSingleton.should.pass(topLevelSingletonShouldHaveAName)
       })
 
       it('should not pass when singleton has no name', () => {
-        unnamedSingleton.should.not.pass(singletonIsUnnamedIffIsLiteral)
+        unnamedSingleton.should.not.pass(topLevelSingletonShouldHaveAName)
       })
     })
   })
@@ -117,11 +116,11 @@ describe('Wollok Validator', () => {
       const referenceWithValidName = classExample2.supertypes[0].reference
 
       it('should pass when name is not a keyword', () => {
-        referenceWithValidName.should.pass(nameIsNotKeyword)
+        referenceWithValidName.should.pass(nameShouldNotBeKeyword)
       })
 
       it('should not pass when name is a keyword', () => {
-        referenceWithKeywordName.should.not.pass(nameIsNotKeyword)
+        referenceWithKeywordName.should.not.pass(nameShouldNotBeKeyword)
       })
     })
   })
@@ -146,11 +145,11 @@ describe('Wollok Validator', () => {
 
 
       it('should pass when name begins with uppercase', () => {
-        classWithUppercaseName.should.pass(nameBeginsWithUppercase)
+        classWithUppercaseName.should.pass(nameShouldBeginWithUppercase)
       })
 
       it('should not pass when name begins with lowercase', () => {
-        classWithLowercaseName.should.not.pass(nameBeginsWithUppercase)
+        classWithLowercaseName.should.not.pass(nameShouldBeginWithUppercase)
       })
     })
 
@@ -200,19 +199,19 @@ describe('Wollok Validator', () => {
 
 
       it('should pass when there is a method with the same name and different arity', () => {
-        classWithDistinctSignatures.methods()[0].should.pass(hasDistinctSignature)
+        classWithDistinctSignatures.methods()[0].should.pass(methodShouldHaveDifferentSignature)
       })
 
       it('should pass when there is a method with the same name and cannot be called with the same amount of arguments', () => {
-        classWithDistinctSignaturesAndVarArg.methods()[0].should.pass(hasDistinctSignature)
+        classWithDistinctSignaturesAndVarArg.methods()[0].should.pass(methodShouldHaveDifferentSignature)
       })
 
       it('should not pass when there is a method with the same name and arity', () => {
-        classWithDuplicatedSignatures.methods()[0].should.not.pass(hasDistinctSignature)
+        classWithDuplicatedSignatures.methods()[0].should.not.pass(methodShouldHaveDifferentSignature)
       })
 
       it('should not pass when there is a method with the same name and can be called with the same amount of arguments', () => {
-        classWithOverlappingVarArgSignature.methods()[0].should.not.pass(hasDistinctSignature)
+        classWithOverlappingVarArgSignature.methods()[0].should.not.pass(methodShouldHaveDifferentSignature)
       })
     })
   })
@@ -263,11 +262,11 @@ describe('Wollok Validator', () => {
 
 
       it('should pass when instantiating a concrete class', () => {
-        instantiationOfConcreteClass.should.pass(instantiationIsNotAbstractClass)
+        instantiationOfConcreteClass.should.pass(shouldNotInstantiateAbstractClass)
       })
 
       it('should not pass when instantiating an abstract class', () => {
-        instantiationOfAbstractClass.should.not.pass(instantiationIsNotAbstractClass)
+        instantiationOfAbstractClass.should.not.pass(shouldNotInstantiateAbstractClass)
       })
     })
   })
@@ -296,11 +295,11 @@ describe('Wollok Validator', () => {
       const methodWithVarArgInLastParameter = classExample.members[1]
 
       it('should pass when only the last parameter is var arg', () => {
-        methodWithVarArgInLastParameter.should.pass(onlyLastParameterIsVarArg)
+        methodWithVarArgInLastParameter.should.pass(onlyLastParameterCanBeVarArg)
       })
 
       it('should not pass when a parameter that is not the last is var arg', () => {
-        methodWithVarArgInSecondToLastParameter.should.not.pass(onlyLastParameterIsVarArg)
+        methodWithVarArgInSecondToLastParameter.should.not.pass(onlyLastParameterCanBeVarArg)
       })
     })
 
@@ -328,7 +327,7 @@ describe('Wollok Validator', () => {
       const methodWithOnlyCallToSuper = classExample.members[0]
 
       it('should not pass when the method body is only a call to super', () => {
-        methodWithOnlyCallToSuper.should.not.pass(methodNotOnlyCallToSuper)
+        methodWithOnlyCallToSuper.should.not.pass(shouldNotOnlyCallToSuper)
       })
     })
 
@@ -354,8 +353,8 @@ describe('Wollok Validator', () => {
       const methodM1Parameter = classExample.members[1] as Method
 
       it('should not confuse methods with different parameters', () => {
-        methodMNoParameter.should.pass(hasDistinctSignature)
-        methodM1Parameter.should.pass(hasDistinctSignature)
+        methodMNoParameter.should.pass(methodShouldHaveDifferentSignature)
+        methodM1Parameter.should.pass(methodShouldHaveDifferentSignature)
       })
     })
 
@@ -394,11 +393,11 @@ describe('Wollok Validator', () => {
       const validAssignment = bodyExample.sentences[1]
 
       it('should pass when not assigning to itself', () => {
-        validAssignment.should.pass(noIdentityAssignment)
+        validAssignment.should.pass(shouldNotAssignToItself)
       })
 
       it('should not pass when assigning to itself', () => {
-        selfAssignment.should.not.pass(noIdentityAssignment)
+        selfAssignment.should.not.pass(shouldNotAssignToItself)
       })
     })
   })
@@ -469,15 +468,15 @@ describe('Wollok Validator', () => {
       const tryWithAlways = bodyExample3.sentences[0]
 
       it('should pass when try has catch', () => {
-        tryWithCatch.should.pass(hasCatchOrAlways)
+        tryWithCatch.should.pass(shouldHaveCatchOrAlways)
       })
 
       it('should pass when try has always', () => {
-        tryWithAlways.should.pass(hasCatchOrAlways)
+        tryWithAlways.should.pass(shouldHaveCatchOrAlways)
       })
 
       it('should not pass when try has an empty always', () => {
-        tryWithEmptyAlways.should.not.pass(hasCatchOrAlways)
+        tryWithEmptyAlways.should.not.pass(shouldHaveCatchOrAlways)
       })
     })
   })
@@ -505,11 +504,11 @@ describe('Wollok Validator', () => {
       const lowercaseParameter = methodExample.parameters[1]
 
       it('should pass when name is a lowercase letter', () => {
-        lowercaseParameter.should.pass(nameBeginsWithLowercase)
+        lowercaseParameter.should.pass(nameShouldBeginWithLowercase)
       })
 
       it('should not pass when name is an uppercase letter', () => {
-        uppercaseParameter.should.not.pass(nameBeginsWithLowercase)
+        uppercaseParameter.should.not.pass(nameShouldBeginWithLowercase)
       })
     })
   })
@@ -538,11 +537,11 @@ describe('Wollok Validator', () => {
       const declarationWithoutSelfAssignment = classExample.members[1]
 
       it('should pass when not self-assigning', () => {
-        declarationWithoutSelfAssignment.should.pass(noIdentityDeclaration)
+        declarationWithoutSelfAssignment.should.pass(shouldNotAssignToItselfInDeclaration)
       })
 
       it('should not pass when self-assigning', () => {
-        declarationWithSelfAssignment.should.not.pass(noIdentityDeclaration)
+        declarationWithSelfAssignment.should.not.pass(shouldNotAssignToItselfInDeclaration)
       })
     })
   })
@@ -558,7 +557,7 @@ describe('Wollok Validator', () => {
       const emptyTest = environment.getNodeByFQN<Test>('p.t')
 
       it('should not pass when test is empty', () => {
-        emptyTest.body.should.not.pass(isNotEmpty)
+        emptyTest.body.should.not.pass(shouldNotBeEmpty)
       })
     })
   })
@@ -658,7 +657,7 @@ describe('Wollok Validator', () => {
       const comparisonAgainstTrue = (methodExample.sentences()[0] as Return).value as Send
 
       it('should not pass when comparing against true literal', () => {
-        comparisonAgainstTrue.should.not.pass(dontCheckEqualityAgainstBooleanLiterals)
+        comparisonAgainstTrue.should.not.pass(shouldNotCompareAgainstBooleanLiterals)
       })
     })
   })

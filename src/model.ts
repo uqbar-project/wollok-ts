@@ -67,7 +67,7 @@ export function fromJSON<T>(json: any): T {
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
   const originalMethod: Function = descriptor.value
   descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
-    const key = `${propertyKey}(${[...args]})`
+    const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
     if (this.cache.has(key)) return this.cache.get(key)
     const result = originalMethod.apply(this, args)
     this.cache.set(key, result)
@@ -477,14 +477,14 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  lookupMethod(this: Module, name: Name, arity: number, lookupStartFQN?: Name): Method | undefined {
-    let startReached = !lookupStartFQN
+  lookupMethod(this: Module, name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
+    let startReached = !options?.lookupStartFQN
     for (const module of this.hierarchy()) {
       if (startReached) {
-        const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
+        const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
         if (found) return found
       }
-      if (module.fullyQualifiedName() === lookupStartFQN) startReached = true
+      if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
     }
 
     return undefined
@@ -517,7 +517,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+      const objectClass = this.environment().objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -547,9 +547,12 @@ export class Singleton extends $Module {
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+    else return this.environment().objectClass
   }
 
+  isClosure(parametersCount = 0): boolean {
+    return !!this.lookupMethod('<apply>', parametersCount)
+  }
 }
 
 
@@ -845,4 +848,7 @@ export class Environment extends $Node {
     return node
   }
 
+  get objectClass(): Class {
+    return this.getNodeByFQN('wollok.lang.Object')
+  }
 }

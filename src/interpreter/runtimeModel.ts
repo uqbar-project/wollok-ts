@@ -502,7 +502,7 @@ export class Evaluation {
     const receiver = this.currentFrame.get('self')!
     const currentMethod = node.ancestors().find(is('Method'))!
     //TODO: pass just the parent (not the FQN) to lookup?
-    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, currentMethod.parent().fullyQualifiedName())
+    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent().fullyQualifiedName() })
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
 
