@@ -155,7 +155,10 @@ export const shouldNotOnlyCallToSuper = warning<Method>(node => {
 
 export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
 
-export const shouldNotAssignToItself = error<Assignment>(node => !node.value.is('Reference') || node.value.target() !== node.variable.target())
+export const shouldNotAssignToItself = error<Assignment>(node => {
+  const assigned = node.variable.target()
+  return !(node.value.is('Reference') && assigned && assigned === node.value.target())
+})
 
 export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
 
