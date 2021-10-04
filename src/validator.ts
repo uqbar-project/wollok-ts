@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, NamedArgument, Sentence } from './model'
+import { Class, Mixin, Module, NamedArgument, Reference, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -192,8 +192,11 @@ export const shouldNotUseOverride = error<Method>(node =>
 )
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
-  const classRef = (node.parent() as New).instantiated.target()
-  return !!classRef && classRef.hasField(node.name)
+  const nodeParent = node.parent()
+  let parent: Module | undefined
+  if (nodeParent.kind === 'ParameterizedType') parent = nodeParent.reference.target()
+  if (nodeParent.kind === 'New') parent = nodeParent.instantiated.target()
+  return !!parent && parent.hasField(node.name)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
