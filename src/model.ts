@@ -445,6 +445,7 @@ abstract class $Module extends $Entity {
 
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
+  hasField(name: string) { return this.fields().map(_ => _.name).includes(name) }
 
   @cached
   runtimeName(this: Module): string { return this.fullyQualifiedName() }

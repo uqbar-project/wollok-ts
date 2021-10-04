@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, Sentence } from './model'
+import { Class, Mixin, Module, NamedArgument, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -191,6 +191,11 @@ export const shouldNotUseOverride = error<Method>(node =>
   !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
 )
 
+export const namedArgumentShouldExist = error<NamedArgument>(node => {
+  const classRef = (node.parent() as New).instantiated.target()
+  return !!classRef && classRef.hasField(node.name)
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -205,7 +210,7 @@ const allParents = (module: Module) =>
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword },
   ParameterizedType: {},
-  NamedArgument: {},
+  NamedArgument: { namedArgumentShouldExist },
   Import: {},
   Body: { shouldNotBeEmpty },
   Catch: {},
