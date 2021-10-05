@@ -212,13 +212,11 @@ export const shouldInitializeAllAttributes = error<New | ParameterizedType>(node
       if (field.name === 'salud') {
         console.info(value, field.name, !initializers.includes(field.name))
       }
-      if (nullValue(value) && !initializers.includes(field.name)) {
+      if (uninitializedValue(value) && !initializers.includes(field.name)) {
+        console.info(parent?.name, field.name, value)
         uninitializedAttributes.push(field.name)
       }
     })
-  if (uninitializedAttributes.length > 0) {
-    console.info(parent?.name, uninitializedAttributes)
-  }
   return isEmpty(uninitializedAttributes)
 })
 
@@ -235,7 +233,7 @@ const getReferencedModule = (parent: Node): Module | undefined => {
   return undefined
 }
 
-const nullValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value
+const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && !value.sourceMap
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
