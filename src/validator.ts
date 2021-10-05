@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, NamedArgument, Sentence } from './model'
+import { Class, Mixin, Module, NamedArgument, ParameterizedType, Sentence } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -192,21 +192,35 @@ export const shouldNotUseOverride = error<Method>(node =>
 )
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
-  const nodeParent = node.parent()
-  let parent: Module | undefined
-  if (nodeParent.kind === 'ParameterizedType') parent = nodeParent.reference.target()
-  if (nodeParent.kind === 'New') parent = nodeParent.instantiated.target()
+  const parent = getReferencedModule(node.parent())
   return !!parent && parent.hasField(node.name)
 })
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
   const nodeParent = node.parent()
   let siblingArguments: List<NamedArgument> | undefined
-  if (nodeParent.is('New')) siblingArguments = nodeParent.args
-  if (nodeParent.is('ParameterizedType')) siblingArguments = nodeParent.args
+  if (nodeParent.is('New') || nodeParent.is('ParameterizedType')) siblingArguments = nodeParent.args
   return !siblingArguments || siblingArguments.filter(_ => _.name === node.name).length === 1
-}
-)
+})
+
+export const shouldInitializeAllAttributes = error<New | ParameterizedType>(node => {
+  const parent = getReferencedModule(node)
+  const uninitializedAttributes: string[] = []
+  const initializers = node.args.map(_ => _.name)
+  parent?.defaultFieldValues()?.forEach(
+    (value, field) => {
+      if (field.name === 'salud') {
+        console.info(value, field.name, !initializers.includes(field.name))
+      }
+      if (nullValue(value) && !initializers.includes(field.name)) {
+        uninitializedAttributes.push(field.name)
+      }
+    })
+  if (uninitializedAttributes.length > 0) {
+    console.info(parent?.name, uninitializedAttributes)
+  }
+  return isEmpty(uninitializedAttributes)
+})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -214,6 +228,14 @@ export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(n
 
 const allParents = (module: Module) =>
   module.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
+
+const getReferencedModule = (parent: Node): Module | undefined => {
+  if (parent.kind === 'ParameterizedType') return parent.reference.target()
+  if (parent.kind === 'New') return parent.instantiated.target()
+  return undefined
+}
+
+const nullValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
@@ -239,7 +261,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
   Self: { shouldNotUseSelf: isNotWithin('Program') },
-  New: { shouldNotInstantiateAbstractClass },
+  New: { shouldNotInstantiateAbstractClass, shouldInitializeAllAttributes },
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
   Super: {  },
