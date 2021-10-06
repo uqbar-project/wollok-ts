@@ -204,16 +204,13 @@ export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(n
 })
 
 export const shouldInitializeAllAttributes = error<New | ParameterizedType>(node => {
+  if (node.is('ParameterizedType') && node.parent().is('Class')) return true
   const parent = getReferencedModule(node)
   const uninitializedAttributes: string[] = []
   const initializers = node.args.map(_ => _.name)
   parent?.defaultFieldValues()?.forEach(
     (value, field) => {
-      if (field.name === 'salud') {
-        console.info(value, field.name, !initializers.includes(field.name))
-      }
       if (uninitializedValue(value) && !initializers.includes(field.name)) {
-        console.info(parent?.name, field.name, value)
         uninitializedAttributes.push(field.name)
       }
     })
@@ -241,7 +238,7 @@ const uninitializedValue = (value: Expression | undefined) => value && value.is(
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword },
-  ParameterizedType: {},
+  ParameterizedType: { shouldInitializeAllAttributes },
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
   Import: {},
   Body: { shouldNotBeEmpty },
