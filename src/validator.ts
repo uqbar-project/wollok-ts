@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, NamedArgument, Sentence } from './model'
+import { Class, Mixin, Module, NamedArgument, Self, Sentence } from './model'
 import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
@@ -221,6 +221,11 @@ export const shouldInitializeAllAttributes = error<Singleton>(node => {
   return isEmpty(uninitializedAttributes)
 })
 
+export const shouldNotUseSelf = error<Self>(node => {
+  const ancestors = node.ancestors()
+  return !node.sourceMap || !ancestors.some(is('Program')) || ancestors.some(is('Singleton'))
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -270,7 +275,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
-  Self: { shouldNotUseSelf: isNotWithin('Program') },
+  Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
