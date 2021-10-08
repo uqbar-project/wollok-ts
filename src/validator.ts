@@ -19,7 +19,8 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, NamedArgument, ParameterizedType, Sentence } from './model'
+import { Class, Mixin, Module, NamedArgument, Sentence } from './model'
+import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, notEmpty } from './extensions'
 
@@ -199,21 +200,24 @@ export const namedArgumentShouldExist = error<NamedArgument>(node => {
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
   const nodeParent = node.parent()
   let siblingArguments: List<NamedArgument> | undefined
-  if (nodeParent.is('New') || nodeParent.is('ParameterizedType')) siblingArguments = nodeParent.args
+  if (nodeParent.is('New')) siblingArguments = nodeParent.args
   return !siblingArguments || siblingArguments.filter(_ => _.name === node.name).length === 1
 })
 
-export const shouldInitializeAllAttributes = error<New | ParameterizedType>(node => {
-  if (node.is('ParameterizedType') && node.parent().is('Class')) return true
-  const parent = getReferencedModule(node)
-  const uninitializedAttributes: string[] = []
+export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node =>  {
+  const allNamedArguments = node.supertypes.flatMap(parent => parent.args.map(_ => _.name))
+  return isEmpty(duplicates(allNamedArguments))
+})
+
+export const shouldPassValuesToAllAttributes = error<New>(node => {
+  const target = node.instantiated.target()!
   const initializers = node.args.map(_ => _.name)
-  parent?.defaultFieldValues()?.forEach(
-    (value, field) => {
-      if (uninitializedValue(value) && !initializers.includes(field.name)) {
-        uninitializedAttributes.push(field.name)
-      }
-    })
+  const uninitializedAttributes = getUninitializedAttributes(target, initializers)
+  return isEmpty(uninitializedAttributes)
+})
+
+export const shouldInitializeAllAttributes = error<Singleton>(node => {
+  const uninitializedAttributes = getUninitializedAttributes(node)
   return isEmpty(uninitializedAttributes)
 })
 
@@ -232,13 +236,24 @@ const getReferencedModule = (parent: Node): Module | undefined => {
 
 const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && !value.sourceMap
 
+const getUninitializedAttributes = (node: Module, initializers: string[] = []): string[] => {
+  const uninitializedAttributes: string[] = []
+  node.defaultFieldValues()?.forEach(
+    (value, field) => {
+      if (uninitializedValue(value) && !initializers.includes(field.name)) {
+        uninitializedAttributes.push(field.name)
+      }
+    })
+  return uninitializedAttributes
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword },
-  ParameterizedType: { shouldInitializeAllAttributes },
+  ParameterizedType: { },
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
   Import: {},
   Body: { shouldNotBeEmpty },
@@ -246,8 +261,8 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Package: {},
   Program: { nameShouldNotBeKeyword },
   Test: { },
-  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
@@ -256,7 +271,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
   Self: { shouldNotUseSelf: isNotWithin('Program') },
-  New: { shouldNotInstantiateAbstractClass, shouldInitializeAllAttributes },
+  New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
   Super: {  },
