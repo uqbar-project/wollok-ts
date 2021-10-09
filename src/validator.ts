@@ -161,7 +161,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
   return !(node.value.is('Reference') && assigned && assigned === node.value.target())
 })
 
-export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant)
+export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant && !node?.variable?.target()?.is('Parameter'))
 
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
