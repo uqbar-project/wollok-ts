@@ -180,7 +180,7 @@ export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
 export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
+  node.isOverride || !superclassMethod(node)
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -189,7 +189,7 @@ export const possiblyReturningBlock = warning<Method>(node => {
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
-  !node.isOverride || !!node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
+  !node.isOverride || !!superclassMethod(node)
 )
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
@@ -237,6 +237,15 @@ export const superclassShouldBeLastInLinearization = error<Class | Singleton>(no
   return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is('Class')
 })
 
+export const shouldMatchSuperclassReturnValue = error<Method>(node => {
+  if (!node.isOverride) return true
+  const lastSentence = last(node.sentences())
+  const overridenMethod = superclassMethod(node)
+  if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
+  const superclassSentence = last(overridenMethod.sentences())
+  return !lastSentence || !superclassSentence || returnsValue(lastSentence) === returnsValue(superclassSentence) || lastSentence.is('Throw') || superclassSentence.is('Throw')
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -267,6 +276,10 @@ const isBooleanLiteral = (node: Expression, value: boolean) => node.is('Literal'
 
 const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target())
 
+const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
+
+const returnsValue = (node: Sentence) => node.is('Return')
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -285,7 +298,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword },
-  Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
+  Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue },
   Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
