@@ -22,7 +22,7 @@
 import { Class, Mixin, Module, NamedArgument, Self, Sentence } from './model'
 import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { isEmpty, notEmpty } from './extensions'
+import { isEmpty, last, notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -226,6 +226,17 @@ export const shouldNotUseSelf = error<Self>(node => {
   return !node.sourceMap || !ancestors.some(is('Program')) || ancestors.some(is('Singleton'))
 })
 
+export const shouldNotDefineMoreThanOneSuperclass = error<Class | Singleton>(node =>
+  targetSupertypes(node).filter(_ => !!_ && _.is('Class')).length <= 1
+)
+
+export const superclassShouldBeLastInLinearization = error<Class | Singleton>(node => {
+  const parents = targetSupertypes(node)
+  const hasSuperclass = notEmpty(parents.filter(_ => !!_ && _.is('Class')))
+  const lastParentInHierarchy = last(parents)
+  return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is('Class')
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -254,6 +265,8 @@ const getUninitializedAttributes = (node: Module, initializers: string[] = []): 
 
 const isBooleanLiteral = (node: Expression, value: boolean) => node.is('Literal') && node.value === value
 
+const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target())
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -268,8 +281,8 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Package: {},
   Program: { nameShouldNotBeKeyword },
   Test: { },
-  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride },
