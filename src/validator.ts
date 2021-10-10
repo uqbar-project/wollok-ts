@@ -169,7 +169,7 @@ export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node
 
 export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return !['==', '===', 'equals'].includes(node.message) || !arg || !arg.is('Literal') || !(arg.value === true || arg.value === false)
+  return !['==', '!=', '===', '!==', 'equals'].includes(node.message) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
 })
 
 export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
@@ -251,6 +251,8 @@ const getUninitializedAttributes = (node: Module, initializers: string[] = []): 
     })
   return uninitializedAttributes
 }
+
+const isBooleanLiteral = (node: Expression, value: boolean) => node.is('Literal') && node.value === value
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
