@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Mixin, Module, NamedArgument, Self, Sentence } from './model'
+import { Class, If,  Mixin, Module, NamedArgument, Self, Sentence } from './model'
 import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, last, notEmpty } from './extensions'
@@ -96,7 +96,7 @@ export const shouldNotBeEmpty = warning<Body>(node =>
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
-  error(node => !node.sourceMap || !node.ancestors().some(is(kind)))
+  error(node => node.isSynthetic() || !node.ancestors().some(is(kind)))
 
 export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
   warning(
@@ -223,7 +223,7 @@ export const shouldInitializeAllAttributes = error<Singleton>(node => {
 
 export const shouldNotUseSelf = error<Self>(node => {
   const ancestors = node.ancestors()
-  return !node.sourceMap || !ancestors.some(is('Program')) || ancestors.some(is('Singleton'))
+  return node.isSynthetic() || !ancestors.some(is('Program')) || ancestors.some(is('Singleton'))
 })
 
 export const shouldNotDefineMoreThanOneSuperclass = error<Class | Singleton>(node =>
@@ -239,11 +239,19 @@ export const superclassShouldBeLastInLinearization = error<Class | Singleton>(no
 
 export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   if (!node.isOverride) return true
-  const lastSentence = last(node.sentences())
   const overridenMethod = superclassMethod(node)
   if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
+  const lastSentence = last(node.sentences())
   const superclassSentence = last(overridenMethod.sentences())
-  return !lastSentence || !superclassSentence || returnsValue(lastSentence) === returnsValue(superclassSentence) || lastSentence.is('Throw') || superclassSentence.is('Throw')
+  return !lastSentence || !superclassSentence || lastSentence.is('Return') === superclassSentence.is('Return') || lastSentence.is('Throw') || superclassSentence.is('Throw')
+})
+
+export const shouldReturnAValueOnAllFlows = error<If>(node => {
+  const lastThenSentence = last(node.thenBody.sentences)
+  const lastElseSentence = last(node.elseBody.sentences)
+  const singleFlow = !lastElseSentence && lastThenSentence && (lastThenSentence.is('Throw') || !returnsValue(lastThenSentence))
+  const twoFlows = !!lastThenSentence && !!lastElseSentence && returnsValue(lastThenSentence) === returnsValue(lastElseSentence)
+  return singleFlow || twoFlows
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -259,7 +267,7 @@ const getReferencedModule = (parent: Node): Module | undefined => {
   return undefined
 }
 
-const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && !value.sourceMap
+const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && value.isSynthetic()
 
 const getUninitializedAttributes = (node: Module, initializers: string[] = []): string[] => {
   const uninitializedAttributes: string[] = []
@@ -278,7 +286,7 @@ const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _
 
 const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
 
-const returnsValue = (node: Sentence) => node.is('Return')
+const returnsValue = (node: Sentence) => node.is('Return') || node.is('Literal') && node.value
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
@@ -308,7 +316,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
   Super: {  },
-  If: {},
+  If: { shouldReturnAValueOnAllFlows },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
