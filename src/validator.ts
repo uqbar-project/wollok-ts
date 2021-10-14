@@ -249,8 +249,9 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
   const lastElseSentence = last(node.elseBody.sentences)
-  const singleFlow = !lastElseSentence && lastThenSentence && (lastThenSentence.is('Throw') || !returnsValue(lastThenSentence))
-  const twoFlows = !!lastThenSentence && !!lastElseSentence && returnsValue(lastThenSentence) === returnsValue(lastElseSentence)
+  // TODO: For Send, consider if expression returns a value
+  const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+  const twoFlows = !!lastThenSentence && !!lastElseSentence && (returnsValue(lastThenSentence) === returnsValue(lastElseSentence) || lastThenSentence.is('Send') || lastElseSentence.is('Send'))
   return singleFlow || twoFlows
 })
 
@@ -286,7 +287,13 @@ const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _
 
 const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
 
-const returnsValue = (node: Sentence) => node.is('Return') || node.is('Literal') && node.value
+const returnsValue = (node: Sentence) => node.is('Throw') || node.is('Send') || node.is('Return') || node.is('Literal') && node.value
+
+const finishesFlow = (sentence: Sentence, node: Node) => {
+  const parent = node.parent()
+  const notLastLineOnMethod = parent.is('Body') && last((parent as Body).sentences) !== node
+  return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('Return') && notLastLineOnMethod || sentence.is('If')
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
