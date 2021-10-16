@@ -445,6 +445,7 @@ abstract class $Module extends $Entity {
 
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
+  allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
   hasField(this: Module, name: string) { return this.hierarchy().some(parent => parent.fields().map(_ => _.name).includes(name)) }
 
   @cached
