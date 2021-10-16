@@ -289,10 +289,11 @@ const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name,
 
 const returnsValue = (node: Sentence) => node.is('Throw') || node.is('Send') || node.is('Return') || node.is('Literal') && node.value
 
-const finishesFlow = (sentence: Sentence, node: Node) => {
+const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent()
-  const notLastLineOnMethod = parent.is('Body') && last((parent as Body).sentences) !== node
-  return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('Return') && notLastLineOnMethod || sentence.is('If')
+  const lastLineOnMethod = parent.is('Body') ? last(parent.sentences) : undefined
+  const returnCondition = (sentence.is('Return') && lastLineOnMethod !== node && lastLineOnMethod?.is('Return') || lastLineOnMethod?.is('Throw')) ?? false
+  return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('If') || returnCondition
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
