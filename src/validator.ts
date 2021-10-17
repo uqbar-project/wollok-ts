@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, If,  Mixin, Module, NamedArgument, Self, Sentence } from './model'
+import { Class, If,  Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
 import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, last, notEmpty } from './extensions'
@@ -259,6 +259,21 @@ export const shouldNotDuplicateVariables = error<Field>(node =>
   node.parent().allFields().filter(_ => _.name == node.name).length === 1
 )
 
+export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
+  const nodeMethod = getVariableContainer(node)
+  const parameterNotDuplicated = (nodeMethod as Method).parameters?.filter(parameter => parameter.name == node.name).length <= 1
+  return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod, node.name)
+})
+
+export const variableShouldNotBeDuplicated = error<Variable>(node => {
+  // Global variables are not considered (we should take care of duplicate variables of a program in a different validator)
+  if (isGlobal(node)) return true
+
+  const container = getVariableContainer(node)
+  const duplicateReference = getAllReferences(container).filter(reference => reference.name == node.name).length > 1
+  return !duplicateReference && !hasDuplicatedVariable(container, node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -300,12 +315,29 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('If') || returnCondition
 }
 
+const isGlobal = (node: Variable) => node.parent().is('Package') || node.parent().is('Program') || node.parent().parent().is('Program')
+
+const getVariableContainer = (node: Node): Method | Test => {
+  let nodeContainer = node.parent()
+  while (!nodeContainer.is('Method') && !nodeContainer.is('Test')) {
+    nodeContainer = nodeContainer.parent()
+  }
+  return nodeContainer
+}
+
+const getAllReferences = (node: Method | Test): List<Variable> => node.sentences().filter(sentence => sentence.is('Variable')) as List<Variable>
+
+const hasDuplicatedVariable = (node: Method | Test, variableName: string): boolean => {
+  const parent = node.parent() as Class | Singleton | Mixin
+  return parent.allFields().some(_ => _.name == variableName)
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
-  Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword },
+  Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, parameterShouldNotDuplicateExistingVariable },
   ParameterizedType: { },
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
   Import: {},
@@ -319,7 +351,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateVariables },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue },
-  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration },
+  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, variableShouldNotBeDuplicated },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },

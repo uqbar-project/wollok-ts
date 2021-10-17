@@ -24,7 +24,7 @@ describe('Wollok Validations', () => {
     return problem.code === code
   }
 
-  const errorLocation = (node: Node): string => `${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`
+  const errorLocation = (node: Node | Problem): string => `${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`
 
   for(const file of files) {
     const packageName = file.name.split('.')[0]
@@ -50,7 +50,7 @@ describe('Wollok Validations', () => {
 
           const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
           if (notEmpty(errors))
-            fail(`File contains errors: ${errors.map((_) => _.code).join(', ')}`)
+            fail(`File contains errors: ${errors.map((_error) => _error.code + ' at ' + errorLocation(_error)).join(', ')}`)
 
           const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
           if(!effectiveProblem)

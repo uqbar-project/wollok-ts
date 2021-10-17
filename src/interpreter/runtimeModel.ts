@@ -262,7 +262,7 @@ export class Evaluation {
 
     for (const module of globalSingletons) {
       const instance = evaluation.object(module.fullyQualifiedName())
-      for (const field of module.defaultFieldValues().keys()) // TODO: Add an allFields method
+      for (const field of module.allFields())
         instance!.get(field.name)
     }
 
