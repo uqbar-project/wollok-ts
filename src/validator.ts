@@ -255,7 +255,7 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
   return singleFlow || twoFlows
 })
 
-export const shouldNotDuplicateVariables = error<Field>(node =>
+export const shouldNotDuplicateFields = error<Field>(node =>
   node.parent().allFields().filter(_ => _.name == node.name).length === 1
 )
 
@@ -265,8 +265,7 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod, node.name)
 })
 
-export const variableShouldNotBeDuplicated = error<Variable>(node => {
-  // Global variables are not considered (we should take care of duplicate variables of a program in a different validator)
+export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
   if (isGlobal(node)) return true
 
   const container = getVariableContainer(node)
@@ -277,6 +276,11 @@ export const variableShouldNotBeDuplicated = error<Variable>(node => {
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
   !node.name || !node.parent().is('Package') || (node.parent() as Package).members.filter(child => child.name == node.name).length === 1
 )
+
+export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
+  const allFields = node.allFields().filter(field => !node.fields().includes(field)).map(_ => _.name)
+  return allFields.length === new Set(allFields).size
+})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -333,7 +337,7 @@ const getAllReferences = (node: Method | Test): List<Variable> => node.sentences
 
 const hasDuplicatedVariable = (node: Method | Test, variableName: string): boolean => {
   const parent = node.parent() as Class | Singleton | Mixin
-  return parent.allFields().some(_ => _.name == variableName)
+  return parent.hierarchy().flatMap(_ => _.allFields()).some(_ => _.name == variableName)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -350,12 +354,12 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Package: {},
   Program: { nameShouldNotBeKeyword },
   Test: { },
-  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions },
-  Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions },
-  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateVariables },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
+  Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
+  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue },
-  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, variableShouldNotBeDuplicated, shouldNotDuplicateGlobalDefinitions },
+  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
