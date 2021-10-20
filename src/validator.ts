@@ -251,7 +251,15 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastElseSentence = last(node.elseBody.sentences)
   // TODO: For Send, consider if expression returns a value
   const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
-  const twoFlows = !!lastThenSentence && !!lastElseSentence && (returnsValue(lastThenSentence) === returnsValue(lastElseSentence) || lastThenSentence.is('Send') || lastElseSentence.is('Send'))
+  const rightCombinations: Record<string, string[]> = {
+    'Return': ['Return', 'Throw', 'Send'],
+    'Throw': ['Return', 'Throw', 'Send', 'Literal'],
+    'Send': ['Return', 'Throw', 'Send', 'Literal'],
+    'Literal': ['Literal', 'Throw', 'Send'],
+    'Assignment': ['Throw', 'Send', 'Assignment'],
+  }
+
+  const twoFlows = !!lastThenSentence && !!lastElseSentence && rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind)
   return singleFlow || twoFlows
 })
 
@@ -318,8 +326,6 @@ const isBooleanLiteral = (node: Expression, value: boolean) => node.is('Literal'
 const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target())
 
 const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
-
-const returnsValue = (node: Sentence) => node.is('Throw') || node.is('Send') || node.is('Return') || node.is('Literal') && node.value
 
 const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent()
