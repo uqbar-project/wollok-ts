@@ -251,15 +251,20 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastElseSentence = last(node.elseBody.sentences)
   // TODO: For Send, consider if expression returns a value
   const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+
+  // Try + If --> pending
   const rightCombinations: Record<string, string[]> = {
-    'Return': ['Return', 'Throw', 'Send'],
-    'Throw': ['Return', 'Throw', 'Send', 'Literal'],
-    'Send': ['Return', 'Throw', 'Send', 'Literal'],
-    'Literal': ['Literal', 'Throw', 'Send'],
-    'Assignment': ['Throw', 'Send', 'Assignment'],
+    'Assignment': ['Assignment', 'Send', 'Throw'],
+    'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Return': ['Return', 'Throw'],
+    'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Throw': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
   }
 
-  const twoFlows = !!lastThenSentence && !!lastElseSentence && rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind)
+  const twoFlows = !!lastThenSentence && !!lastElseSentence && (rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind) || rightCombinations[lastElseSentence.kind]?.includes(lastThenSentence.kind))
   return singleFlow || twoFlows
 })
 
