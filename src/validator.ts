@@ -252,12 +252,12 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
   // TODO: For Send, consider if expression returns a value
   const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
 
-  // Try + If --> pending
+  // Try expression is still pending
   const rightCombinations: Record<string, string[]> = {
     'Assignment': ['Assignment', 'Send', 'Throw'],
     'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Return': ['Return', 'Throw'],
     'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
@@ -265,7 +265,8 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
   }
 
   const twoFlows = !!lastThenSentence && !!lastElseSentence && (rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind) || rightCombinations[lastElseSentence.kind]?.includes(lastThenSentence.kind))
-  return singleFlow || twoFlows
+  const ifFlows = !!lastThenSentence && !!lastElseSentence && (lastThenSentence.is('If') || lastElseSentence.is('If'))
+  return singleFlow || twoFlows || ifFlows
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
