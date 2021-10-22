@@ -280,7 +280,7 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
 })
 
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
-  if (isGlobal(node)) return true
+  if (node.parent().is('Program') || node.parent().parent().is('Program') || isGlobal(node)) return true
 
   const container = getVariableContainer(node)
   const duplicateReference = getAllReferences(container).filter(reference => reference.name == node.name).length > 1
@@ -299,6 +299,10 @@ export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => 
 export const shouldImplementAbstractMethods = error<Singleton>(node => {
   const allMethods = node.allMethods()
   return isEmpty(allMethods.filter(method => method.isAbstract() && !isImplemented(allMethods, method)))
+})
+
+export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
+  return variable.isConstant || !isGlobal(variable)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -340,7 +344,7 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('If') || returnCondition
 }
 
-const isGlobal = (node: Variable) => node.parent().is('Package') || node.parent().is('Program') || node.parent().parent().is('Program')
+const isGlobal = (node: Variable) => node.parent().is('Package')
 
 const getVariableContainer = (node: Node): Method | Test => {
   let nodeContainer = node.parent()
@@ -380,7 +384,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue },
-  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions },
+  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
