@@ -310,6 +310,10 @@ export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
   return !isEqualMessage(node) || !arg || !(referencesSingleton(arg) || referencesSingleton(node.receiver))
 })
 
+export const shouldUseBooleanValueInIfCondition = error<If>(node =>
+  isBooleanOrUnknownType(node.condition)
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -375,6 +379,13 @@ const isEqualMessage = (node: Send): boolean =>
 
 const referencesSingleton = (node: Expression) => node.is('Reference') && node.target()?.is('Singleton')
 
+const isBooleanOrUnknownType = (condition: Expression): boolean => condition.match({
+  Literal: condition => condition.value === 'boolean',
+  Send: condition => !['not', 'negate'].includes(condition.message) || isBooleanOrUnknownType(condition.receiver) && !!condition.receiver,
+  Reference: condition => !condition.target()?.is('Singleton'),
+  Expression: _ => false,
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -403,7 +414,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton },
   Super: {  },
-  If: { shouldReturnAValueOnAllFlows },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
