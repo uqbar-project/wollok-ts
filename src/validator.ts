@@ -169,7 +169,7 @@ export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node
 
 export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return !['==', '!=', '===', '!==', 'equals'].includes(node.message) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
+  return !isEqualMessage(node) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
 })
 
 export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
@@ -305,6 +305,11 @@ export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable =>
   return variable.isConstant || !isGlobal(variable)
 })
 
+export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
+  const arg: Expression = node.args[0]
+  return !isEqualMessage(node) || !arg || !(referencesSingleton(arg) || referencesSingleton(node.receiver))
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -365,6 +370,11 @@ const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
   return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
 }
 
+const isEqualMessage = (node: Send): boolean =>
+  ['==', '!=', '===', '!==', 'equals'].includes(node.message) && node.args.length === 1
+
+const referencesSingleton = (node: Expression) => node.is('Reference') && node.target()?.is('Singleton')
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -391,7 +401,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
-  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton },
   Super: {  },
   If: { shouldReturnAValueOnAllFlows },
   Throw: {},
