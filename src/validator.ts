@@ -314,6 +314,13 @@ export const shouldUseBooleanValueInIfCondition = error<If>(node =>
   isBooleanOrUnknownType(node.condition)
 )
 
+export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
+  if (!isBooleanMessage(node)) return true
+  const unaryOperation = isBooleanOrUnknownType(node.receiver) && isEmpty(node.args)
+  const binaryOperation = node.args.length === 1 && isBooleanOrUnknownType(node.args[0]) && isBooleanOrUnknownType(node.receiver)
+  return unaryOperation || binaryOperation
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -377,11 +384,15 @@ const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
 const isEqualMessage = (node: Send): boolean =>
   ['==', '!=', '===', '!==', 'equals'].includes(node.message) && node.args.length === 1
 
+const isBooleanMessage = (node: Send): boolean =>
+  ['&&', 'and', '||', 'or'].includes(node.message) && node.args.length === 1 || ['negate', 'not'].includes(node.message) && isEmpty(node.args)
+
 const referencesSingleton = (node: Expression) => node.is('Reference') && node.target()?.is('Singleton')
 
-const isBooleanOrUnknownType = (condition: Expression): boolean => condition.match({
+const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
   Literal: condition => condition.value === 'boolean',
-  Send: condition => !['not', 'negate'].includes(condition.message) || isBooleanOrUnknownType(condition.receiver) && !!condition.receiver,
+  Send: _ =>  true, // tackled in a different validator
+  Super: _ => true,
   Reference: condition => !condition.target()?.is('Singleton'),
   Expression: _ => false,
 })
@@ -412,7 +423,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
-  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation },
   Super: {  },
   If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition },
   Throw: {},
