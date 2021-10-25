@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, If,  Mixin, Module, NamedArgument, Package, Self, Sentence, Test } from './model'
+import { Class, Describe, If, Mixin, Module, NamedArgument, Package, Self, Sentence, Test } from './model'
 import { duplicates } from './extensions'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { isEmpty, last, notEmpty } from './extensions'
@@ -325,6 +325,10 @@ export const shouldNotDefineUnnecesaryIf = error<If>(node =>
   notEmpty(node.elseBody.sentences) || !node.condition.is('Literal') || node.condition.value !== true
 )
 
+export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
+  notEmpty(node.tests())
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -433,7 +437,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
-  Describe: { shouldNotDuplicateGlobalDefinitions },
+  Describe: { shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe },
 }
 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
