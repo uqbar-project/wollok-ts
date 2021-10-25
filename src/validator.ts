@@ -321,6 +321,10 @@ export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
   return unaryOperation || binaryOperation
 })
 
+export const shouldNotDefineUnnecesaryIf = error<If>(node =>
+  notEmpty(node.elseBody.sentences) || !node.condition.is('Literal') || node.condition.value !== true
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -390,7 +394,7 @@ const isBooleanMessage = (node: Send): boolean =>
 const referencesSingleton = (node: Expression) => node.is('Reference') && node.target()?.is('Singleton')
 
 const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
-  Literal: condition => condition.value === 'boolean',
+  Literal: condition => condition.value === true || condition.value === false,
   Send: _ =>  true, // tackled in a different validator
   Super: _ => true,
   Reference: condition => !condition.target()?.is('Singleton'),
@@ -425,7 +429,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation },
   Super: {  },
-  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
