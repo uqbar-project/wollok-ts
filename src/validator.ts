@@ -329,6 +329,10 @@ export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
   notEmpty(node.tests())
 )
 
+export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
+  (node.name ?? '').replaceAll('"', '').trim() !== ''
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -418,7 +422,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Catch: {},
   Package: {},
   Program: { nameShouldNotBeKeyword },
-  Test: { },
+  Test: { shouldHaveNonEmptyName },
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
@@ -437,7 +441,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
-  Describe: { shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe },
+  Describe: { shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe, shouldHaveNonEmptyName },
 }
 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
