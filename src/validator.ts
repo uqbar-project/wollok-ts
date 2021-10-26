@@ -333,6 +333,10 @@ export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
   (node.name ?? '').replaceAll('"', '').trim() !== ''
 )
 
+export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
+  !node.isOnly || node.parent().children().filter(element => element.is('Test') && element.isOnly).length <= 1
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -422,7 +426,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Catch: {},
   Package: {},
   Program: { nameShouldNotBeKeyword },
-  Test: { shouldHaveNonEmptyName },
+  Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest },
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
