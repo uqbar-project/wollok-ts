@@ -337,6 +337,11 @@ export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
   !node.isOnly || node.parent().children().filter(element => element.is('Test') && element.isOnly).length <= 1
 )
 
+export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {
+  const parent = node.parent()
+  return !node.isNative() || !parent.is('Singleton') || !!parent.name
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -431,7 +436,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields },
-  Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue },
+  Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton },
   Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables },
   Return: {  },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
