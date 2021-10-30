@@ -289,7 +289,7 @@ export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
 
   const container = getVariableContainer(node)
   if (!container) return true
-  const duplicateReference = getAllReferences(container).filter(reference => reference.name == node.name).length > 1
+  const duplicateReference = getAllVariables(container).filter(reference => reference.name == node.name).length > 1
   return !duplicateReference && !hasDuplicatedVariable(container.parent(), node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
 })
 
@@ -392,7 +392,7 @@ const isGlobal = (node: Variable) => node.parent().is('Package')
 const getVariableContainer = (node: Node) =>
   node.ancestors().find(parent => parent.is('Method') || parent.is('Test')) as Method | Test | undefined
 
-const getAllReferences = (node: Method | Test): List<Variable> => node.sentences().filter(sentence => sentence.is('Variable')) as List<Variable>
+const getAllVariables = (node: Method | Test): List<Variable> => node.sentences().filter(is('Variable'))
 
 const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
   node.is('Module') && !!node.lookupField(variableName)
