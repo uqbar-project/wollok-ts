@@ -161,7 +161,11 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
   return !(node.value.is('Reference') && assigned && assigned === node.value.target())
 })
 
-export const shouldNotReassignConst = error<Assignment>(node => !node?.variable?.target()?.isConstant && !node?.variable?.target()?.is('Parameter'))
+export const shouldNotReassignConst = error<Assignment>(node => {
+  const target = node?.variable?.target()
+  const referenceIsNotConstant = !!target && (target.is('Variable') || target?.is('Field')) && !target.isConstant
+  return referenceIsNotConstant && !target?.is('Parameter')
+})
 
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
@@ -395,7 +399,7 @@ const getAllReferences = (node: Method | Test): List<Variable> => node.sentences
 
 const hasDuplicatedVariable = (node: Method | Test, variableName: string): boolean => {
   const parent = node.parent() as Class | Singleton | Mixin
-  return parent.hierarchy().flatMap(_ => _.allFields()).some(_ => _.name == variableName)
+  return !!parent.lookupField(variableName)
 }
 
 const isImplemented = (allMethods: List<Method>, method: Method): boolean => {

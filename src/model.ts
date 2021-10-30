@@ -448,6 +448,7 @@ abstract class $Module extends $Entity {
   allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
   allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
   hasField(this: Module, name: string) { return this.hierarchy().some(parent => parent.fields().map(_ => _.name).includes(name)) }
+  lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
   @cached
   runtimeName(this: Module): string { return this.fullyQualifiedName() }
