@@ -398,7 +398,7 @@ const getVariableContainer = (node: Node): Method | Test => {
 const getAllReferences = (node: Method | Test): List<Variable> => node.sentences().filter(sentence => sentence.is('Variable')) as List<Variable>
 
 const hasDuplicatedVariable = (node: Method | Test, variableName: string): boolean => {
-  const parent = node.parent() as Class | Singleton | Mixin
+  const parent = node.parent() as Class | Singleton | Mixin | Describe
   return !!parent.lookupField(variableName)
 }
 
