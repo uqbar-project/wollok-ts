@@ -279,14 +279,16 @@ export const shouldNotDuplicateFields = error<Field>(node =>
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
+  if (!nodeMethod) return true
   const parameterNotDuplicated = (nodeMethod as Method).parameters?.filter(parameter => parameter.name == node.name).length <= 1
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent(), node.name)
 })
 
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
-  if (node.parent().is('Program') || node.parent().parent().is('Program') || isGlobal(node)) return true
+  if (node.ancestors().some(is('Program')) || isGlobal(node)) return true
 
   const container = getVariableContainer(node)
+  if (!container) return true
   const duplicateReference = getAllReferences(container).filter(reference => reference.name == node.name).length > 1
   return !duplicateReference && !hasDuplicatedVariable(container.parent(), node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
 })
@@ -387,13 +389,8 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
 
 const isGlobal = (node: Variable) => node.parent().is('Package')
 
-const getVariableContainer = (node: Node): Method | Test => {
-  let nodeContainer = node.parent()
-  while (!nodeContainer.is('Method') && !nodeContainer.is('Test')) {
-    nodeContainer = nodeContainer.parent()
-  }
-  return nodeContainer
-}
+const getVariableContainer = (node: Node) =>
+  node.ancestors().find(parent => parent.is('Method') || parent.is('Test')) as Method | Test | undefined
 
 const getAllReferences = (node: Method | Test): List<Variable> => node.sentences().filter(sentence => sentence.is('Variable')) as List<Variable>
 
