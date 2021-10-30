@@ -280,7 +280,7 @@ export const shouldNotDuplicateFields = error<Field>(node =>
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
   const parameterNotDuplicated = (nodeMethod as Method).parameters?.filter(parameter => parameter.name == node.name).length <= 1
-  return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod, node.name)
+  return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent(), node.name)
 })
 
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
@@ -288,7 +288,7 @@ export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
 
   const container = getVariableContainer(node)
   const duplicateReference = getAllReferences(container).filter(reference => reference.name == node.name).length > 1
-  return !duplicateReference && !hasDuplicatedVariable(container, node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
+  return !duplicateReference && !hasDuplicatedVariable(container.parent(), node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
 })
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
@@ -397,10 +397,8 @@ const getVariableContainer = (node: Node): Method | Test => {
 
 const getAllReferences = (node: Method | Test): List<Variable> => node.sentences().filter(sentence => sentence.is('Variable')) as List<Variable>
 
-const hasDuplicatedVariable = (node: Method | Test, variableName: string): boolean => {
-  const parent = node.parent()
-  return parent.is('Module') && !!parent.lookupField(variableName)
-}
+const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
+  node.is('Module') && !!node.lookupField(variableName)
 
 const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
   return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
