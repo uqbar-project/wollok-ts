@@ -294,7 +294,7 @@ export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
 })
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
-  !node.name || !node.parent().is('Package') || (node.parent() as Package).members.filter(child => child.name == node.name).length === 1
+  !node.name || !node.parent().is('Package') || node.siblings().filter(child => (child as Entity).name == node.name).length === 1
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
@@ -340,7 +340,7 @@ export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
 )
 
 export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
-  !node.isOnly || node.parent().children().filter(element => element.is('Test') && element.isOnly).length <= 1
+  !node.isOnly || node.siblings().filter(element => element.is('Test') && element.isOnly).length <= 1
 )
 
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {

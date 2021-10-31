@@ -158,6 +158,9 @@ abstract class $Node {
   }
 
   @cached
+  siblings(): List<Node> { return this.parent().children() }
+
+  @cached
   parent():
     this extends Module | Import ? Package :
     this extends Method ? Module :
