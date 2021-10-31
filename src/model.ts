@@ -227,6 +227,7 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
+  isGlobal() { return this.parent().is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

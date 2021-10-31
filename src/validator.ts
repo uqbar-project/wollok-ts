@@ -285,7 +285,7 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
 })
 
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
-  if (node.ancestors().some(is('Program')) || isGlobal(node)) return true
+  if (node.ancestors().some(is('Program')) || node.isGlobal()) return true
 
   const container = getVariableContainer(node)
   if (!container) return true
@@ -308,7 +308,7 @@ export const shouldImplementAbstractMethods = error<Singleton>(node => {
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
-  return variable.isConstant || !isGlobal(variable)
+  return variable.isConstant || !variable.isGlobal()
 })
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
@@ -386,8 +386,6 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const returnCondition = (sentence.is('Return') && lastLineOnMethod !== node && lastLineOnMethod?.is('Return') || lastLineOnMethod?.is('Throw')) ?? false
   return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('If') || returnCondition
 }
-
-const isGlobal = (node: Variable) => node.parent().is('Package')
 
 const getVariableContainer = (node: Node) =>
   node.ancestors().find(parent => parent.is('Method') || parent.is('Test')) as Method | Test | undefined
