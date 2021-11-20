@@ -158,6 +158,9 @@ abstract class $Node {
   }
 
   @cached
+  siblings(this: Node): List<Node> { return this.parent().children().filter(node => node !== this) }
+
+  @cached
   parent():
     this extends Module | Import ? Package :
     this extends Method ? Module :
@@ -224,6 +227,7 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
+  isGlobal() { return this.parent().is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -445,6 +449,9 @@ abstract class $Module extends $Entity {
 
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
+  allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
+  allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
+  lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
   @cached
   runtimeName(this: Module): string { return this.fullyQualifiedName() }

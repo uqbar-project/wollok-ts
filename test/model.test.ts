@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { Class, Method, Body, Reference, ParameterizedType } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType } from '../src/model'
 import { restore, stub } from 'sinon'
 
 should()
@@ -81,6 +81,22 @@ describe('Wollok model', () => {
         stub(c, 'hierarchy').returns([c, b])
 
         c.isAbstract().should.be.true
+      })
+
+      it('should return correct fields for subclasses', () => {
+        const constB1 = new Field({ name: 'b1', isConstant: true  })
+        const b = new Class({ name: 'B', supertypes: [], members: [constB1], id: 'c1'  })
+        const bRef = new Reference<Class>({ name: 'B', id: 'b1r'  })
+        bRef.target = () => b as any
+        const varC1 = new Field({ name: 'c1', isConstant: true  })
+        const c = new Class({ name: 'C', members: [varC1], supertypes: [new ParameterizedType({ reference: bRef })], id: 'c1' })
+        stub(b, 'fullyQualifiedName').returns('B')
+        stub(c, 'fullyQualifiedName').returns('C')
+        stub(c, 'hierarchy').returns([c, b])
+
+        c.lookupField('d1')?.should.be.not.ok
+        c.lookupField('c1')?.should.be.ok
+        c.lookupField('b1')?.should.be.ok
       })
 
       it('should return false for classes with no abstract methods', () => {

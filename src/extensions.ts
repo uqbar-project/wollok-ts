@@ -62,3 +62,7 @@ export const hash = (str: string): number => {
 export const isEmpty = <T>(value: List<T> | undefined): boolean => !notEmpty(value)
 
 export const notEmpty = <T>(value: List<T> | undefined): boolean => (value?.length ?? 0) > 0
+
+export const duplicates = <T>(list: List<T>): List<T> => list.filter((element: T, i: number) => list.includes(element, i + 1))
+
+export const count = <T>(list: List<T>, condition: (element: T) => boolean): number => list.filter(condition).length
