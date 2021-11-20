@@ -19,10 +19,9 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Describe, If, Mixin, Module, NamedArgument, Package, Self, Sentence, Test } from './model'
-import { duplicates } from './extensions'
+import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { isEmpty, last, notEmpty } from './extensions'
+import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -198,14 +197,14 @@ export const shouldNotUseOverride = error<Method>(node =>
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent())
-  return !!parent && parent.hasField(node.name)
+  return !!parent && !!parent.lookupField(node.name)
 })
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
   const nodeParent = node.parent()
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is('New')) siblingArguments = nodeParent.args
-  return !siblingArguments || siblingArguments.filter(_ => _.name === node.name).length === 1
+  return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
 })
 
 export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node =>  {
@@ -231,7 +230,7 @@ export const shouldNotUseSelf = error<Self>(node => {
 })
 
 export const shouldNotDefineMoreThanOneSuperclass = error<Class | Singleton>(node =>
-  targetSupertypes(node).filter(_ => !!_ && _.is('Class')).length <= 1
+  count(targetSupertypes(node), _ => !!_ && _.is('Class')) <= 1
 )
 
 export const superclassShouldBeLastInLinearization = error<Class | Singleton>(node => {
@@ -274,13 +273,13 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
-  node.parent().allFields().filter(_ => _.name == node.name).length === 1
+  count(node.parent().allFields(), _ => _.name == node.name) === 1
 )
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
   if (!nodeMethod) return true
-  const parameterNotDuplicated = (nodeMethod as Method).parameters?.filter(parameter => parameter.name == node.name).length <= 1
+  const parameterNotDuplicated = count((nodeMethod as Method).parameters, parameter => parameter.name == node.name) <= 1
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent(), node.name)
 })
 
@@ -289,12 +288,12 @@ export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
 
   const container = getVariableContainer(node)
   if (!container) return true
-  const duplicateReference = getAllVariables(container).filter(reference => reference.name == node.name).length > 1
+  const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
   return !duplicateReference && !hasDuplicatedVariable(container.parent(), node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
 })
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
-  !node.name || !node.parent().is('Package') || node.siblings().filter(child => (child as Entity).name == node.name).length === 1
+  !node.name || !node.parent().is('Package') || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
@@ -340,7 +339,7 @@ export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
 )
 
 export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
-  !node.isOnly || node.siblings().filter(element => element.is('Test') && element.isOnly).length <= 1
+  !node.isOnly || count(node.siblings(), element => element.is('Test') && element.isOnly) <= 1
 )
 
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {

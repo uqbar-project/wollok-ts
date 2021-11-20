@@ -158,7 +158,7 @@ abstract class $Node {
   }
 
   @cached
-  siblings(): List<Node> { return this.parent().children() }
+  siblings(this: Node): List<Node> { return this.parent().children().filter(node => node !== this) }
 
   @cached
   parent():
@@ -451,7 +451,6 @@ abstract class $Module extends $Entity {
   fields(): List<Field> { return this.members.filter(is('Field')) }
   allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
   allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
-  hasField(this: Module, name: string) { return this.hierarchy().some(parent => parent.fields().map(_ => _.name).includes(name)) }
   lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
   @cached

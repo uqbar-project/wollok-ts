@@ -94,9 +94,9 @@ describe('Wollok model', () => {
         stub(c, 'fullyQualifiedName').returns('C')
         stub(c, 'hierarchy').returns([c, b])
 
-        c.hasField('d1').should.be.false
-        c.hasField('c1').should.be.true
-        c.hasField('b1').should.be.true
+        c.lookupField('d1')?.should.be.not.ok
+        c.lookupField('c1')?.should.be.ok
+        c.lookupField('b1')?.should.be.ok
       })
 
       it('should return false for classes with no abstract methods', () => {
