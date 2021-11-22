@@ -22,6 +22,7 @@
 import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
+import { match } from 'assert'
 
 const { entries } = Object
 
@@ -353,12 +354,19 @@ export const ifShouldHaveReachableCode = error<If>(node => {
   return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
 })
 
-export const methodShouldExist = error<Send>(node => {
-  const receiver = node.receiver
-  if (!receiver.is('Self')) return true
-  const allAncestors = receiver.ancestors().filter(ancestor => ancestor.is('Module'))
-  return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
-})
+export const methodShouldExist = error<Send>(node =>
+  node.receiver.match({
+    Self: selfNode => {
+      const allAncestors = selfNode.ancestors().filter(ancestor => ancestor.is('Module'))
+      return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
+    },
+    Reference: referenceNode => {
+      const receiver = referenceNode.target()
+      return !receiver?.is('Module') || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
+    },
+    Expression: _ => true,
+  })
+)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
