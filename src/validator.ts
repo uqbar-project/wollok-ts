@@ -347,6 +347,12 @@ export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node
   return !node.isNative() || !parent.is('Singleton') || !!parent.name
 })
 
+export const ifShouldHaveReachableCode = error<If>(node => {
+  const condition = node.condition
+  if (!condition.is('Literal') || condition.value !== true && condition.value !== false) return true
+  return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -442,7 +448,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation },
   Super: {  },
-  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, ifShouldHaveReachableCode },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
