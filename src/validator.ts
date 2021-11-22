@@ -357,7 +357,7 @@ export const methodShouldExist = error<Send>(node => {
   const receiver = node.receiver
   if (!receiver.is('Self')) return true
   const allAncestors = receiver.ancestors().filter(ancestor => ancestor.is('Module'))
-  return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length))
+  return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
