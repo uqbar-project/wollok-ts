@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
+import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
 import { match } from 'assert'
@@ -377,6 +377,11 @@ export const methodShouldExist = error<Send>(node =>
   })
 )
 
+export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
+  const method = node.ancestors().find(is('Method'))
+  return !!method && !!superclassMethod(method) && superclassMethod(method)!.parameters.length === node.args.length
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -471,7 +476,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable },
-  Super: {  },
+  Super: { shouldUseSuperOnlyOnOverridingMethod },
   If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
