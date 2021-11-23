@@ -348,11 +348,20 @@ export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node
   return !node.isNative() || !parent.is('Singleton') || !!parent.name
 })
 
-export const ifShouldHaveReachableCode = error<If>(node => {
-  const condition = node.condition
-  if (!condition.is('Literal') || condition.value !== true && condition.value !== false) return true
-  return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
-})
+export const codeShouldBeReachable = error<If | Send>(node =>
+  node.match({
+    If: node => {
+      const condition = node.condition
+      if (!condition.is('Literal') || condition.value !== true && condition.value !== false) return true
+      return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
+    },
+    Send: node => {
+      const receiver = node.receiver
+      const message = node.message
+      return !(isBooleanLiteral(receiver, true) && ['or', '||'].includes(message)) && !(isBooleanLiteral(receiver, false) && ['and', '&&'].includes(message))
+    },
+  })
+)
 
 export const methodShouldExist = error<Send>(node =>
   node.receiver.match({
@@ -461,9 +470,9 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
-  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable },
   Super: {  },
-  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, ifShouldHaveReachableCode },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
