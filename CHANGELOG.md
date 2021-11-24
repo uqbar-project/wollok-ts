@@ -9,6 +9,8 @@
 - Fixed linearization to properly avoid repetitions in hierarchy.
 - Added options parameter to lookupMethod (allow abstract method to be included, lookup start FQN module moved into this parameter)
 - Added validation functions based on @Expect annotation
+- SourceMaps are now custom classes with better string conversion logic
+- Better string conversion logic for nodes (short and verbose labels)
 
 ## v3.0.6
 - Updated to official Wollok Language 3.0.3 version. 

@@ -153,6 +153,17 @@ abstract class $Node {
     assign(this, payload)
   }
 
+  label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo()}` }
+
+  @cached
+  toString(verbose = false): string {
+    return !verbose ? this.label() : JSON.stringify(this, (key, value) => {
+      if('scope' === key) return
+      if('sourceMap' === key) return `${value}`
+      return value
+    }, 2)
+  }
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
@@ -165,7 +176,7 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap ?? '--'}` }
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
 
   sourceFileName(): string | undefined { return this.parent().sourceFileName() }
 
@@ -322,6 +333,10 @@ export type Entity
 abstract class $Entity extends $Node {
   abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
 
+  override label(this: Entity): string {
+    return `${this.fullyQualifiedName()} ${super.label()}`
+  }
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
   }
@@ -402,11 +417,6 @@ export class Variable extends $Entity {
     super({ value, ...payload })
   }
 
-  @cached
-  runtimeName(): string {
-    return this.parent().is('Package') ? this.fullyQualifiedName() : this.name
-  }
-
   // TODO: Maybe use mixins to avoid these ugly redefinitions
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
@@ -474,9 +484,6 @@ abstract class $Module extends $Entity {
   allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
   allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
   lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
-
-  @cached
-  runtimeName(this: Module): string { return this.fullyQualifiedName() }
 
   @cached
   hierarchy(this: Module): List<Module> {
@@ -629,6 +636,10 @@ export class Field extends $Node {
   constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isConstant'>) {
     super({ value, isProperty, ...payload })
   }
+
+  override label(): string {
+    return `${this.parent().fullyQualifiedName()}.${this.name} ${super.label()}`
+  }
 }
 
 
@@ -641,6 +652,10 @@ export class Method extends $Node {
 
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })
+  }
+
+  override label(): string {
+    return `${this.parent().fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
   }
 
   isAbstract(): this is {body: undefined} { return !this.body }

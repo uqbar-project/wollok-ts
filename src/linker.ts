@@ -1,4 +1,6 @@
+import { SourceMap } from 'module'
 import { v4 as uuid } from 'uuid'
+import { SourceIndex } from '.'
 import { divideOn } from './extensions'
 import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference } from './model'
 const { assign } = Object
@@ -140,6 +142,7 @@ export default (
   // TODO: Move to validator?
   environment.forEach(node => {
     if(node.is('Reference') && !node.target()) fail('missingReference')(node)
+    console.log(`${node.toString()}`)
   })
 
   return environment

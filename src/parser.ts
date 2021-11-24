@@ -111,7 +111,7 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
     lazy(parser),
     index
   ).map(([metadata, start, payload, end]) =>
-    new constructor({ metadata, sourceMap: { start, end }, ...payload })
+    new constructor({ metadata, sourceMap: buildSourceMap(start, end), ...payload })
   )
 
 
