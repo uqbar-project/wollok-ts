@@ -30,7 +30,7 @@ function registerTests(nodes: List<Node>, interpreter: Interpreter) {
       registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
     })
 
-    else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
+    else if (node.is('Test') && !node.parent.children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => interpreter.fork().exec(node) )
 
   })

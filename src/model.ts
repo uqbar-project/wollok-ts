@@ -2,7 +2,7 @@ import { last, mapObject, notEmpty } from './extensions'
 import * as Models from './model'
 
 const { isArray } = Array
-const { entries, values, assign } = Object
+const { entries, values, assign, defineProperty } = Object
 
 export type Name = string
 export type Id = string
@@ -82,7 +82,7 @@ export function fromJSON<T>(json: any): T {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// CACHE
+// DECORATORS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
@@ -94,6 +94,14 @@ const cached = (_target: any, propertyKey: string, descriptor: PropertyDescripto
     this.cache.set(key, result)
     return result
   }
+}
+
+const lazy = (target: any, key: string) => {
+  defineProperty(target, key, {
+    configurable: true,
+    set(value: any) { return defineProperty(this, key, { value, configurable: false }) },
+    get() { return undefined },
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -146,6 +154,13 @@ abstract class $Node {
   readonly problems?: List<Problem>
   readonly metadata: List<Annotation> = []
 
+  @lazy environment!: Environment
+  @lazy parent!: this extends Module | Import ? Package :
+                 this extends Method ? Module :
+                 this extends Field ? Class | Mixin | Singleton :
+                 this extends Test ? Describe :
+                 Node
+
   readonly #cache: Cache = new Map()
   get cache(): Cache { return this.#cache }
 
@@ -178,7 +193,7 @@ abstract class $Node {
 
   sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
 
-  sourceFileName(): string | undefined { return this.parent().sourceFileName() }
+  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
 
   @cached
   children(): List<Node> {
@@ -191,17 +206,7 @@ abstract class $Node {
   }
 
   @cached
-  siblings(this: Node): List<Node> { return this.parent().children().filter(node => node !== this) }
-
-  @cached
-  parent():
-    this extends Module | Import ? Package :
-    this extends Method ? Module :
-    this extends Field ? Class | Mixin | Singleton :
-    this extends Test ? Describe :
-    Node {
-    throw new Error(`Missing parent in cache for node ${this.id}`)
-  }
+  siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
 
   @cached
   descendants(this: Node): List<Node> {
@@ -220,13 +225,10 @@ abstract class $Node {
   @cached
   ancestors(): List<Node> {
     try {
-      const parent = this.parent()
+      const parent = this.parent
       return [parent, ...parent.ancestors()]
     } catch (_) { return [] }
   }
-
-  @cached
-  environment(): Environment { throw new Error('Unlinked node has no Environment') }
 
   match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
     for(const [key, handler] of entries(cases))
@@ -260,7 +262,7 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
-  isGlobal() { return this.parent().is('Package') }
+  isGlobal() { return this.parent.is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -343,7 +345,7 @@ abstract class $Entity extends $Node {
 
   @cached
   fullyQualifiedName(this: Entity): Name {
-    const parent = this.parent()
+    const parent = this.parent
     const label = this.is('Singleton')
       ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
@@ -553,7 +555,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.environment().objectClass
+      const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -583,7 +585,7 @@ export class Singleton extends $Module {
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.environment().objectClass
+    else return this.environment.objectClass
   }
 
   isClosure(parametersCount = 0): boolean {
@@ -638,7 +640,7 @@ export class Field extends $Node {
   }
 
   override label(): string {
-    return `${this.parent().fullyQualifiedName()}.${this.name} ${super.label()}`
+    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label()}`
   }
 }
 
@@ -655,7 +657,7 @@ export class Method extends $Node {
   }
 
   override label(): string {
-    return `${this.parent().fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
+    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
   }
 
   isAbstract(): this is {body: undefined} { return !this.body }
@@ -873,13 +875,16 @@ export class Environment extends $Node {
   readonly kind = 'Environment'
   readonly members!: List<Package>
 
+  @lazy nodeCache!: ReadonlyMap<Id, Node>
+
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   sourceFileName(): string | undefined { return undefined }
 
-  @cached
-  getNodeById<N extends Node>(this: Environment, id: Id): N {
-    throw new Error(`Missing node in node cache with id ${id}`)
+  getNodeById<N extends Node>(id: Id): N {
+    const node = this.nodeCache.get(id)
+    if(!node) throw new Error(`Missing node with id ${id}`)
+    return node as N
   }
 
   @cached

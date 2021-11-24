@@ -46,7 +46,7 @@ async function buildWRE() {
 
   console.info('Saving...')
   console.time('Saved')
-  await writeFile(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, undefined, 2))
+  await writeFile(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, (key, value) => key.startsWith('_') ? undefined : value, 2))
   console.timeEnd('Saved')
 
   console.groupEnd()

@@ -92,7 +92,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const shouldNotBeEmpty = warning<Body>(node =>
-  node.isSynthetic() || node.parent().is('Method') || notEmpty(node.sentences)
+  node.isSynthetic() || node.parent.is('Method') || notEmpty(node.sentences)
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
@@ -127,11 +127,11 @@ node => [node.name || ''],
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
-  singleton => singleton.parent().is('Package') || !singleton.name
+  singleton => singleton.parent.is('Package') || !singleton.name
 )
 
 export const topLevelSingletonShouldHaveAName = error<Singleton>(
-  singleton => !singleton.parent().is('Package') || !!singleton.name
+  singleton => !singleton.parent.is('Package') || !!singleton.name
 )
 
 export const onlyLastParameterCanBeVarArg = error<Method>(node => {
@@ -144,7 +144,7 @@ export const shouldHaveCatchOrAlways = error<Try>(node =>
 )
 
 export const methodShouldHaveDifferentSignature = error<Method>(node => {
-  return node.parent().methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+  return node.parent.methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
 })
 
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
@@ -197,12 +197,12 @@ export const shouldNotUseOverride = error<Method>(node =>
 )
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
-  const parent = getReferencedModule(node.parent())
+  const parent = getReferencedModule(node.parent)
   return !!parent && !!parent.lookupField(node.name)
 })
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
-  const nodeParent = node.parent()
+  const nodeParent = node.parent
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is('New')) siblingArguments = nodeParent.args
   return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
@@ -274,14 +274,14 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
-  count(node.parent().allFields(), _ => _.name == node.name) === 1
+  count(node.parent.allFields(), _ => _.name == node.name) === 1
 )
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
   if (!nodeMethod) return true
   const parameterNotDuplicated = count((nodeMethod as Method).parameters, parameter => parameter.name == node.name) <= 1
-  return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent(), node.name)
+  return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent, node.name)
 })
 
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
@@ -290,11 +290,11 @@ export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
   const container = getVariableContainer(node)
   if (!container) return true
   const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
-  return !duplicateReference && !hasDuplicatedVariable(container.parent(), node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
+  return !duplicateReference && !hasDuplicatedVariable(container.parent, node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
 })
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
-  !node.name || !node.parent().is('Package') || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
+  !node.name || !node.parent.is('Package') || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
@@ -344,7 +344,7 @@ export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
 )
 
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {
-  const parent = node.parent()
+  const parent = node.parent
   return !node.isNative() || !parent.is('Singleton') || !!parent.name
 })
 
@@ -378,10 +378,10 @@ const isBooleanLiteral = (node: Expression, value: boolean) => node.is('Literal'
 
 const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target())
 
-const superclassMethod = (node: Method) => node.parent().lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent().fullyQualifiedName(), allowAbstractMethods: true })
+const superclassMethod = (node: Method) => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName(), allowAbstractMethods: true })
 
 const finishesFlow = (sentence: Sentence, node: Node): boolean => {
-  const parent = node.parent()
+  const parent = node.parent
   const lastLineOnMethod = parent.is('Body') ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is('Return') && lastLineOnMethod !== node && lastLineOnMethod?.is('Return') || lastLineOnMethod?.is('Throw')) ?? false
   return sentence.is('Throw') || sentence.is('Send') || sentence.is('Assignment') || sentence.is('If') || returnCondition
