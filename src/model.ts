@@ -1,13 +1,13 @@
 import { last, mapObject, notEmpty } from './extensions'
+import { lazy, cached } from './decorators'
 import * as Models from './model'
 
 const { isArray } = Array
-const { entries, values, assign, defineProperty } = Object
+const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
-export type Cache = Map<string, any>
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
@@ -82,29 +82,6 @@ export function fromJSON<T>(json: any): T {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// DECORATORS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-  const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
-    const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
-    if (this.cache.has(key)) return this.cache.get(key)
-    const result = originalMethod.apply(this, args)
-    this.cache.set(key, result)
-    return result
-  }
-}
-
-const lazy = (target: any, key: string) => {
-  defineProperty(target, key, {
-    configurable: true,
-    set(value: any) { return defineProperty(this, key, { value, configurable: false }) },
-    get() { return undefined },
-  })
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // KINDS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -160,9 +137,6 @@ abstract class $Node {
                  this extends Field ? Class | Mixin | Singleton :
                  this extends Test ? Describe :
                  Node
-
-  readonly #cache: Cache = new Map()
-  get cache(): Cache { return this.#cache }
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)

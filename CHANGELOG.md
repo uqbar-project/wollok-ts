@@ -14,6 +14,7 @@
 - Changed Node's `environment` and `parent` to be fields instead of methods.
 - Linker no longer relies on the standard cache.
 - Added `@lazy` decorator for readonly node fields that are eventually initialized during the pipeline.
+- Cache is now decoupled from nodes.
 
 ## v3.0.6
 - Updated to official Wollok Language 3.0.3 version. 
