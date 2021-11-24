@@ -138,8 +138,10 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.parent().sourceMap : undefined)
-    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ?? '--'}`
+    const target = this.node.is('Method') && this.node.name === '<apply>'
+      ? this.node.parent()
+      : this.node
+    return target.sourceInfo()
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {

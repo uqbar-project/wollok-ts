@@ -24,7 +24,7 @@ describe('Wollok Validations', () => {
     return problem.code === code
   }
 
-  const errorLocation = (node: Node | Problem): string => `${node.sourceMap?.start.line}:${node.sourceMap?.start.column}`
+  const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`
 
   for(const file of files) {
     const packageName = file.name.split('.')[0]

@@ -165,7 +165,8 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  @cached
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap ?? '--'}` }
+
   sourceFileName(): string | undefined { return this.parent().sourceFileName() }
 
   @cached
