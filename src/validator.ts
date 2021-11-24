@@ -22,7 +22,6 @@
 import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
-import { match } from 'assert'
 
 const { entries } = Object
 
@@ -382,6 +381,26 @@ export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
   return !!method && !!superclassMethod(method) && superclassMethod(method)!.parameters.length === node.args.length
 })
 
+export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
+  node.match({
+    If: node => {
+      if (node.thenBody.sentences.length !== 1 || node.elseBody?.sentences.length !== 1) return true
+      const thenValue = valueFor(last(node.thenBody.sentences))
+      const elseValue = valueFor(last(node.elseBody.sentences))
+      return thenValue === undefined || elseValue === undefined || thenValue !== elseValue
+    },
+    Send: node => {
+      const receiver = node.receiver
+      const argument = node.args[0]
+      const andOperation = ['and', '&&'].includes(node.message)
+      const orOperation = ['or', '||'].includes(node.message)
+      if (andOperation) return !isBooleanLiteral(receiver, true) && !isBooleanLiteral(argument, true)
+      if (orOperation) return !isBooleanLiteral(receiver, false) && !isBooleanLiteral(argument, false)
+      return true
+    },
+  })
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -449,6 +468,15 @@ const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
   Expression: _ => false,
 })
 
+const valueFor: any | undefined = (node: Expression | Assignment) =>
+  node.match({
+    Literal: node => node.value,
+    Return: node => valueFor(node.value),
+    Expression: _ => undefined,
+    Assignment: _ => undefined,
+    Throw: _ => undefined,
+  })
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -475,9 +503,9 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
-  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition },
   Super: { shouldUseSuperOnlyOnOverridingMethod },
-  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
