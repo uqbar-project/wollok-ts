@@ -1,4 +1,3 @@
-import { Index } from 'parsimmon'
 import { last, mapObject, notEmpty } from './extensions'
 import * as Models from './model'
 
@@ -16,10 +15,32 @@ export interface Scope {
   register(...contributions: [Name, Node][]): void
 }
 
-// TODO: Use a class instead with a better interface (e.g. toString)
-export interface SourceMap {
-  readonly start: Index
-  readonly end: Index
+
+export class SourceIndex {
+  readonly offset: number
+  readonly line: number
+  readonly column: number
+
+  constructor(args: {offset: number, line: number, column: number}) {
+    this.offset = args.offset
+    this.line = args.line
+    this.column = args.column
+  }
+
+  toString(): string { return `${this.line}:${this.column}` }
+}
+
+export class SourceMap {
+  readonly start: SourceIndex
+  readonly end: SourceIndex
+
+  constructor(args: {start: SourceIndex, end: SourceIndex}) {
+    this.start = args.start
+    this.end = args.end
+  }
+
+  toString(): string { return `[${this.start}, ${this.end}]` }
+  covers(offset: number): boolean { return this.start.offset <= offset && this.end.offset >= offset }
 }
 
 export class Annotation {

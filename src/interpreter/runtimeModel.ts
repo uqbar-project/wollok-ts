@@ -139,7 +139,7 @@ export class Frame extends Context {
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
     const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.parent().sourceMap : undefined)
-    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
+    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ?? '--'}`
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {

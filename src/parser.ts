@@ -1,8 +1,9 @@
-import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any } from 'parsimmon'
+import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
 import { Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, List, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation, is } from './model'
 import { mapObject, discriminate } from './extensions'
+import { SourceIndex } from '.'
 
 // TODO: Use description in lazy() for better errors
 
@@ -38,6 +39,11 @@ export class ParseError extends Problem {
   constructor(public code: Name, public sourceMap: SourceMap){ super() }
 }
 
+const buildSourceMap = (start: Index, end: Index) => new SourceMap({
+  start: new SourceIndex(start),
+  end: new SourceIndex(end),
+})
+
 // TODO: Contribute this type so we don't have to do it here
 function alt<T1, T2>(p1: Parser<T1>, p2: Parser<T2>): Parser<T1 | T2>
 function alt<T1, T2, T3>(p1: Parser<T1>, p2: Parser<T2>, p3: Parser<T3>): Parser<T1 | T2 | T3>
@@ -49,9 +55,7 @@ const error = (code: string) => (...safewords: string[]) =>
   notFollowedBy(alt(...safewords.map(key))).then(alt(
     seq(string('{'), takeWhile(c => c !== '}'), string('}')),
     any
-  )).atLeast(1).mark().map(({ start, end }) =>
-    new ParseError(code, { start, end })
-  )
+  )).atLeast(1).mark().map(({ start, end }) => new ParseError(code, buildSourceMap(start, end)))
 
 const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
   const problems: ParseError[] = []
@@ -388,7 +392,7 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     seq(message, args, index).many(),
   ).map(([start, initialReceiver, calls]) =>
     calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: { start, end } })
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(start, end) })
     , initialReceiver)
   )
 )
@@ -498,7 +502,7 @@ const Closure: Parser<SingletonNode> = lazy(() => {
         parameters,
         sentences,
         code: input.slice(start.offset, end.offset),
-        sourceMap:{ start, end },
+        sourceMap: buildSourceMap(start, end),
       }))
     )
   )

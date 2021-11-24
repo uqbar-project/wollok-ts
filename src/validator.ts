@@ -22,6 +22,7 @@
 import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
+import { SourceIndex } from '.'
 
 const { entries } = Object
 
@@ -103,16 +104,16 @@ export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | 
     node => [node.name ?? ''],
     node => {
       const nodeOffset = node.kind.length + 1
-      return node.sourceMap && {
-        start: {
+      return node.sourceMap && new SourceMap({
+        start: new SourceIndex({
           ...node.sourceMap.start,
           offset: nodeOffset,
-        },
-        end: {
+        }),
+        end: new SourceIndex({
           ...node.sourceMap.end,
           offset: node.name?.length ?? 0 + nodeOffset,
-        },
-      }
+        }),
+      })
     }
   )
 
