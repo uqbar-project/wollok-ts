@@ -19,10 +19,9 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
+import { SourceIndex, Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
-import { SourceIndex } from '.'
 
 const { entries } = Object
 
