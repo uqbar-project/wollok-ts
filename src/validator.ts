@@ -372,7 +372,7 @@ export const methodShouldExist = error<Send>(node =>
       const receiver = referenceNode.target()
       return !receiver?.is('Module') || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
     },
-    Expression: _ => true,
+    Node: _ => true,
   })
 )
 
@@ -465,16 +465,14 @@ const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
   Send: _ =>  true, // tackled in a different validator
   Super: _ => true,
   Reference: condition => !condition.target()?.is('Singleton'),
-  Expression: _ => false,
+  Node: _ => false,
 })
 
 const valueFor: any | undefined = (node: Expression | Assignment) =>
   node.match({
     Literal: node => node.value,
     Return: node => valueFor(node.value),
-    Expression: _ => undefined,
-    Assignment: _ => undefined,
-    Throw: _ => undefined,
+    Node: _ => undefined,
   })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
