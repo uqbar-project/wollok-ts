@@ -128,7 +128,7 @@ export class Frame extends Context {
     return this.node.match({
       Entity: node => `${node.fullyQualifiedName()}`,
       // TODO: Add fqn to method
-      Method: node => `${node.parent().fullyQualifiedName()}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`,
+      Method: node => `${node.parent.fullyQualifiedName()}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`,
       Catch: node => `catch(${node.parameter.name}: ${node.parameterType.name})`,
       Environment: () => 'root',
       Node: node => `${node.kind}`,
@@ -138,8 +138,10 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const sourceMap = this.node.sourceMap ?? (this.node.is('Method') && this.node.name === '<apply>' ? this.node.parent().sourceMap : undefined)
-    return `${this.node.sourceFileName() ?? '--'}:${sourceMap ? sourceMap.start.line + ':' + sourceMap.start.column : '--'}`
+    const target = this.node.is('Method') && this.node.name === '<apply>'
+      ? this.node.parent
+      : this.node
+    return target.sourceInfo()
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
@@ -211,7 +213,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
-    if (!this.module.inherits(this.module.environment().getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
+    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
     if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
   }
 
@@ -247,7 +249,7 @@ export class Evaluation {
 
     environment.forEach(node => {
       if(node.is('Method') && node.isNative())
-        evaluation.natives.set(node, get(natives, `${node.parent()!.fullyQualifiedName()}.${node.name}`)!)
+        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName()}.${node.name}`)!)
     })
 
     const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
@@ -255,7 +257,7 @@ export class Evaluation {
       evaluation.rootFrame.set(module.fullyQualifiedName(), evaluation.instantiate(module))
 
 
-    const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent().is('Package'))
+    const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent.is('Package'))
     for (const constant of globalConstants)
       evaluation.rootFrame.set(constant.fullyQualifiedName(), evaluation.exec(constant.value))
 
@@ -364,8 +366,8 @@ export class Evaluation {
   protected *execTest(node: Test): Execution<void> {
     yield node
 
-    yield* this.exec(node.body, new Frame(node, node.parent().is('Describe')
-      ? yield* this.instantiate(node.parent())
+    yield* this.exec(node.body, new Frame(node, node.parent.is('Describe')
+      ? yield* this.instantiate(node.parent)
       : this.currentFrame,
     ))
   }
@@ -381,7 +383,7 @@ export class Evaluation {
 
     if(node.isNative()) {
       const native = this.natives.get(node)
-      if(!native) throw new Error(`Missing native for ${node.parent()?.fullyQualifiedName()}.${node.name}`)
+      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName()}.${node.name}`)
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
@@ -394,7 +396,7 @@ export class Evaluation {
         if(error instanceof WollokReturn) return error.instance
         else throw error
       }
-    } else throw new Error(`Can't invoke abstract method ${node.parent().fullyQualifiedName()}.${node.name}/${node.parameters.length}`)
+    } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName()}.${node.name}/${node.parameters.length}`)
   }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
@@ -439,7 +441,7 @@ export class Evaluation {
     const target = node.target()!
 
     return this.currentFrame.get(
-      target.is('Module') || target.is('Variable') && target.parent().is('Package')
+      target.is('Module') || target.is('Variable') && target.parent.is('Package')
         ? target.fullyQualifiedName()
         : node.name
     )
@@ -502,7 +504,7 @@ export class Evaluation {
     const receiver = this.currentFrame.get('self')!
     const currentMethod = node.ancestors().find(is('Method'))!
     //TODO: pass just the parent (not the FQN) to lookup?
-    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent().fullyQualifiedName() })
+    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName() })
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
 

@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { Id } from '.'
 import { divideOn } from './extensions'
 import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference } from './model'
 const { assign } = Object
@@ -78,7 +79,7 @@ const assignScopes = (environment: Environment) => {
     assign(node, {
       scope: new LocalScope(
         node.is('Reference') && parent!.is('ParameterizedType')
-          ? parent!.parent().scope
+          ? parent!.parent.scope
           : parent?.scope
       ),
     })
@@ -97,7 +98,7 @@ const assignScopes = (environment: Environment) => {
 
     if(node.is('Package')) {
       for(const imported of node.imports) {
-        const entity = node.parent().scope.resolve<Entity>(imported.entity.name)
+        const entity = node.parent.scope.resolve<Entity>(imported.entity.name)
 
         if(entity) node.scope.include(imported.isGeneric
           ? entity.scope
@@ -129,11 +130,13 @@ export default (
     members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package>,
   }).transform(node => node.copy({ id: uuid() }))
 
+  const nodeCache = new Map<Id, Node>()
   environment.forEach((node, parent) => {
-    if(parent) node.cache.set('parent()', parent) // TODO: These strings are rather ugly...
-    node.cache.set('environment()', environment)
-    environment.cache.set(`getNodeById(${node.id})`, node)
+    nodeCache.set(node.id, node)
+    node.environment = environment
+    if(parent) node.parent = parent
   })
+  environment.nodeCache = nodeCache
 
   assignScopes(environment)
 
