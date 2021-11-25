@@ -1,5 +1,5 @@
-import { Index } from 'parsimmon'
 import { last, mapObject, notEmpty } from './extensions'
+import { lazy, cached } from './decorators'
 import * as Models from './model'
 
 const { isArray } = Array
@@ -8,7 +8,6 @@ const { entries, values, assign } = Object
 export type Name = string
 export type Id = string
 export type List<T> = ReadonlyArray<T>
-export type Cache = Map<string, any>
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
@@ -16,10 +15,32 @@ export interface Scope {
   register(...contributions: [Name, Node][]): void
 }
 
-// TODO: Use a class instead with a better interface (e.g. toString)
-export interface SourceMap {
-  readonly start: Index
-  readonly end: Index
+
+export class SourceIndex {
+  readonly offset: number
+  readonly line: number
+  readonly column: number
+
+  constructor(args: {offset: number, line: number, column: number}) {
+    this.offset = args.offset
+    this.line = args.line
+    this.column = args.column
+  }
+
+  toString(): string { return `${this.line}:${this.column}` }
+}
+
+export class SourceMap {
+  readonly start: SourceIndex
+  readonly end: SourceIndex
+
+  constructor(args: {start: SourceIndex, end: SourceIndex}) {
+    this.start = args.start
+    this.end = args.end
+  }
+
+  toString(): string { return `[${this.start}, ${this.end}]` }
+  covers(offset: number): boolean { return this.start.offset <= offset && this.end.offset >= offset }
 }
 
 export class Annotation {
@@ -58,21 +79,6 @@ export function fromJSON<T>(json: any): T {
     return data
   }
   return propagate(json) as T
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// CACHE
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-  const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
-    const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
-    if (this.cache.has(key)) return this.cache.get(key)
-    const result = originalMethod.apply(this, args)
-    this.cache.set(key, result)
-    return result
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -125,11 +131,26 @@ abstract class $Node {
   readonly problems?: List<Problem>
   readonly metadata: List<Annotation> = []
 
-  readonly #cache: Cache = new Map()
-  get cache(): Cache { return this.#cache }
+  @lazy environment!: Environment
+  @lazy parent!: this extends Module | Import ? Package :
+                 this extends Method ? Module :
+                 this extends Field ? Class | Mixin | Singleton :
+                 this extends Test ? Describe :
+                 Node
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
+  }
+
+  label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo()}` }
+
+  @cached
+  toString(verbose = false): string {
+    return !verbose ? this.label() : JSON.stringify(this, (key, value) => {
+      if('scope' === key) return
+      if('sourceMap' === key) return `${value}`
+      return value
+    }, 2)
   }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
@@ -144,8 +165,9 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  @cached
-  sourceFileName(): string | undefined { return this.parent().sourceFileName() }
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
+
+  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
 
   @cached
   children(): List<Node> {
@@ -158,17 +180,7 @@ abstract class $Node {
   }
 
   @cached
-  siblings(this: Node): List<Node> { return this.parent().children().filter(node => node !== this) }
-
-  @cached
-  parent():
-    this extends Module | Import ? Package :
-    this extends Method ? Module :
-    this extends Field ? Class | Mixin | Singleton :
-    this extends Test ? Describe :
-    Node {
-    throw new Error(`Missing parent in cache for node ${this.id}`)
-  }
+  siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
 
   @cached
   descendants(this: Node): List<Node> {
@@ -187,13 +199,10 @@ abstract class $Node {
   @cached
   ancestors(): List<Node> {
     try {
-      const parent = this.parent()
+      const parent = this.parent
       return [parent, ...parent.ancestors()]
     } catch (_) { return [] }
   }
-
-  @cached
-  environment(): Environment { throw new Error('Unlinked node has no Environment') }
 
   match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
     for(const [key, handler] of entries(cases))
@@ -227,7 +236,7 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
-  isGlobal() { return this.parent().is('Package') }
+  isGlobal() { return this.parent.is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -300,13 +309,17 @@ export type Entity
 abstract class $Entity extends $Node {
   abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
 
+  override label(this: Entity): string {
+    return `${this.fullyQualifiedName()} ${super.label()}`
+  }
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
   }
 
   @cached
   fullyQualifiedName(this: Entity): Name {
-    const parent = this.parent()
+    const parent = this.parent
     const label = this.is('Singleton')
       ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
@@ -380,11 +393,6 @@ export class Variable extends $Entity {
     super({ value, ...payload })
   }
 
-  @cached
-  runtimeName(): string {
-    return this.parent().is('Package') ? this.fullyQualifiedName() : this.name
-  }
-
   // TODO: Maybe use mixins to avoid these ugly redefinitions
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
@@ -454,9 +462,6 @@ abstract class $Module extends $Entity {
   lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
   @cached
-  runtimeName(this: Module): string { return this.fullyQualifiedName() }
-
-  @cached
   hierarchy(this: Module): List<Module> {
     const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
       if (exclude.includes(node)) return []
@@ -524,7 +529,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.environment().objectClass
+      const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -554,7 +559,7 @@ export class Singleton extends $Module {
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.environment().objectClass
+    else return this.environment.objectClass
   }
 
   isClosure(parametersCount = 0): boolean {
@@ -607,6 +612,10 @@ export class Field extends $Node {
   constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isConstant'>) {
     super({ value, isProperty, ...payload })
   }
+
+  override label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label()}`
+  }
 }
 
 
@@ -619,6 +628,10 @@ export class Method extends $Node {
 
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })
+  }
+
+  override label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
   }
 
   isAbstract(): this is {body: undefined} { return !this.body }
@@ -836,13 +849,16 @@ export class Environment extends $Node {
   readonly kind = 'Environment'
   readonly members!: List<Package>
 
+  @lazy nodeCache!: ReadonlyMap<Id, Node>
+
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   sourceFileName(): string | undefined { return undefined }
 
-  @cached
-  getNodeById<N extends Node>(this: Environment, id: Id): N {
-    throw new Error(`Missing node in node cache with id ${id}`)
+  getNodeById<N extends Node>(id: Id): N {
+    const node = this.nodeCache.get(id)
+    if(!node) throw new Error(`Missing node with id ${id}`)
+    return node as N
   }
 
   @cached

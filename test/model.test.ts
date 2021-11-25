@@ -1,5 +1,6 @@
 import { should } from 'chai'
 import { Class, Field, Method, Body, Reference, ParameterizedType } from '../src/model'
+import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 
 should()
@@ -13,10 +14,10 @@ describe('Wollok model', () => {
       const node = new Class({ name: 'C', supertypes: [], members: [method] })
       stub(node, 'hierarchy').returns([node])
 
-      node.cache.size.should.equal(0)
+      getCache(node).size.should.equal(0)
       const response = node.lookupMethod(method.name, method.parameters.length)
       response!.should.equal(method)
-      node.cache.get(`lookupMethod(${method.name},${method.parameters.length})`).should.equal(response)
+      getCache(node).get(`lookupMethod(${method.name},${method.parameters.length})`).should.equal(response)
     })
 
     it('should prevent a second call to the same method', () => {
@@ -26,7 +27,7 @@ describe('Wollok model', () => {
       stub(node, 'hierarchy').returns([node])
 
       node.lookupMethod(method.name, method.parameters.length)
-      node.cache.set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)
+      getCache(node).set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)
 
       node.lookupMethod(method.name, method.parameters.length)!.should.equal(otherMethod)
     })
