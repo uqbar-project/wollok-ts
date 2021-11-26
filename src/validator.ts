@@ -405,6 +405,12 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
   !node.isOverride || node.isNative() || !!node.body
 )
 
+export const shouldUseConditionalExpression = warning<If>(node => {
+  const thenValue = valueFor(last(node.thenBody.sentences))
+  const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
+  return (elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue) && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -464,7 +470,7 @@ const isBooleanMessage = (node: Send): boolean =>
 
 const referencesSingleton = (node: Expression) => node.is('Reference') && node.target()?.is('Singleton')
 
-const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
+const isBooleanOrUnknownType = (node: Node): boolean => node.match({
   Literal: condition => condition.value === true || condition.value === false,
   Send: _ =>  true, // tackled in a different validator
   Super: _ => true,
@@ -472,7 +478,7 @@ const isBooleanOrUnknownType = (node: Expression): boolean => node.match({
   Node: _ => false,
 })
 
-const valueFor: any | undefined = (node: Expression | Assignment) =>
+const valueFor: any | undefined = (node: Node) =>
   node.match({
     Literal: node => node.value,
     Return: node => valueFor(node.value),
@@ -507,7 +513,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Literal: {},
   Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition },
   Super: { shouldUseSuperOnlyOnOverridingMethod },
-  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition },
+  If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression },
   Throw: {},
   Try: { shouldHaveCatchOrAlways },
   Environment: {},
