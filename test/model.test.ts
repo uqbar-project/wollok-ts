@@ -53,6 +53,27 @@ describe('Wollok model', () => {
       })
     })
 
+    describe('siblings', () => {
+      const method = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1' })
+      const siblingMethod = new Method({ name: 'm2', parameters: [], isOverride: false, id: 'm2' })
+      const clazz = new Class({ name: 'C', supertypes: [], members: [method, siblingMethod], id: 'c1' })
+      method.parent = clazz
+      siblingMethod.parent = clazz
+
+      it('should return its siblings (omitting the same node)', () => {
+        method.siblings().should.deep.equal([siblingMethod])
+      })
+
+      it('should return existing next sibling for method', () => {
+        method.nextSibling()?.should.equal(siblingMethod)
+      })
+
+      it('should return undefined next sibling for last method', () => {
+        siblingMethod.nextSibling()?.should.be.not.ok
+      })
+
+    })
+
   })
 
   describe('Class', () => {
