@@ -1,13 +1,11 @@
-import { last, mapObject, notEmpty } from './extensions'
+import { last, List, mapObject, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
-import * as Models from './model'
 
 const { isArray } = Array
 const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
-export type List<T> = ReadonlyArray<T>
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
@@ -66,20 +64,6 @@ export const isNode = (obj: any): obj is Node => !!(obj && obj.kind)
 
 export const is = <Q extends Kind | Category>(kindOrCategory: Q) => (node: Node): node is NodeOfKindOrCategory<Q> =>
   node.is(kindOrCategory)
-
-export function fromJSON<T>(json: any): T {
-  const propagate = (data: any) => {
-    if (isNode(data)) {
-      const payload = mapObject(fromJSON, data) as {kind: Kind}
-      const constructor = Models[payload.kind] as any
-      return new constructor(payload)
-    }
-    if (isArray(data)) return data.map(fromJSON)
-    if (data instanceof Object) return mapObject(fromJSON, data)
-    return data
-  }
-  return propagate(json) as T
-}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // KINDS
