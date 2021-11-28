@@ -1,5 +1,5 @@
-import { isEmpty, hash, List } from '../extensions'
-import { Natives, Evaluation, RuntimeObject, Execution, RuntimeValue } from '../interpreter/runtimeModel'
+import { hash, isEmpty, List } from '../extensions'
+import { Evaluation, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
