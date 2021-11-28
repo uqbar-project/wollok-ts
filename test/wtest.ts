@@ -1,6 +1,7 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { List, Node } from '../src/model'
+import { Node } from '../src/model'
+import { List } from '../src/extensions'
 import { buildEnvironment } from './assertions'
 import interpret, { Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
