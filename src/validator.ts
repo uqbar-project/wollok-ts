@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, SourceIndex,  Super, Test } from './model'
+import { Class, Describe, If, Literal, Mixin, Module, NamedArgument, Self, Sentence, SourceIndex,  Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
 
@@ -91,7 +91,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const shouldNotBeEmpty = warning<Body>(node =>
-  node.isSynthetic() || node.parent.is('Method') || notEmpty(node.sentences)
+  emptyBody(node)
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
@@ -279,7 +279,7 @@ export const shouldNotDuplicateFields = error<Field>(node =>
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
   if (!nodeMethod) return true
-  const parameterNotDuplicated = count((nodeMethod as Method).parameters, parameter => parameter.name == node.name) <= 1
+  const parameterNotDuplicated = count((nodeMethod as Method).parameters || [], parameter => parameter.name == node.name) <= 1
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent, node.name)
 })
 
@@ -411,6 +411,10 @@ export const shouldUseConditionalExpression = warning<If>(node => {
   return (elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue) && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
 })
 
+export const shouldHaveAssertInTest = warning<Test>(node =>
+  !emptyBody(node.body) || sendsMessageToAssert(node.body)
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -485,6 +489,34 @@ const valueFor: any | undefined = (node: Node) =>
     Node: _ => undefined,
   })
 
+const sendsMessageToAssert = (node: Node): boolean =>
+  node.match({
+    Body: node => node.children().some(child => sendsMessageToAssert(child)),
+    Send: nodeSend => {
+      return nodeSend.receiver.match({
+        Reference: receiver => receiver.name === 'assert',
+        Literal: nodeLiteral => {
+          const method = findMethod(nodeLiteral, nodeSend)
+          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
+        },
+        Self: nodeSelf => {
+          const method = findMethod(nodeSelf, nodeSend)
+          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
+        },
+      })
+    },
+    Try: node => sendsMessageToAssert(node.body) || node.catches.every(_catch => sendsMessageToAssert(_catch.body)) || sendsMessageToAssert(node.always),
+    If: node => sendsMessageToAssert(node.thenBody) && node.elseBody && sendsMessageToAssert(node.elseBody),
+    Node: _ => false,
+  })
+
+const emptyBody = (node: Body) => node.isSynthetic() || node.parent.is('Method') || notEmpty(node.sentences)
+
+const findMethod = (node: Self | Literal, messageSend: Send): Method | undefined => {
+  const parent = node.ancestors().find(ancestor => ancestor.is('Module')) as Module
+  return parent.lookupMethod(messageSend.message, messageSend.args.length)
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -498,7 +530,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Catch: {},
   Package: {},
   Program: { nameShouldNotBeKeyword },
-  Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest },
+  Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest },
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
