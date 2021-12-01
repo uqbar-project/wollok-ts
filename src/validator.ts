@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Class, Describe, If, Literal, Mixin, Module, NamedArgument, Self, Sentence, SourceIndex,  Super, Test } from './model'
+import { Class, Describe, If, Literal, Mixin, Module, NamedArgument, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
 
@@ -415,6 +415,15 @@ export const shouldHaveAssertInTest = warning<Test>(node =>
   !emptyBody(node.body) || sendsMessageToAssert(node.body)
 )
 
+export const shouldMatchFileExtension = error<Test | Program>(node => {
+  const filename = node.sourceFileName()
+  if (!filename) return true
+  return node.match({
+    Test: _ => filename.endsWith('wtest'),
+    Program: _ => filename.endsWith('wpgm'),
+  })
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -529,8 +538,8 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Body: { shouldNotBeEmpty },
   Catch: {},
   Package: {},
-  Program: { nameShouldNotBeKeyword },
-  Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest },
+  Program: { nameShouldNotBeKeyword, shouldMatchFileExtension },
+  Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension },
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
