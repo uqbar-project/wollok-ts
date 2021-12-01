@@ -192,7 +192,7 @@ export const possiblyReturningBlock = warning<Method>(node => {
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
-  !node.isOverride || !!superclassMethod(node)
+  node.parent.is('Mixin') || !node.isOverride || !!superclassMethod(node)
 )
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
@@ -378,6 +378,8 @@ export const methodShouldExist = error<Send>(node =>
 
 export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
   const method = node.ancestors().find(is('Method'))
+  const parentModule = node.ancestors().find(is('Module'))
+  if (parentModule?.is('Mixin')) return true
   return !!method && !!superclassMethod(method) && superclassMethod(method)!.parameters.length === node.args.length
 })
 
@@ -422,6 +424,12 @@ export const shouldMatchFileExtension = error<Test | Program>(node => {
     Test: _ => filename.endsWith('wtest'),
     Program: _ => filename.endsWith('wpgm'),
   })
+})
+
+export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(node => {
+  const methodsCallingToSuper = node.allMethods().filter(method => callsToSuper(method))
+  return methodsCallingToSuper
+    .every(method => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName() }))
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -526,6 +534,16 @@ const findMethod = (node: Self | Literal, messageSend: Send): Method | undefined
   return parent.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
+const callsToSuper = (node: Method): boolean => node.sentences().some(sentence => isCallToSuper(sentence))
+
+const isCallToSuper = (node: Node): boolean =>
+  node.match({
+    Super: _ => true,
+    Return: node => !!node.value && isCallToSuper(node.value),
+    Send: node => isCallToSuper(node.receiver) || node.args.some(arg => isCallToSuper(arg)),
+    Node: _ => false,
+  })
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -540,8 +558,8 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Package: {},
   Program: { nameShouldNotBeKeyword, shouldMatchFileExtension },
   Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension },
-  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody },
