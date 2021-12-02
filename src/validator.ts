@@ -21,8 +21,7 @@
 // - Unified problem type
 import { Class, Describe, If, Literal, Mixin, Module, NamedArgument, Package, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { count, duplicates, get, isEmpty, last, notEmpty } from './extensions'
-import { WRENatives } from '.'
+import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
 
 const { entries } = Object
 
@@ -441,7 +440,7 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => {
   const parent = node.ancestors().find(ancestor => ancestor.is('Package')) as Package | undefined
-  return parent && parent.fullyQualifiedName().includes('wollok.') || LIBRARY_PACKAGES.every(libPackage => !get(WRENatives, `${libPackage}.${node.name}`))
+  return parent && parent.fullyQualifiedName().includes('wollok.') || !LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name)).includes(node.name)
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

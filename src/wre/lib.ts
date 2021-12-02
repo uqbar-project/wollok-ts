@@ -2,8 +2,6 @@ import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/
 
 const lib: Natives = {
 
-  assert: {},
-
   console: {
 
     *println(_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
