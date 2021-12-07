@@ -447,6 +447,14 @@ export const shouldInitializeGlobalReference = error<Variable>(node =>
   !node.isGlobal() || !node.value.is('Literal') || !uninitializedValue(node.value)
 )
 
+export const shouldNotDefineUnusedVariables = warning<Class | Singleton | Mixin>(node => {
+  const unusedAttributes = unusedVariables(node)
+  if (notEmpty(unusedAttributes)) {
+    console.info(unusedAttributes.map(_ => _.name))
+  }
+  return isEmpty(unusedAttributes)
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -561,6 +569,25 @@ const isCallToSuper = (node: Node): boolean =>
 
 const isGetter = (node: Method): boolean => node.parent.allFields().map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
 
+const unusedVariables = (node: Singleton | Class | Mixin): List<Field> =>
+  node.allFields().filter(field => !field.isProperty && field.name != '<toString>' && !node.allMethods().some(method => methodUsesField(method, field)))
+
+const methodUsesField = (method: Method, field: Field) => method.sentences().some(sentence => usesField(sentence, field))
+
+const usesField = (node: Sentence | Body, field: Field): boolean => node.match({
+  Variable: (node) => usesField(node.value, field),
+  Return: (node) => !!node.value && usesField(node.value, field),
+  Assignment: (node) => node.variable.target() === field || usesField(node.value, field),
+  Reference: (node) => node.target() === field,
+  Send: (node) => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field)),
+  If: (node) => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field),
+  // | New
+  // | Throw
+  // | Try
+  Expression: (_) => false,
+  Body: (node) => node.sentences.some(sentence => usesField(sentence, field)),
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -575,9 +602,9 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Package: {},
   Program: { nameShouldNotBeKeyword, shouldMatchFileExtension },
   Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension },
-  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords },
-  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords },
-  Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization },
+  Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDefineUnusedVariables },
+  Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDefineUnusedVariables },
+  Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDefineUnusedVariables },
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue },
   Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference },
