@@ -569,21 +569,27 @@ const isCallToSuper = (node: Node): boolean =>
 
 const isGetter = (node: Method): boolean => node.parent.allFields().map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
 
-const unusedVariables = (node: Singleton | Class | Mixin): List<Field> =>
-  node.allFields().filter(field => !field.isProperty && field.name != '<toString>' && !node.allMethods().some(method => methodUsesField(method, field)))
+const unusedVariables = (node: Singleton | Class | Mixin): List<Field> => {
+  const allFields = node.allFields()
+  const allMethods = node.allMethods()
+  return allFields
+    .filter(field => !field.isProperty && field.name != '<toString>' && !allMethods.some(method => methodUsesField(method, field)))
+    .filter(unusedField => !allFields.some(field => usesField(field.value, unusedField)))
+}
 
 const methodUsesField = (method: Method, field: Field) => method.sentences().some(sentence => usesField(sentence, field))
 
-const usesField = (node: Sentence | Body, field: Field): boolean => node.match({
+const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean => node.match({
   Variable: (node) => usesField(node.value, field),
   Return: (node) => !!node.value && usesField(node.value, field),
   Assignment: (node) => node.variable.target() === field || usesField(node.value, field),
   Reference: (node) => node.target() === field,
   Send: (node) => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field)),
   If: (node) => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field),
-  // | New
-  // | Throw
-  // | Try
+  New: (node) => node.args.some(arg => usesField(arg, field)),
+  NamedArgument: (node) => usesField(node.value, field),
+  Throw: (node) => usesField(node.exception, field),
+  Try: (node) => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field),
   Expression: (_) => false,
   Body: (node) => node.sentences.some(sentence => usesField(sentence, field)),
 })
