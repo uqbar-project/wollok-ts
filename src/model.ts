@@ -165,7 +165,7 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
 
   sourceFileName(): string | undefined { return this.parent.sourceFileName() }
 
