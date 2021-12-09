@@ -450,11 +450,15 @@ export const shouldInitializeGlobalReference = error<Variable>(node =>
 export const shouldNotDefineUnusedVariables = warning<Field>(node => {
   const parent = node.parent
   const allFields = parent.allFields()
-  const allMethods: List<Test | Method> = parent.is('Describe') ? (parent as Describe).tests() : parent.allMethods()
+  const allMethods: List<Test | Method> = parent.is('Describe') ? parent.tests() : parent.allMethods()
   return node.isProperty || node.name == '<toString>'
     || allMethods.some(method => methodOrTestUsesField(method, node))
     || allFields.some(field => usesField(field.value, node))
 })
+
+export const shouldNotDuplicatePackageName = error<Package>(node =>
+  !node.siblings().some(sibling => sibling.is('Package') && sibling.name == node.name)
+)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -598,7 +602,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Import: {},
   Body: { shouldNotBeEmpty },
   Catch: {},
-  Package: {},
+  Package: { shouldNotDuplicatePackageName },
   Program: { nameShouldNotBeKeyword, shouldMatchFileExtension },
   Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension },
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords },

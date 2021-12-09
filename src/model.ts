@@ -132,9 +132,10 @@ abstract class $Node {
   readonly metadata: List<Annotation> = []
 
   @lazy environment!: Environment
-  @lazy parent!: this extends Module | Import ? Package :
+  @lazy parent!: this extends Package ? Environment :
+                 this extends Module | Import ? Package :
                  this extends Method ? Module :
-                 this extends Field ? Class | Mixin | Singleton :
+                 this extends Field ? Class | Mixin | Singleton | Describe :
                  this extends Test ? Describe :
                  Node
 
