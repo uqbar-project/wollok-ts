@@ -132,6 +132,8 @@ abstract class $Node {
   readonly metadata: List<Annotation> = []
 
   @lazy environment!: Environment
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
   @lazy parent!: this extends Package ? Environment :
                  this extends Module | Import ? Package :
                  this extends Method ? Module :
