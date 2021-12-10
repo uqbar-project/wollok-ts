@@ -74,6 +74,23 @@ describe('Wollok model', () => {
 
     })
 
+    describe('previous siblings', () => {
+      const method = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1' })
+      const siblingMethod = new Method({ name: 'm2', parameters: [], isOverride: false, id: 'm2' })
+      const clazz = new Class({ name: 'C', supertypes: [], members: [method, siblingMethod], id: 'c1' })
+      method.parent = clazz
+      siblingMethod.parent = clazz
+
+      it('should return its previous siblings if it has', () => {
+        siblingMethod.previousSiblings().should.deep.equal([method])
+      })
+
+      it('should return an empty list if it does not have previous siblings', () => {
+        method.previousSiblings().should.deep.equal([])
+      })
+
+    })
+
   })
 
   describe('Class', () => {

@@ -466,6 +466,16 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
   return !exceptionType || exceptionType?.hierarchy().includes(EXCEPTION_CLASS)
 })
 
+export const catchShouldBeReachable = error<Catch>(node => {
+  const previousSiblings = node.previousSiblings()
+  const exceptionType = node.parameterType.target()!
+  return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
+    if (!sibling.is('Catch')) return false
+    const siblingType = sibling.parameterType.target()!
+    return exceptionType === siblingType || exceptionType.inherits(siblingType)
+  })
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -607,7 +617,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
   Import: {},
   Body: { shouldNotBeEmpty },
-  Catch: { shouldCatchUsingExceptionHierarchy },
+  Catch: { shouldCatchUsingExceptionHierarchy, catchShouldBeReachable },
   Package: { shouldNotDuplicatePackageName },
   Program: { nameShouldNotBeKeyword, shouldMatchFileExtension },
   Test: { shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension },

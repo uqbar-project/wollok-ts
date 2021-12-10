@@ -186,6 +186,13 @@ abstract class $Node {
   siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
 
   @cached
+  previousSiblings(this: Node): List<Node> {
+    const children = this.parent.children()
+    const index = children.indexOf(this)
+    return index == -1 ? [] : children.slice(0, index)
+  }
+
+  @cached
   nextSibling(this: Node): Node | undefined {
     const siblings = this.parent.children()
     const currentIndex = siblings.indexOf(this)
