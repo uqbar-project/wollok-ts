@@ -214,17 +214,15 @@ export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Cl
   return isEmpty(duplicates(allNamedArguments))
 })
 
-export const shouldPassValuesToAllAttributes = error<New>(node => {
-  const target = node.instantiated.target()!
-  const initializers = node.args.map(_ => _.name)
-  const uninitializedAttributes = getUninitializedAttributes(target, initializers)
-  return isEmpty(uninitializedAttributes)
-})
+export const shouldPassValuesToAllAttributes = error<New>(
+  node => isEmpty(getUninitializedAttributesForInstantation(node)),
+  node => getUninitializedAttributesForInstantation(node),
+)
 
-export const shouldInitializeAllAttributes = error<Singleton>(node => {
-  const uninitializedAttributes = getUninitializedAttributes(node)
-  return isEmpty(uninitializedAttributes)
-})
+export const shouldInitializeAllAttributes = error<Singleton>(
+  node => isEmpty(getUninitializedAttributes(node)),
+  node => getUninitializedAttributes(node)
+)
 
 export const shouldNotUseSelf = error<Self>(node => {
   const ancestors = node.ancestors()
@@ -490,6 +488,12 @@ const getReferencedModule = (parent: Node): Module | undefined => {
 }
 
 const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && value.isSynthetic()
+
+const getUninitializedAttributesForInstantation = (node: New): string[] => {
+  const target = node.instantiated.target()!
+  const initializers = node.args.map(_ => _.name)
+  return getUninitializedAttributes(target, initializers)
+}
 
 const getUninitializedAttributes = (node: Module, initializers: string[] = []): string[] => {
   const uninitializedAttributes: string[] = []
