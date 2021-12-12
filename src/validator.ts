@@ -104,15 +104,16 @@ export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | 
     node => !node.name || regex.test(node.name),
     node => [node.name ?? ''],
     node => {
-      const nodeOffset = node.kind.length + 1
+      if (!node.sourceMap) return undefined
+      const nodeOffset = getOffsetForName(node)
       return node.sourceMap && new SourceMap({
         start: new SourceIndex({
           ...node.sourceMap.start,
-          offset: nodeOffset,
+          offset: node.sourceMap.start.offset + nodeOffset,
         }),
         end: new SourceIndex({
           ...node.sourceMap.end,
-          offset: node.name?.length ?? 0 + nodeOffset,
+          offset: node.sourceMap.start.offset + (node.name?.length ?? 0) + nodeOffset,
         }),
       })
     }
@@ -609,6 +610,17 @@ const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean
   Try: (node) => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field),
   Expression: (_) => false,
   Body: (node) => node.sentences.some(sentence => usesField(sentence, field)),
+})
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// REPORT HELPERS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const getOffsetForName = (node: Node): number => node.match({
+  Parameter: _ => 0,
+  Field: node => node.isConstant ? 6 : 4 + (node.isProperty ? 9 : 0),
+  Entity: node => node.is('Singleton') ? 7 : node.kind.length + 1,
+  Method: node => node.kind.length + 1,
 })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
