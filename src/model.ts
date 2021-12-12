@@ -1,4 +1,4 @@
-import { last, mapObject, notEmpty } from './extensions'
+import { last, List, mapObject, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
 import * as Models from './model'
 
@@ -7,7 +7,6 @@ const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
-export type List<T> = ReadonlyArray<T>
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined

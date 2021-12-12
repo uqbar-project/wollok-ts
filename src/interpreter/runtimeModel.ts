@@ -1,5 +1,5 @@
-import { Environment, is, Method, Module, Name, Node, Variable, Singleton, Expression, List, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
-import { get, last } from '../extensions'
+import { Environment, is, Method, Module, Name, Node, Variable, Singleton, Expression, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
+import { get, last, List } from '../extensions'
 import { v4 as uuid } from 'uuid'
 import { Interpreter } from './interpreter'
 

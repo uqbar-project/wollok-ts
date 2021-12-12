@@ -1,4 +1,5 @@
-import { List } from './model'
+export type List<T> = ReadonlyArray<T>
+
 export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]

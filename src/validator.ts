@@ -20,8 +20,8 @@
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
 import { Catch, Class, Describe, If, Literal, Mixin, Module, NamedArgument, Package, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
-import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
+import { Assignment, Body, Entity, Expression, Field, is, Kind, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
+import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 
 const { entries } = Object
 
