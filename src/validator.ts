@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Catch, Class, Describe, If, Literal, Mixin, Module, NamedArgument, Package, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
+import { Catch, Class, Code, Describe, If, Level, Literal, Mixin, Module, NamedArgument, Package, Problem, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 
@@ -56,18 +56,7 @@ const KEYWORDS = [
 
 const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
-type Code = string
-type Level = 'warning' | 'error'
-
 export type Validation<N extends Node> = (node: N, code: Code) => Problem | null
-
-export interface Problem {
-  readonly code: Code
-  readonly level: Level
-  readonly node: Node
-  readonly values: List<string>
-  readonly sourceMap?: SourceMap
-}
 
 const problem = (level: Level) => <N extends Node>(
   expectation: (node: N) => boolean,

@@ -52,8 +52,17 @@ export class Annotation {
   }
 }
 
-// TODO: Unify with Validator's problems
-export abstract class Problem { abstract code: Name }
+export type Code = string
+export type Level = 'warning' | 'error'
+
+export interface Problem {
+  readonly code: Code
+  readonly level: Level
+  readonly node: Node | undefined
+  readonly values: List<string>
+  readonly sourceMap?: SourceMap
+}
+
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 
