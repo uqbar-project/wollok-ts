@@ -55,12 +55,15 @@ export class Annotation {
 export type Code = string
 export type Level = 'warning' | 'error'
 
-export interface Problem {
+export interface BaseProblem {
   readonly code: Code
   readonly level: Level
-  readonly node: Node | undefined
   readonly values: List<string>
   readonly sourceMap?: SourceMap
+}
+
+export interface Problem extends BaseProblem {
+  readonly node: Node
 }
 
 
@@ -136,7 +139,7 @@ abstract class $Node {
   readonly id!: Id
   readonly scope!: Scope
   readonly sourceMap?: SourceMap
-  readonly problems?: List<Problem>
+  readonly problems?: List<BaseProblem>
   readonly metadata: List<Annotation> = []
 
   @lazy environment!: Environment

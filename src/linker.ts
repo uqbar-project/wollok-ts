@@ -1,17 +1,16 @@
 import { v4 as uuid } from 'uuid'
 import { Id } from '.'
 import { divideOn, List } from './extensions'
-import { Entity, Environment, Level, Name, Node, Package, Scope, Problem, Reference, SourceMap } from './model'
+import { BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap } from './model'
 const { assign } = Object
 
 
 export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game']
 
 
-export class LinkError implements Problem {
+export class LinkError implements BaseProblem {
   constructor(public code: Name){}
 
-  get node(): Node | undefined { return undefined }
   get level(): Level { return 'error' }
   get values(): List<string> { return [] }
   get sourceMap(): SourceMap | undefined { return undefined }
