@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Catch, Class, Code, Describe, If, Level, Literal, Mixin, Module, NamedArgument, Package, Problem, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
+import { Catch, Class, Code, Describe, If, Import, Level, Literal, Mixin, Module, NamedArgument, Package, Problem, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
 import { Assignment, Body, Entity, Expression, Field, is, Kind, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 
@@ -464,9 +464,13 @@ export const catchShouldBeReachable = error<Catch>(node => {
   })
 })
 
-export const shouldNotDuplicateEntities = error<Class | Mixin | Singleton>(node => {
-  return !node.name || !node.parent.is('Package') || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target(), node.name!))
-})
+export const shouldNotDuplicateEntities = error<Class | Mixin | Singleton>(node =>
+  !node.name || !node.parent.is('Package') || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target(), node.name!))
+)
+
+export const shouldNotImportSameFile = error<Import>(node =>
+  ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target() !== node.parent
+)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -629,7 +633,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, parameterShouldNotDuplicateExistingVariable, shouldNotUseReservedWords },
   ParameterizedType: { },
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
-  Import: {},
+  Import: { shouldNotImportSameFile },
   Body: { shouldNotBeEmpty },
   Catch: { shouldCatchUsingExceptionHierarchy, catchShouldBeReachable },
   Package: { shouldNotDuplicatePackageName },
