@@ -472,6 +472,10 @@ export const shouldNotImportSameFile = error<Import>(node =>
   ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target() !== node.parent
 )
 
+export const shouldNotImportMoreThanOnce = warning<Import>(node =>
+  !node.parent.is('Package') || node.parent.imports.filter(importFile => importFile !== node).every(importFile => !isAlreadyUsedInImport(importFile.entity.target(), node.entity.target()))
+)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -614,6 +618,11 @@ const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: str
   Entity: node => node.name == entityName,
 })
 
+const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefined) => !!target && node?.match({
+  Package: node => node.name == target.name,
+  Entity: node => entityIsAlreadyUsedInImport(target, node.name!),
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -633,7 +642,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, parameterShouldNotDuplicateExistingVariable, shouldNotUseReservedWords },
   ParameterizedType: { },
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
-  Import: { shouldNotImportSameFile },
+  Import: { shouldNotImportSameFile, shouldNotImportMoreThanOnce },
   Body: { shouldNotBeEmpty },
   Catch: { shouldCatchUsingExceptionHierarchy, catchShouldBeReachable },
   Package: { shouldNotDuplicatePackageName },
