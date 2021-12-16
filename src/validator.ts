@@ -638,8 +638,10 @@ const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field):
   Variable: node => assignsVariable(node.value, variable),
   Return: node => !!node.value && assignsVariable(node.value, variable),
   Assignment: node => node.variable.target() == variable,
+  Send: node => assignsVariable(node.receiver, variable) || node.args.some(arg => assignsVariable(arg, variable)),
   If: node => assignsVariable(node.condition, variable) || assignsVariable(node.thenBody, variable) || assignsVariable(node.elseBody, variable),
   Try: node => assignsVariable(node.body, variable) || node.catches.some(catchBlock => assignsVariable(catchBlock.body, variable)) || assignsVariable(node.always, variable),
+  Singleton: node => node.methods().some(method => assigns(method, variable)),
   Expression: _ => false,
 })
 
