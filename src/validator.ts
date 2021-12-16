@@ -273,14 +273,7 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent, node.name)
 })
 
-export const shouldNotDuplicateLocalVariables = error<Variable>(node => {
-  if (node.ancestors().some(is('Program')) || node.isGlobal()) return true
-
-  const container = getVariableContainer(node)
-  if (!container) return true
-  const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
-  return !duplicateReference && !hasDuplicatedVariable(container.parent, node.name) && (container.is('Test') || !container.parameters.some(_ => _.name == node.name))
-})
+export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node))
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
   !node.name || !node.parent.is('Package') || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
@@ -426,23 +419,13 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
   !isGetter(node) || node.isNative() || node.isAbstract() || node.sentences().some(_ => _.is('Return'))
 )
 
-export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => {
-  const parent = node.ancestors().find(ancestor => ancestor.is('Package')) as Package | undefined
-  return parent && parent.fullyQualifiedName().includes('wollok.') || !LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name)).includes(node.name)
-})
+export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
   !node.isGlobal() || !node.value.is('Literal') || !uninitializedValue(node.value)
 )
 
-export const shouldNotDefineUnusedVariables = warning<Field>(node => {
-  const parent = node.parent
-  const allFields = parent.allFields()
-  const allMethods: List<Test | Method> = parent.is('Describe') ? parent.tests() : parent.allMethods()
-  return node.isProperty || node.name == '<toString>'
-    || allMethods.some(method => methodOrTestUsesField(method, node))
-    || allFields.some(field => usesField(field.value, node))
-})
+export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
   !node.siblings().some(sibling => sibling.is('Package') && sibling.name == node.name)
@@ -475,6 +458,19 @@ export const shouldNotImportSameFile = error<Import>(node =>
 export const shouldNotImportMoreThanOnce = warning<Import>(node =>
   !node.parent.is('Package') || node.parent.imports.filter(importFile => importFile !== node).every(importFile => !isAlreadyUsedInImport(importFile.entity.target(), node.entity.target()))
 )
+
+export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
+  if (node.isConstant || usesReservedWords(node) || KEYWORDS.includes(node.name || '') || node.is('Field') && unusedVariable(node) || node.is('Variable') && duplicatesLocalVariable(node)) return true
+  const module = getContainer(node)
+  if (!module) return true
+  return module.match({
+    Program: program => assignsVariable(program.body, node),
+    Test: test => assignsVariable(test.body, node),
+    Describe: describe => describe.methods().some(method => assigns(method, node)) ||
+      describe.tests().some(test => assignsVariable(test.body, node)),
+    Module: module => module.methods().some(method => assigns(method, node)),
+  })
+})
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -523,6 +519,9 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
 
 const getVariableContainer = (node: Node) =>
   node.ancestors().find(parent => parent.is('Method') || parent.is('Test')) as Method | Test | undefined
+
+const getContainer = (node: Node) =>
+  node.ancestors().find(parent => parent.is('Module') || parent.is('Program') || parent.is('Test')) as Module | Program | Test | undefined
 
 const getAllVariables = (node: Method | Test): List<Variable> => node.sentences().filter(is('Variable'))
 
@@ -623,6 +622,41 @@ const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefi
   Entity: node => entityIsAlreadyUsedInImport(target, node.name!),
 })
 
+const duplicatesLocalVariable = (node: Variable): boolean => {
+  if (node.ancestors().some(is('Program')) || node.isGlobal()) return false
+
+  const container = getVariableContainer(node)
+  if (!container) return false
+  const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
+  return duplicateReference || hasDuplicatedVariable(container.parent, node.name) || !container.is('Test') && container.parameters.some(_ => _.name == node.name)
+}
+
+const assigns = (method: Method, variable: Variable | Field) => method.sentences().some(sentence => assignsVariable(sentence, variable))
+
+const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field): boolean => sentence.match({
+  Body: node => node.sentences.some(sentence => assignsVariable(sentence, variable)),
+  Variable: node => assignsVariable(node.value, variable),
+  Return: node => !!node.value && assignsVariable(node.value, variable),
+  Assignment: node => node.variable.target() == variable,
+  If: node => assignsVariable(node.condition, variable) || assignsVariable(node.thenBody, variable) || assignsVariable(node.elseBody, variable),
+  Try: node => assignsVariable(node.body, variable) || node.catches.some(catchBlock => assignsVariable(catchBlock.body, variable)) || assignsVariable(node.always, variable),
+  Expression: _ => false,
+})
+
+const unusedVariable = (node: Field) => {
+  const parent = node.parent
+  const allFields = parent.allFields()
+  const allMethods: List<Test | Method> = parent.is('Describe') ? parent.tests() : parent.allMethods()
+  return !node.isProperty && node.name != '<toString>'
+    && allMethods.every(method => !methodOrTestUsesField(method, node))
+    && allFields.every(field => !usesField(field.value, node))
+}
+
+const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter) => {
+  const parent = node.ancestors().find(ancestor => ancestor.is('Package')) as Package | undefined
+  return !!parent && !parent.fullyQualifiedName().includes('wollok.') && LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name)).includes(node.name)
+}
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -651,9 +685,9 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Class: { nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities },
   Singleton: { nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities },
   Mixin: { nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities },
-  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables },
+  Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue },
-  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference },
+  Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar },
   Return: { },
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
   Reference: { },
