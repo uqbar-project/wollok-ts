@@ -667,7 +667,10 @@ const supposedToReturnValue = (node: Node): boolean => node.parent.match({
   Literal: nodeLiteral => Array.isArray(nodeLiteral.value) && nodeLiteral.value[1].includes(node as Expression),
   NamedArgument: nodeArg => nodeArg.value == node as Expression,
   New: nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node as Expression),
-  Return: nodeReturn => !nodeReturn.parent.ancestors().some(ancestor => ancestor.is('Singleton') && ancestor.isClosure()),
+  Return: nodeReturn => {
+    const parent = nodeReturn.ancestors().find(is('Singleton'))
+    return !nodeReturn.isSynthetic() || !(parent && parent.isClosure())
+  },
   Send: nodeSend => nodeSend.args.includes(node as Expression) || nodeSend.receiver == node,
   Super: nodeSuper => nodeSuper.args.includes(node as Expression),
   Variable: _ => true,
