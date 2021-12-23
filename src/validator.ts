@@ -19,8 +19,8 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 // - Unified problem type
-import { Catch, Class, Code, Describe, If, Import, Level, Literal, Mixin, Module, NamedArgument, Package, Problem, Program, Self, Sentence, SourceIndex,  Super, Test } from './model'
-import { Assignment, Body, Entity, Expression, Field, is, Kind, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
+import { Catch, Class, Code, Describe, If, Import, Level, Mixin, Module, NamedArgument, Package, Problem, Program, Self, Sentence, SourceIndex,  Super, Test,
+  Assignment, Body, Entity, Expression, Field, is, Kind, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
 import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 
 const { entries } = Object
@@ -345,19 +345,7 @@ export const codeShouldBeReachable = error<If | Send>(node =>
   })
 )
 
-export const methodShouldExist = error<Send>(node =>
-  node.receiver.match({
-    Self: selfNode => {
-      const allAncestors = selfNode.ancestors().filter(ancestor => ancestor.is('Module'))
-      return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
-    },
-    Reference: referenceNode => {
-      const receiver = referenceNode.target()
-      return !receiver?.is('Module') || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
-    },
-    Node: _ => true,
-  })
-)
+export const methodShouldExist = error<Send>(node => methodExists(node))
 
 export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
   const method = node.ancestors().find(is('Method'))
@@ -472,6 +460,20 @@ export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
   })
 })
 
+export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
+  if (!methodExists(node) || !supposedToReturnValue(node)) return true
+  const method = node.receiver.match({
+    Reference: nodeRef => {
+      const target = nodeRef.target()
+      return target?.is('Module') ? target.lookupMethod(node.message, node.args.length) : undefined
+    },
+    Literal: _ => findMethod(node),
+    Self: _ => findMethod(node),
+    Expression: _ => undefined,
+  })
+  return !method || method.isNative() || method.isAbstract() || returnsValue(method)
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -561,12 +563,12 @@ const sendsMessageToAssert = (node: Node): boolean =>
     Send: nodeSend => {
       return nodeSend.receiver.match({
         Reference: receiver => receiver.name === 'assert',
-        Literal: nodeLiteral => {
-          const method = findMethod(nodeLiteral, nodeSend)
+        Literal: _ => {
+          const method = findMethod(nodeSend)
           return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
         },
-        Self: nodeSelf => {
-          const method = findMethod(nodeSelf, nodeSend)
+        Self: _ => {
+          const method = findMethod(nodeSend)
           return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
         },
       })
@@ -578,9 +580,9 @@ const sendsMessageToAssert = (node: Node): boolean =>
 
 const emptyBody = (node: Body) => node.isSynthetic() || node.parent.is('Method') || notEmpty(node.sentences)
 
-const findMethod = (node: Self | Literal, messageSend: Send): Method | undefined => {
-  const parent = node.ancestors().find(ancestor => ancestor.is('Module')) as Module
-  return parent.lookupMethod(messageSend.message, messageSend.args.length)
+const findMethod = (messageSend: Send): Method | undefined => {
+  const parent = messageSend.receiver.ancestors().find(ancestor => ancestor.is('Module')) as Module
+  return parent?.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
 const callsToSuper = (node: Method): boolean => node.sentences().some(sentence => isCallToSuper(sentence))
@@ -659,6 +661,41 @@ const usesReservedWords = (node: Class | Singleton | Variable | Field | Paramete
   return !!parent && !parent.fullyQualifiedName().includes('wollok.') && LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name)).includes(node.name)
 }
 
+const supposedToReturnValue = (node: Node): boolean => node.parent.match({
+  Assignment: _ => true,
+  If: _ => true,
+  Literal: nodeLiteral => Array.isArray(nodeLiteral.value) && nodeLiteral.value[1].includes(node as Expression),
+  NamedArgument: nodeArg => nodeArg.value == node as Expression,
+  New: nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node as Expression),
+  Return: _ => true,
+  Send: nodeSend => nodeSend.args.includes(node as Expression) || nodeSend.receiver == node,
+  Super: nodeSuper => nodeSuper.args.includes(node as Expression),
+  Variable: _ => true,
+  Node: _ => false,
+})
+
+const returnsValue = (node: Method): boolean => node.sentences().some(sentence => returnsAValue(sentence))
+
+const returnsAValue = (node: Node): boolean => node.match({
+  Return: _ => true,
+  Body: node => node.sentences.some(sentence => returnsAValue(sentence)),
+  If: node => returnsAValue(node.thenBody) || returnsAValue(node.elseBody),
+  Try: node => returnsAValue(node.body) || node.catches.some(sentence => returnsAValue(sentence)) || returnsAValue(node.always),
+  Node: _ => false,
+})
+
+const methodExists = (node: Send): boolean => node.receiver.match({
+  Self: selfNode => {
+    const allAncestors = selfNode.ancestors().filter(ancestor => ancestor.is('Module'))
+    return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
+  },
+  Reference: referenceNode => {
+    const receiver = referenceNode.target()
+    return !receiver?.is('Module') || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
+  },
+  Node: _ => true,
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -697,7 +734,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
-  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition },
+  Send: { shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue },
   Super: { shouldUseSuperOnlyOnOverridingMethod },
   If: { shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression },
   Throw: {},
