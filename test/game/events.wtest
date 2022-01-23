@@ -137,6 +137,21 @@ describe 'events' {
     assert.notThat(closureMock.called())
   }
 
+  test 'Tick.isRunning responds to the correct tickEvent' {
+    const newTickObject = new Tick(interval = 1000, action = closureMock)
+    const anotherTickObject = new Tick(interval = 1000, action = closureMock)
+    anotherTickObject.start()
+    assert.that(anotherTickObject.isRunning())
+    assert.notThat(newTickObject.isRunning())
+    newTickObject.start()
+    assert.that(newTickObject.isRunning())
+  }
+  
+  test 'Tick class instantiation itself does not start a tickEvent' {
+    const newTickObject = new Tick(interval = 1000, action = closureMock)
+    assert.notThat(newTickObject.isRunning())
+  }
+
   test 'Tick class instance can start a tickEvent correctly' {
     const newTickObject = new Tick(interval = 1000, action = closureMock)
     newTickObject.start()
@@ -151,35 +166,23 @@ describe 'events' {
     assert.notThat(newTickObject.isRunning())
   }
 
-  test 'Tick class instantiation itself does not start a tickEvent' {
-    const newTickObject = new Tick(interval = 1000, action = closureMock)
-    assert.notThat(newTickObject.isRunning())
-  }
-
   test "update interval of an existent tick" {
     const newTickObject = new Tick(interval = 1000, action = closureMock)
     const count = {=> closureMock.calledCount()}
-
     assert.equals(0, count.apply())  // hasn't counted yet
-    newTickObject.start()   // starts tick event with an interval of 1sec
+    newTickObject.start()            // starts tick event with an interval of 1sec
     io.flushEvents(1000)
-    assert.equals(1, count.apply()) // 1 sec after, counter increments
-
+    assert.equals(1, count.apply())  // 1 sec after, counter increments
     io.flushEvents(2000)
-    assert.equals(2, count.apply())  // 1 sec after, it increments
-    
-    io.flushEvents(3000)
-    assert.equals(3, count.apply()) // ""   ""    ""     ""       ""
-    
-    io.flushEvents(3500)
-    assert.equals(3, count.apply())  // despite being 0.5sec later, counter doesn't increment
-    
-    newTickObject.interval(500)    // restarts the tick with an interval of 0.5sec
-    assert.equals(3, count.apply())  // counter doesn't change since currentTime remains the same
-    io.flushEvents(4000)          
-    assert.equals(4, count.apply()) // 0.5sec later, it increments again  
-    io.flushEvents(4500)          
-    assert.equals(5, count.apply())   // ""  ""  ""  "" , proving interval got updated
+    assert.equals(2, count.apply())  // 1 sec after, it increments again
+    io.flushEvents(2500)
+    assert.equals(2, count.apply())  // despite being 0.5sec later, counter doesn't increment
+    newTickObject.interval(500)      // restarts the tick with an interval of 0.5sec
+    assert.equals(2, count.apply())  // counter doesn't change since currentTime's still the same
+    io.flushEvents(3000)          
+    assert.equals(3, count.apply())  // 0.5sec later, it increments again  
+    io.flushEvents(3500)          
+    assert.equals(4, count.apply())  // ""  ""  ""  "" , proving interval got updated
   }
 
   test "a running tick cannot be started again" {
@@ -191,9 +194,6 @@ describe 'events' {
 
   test "a non running tick cannot be stopped" {
     const newTickObject = new Tick(interval = 1000, action = closureMock)
-    newTickObject.start()
-    assert.that(newTickObject.isRunning())
-    assert.doesNotThrowException({=> newTickObject.stop()})
     assert.notThat(newTickObject.isRunning())
     assert.throwsException({=> newTickObject.stop()})
   }
@@ -201,6 +201,7 @@ describe 'events' {
   test "createTick method of game object instantiates a functional Tick object" {
     const newTickObject = game.createTick(1000, closureMock)
     assert.doesNotThrowException({=>newTickObject.start()})
+    assert.that(newTickObject.isRunning())
     assert.doesNotThrowException({=>newTickObject.interval(800)})
     assert.doesNotThrowException({=>newTickObject.stop()})
   }
