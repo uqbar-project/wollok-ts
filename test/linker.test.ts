@@ -1,5 +1,6 @@
 import { expect, should, use } from 'chai'
-import { Body, Class, Closure, Describe, Environment, Field, fromJSON, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import { fromJSON } from '../src/jsonUtils'
 import link, { LinkError } from '../src/linker'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
