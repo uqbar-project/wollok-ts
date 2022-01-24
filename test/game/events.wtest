@@ -137,6 +137,29 @@ describe 'events' {
     assert.notThat(closureMock.called())
   }
 
+  test 'tickEvent gets executed as many times as expected' {
+    const newTickObject = new Tick(interval = 100, action = closureMock)
+    newTickObject.start()
+    io.flushEvents(200)
+    assert.equals(1, closureMock.calledCount())
+    io.flushEvents(201)
+    assert.equals(2, closureMock.calledCount())
+    io.flushEvents(202)
+    assert.equals(2, closureMock.calledCount())
+  }
+
+  test 'tickEvent executes when started if inmediate set to true' {
+    const newTickObject = new Tick(interval = 1000, inmediate = true, action = closureMock)
+    newTickObject.start()
+    assert.that(closureMock.called())
+  }
+
+  test 'tickEvent does not execute when started if not specified' {
+    const newTickObject = new Tick(interval = 1000, action = closureMock)
+    newTickObject.start()
+    assert.notThat(closureMock.called())
+  }
+
   test 'Tick.isRunning responds to the correct tickEvent' {
     const newTickObject = new Tick(interval = 1000, action = closureMock)
     const anotherTickObject = new Tick(interval = 1000, action = closureMock)
