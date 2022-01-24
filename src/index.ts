@@ -1,5 +1,7 @@
 import link from './linker'
-import { Environment, fromJSON, List } from './model'
+import { Environment } from './model'
+import { List } from '../src/extensions'
+import { fromJSON } from '../src/jsonUtils'
 import * as parse from './parser'
 import validate from './validator'
 import WRE from './wre/wre.json'

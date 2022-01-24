@@ -18,10 +18,11 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
+import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 // - Unified problem type
-import { SourceIndex, Class, Describe, If, Mixin, Module, NamedArgument, Self, Sentence, Test } from './model'
-import { Assignment, Body, Entity, Expression, Field, is, Kind, List, Method, New, Node, NodeOfKind, Parameter, Send, Singleton, SourceMap, Try, Variable } from './model'
-import { count, duplicates, isEmpty, last, notEmpty } from './extensions'
+import { Assignment, Body, Class, Describe, Entity, Expression, Field, If, is, Kind, Method, Mixin,
+  Module, NamedArgument, New, Node, NodeOfKind, Parameter, Self, Send, Sentence, Singleton,
+  SourceIndex, SourceMap, Test, Try, Variable } from './model'
 
 const { entries } = Object
 

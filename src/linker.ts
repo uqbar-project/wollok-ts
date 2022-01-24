@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { Id } from '.'
-import { divideOn } from './extensions'
-import { Entity, Environment, List, Name, Node, Package, Scope, Problem, Reference } from './model'
+import { divideOn, List } from './extensions'
+import { Entity, Environment, Name, Node, Package, Scope, Problem, Reference } from './model'
 const { assign } = Object
 
 
