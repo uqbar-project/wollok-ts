@@ -550,7 +550,7 @@ describe('Wollok Validator', () => {
     describe('Test is not empty', () => {
       const environment = link([
         WRE,
-        new Package({ name: 'p', members: [new Test({ name: 't', body: new Body({ sourceMap: { start: { offset: 0, line: 0, column: 0 }, end: { offset: 0, line: 0, column: 0 }, covers: () => true } }) })] }
+        new Package({ name: 'p', members: [new Test({ name: 't', body: new Body({ sourceMap: { covers: () => true, start: { offset: 0, line: 0, column: 0 }, end: { offset: 0, line: 0, column: 0 } } }) })] }
         )])
 
 

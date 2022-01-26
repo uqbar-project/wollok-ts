@@ -1,5 +1,3 @@
-export type List<T> = ReadonlyArray<T>
-
 export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
@@ -59,6 +57,8 @@ export const hash = (str: string): number => {
   }
   return hashValue
 }
+
+export type List<T> = ReadonlyArray<T>
 
 export const isEmpty = <T>(value: List<T> | undefined): boolean => !notEmpty(value)
 
