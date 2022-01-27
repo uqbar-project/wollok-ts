@@ -83,7 +83,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const shouldNotBeEmpty = warning<Body>(node =>
-  emptyBody(node)
+  node.isEmpty()
 )
 
 export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
@@ -97,6 +97,7 @@ export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | 
       if (!node.sourceMap) return undefined
       const nodeOffset = getOffsetForName(node)
       return node.sourceMap && new SourceMap({
+        // TODO: reify node information (like class names)
         start: new SourceIndex({
           ...node.sourceMap.start,
           offset: node.sourceMap.start.offset + nodeOffset,
@@ -352,7 +353,8 @@ export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
   const method = node.ancestors().find(is('Method'))
   const parentModule = node.ancestors().find(is('Module'))
   if (parentModule?.is('Mixin')) return true
-  return !!method && !!superclassMethod(method) && superclassMethod(method)!.parameters.length === node.args.length
+  if (!method) return false
+  return !!superclassMethod(method) && method.matchesSignature(method.name, node.args.length)
 })
 
 export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
@@ -376,7 +378,7 @@ export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
 )
 
 export const overridingMethodShouldHaveABody = error<Method>(node =>
-  !node.isOverride || node.isNative() || !!node.body
+  !node.isOverride || node.isNative() || node.isConcrete()
 )
 
 export const shouldUseConditionalExpression = warning<If>(node => {
@@ -386,7 +388,7 @@ export const shouldUseConditionalExpression = warning<If>(node => {
 })
 
 export const shouldHaveAssertInTest = warning<Test>(node =>
-  !emptyBody(node.body) || sendsMessageToAssert(node.body)
+  !node.body.isEmpty() || sendsMessageToAssert(node.body)
 )
 
 export const shouldMatchFileExtension = error<Test | Program>(node => {
@@ -405,7 +407,7 @@ export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(nod
 })
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
-  !isGetter(node) || node.isNative() || node.isAbstract() || node.sentences().some(_ => _.is('Return'))
+  !isGetter(node) || node.isSynthetic() || node.isNative() || node.isAbstract() || node.sentences().some(_ => _.is('Return'))
 )
 
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
@@ -423,7 +425,7 @@ export const shouldNotDuplicatePackageName = error<Package>(node =>
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
   const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>('wollok.lang.Exception')
   const exceptionType = node.parameterType.target()
-  return !exceptionType || exceptionType?.hierarchy().includes(EXCEPTION_CLASS)
+  return !exceptionType || exceptionType?.inherits(EXCEPTION_CLASS)
 })
 
 export const catchShouldBeReachable = error<Catch>(node => {
@@ -579,8 +581,6 @@ const sendsMessageToAssert = (node: Node): boolean =>
     Node: _ => false,
   })
 
-const emptyBody = (node: Body) => node.isSynthetic() || node.parent.is('Method') || notEmpty(node.sentences)
-
 const findMethod = (messageSend: Send): Method | undefined => {
   const parent = messageSend.receiver.ancestors().find(ancestor => ancestor.is('Module')) as Module
   return parent?.lookupMethod(messageSend.message, messageSend.args.length)
@@ -615,6 +615,7 @@ const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean
   Body: (node) => node.sentences.some(sentence => usesField(sentence, field)),
 })
 
+// TODO: Import could offer a list of imported entities
 const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string) => target?.match({
   Package: node => node.members.some(member => member.name == entityName),
   Entity: node => node.name == entityName,

@@ -1,4 +1,4 @@
-import { last, List, mapObject, notEmpty } from './extensions'
+import { isEmpty, last, List, mapObject, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
 
 const { isArray } = Array
@@ -185,14 +185,20 @@ abstract class $Node {
   previousSiblings(this: Node): List<Node> {
     const children = this.parent.children()
     const index = children.indexOf(this)
-    return index == -1 ? [] : children.slice(0, index)
+    return children.slice(0, index)
+  }
+
+  @cached
+  nextSiblings(this: Node): List<Node> {
+    const children = this.parent.children()
+    const index = children.indexOf(this)
+    return children.slice(index + 1, children.length)
   }
 
   @cached
   nextSibling(this: Node): Node | undefined {
-    const siblings = this.parent.children()
-    const currentIndex = siblings.indexOf(this)
-    return currentIndex === -1 ? undefined : siblings[currentIndex + 1]
+    const siblings = this.nextSiblings()
+    return isEmpty(siblings) ? undefined : siblings[0]
   }
 
   @cached
@@ -304,6 +310,10 @@ export class Body extends $Node {
 
   constructor({ sentences = [], ...payload }: Payload<Body> = {}) {
     super({ sentences, ...payload })
+  }
+
+  isEmpty(): boolean {
+    return this.isSynthetic() || this.parent.is('Method') || notEmpty(this.sentences)
   }
 }
 
@@ -663,7 +673,7 @@ export class Method extends $Node {
 
   @cached
   matchesSignature(name: Name, arity: number): boolean {
-    return this.name === name && (
+    return this.name == name && (
       this.hasVarArgs() && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
     )
