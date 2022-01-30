@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from 'fs'
 import gitClient from 'simple-git/promise'
 import { wollokVersion } from '../package.json'
 
-const WOLLOK_LANGUAGE_REPO = 'https://github.com/uqbar-project/wollok-language.git'
+const WOLLOK_LANGUAGE_REPO = 'git@github.com:uqbar-project/wollok-language.git'
 const WOLLOK_LANGUAGE_TAG = wollokVersion.includes(':') ? wollokVersion.split(':')[1] : `v${wollokVersion}`
 const WOLLOK_LANGUAGE_FOLDER = 'language'
 

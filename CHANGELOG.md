@@ -5,6 +5,16 @@
 - Lazy operators are now handled in runtime instead of being filled in the parser.
 - Anonymous Singleton expressions are no longer container within a Literal node.
 - Fixed bug where imports would resolve on local definitions.
+- Fixed bug where methods with bodies would return the last expression, even without a `return` clause.
+- Fixed linearization to properly avoid repetitions in hierarchy.
+- Added options parameter to lookupMethod (allow abstract method to be included, lookup start FQN module moved into this parameter).
+- Added validation functions based on @Expect annotation.
+- SourceMaps are now custom classes with better string conversion logic.
+- Better string conversion logic for nodes (short and verbose labels).
+- Changed Node's `environment` and `parent` to be fields instead of methods.
+- Linker no longer relies on the standard cache.
+- Added `@lazy` decorator for readonly node fields that are eventually initialized during the pipeline.
+- Cache is now decoupled from nodes.
 
 ## v3.0.6
 - Updated to official Wollok Language 3.0.3 version. 

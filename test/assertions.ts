@@ -1,6 +1,7 @@
 import { formatError, Parser } from 'parsimmon'
 import link from '../src/linker'
-import { Name, Node, Package, Reference, List, Environment as EnvironmentType, Environment } from '../src/model'
+import { Name, Node, Package, Reference, Environment as EnvironmentType, Environment } from '../src/model'
+import { List } from '../src/extensions'
 import { Validation } from '../src/validator'
 import { ParseError } from '../src/parser'
 import globby from 'globby'
@@ -169,7 +170,7 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
 
   if(!skipValidations) {
     const problems = validate(environment)
-    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => JSON.stringify({ code, sourceMap: node.sourceMap })).join('\n')}`)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node.sourceInfo()}`).join('\n')}`)
     else log('No problems found building the environment!')
   }
 

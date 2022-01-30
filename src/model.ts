@@ -1,14 +1,11 @@
-import { Index } from 'parsimmon'
-import { last, mapObject, notEmpty } from './extensions'
-import * as Models from './model'
+import { last, List, mapObject, notEmpty } from './extensions'
+import { lazy, cached } from './decorators'
 
 const { isArray } = Array
 const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
-export type List<T> = ReadonlyArray<T>
-export type Cache = Map<string, any>
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
@@ -16,10 +13,32 @@ export interface Scope {
   register(...contributions: [Name, Node][]): void
 }
 
-// TODO: Use a class instead with a better interface (e.g. toString)
-export interface SourceMap {
-  readonly start: Index
-  readonly end: Index
+
+export class SourceIndex {
+  readonly offset: number
+  readonly line: number
+  readonly column: number
+
+  constructor(args: {offset: number, line: number, column: number}) {
+    this.offset = args.offset
+    this.line = args.line
+    this.column = args.column
+  }
+
+  toString(): string { return `${this.line}:${this.column}` }
+}
+
+export class SourceMap {
+  readonly start: SourceIndex
+  readonly end: SourceIndex
+
+  constructor(args: {start: SourceIndex, end: SourceIndex}) {
+    this.start = args.start
+    this.end = args.end
+  }
+
+  toString(): string { return `[${this.start}, ${this.end}]` }
+  covers(offset: number): boolean { return this.start.offset <= offset && this.end.offset >= offset }
 }
 
 export class Annotation {
@@ -45,35 +64,6 @@ export const isNode = (obj: any): obj is Node => !!(obj && obj.kind)
 
 export const is = <Q extends Kind | Category>(kindOrCategory: Q) => (node: Node): node is NodeOfKindOrCategory<Q> =>
   node.is(kindOrCategory)
-
-export function fromJSON<T>(json: any): T {
-  const propagate = (data: any) => {
-    if (isNode(data)) {
-      const payload = mapObject(fromJSON, data) as {kind: Kind}
-      const constructor = Models[payload.kind] as any
-      return new constructor(payload)
-    }
-    if (isArray(data)) return data.map(fromJSON)
-    if (data instanceof Object) return mapObject(fromJSON, data)
-    return data
-  }
-  return propagate(json) as T
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// CACHE
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const cached = (_target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-  const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: { cache: Cache }, ...args: any[]) {
-    const key = `${propertyKey}(${[...args]})`
-    if (this.cache.has(key)) return this.cache.get(key)
-    const result = originalMethod.apply(this, args)
-    this.cache.set(key, result)
-    return result
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // KINDS
@@ -125,11 +115,26 @@ abstract class $Node {
   readonly problems?: List<Problem>
   readonly metadata: List<Annotation> = []
 
-  readonly #cache: Cache = new Map()
-  get cache(): Cache { return this.#cache }
+  @lazy environment!: Environment
+  @lazy parent!: this extends Module | Import ? Package :
+                 this extends Method ? Module :
+                 this extends Field ? Class | Mixin | Singleton :
+                 this extends Test ? Describe :
+                 Node
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
+  }
+
+  label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo()}` }
+
+  @cached
+  toString(verbose = false): string {
+    return !verbose ? this.label() : JSON.stringify(this, (key, value) => {
+      if('scope' === key) return
+      if('sourceMap' === key) return `${value}`
+      return value
+    }, 2)
   }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
@@ -144,8 +149,9 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  @cached
-  sourceFileName(): string | undefined { return this.parent().sourceFileName() }
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
+
+  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
 
   @cached
   children(): List<Node> {
@@ -158,14 +164,7 @@ abstract class $Node {
   }
 
   @cached
-  parent():
-    this extends Module | Import ? Package :
-    this extends Method ? Module :
-    this extends Field ? Class | Mixin | Singleton :
-    this extends Test ? Describe :
-    Node {
-    throw new Error(`Missing parent in cache for node ${this.id}`)
-  }
+  siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
 
   @cached
   descendants(this: Node): List<Node> {
@@ -184,13 +183,10 @@ abstract class $Node {
   @cached
   ancestors(): List<Node> {
     try {
-      const parent = this.parent()
+      const parent = this.parent
       return [parent, ...parent.ancestors()]
     } catch (_) { return [] }
   }
-
-  @cached
-  environment(): Environment { throw new Error('Unlinked node has no Environment') }
 
   match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
     for(const [key, handler] of entries(cases))
@@ -224,6 +220,7 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
+  isGlobal() { return this.parent.is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -296,13 +293,17 @@ export type Entity
 abstract class $Entity extends $Node {
   abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
 
+  override label(this: Entity): string {
+    return `${this.fullyQualifiedName()} ${super.label()}`
+  }
+
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Entity' || super.is(kindOrCategory)
   }
 
   @cached
   fullyQualifiedName(this: Entity): Name {
-    const parent = this.parent()
+    const parent = this.parent
     const label = this.is('Singleton')
       ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
@@ -376,14 +377,9 @@ export class Variable extends $Entity {
     super({ value, ...payload })
   }
 
-  @cached
-  runtimeName(): string {
-    return this.parent().is('Package') ? this.fullyQualifiedName() : this.name
-  }
-
-  // TODO: Can we prevent repeating this here?
+  // TODO: Maybe use mixins to avoid these ugly redefinitions
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return [this.kind, 'Node', 'Sentence', 'Entity'].includes(kindOrCategory)
+    return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
   }
 }
 
@@ -410,7 +406,7 @@ abstract class $Module extends $Entity {
         name,
         isOverride: false,
         parameters: [],
-        body: new Body({ sentences: [new Reference({ name })] }),
+        body: new Body({ sentences: [new Return({ value: new Reference({ name }) })] }),
       }))
 
     const propertySetters = properties
@@ -445,22 +441,28 @@ abstract class $Module extends $Entity {
 
   methods(): List<Method> { return this.members.filter(is('Method')) }
   fields(): List<Field> { return this.members.filter(is('Field')) }
-
-  @cached
-  runtimeName(this: Module): string { return this.fullyQualifiedName() }
+  allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
+  allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
+  lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
   @cached
   hierarchy(this: Module): List<Module> {
-    const hierarchyExcluding = (node: Module, exclude: List<Id> = []): List<Module> => {
-      if (exclude.includes(node.id!)) return []
+    const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
+      if (exclude.includes(node)) return []
+
       const modules = [
         ...node.mixins(),
         ...!node.superclass() ? [] : [node.superclass()!],
       ]
-      return modules.reduce<[List<Module>, List<Id>]>(([hierarchy, excluded], module) => [
-        [...hierarchy, ...hierarchyExcluding(module, excluded)],
-        [module.id, ...excluded],
-      ], [[node], [node.id, ...exclude]])[0]
+
+      return modules.reduce<[List<Module>, List<Module>]>(([hierarchy, excluded], module) => {
+        const inheritedHierarchy = hierarchyExcluding(module, excluded)
+        const filteredHierarchy = hierarchy.filter(node => !inheritedHierarchy.includes(node))
+        return [
+          [...filteredHierarchy, ...inheritedHierarchy],
+          [module, ...excluded],
+        ]
+      }, [[node], [node, ...exclude]])[0]
     }
 
     return hierarchyExcluding(this)
@@ -471,14 +473,14 @@ abstract class $Module extends $Entity {
   }
 
   @cached
-  lookupMethod(this: Module, name: Name, arity: number, lookupStartFQN?: Name): Method | undefined {
-    let startReached = !lookupStartFQN
+  lookupMethod(this: Module, name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
+    let startReached = !options?.lookupStartFQN
     for (const module of this.hierarchy()) {
       if (startReached) {
-        const found = module.methods().find(member => !member.isAbstract() && member.matchesSignature(name, arity))
+        const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
         if (found) return found
       }
-      if (module.fullyQualifiedName() === lookupStartFQN) startReached = true
+      if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
     }
 
     return undefined
@@ -511,7 +513,7 @@ export class Class extends $Module {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
-      const objectClass = this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+      const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
     }
   }
@@ -534,12 +536,19 @@ export class Singleton extends $Module {
     super({ supertypes, members, ...payload })
   }
 
+  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
+    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
+  }
+
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
     if(superclassReference) return superclassReference.target() as Class
-    else return this.environment().getNodeByFQN<Class>('wollok.lang.Object')
+    else return this.environment.objectClass
   }
 
+  isClosure(parametersCount = 0): boolean {
+    return !!this.lookupMethod('<apply>', parametersCount)
+  }
 }
 
 
@@ -587,6 +596,10 @@ export class Field extends $Node {
   constructor({ value = new Literal({ value: null }), isProperty = false, ...payload }: Payload<Field, 'name' | 'isConstant'>) {
     super({ value, isProperty, ...payload })
   }
+
+  override label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label()}`
+  }
 }
 
 
@@ -599,6 +612,10 @@ export class Method extends $Node {
 
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })
+  }
+
+  override label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
   }
 
   isAbstract(): this is {body: undefined} { return !this.body }
@@ -671,9 +688,9 @@ export type Expression
   | Try
   | Singleton
 
-abstract class $Expression extends $Node {
+abstract class $Expression extends $Sentence {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Expression' || kindOrCategory === 'Sentence' || super.is(kindOrCategory)
+    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
   }
 }
 
@@ -796,29 +813,36 @@ type ClosurePayload = {
   metadata?: List<Annotation>
 }
 
-export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton =>
-  new Singleton({
+export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
+  const initialSentences = sentences?.slice(0, -1) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is('Expression') ? new Return({ value }) : value) ?? []
+
+  return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
     members: [
-      new Method({ name: '<apply>', parameters, body: new Body({ sentences }) }),
+      new Method({ name: '<apply>', parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
         new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
       ] : [],
     ],
     ...payload,
   })
+}
 
 export class Environment extends $Node {
   readonly kind = 'Environment'
   readonly members!: List<Package>
 
+  @lazy nodeCache!: ReadonlyMap<Id, Node>
+
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   sourceFileName(): string | undefined { return undefined }
 
-  @cached
-  getNodeById<N extends Node>(this: Environment, id: Id): N {
-    throw new Error(`Missing node in node cache with id ${id}`)
+  getNodeById<N extends Node>(id: Id): N {
+    const node = this.nodeCache.get(id)
+    if(!node) throw new Error(`Missing node with id ${id}`)
+    return node as N
   }
 
   @cached
@@ -831,4 +855,7 @@ export class Environment extends $Node {
     return node
   }
 
+  get objectClass(): Class {
+    return this.getNodeByFQN('wollok.lang.Object')
+  }
 }

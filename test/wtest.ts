@@ -1,6 +1,7 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { List, Node } from '../src/model'
+import { Node } from '../src/model'
+import { List } from '../src/extensions'
 import { buildEnvironment } from './assertions'
 import interpret, { Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
@@ -30,7 +31,7 @@ function registerTests(nodes: List<Node>, interpreter: Interpreter) {
       registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
     })
 
-    else if (node.is('Test') && !node.parent().children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
+    else if (node.is('Test') && !node.parent.children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
       it(node.name, () => interpreter.fork().exec(node) )
 
   })
