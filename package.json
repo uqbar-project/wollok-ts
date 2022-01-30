@@ -1,7 +1,7 @@
 {
   "name": "wollok-ts",
   "version": "3.0.7",
-  "wollokVersion": "3.0.3",
+  "wollokVersion": "3.1.0",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "test": "npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:game && npm run test:examples",
     "test:lint": "eslint .",
     "test:coverage": "nyc --reporter=lcov npm run test",
-    "test:unit": "mocha --parallel -r ts-node/register/transpile-only test/**/*.test.ts",
+    "test:unit": "mocha --parallel -r ts-node/register/transpile-only test/**/*.test.ts --ignore test/validator.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:game": "npm run test:wtest -- --root test/game",
