@@ -581,6 +581,7 @@ const sendsMessageToAssert = (node: Node): boolean =>
     Node: _ => false,
   })
 
+// TODO: this should be no longer necessary when the type system is implemented
 const findMethod = (messageSend: Send): Method | undefined => {
   const parent = messageSend.receiver.ancestors().find(ancestor => ancestor.is('Module')) as Module
   return parent?.lookupMethod(messageSend.message, messageSend.args.length)
