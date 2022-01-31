@@ -148,7 +148,6 @@ const game: Natives = {
   Sound: {
     *play(self: RuntimeObject): Execution<void> {
       const game = this.object('wollok.game.game')!
-      if (!game.get('running')?.innerBoolean) throw new Error('You cannot play a sound if game has not started')
 
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
