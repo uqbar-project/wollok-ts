@@ -1,4 +1,4 @@
-import { last, List, mapObject, notEmpty } from './extensions'
+import { isEmpty, last, List, mapObject, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
 
 const { isArray } = Array
@@ -51,8 +51,20 @@ export class Annotation {
   }
 }
 
-// TODO: Unify with Validator's problems
-export abstract class Problem { abstract code: Name }
+export type Code = string
+export type Level = 'warning' | 'error'
+
+export interface BaseProblem {
+  readonly code: Code
+  readonly level: Level
+  readonly values: List<string>
+  readonly sourceMap?: SourceMap
+}
+
+export interface Problem extends BaseProblem {
+  readonly node: Node
+}
+
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
 
@@ -112,13 +124,16 @@ abstract class $Node {
   readonly id!: Id
   readonly scope!: Scope
   readonly sourceMap?: SourceMap
-  readonly problems?: List<Problem>
+  readonly problems?: List<BaseProblem>
   readonly metadata: List<Annotation> = []
 
   @lazy environment!: Environment
-  @lazy parent!: this extends Module | Import ? Package :
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  @lazy parent!: this extends Package ? Environment :
+                 this extends Module | Import ? Package :
                  this extends Method ? Module :
-                 this extends Field ? Class | Mixin | Singleton :
+                 this extends Field ? Class | Mixin | Singleton | Describe :
                  this extends Test ? Describe :
                  Node
 
@@ -149,7 +164,7 @@ abstract class $Node {
 
   hasProblems(): boolean { return notEmpty(this.problems) }
 
-  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start ?? '--'}` }
+  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
 
   sourceFileName(): string | undefined { return this.parent.sourceFileName() }
 
@@ -165,6 +180,26 @@ abstract class $Node {
 
   @cached
   siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
+
+  @cached
+  previousSiblings(this: Node): List<Node> {
+    const children = this.parent.children()
+    const index = children.indexOf(this)
+    return children.slice(0, index)
+  }
+
+  @cached
+  nextSiblings(this: Node): List<Node> {
+    const children = this.parent.children()
+    const index = children.indexOf(this)
+    return children.slice(index + 1, children.length)
+  }
+
+  @cached
+  nextSibling(this: Node): Node | undefined {
+    const siblings = this.nextSiblings()
+    return isEmpty(siblings) ? undefined : siblings[0]
+  }
 
   @cached
   descendants(this: Node): List<Node> {
@@ -275,6 +310,10 @@ export class Body extends $Node {
 
   constructor({ sentences = [], ...payload }: Payload<Body> = {}) {
     super({ sentences, ...payload })
+  }
+
+  isEmpty(): boolean {
+    return this.isSynthetic() || this.parent.is('Method') || notEmpty(this.sentences)
   }
 }
 
@@ -634,7 +673,7 @@ export class Method extends $Node {
 
   @cached
   matchesSignature(name: Name, arity: number): boolean {
-    return this.name === name && (
+    return this.name == name && (
       this.hasVarArgs() && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
     )

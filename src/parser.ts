@@ -1,7 +1,7 @@
 import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index } from 'parsimmon'
 import { basename, dirname } from 'path'
 import unraw from 'unraw'
-import { SourceIndex, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, Problem, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, LiteralValue, Annotation, is } from './model'
+import { BaseProblem, SourceIndex, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, Level, LiteralValue, Annotation, is } from './model'
 import { List, mapObject, discriminate } from './extensions'
 
 // TODO: Use description in lazy() for better errors
@@ -34,8 +34,11 @@ const ALL_OPERATORS = [
   ...INFIX_OPERATORS.flat(),
 ].sort((a, b) => b.localeCompare(a))
 
-export class ParseError extends Problem {
-  constructor(public code: Name, public sourceMap: SourceMap){ super() }
+export class ParseError implements BaseProblem {
+  constructor(public code: Name, public sourceMap: SourceMap){ }
+
+  get level(): Level { return 'error' }
+  get values(): List<string> { return [] }
 }
 
 const buildSourceMap = (start: Index, end: Index) => new SourceMap({

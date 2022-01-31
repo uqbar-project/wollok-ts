@@ -170,7 +170,7 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
 
   if(!skipValidations) {
     const problems = validate(environment)
-    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node.sourceInfo()}`).join('\n')}`)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node?.sourceInfo() ?? 'unknown'}`).join('\n')}`)
     else log('No problems found building the environment!')
   }
 
