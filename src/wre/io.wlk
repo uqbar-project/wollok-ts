@@ -31,6 +31,10 @@ object io {
     return timeHandlers.get(name)
   }
 
+  method containsTimeEvent(name) {
+    return timeHandlers.containsKey(name)
+  }
+
   method addTimeHandler(name, callback) {
     self.timeHandlers(name).add(callback)
   }
