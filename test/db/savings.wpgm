@@ -1,0 +1,26 @@
+import wollok.db.*
+
+object pepita {
+  var property color = 'rojo'
+  var property edad = 20
+  var property tieneHambre = false
+  var property hogar = null
+  
+  method envejecer(anios) {
+    edad += anios
+  }
+}
+
+program savePepita {
+  pepita.color('verde')
+  pepita.envejecer(6)
+  db.save(pepita)
+}
+
+program loadPepita {
+  db.load(pepita)
+  assert.equals('verde', pepita.color())
+  assert.equals(26, pepita.edad())
+  assert.notThat(pepita.tieneHambre())
+  assert.equals(null, pepita.hogar())
+}
