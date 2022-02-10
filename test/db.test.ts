@@ -7,8 +7,6 @@ import interpret from '../src/interpreter/interpreter'
 
 should()
 
-// TODO: Move the wollok code to language
-
 describe('DataBase', () => {
 
   describe('savings', () => {
@@ -21,9 +19,9 @@ describe('DataBase', () => {
 
     it('saveAndLoadPepita', () => {
       const interpreterForSaving = interpret(environment, natives)
-      interpreterForSaving.run('savings.savePepita')
+      interpreterForSaving.run('savings.savePepitaCaso1')
       const interpreterForLoading = interpret(environment, natives)
-      interpreterForLoading.run('savings.loadPepita')
+      interpreterForLoading.run('savings.loadPepitaCaso1')
     })
   })
 })

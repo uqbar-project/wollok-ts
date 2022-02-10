@@ -1,26 +1,66 @@
 import wollok.db.*
 
 object pepita {
+  var property vecino = pepito
   var property color = 'rojo'
   var property edad = 20
   var property tieneHambre = false
   var property hogar = null
-  
+    
   method envejecer(anios) {
     edad += anios
   }
+
+  method esElOriginal() {
+    return color == 'rojo' && edad == 20 && !tieneHambre && hogar == null && vecino.identity() == pepito.identity()
+  }
 }
 
-program savePepita {
+object rodolfo {
+  var property color = 'violeta'
+  var property edad = 17
+  var property tieneHambre = true
+  var property hogar = 'quilmes'
+
+  method envejecer(anios) {
+    edad += anios
+  }
+
+  method esElOriginal() {
+    return color == 'violeta' && edad == 17 && tieneHambre && hogar == 'quilmes'
+  }  
+}
+
+object pepito {
+  var property color = 'azul'
+  var property edad = 15
+  var property tieneHambre = true
+  var property hogar = 'quilmes'
+
+  method envejecer(anios) {
+    edad += anios
+  }
+
+  method esElOriginal() {
+    return color == 'azul' && edad == 15 && tieneHambre && hogar == 'quilmes'
+  }
+}
+
+program savePepitaCaso1 {
+  assert.that(pepita.esElOriginal())
   pepita.color('verde')
   pepita.envejecer(6)
+  pepita.vecino(rodolfo)
   db.save(pepita)
 }
 
-program loadPepita {
+program loadPepitaCaso1 {
+  assert.that(pepita.esElOriginal())
   db.load(pepita)
   assert.equals('verde', pepita.color())
   assert.equals(26, pepita.edad())
   assert.notThat(pepita.tieneHambre())
   assert.equals(null, pepita.hogar())
+  assert.equals(rodolfo.identity(), pepita.vecino().identity())
 }
+

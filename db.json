@@ -1,1 +1,1 @@
-{"pepita":{"color":"verde","edad":26}}
+{"savings.pepita":{"vecino":{"type":"singleton","savedValue":"savings.rodolfo"},"color":{"type":"literal","savedValue":"verde"},"edad":{"type":"literal","savedValue":26},"tieneHambre":{"type":"literal","savedValue":false},"hogar":{"type":"literal","savedValue":null}}}
