@@ -6,13 +6,17 @@ object pepita {
   var property edad = 20
   var property tieneHambre = false
   var property hogar = null
+  var property mascota = new Mascota()
     
   method envejecer(anios) {
     edad += anios
   }
 
   method esElOriginal() {
-    return color == 'rojo' && edad == 20 && !tieneHambre && hogar == null && vecino.identity() == pepito.identity()
+    return color == 'rojo' && edad == 20 &&
+           !tieneHambre && hogar == null &&
+           vecino.identity() == pepito.identity() &&
+           mascota.esElOriginal()
   }
 }
 
@@ -46,11 +50,24 @@ object pepito {
   }
 }
 
+class Mascota {
+  const property animal = 'elefante'
+  const property edad = 75
+  const property sabeVolar = false
+  const property estudiosUniversitarios = null
+
+  method esElOriginal() {
+    return animal == 'elefante' && edad == 75 &&
+           !sabeVolar && estudiosUniversitarios == null
+  }
+}
+
 program savePepitaCaso1 {
   assert.that(pepita.esElOriginal())
   pepita.color('verde')
   pepita.envejecer(6)
   pepita.vecino(rodolfo)
+  pepita.mascota(new Mascota(animal = 'pajaro', edad = 10, sabeVolar = true))
   db.save(pepita)
 }
 
