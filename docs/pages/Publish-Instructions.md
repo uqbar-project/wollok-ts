@@ -1,7 +1,7 @@
 
 ## Check package.json file
 
-In `package.json` make sure the package.json points out to the right versions
+Make sure in `package.json` file that you are pointing out to the right versions
 
 - **version:** wollok-ts version to be released (the current one, you should increment yourself, it is a manual process)
 - **wollokVersion**: wollok-language version needed by current release. It must exist in [github repository](https://github.com/uqbar-project/wollok-language/releases).
