@@ -66,6 +66,11 @@ Run this command:
 npm publish
 ```
 
-It runs all tests and publish existing version to NPM.
+It will run all tests and also publish existing version to NPM.
+
+## Update new development version
+
+Go to `package.json` and increment the new version value. For example, if version was "2.9.1" you should change it to "2.9.2". Commit & push.
+
 
 
