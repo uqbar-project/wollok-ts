@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.8
+- Fixed broken import in index
+
 ## v3.0.7
 - Annotations.
 - Lazy operators are now handled in runtime instead of being filled in the parser.
