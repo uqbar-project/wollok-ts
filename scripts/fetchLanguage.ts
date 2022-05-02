@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync } from 'fs'
-import gitClient from 'simple-git/promise'
+import gitClient from 'simple-git'
 import { wollokVersion } from '../package.json'
 
 const WOLLOK_LANGUAGE_REPO = 'git@github.com:uqbar-project/wollok-language.git'
