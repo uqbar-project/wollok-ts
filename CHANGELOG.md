@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.9
+- Fixed bug where validator would skip nested linker and parser errors
+
 ## v3.0.8
 - Fixed broken import in index
 
