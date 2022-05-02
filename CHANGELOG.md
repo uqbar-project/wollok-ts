@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.10
+- Fixed `shouldHaveAssertInTest` validation bug
+
 ## v3.0.9
 - Fixed bug where validator would skip nested linker and parser errors
 

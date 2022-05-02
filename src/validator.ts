@@ -574,6 +574,7 @@ const sendsMessageToAssert = (node: Node): boolean =>
           const method = findMethod(nodeSend)
           return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
         },
+        Expression: _ => false,
       })
     },
     Try: node => sendsMessageToAssert(node.body) || node.catches.every(_catch => sendsMessageToAssert(_catch.body)) || sendsMessageToAssert(node.always),
