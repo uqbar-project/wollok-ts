@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.0.11
+- Added `getNodeOrUndefinedByFQN` and ``getNodeOrUndefinedByQN` methods for retrieving nodes by name without raising an error if not found.
+- Fixed linking error where imports where lost after merge.
+
 ## v3.0.10
 - Fixed `shouldHaveAssertInTest` validation bug
 

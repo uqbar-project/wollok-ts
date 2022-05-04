@@ -130,7 +130,7 @@ abstract class $Node {
   @lazy environment!: Environment
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  @lazy parent!: this extends Package ? Environment :
+  @lazy parent!: this extends Package ? Package | Environment :
                  this extends Module | Import ? Package :
                  this extends Method ? Module :
                  this extends Field ? Class | Mixin | Singleton | Describe :
@@ -369,11 +369,15 @@ export class Package extends $Entity {
   @cached
   sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName() }
 
-  @cached
   getNodeByQN<N extends Entity>(this: Package, qualifiedName: Name): N {
-    const node = this.scope.resolve<N>(qualifiedName)
+    const node = this.getNodeOrUndefinedByQN<N>(qualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
     return node
+  }
+
+  @cached
+  getNodeOrUndefinedByQN<N extends Entity>(this: Package, qualifiedName: Name): N | undefined {
+    return this.scope.resolve<N>(qualifiedName)
   }
 
 }
@@ -885,11 +889,15 @@ export class Environment extends $Node {
   }
 
   @cached
-  getNodeByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N {
+  getNodeOrUndefinedByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N | undefined {
     const [, id] = fullyQualifiedName.split('#')
-    if (id) return this.getNodeById(id)
+    if (id) return this.getNodeById<N>(id)
 
-    const node = this.scope.resolve<N>(fullyQualifiedName)
+    return this.scope.resolve<N>(fullyQualifiedName)
+  }
+
+  getNodeByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N {
+    const node = this.getNodeOrUndefinedByFQN<N>(fullyQualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }

@@ -182,6 +182,42 @@ describe('Wollok linker', () => {
       nextEnvironment.getNodeByFQN('p.Y').should.equal(Y)
     })
 
+    it('should merge package imports', () => {
+      [
+        ...WRE.members,
+        new Package({
+          name: 'A',
+          imports: [
+            new Import({ isGeneric: true, entity: new Reference({ name: 'B' }) }),
+            new Import({ isGeneric: true, entity: new Reference({ name: 'C' }) }),
+          ],
+        }),
+        new Package({
+          name: 'A',
+          imports: [
+            new Import({ isGeneric: true, entity: new Reference({ name: 'B' }) }),
+            new Import({ isGeneric: true, entity: new Reference({ name: 'D' }) }),
+          ],
+        }),
+        new Package({ name: 'B' }),
+        new Package({ name: 'C' }),
+        new Package({ name: 'D' }),
+      ].should.be.linkedInto([
+        ...WRE.members,
+        new Package({
+          name: 'A',
+          imports: [
+            new Import({ isGeneric: true, entity: new Reference({ name: 'B' }) }),
+            new Import({ isGeneric: true, entity: new Reference({ name: 'C' }) }),
+            new Import({ isGeneric: true, entity: new Reference({ name: 'D' }) }),
+          ],
+        }),
+        new Package({ name: 'B' }),
+        new Package({ name: 'C' }),
+        new Package({ name: 'D' }),
+      ])
+    })
+
   })
 
   it('should assign an id to all nodes', () => {
