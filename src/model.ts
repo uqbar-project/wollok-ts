@@ -362,8 +362,16 @@ export class Package extends $Entity {
   readonly members!: List<Entity>
   readonly fileName?: string
 
-  constructor({ imports = [], members = [], ...payload }: Payload<Package, 'name'>) {
+  constructor({ name, imports = [], members = [], ...payload }: Payload<Package, 'name'>) {
     super({ imports, members, ...payload })
+
+    const [packageName, ...ancestorNames] = name.split('.').reverse()
+
+    this.name = packageName
+
+    return ancestorNames.reduce<Package>((member, name) =>
+      new Package({ name, members: [member] })
+    , this)
   }
 
   @cached

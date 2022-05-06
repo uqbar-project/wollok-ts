@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.0.12
+- Added error recovery to File parser.
+- Package constructor now accepts fully qualified names and build the whole hierarchy.
+
 ## v3.0.11
 - Added `getNodeOrUndefinedByFQN` and ``getNodeOrUndefinedByQN` methods for retrieving nodes by name without raising an error if not found.
 - Fixed linking error where imports where lost after merge.

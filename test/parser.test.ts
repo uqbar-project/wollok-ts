@@ -134,7 +134,6 @@ describe('Wollok parser', () => {
 
     it('should nest parsed file inside the dir packages', () => {
       const parser = parse.File('a/b/foo.wlk')
-
       ''.should.be.parsedBy(parser).into(
         new Package({
           name: 'a',
@@ -160,6 +159,19 @@ describe('Wollok parser', () => {
           ],
         })
       )
+    })
+
+    it('should recover from entity parse error', () => {
+      'class A {} clazz B {} class C{}'.should.be.parsedBy(parser)
+        .recoveringFrom('malformedEntity', 11, 21)
+        .into(new Package({
+          fileName: 'foo.wlk',
+          name: 'foo',
+          members: [
+            new Class({ name: 'A' }),
+            new Class({ name: 'C' }),
+          ],
+        }))
     })
 
   })
