@@ -2,6 +2,7 @@
 
 ## v3.0.12
 - Added error recovery to File parser.
+- General improvement to error recovery patterns.
 - Package constructor now accepts fully qualified names and build the whole hierarchy.
 
 ## v3.0.11

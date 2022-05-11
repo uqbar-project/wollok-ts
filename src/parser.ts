@@ -1,4 +1,4 @@
-import Parsimmon, { takeWhile, alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index } from 'parsimmon'
+import Parsimmon, { alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index } from 'parsimmon'
 import unraw from 'unraw'
 import { BaseProblem, SourceIndex, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, Level, LiteralValue, Annotation, is } from './model'
 import { List, mapObject, discriminate } from './extensions'
@@ -52,11 +52,22 @@ function alt<T1, T2, T3, T4>(p1: Parser<T1>, p2: Parser<T2>, p3: Parser<T3>, p4:
 function alt<T>(...parsers: Parser<T>[]): Parser<T>
 function alt<T>(...parsers: Parser<T>[]): Parser<T> { return alt_parser(...parsers) }
 
-const error = (code: string) => (...safewords: string[]) =>
-  notFollowedBy(alt(...safewords.map(key))).then(alt(
-    seq(string('{'), takeWhile(c => c !== '}'), string('}')),
-    any
-  )).atLeast(1).mark().map(({ start, end }) => new ParseError(code, buildSourceMap(start, end)))
+const error = (code: string) => (...safewords: string[]) => {
+  const skippable = (...breakpoints: Parser<any>[]): Parser<any> => lazy(() =>
+    alt(
+      skippableContext,
+      comment,
+      notFollowedBy(alt(key('}'), ...breakpoints)).then(any),
+    )
+  )
+
+  const skippableContext = skippable().many().wrap(key('{'), key('}'))
+
+  return skippable(...safewords.map(key))
+    .atLeast(1)
+    .mark()
+    .map(({ start, end }) => new ParseError(code, buildSourceMap(start, end)))
+}
 
 const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
   const problems: ParseError[] = []
@@ -191,7 +202,7 @@ const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.m
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const entityError = error('malformedEntity')('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const', '}')
+const entityError = error('malformedEntity')('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const')
 
 export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
   Package,
@@ -285,8 +296,8 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const memberError = error('malformedMember')('method', 'var', 'const', 'test', 'describe', '}')
-const classMemberError = error('malformedMember')('method', 'var', 'const', '}')
+const memberError = error('malformedMember')('method', 'var', 'const', 'test', 'describe')
+const classMemberError = error('malformedMember')('method', 'var', 'const')
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({

@@ -162,8 +162,8 @@ describe('Wollok parser', () => {
     })
 
     it('should recover from entity parse error', () => {
-      'class A {} clazz B {} class C{}'.should.be.parsedBy(parser)
-        .recoveringFrom('malformedEntity', 11, 21)
+      'class A {} clazz B {method m () {}} class C{}'.should.be.parsedBy(parser)
+        .recoveringFrom('malformedEntity', 11, 36)
         .into(new Package({
           fileName: 'foo.wlk',
           name: 'foo',
@@ -293,8 +293,8 @@ describe('Wollok parser', () => {
       })
 
       it('should recover from entity parse error', () => {
-        'package p { class A {} clazz B {} class C{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 23, 33)
+        'package p { class A {} clazz B {method m () {}} class C{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 23, 48)
           .into(new Package({
             name: 'p',
             members: [
@@ -305,8 +305,8 @@ describe('Wollok parser', () => {
       })
 
       it('should recover from intial member parse error', () => {
-        'package p { clazz A {} class B {} class C{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 12, 22)
+        'package p { clazz A {method m () {}} class B {} class C{} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 12, 37)
           .into(
             new Package({
               name: 'p',
@@ -319,8 +319,8 @@ describe('Wollok parser', () => {
       })
 
       it('should recover from final member parse error', () => {
-        'package p { class A {} class B {} clazz C{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 34, 43)
+        'package p { class A {} class B {} clazz C{method m () {}} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 34, 58)
           .into(
             new Package({
               name: 'p',
@@ -333,9 +333,9 @@ describe('Wollok parser', () => {
       })
 
       it('should recover from multiple member parse errors', () => {
-        'package p { clazz A {} clazz B {} class C{} clazz D{} clazz E{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 12, 33)
-          .recoveringFrom('malformedEntity', 44, 63)
+        'package p { clazz A {method m () {}} clazz B {} class C{} clazz D{method m () {}} clazz E{method m () {}} }'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedEntity', 12, 48)
+          .recoveringFrom('malformedEntity', 58, 106)
           .into(
             new Package({
               name: 'p',
@@ -455,8 +455,8 @@ describe('Wollok parser', () => {
       })
 
       it('should recover from member parse error', () => {
-        'class C {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 25)
+        'class C {var var1 methd m() {} var2 var var3}'.should.be.parsedBy(parser)
+          .recoveringFrom('malformedMember', 18, 35)
           .into(
             new Class({
               name: 'C',
