@@ -1,5 +1,5 @@
 import { Environment, is, Method, Module, Name, Node, Variable, Singleton, Expression, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
-import { get, last, List } from '../extensions'
+import { get, last, List, raise } from '../extensions'
 import { v4 as uuid } from 'uuid'
 import { Interpreter } from './interpreter'
 
@@ -214,7 +214,9 @@ export class RuntimeObject extends Context {
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
     if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
-    if(this.innerValue && !(this.innerValue instanceof Error)) throw new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
+    if(this.innerValue && !(this.innerValue instanceof Error)) {
+      throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
+    }
   }
 
   assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
@@ -436,15 +438,15 @@ export class Evaluation {
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
-    if(!node.scope) return this.currentFrame.get(node.name)
+    if(!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
 
-    const target = node.target()!
+    const target = node.target()
 
     return this.currentFrame.get(
-      target.is('Module') || target.is('Variable') && target.parent.is('Package')
+      target?.is('Module') || target?.is('Variable') && target.parent?.is('Package')
         ? target.fullyQualifiedName()
         : node.name
-    )
+    ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
   }
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
@@ -476,9 +478,9 @@ export class Evaluation {
 
     yield node
 
-    if(!node.instantiated.target()) throw new Error(`Unexistent module ${node.instantiated.name}`)
+    const target = node.instantiated.target() ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
 
-    return yield* this.instantiate(node.instantiated.target()!, args)
+    return yield* this.instantiate(target, args)
   }
 
   protected *execSend(node: Send): Execution<RuntimeValue> {

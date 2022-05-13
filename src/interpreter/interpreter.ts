@@ -1,4 +1,5 @@
-import { Entity, Environment, Expression, Method, Module, Name, Node } from '../model'
+import { Sentence } from '..'
+import { Entity, Environment, Method, Module, Name, Node } from '../model'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 
 
@@ -25,9 +26,9 @@ abstract class AbstractInterpreter {
   }
 
 
-  exec(node: Expression): InterpreterResult<this, RuntimeObject>
+  exec(node: Sentence): InterpreterResult<this, RuntimeValue>
   exec(node: Node): InterpreterResult<this, void>
-  exec(node: Node): InterpreterResult<this, RuntimeObject | void> {
+  exec(node: Node): InterpreterResult<this, RuntimeValue | void> {
     return this.do(function*() { return yield* this.exec(node) })
   }
 

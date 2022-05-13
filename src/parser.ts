@@ -4,6 +4,7 @@ import { BaseProblem, SourceIndex, Assignment as AssignmentNode, Body as BodyNod
 import { List, mapObject, discriminate } from './extensions'
 
 // TODO: Use description in lazy() for better errors
+// TODO: Support FQReferences to singletons as expressions
 
 const { keys, values, fromEntries } = Object
 const { isArray } = Array

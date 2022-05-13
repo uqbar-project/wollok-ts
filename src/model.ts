@@ -156,7 +156,7 @@ abstract class $Node {
     return kindOrCategory === 'Node' || this.kind === kindOrCategory
   }
 
-  copy(delta: Record<string, unknown>): this {
+  copy(delta: Record<string, unknown> = {}): this {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
@@ -347,7 +347,7 @@ abstract class $Entity extends $Node {
       ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
       : this.name.replace(/\.#/g, '')
 
-    return parent.is('Package') || parent.is('Describe')
+    return parent?.is('Package') || parent?.is('Describe')
       ? `${parent.fullyQualifiedName()}.${label}`
       : label
   }

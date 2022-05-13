@@ -1,8 +1,8 @@
-import { should, use } from 'chai'
+import { expect, should, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { restore } from 'sinon'
-import { Class, Package, Literal, Method, Body, Send } from '../src/model'
-import { DirectedInterpreter } from '../src/interpreter/interpreter'
+import { Expression, Singleton, Return, Reference, ParameterizedType, Class, Package, Literal, Method, Body, Send } from '../src/model'
+import { DirectedInterpreter, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Evaluation } from '../src'
 
@@ -23,7 +23,8 @@ const WRE = link([
           new Class({ name: 'String' }),
           new Class({ name: 'List' }),
           new Class({ name: 'Set' }),
-          new Class({ name: 'EvaluationError' }),
+          new Class({ name: 'EvaluationError', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Exception' }) })] }),
+          new Class({ name: 'Exception' }),
         ],
       }),
     ],
@@ -35,7 +36,45 @@ describe('Wollok Interpreter', () => {
 
   afterEach(restore)
 
-  describe('Execution Director', () => {
+  describe('Interpreter', () => {
+
+    it('should be able to execute unlinked sentences', () => {
+      const environment = link([
+        new Package({
+          name:'p',
+          members: [
+            new Singleton({
+              name: 'o',
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({
+                    sentences: [
+                      new Return({ value: new Literal({ value: 5 }) }),
+                    ],
+                  }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
+
+      const sentence = new Send({ receiver: new Reference({ name: 'p.o' }), message: 'm' })
+      const interpreter = new Interpreter(Evaluation.build(environment, {}))
+
+        interpreter.exec(sentence)!.innerNumber!.should.equal(5)
+    })
+
+    it('should fail when executing a missing unlinked reference', () => {
+      const sentence: Expression = new Reference({ name: 'x' })
+      const interpreter = new Interpreter(Evaluation.build(WRE, {}))
+      expect(() => interpreter.exec(sentence)).to.throw(`Could not resolve unlinked reference to ${sentence.name}`)
+    })
+
+  })
+
+  describe('DirectedInterpreter', () => {
 
     it('should stop at breakpoints', () => {
       const breakpoint = new Literal({ value: 17 })

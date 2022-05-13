@@ -67,3 +67,5 @@ export const notEmpty = <T>(value: List<T> | undefined): boolean => (value?.leng
 export const duplicates = <T>(list: List<T>): List<T> => list.filter((element: T, i: number) => list.includes(element, i + 1))
 
 export const count = <T>(list: List<T>, condition: (element: T) => boolean): number => list.filter(condition).length
+
+export function raise(error: Error): never { throw error }

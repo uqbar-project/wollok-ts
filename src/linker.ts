@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { Id } from '.'
+import { Id, Import, Sentence } from '.'
 import { divideOn, List } from './extensions'
 import { BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap } from './model'
 const { assign } = Object
@@ -91,13 +91,12 @@ const assignScopes = (environment: Environment) => {
     assign(node, {
       scope: new LocalScope(
         node.is('Reference') && parent!.is('ParameterizedType')
-          ? parent!.parent.scope
+          ? parent?.parent.scope
           : parent?.scope
       ),
     })
 
-    if(node.is('Entity'))
-      parent!.scope.register(...scopeContribution(node))
+    if(node.is('Entity')) parent?.scope?.register(...scopeContribution(node))
   })
 
   environment.forEach((node, parent) => {
@@ -132,10 +131,7 @@ const assignScopes = (environment: Environment) => {
 // LINKER
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export default (
-  newPackages: List<Package>,
-  baseEnvironment?: Environment,
-): Environment => {
+export default (newPackages: List<Package>, baseEnvironment?: Environment): Environment => {
   const environment = new Environment({
     id: uuid(),
     scope: null as any,
@@ -146,6 +142,7 @@ export default (
   environment.forEach((node, parent) => {
     nodeCache.set(node.id, node)
     node.environment = environment
+    // TODO: There is no need any more for this to be on the linker. Move parent assignment to constructors
     if(parent) node.parent = parent
   })
   environment.nodeCache = nodeCache
@@ -158,4 +155,52 @@ export default (
   })
 
   return environment
+}
+
+//TODO: Cleanup repetition with default link
+export function linkIsolated<S extends Sentence>(sentence: S, environment: Environment, context: Import[] = []): S {
+  sentence = sentence.transform(node => node.copy({ id: uuid() })) as S
+
+  const topLevelScope = new LocalScope(environment.scope)
+
+  sentence.forEach(node => {
+    node.environment = environment
+  })
+
+  sentence.forEach((node, parent) => {
+    assign(node, {
+      scope: new LocalScope(
+        parent
+          ? node.is('Reference') && parent.is('ParameterizedType')
+            ? parent.parent?.scope ?? topLevelScope
+            : parent.scope
+          : topLevelScope
+      ),
+    })
+
+    if(node.is('Entity')) parent?.scope?.register(...scopeContribution(node))
+  })
+
+  for(const imported of context) {
+    const entity = environment.scope.resolve<Entity>(imported.entity.name)
+
+    if(entity) topLevelScope.include(imported.isGeneric
+      ? entity.scope
+      : new LocalScope(undefined, [entity.name!, entity])
+    )
+  }
+
+  sentence.forEach((node, parent) => {
+    if(node.is('Module'))
+      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+
+    if(parent && !node.is('Entity'))
+      parent.scope.register(...scopeContribution(node))
+  })
+
+  sentence.forEach(node => {
+    if(node.is('Reference') && !node.target()) fail('missingReference')(node)
+  })
+
+  return sentence
 }
