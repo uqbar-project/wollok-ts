@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.0.13
+- Linker now has a new operation to link a stand-alone sentence.
+
 ## v3.0.12
 - Added error recovery to File parser.
 - General improvement to error recovery patterns.
