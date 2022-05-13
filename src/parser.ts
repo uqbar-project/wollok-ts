@@ -406,22 +406,28 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
   )
 )
 
-const primaryExpression: Parser<ExpressionNode> = lazy(() => alt(
-  Self,
-  Super,
-  If,
-  New,
-  Throw,
-  Try,
-  Singleton,
-  Closure,
-  Literal,
-  Reference,
-  seq(
-    annotation.sepBy(_).wrap(_, _),
-    Expression.wrap(key('('), key(')'))
-  ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
-))
+const primaryExpression: Parser<ExpressionNode> = lazy(() => {
+  const NonAppliedFullyQualifiedReference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
+    obj({ name: name.notFollowedBy(alt(key('('), key('{'))).sepBy1(key('.')).tieWith('.') })
+  )
+
+  return alt(
+    Self,
+    Super,
+    If,
+    New,
+    Throw,
+    Try,
+    Singleton,
+    Closure,
+    Literal,
+    NonAppliedFullyQualifiedReference,
+    seq(
+      annotation.sepBy(_).wrap(_, _),
+      Expression.wrap(key('('), key(')'))
+    ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
+  )
+})
 
 
 export const Self: Parser<SelfNode> = node(SelfNode)(() =>

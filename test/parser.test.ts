@@ -1809,7 +1809,7 @@ describe('Wollok parser', () => {
 
       describe('References', () => {
 
-        const parser = parse.Reference
+        const parser = parse.Expression
 
         it('should parse references that begin with _', () => {
           '_foo123'.should.be.be.parsedBy(parser).into(new Reference({ name: '_foo123' })).and.be.tracedTo(0, 7)
@@ -1817,6 +1817,10 @@ describe('Wollok parser', () => {
 
         it('should parse uppercase references', () => {
           'C'.should.be.parsedBy(parser).into(new Reference({ name: 'C' })).and.be.tracedTo(0, 1)
+        })
+
+        it('should parse references to fully qualified singletons', () => {
+          'p.o'.should.be.parsedBy(parser).into(new Reference({ name: 'p.o' })).and.be.tracedTo(0, 3)
         })
 
         it('should parse annotated nodes', () => {
@@ -2157,6 +2161,16 @@ describe('Wollok parser', () => {
             .and.also.have.nested.property('args.0').tracedTo(3, 11)
             .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
             .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(9, 10)
+        })
+
+        it('should parse sending messages to fully qualified singleton references', () => {
+          'p.o.m()'.should.be.parsedBy(parser).into(
+            new Send({
+              receiver: new Reference({ name: 'p.o' }),
+              message: 'm',
+            })
+          ).and.be.tracedTo(0, 7)
+            .and.have.nested.property('receiver').tracedTo(0, 3)
         })
 
         it('should parse compound sending messages', () => {

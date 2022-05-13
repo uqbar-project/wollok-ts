@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.1.0
+- Updated to official Wollok Language 3.1.1 version.
+- Fully qualified references to singletons are now valid expressions.
+
 ## v3.0.13
 - Linker now has a new operation to link a stand-alone sentence.
 
