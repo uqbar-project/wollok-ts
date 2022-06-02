@@ -18,7 +18,7 @@ If you plan to contribute with code, here are some hints to help you start:
 
 Before anything else, you will need a *TypeScript* editor. We recomend [Visual Studio Code](https://code.visualstudio.com/) along with the following plugins:
 
-- [TSLint](https://marketplace.visualstudio.com/items?itemName=eg2.tslint)
+- [TSLint](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-tslint-plugin)
 - [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
 - [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
 - [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
