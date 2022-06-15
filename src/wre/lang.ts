@@ -27,7 +27,6 @@ const lang: Natives = {
     },
   },
 
-
   Object: {
 
     *identity(self: RuntimeObject): Execution<RuntimeValue> {
@@ -35,7 +34,7 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName())
+      return yield* this.reify(self.module.kindName())
     },
 
     *className(self: RuntimeObject): Execution<RuntimeValue> {

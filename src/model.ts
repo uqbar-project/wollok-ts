@@ -351,7 +351,6 @@ abstract class $Entity extends $Node {
       ? `${parent.fullyQualifiedName()}.${label}`
       : label
   }
-
 }
 
 
@@ -482,6 +481,8 @@ abstract class $Module extends $Entity {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
+  
+  abstract kindName(this: Module): Name 
 
   @cached
   mixins(): List<Mixin> {
@@ -568,6 +569,14 @@ export class Class extends $Module {
       return this === objectClass ? undefined : objectClass
     }
   }
+  @cached
+  kindName(this: Module): Name{
+    if (this.name){
+      return "a/an ".concat(this.name)
+    } else {
+      throw new Error("A class must be initialized with name")
+    }
+  }
 
   @cached
   isAbstract(this: Class): boolean {
@@ -585,6 +594,14 @@ export class Singleton extends $Module {
 
   constructor({ supertypes = [], members = [], ...payload }: Payload<Singleton>) {
     super({ supertypes, members, ...payload })
+  }
+
+  kindName(this: Module): Name{
+    if(this.name == undefined ){
+      return "an Object"
+    } else {
+      return this.name
+    }
   }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
@@ -614,6 +631,10 @@ export class Mixin extends $Module {
   }
 
   superclass(): undefined { return undefined }
+
+  kindName(this: Module): Name{
+      throw new Error("You shouldn't request the kindName of a mixin, because they are not initialized")
+  }
 }
 
 
@@ -630,6 +651,10 @@ export class Describe extends $Module {
   superclass(): Class { return this.supertypes[0].reference.target()! as Class }
 
   tests(): List<Test> { return this.members.filter(is('Test')) }
+  
+  kindName(this: Module): Name{
+      throw new Error("You shouldn't request the kindName of a describe, because they are not initialized")
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
