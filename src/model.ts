@@ -444,6 +444,7 @@ abstract class $Module extends $Entity {
   abstract readonly supertypes: List<ParameterizedType>
   abstract readonly members: List<Field | Method | Variable | Test>
   abstract superclass(this: Module): Class | undefined
+  abstract kindName(this: Module): string
 
   constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
     const methods = members?.filter(is('Method')) ?? []
@@ -481,8 +482,6 @@ abstract class $Module extends $Entity {
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
     return kindOrCategory === 'Module' || super.is(kindOrCategory)
   }
-  
-  abstract kindName(this: Module): Name 
 
   @cached
   mixins(): List<Mixin> {
@@ -569,13 +568,9 @@ export class Class extends $Module {
       return this === objectClass ? undefined : objectClass
     }
   }
-  @cached
-  kindName(this: Module): Name{
-    if (this.name){
-      return "a/an ".concat(this.name)
-    } else {
-      throw new Error("A class must be initialized with name")
-    }
+
+  kindName(this: Module): string {
+    return 'a/an '.concat(this.name!)
   }
 
   @cached
@@ -596,12 +591,8 @@ export class Singleton extends $Module {
     super({ supertypes, members, ...payload })
   }
 
-  kindName(this: Module): Name{
-    if(this.name == undefined ){
-      return "an Object"
-    } else {
-      return this.name
-    }
+  kindName(this: Module): string {
+    return this.name || 'an Object'
   }
 
   is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
@@ -632,8 +623,8 @@ export class Mixin extends $Module {
 
   superclass(): undefined { return undefined }
 
-  kindName(this: Module): Name{
-      throw new Error("You shouldn't request the kindName of a mixin, because they are not initialized")
+  kindName(this: Module): string {
+    throw new Error('You shouldn\'t request the kindName of a mixin, because they are not initialized')
   }
 }
 
@@ -651,9 +642,9 @@ export class Describe extends $Module {
   superclass(): Class { return this.supertypes[0].reference.target()! as Class }
 
   tests(): List<Test> { return this.members.filter(is('Test')) }
-  
-  kindName(this: Module): Name{
-      throw new Error("You shouldn't request the kindName of a describe, because they are not initialized")
+
+  kindName(this: Module): string {
+    throw new Error('You shouldn\'t request the kindName of a describe, because they are not initialized')
   }
 }
 
