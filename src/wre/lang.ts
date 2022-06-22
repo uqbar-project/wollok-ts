@@ -48,7 +48,7 @@ const lang: Natives = {
       parametersSize.assertIsNumber()
 
       const argsText = new Array(parametersSize.innerNumber).fill(null).map((_, i) => `arg ${i}`)
-      const text = `${target.innerString} does not undersand ${messageName.innerString}(${argsText})`
+      const text = `${target.innerString} does not understand ${messageName.innerString}(${argsText})`
 
       return yield* this.reify(text)
     },
