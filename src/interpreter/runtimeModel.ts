@@ -570,13 +570,19 @@ export class Evaluation {
   }
 
   *invoke(method: Method, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
+    const locals = yield* this.localsFor(method, args)
+
+    return yield* this.exec(method, new Frame(method, receiver, locals))
+  }
+
+  protected *localsFor(method: Method, args: RuntimeObject[]): Generator<Node, Record<string, RuntimeObject>> {
     const locals: Record<string, RuntimeObject> = {}
     for(let index = 0; index < method.parameters.length; index++) {
       const { name, isVarArg } = method.parameters[index]
       locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
     }
 
-    return yield* this.exec(method, new Frame(method, receiver, locals))
+    return locals
   }
 
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.1.1
+- Fixed bug where closures where unable to retain self reference when nested inside other closures.
+
 ## v3.1.0
 - Updated to official Wollok Language 3.1.1 version.
 - Fully qualified references to singletons are now valid expressions.

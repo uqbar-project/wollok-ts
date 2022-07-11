@@ -1,5 +1,5 @@
 import { hash, isEmpty, List } from '../extensions'
-import { Evaluation, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
@@ -694,12 +694,15 @@ const lang: Natives = {
     *apply(this: Evaluation, self: RuntimeObject, args: RuntimeObject): Execution<RuntimeValue> {
       args.assertIsCollection()
 
-      try {
-        self.set('self', self.parentContext?.get('self'))
-        return yield* this.send('<apply>', self, ...args.innerCollection)
-      } finally {
-        self.set('self', self)
-      }
+      const method = self.module.lookupMethod('<apply>', args.innerCollection.length)
+      if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify('apply'), args)
+
+      const locals = yield* this.localsFor(method, args.innerCollection)
+      const frame = new Frame(method, self, locals)
+
+      frame.set('self', self.parentContext?.get('self'))
+
+      return yield* this.exec(method, frame)
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
