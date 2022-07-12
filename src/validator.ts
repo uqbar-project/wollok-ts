@@ -663,7 +663,7 @@ const unusedVariable = (node: Field) => {
 const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter) => {
   const parent = node.ancestors().find(ancestor => ancestor.is('Package')) as Package | undefined
   const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
-  wordsReserved.push('wollok', 'Wollok')
+  wordsReserved.push('wollok')
   return !!parent && !parent.fullyQualifiedName().includes('wollok.') && wordsReserved.includes(node.name)
 }
 
