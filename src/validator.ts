@@ -662,7 +662,9 @@ const unusedVariable = (node: Field) => {
 
 const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter) => {
   const parent = node.ancestors().find(ancestor => ancestor.is('Package')) as Package | undefined
-  return !!parent && !parent.fullyQualifiedName().includes('wollok.') && LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name)).includes(node.name)
+  const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
+  wordsReserved.push('wollok', 'Wollok')
+  return !!parent && !parent.fullyQualifiedName().includes('wollok.') && wordsReserved.includes(node.name)
 }
 
 const supposedToReturnValue = (node: Node): boolean => node.parent.match({
