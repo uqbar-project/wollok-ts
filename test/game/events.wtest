@@ -24,15 +24,6 @@ describe 'events' {
     game.addVisual(visual)
   }
 
-  test 'addVisualCharacter should be moved with arrow keys' {
-    const character = new Visual()
-    game.addVisualCharacter(character)
-    // Simulate
-    io.queueEvent(["keypress", "ArrowUp"])
-    io.flushEvents(0)
-
-    assert.equals(game.at(0, 1), character.position())
-  }
 
   test 'whenKeyPressedDo should add event handler' {
     const event = ["keypress", "KeyA"]
