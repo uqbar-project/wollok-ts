@@ -72,7 +72,7 @@ const game: Natives = {
     },
 
     *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime = (yield* this.send('currentTime', this.object('wollok.gameMirror.gameMirror')!))!.innerNumber!
+      const currentTime = (yield* this.send('currentTime', this.object('wollok.lang.io')!))!.innerNumber!
       const messageTime = yield* this.reify(currentTime + 2 * 1000)
 
       visual.set('message', message)
