@@ -14,37 +14,9 @@ const game: Natives = {
       visuals.push(visual)
     },
 
-    *addVisualCharacter(_self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('addVisualCharacter', this.object('wollok.gameMirror.gameMirror')!, visual)
-    },
-
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       const visuals = self.get('visuals')
       if (visuals) yield* this.send('remove', visuals, visual)
-    },
-
-    *whenKeyPressedDo(_self: RuntimeObject, event: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('whenKeyPressedDo', this.object('wollok.gameMirror.gameMirror')!, event, action)
-    },
-
-    *whenCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('whenCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
-    },
-
-    *onCollideDo(_self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('onCollideDo', this.object('wollok.gameMirror.gameMirror')!, visual, action)
-    },
-
-    *onTick(_self: RuntimeObject, milliseconds: RuntimeObject, name: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('onTick', this.object('wollok.gameMirror.gameMirror')!, milliseconds, name, action)
-    },
-
-    *schedule(_self: RuntimeObject, milliseconds: RuntimeObject, action: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('schedule', this.object('wollok.gameMirror.gameMirror')!, milliseconds, action)
-    },
-
-    *removeTickEvent(_self: RuntimeObject, event: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.send('removeTickEvent', this.object('wollok.gameMirror.gameMirror')!, event)
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
@@ -72,17 +44,11 @@ const game: Natives = {
     },
 
     *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime = (yield* this.send('currentTime', this.object('wollok.lang.io')!))!.innerNumber!
+      const currentTime = (yield* this.send('currentTime', this.object('wollok.game.game')!))!.innerNumber!
       const messageTime = yield* this.reify(currentTime + 2 * 1000)
 
       visual.set('message', message)
       visual.set('messageTime', messageTime)
-    },
-
-    *clear(self: RuntimeObject): Execution<void> {
-      yield* this.send('clear', this.object('wollok.gameMirror.gameMirror')!)
-
-      self.set('visuals', yield* this.list())
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
@@ -139,10 +105,6 @@ const game: Natives = {
       self.set('errorReporter', visual)
     },
 
-    *doStart(self: RuntimeObject): Execution<RuntimeValue> {
-      self.set('running', yield* this.reify(true))
-      return yield* this.send('doStart', this.object('wollok.gameMirror.gameMirror')!)
-    },
   },
 
   Sound: {
