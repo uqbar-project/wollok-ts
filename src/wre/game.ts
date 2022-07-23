@@ -6,34 +6,34 @@ const game: Natives = {
       visual.assertIsNotNull()
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
 
-      const visuals = self.get('visuals')?.innerCollection
+      const visuals = self.get('visuals')!.innerCollection!
 
-      if (!visuals) return self.set('visuals', yield* this.list(visual))
       if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
 
       visuals.push(visual)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      const visuals = self.get('visuals')
-      if (visuals) yield* this.send('remove', visuals, visual)
+      const visuals = self.get('visuals')!
+      yield* this.send('remove', visuals, visual)
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.list(...self.get('visuals')?.innerCollection ?? [])
+      const visuals = self.get('visuals')!
+      return yield* this.list(...visuals.innerCollection ?? [])
     },
 
     *hasVisual(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      const visuals: RuntimeObject = self.get('visuals')!
-      return yield* !visuals ? this.reify(false) : this.send('contains', visuals, visual)
+      const visuals = self.get('visuals')!
+      return yield* this.send('contains', visuals, visual)
     },
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      const visuals = (yield* this.send('allVisuals', self))!.innerCollection!
+      const visuals = self.get('visuals')!
 
       const result: RuntimeObject[] = []
 
-      for(const visual of visuals) {
+      for(const visual of visuals.innerCollection!) {
         const otherPosition = yield* this.send('position', visual)
         const samePosition = yield* this.send('onSameCell', self, position, otherPosition!)
         if(samePosition!.innerBoolean)
@@ -43,9 +43,10 @@ const game: Natives = {
       return yield* this.list(...result)
     },
 
-    *say(_self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
-      const currentTime = (yield* this.send('currentTime', this.object('wollok.game.game')!))!.innerNumber!
-      const messageTime = yield* this.reify(currentTime + 2 * 1000)
+    *say(self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
+      const currentTime = (yield* this.send('currentTime', self))!.innerNumber!
+      const MESSAGE_SAY_TIME = 2000 // ms
+      const messageTime = yield* this.reify(currentTime + MESSAGE_SAY_TIME)
 
       visual.set('message', message)
       visual.set('messageTime', messageTime)
