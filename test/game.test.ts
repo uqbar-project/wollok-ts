@@ -44,7 +44,7 @@ describe('Wollok Game', () => {
       const interpreter = interpret(environment, natives)
       interpreter.run('actions.clear')
       const visuals = interpreter.object('wollok.game.game')!.get('visuals')!.innerValue!
-      visuals.should.have.length(1) //Ver xq falla (el original dice que debe dar 0) no se esta aplicando el clear.
+      visuals.should.have.length(0)
 
     })
 
