@@ -90,10 +90,6 @@ const game: Natives = {
       self.set('cellSize', size)
     },
 
-    *stop(self: RuntimeObject): Execution<void> {
-      self.set('running', yield* this.reify(false))
-    },
-
     *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.set('showAttributes', yield* this.reify(true))
     },
