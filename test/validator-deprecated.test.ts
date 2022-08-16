@@ -614,11 +614,11 @@ describe('Wollok Validator', () => {
       const selfInMethod = (methodExample.sentences()[0] as Return).value!
 
       it('should pass when self is in a method', () => {
-        selfInMethod.should.pass(isNotWithin('Program'))
+        selfInMethod.should.pass(isNotWithin(Program))
       })
 
       it('should not pass when self is in a program', () => {
-        selfInProgram.should.not.pass(isNotWithin('Program'))
+        selfInProgram.should.not.pass(isNotWithin(Program))
       })
     })
   })

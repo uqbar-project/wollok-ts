@@ -1,6 +1,6 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Node } from '../src/model'
+import { Describe, Node, Package, Test } from '../src/model'
 import { List } from '../src/extensions'
 import { buildEnvironment } from './assertions'
 import interpret, { Interpreter } from '../src/interpreter/interpreter'
@@ -24,14 +24,14 @@ const ARGUMENTS = yargs
 
 function registerTests(nodes: List<Node>, interpreter: Interpreter) {
   nodes.forEach(node => {
-    if (node.is('Package')) describe(node.name, () => registerTests(node.members, interpreter))
+    if (node.is(Package)) describe(node.name, () => registerTests(node.members, interpreter))
 
-    else if (node.is('Describe')) describe(node.name, () => {
+    else if (node.is(Describe)) describe(node.name, () => {
       const onlyTest = node.tests().find(test => test.isOnly)
       registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
     })
 
-    else if (node.is('Test') && !node.parent.children().some(sibling => node !== sibling && sibling.is('Test') && sibling.isOnly))
+    else if (node.is(Test) && !node.parent.children().some(sibling => node !== sibling && sibling.is(Test) && sibling.isOnly))
       it(node.name, () => interpreter.fork().exec(node) )
 
   })

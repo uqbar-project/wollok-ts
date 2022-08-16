@@ -32,7 +32,7 @@ describe('Wollok Validations', () => {
     it(packageName, () => {
       const filePackage = environment.getNodeByFQN(packageName)
 
-      const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems() ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
+      const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
       if (notEmpty(nodesWithFileErrors))
         fail(`Problems in file. ${nodesWithFileErrors.map(node => node.problems![0].code + ' at ' + errorLocation(node))}`)
 

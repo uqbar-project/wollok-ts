@@ -1,4 +1,4 @@
-import { isEmpty, last, List, mapObject, notEmpty } from './extensions'
+import { ConstructorFor, Definition, InstanceOf, is, last, List, mapObject, Mixable, MIXINS, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
 
 const { isArray } = Array
@@ -6,6 +6,7 @@ const { entries, values, assign } = Object
 
 export type Name = string
 export type Id = string
+
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
@@ -67,59 +68,34 @@ export interface Problem extends BaseProblem {
 
 
 type AttributeKeys<T> = { [K in keyof T]-?: T[K] extends Function ? never : K }[keyof T]
-
 type Payload<T, MandatoryFields extends keyof T = never> =
   Pick<T, MandatoryFields> &
-  Partial<Pick<T, Exclude<AttributeKeys<T>, 'kind'>>>
+  Partial<Pick<T, AttributeKeys<T>>>
 
-export const isNode = (obj: any): obj is Node => !!(obj && obj.kind)
-
-export const is = <Q extends Kind | Category>(kindOrCategory: Q) => (node: Node): node is NodeOfKindOrCategory<Q> =>
-  node.is(kindOrCategory)
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// KINDS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export type Kind = Node['kind']
-export type KindOf<N extends Node> = N['kind']
-export type NodeOfKind<K extends Kind> = Extract<Node, { kind: K }>
-
-export type Category = 'Entity' | 'Module' | 'Sentence' | 'Expression' | 'Node'
-export type NodeOfCategory<C extends Category> =
-  C extends 'Entity' ? Entity :
-  C extends 'Module' ? Module :
-  C extends 'Sentence' ? Sentence :
-  C extends 'Expression' ? Expression :
-  C extends 'Node' ? Node :
-  never
-
-export type NodeOfKindOrCategory<Q extends Kind | Category> =
-  Q extends Kind ? NodeOfKind<Q> :
-  Q extends Category ? NodeOfCategory<Q> :
-  never
+// TODO: Todavía sirve?
+export const isNode = (obj: any): obj is Node => obj instanceof Node
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export type Node
-  = Parameter
-  | ParameterizedType
-  | NamedArgument
-  | Import
-  | Body
-  | Catch
-  | Entity
-  | Field
-  | Method
-  | Sentence
-  | Reference<Node>
-  | Environment
+// export type Node
+//   = Parameter
+//   | ParameterizedType
+//   | NamedArgument
+//   | Import
+//   | Body
+//   | Catch
+//   | Entity
+//   | Field
+//   | Method
+//   | Sentence
+//   | Reference<Node>
+//   | Environment
 
 
-abstract class $Node {
-  protected abstract readonly kind: Kind
+export abstract class Node {
+  abstract get kind(): string
 
   readonly id!: Id
   readonly scope!: Scope
@@ -128,47 +104,41 @@ abstract class $Node {
   readonly metadata: List<Annotation> = []
 
   @lazy environment!: Environment
+
+  //TODO: Proper type
+  //TODO: Make lazy fail instead of return undefined
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
-  @lazy parent!: this extends Package ? Package | Environment :
-                 this extends Module | Import ? Package :
-                 this extends Method ? Module :
-                 this extends Field ? Class | Mixin | Singleton | Describe :
-                 this extends Test ? Describe :
-                 Node
+  @lazy parent!: Node
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
   }
 
-  label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo()}` }
+  get categories(): Function[] { return [this.constructor] }
+  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
+  get sourceInfo(): string { return `${this.sourceFileName ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
+  get label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo}` }
+
+  get isSynthetic(): boolean { return !this.sourceMap }
+  get hasProblems(): boolean { return notEmpty(this.problems) }
 
   @cached
   toString(verbose = false): string {
-    return !verbose ? this.label() : JSON.stringify(this, (key, value) => {
+    return !verbose ? this.label : JSON.stringify(this, (key, value) => {
       if('scope' === key) return
       if('sourceMap' === key) return `${value}`
       return value
     }, 2)
   }
 
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Node' || this.kind === kindOrCategory
-  }
+  is<Q extends Definition<Node>>(kindOrCategory: Q): this is InstanceOf<Q> { return is(kindOrCategory)(this) }
 
   copy(delta: Record<string, unknown> = {}): this {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
-  isSynthetic(): this is this & { sourceMap: undefined } { return !this.sourceMap }
-
-  hasProblems(): boolean { return notEmpty(this.problems) }
-
-  sourceInfo(): string { return `${this.sourceFileName() ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
-
-  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
-
-  @cached
+  @cached // TODO: can we make this a property even if it's cached
   children(): List<Node> {
     const extractChildren = (owner: any): List<Node> => {
       if (isNode(owner)) return [owner]
@@ -179,30 +149,32 @@ abstract class $Node {
   }
 
   @cached
-  siblings(this: Node): List<Node> { return this.parent.children().filter(node => node !== this) }
+  siblings(): List<Node> { return this.parent.children().filter(node => node !== this) }
 
+  // TODO: Do we need these very specific methods?
   @cached
-  previousSiblings(this: Node): List<Node> {
+  previousSiblings(): List<Node> {
     const children = this.parent.children()
     const index = children.indexOf(this)
     return children.slice(0, index)
   }
 
+  // TODO: Do we need these very specific methods?
   @cached
-  nextSiblings(this: Node): List<Node> {
+  nextSiblings(): List<Node> {
     const children = this.parent.children()
     const index = children.indexOf(this)
     return children.slice(index + 1, children.length)
   }
 
+  // TODO: Do we need these very specific methods?
   @cached
-  nextSibling(this: Node): Node | undefined {
-    const siblings = this.nextSiblings()
-    return isEmpty(siblings) ? undefined : siblings[0]
+  nextSibling(): Node | undefined {
+    return this.nextSiblings()[0]
   }
 
-  @cached
-  descendants(this: Node): List<Node> {
+  @cached // TODO: Make property even if cached?
+  descendants(): List<Node> {
     const pending: Node[] = []
     const response: Node[] = []
     let next: Node | undefined = this
@@ -215,38 +187,32 @@ abstract class $Node {
     return response
   }
 
-  @cached
+  @cached // TODO: Make property even if cached?
   ancestors(): List<Node> {
     try {
-      const parent = this.parent
+      const parent = this.parent //TODO: Make lazy parent fail instead of returning undefined?
       return [parent, ...parent.ancestors()]
     } catch (_) { return [] }
-  }
-
-  match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
-    for(const [key, handler] of entries(cases))
-      if(this.is(key as Kind)) return (handler as (node: Node) => T)(this)
-    throw new Error(`Unmatched kind ${this.kind}`)
   }
 
   transform(tx: (node: Node) => Node): this {
     const applyTransform = (value: any): any => {
       if (isArray(value)) return value.map(applyTransform)
-      if (isNode(value)) return value.copy(mapObject(applyTransform, tx(value as any)))
+      if (isNode(value)) return value.copy(mapObject(applyTransform, tx(value)))
       return value
     }
 
     return applyTransform(this)
   }
 
-  forEach(this: Node, tx: (node: Node, parent?: Node) => void): void {
+  forEach(tx: (node: Node, parent?: Node) => void): void {
     this.reduce((_, node, parent) => {
       tx(node, parent)
       return undefined
     }, undefined)
   }
 
-  reduce<T>(this: Node, tx: (acum: T, node: Node, parent?: Node) => T, initial: T): T {
+  reduce<T>(tx: (acum: T, node: Node, parent?: Node) => T, initial: T): T {
     const applyReduce = (acum: T, node: Node, parent?: Node): T =>
       node.children().reduce((seed, child) => {
         return applyReduce(seed, child, node)
@@ -255,15 +221,14 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
-  isGlobal() { return this.parent.is('Package') }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export class Parameter extends $Node {
-  readonly kind = 'Parameter'
+export class Parameter extends Node {
+  get kind(): 'Parameter' { return 'Parameter' }
   readonly name!: Name
   readonly isVarArg!: boolean
 
@@ -273,8 +238,8 @@ export class Parameter extends $Node {
 }
 
 
-export class ParameterizedType extends $Node {
-  readonly kind = 'ParameterizedType'
+export class ParameterizedType extends Node {
+  get kind(): 'ParameterizedType' {return 'ParameterizedType' }
   readonly reference!: Reference<Module | Class>
   readonly args!: List<NamedArgument>
 
@@ -284,8 +249,8 @@ export class ParameterizedType extends $Node {
 }
 
 
-export class NamedArgument extends $Node {
-  readonly kind = 'NamedArgument'
+export class NamedArgument extends Node {
+  get kind(): 'NamedArgument' {return 'NamedArgument' }
   readonly name!: Name
   readonly value!: Expression
 
@@ -293,10 +258,12 @@ export class NamedArgument extends $Node {
 }
 
 
-export class Import extends $Node {
-  readonly kind = 'Import'
+export class Import extends Node {
+  get kind(): 'Import' {return 'Import' }
   readonly entity!: Reference<Entity>
   readonly isGeneric!: boolean
+
+  override parent!: Package
 
   constructor({ isGeneric = false, ...payload }: Payload<Import, 'entity'>) {
     super({ isGeneric, ...payload })
@@ -304,8 +271,8 @@ export class Import extends $Node {
 }
 
 
-export class Body extends $Node {
-  readonly kind = 'Body'
+export class Body extends Node {
+  get kind(): 'Body' {return 'Body' }
   readonly sentences!: List<Sentence>
 
   constructor({ sentences = [], ...payload }: Payload<Body> = {}) {
@@ -313,7 +280,7 @@ export class Body extends $Node {
   }
 
   isEmpty(): boolean {
-    return this.isSynthetic() || this.parent.is('Method') || notEmpty(this.sentences)
+    return this.isSynthetic || this.parent.is(Method) || notEmpty(this.sentences)
   }
 }
 
@@ -321,46 +288,52 @@ export class Body extends $Node {
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Entity
-  = Package
-  | Program
-  | Test
-  | Module
-  | Variable
+// export type Entity
+//   = Package
+//   | Program
+//   | Test
+//   | Module
+//   | Variable
 
+export type Entity = InstanceType<ConstructorFor<typeof Entity>>
 
-abstract class $Entity extends $Node {
-  abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
+// TODO: Remove these ignores once ESLint implements mixin support https://github.com/typescript-eslint/typescript-eslint/issues/2035
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function Entity<S extends Mixable<Node>>(supertype: S) {
 
-  override label(this: Entity): string {
-    return `${this.fullyQualifiedName()} ${super.label()}`
+  abstract class EntityType extends supertype {
+    static [MIXINS] = [Entity, ...supertype[MIXINS] ?? []]
+    abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
+
+    override get label(): string {
+      return `${this.fullyQualifiedName()} ${super.label}`
+    }
+
+    @cached // TODO: Can this be catched and also be a property?
+    fullyQualifiedName(): Name {
+      const parent = this.parent
+      const label = this.is(Singleton)
+        ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
+        : this.name!.replace(/\.#/g, '')
+
+      return parent?.is(Package) || parent?.is(Describe)
+        ? `${parent.fullyQualifiedName()}.${label}`
+        : label
+    }
   }
 
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Entity' || super.is(kindOrCategory)
-  }
-
-  @cached
-  fullyQualifiedName(this: Entity): Name {
-    const parent = this.parent
-    const label = this.is('Singleton')
-      ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
-      : this.name.replace(/\.#/g, '')
-
-    return parent?.is('Package') || parent?.is('Describe')
-      ? `${parent.fullyQualifiedName()}.${label}`
-      : label
-  }
-
+  return EntityType
 }
 
 
-export class Package extends $Entity {
-  readonly kind = 'Package'
+export class Package extends Entity(Node) {
+  get kind(): 'Package' { return 'Package' }
   readonly name!: Name
   readonly imports!: List<Import>
   readonly members!: List<Entity>
   readonly fileName?: string
+
+  override parent!: Package | Environment
 
   constructor({ name, imports = [], members = [], ...payload }: Payload<Package, 'name'>) {
     super({ imports, members, ...payload })
@@ -374,7 +347,7 @@ export class Package extends $Entity {
     , this)
   }
 
-  @cached
+  @cached // TODO: Property and cached
   sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName() }
 
   getNodeByQN<N extends Entity>(this: Package, qualifiedName: Name): N {
@@ -391,8 +364,8 @@ export class Package extends $Entity {
 }
 
 
-export class Program extends $Entity {
-  readonly kind = 'Program'
+export class Program extends Entity(Node) {
+  get kind(): 'Program' { return 'Program' }
   readonly name!: Name
   readonly body!: Body
 
@@ -403,11 +376,13 @@ export class Program extends $Entity {
 }
 
 
-export class Test extends $Entity {
-  readonly kind = 'Test'
+export class Test extends Entity(Node) {
+  get kind(): 'Test' { return 'Test' }
   readonly isOnly!: boolean
   readonly name!: Name
   readonly body!: Body
+
+  override parent!: Describe
 
   constructor({ isOnly = false, ...payload }: Payload<Test, 'name' | 'body'>) {
     super({ isOnly, ...payload })
@@ -418,8 +393,8 @@ export class Test extends $Entity {
 }
 
 
-export class Variable extends $Entity {
-  readonly kind = 'Variable'
+export class Variable extends Entity(Sentence(Node)) {
+  get kind(): 'Variable' { return 'Variable' }
   readonly name!: Name
   readonly isConstant!: boolean
   readonly value!: Expression
@@ -428,129 +403,134 @@ export class Variable extends $Entity {
     super({ value, ...payload })
   }
 
-  // TODO: Maybe use mixins to avoid these ugly redefinitions
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
-  }
+  // TODO: Rename to isEntity
+  isGlobal(): boolean { return this.parent.is(Package) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MODULES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Module = Class | Singleton | Mixin | Describe
+// export type Module = Class | Singleton | Mixin | Describe
 
-abstract class $Module extends $Entity {
-  abstract readonly name?: Name
-  abstract readonly supertypes: List<ParameterizedType>
-  abstract readonly members: List<Field | Method | Variable | Test>
-  abstract superclass(this: Module): Class | undefined
+export type Module = InstanceType<ConstructorFor<typeof Module>>
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function Module<S extends Mixable<Node>>(supertype: S) {
+  abstract class ModuleType extends Entity(supertype) {
+    static [MIXINS] = [Module, ...supertype[MIXINS] ?? []]
 
-  constructor({ members, ...payload }: Payload<$Module> & Record<Name, unknown>) {
-    const methods = members?.filter(is('Method')) ?? []
-    const fields = members?.filter(is('Field')) ?? []
-    const properties = fields.filter(field => field.isProperty)
+    abstract readonly name?: Name
+    abstract readonly supertypes: List<ParameterizedType>
+    abstract readonly members: List<Field | Method | Variable | Test>
+    abstract superclass(): Class | undefined
 
-    const propertyGetters = properties
-      .filter(field => !methods.some(method => method.matchesSignature(field.name, 0)))
-      .map(({ name }: Field) => new Method({
-        name,
-        isOverride: false,
-        parameters: [],
-        body: new Body({ sentences: [new Return({ value: new Reference({ name }) })] }),
-      }))
+    override parent!: Package
 
-    const propertySetters = properties
-      .filter(field => !field.isConstant && !methods.some(method => method.matchesSignature(field.name, 1)))
-      .map(({ name }: Field) => new Method({
-        name,
-        isOverride: false,
-        parameters: [new Parameter({ name: '<value>', isVarArg: false })],
-        body: new Body({
-          sentences: [
-            new Assignment({
-              variable: new Reference({ name }),
-              value: new Reference({ name: '<value>' }),
-            }),
-          ],
-        }),
-      }))
+    constructor(...args: any[]) {
+      const { members, ...payload }: Payload<ModuleType> & Record<Name, unknown> = args[0]
+      const methods = members?.filter(is(Method)) ?? []
+      const fields = members?.filter(is(Field)) ?? []
+      const properties = fields.filter(field => field.isProperty)
 
-    super({ ...payload, members: members && [...members, ...propertyGetters, ...propertySetters] })
-  }
+      const propertyGetters = properties
+        .filter(field => !methods.some(method => method.matchesSignature(field.name, 0)))
+        .map(({ name }: Field) => new Method({
+          name,
+          isOverride: false,
+          parameters: [],
+          body: new Body({ sentences: [new Return({ value: new Reference({ name }) })] }),
+        }))
 
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Module' || super.is(kindOrCategory)
-  }
+      const propertySetters = properties
+        .filter(field => !field.isConstant && !methods.some(method => method.matchesSignature(field.name, 1)))
+        .map(({ name }: Field) => new Method({
+          name,
+          isOverride: false,
+          parameters: [new Parameter({ name: '<value>', isVarArg: false })],
+          body: new Body({
+            sentences: [
+              new Assignment({
+                variable: new Reference({ name }),
+                value: new Reference({ name: '<value>' }),
+              }),
+            ],
+          }),
+        }))
 
-  @cached
-  mixins(): List<Mixin> {
-    return this.supertypes
-      .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
-      .filter(is('Mixin'))
-  }
+      super({ ...payload, members: members && [...members, ...propertyGetters, ...propertySetters] })
+    }
 
-  methods(): List<Method> { return this.members.filter(is('Method')) }
-  fields(): List<Field> { return this.members.filter(is('Field')) }
-  allFields(this: Module): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
-  allMethods(this: Module): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
-  lookupField(this: Module, name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
+    @cached
+    mixins(): List<Mixin> {
+      return this.supertypes
+        .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
+        .filter(is(Mixin))
+    }
 
-  @cached
-  hierarchy(this: Module): List<Module> {
-    const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
-      if (exclude.includes(node)) return []
+    methods(): List<Method> { return this.members.filter(is(Method)) }
+    fields(): List<Field> { return this.members.filter(is(Field)) }
+    allFields(): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
+    allMethods(): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
+    lookupField(name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
 
-      const modules = [
-        ...node.mixins(),
-        ...!node.superclass() ? [] : [node.superclass()!],
-      ]
+    @cached
+    hierarchy(): List<ModuleType> {
+      const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
+        if (exclude.includes(node)) return []
 
-      return modules.reduce<[List<Module>, List<Module>]>(([hierarchy, excluded], module) => {
-        const inheritedHierarchy = hierarchyExcluding(module, excluded)
-        const filteredHierarchy = hierarchy.filter(node => !inheritedHierarchy.includes(node))
-        return [
-          [...filteredHierarchy, ...inheritedHierarchy],
-          [module, ...excluded],
+        const modules = [
+          ...node.mixins(),
+          ...!node.superclass() ? [] : [node.superclass()!],
         ]
-      }, [[node], [node, ...exclude]])[0]
-    }
 
-    return hierarchyExcluding(this)
-  }
-
-  inherits(this: Module, other: Module): boolean {
-    return this.hierarchy().some(({ id }) => other.id === id)
-  }
-
-  @cached
-  lookupMethod(this: Module, name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
-    let startReached = !options?.lookupStartFQN
-    for (const module of this.hierarchy()) {
-      if (startReached) {
-        const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
-        if (found) return found
+        return modules.reduce<[List<Module>, List<Module>]>(([hierarchy, excluded], module) => {
+          const inheritedHierarchy = hierarchyExcluding(module, excluded)
+          const filteredHierarchy = hierarchy.filter(node => !inheritedHierarchy.includes(node))
+          return [
+            [...filteredHierarchy, ...inheritedHierarchy],
+            [module, ...excluded],
+          ]
+        }, [[node], [node, ...exclude]])[0]
       }
-      if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
+
+      return hierarchyExcluding(this)
     }
 
-    return undefined
+    inherits(other: ModuleType): boolean {
+      return this.hierarchy().some(({ id }) => other.id === id)
+    }
+
+    @cached
+    lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
+      let startReached = !options?.lookupStartFQN
+      for (const module of this.hierarchy()) {
+        if (startReached) {
+          const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
+          if (found) return found
+        }
+        if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
+      }
+
+      return undefined
+    }
+
+    @cached
+    defaultFieldValues(): Map<Field, Expression | undefined> {
+      return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
+        field,
+        this.hierarchy().reduceRight((defaultValue, module) =>
+          module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
+        , field.value),
+      ]))
+    }
   }
 
-  @cached
-  defaultFieldValues(this: Module): Map<Field, Expression | undefined> {
-    return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
-      field,
-      this.hierarchy().reduceRight((defaultValue, module) =>
-        module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
-      , field.value),
-    ]))
-  }
+  return ModuleType
 }
 
 
-export class Class extends $Module {
-  readonly kind = 'Class'
+export class Class extends Module(Node) {
+  get kind(): 'Class' { return 'Class' }
   readonly name!: Name
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
@@ -561,7 +541,7 @@ export class Class extends $Module {
 
   @cached
   superclass(): Class | undefined {
-    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
       const objectClass = this.environment.objectClass
@@ -577,8 +557,8 @@ export class Class extends $Module {
 }
 
 
-export class Singleton extends $Module {
-  readonly kind = 'Singleton'
+export class Singleton extends Expression(Module(Node)) {
+  get kind(): 'Singleton' { return 'Singleton' }
   readonly name?: Name
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
@@ -587,12 +567,8 @@ export class Singleton extends $Module {
     super({ supertypes, members, ...payload })
   }
 
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
-  }
-
   superclass(): Class {
-    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else return this.environment.objectClass
   }
@@ -603,8 +579,8 @@ export class Singleton extends $Module {
 }
 
 
-export class Mixin extends $Module {
-  readonly kind = 'Mixin'
+export class Mixin extends Module(Node) {
+  get kind(): 'Mixin' { return 'Mixin' }
   readonly name!: Name
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
@@ -617,8 +593,8 @@ export class Mixin extends $Module {
 }
 
 
-export class Describe extends $Module {
-  readonly kind = 'Describe'
+export class Describe extends Module(Node) {
+  get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
   readonly members!: List<Field | Method | Test>
   readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
@@ -629,16 +605,16 @@ export class Describe extends $Module {
 
   superclass(): Class { return this.supertypes[0].reference.target()! as Class }
 
-  tests(): List<Test> { return this.members.filter(is('Test')) }
+  tests(): List<Test> { return this.members.filter(is(Test)) }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// MEMBERS
-// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// // MEMBERS
+// // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 
-export class Field extends $Node {
-  readonly kind = 'Field'
+export class Field extends Node {
+  get kind(): 'Field' { return 'Field' }
   readonly name!: Name
   readonly isConstant!: boolean
   readonly isProperty!: boolean
@@ -648,28 +624,32 @@ export class Field extends $Node {
     super({ value, isProperty, ...payload })
   }
 
-  override label(): string {
-    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label()}`
+  override parent!: Module
+
+  override get label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label}`
   }
 }
 
 
-export class Method extends $Node {
-  readonly kind = 'Method'
+export class Method extends Node {
+  get kind(): 'Method' { return 'Method' }
   readonly name!: Name
   readonly isOverride!: boolean
   readonly parameters!: List<Parameter>
   readonly body?: Body | 'native'
 
+  override parent!: Module
+
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })
   }
 
-  override label(): string {
-    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
+  override get label(): string {
+    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label}`
   }
 
-  isAbstract(): this is {body: undefined} { return !this.body }
+  isAbstract(): this is this & {body: undefined} { return !this.body }
   isNative(): this is {body?: Body} { return this.body === 'native' }
   isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
 
@@ -697,86 +677,90 @@ export class Method extends $Node {
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Sentence = Variable | Return | Assignment | Expression
+// export type Sentence = Variable | Return | Assignment | Expression
 
-
-abstract class $Sentence extends $Node {
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Sentence' || super.is(kindOrCategory)
+export type Sentence = InstanceType<ConstructorFor<typeof Sentence>>
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function Sentence<S extends Mixable<Node>>(supertype: S) {
+  abstract class SentenceType extends supertype {
+    static [MIXINS] = [Sentence, ...supertype[MIXINS] ?? []]
   }
+  return SentenceType
 }
 
 
-export class Return extends $Sentence {
-  readonly kind = 'Return'
+export class Return extends Sentence(Node) {
+  get kind(): 'Return' { return 'Return' }
   readonly value?: Expression
 
   constructor(payload: Payload<Return> = {}) { super(payload) }
 }
 
 
-export class Assignment extends $Sentence {
-  readonly kind = 'Assignment'
+export class Assignment extends Sentence(Node) {
+  get kind(): 'Assignment' { return 'Assignment' }
   readonly variable!: Reference<Variable | Field>
   readonly value!: Expression
 
   constructor(payload: Payload<Assignment, 'variable' | 'value'>) { super(payload) }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-// EXPRESSIONS
-// ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// // EXPRESSIONS
+// // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type Expression
-  = Reference<Field | Variable | Parameter | NamedArgument | Singleton>
-  | Self
-  | Literal<LiteralValue>
-  | Send
-  | Super
-  | New
-  | If
-  | Throw
-  | Try
-  | Singleton
+// export type Expression
+//   = Reference<Field | Variable | Parameter | NamedArgument | Singleton>
+//   | Self
+//   | Literal<LiteralValue>
+//   | Send
+//   | Super
+//   | New
+//   | If
+//   | Throw
+//   | Try
+//   | Singleton
 
-abstract class $Expression extends $Sentence {
-  is<Q extends Kind | Category>(kindOrCategory: Q): this is NodeOfKindOrCategory<Q> {
-    return kindOrCategory === 'Expression' || super.is(kindOrCategory)
+export type Expression = InstanceType<ConstructorFor<typeof Expression>>
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function Expression<S extends Mixable<Node>>(supertype: S) {
+  abstract class ExpressionType extends Sentence(supertype) {
+    static [MIXINS] = [Expression, ...supertype[MIXINS] ?? []]
   }
+
+  return ExpressionType
 }
 
 
-export class Reference<N extends Node> extends $Expression {
-  readonly kind = 'Reference'
+export class Reference<N extends Node> extends Expression(Node) {
+  get kind(): 'Reference' { return 'Reference' }
   readonly name!: Name
 
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
   @cached
-  target(): N | undefined {
-    return this.scope.resolve(this.name)
-  }
+  target(): N | undefined { return this.scope.resolve(this.name) }
 }
 
 
-export class Self extends $Expression {
-  readonly kind = 'Self'
+export class Self extends Expression(Node) {
+  get kind(): 'Self' { return 'Self' }
 
   constructor(payload: Payload<Self> = {}) { super(payload) }
 }
 
 
 export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression> ]
-export class Literal<T extends LiteralValue = LiteralValue> extends $Expression {
-  readonly kind = 'Literal'
+export class Literal<T extends LiteralValue = LiteralValue> extends Expression(Node) {
+  get kind(): 'Literal' { return 'Literal' }
   readonly value!: T
 
   constructor(payload: Payload<Literal<T>, 'value'>) { super(payload) }
 }
 
 
-export class Send extends $Expression {
-  readonly kind = 'Send'
+export class Send extends Expression(Node) {
+  get kind(): 'Send' { return 'Send' }
   readonly receiver!: Expression
   readonly message!: Name
   readonly args!: List<Expression>
@@ -787,8 +771,8 @@ export class Send extends $Expression {
 }
 
 
-export class Super extends $Expression {
-  readonly kind = 'Super'
+export class Super extends Expression(Node) {
+  get kind(): 'Super' { return 'Super' }
   readonly args!: List<Expression>
 
   constructor({ args = [], ...payload }: Payload<Super> = {}) {
@@ -797,8 +781,8 @@ export class Super extends $Expression {
 }
 
 
-export class New extends $Expression {
-  readonly kind = 'New'
+export class New extends Expression(Node) {
+  get kind(): 'New' { return 'New' }
   readonly instantiated!: Reference<Class>
   readonly args!: List<NamedArgument>
 
@@ -808,8 +792,8 @@ export class New extends $Expression {
 }
 
 
-export class If extends $Expression {
-  readonly kind = 'If'
+export class If extends Expression(Node) {
+  get kind(): 'If' { return 'If' }
   readonly condition!: Expression
   readonly thenBody!: Body
   readonly elseBody!: Body
@@ -820,16 +804,16 @@ export class If extends $Expression {
 }
 
 
-export class Throw extends $Expression {
-  readonly kind = 'Throw'
+export class Throw extends Expression(Node) {
+  get kind(): 'Throw' { return 'Throw' }
   readonly exception!: Expression
 
   constructor(payload: Payload<Throw, 'exception'>) { super(payload) }
 }
 
 
-export class Try extends $Expression {
-  readonly kind = 'Try'
+export class Try extends Expression(Node) {
+  get kind(): 'Try' { return 'Try' }
   readonly body!: Body
   readonly catches!: List<Catch>
   readonly always!: Body
@@ -840,8 +824,8 @@ export class Try extends $Expression {
 }
 
 
-export class Catch extends $Expression {
-  readonly kind = 'Catch'
+export class Catch extends Node {
+  get kind(): 'Catch' { return 'Catch' }
   readonly parameter!: Parameter
   readonly parameterType!: Reference<Module>
   readonly body!: Body
@@ -866,7 +850,7 @@ type ClosurePayload = {
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
   const initialSentences = sentences?.slice(0, -1) ?? []
-  const lastSentence = sentences?.slice(-1).map(value => value.is('Expression') ? new Return({ value }) : value) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
@@ -880,10 +864,10 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
   })
 }
 
-export class Environment extends $Node {
-  readonly kind = 'Environment'
-  readonly members!: List<Package>
+export class Environment extends Node {
+  get kind(): 'Environment' { return 'Environment'}
 
+  readonly members!: List<Package>
   @lazy nodeCache!: ReadonlyMap<Id, Node>
 
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
