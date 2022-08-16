@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.1.2
+- Moved local game code to language project.
+
 ## v3.1.1
 - Fixed bug where closures where unable to retain self reference when nested inside other closures.
 

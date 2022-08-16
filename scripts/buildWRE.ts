@@ -16,11 +16,6 @@ async function buildWRE() {
 
   console.info('Parsing...')
   console.time('Parsed')
-  // TODO: Can we move this to lang? See wollok-language/issues/48
-  const targetRawWRE = await Promise.all([
-    File('wollok/io.wlk').tryParse(await readFile(`${WRE_TARGET_PATH}/io.wlk`, 'utf8')),
-    File('wollok/gameMirror.wlk').tryParse(await readFile(`${WRE_TARGET_PATH}/gameMirror.wlk`, 'utf8')),
-  ])
 
   const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
   const rawWRE = await Promise.all(sourceFiles.map(async sourceFile => {
@@ -31,7 +26,7 @@ async function buildWRE() {
 
   console.info('Linking...')
   console.time('Linked')
-  const wre = link([...rawWRE, ...targetRawWRE])
+  const wre = link([...rawWRE])
   console.timeEnd('Linked')
 
   console.info('Validating...')
