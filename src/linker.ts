@@ -117,8 +117,10 @@ const assignScopes = (environment: Environment) => {
       }
     }
 
-    if(node.is(Module))
+    if(node.is(Module)) {
+
       node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+    }
 
     if(parent && !node.is(Entity))
       parent!.scope.register(...scopeContribution(node))

@@ -10,13 +10,6 @@ describe('extensions', () => {
   class B { b(){ return 'b' } }
   class C { c(){ return 'c' } }
 
-  type L = InstanceOf<typeof L>
-  function L(S: Mixable<C>) {
-    return class extends mixinOf(S)(L) {
-      l(){ return 'l' }
-    }
-  }
-
   type M = InstanceOf<typeof M>
   function M(S: Mixable<C>) {
     return class extends mixinOf(S)(M) {

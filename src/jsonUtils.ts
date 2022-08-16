@@ -3,6 +3,7 @@ import * as Models from './model'
 
 const { isArray } = Array
 
+// TODO: Move from and to JSON logic to Node
 export function fromJSON<T>(json: any): T {
   const propagate = (data: any) => {
     if (isArray(data)) return data.map(fromJSON)

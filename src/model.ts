@@ -1,4 +1,4 @@
-import { ConstructorFor, Definition, InstanceOf, is, last, List, mapObject, Mixable, MIXINS, notEmpty } from './extensions'
+import { ConstructorFor, Definition, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty } from './extensions'
 import { lazy, cached } from './decorators'
 
 const { isArray } = Array
@@ -417,7 +417,7 @@ export type Module = InstanceType<ConstructorFor<typeof Module>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Module<S extends Mixable<Node>>(supertype: S) {
   abstract class ModuleType extends Entity(supertype) {
-    static [MIXINS] = [Module, ...supertype[MIXINS] ?? []]
+    static [MIXINS]: MixinDefinition<Node>[] = [Module, ...Entity(supertype)[MIXINS] ?? []]
 
     abstract readonly name?: Name
     abstract readonly supertypes: List<ParameterizedType>
@@ -725,7 +725,7 @@ export type Expression = InstanceType<ConstructorFor<typeof Expression>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Expression<S extends Mixable<Node>>(supertype: S) {
   abstract class ExpressionType extends Sentence(supertype) {
-    static [MIXINS] = [Expression, ...supertype[MIXINS] ?? []]
+    static [MIXINS]: MixinDefinition<Node>[] = [Expression, ...Sentence(supertype)[MIXINS] ?? []]
   }
 
   return ExpressionType

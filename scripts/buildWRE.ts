@@ -1,11 +1,14 @@
 import { promises } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join } from 'path'
+import { isNode } from '../src'
+import { mapObject } from '../src/extensions'
 import link from '../src/linker'
 import { File } from '../src/parser'
 import validate from '../src/validator'
 
 const { writeFile, readFile } = promises
+const { isArray } = Array
 
 const WRE_SRC_PATH = 'language/src'
 const WRE_TARGET_PATH = 'src/wre'
@@ -46,7 +49,15 @@ async function buildWRE() {
 
   console.info(`Saving to ${WRE_TARGET_PATH}/wre.json...`)
   console.time('Saved')
-  await writeFile(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(wre, (key, value) => key.startsWith('_') ? undefined : value, 2))
+  // TODO: Move from and to JSON logic to Node
+
+  const encode = (v: any): any =>
+    isArray(v) ? v.map(encode) :
+    isNode(v) ? encode({ ...v, kind: v.constructor.name }) :
+    v instanceof Object ? mapObject(encode, v) :
+    v
+
+  await writeFile(`${WRE_TARGET_PATH}/wre.json`, JSON.stringify(encode(wre), (key, value) => key.startsWith('_') ? undefined : value, 2))
   console.timeEnd('Saved')
 
   console.groupEnd()
