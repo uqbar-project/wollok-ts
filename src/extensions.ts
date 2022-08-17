@@ -88,7 +88,7 @@ export const mixinOf = <T extends object>(S: Mixable<T>) => (M: MixinDefinition<
 }
 
 export const is = <D extends Definition<any>>(definition: D) => (obj: any): obj is InstanceOf<D> => {
-  return obj instanceof definition || (obj.constructor as any)[MIXINS]?.includes(definition)
+  return !!obj && (obj instanceof definition || (obj.constructor as any)[MIXINS]?.includes(definition))
 }
 
 export const match = <T>(matched: T) =>

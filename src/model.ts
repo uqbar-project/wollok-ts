@@ -436,25 +436,16 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
       return hierarchyExcluding(this)
     }
 
-    // TODO: delegate to hierarchy and remove cache
-    @cached
-    get mixins(): List<Mixin> {
-      return this.supertypes
-        .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
-        .filter(is(Mixin))
-    }
+    get mixins(): List<Mixin> { return this.supertypes.map(supertype => supertype.reference.target()).filter(is(Mixin)) }
     get methods(): List<Method> { return this.members.filter(is(Method)) }
     get fields(): List<Field> { return this.members.filter(is(Field)) }
-    // TODO: rename these to make the inherited the default?
-    // TODO: create a allMembers and delegate to that
-    get allFields(): List<Field> { return this.hierarchy.flatMap(parent => parent.fields) }
-    get allMethods(): List<Method> { return this.hierarchy.flatMap(parent => parent.methods) }
+    // TODO: Maybe replace these implementation with configurable methods?
+    get allMembers(): this['members'] { return this.hierarchy.flatMap(parent => parent.members) }
+    get allFields(): List<Field> { return this.allMembers.filter(is(Field)) }
+    get allMethods(): List<Method> { return this.allMembers.filter(is(Method)) }
 
+    @cached
     lookupField(name: string): Field | undefined { return this.allFields.find(field => field.name === name) }
-
-    inherits(other: ModuleType): boolean {
-      return this.hierarchy.some(({ id }) => other.id === id)
-    }
 
     @cached
     lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
@@ -472,14 +463,17 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
     @cached
     // TODO: review uses to see if another method is needed
+    // TODO: replace with default value method in field?
     get defaultFieldValues(): Map<Field, Expression | undefined> {
-      return new Map(this.hierarchy.flatMap(module => module.fields).map(field => [
+      return new Map(this.allFields.map(field => [
         field,
         this.hierarchy.reduceRight((defaultValue, module) =>
-          module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
+          module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
         , field.value),
       ]))
     }
+
+    inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
   }
 
   return ModuleType

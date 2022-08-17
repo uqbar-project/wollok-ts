@@ -655,7 +655,7 @@ export class Evaluation {
 
   protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
     const defaultFieldValues = instance.module.defaultFieldValues
-    const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
+    const allFieldNames =instance.module.allFields.map(({ name }) => name)
     for(const local of keys(locals))
       if(!allFieldNames.includes(local))
         throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)

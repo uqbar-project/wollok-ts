@@ -503,16 +503,10 @@ const getUninitializedAttributesForInstantation = (node: New): string[] => {
   return getUninitializedAttributes(target, initializers)
 }
 
-const getUninitializedAttributes = (node: Module, initializers: string[] = []): string[] => {
-  const uninitializedAttributes: string[] = []
-  node.defaultFieldValues?.forEach(
-    (value, field) => {
-      if (uninitializedValue(value) && !initializers.includes(field.name)) {
-        uninitializedAttributes.push(field.name)
-      }
-    })
-  return uninitializedAttributes
-}
+const getUninitializedAttributes = (node: Module, initializers: string[] = []) =>
+  [...node.defaultFieldValues.entries()]
+    .filter(([field, value]) => uninitializedValue(value) && !initializers.includes(field.name))
+    .map(([field]) => field.name)
 
 const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) && node.value === value
 
