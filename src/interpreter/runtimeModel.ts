@@ -59,8 +59,8 @@ export class WollokException extends Error {
     instance.assertIsException()
 
     this.name = instance.innerValue
-      ? `${instance.module.fullyQualifiedName()} wrapping TypeScript ${instance.innerValue.name}`
-      : instance.module.fullyQualifiedName()
+      ? `${instance.module.fullyQualifiedName} wrapping TypeScript ${instance.innerValue.name}`
+      : instance.module.fullyQualifiedName
   }
 }
 
@@ -126,9 +126,9 @@ export class Frame extends Context {
 
   get description(): string {
     return match(this.node)(
-      [Entity, (node: Entity) => `${node.fullyQualifiedName()}`],
+      [Entity, (node: Entity) => `${node.fullyQualifiedName}`],
       // TODO: Add fqn to method
-      when(Method)(node => `${node.parent.fullyQualifiedName()}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`),
+      when(Method)(node => `${node.parent.fullyQualifiedName}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`),
       when(Catch)(node => `catch(${node.parameter.name}: ${node.parameterType.name})`),
       when(Environment)(() => 'root'),
       when(Node)(node => `${node.kind}`),
@@ -213,7 +213,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
-    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
+    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
     if(this.innerValue && !(this.innerValue instanceof Error)) {
       throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
     }
@@ -224,7 +224,7 @@ export class RuntimeObject extends Context {
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
-    if (this.module.fullyQualifiedName() !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
+    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 }
@@ -251,27 +251,27 @@ export class Evaluation {
 
     environment.forEach(node => {
       if(node.is(Method) && node.isNative())
-        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName()}.${node.name}`)!)
+        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
     })
 
-    const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is(Singleton) && !!node.name)
+    const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => node.is(Singleton) && !!node.name)
     for (const module of globalSingletons)
-      evaluation.rootFrame.set(module.fullyQualifiedName(), evaluation.instantiate(module))
+      evaluation.rootFrame.set(module.fullyQualifiedName, evaluation.instantiate(module))
 
 
-    const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is(Variable) && node.parent.is(Package))
+    const globalConstants = environment.descendants.filter((node: Node): node is Variable => node.is(Variable) && node.parent.is(Package))
     for (const constant of globalConstants)
-      evaluation.rootFrame.set(constant.fullyQualifiedName(), evaluation.exec(constant.value))
+      evaluation.rootFrame.set(constant.fullyQualifiedName, evaluation.exec(constant.value))
 
 
     for (const module of globalSingletons) {
-      const instance = evaluation.object(module.fullyQualifiedName())
-      for (const field of module.allFields())
+      const instance = evaluation.object(module.fullyQualifiedName)
+      for (const field of module.allFields)
         instance!.get(field.name)
     }
 
     for (const constant of globalConstants)
-      evaluation.object(constant.fullyQualifiedName())
+      evaluation.object(constant.fullyQualifiedName)
 
 
     return evaluation
@@ -386,7 +386,7 @@ export class Evaluation {
 
     if(node.isNative()) {
       const native = this.natives.get(node)
-      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName()}.${node.name}`)
+      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName}.${node.name}`)
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
@@ -399,7 +399,7 @@ export class Evaluation {
         if(error instanceof WollokReturn) return error.instance
         else throw error
       }
-    } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName()}.${node.name}/${node.parameters.length}`)
+    } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName}.${node.name}/${node.parameters.length}`)
   }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
@@ -445,7 +445,7 @@ export class Evaluation {
 
     return this.currentFrame.get(
       target?.is(Module) || target?.is(Variable) && target.parent?.is(Package)
-        ? target.fullyQualifiedName()
+        ? target.fullyQualifiedName
         : node.name
     ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
   }
@@ -505,9 +505,9 @@ export class Evaluation {
     yield node
 
     const receiver = this.currentFrame.get('self')!
-    const currentMethod = node.ancestors().find(is(Method))!
+    const currentMethod = node.ancestors.find(is(Method))!
     //TODO: pass just the parent (not the FQN) to lookup?
-    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName() })
+    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
 
@@ -654,11 +654,11 @@ export class Evaluation {
   }
 
   protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
-    const defaultFieldValues = instance.module.defaultFieldValues()
+    const defaultFieldValues = instance.module.defaultFieldValues
     const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
     for(const local of keys(locals))
       if(!allFieldNames.includes(local))
-        throw new Error(`Can't initialize ${instance.module.fullyQualifiedName()} with value for unexistent field ${local}`)
+        throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)
 
     for(const [field, defaultValue] of defaultFieldValues) {
       instance.set(field.name, field.name in locals

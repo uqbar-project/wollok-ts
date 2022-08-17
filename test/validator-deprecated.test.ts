@@ -199,19 +199,19 @@
 
 
 //       it('should pass when there is a method with the same name and different arity', () => {
-//         classWithDistinctSignatures.methods()[0].should.pass(methodShouldHaveDifferentSignature)
+//         classWithDistinctSignatures.methods[0].should.pass(methodShouldHaveDifferentSignature)
 //       })
 
 //       it('should pass when there is a method with the same name and cannot be called with the same amount of arguments', () => {
-//         classWithDistinctSignaturesAndVarArg.methods()[0].should.pass(methodShouldHaveDifferentSignature)
+//         classWithDistinctSignaturesAndVarArg.methods[0].should.pass(methodShouldHaveDifferentSignature)
 //       })
 
 //       it('should not pass when there is a method with the same name and arity', () => {
-//         classWithDuplicatedSignatures.methods()[0].should.not.pass(methodShouldHaveDifferentSignature)
+//         classWithDuplicatedSignatures.methods[0].should.not.pass(methodShouldHaveDifferentSignature)
 //       })
 
 //       it('should not pass when there is a method with the same name and can be called with the same amount of arguments', () => {
-//         classWithOverlappingVarArgSignature.methods()[0].should.not.pass(methodShouldHaveDifferentSignature)
+//         classWithOverlappingVarArgSignature.methods[0].should.not.pass(methodShouldHaveDifferentSignature)
 //       })
 //     })
 //   })
@@ -611,7 +611,7 @@
 //       const selfInProgram = (programExample.body.sentences[0] as Return).value!
 //       const classExample = environment.getNodeByFQN<Class>('p.C')
 //       const methodExample = classExample.members[0] as Method
-//       const selfInMethod = (methodExample.sentences()[0] as Return).value!
+//       const selfInMethod = (methodExample.sentences[0] as Return).value!
 
 //       it('should pass when self is in a method', () => {
 //         selfInMethod.should.pass(isNotWithin(Program))
@@ -654,7 +654,7 @@
 //       const packageExample = environment.members[1] as Package
 //       const classExample = packageExample.members[0] as Class
 //       const methodExample = classExample.members[1] as Method
-//       const comparisonAgainstTrue = (methodExample.sentences()[0] as Return).value as Send
+//       const comparisonAgainstTrue = (methodExample.sentences[0] as Return).value as Send
 
 //       it('should not pass when comparing against true literal', () => {
 //         comparisonAgainstTrue.should.not.pass(shouldNotCompareAgainstBooleanLiterals)

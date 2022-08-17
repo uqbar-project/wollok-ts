@@ -27,11 +27,11 @@ function registerTests(nodes: List<Node>, interpreter: Interpreter) {
     if (node.is(Package)) describe(node.name, () => registerTests(node.members, interpreter))
 
     else if (node.is(Describe)) describe(node.name, () => {
-      const onlyTest = node.tests().find(test => test.isOnly)
-      registerTests(onlyTest ? [onlyTest] : node.tests(), interpreter)
+      const onlyTest = node.tests.find(test => test.isOnly)
+      registerTests(onlyTest ? [onlyTest] : node.tests, interpreter)
     })
 
-    else if (node.is(Test) && !node.parent.children().some(sibling => node !== sibling && sibling.is(Test) && sibling.isOnly))
+    else if (node.is(Test) && !node.parent.children.some(sibling => node !== sibling && sibling.is(Test) && sibling.isOnly))
       it(node.name, () => interpreter.fork().exec(node) )
 
   })

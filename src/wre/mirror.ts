@@ -20,7 +20,7 @@ const mirror: Natives = {
 
     // Returns a List<InstanceVariableMirror>
     *instanceVariables(self: RuntimeObject): Execution<RuntimeValue> {
-      const fields =  self.get('target')!.module.defaultFieldValues().keys()
+      const fields =  self.get('target')!.module.defaultFieldValues.keys()
       const values: RuntimeObject[] = []
       for(const field of fields)
         values.push((yield* this.send('instanceVariableFor', self, yield* this.reify(field.name)))!)

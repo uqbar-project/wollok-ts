@@ -119,7 +119,7 @@ const assignScopes = (environment: Environment) => {
 
     if(node.is(Module)) {
 
-      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+      node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
     }
 
     if(parent && !node.is(Entity))
@@ -193,7 +193,7 @@ export function linkIsolated<S extends Sentence>(sentence: S, environment: Envir
 
   sentence.forEach((node, parent) => {
     if(node.is(Module))
-      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+      node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
 
     if(parent && !node.is(Entity))
       parent.scope.register(...scopeContribution(node))

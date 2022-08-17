@@ -7,12 +7,13 @@ should()
 
 describe('Wollok model', () => {
 
+  // TODO: Move to a decorators.test.ts file
   describe('cache', () => {
 
     it('should be populated the first time the node is used', () => {
       const method = new Method({ name: 'm', body: 'native', isOverride: false, parameters: [] })
       const node = new Class({ name: 'C', supertypes: [], members: [method] })
-      stub(node, 'hierarchy').returns([node])
+      stub(node, 'hierarchy').value([node])
 
       getCache(node).size.should.equal(0)
       const response = node.lookupMethod(method.name, method.parameters.length)
@@ -24,7 +25,7 @@ describe('Wollok model', () => {
       const method = new Method({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
       const otherMethod = new Method({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
       const node = new Class({ name: 'C', supertypes: [], members: [method] })
-      stub(node, 'hierarchy').returns([node])
+      stub(node, 'hierarchy').value([node])
 
       node.lookupMethod(method.name, method.parameters.length)
       getCache(node).set(`lookupMethod(${method.name},${method.parameters.length})`, otherMethod)
@@ -102,36 +103,35 @@ describe('Wollok model', () => {
       it('should return true for classes with abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
         const c = new Class({ name: 'C', supertypes: [], members: [m], id: 'c1'  })
-        stub(c, 'fullyQualifiedName').returns('C')
+        stub(c, 'fullyQualifiedName').value('C')
+        stub(c, 'hierarchy').value([c])
 
-        c.hierarchy = () => [c as any]
-
-        c.isAbstract().should.be.true
+        c.isAbstract.should.be.true
       })
 
       it('should return true for classes with non-overriten inherited abstract methods', () => {
         const m = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm1'  })
         const b = new Class({ name: 'B', supertypes: [], members: [m], id: 'c1'  })
         const bRef = new Reference<Class>({ name: 'B', id: 'b1r'  })
-        bRef.target = () => b as any
         const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], id: 'c1' })
-        stub(b, 'fullyQualifiedName').returns('B')
-        stub(c, 'fullyQualifiedName').returns('C')
-        stub(c, 'hierarchy').returns([c, b])
+        stub(bRef, 'target').returns(b)
+        stub(b, 'fullyQualifiedName').value('B')
+        stub(c, 'fullyQualifiedName').value('C')
+        stub(c, 'hierarchy').value([c, b])
 
-        c.isAbstract().should.be.true
+        c.isAbstract.should.be.true
       })
 
       it('should return correct fields for subclasses', () => {
         const constB1 = new Field({ name: 'b1', isConstant: true  })
         const b = new Class({ name: 'B', supertypes: [], members: [constB1], id: 'c1'  })
         const bRef = new Reference<Class>({ name: 'B', id: 'b1r'  })
-        bRef.target = () => b as any
         const varC1 = new Field({ name: 'c1', isConstant: true  })
         const c = new Class({ name: 'C', members: [varC1], supertypes: [new ParameterizedType({ reference: bRef })], id: 'c1' })
-        stub(b, 'fullyQualifiedName').returns('B')
-        stub(c, 'fullyQualifiedName').returns('C')
-        stub(c, 'hierarchy').returns([c, b])
+        stub(bRef, 'target').returns(b)
+        stub(b, 'fullyQualifiedName').value('B')
+        stub(c, 'fullyQualifiedName').value('C')
+        stub(c, 'hierarchy').value([c, b])
 
         c.lookupField('d1')?.should.be.not.ok
         c.lookupField('c1')?.should.be.ok
@@ -140,9 +140,9 @@ describe('Wollok model', () => {
 
       it('should return false for classes with no abstract methods', () => {
         const c = new Class({ name: 'C', id: 'c1' })
-        c.hierarchy = () => [c as any]
+        stub(c, 'hierarchy').value([c])
 
-        c.isAbstract().should.be.false
+        c.isAbstract.should.be.false
       })
 
       it('should return false for classes with implemented inherited abstract methods', () => {
@@ -150,11 +150,12 @@ describe('Wollok model', () => {
         const m2 = new Method({ name: 'm', parameters: [], isOverride: false, id: 'm2',  body: 'native' })
         const b = new Class({ name: 'B', supertypes: [], members: [m1], id: 'c1' })
         const bRef = new Reference<Class>({ name: 'B', id: 'b1r' })
-        bRef.target = () => b as any
         const c = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: bRef })], members: [m2], id: 'c1' })
-        c.hierarchy = () => [c as any, b as any]
 
-        c.isAbstract().should.be.false
+        stub(bRef, 'target').returns(b)
+        stub(c, 'hierarchy').value([c])
+
+        c.isAbstract.should.be.false
       })
 
     })

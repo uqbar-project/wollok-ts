@@ -1,5 +1,5 @@
 import { expect, should, use } from 'chai'
-import { Body, Class, Closure, Describe, Environment, Field, Import, isNode, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import { fromJSON } from '../src/jsonUtils'
 import link, { LinkError } from '../src/linker'
 import wre from '../src/wre/wre.json'
@@ -235,7 +235,7 @@ describe('Wollok linker', () => {
     ], WRE)
 
     environment.should.have.property('id')
-    environment.descendants().forEach(node => node.should.have.property('id'))
+    environment.descendants.forEach(node => node.should.have.property('id'))
   })
 
   describe('scopes', () => {
@@ -261,9 +261,9 @@ describe('Wollok linker', () => {
       const Object = environment.getNodeByFQN<Class>('wollok.lang.Object')
       const p = environment.getNodeByFQN<Package>('p')
       const C = environment.getNodeByFQN<Class>('p.C')
-      const f = C.fields()[0]
-      const g = C.fields()[1]
-      const h = C.fields()[2]
+      const f = C.fields[0]
+      const g = C.fields[1]
+      const h = C.fields[2]
 
       C.supertypes[0].reference.should.target(Object)
       f.value!.should.target(C)
@@ -329,24 +329,24 @@ describe('Wollok linker', () => {
       const S = environment.getNodeByFQN<Singleton>('x.x')
       const C = environment.getNodeByFQN<Class>('x.C')
       const D = environment.getNodeByFQN<Class>('x.D')
-      const f = S.fields()[0]
-      const m1 = S.methods()[0]
-      const closure = m1.sentences()[1] as Singleton
-      const closureReturn = closure.methods()[0].sentences()[0] as Return
-      const m2 = S.methods()[1]
-      const m2var = m2.sentences()[0] as Variable
-      const m3 = S.methods()[2]
-      const m4 = D.methods()[0]
+      const f = S.fields[0]
+      const m1 = S.methods[0]
+      const closure = m1.sentences[1] as Singleton
+      const closureReturn = closure.methods[0].sentences[0] as Return
+      const m2 = S.methods[1]
+      const m2var = m2.sentences[0] as Variable
+      const m3 = S.methods[2]
+      const m4 = D.methods[0]
 
       S.supertypes[0].args[0].value!.should.target(f)
       f.value!.should.target(f)
-      m1.sentences()[0].should.target(m1.parameters[0])
-      closureReturn.value!.should.target(closure.methods()[0].parameters[0])
+      m1.sentences[0].should.target(m1.parameters[0])
+      closureReturn.value!.should.target(closure.methods[0].parameters[0])
       m2var.value!.should.target(m2var)
-      m2.sentences()[1].should.target(m2var)
-      m3.sentences()[0].should.target(f)
+      m2.sentences[1].should.target(m2var)
+      m3.sentences[0].should.target(f)
       C.supertypes[0].reference.should.target(S)
-      m4.sentences()[0].should.target(S)
+      m4.sentences[0].should.target(S)
     })
 
     it('should target inherited members', () => {
@@ -391,8 +391,8 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(A.fields()[0])
-      C.methods()[0].sentences()[1].should.target(M.fields()[0])
+      C.methods[0].sentences[0].should.target(A.fields[0])
+      C.methods[0].sentences[1].should.target(M.fields[0])
     })
 
     it('should target local overriden references to members inherited from mixins', () => {
@@ -422,7 +422,7 @@ describe('Wollok linker', () => {
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(C.fields()[0])
+      C.methods[0].sentences[0].should.target(C.fields[0])
     })
 
     it('should target local overriden references to members inherited from superclass', () => {
@@ -453,7 +453,7 @@ describe('Wollok linker', () => {
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(C.fields()[0])
+      C.methods[0].sentences[0].should.target(C.fields[0])
     })
 
     it('should target references overriden on mixins to members inherited from superclass', () => {
@@ -491,7 +491,7 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(M.fields()[0])
+      C.methods[0].sentences[0].should.target(M.fields[0])
     })
 
     it('should target references overriden on mixins to members inherited from other mixins', () => {
@@ -529,7 +529,7 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(M.fields()[0])
+      C.methods[0].sentences[0].should.target(M.fields[0])
     })
 
     it('should target references overriden on superclass to members inherited from further superclass', () => {
@@ -563,7 +563,7 @@ describe('Wollok linker', () => {
       const B = environment.getNodeByFQN<Class>('p.B')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods()[0].sentences()[0].should.target(B.fields()[0])
+      C.methods[0].sentences[0].should.target(B.fields[0])
     })
 
     it('should target imported references', () => {

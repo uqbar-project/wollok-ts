@@ -35,11 +35,11 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName())
+      return yield* this.reify(self.module.fullyQualifiedName)
     },
 
     *className(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName())
+      return yield* this.reify(self.module.fullyQualifiedName)
     },
 
     *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject): Execution<RuntimeValue> {
@@ -295,7 +295,7 @@ const lang: Natives = {
       value.assertIsNotNull()
 
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (let i = 0; i < bucket.length; i++) {
@@ -311,7 +311,7 @@ const lang: Natives = {
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (const entry of bucket) {
@@ -324,7 +324,7 @@ const lang: Natives = {
 
     *remove(self: RuntimeObject, key: RuntimeObject): Execution<void> {
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (let i = 0; i < bucket.length; i++) {
@@ -706,7 +706,7 @@ const lang: Natives = {
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
-      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName()}#${self.id}`))
+      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName}#${self.id}`))
     },
 
   },

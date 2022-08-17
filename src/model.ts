@@ -79,21 +79,6 @@ export const isNode = (obj: any): obj is Node => obj instanceof Node
 // NODES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-// export type Node
-//   = Parameter
-//   | ParameterizedType
-//   | NamedArgument
-//   | Import
-//   | Body
-//   | Catch
-//   | Entity
-//   | Field
-//   | Method
-//   | Sentence
-//   | Reference<Node>
-//   | Environment
-
-
 export abstract class Node {
   abstract get kind(): string
 
@@ -105,10 +90,8 @@ export abstract class Node {
 
   @lazy environment!: Environment
 
-  //TODO: Proper type
   //TODO: Make lazy fail instead of return undefined
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  //TODO: Check every node has right parent definition
   @lazy parent!: Node
 
   constructor(payload: Record<string, unknown>) {
@@ -116,7 +99,7 @@ export abstract class Node {
   }
 
   get categories(): Function[] { return [this.constructor] }
-  sourceFileName(): string | undefined { return this.parent.sourceFileName() }
+  get sourceFileName(): string | undefined { return this.parent.sourceFileName }
   get sourceInfo(): string { return `${this.sourceFileName ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
   get label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo}` }
 
@@ -138,8 +121,8 @@ export abstract class Node {
     return new (this.constructor as any)({ ...this, ...delta })
   }
 
-  @cached // TODO: can we make this a property even if it's cached
-  children(): List<Node> {
+  @cached
+  get children(): List<Node> {
     const extractChildren = (owner: any): List<Node> => {
       if (isNode(owner)) return [owner]
       if (isArray(owner)) return owner.flatMap(extractChildren)
@@ -149,12 +132,12 @@ export abstract class Node {
   }
 
   @cached
-  siblings(): List<Node> { return this.parent.children().filter(node => node !== this) }
+  siblings(): List<Node> { return this.parent.children.filter(node => node !== this) }
 
   // TODO: Do we need these very specific methods?
   @cached
   previousSiblings(): List<Node> {
-    const children = this.parent.children()
+    const children = this.parent.children
     const index = children.indexOf(this)
     return children.slice(0, index)
   }
@@ -162,7 +145,7 @@ export abstract class Node {
   // TODO: Do we need these very specific methods?
   @cached
   nextSiblings(): List<Node> {
-    const children = this.parent.children()
+    const children = this.parent.children
     const index = children.indexOf(this)
     return children.slice(index + 1, children.length)
   }
@@ -173,13 +156,13 @@ export abstract class Node {
     return this.nextSiblings()[0]
   }
 
-  @cached // TODO: Make property even if cached?
-  descendants(): List<Node> {
+  @cached
+  get descendants(): List<Node> {
     const pending: Node[] = []
     const response: Node[] = []
     let next: Node | undefined = this
     do {
-      const children = next!.children()
+      const children = next!.children
       response.push(...children)
       pending.push(...children)
       next = pending.shift()
@@ -187,11 +170,11 @@ export abstract class Node {
     return response
   }
 
-  @cached // TODO: Make property even if cached?
-  ancestors(): List<Node> {
+  @cached
+  get ancestors(): List<Node> {
     try {
       const parent = this.parent //TODO: Make lazy parent fail instead of returning undefined?
-      return [parent, ...parent.ancestors()]
+      return [parent, ...parent.ancestors]
     } catch (_) { return [] }
   }
 
@@ -214,7 +197,7 @@ export abstract class Node {
 
   reduce<T>(tx: (acum: T, node: Node, parent?: Node) => T, initial: T): T {
     const applyReduce = (acum: T, node: Node, parent?: Node): T =>
-      node.children().reduce((seed, child) => {
+      node.children.reduce((seed, child) => {
         return applyReduce(seed, child, node)
       }, tx(acum, node, parent))
 
@@ -288,13 +271,6 @@ export class Body extends Node {
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// export type Entity
-//   = Package
-//   | Program
-//   | Test
-//   | Module
-//   | Variable
-
 export type Entity = InstanceType<ConstructorFor<typeof Entity>>
 
 // TODO: Remove these ignores once ESLint implements mixin support https://github.com/typescript-eslint/typescript-eslint/issues/2035
@@ -303,21 +279,20 @@ export function Entity<S extends Mixable<Node>>(supertype: S) {
 
   abstract class EntityType extends supertype {
     static [MIXINS] = [Entity, ...supertype[MIXINS] ?? []]
-    abstract readonly name?: Name // TODO: Make Singleton name be '' instead of ?
 
-    override get label(): string {
-      return `${this.fullyQualifiedName()} ${super.label}`
-    }
+    abstract readonly name?: Name
 
-    @cached // TODO: Can this be catched and also be a property?
-    fullyQualifiedName(): Name {
+    override get label(): string { return `${this.fullyQualifiedName} ${super.label}` }
+
+    @cached
+    get fullyQualifiedName(): Name {
       const parent = this.parent
       const label = this.is(Singleton)
-        ? this.name ?? `${this.superclass()!.fullyQualifiedName()}#${this.id}`
+        ? this.name ?? `${this.superclass!.fullyQualifiedName}#${this.id}`
         : this.name!.replace(/\.#/g, '')
 
       return parent?.is(Package) || parent?.is(Describe)
-        ? `${parent.fullyQualifiedName()}.${label}`
+        ? `${parent.fullyQualifiedName}.${label}`
         : label
     }
   }
@@ -347,17 +322,17 @@ export class Package extends Entity(Node) {
     , this)
   }
 
-  @cached // TODO: Property and cached
-  sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName() }
+  @cached
+  get sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName }
 
-  getNodeByQN<N extends Entity>(this: Package, qualifiedName: Name): N {
+  getNodeByQN<N extends Entity>(qualifiedName: Name): N {
     const node = this.getNodeOrUndefinedByQN<N>(qualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${qualifiedName} from ${this.name}`)
     return node
   }
 
   @cached
-  getNodeOrUndefinedByQN<N extends Entity>(this: Package, qualifiedName: Name): N | undefined {
+  getNodeOrUndefinedByQN<N extends Entity>(qualifiedName: Name): N | undefined {
     return this.scope.resolve<N>(qualifiedName)
   }
 
@@ -368,6 +343,8 @@ export class Program extends Entity(Node) {
   get kind(): 'Program' { return 'Program' }
   readonly name!: Name
   readonly body!: Body
+
+  override parent!: Package
 
   constructor(payload: Payload<Program, 'name' | 'body'>) { super(payload) }
 
@@ -389,29 +366,29 @@ export class Test extends Entity(Node) {
   }
 
   @cached
-  sentences(): List<Sentence> { return this.body.sentences }
+  get sentences(): List<Sentence> { return this.body.sentences }
 }
 
 
-export class Variable extends Entity(Sentence(Node)) {
+export class Variable extends Sentence(Entity(Node)) {
   get kind(): 'Variable' { return 'Variable' }
   readonly name!: Name
   readonly isConstant!: boolean
   readonly value!: Expression
+
+  override parent!: Package | Body
 
   constructor({ value = new Literal({ value: null }), ...payload }: Payload<Variable, 'name' | 'isConstant'>) {
     super({ value, ...payload })
   }
 
   // TODO: Rename to isEntity
-  isGlobal(): boolean { return this.parent.is(Package) }
+  get isGlobal(): boolean { return this.parent.is(Package) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // MODULES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
-// export type Module = Class | Singleton | Mixin | Describe
 
 export type Module = InstanceType<ConstructorFor<typeof Module>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
@@ -422,7 +399,8 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     abstract readonly name?: Name
     abstract readonly supertypes: List<ParameterizedType>
     abstract readonly members: List<Field | Method | Variable | Test>
-    abstract superclass(): Class | undefined
+
+    abstract get superclass(): Class | undefined
 
     override parent!: Package
 
@@ -461,29 +439,16 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     }
 
     @cached
-    mixins(): List<Mixin> {
-      return this.supertypes
-        .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
-        .filter(is(Mixin))
-    }
-
-    methods(): List<Method> { return this.members.filter(is(Method)) }
-    fields(): List<Field> { return this.members.filter(is(Field)) }
-    allFields(): List<Field> { return this.hierarchy().flatMap(parent => parent.fields()) }
-    allMethods(): List<Method> { return this.hierarchy().flatMap(parent => parent.methods()) }
-    lookupField(name: string): Field | undefined { return this.allFields().find(field => field.name === name) }
-
-    @cached
-    hierarchy(): List<ModuleType> {
+    get hierarchy(): List<ModuleType> {
       const hierarchyExcluding = (node: Module, exclude: List<Module> = []): List<Module> => {
         if (exclude.includes(node)) return []
 
         const modules = [
-          ...node.mixins(),
-          ...!node.superclass() ? [] : [node.superclass()!],
+          ...node.mixins,
+          ...!node.superclass ? [] : [node.superclass!],
         ]
 
-        return modules.reduce<[List<Module>, List<Module>]>(([hierarchy, excluded], module) => {
+        return modules.reduce(([hierarchy, excluded], module) => {
           const inheritedHierarchy = hierarchyExcluding(module, excluded)
           const filteredHierarchy = hierarchy.filter(node => !inheritedHierarchy.includes(node))
           return [
@@ -496,29 +461,46 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
       return hierarchyExcluding(this)
     }
 
+    // TODO: delegate to hierarchy and remove cache
+    @cached
+    get mixins(): List<Mixin> {
+      return this.supertypes
+        .flatMap(supertype => supertype.reference.target() ? [supertype.reference.target()!] : [])
+        .filter(is(Mixin))
+    }
+    get methods(): List<Method> { return this.members.filter(is(Method)) }
+    get fields(): List<Field> { return this.members.filter(is(Field)) }
+    // TODO: rename these to make the inherited the default?
+    // TODO: create a allMembers and delegate to that
+    get allFields(): List<Field> { return this.hierarchy.flatMap(parent => parent.fields) }
+    get allMethods(): List<Method> { return this.hierarchy.flatMap(parent => parent.methods) }
+
+    lookupField(name: string): Field | undefined { return this.allFields.find(field => field.name === name) }
+
     inherits(other: ModuleType): boolean {
-      return this.hierarchy().some(({ id }) => other.id === id)
+      return this.hierarchy.some(({ id }) => other.id === id)
     }
 
     @cached
     lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
       let startReached = !options?.lookupStartFQN
-      for (const module of this.hierarchy()) {
+      for (const module of this.hierarchy) {
         if (startReached) {
-          const found = module.methods().find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
+          const found = module.methods.find(member => (options?.allowAbstractMethods || !member.isAbstract()) && member.matchesSignature(name, arity))
           if (found) return found
         }
-        if (module.fullyQualifiedName() === options?.lookupStartFQN) startReached = true
+        if (module.fullyQualifiedName === options?.lookupStartFQN) startReached = true
       }
 
       return undefined
     }
 
     @cached
-    defaultFieldValues(): Map<Field, Expression | undefined> {
-      return new Map(this.hierarchy().flatMap(module => module.fields()).map(field => [
+    // TODO: review uses to see if another method is needed
+    get defaultFieldValues(): Map<Field, Expression | undefined> {
+      return new Map(this.hierarchy.flatMap(module => module.fields).map(field => [
         field,
-        this.hierarchy().reduceRight((defaultValue, module) =>
+        this.hierarchy.reduceRight((defaultValue, module) =>
           module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
         , field.value),
       ]))
@@ -540,7 +522,7 @@ export class Class extends Module(Node) {
   }
 
   @cached
-  superclass(): Class | undefined {
+  get superclass(): Class | undefined {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else {
@@ -550,8 +532,8 @@ export class Class extends Module(Node) {
   }
 
   @cached
-  isAbstract(this: Class): boolean {
-    const abstractMethods = this.hierarchy().flatMap(module => module.methods().filter(method => method.isAbstract()))
+  get isAbstract(): boolean {
+    const abstractMethods = this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
     return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
 }
@@ -567,14 +549,14 @@ export class Singleton extends Expression(Module(Node)) {
     super({ supertypes, members, ...payload })
   }
 
-  superclass(): Class {
+  get superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
     if(superclassReference) return superclassReference.target() as Class
     else return this.environment.objectClass
   }
 
-  isClosure(parametersCount = 0): boolean {
-    return !!this.lookupMethod('<apply>', parametersCount)
+  get isClosure(): boolean {
+    return !!this.allMethods.some(_ => _.name === '<apply>')
   }
 }
 
@@ -589,7 +571,7 @@ export class Mixin extends Module(Node) {
     super({ supertypes, members, ...payload })
   }
 
-  superclass(): undefined { return undefined }
+  get superclass(): undefined { return undefined }
 }
 
 
@@ -603,9 +585,9 @@ export class Describe extends Module(Node) {
     super({ members, ...payload })
   }
 
-  superclass(): Class { return this.supertypes[0].reference.target()! as Class }
+  get superclass(): Class { return this.supertypes[0].reference.target()! as Class }
 
-  tests(): List<Test> { return this.members.filter(is(Test)) }
+  get tests(): List<Test> { return this.members.filter(is(Test)) }
 }
 
 // // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -627,7 +609,7 @@ export class Field extends Node {
   override parent!: Module
 
   override get label(): string {
-    return `${this.parent.fullyQualifiedName()}.${this.name} ${super.label}`
+    return `${this.parent.fullyQualifiedName}.${this.name} ${super.label}`
   }
 }
 
@@ -646,7 +628,7 @@ export class Method extends Node {
   }
 
   override get label(): string {
-    return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label}`
+    return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
   }
 
   isAbstract(): this is this & {body: undefined} { return !this.body }
@@ -654,19 +636,17 @@ export class Method extends Node {
   isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
 
   @cached
-  hasVarArgs(): boolean {
-    return !!last(this.parameters)?.isVarArg
-  }
+  get hasVarArgs(): boolean { return !!last(this.parameters)?.isVarArg }
 
   @cached
-  sentences(): List<Sentence> {
+  get sentences(): List<Sentence> {
     return this.isConcrete() ? this.body.sentences : []
   }
 
   @cached
   matchesSignature(name: Name, arity: number): boolean {
     return this.name == name && (
-      this.hasVarArgs() && this.parameters.length - 1 <= arity ||
+      this.hasVarArgs && this.parameters.length - 1 <= arity ||
       this.parameters.length === arity
     )
   }
@@ -709,18 +689,6 @@ export class Assignment extends Sentence(Node) {
 // // EXPRESSIONS
 // // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-// export type Expression
-//   = Reference<Field | Variable | Parameter | NamedArgument | Singleton>
-//   | Self
-//   | Literal<LiteralValue>
-//   | Send
-//   | Super
-//   | New
-//   | If
-//   | Throw
-//   | Try
-//   | Singleton
-
 export type Expression = InstanceType<ConstructorFor<typeof Expression>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Expression<S extends Mixable<Node>>(supertype: S) {
@@ -738,6 +706,7 @@ export class Reference<N extends Node> extends Expression(Node) {
 
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
+  //TODO: Can we move this back to trowing if not yet linked?
   @cached
   target(): N | undefined { return this.scope.resolve(this.name) }
 }
@@ -872,7 +841,8 @@ export class Environment extends Node {
 
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
-  sourceFileName(): string | undefined { return undefined }
+  get sourceFileName(): undefined { return undefined }
+  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
 
   getNodeById<N extends Node>(id: Id): N {
     const node = this.nodeCache.get(id)
@@ -881,20 +851,16 @@ export class Environment extends Node {
   }
 
   @cached
-  getNodeOrUndefinedByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N | undefined {
+  getNodeOrUndefinedByFQN<N extends Node>(fullyQualifiedName: Name): N | undefined {
     const [, id] = fullyQualifiedName.split('#')
     if (id) return this.getNodeById<N>(id)
 
     return this.scope.resolve<N>(fullyQualifiedName)
   }
 
-  getNodeByFQN<N extends Node>(this: Environment, fullyQualifiedName: Name): N {
+  getNodeByFQN<N extends Node>(fullyQualifiedName: Name): N {
     const node = this.getNodeOrUndefinedByFQN<N>(fullyQualifiedName)
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
-  }
-
-  get objectClass(): Class {
-    return this.getNodeByFQN('wollok.lang.Object')
   }
 }

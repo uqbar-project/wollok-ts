@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.0.0
+**Wollok Version: `3.1.1`**
+
+- Updated TypeScript version to `4.7`
+- String-based Kinds and Categories were replaced with TypeScript classes and mixins (class constructor functions). All related methods were updated accordingly.
+- `match` method in Nodes replaced in favor of generic `match` function.
+- Several non-breakable, no-argument methods where replaced with computed properties.
+- `cached` decorator now supports properties as well as methods.
+
 ## v3.1.1
 - Fixed bug where closures where unable to retain self reference when nested inside other closures.
 

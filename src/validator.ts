@@ -87,7 +87,7 @@ export const shouldNotBeEmpty = warning<Body>(node =>
 )
 
 export const isNotWithin = <N extends Node>(kind: Definition<N>): (node: N, code: Code) => Problem | null =>
-  error((node: N) => !node.ancestors().some(is(kind)) || node.isSynthetic)
+  error((node: N) => !node.ancestors.some(is(kind)) || node.isSynthetic)
 
 export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
   warning(
@@ -137,17 +137,17 @@ export const shouldHaveCatchOrAlways = error<Try>(node =>
 )
 
 export const methodShouldHaveDifferentSignature = error<Method>(node => {
-  return node.parent.methods().every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+  return node.parent.methods.every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
 })
 
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is(Super) && sentence.args.every((arg, index) => arg.is(Reference) && arg.target() === node.parameters[index])
-  return isEmpty(node.sentences()) || !node.sentences().every(sentence =>
+  return isEmpty(node.sentences) || !node.sentences.every(sentence =>
     callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
 })
 
-export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract())
+export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target()?.isAbstract)
 
 export const shouldNotAssignToItself = error<Assignment>(node => {
   const assigned = node.variable.target()
@@ -171,7 +171,7 @@ export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
 
 export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
   const receiver = node.receiver
-  return !receiver.is(Reference) || !receiver.ancestors().includes(receiver.target()!)
+  return !receiver.is(Reference) || !receiver.ancestors.includes(receiver.target()!)
 })
 
 export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is(Mixin)))
@@ -181,8 +181,8 @@ export const shouldUseOverrideKeyword = warning<Method>(node =>
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
-  const singleSentence = node.sentences()[0]
-  return !(node.sentences().length === 1 && singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure())
+  const singleSentence = node.sentences[0]
+  return !(node.sentences.length === 1 && singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure)
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
@@ -217,7 +217,7 @@ export const shouldInitializeAllAttributes = error<Singleton>(
 )
 
 export const shouldNotUseSelf = error<Self>(node => {
-  const ancestors = node.ancestors()
+  const ancestors = node.ancestors
   return node.isSynthetic || !ancestors.some(is(Program)) || ancestors.some(is(Singleton))
 })
 
@@ -236,8 +236,8 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   if (!node.isOverride) return true
   const overridenMethod = superclassMethod(node)
   if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
-  const lastSentence = last(node.sentences())
-  const superclassSentence = last(overridenMethod.sentences())
+  const lastSentence = last(node.sentences)
+  const superclassSentence = last(overridenMethod.sentences)
   return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
 })
 
@@ -265,7 +265,7 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
-  count(node.parent.allFields(), _ => _.name == node.name) === 1
+  count(node.parent.allFields, _ => _.name == node.name) === 1
 )
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
@@ -282,17 +282,17 @@ export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
-  const allFields = node.allFields().filter(field => !node.fields().includes(field)).map(_ => _.name)
+  const allFields = node.allFields.filter(field => !node.fields.includes(field)).map(_ => _.name)
   return allFields.length === new Set(allFields).size
 })
 
 export const shouldImplementAbstractMethods = error<Singleton>(node => {
-  const allMethods = node.allMethods()
+  const allMethods = node.allMethods
   return isEmpty(allMethods.filter(method => !isImplemented(allMethods, method) && method.isAbstract()))
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
-  return variable.isConstant || !variable.isGlobal()
+  return variable.isConstant || !variable.isGlobal
 })
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
@@ -316,7 +316,7 @@ export const shouldNotDefineUnnecesaryIf = error<If>(node =>
 )
 
 export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
-  notEmpty(node.tests())
+  notEmpty(node.tests)
 )
 
 export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
@@ -350,8 +350,8 @@ export const codeShouldBeReachable = error<If | Send>(node =>
 export const methodShouldExist = error<Send>(node => methodExists(node))
 
 export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
-  const method = node.ancestors().find(is(Method))
-  const parentModule = node.ancestors().find(is(Module))
+  const method = node.ancestors.find(is(Method))
+  const parentModule = node.ancestors.find(is(Module))
   if (parentModule?.is(Mixin)) return true
   if (!method) return false
   return !!superclassMethod(method) && method.matchesSignature(method.name, node.args.length)
@@ -392,7 +392,7 @@ export const shouldHaveAssertInTest = warning<Test>(node =>
 )
 
 export const shouldMatchFileExtension = error<Test | Program>(node => {
-  const filename = node.sourceFileName()
+  const filename = node.sourceFileName
   if (!filename) return true
   return match(node)(
     when(Test)(_ => filename.endsWith('wtest')),
@@ -401,19 +401,19 @@ export const shouldMatchFileExtension = error<Test | Program>(node => {
 })
 
 export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(node => {
-  const methodsCallingToSuper = node.allMethods().filter(method => callsToSuper(method))
+  const methodsCallingToSuper = node.allMethods.filter(method => callsToSuper(method))
   return methodsCallingToSuper
-    .every(method => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName() }))
+    .every(method => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName }))
 })
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
-  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences().some(_ => _.is(Return))
+  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
 )
 
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !node.isGlobal() || !node.value.is(Literal) || !uninitializedValue(node.value)
+  !node.isGlobal || !node.value.is(Literal) || !uninitializedValue(node.value)
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
@@ -458,10 +458,10 @@ export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
     when(Program)(program => assignsVariable(program.body, node)),
     when(Test)(test => assignsVariable(test.body, node)),
     when(Describe)(describe =>
-      describe.methods().some(method => assigns(method, node)) ||
-      describe.tests().some(test => assignsVariable(test.body, node))
+      describe.methods.some(method => assigns(method, node)) ||
+      describe.tests.some(test => assignsVariable(test.body, node))
     ),
-    when(Module)(module => module.methods().some(method => assigns(method, node))),
+    when(Module)(module => module.methods.some(method => assigns(method, node))),
   )
 })
 
@@ -486,7 +486,7 @@ export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 const allParents = (module: Module) =>
-  module.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy() ?? [])
+  module.supertypes.map(supertype => supertype.reference.target()).flatMap(supertype => supertype?.hierarchy ?? [])
 
 const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(ParameterizedType)(node => node.reference.target()),
@@ -504,7 +504,7 @@ const getUninitializedAttributesForInstantation = (node: New): string[] => {
 
 const getUninitializedAttributes = (node: Module, initializers: string[] = []): string[] => {
   const uninitializedAttributes: string[] = []
-  node.defaultFieldValues()?.forEach(
+  node.defaultFieldValues?.forEach(
     (value, field) => {
       if (uninitializedValue(value) && !initializers.includes(field.name)) {
         uninitializedAttributes.push(field.name)
@@ -517,7 +517,7 @@ const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) 
 
 const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target())
 
-const superclassMethod = (node: Method) => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName(), allowAbstractMethods: true })
+const superclassMethod = (node: Method) => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName, allowAbstractMethods: true })
 
 const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent
@@ -527,18 +527,18 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
 }
 
 const getVariableContainer = (node: Node) =>
-  node.ancestors().find(parent => parent.is(Method) || parent.is(Test)) as Method | Test | undefined
+  node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as Method | Test | undefined
 
 const getContainer = (node: Node) =>
-  node.ancestors().find(parent => parent.is(Module) || parent.is(Program) || parent.is(Test)) as Module | Program | Test | undefined
+  node.ancestors.find(parent => parent.is(Module) || parent.is(Program) || parent.is(Test)) as Module | Program | Test | undefined
 
-const getAllVariables = (node: Method | Test): List<Variable> => node.sentences().filter(is(Variable))
+const getAllVariables = (node: Method | Test): List<Variable> => node.sentences.filter(is(Variable))
 
 const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
   node.is(Module) && !!node.lookupField(variableName)
 
 const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
-  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
+  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract)
 }
 
 const isEqualMessage = (node: Send): boolean =>
@@ -566,7 +566,7 @@ const valueFor: any | undefined = (node: Node) =>
 
 const sendsMessageToAssert = (node: Node): boolean =>
   match(node)(
-    when(Body)(node => node.children().some(child => sendsMessageToAssert(child))),
+    when(Body)(node => node.children.some(child => sendsMessageToAssert(child))),
     when(Send)<boolean>(nodeSend =>
       match(nodeSend.receiver)(
         when(Reference)(receiver => receiver.name === 'assert'),
@@ -591,11 +591,11 @@ const sendsMessageToAssert = (node: Node): boolean =>
 
 // TODO: this should be no longer necessary when the type system is implemented
 const findMethod = (messageSend: Send): Method | undefined => {
-  const parent = messageSend.receiver.ancestors().find(ancestor => ancestor.is(Module)) as Module
+  const parent = messageSend.receiver.ancestors.find(ancestor => ancestor.is(Module)) as Module
   return parent?.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
-const callsToSuper = (node: Method): boolean => node.sentences().some(sentence => isCallToSuper(sentence))
+const callsToSuper = (node: Method): boolean => node.sentences.some(sentence => isCallToSuper(sentence))
 
 const isCallToSuper = (node: Node): boolean =>
   match(node)(
@@ -605,9 +605,9 @@ const isCallToSuper = (node: Node): boolean =>
     when(Node)(() => false),
   )
 
-const isGetter = (node: Method): boolean => node.parent.allFields().map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
+const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
 
-const methodOrTestUsesField = (parent: Method | Test, field: Field) => parent.sentences().some(sentence => usesField(sentence, field))
+const methodOrTestUsesField = (parent: Method | Test, field: Field) => parent.sentences.some(sentence => usesField(sentence, field))
 
 const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean => match(node)(
   when(Variable)(node => usesField(node.value, field)),
@@ -636,7 +636,7 @@ const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefi
 )
 
 const duplicatesLocalVariable = (node: Variable): boolean => {
-  if (node.ancestors().some(is(Program)) || node.isGlobal()) return false
+  if (node.ancestors.some(is(Program)) || node.isGlobal) return false
 
   const container = getVariableContainer(node)
   if (!container) return false
@@ -644,7 +644,7 @@ const duplicatesLocalVariable = (node: Variable): boolean => {
   return duplicateReference || hasDuplicatedVariable(container.parent, node.name) || !container.is(Test) && container.parameters.some(_ => _.name == node.name)
 }
 
-const assigns = (method: Method, variable: Variable | Field) => method.sentences().some(sentence => assignsVariable(sentence, variable))
+const assigns = (method: Method, variable: Variable | Field) => method.sentences.some(sentence => assignsVariable(sentence, variable))
 
 const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field): boolean => match(sentence)(
   when(Body)(node => node.sentences.some(sentence => assignsVariable(sentence, variable))),
@@ -654,24 +654,24 @@ const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field):
   when(Send)(node => assignsVariable(node.receiver, variable) || node.args.some(arg => assignsVariable(arg, variable))),
   when(If)(node => assignsVariable(node.condition, variable) || assignsVariable(node.thenBody, variable) || assignsVariable(node.elseBody, variable)),
   when(Try)(node => assignsVariable(node.body, variable) || node.catches.some(catchBlock => assignsVariable(catchBlock.body, variable)) || assignsVariable(node.always, variable)),
-  when(Singleton)(node => node.methods().some(method => assigns(method, variable))),
+  when(Singleton)(node => node.methods.some(method => assigns(method, variable))),
   when(Expression)(_ => false),
 )
 
 const unusedVariable = (node: Field) => {
   const parent = node.parent
-  const allFields = parent.allFields()
-  const allMethods: List<Test | Method> = parent.is(Describe) ? parent.tests() : parent.allMethods()
+  const allFields = parent.allFields
+  const allMethods: List<Test | Method> = parent.is(Describe) ? parent.tests : parent.allMethods
   return !node.isProperty && node.name != '<toString>'
     && allMethods.every(method => !methodOrTestUsesField(method, node))
     && allFields.every(field => !usesField(field.value, node))
 }
 
 const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter) => {
-  const parent = node.ancestors().find(ancestor => ancestor.is(Package)) as Package | undefined
+  const parent = node.ancestors.find(ancestor => ancestor.is(Package)) as Package | undefined
   const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
   wordsReserved.push('wollok')
-  return !!parent && !parent.fullyQualifiedName().includes('wollok.') && wordsReserved.includes(node.name)
+  return !!parent && !parent.fullyQualifiedName.includes('wollok.') && wordsReserved.includes(node.name)
 }
 
 const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
@@ -681,8 +681,8 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(NamedArgument)(nodeArg => nodeArg.value == node),
   when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
   when(Return)(nodeReturn => {
-    const parent = nodeReturn.ancestors().find(is(Singleton))
-    return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
+    const parent = nodeReturn.ancestors.find(is(Singleton))
+    return !nodeReturn.isSynthetic || !(parent && parent.isClosure)
   }),
   when(Send)(nodeSend => nodeSend.args.includes(node) || nodeSend.receiver == node),
   when(Super)(nodeSuper => nodeSuper.args.includes(node)),
@@ -690,7 +690,7 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(Node)(() => false),
 )
 
-const returnsValue = (node: Method): boolean => node.sentences().some(sentence => returnsAValue(sentence))
+const returnsValue = (node: Method): boolean => node.sentences.some(sentence => returnsAValue(sentence))
 
 const returnsAValue = (node: Node): boolean => match(node)(
   when(Return)(() => true),
@@ -702,7 +702,7 @@ const returnsAValue = (node: Node): boolean => match(node)(
 
 const methodExists = (node: Send): boolean => match(node.receiver)(
   when(Self)(selfNode => {
-    const allAncestors = selfNode.ancestors().filter(ancestor => ancestor.is(Module))
+    const allAncestors = selfNode.ancestors.filter(ancestor => ancestor.is(Module))
     return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
   }),
   when(Reference)(referenceNode => {
