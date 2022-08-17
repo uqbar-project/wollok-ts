@@ -131,28 +131,6 @@ export abstract class Node {
   @cached
   siblings(): List<Node> { return this.parent.children.filter(node => node !== this) }
 
-  // TODO: Do we need these very specific methods?
-  @cached
-  previousSiblings(): List<Node> {
-    const children = this.parent.children
-    const index = children.indexOf(this)
-    return children.slice(0, index)
-  }
-
-  // TODO: Do we need these very specific methods?
-  @cached
-  nextSiblings(): List<Node> {
-    const children = this.parent.children
-    const index = children.indexOf(this)
-    return children.slice(index + 1, children.length)
-  }
-
-  // TODO: Do we need these very specific methods?
-  @cached
-  nextSibling(): Node | undefined {
-    return this.nextSiblings()[0]
-  }
-
   @cached
   get descendants(): List<Node> {
     const pending: Node[] = []

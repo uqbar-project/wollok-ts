@@ -384,7 +384,8 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
-  return (elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue) && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
+  return elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue
+  // && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
 })
 
 export const shouldHaveAssertInTest = warning<Test>(node =>
@@ -429,7 +430,7 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
 })
 
 export const catchShouldBeReachable = error<Catch>(node => {
-  const previousSiblings = node.previousSiblings()
+  const previousSiblings = node.parent.children.slice(0, node.parent.children.indexOf(node))
   const exceptionType = node.parameterType.target()!
   return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is(Catch)) return false
