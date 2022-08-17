@@ -72,9 +72,6 @@ type Payload<T, MandatoryFields extends keyof T = never> =
   Pick<T, MandatoryFields> &
   Partial<Pick<T, AttributeKeys<T>>>
 
-// TODO: Todavía sirve?
-export const isNode = (obj: any): obj is Node => obj instanceof Node
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // NODES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -124,7 +121,7 @@ export abstract class Node {
   @cached
   get children(): List<Node> {
     const extractChildren = (owner: any): List<Node> => {
-      if (isNode(owner)) return [owner]
+      if (owner instanceof Node) return [owner]
       if (isArray(owner)) return owner.flatMap(extractChildren)
       return []
     }
@@ -181,7 +178,7 @@ export abstract class Node {
   transform(tx: (node: Node) => Node): this {
     const applyTransform = (value: any): any => {
       if (isArray(value)) return value.map(applyTransform)
-      if (isNode(value)) return value.copy(mapObject(applyTransform, tx(value)))
+      if (value instanceof Node) return value.copy(mapObject(applyTransform, tx(value)))
       return value
     }
 

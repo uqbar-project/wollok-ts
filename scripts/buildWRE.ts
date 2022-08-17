@@ -1,7 +1,7 @@
 import { promises } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join } from 'path'
-import { isNode } from '../src'
+import { Node } from '../src'
 import { mapObject } from '../src/extensions'
 import link from '../src/linker'
 import { File } from '../src/parser'
@@ -13,6 +13,7 @@ const { isArray } = Array
 const WRE_SRC_PATH = 'language/src'
 const WRE_TARGET_PATH = 'src/wre'
 
+// TODO: Why are we doing this? Can't we just parse it in-site?
 async function buildWRE() {
   console.group('Building WRE')
   console.time('Building WRE')
@@ -53,7 +54,7 @@ async function buildWRE() {
 
   const encode = (v: any): any =>
     isArray(v) ? v.map(encode) :
-    isNode(v) ? encode({ ...v, kind: v.constructor.name }) :
+    v instanceof Node ? encode({ ...v, kind: v.constructor.name }) :
     v instanceof Object ? mapObject(encode, v) :
     v
 

@@ -7,6 +7,7 @@
 - String-based Kinds and Categories were replaced with TypeScript classes and mixins (class constructor functions). All related methods were updated accordingly.
 - `match` method in Nodes replaced in favor of generic `match` function.
 - Several non-breakable, no-argument methods where replaced with computed properties.
+- Dropped `isNode` function in favor of `instanceof Node` notation.
 - `cached` decorator now supports properties as well as methods.
 
 ## v3.1.1
