@@ -1,9 +1,9 @@
 import { promises } from 'fs'
 import { sync as listFiles } from 'globby'
 import { join } from 'path'
-import { Node } from '../src'
 import { mapObject } from '../src/extensions'
 import link from '../src/linker'
+import { Node } from '../src/model'
 import { File } from '../src/parser'
 import validate from '../src/validator'
 
