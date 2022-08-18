@@ -87,7 +87,6 @@ export abstract class Node {
 
   @lazy environment!: Environment
 
-  //TODO: Make lazy fail instead of return undefined
   //TODO: Check every node has right parent definition
   @lazy parent!: Node
 
@@ -146,12 +145,7 @@ export abstract class Node {
   }
 
   @cached
-  get ancestors(): List<Node> {
-    try {
-      const parent = this.parent //TODO: Make lazy parent fail instead of returning undefined?
-      return [parent, ...parent.ancestors]
-    } catch (_) { return [] }
-  }
+  get ancestors(): List<Node> { return [this.parent, ...this.parent.ancestors] }
 
   transform(tx: (node: Node) => Node): this {
     const applyTransform = (value: any): any => {
@@ -435,7 +429,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
       return hierarchyExcluding(this)
     }
 
-    get mixins(): List<Mixin> { return this.supertypes.map(supertype => supertype.reference.target()).filter(is(Mixin)) }
+    get mixins(): List<Mixin> { return this.supertypes.map(supertype => supertype.reference.target).filter(is(Mixin)) }
     get methods(): List<Method> { return this.members.filter(is(Method)) }
     get fields(): List<Field> { return this.members.filter(is(Field)) }
     // TODO: Maybe replace these implementation with configurable methods?
@@ -488,8 +482,8 @@ export class Class extends Module(Node) {
 
   @cached
   get superclass(): Class | undefined {
-    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
-    if(superclassReference) return superclassReference.target() as Class
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target?.is(Class))?.reference
+    if(superclassReference) return superclassReference.target as Class
     else {
       const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
@@ -515,8 +509,8 @@ export class Singleton extends Expression(Module(Node)) {
   }
 
   get superclass(): Class {
-    const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is(Class))?.reference
-    if(superclassReference) return superclassReference.target() as Class
+    const superclassReference = this.supertypes.find(supertype => supertype.reference.target?.is(Class))?.reference
+    if(superclassReference) return superclassReference.target as Class
     else return this.environment.objectClass
   }
 
@@ -550,7 +544,7 @@ export class Describe extends Module(Node) {
     super({ members, ...payload })
   }
 
-  get superclass(): Class { return this.supertypes[0].reference.target()! as Class }
+  get superclass(): Class { return this.supertypes[0].reference.target! as Class }
 
   get tests(): List<Test> { return this.members.filter(is(Test)) }
 }
@@ -671,9 +665,7 @@ export class Reference<N extends Node> extends Expression(Node) {
 
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
-  //TODO: Can we move this back to trowing if not yet linked?
-  @cached
-  target(): N | undefined { return this.scope.resolve(this.name) }
+  get target(): N | undefined { return this.scope.resolve(this.name) }
 }
 
 
@@ -808,12 +800,16 @@ export class Environment extends Node {
   get kind(): 'Environment' { return 'Environment'}
 
   readonly members!: List<Package>
-  @lazy nodeCache!: ReadonlyMap<Id, Node>
+  @lazy readonly nodeCache!: ReadonlyMap<Id, Node> // TODO: Make readonly
+
+  override parent!: never
 
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   get sourceFileName(): undefined { return undefined }
   get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
+
+  override get ancestors(): List<Node> { return [] }
 
   getNodeById<N extends Node>(id: Id): N {
     const node = this.nodeCache.get(id)

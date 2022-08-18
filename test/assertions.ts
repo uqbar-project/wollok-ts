@@ -129,7 +129,7 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
     const reference: Reference<Node> = this._obj
 
     new Assertion(reference.is(Reference), `can't check "target" of ${reference.kind} node`).to.be.true
-    new Assertion(this._obj.target().id).to.equal(node.id)
+    new Assertion(this._obj.target.id).to.equal(node.id)
   })
 }
 

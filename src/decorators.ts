@@ -40,6 +40,6 @@ export function lazy(target: any, key: string): void {
   defineProperty(target, key, {
     configurable: true,
     set(value: any) { return defineProperty(this, key, { value, configurable: false }) },
-    get() { return undefined },
+    get() { throw new Error(`Tried to access uninitialized lazy property ${key}`) },
   })
 }

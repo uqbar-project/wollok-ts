@@ -146,13 +146,15 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
     // TODO: There is no need any more for this to be on the linker. Move parent assignment to constructors
     if(parent) node.parent = parent
   })
-  environment.nodeCache = nodeCache
+
+  assign(environment, { nodeCache })
 
   assignScopes(environment)
 
   // TODO: Move to validator?
+  // TODO: Test if the reference points to the right kind of node
   environment.forEach(node => {
-    if(node.is(Reference) && !node.target()) fail('missingReference')(node)
+    if(node.is(Reference) && !node.target) fail('missingReference')(node)
   })
 
   return environment
@@ -200,7 +202,7 @@ export function linkIsolated<S extends Sentence>(sentence: S, environment: Envir
   })
 
   sentence.forEach(node => {
-    if(node.is(Reference) && !node.target()) fail('missingReference')(node)
+    if(node.is(Reference) && !node.target) fail('missingReference')(node)
   })
 
   return sentence

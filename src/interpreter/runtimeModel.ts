@@ -425,7 +425,7 @@ export class Evaluation {
 
     yield node
 
-    if(node.variable.target()?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+    if(node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
 
     this.currentFrame.set(node.variable.name, value, true)
   }
@@ -441,7 +441,7 @@ export class Evaluation {
 
     if(!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
 
-    const target = node.target()
+    const target = node.target
 
     return this.currentFrame.get(
       target?.is(Module) || target?.is(Variable) && target.parent?.is(Package)
@@ -458,7 +458,7 @@ export class Evaluation {
   protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
     if(isArray(node.value)) {
       const [reference, args] = node.value
-      const module = reference.target()!
+      const module = reference.target!
 
       const values: RuntimeObject[] = []
       for(const arg of args) values.push(yield * this.exec(arg))
@@ -479,7 +479,7 @@ export class Evaluation {
 
     yield node
 
-    const target = node.instantiated.target() ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
+    const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
 
     return yield* this.instantiate(target, args)
   }
@@ -534,7 +534,7 @@ export class Evaluation {
 
       const errorType = error.instance.module
       const handler = node.catches.find(catcher => {
-        const handledType = catcher.parameterType.target()
+        const handledType = catcher.parameterType.target
         return handledType && errorType.inherits(handledType)
       })
 
