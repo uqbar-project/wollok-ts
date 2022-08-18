@@ -659,11 +659,13 @@ export class Evaluation {
       if(!allFieldNames.includes(local))
         throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)
 
-    for(const [field, defaultValue] of instance.module.defaultFieldValues) {
-      instance.set(field.name, field.name in locals
+    for(const field of instance.module.allFields) {
+      const defaultValue = instance.module.defaultValueFor(field)
+      const initialValue = field.name in locals
         ? locals[field.name]
-        : defaultValue && this.exec(defaultValue, new Frame(defaultValue, instance))
-      )
+        : this.exec(defaultValue, new Frame(defaultValue, instance))
+
+      instance.set(field.name, initialValue)
     }
 
     yield * this.send('initialize', instance)

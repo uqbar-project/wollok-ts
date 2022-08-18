@@ -462,13 +462,12 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     }
 
     @cached
-    get defaultFieldValues(): Map<Field, Expression> {
-      return new Map(this.allFields.map(field => [
-        field,
-        this.hierarchy.reduceRight((defaultValue, module) =>
-          module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-        , field.value),
-      ]))
+    defaultValueFor(field: Field): Expression {
+      if(!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
+
+      return this.hierarchy.reduceRight((defaultValue, module) =>
+        module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
+      , field.value)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }

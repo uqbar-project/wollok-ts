@@ -502,9 +502,12 @@ const getUninitializedAttributesForInstantation = (node: New): string[] => {
 }
 
 const getUninitializedAttributes = (node: Module, initializers: string[] = []) =>
-  [...node.defaultFieldValues.entries()]
-    .filter(([field, value]) => value.is(Literal) && value.isNull() && !initializers.includes(field.name))
-    .map(([field]) => field.name)
+  node.allFields
+    .filter(field => {
+      const value = node.defaultValueFor(field)
+      return value.is(Literal) && value.isNull() && !initializers.includes(field.name)
+    })
+    .map(field => field.name)
 
 const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) && node.value === value
 
