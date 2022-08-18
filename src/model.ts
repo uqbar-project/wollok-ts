@@ -357,8 +357,7 @@ export class Variable extends Sentence(Entity(Node)) {
     super({ value, ...payload })
   }
 
-  // TODO: Rename to isEntity
-  get isGlobal(): boolean { return this.parent.is(Package) }
+  get isAtPackageLevel(): boolean { return this.parent.is(Package) }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

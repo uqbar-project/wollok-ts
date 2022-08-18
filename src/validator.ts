@@ -292,7 +292,7 @@ export const shouldImplementAbstractMethods = error<Singleton>(node => {
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
-  return variable.isConstant || !variable.isGlobal
+  return variable.isConstant || variable.isAtPackageLevel
 })
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
@@ -414,7 +414,7 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !node.isGlobal || !node.value.is(Literal) || !node.value.isNull()
+  !node.isAtPackageLevel || !node.value.is(Literal) || !node.value.isNull()
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
@@ -632,7 +632,7 @@ const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefi
 )
 
 const duplicatesLocalVariable = (node: Variable): boolean => {
-  if (node.ancestors.some(is(Program)) || node.isGlobal) return false
+  if (node.ancestors.some(is(Program)) || node.isAtPackageLevel) return false
 
   const container = getVariableContainer(node)
   if (!container) return false

@@ -12,6 +12,7 @@
 - Dropped exposed `Node` methods that asumed a sibling order.
 - Added methods in `Literal` node to check value type.
 - Dropped `defaultFieldValues` in favor of the cleaner `defaultValueFor` method.
+- Renamed `Variable.isGlobal` to the more accurate `isAtPackageLevel`.
 
 ## v3.1.1
 - Fixed bug where closures where unable to retain self reference when nested inside other closures.
