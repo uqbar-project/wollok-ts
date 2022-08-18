@@ -462,9 +462,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     }
 
     @cached
-    // TODO: review uses to see if another method is needed
-    // TODO: replace with default value method in field?
-    get defaultFieldValues(): Map<Field, Expression | undefined> {
+    get defaultFieldValues(): Map<Field, Expression> {
       return new Map(this.allFields.map(field => [
         field,
         this.hierarchy.reduceRight((defaultValue, module) =>
@@ -600,7 +598,7 @@ export class Method extends Node {
     return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
   }
 
-  isAbstract(): this is this & {body: undefined} { return !this.body }
+  isAbstract(): this is {body: undefined} { return !this.body }
   isNative(): this is {body?: Body} { return this.body === 'native' }
   isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
 
@@ -694,6 +692,12 @@ export class Literal<T extends LiteralValue = LiteralValue> extends Expression(N
   readonly value!: T
 
   constructor(payload: Payload<Literal<T>, 'value'>) { super(payload) }
+
+  isNumeric(): this is {value: number} { return typeof this.value === 'number' }
+  isString(): this is {value: number} { return typeof this.value === 'string' }
+  isBoolean(): this is {value: number} { return typeof this.value === 'boolean' }
+  isNull(): this is {value: number} { return this.value === null }
+  isCollection(): this is {value: number} { return isArray(this.value) }
 }
 
 

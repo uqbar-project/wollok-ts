@@ -414,7 +414,7 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !node.isGlobal || !node.value.is(Literal) || !uninitializedValue(node.value)
+  !node.isGlobal || !node.value.is(Literal) || !node.value.isNull()
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
@@ -495,8 +495,6 @@ const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(Node)(() => undefined),
 )
 
-const uninitializedValue = (value: Expression | undefined) => value && value.is(Literal) && !value.value && value.isSynthetic
-
 const getUninitializedAttributesForInstantation = (node: New): string[] => {
   const target = node.instantiated.target()!
   const initializers = node.args.map(_ => _.name)
@@ -505,7 +503,7 @@ const getUninitializedAttributesForInstantation = (node: New): string[] => {
 
 const getUninitializedAttributes = (node: Module, initializers: string[] = []) =>
   [...node.defaultFieldValues.entries()]
-    .filter(([field, value]) => uninitializedValue(value) && !initializers.includes(field.name))
+    .filter(([field, value]) => value.is(Literal) && value.isNull() && !initializers.includes(field.name))
     .map(([field]) => field.name)
 
 const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) && node.value === value

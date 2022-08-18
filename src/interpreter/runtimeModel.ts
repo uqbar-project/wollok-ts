@@ -654,13 +654,12 @@ export class Evaluation {
   }
 
   protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
-    const defaultFieldValues = instance.module.defaultFieldValues
     const allFieldNames =instance.module.allFields.map(({ name }) => name)
     for(const local of keys(locals))
       if(!allFieldNames.includes(local))
         throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)
 
-    for(const [field, defaultValue] of defaultFieldValues) {
+    for(const [field, defaultValue] of instance.module.defaultFieldValues) {
       instance.set(field.name, field.name in locals
         ? locals[field.name]
         : defaultValue && this.exec(defaultValue, new Frame(defaultValue, instance))
@@ -670,7 +669,7 @@ export class Evaluation {
     yield * this.send('initialize', instance)
 
     if(!instance.module.name || instance.module.is(Describe))
-      for (const [field] of defaultFieldValues)
+      for (const field of instance.module.allFields)
         instance.get(field.name)
   }
 }

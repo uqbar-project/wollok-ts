@@ -10,6 +10,7 @@
 - Dropped `isNode` function in favor of `instanceof Node` notation.
 - `cached` decorator now supports properties as well as methods.
 - Dropped exposed `Node` methods that asumed a sibling order.
+- Added methods in `Literal` node to check value type. 
 
 ## v3.1.1
 - Fixed bug where closures where unable to retain self reference when nested inside other closures.
