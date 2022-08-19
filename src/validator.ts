@@ -181,8 +181,9 @@ export const shouldUseOverrideKeyword = warning<Method>(node =>
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
+  if (node.sentences.length !== 1) return true
   const singleSentence = node.sentences[0]
-  return !(node.sentences.length === 1 && singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure)
+  return !(singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure(0))
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
@@ -287,8 +288,7 @@ export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => 
 })
 
 export const shouldImplementAbstractMethods = error<Singleton>(node => {
-  const allMethods = node.allMethods
-  return isEmpty(allMethods.filter(method => !isImplemented(allMethods, method) && method.isAbstract()))
+  return !node.allMethods.some(method => !isImplemented(node.allMethods, method) && method.isAbstract())
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
@@ -384,9 +384,15 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
-  return elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue
-  // && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
+  const nextSibling = node.parent.children[node.parent.children.indexOf(node) + 1]
+  return (
+    elseValue === undefined ||
+    ![true, false].includes(thenValue) ||
+    thenValue === elseValue) && (!nextSibling ||
+    ![true, false].includes(valueFor(nextSibling))
+  )
 })
+
 
 export const shouldHaveAssertInTest = warning<Test>(node =>
   !node.body.isEmpty() || sendsMessageToAssert(node.body)
@@ -414,7 +420,7 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !node.isAtPackageLevel || !node.value.is(Literal) || !node.value.isNull()
+  !node.isAtPackageLevel || !node.value.is(Literal) || !node.value.isSynthetic || !node.value.isNull()
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
@@ -505,7 +511,7 @@ const getUninitializedAttributes = (node: Module, initializers: string[] = []) =
   node.allFields
     .filter(field => {
       const value = node.defaultValueFor(field)
-      return value.is(Literal) && value.isNull() && !initializers.includes(field.name)
+      return !initializers.includes(field.name) && value.is(Literal) && value.isNull() && value.isSynthetic
     })
     .map(field => field.name)
 
@@ -534,7 +540,7 @@ const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
   node.is(Module) && !!node.lookupField(variableName)
 
 const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
-  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract)
+  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
 }
 
 const isEqualMessage = (node: Send): boolean =>
@@ -678,7 +684,7 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
   when(Return)(nodeReturn => {
     const parent = nodeReturn.ancestors.find(is(Singleton))
-    return !nodeReturn.isSynthetic || !(parent && parent.isClosure)
+    return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
   }),
   when(Send)(nodeSend => nodeSend.args.includes(node) || nodeSend.receiver == node),
   when(Super)(nodeSuper => nodeSuper.args.includes(node)),

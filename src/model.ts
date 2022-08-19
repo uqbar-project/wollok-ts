@@ -514,8 +514,11 @@ export class Singleton extends Expression(Module(Node)) {
     else return this.environment.objectClass
   }
 
-  get isClosure(): boolean {
-    return !!this.allMethods.some(_ => _.name === '<apply>')
+  @cached
+  isClosure(parametersCount?: number): boolean {
+    return parametersCount !== undefined
+      ? !!this.lookupMethod('<apply>', parametersCount)
+      : this.allMethods.some(_ => _.name === '<apply>')
   }
 }
 
