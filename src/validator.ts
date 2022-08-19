@@ -677,8 +677,10 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(NamedArgument)(nodeArg => nodeArg.value == node),
   when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
   when(Return)(nodeReturn => {
-    const parent = nodeReturn.ancestors.find(is(Singleton))
-    return !nodeReturn.isSynthetic || !(parent && parent.isClosure)
+    // const parent = nodeReturn.ancestors.find(is(Singleton))
+    // return !nodeReturn.isSynthetic || !(parent && parent.isClosure)
+    const method = nodeReturn.ancestors.find(is(Method))
+    return !nodeReturn.isSynthetic || method?.name !== '<apply>'
   }),
   when(Send)(nodeSend => nodeSend.args.includes(node) || nodeSend.receiver == node),
   when(Super)(nodeSuper => nodeSuper.args.includes(node)),

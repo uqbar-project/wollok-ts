@@ -45,13 +45,14 @@ describe('Wollok Game', () => {
       interpreter.run('actions.clear')
       const visuals = interpreter.object('wollok.game.game')!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
+
     })
 
     it('flush event', () => {
       const interpreter = interpret(environment, natives)
-      const gameMirror = interpreter.object('wollok.gameMirror.gameMirror')!
+      const game = interpreter.object('wollok.game.game')!
       const time = interpreter.reify(1)
-      interpreter.send('flushEvents', gameMirror, time)
+      interpreter.send('flushEvents', game, time)
     })
   })
 })
