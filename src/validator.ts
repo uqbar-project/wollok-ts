@@ -292,7 +292,7 @@ export const shouldImplementAbstractMethods = error<Singleton>(node => {
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
-  return variable.isConstant || variable.isAtPackageLevel
+  return variable.isConstant || !variable.isAtPackageLevel
 })
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
