@@ -181,8 +181,9 @@ export const shouldUseOverrideKeyword = warning<Method>(node =>
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
+  if (node.sentences.length !== 1) return true
   const singleSentence = node.sentences[0]
-  return !(node.sentences.length === 1 && singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure)
+  return !(singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure(0))
 })
 
 export const shouldNotUseOverride = error<Method>(node =>
@@ -287,12 +288,11 @@ export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => 
 })
 
 export const shouldImplementAbstractMethods = error<Singleton>(node => {
-  const allMethods = node.allMethods
-  return isEmpty(allMethods.filter(method => !isImplemented(allMethods, method) && method.isAbstract()))
+  return isEmpty(node.allMethods.filter(method => !isImplemented(node.allMethods, method) && method.isAbstract()))
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
-  return variable.isConstant || variable.isAtPackageLevel
+  return variable.isConstant || !variable.isAtPackageLevel
 })
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
@@ -384,8 +384,9 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
-  return elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue
-  // && (!node.nextSibling() || ![true, false].includes(valueFor(node.nextSibling())))
+  const nextSentence = node.parent.children.at(node.parent.children.indexOf(node) + 1)
+  return (elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue)
+    && (!nextSentence || ![true, false].includes(valueFor(nextSentence)))
 })
 
 export const shouldHaveAssertInTest = warning<Test>(node =>
@@ -414,7 +415,7 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !node.isAtPackageLevel || !node.value.is(Literal) || !node.value.isNull()
+  !(node.isAtPackageLevel && node.value.isSynthetic && node.value.is(Literal) && node.value.isNull())
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
@@ -505,7 +506,7 @@ const getUninitializedAttributes = (node: Module, initializers: string[] = []) =
   node.allFields
     .filter(field => {
       const value = node.defaultValueFor(field)
-      return value.is(Literal) && value.isNull() && !initializers.includes(field.name)
+      return value.isSynthetic && value.is(Literal) && value.isNull() && !initializers.includes(field.name)
     })
     .map(field => field.name)
 
@@ -534,7 +535,7 @@ const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
   node.is(Module) && !!node.lookupField(variableName)
 
 const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
-  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract)
+  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
 }
 
 const isEqualMessage = (node: Send): boolean =>
@@ -678,7 +679,7 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
   when(Return)(nodeReturn => {
     // const parent = nodeReturn.ancestors.find(is(Singleton))
-    // return !nodeReturn.isSynthetic || !(parent && parent.isClosure)
+    // return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
     const method = nodeReturn.ancestors.find(is(Method))
     return !nodeReturn.isSynthetic || method?.name !== '<apply>'
   }),

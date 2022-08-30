@@ -514,8 +514,10 @@ export class Singleton extends Expression(Module(Node)) {
     else return this.environment.objectClass
   }
 
-  get isClosure(): boolean {
-    return !!this.allMethods.some(_ => _.name === '<apply>')
+  isClosure(arity?: number): boolean {
+    return arity === undefined
+      ? this.methods.some(_ => _.name === '<apply>')
+      : !!this.lookupMethod('<apply>', arity)
   }
 }
 

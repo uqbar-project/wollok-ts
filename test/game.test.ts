@@ -16,7 +16,7 @@ describe('Wollok Game', () => {
     let environment: Environment
 
     before(async () => {
-      environment = await buildEnvironment('**/*.wpgm', join('test', 'game'))
+      environment = await buildEnvironment('**/*.wpgm', join('test', 'game'), true)
     })
 
     it('addVisual', () => {
