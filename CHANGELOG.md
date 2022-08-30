@@ -1,7 +1,7 @@
 # Changelog
 
 ## v4.0.0
-**Wollok Version: `3.1.1`**
+**Wollok Version: `3.1.3`**
 
 - Updated TypeScript version to `4.7`
 - String-based Kinds and Categories were replaced with TypeScript classes and mixins (class constructor functions). All related methods were updated accordingly.

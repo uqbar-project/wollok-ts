@@ -288,7 +288,7 @@ export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => 
 })
 
 export const shouldImplementAbstractMethods = error<Singleton>(node => {
-  return isEmpty(node.allMethods.filter(method => !isImplemented(node.allMethods, method) && method.isAbstract()))
+  return !node.allMethods.some(method => !isImplemented(node.allMethods, method) && method.isAbstract())
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
@@ -384,10 +384,15 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
-  const nextSentence = node.parent.children.at(node.parent.children.indexOf(node) + 1)
-  return (elseValue === undefined || ![true, false].includes(thenValue) || thenValue === elseValue)
-    && (!nextSentence || ![true, false].includes(valueFor(nextSentence)))
+  const nextSentence = node.parent.children[node.parent.children.indexOf(node) + 1]
+  return (
+    elseValue === undefined ||
+    ![true, false].includes(thenValue) ||
+    thenValue === elseValue) && (!nextSentence ||
+    ![true, false].includes(valueFor(nextSentence))
+  )
 })
+
 
 export const shouldHaveAssertInTest = warning<Test>(node =>
   !node.body.isEmpty() || sendsMessageToAssert(node.body)
@@ -678,10 +683,8 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
   when(NamedArgument)(nodeArg => nodeArg.value == node),
   when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
   when(Return)(nodeReturn => {
-    // const parent = nodeReturn.ancestors.find(is(Singleton))
-    // return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
-    const method = nodeReturn.ancestors.find(is(Method))
-    return !nodeReturn.isSynthetic || method?.name !== '<apply>'
+    const parent = nodeReturn.ancestors.find(is(Singleton))
+    return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
   }),
   when(Send)(nodeSend => nodeSend.args.includes(node) || nodeSend.receiver == node),
   when(Super)(nodeSuper => nodeSuper.args.includes(node)),

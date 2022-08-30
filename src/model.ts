@@ -87,7 +87,6 @@ export abstract class Node {
 
   @lazy environment!: Environment
 
-  //TODO: Check every node has right parent definition
   @lazy parent!: Node
 
   constructor(payload: Record<string, unknown>) {
@@ -184,6 +183,8 @@ export class Parameter extends Node {
   readonly name!: Name
   readonly isVarArg!: boolean
 
+  override parent!: Method | Catch
+
   constructor({ isVarArg = false, ...payload }: Payload<Parameter, 'name'>) {
     super({ isVarArg, ...payload })
   }
@@ -195,6 +196,8 @@ export class ParameterizedType extends Node {
   readonly reference!: Reference<Module | Class>
   readonly args!: List<NamedArgument>
 
+  override parent!: Module
+
   constructor({ args = [], ...payload }: Payload<ParameterizedType, 'reference'>) {
     super({ args, ...payload })
   }
@@ -205,6 +208,8 @@ export class NamedArgument extends Node {
   get kind(): 'NamedArgument' {return 'NamedArgument' }
   readonly name!: Name
   readonly value!: Expression
+
+  override parent!: ParameterizedType | New
 
   constructor(payload: Payload<NamedArgument, 'name' | 'value'>) { super(payload) }
 }
@@ -230,6 +235,8 @@ export class Body extends Node {
   constructor({ sentences = [], ...payload }: Payload<Body> = {}) {
     super({ sentences, ...payload })
   }
+
+  override parent!: Program | Test | Method | If | Try | Catch
 
   isEmpty(): boolean {
     return this.isSynthetic || this.parent.is(Method) || notEmpty(this.sentences)
@@ -370,8 +377,6 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
     abstract get superclass(): Class | undefined
 
-    override parent!: Package
-
     constructor(...args: any[]) {
       const { members, ...payload }: Payload<ModuleType> & Record<Name, unknown> = args[0]
       const methods = members?.filter(is(Method)) ?? []
@@ -429,12 +434,17 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
       return hierarchyExcluding(this)
     }
 
+    @cached
     get mixins(): List<Mixin> { return this.supertypes.map(supertype => supertype.reference.target).filter(is(Mixin)) }
+    @cached
     get methods(): List<Method> { return this.members.filter(is(Method)) }
+    @cached
     get fields(): List<Field> { return this.members.filter(is(Field)) }
-    // TODO: Maybe replace these implementation with configurable methods?
+    @cached
     get allMembers(): this['members'] { return this.hierarchy.flatMap(parent => parent.members) }
+    @cached
     get allFields(): List<Field> { return this.allMembers.filter(is(Field)) }
+    @cached
     get allMethods(): List<Method> { return this.allMembers.filter(is(Method)) }
 
     @cached
@@ -476,6 +486,8 @@ export class Class extends Module(Node) {
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
 
+  override parent!: Package
+
   constructor({ supertypes = [], members = [], ...payload }: Payload<Class, 'name'>) {
     super({ supertypes, members, ...payload })
   }
@@ -504,6 +516,8 @@ export class Singleton extends Expression(Module(Node)) {
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
 
+  override parent!: Package | Body
+
   constructor({ supertypes = [], members = [], ...payload }: Payload<Singleton>) {
     super({ supertypes, members, ...payload })
   }
@@ -514,6 +528,7 @@ export class Singleton extends Expression(Module(Node)) {
     else return this.environment.objectClass
   }
 
+  @cached
   isClosure(arity?: number): boolean {
     return arity === undefined
       ? this.methods.some(_ => _.name === '<apply>')
@@ -528,6 +543,8 @@ export class Mixin extends Module(Node) {
   readonly supertypes!: List<ParameterizedType>
   readonly members!: List<Field | Method>
 
+  override parent!: Package
+
   constructor({ supertypes = [], members = [], ...payload }: Payload<Mixin, 'name'>) {
     super({ supertypes, members, ...payload })
   }
@@ -541,6 +558,8 @@ export class Describe extends Module(Node) {
   readonly name!: Name
   readonly members!: List<Field | Method | Test>
   readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
+
+  override parent!: Package
 
   constructor({ members = [], ...payload }: Payload<Describe, 'name'>) {
     super({ members, ...payload })
@@ -634,6 +653,8 @@ export class Return extends Sentence(Node) {
   get kind(): 'Return' { return 'Return' }
   readonly value?: Expression
 
+  override parent!: Body
+
   constructor(payload: Payload<Return> = {}) { super(payload) }
 }
 
@@ -642,6 +663,8 @@ export class Assignment extends Sentence(Node) {
   get kind(): 'Assignment' { return 'Assignment' }
   readonly variable!: Reference<Variable | Field>
   readonly value!: Expression
+
+  override parent!: Body
 
   constructor(payload: Payload<Assignment, 'variable' | 'value'>) { super(payload) }
 }
@@ -764,6 +787,8 @@ export class Catch extends Node {
   readonly parameterType!: Reference<Module>
   readonly body!: Body
 
+  override parent!: Try
+
   constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
     super({ parameterType, ...payload })
   }
@@ -802,7 +827,7 @@ export class Environment extends Node {
   get kind(): 'Environment' { return 'Environment'}
 
   readonly members!: List<Package>
-  @lazy readonly nodeCache!: ReadonlyMap<Id, Node> // TODO: Make readonly
+  @lazy readonly nodeCache!: ReadonlyMap<Id, Node>
 
   override parent!: never
 
