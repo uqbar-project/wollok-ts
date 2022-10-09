@@ -19,49 +19,46 @@ describe('Wollok Validations', () => {
   }))
   const environment = buildEnvironment(files)
 
-  const matchesExpectation = (problem: Problem, expected: Annotation) => {
+  const matchesExpectation = (problem: Problem, expected: Annotation, node: Node) => {
     const code = expected.args.get('code')!
-    return problem.code === code
+    return problem.code === code && problem.sourceMap?.toString() === node.sourceMap?.toString()
   }
 
   const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`
 
-  for(const file of files) {
+  for (const file of files) {
     const packageName = file.name.split('.')[0]
 
     it(packageName, () => {
       const filePackage = environment.getNodeByFQN(packageName)
-
-      const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems() ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
-      if (notEmpty(nodesWithFileErrors))
-        fail(`Problems in file. ${nodesWithFileErrors.map(node => node.problems![0].code + ' at ' + errorLocation(node))}`)
-
       const allProblems = validate(filePackage)
 
       filePackage.forEach(node => {
         const problems = allProblems.filter(_ => _.node === node)
         const expectedProblems = node.metadata.filter(_ => _.name === 'Expect')
 
-        for(const expectedProblem of expectedProblems) {
+        for (const expectedProblem of expectedProblems) {
           const code = expectedProblem.args.get('code')!
           const level = expectedProblem.args.get('level')
 
-          if(!code) fail('Missing required "code" argument in @Expect annotation')
+          if (!code) fail('Missing required "code" argument in @Expect annotation')
 
-          const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
+          const errors = problems.filter(problem => !matchesExpectation(problem, expectedProblem, node))
           if (notEmpty(errors))
             fail(`File contains errors: ${errors.map((_error) => _error.code + ' at ' + errorLocation(_error)).join(', ')}`)
 
-          const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
-          if(!effectiveProblem)
+          const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem, node))
+          if (!effectiveProblem) {
+            debugger;
             fail(`Missing expected ${code} ${level ?? 'problem'} at ${errorLocation(node)}`)
+          }
 
-          if(level && effectiveProblem.level !== level)
+          if (level && effectiveProblem.level !== level)
             fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${errorLocation(node)}`)
         }
 
-        for(const problem of problems) {
-          if(!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem)))
+        for (const problem of problems) {
+          if (!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem, node)))
             fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
         }
       })
