@@ -35,7 +35,14 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName())
+      const onlyModuleName = self.module.fullyQualifiedName().split(".").pop()!
+      const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? "an" : "a"
+
+      const kindName = 
+        self.module.kind === "Singleton" && self.module.name ||
+        aOrAn + " " + onlyModuleName
+
+      return yield* this.reify(kindName)
     },
 
     *className(self: RuntimeObject): Execution<RuntimeValue> {
