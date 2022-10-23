@@ -20,11 +20,9 @@
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 // - Unified problem type
-import {
-  Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import, is, Kind,
+import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import, is, Kind,
   Level, Method, Mixin, Module, NamedArgument, New, Node, NodeOfKind, Package, Parameter, Problem,
-  Program, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Try, Variable
-} from './model'
+  Program, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Try, Variable } from './model'
 
 const { entries } = Object
 
@@ -118,7 +116,7 @@ export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
 export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
   !KEYWORDS.includes(node.name || ''),
-  node => [node.name || ''],
+node => [node.name || ''],
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
@@ -159,7 +157,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
 export const shouldNotReassignConst = error<Assignment>(node => {
   const target = node?.variable?.target()
   const referenceIsNotConstant = !!target && (target.is('Variable') || target?.is('Field')) && !target.isConstant
-  return !target || (referenceIsNotConstant && !target.is('Parameter'))
+  return !target || referenceIsNotConstant && !target.is('Parameter')
 })
 
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
