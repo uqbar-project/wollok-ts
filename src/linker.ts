@@ -33,7 +33,7 @@ const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => 
       existent.copy({
         members: isolated.members.reduce(mergePackage, existent.members),
         problems: isolated.problems,
-        imports: [ ...isolated.imports ],
+        imports: [...isolated.imports],
       }) as Package,
     ]
     : [...members, isolated]

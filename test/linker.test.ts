@@ -221,9 +221,9 @@ describe('Wollok linker', () => {
           name: 'A',
           problems: [{ code: 'ERROR', level: 'error', values: [] }],
         }),
-        new Package({ name: 'A', }),
+        new Package({ name: 'A' }),
       ].should.be.linkedInto([
-        new Package({ name: 'A', }),
+        new Package({ name: 'A' }),
       ])
     })
 
