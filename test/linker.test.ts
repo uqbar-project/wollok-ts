@@ -182,9 +182,8 @@ describe('Wollok linker', () => {
       nextEnvironment.getNodeByFQN('p.Y').should.equal(Y)
     })
 
-    it('should merge package imports', () => {
+    it('should replace merged packages imports', () => {
       [
-        ...WRE.members,
         new Package({
           name: 'A',
           imports: [
@@ -203,12 +202,10 @@ describe('Wollok linker', () => {
         new Package({ name: 'C' }),
         new Package({ name: 'D' }),
       ].should.be.linkedInto([
-        ...WRE.members,
         new Package({
           name: 'A',
           imports: [
             new Import({ isGeneric: true, entity: new Reference({ name: 'B' }) }),
-            new Import({ isGeneric: true, entity: new Reference({ name: 'C' }) }),
             new Import({ isGeneric: true, entity: new Reference({ name: 'D' }) }),
           ],
         }),
@@ -218,7 +215,20 @@ describe('Wollok linker', () => {
       ])
     })
 
+    it('should replace merged packages problems', () => {
+      [
+        new Package({
+          name: 'A',
+          problems: [{ code: 'ERROR', level: 'error', values: [] }],
+        }),
+        new Package({ name: 'A', }),
+      ].should.be.linkedInto([
+        new Package({ name: 'A', }),
+      ])
+    })
+
   })
+
 
   it('should assign an id to all nodes', () => {
     const environment = link([
@@ -247,7 +257,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'C',
-              supertypes:[new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })],
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })],
               members: [
                 new Field({ name: 'f', isConstant: true, value: new Reference({ name: 'C' }) }),
                 new Field({ name: 'g', isConstant: true, value: new Reference({ name: 'p' }) }),

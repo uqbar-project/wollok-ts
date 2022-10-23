@@ -32,12 +32,8 @@ const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => 
       ...members.filter(member => member !== existent),
       existent.copy({
         members: isolated.members.reduce(mergePackage, existent.members),
-        imports: [
-          ...existent.imports,
-          ...isolated.imports.filter(node => !existent.imports.some(other =>
-            node.entity.name === other.entity.name && node.isGeneric === other.isGeneric
-          )),
-        ],
+        problems: isolated.problems,
+        imports: [ ...isolated.imports ],
       }) as Package,
     ]
     : [...members, isolated]
