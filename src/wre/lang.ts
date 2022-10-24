@@ -35,12 +35,12 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      const onlyModuleName = self.module.fullyQualifiedName().split(".").pop()!
-      const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? "an" : "a"
+      const onlyModuleName = self.module.fullyQualifiedName().split('.').pop()!
+      const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? 'an' : 'a'
 
-      const kindName = 
-        self.module.kind === "Singleton" && self.module.name ||
-        aOrAn + " " + onlyModuleName
+      const kindName =
+        self.module.kind === 'Singleton' && self.module.name ||
+        aOrAn + ' ' + onlyModuleName
 
       return yield* this.reify(kindName)
     },
