@@ -86,7 +86,7 @@ export const shouldNotBeEmpty = warning<Body>(node =>
   node.isEmpty()
 )
 
-export const isNotWithin = (kind: Kind):  (node: Node, code: Code) => Problem | null =>
+export const isNotWithin = (kind: Kind): (node: Node, code: Code) => Problem | null =>
   error(node => node.isSynthetic() || !node.ancestors().some(is(kind)))
 
 export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
@@ -157,7 +157,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
 export const shouldNotReassignConst = error<Assignment>(node => {
   const target = node?.variable?.target()
   const referenceIsNotConstant = !!target && (target.is('Variable') || target?.is('Field')) && !target.isConstant
-  return referenceIsNotConstant && !target?.is('Parameter')
+  return !target || referenceIsNotConstant && !target.is('Parameter')
 })
 
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
@@ -194,14 +194,14 @@ export const namedArgumentShouldExist = error<NamedArgument>(node => {
   return !!parent && !!parent.lookupField(node.name)
 })
 
-export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
+export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node => {
   const nodeParent = node.parent
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is('New')) siblingArguments = nodeParent.args
   return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
 })
 
-export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node =>  {
+export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node => {
   const allNamedArguments = node.supertypes.flatMap(parent => parent.args.map(_ => _.name))
   return isEmpty(duplicates(allNamedArguments))
 })
@@ -547,7 +547,7 @@ const referencesSingleton = (node: Expression) => node.is('Reference') && node.t
 
 const isBooleanOrUnknownType = (node: Node): boolean => node.match({
   Literal: condition => condition.value === true || condition.value === false,
-  Send: _ =>  true, // tackled in a different validator
+  Send: _ => true, // tackled in a different validator
   Super: _ => true,
   Reference: condition => !condition.target()?.is('Singleton'),
   Node: _ => false,
@@ -721,9 +721,9 @@ const getOffsetForName = (node: Node): number => node.match({
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} = {
+const validationsByKind: { [K in Kind]: Record<Code, Validation<NodeOfKind<K>>> } = {
   Parameter: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, parameterShouldNotDuplicateExistingVariable, shouldNotUseReservedWords },
-  ParameterizedType: { },
+  ParameterizedType: {},
   NamedArgument: { namedArgumentShouldExist, namedArgumentShouldNotAppearMoreThanOnce },
   Import: { shouldNotImportSameFile, shouldNotImportMoreThanOnce },
   Body: { shouldNotBeEmpty },
@@ -737,9 +737,9 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
   Field: { nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar },
   Method: { onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue },
   Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar },
-  Return: { },
+  Return: {},
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
-  Reference: { },
+  Reference: {},
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},
@@ -755,7 +755,7 @@ const validationsByKind: {[K in Kind]: Record<Code, Validation<NodeOfKind<K>>>} 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
   return [
     ...found,
-    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], source: node.sourceMap } as const)  ) ?? [],
+    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], sourceMap: node.sourceMap } as Problem)) ?? [],
     ...entries(validationsByKind[node.kind] as Record<Code, Validation<Node>>)
       .map(([code, validation]) => validation(node, code)!)
       .filter(result => result !== null),
