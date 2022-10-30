@@ -79,7 +79,6 @@ describe('Wollok linker', () => {
         new Package({
           name: 'A',
           members: [
-            new Class({ name: 'X' }),
             new Class({ name: 'Y' }),
           ],
         }),
@@ -92,9 +91,8 @@ describe('Wollok linker', () => {
       ])
     })
 
-    it('should recursively merge same name packages into a single package', () => {
+    it('should recursively override same name packages with new package', () => {
       [
-        ...WRE.members,
         new Package({
           name: 'A',
           members: [
@@ -104,6 +102,7 @@ describe('Wollok linker', () => {
                 new Class({ name: 'X' }),
               ],
             }),
+            new Package({ name: 'C' }),
           ],
         }),
         new Package({
@@ -117,20 +116,21 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
+        ...WRE.members,
       ].should.be.linkedInto([
-        ...WRE.members,
         new Package({
           name: 'A',
           members: [
+            new Package({ name: 'C' }),
             new Package({
               name: 'B',
               members: [
-                new Class({ name: 'X' }),
                 new Class({ name: 'Y' }),
               ],
             }),
           ],
         }),
+        ...WRE.members,
       ])
     })
 
@@ -176,8 +176,9 @@ describe('Wollok linker', () => {
       ], baseEnvironment)
 
       const p = nextEnvironment.members[1]
-      const Y = p.members[1]
+      const Y = p.members[0]
 
+      p.members.should.have.lengthOf(1)
       nextEnvironment.getNodeByFQN('p').should.equal(p)
       nextEnvironment.getNodeByFQN('p.Y').should.equal(Y)
     })
