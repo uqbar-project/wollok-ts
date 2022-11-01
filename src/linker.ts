@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { Id, Import, Sentence } from '.'
 import { divideOn, List } from './extensions'
-import { BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap } from './model'
+import { BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, is } from './model'
 const { assign } = Object
 
 
@@ -23,21 +23,21 @@ const fail = (code: Name) => (node: Reference<Node>) =>
 // MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => {
-  if (!isolated.is('Package')) return [...members.filter(({ name }) => name !== isolated.name), isolated]
+const mergePackage = (members: List<Package>, isolated: Package): List<Package> => {
   const existent = members.find((member: Entity): member is Package =>
     member.is('Package') && member.name === isolated.name)
   return existent
     ? [
       ...members.filter(member => member !== existent),
       existent.copy({
-        members: isolated.members.reduce(mergePackage, existent.members),
-        imports: [
-          ...existent.imports,
-          ...isolated.imports.filter(node => !existent.imports.some(other =>
-            node.entity.name === other.entity.name && node.isGeneric === other.isGeneric
-          )),
+        members: [
+          ...isolated.members
+            .filter(is('Package'))
+            .reduce(mergePackage, existent.members.filter(is('Package'))),
+          ...isolated.members.filter(m => !m.is('Package')),
         ],
+        problems: isolated.problems,
+        imports: isolated.imports,
       }) as Package,
     ]
     : [...members, isolated]
