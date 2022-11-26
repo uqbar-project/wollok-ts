@@ -1,6 +1,6 @@
 # Changelog
 
-## v3.1.3
+## v3.1.4
 - Fixed some validations:
   - Reassign constant values
   - Missing references
