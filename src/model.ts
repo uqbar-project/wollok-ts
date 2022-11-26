@@ -255,6 +255,12 @@ abstract class $Node {
     return applyReduce(initial, this)
   }
 
+  filter(this: Node, closure: (node: Node, parent?: Node) => boolean): Node[] {
+    return this.reduce<Node[]>((acum, node, parent) => {
+      return closure(node, parent) ? acum.concat(node) : acum
+    }, [])
+  }
+
   isGlobal() { return this.parent.is('Package') }
 }
 
