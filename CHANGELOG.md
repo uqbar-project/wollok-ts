@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.1.3
+- Fixed some validations:
+  - Reassign constant values
+  - Missing references
+- Changed `kindName` primitive method implementation.
+- Fixed re-link Envirionment algorithm.
+
 ## v3.1.2
 - Moved local game code to language project.
 
