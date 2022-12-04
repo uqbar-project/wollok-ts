@@ -1502,9 +1502,24 @@ describe('Wollok parser', () => {
       it('should not parse development with closures of native methods', () => {
         'method m(p,q) native { }'.should.not.be.parsedBy(parser)
       })
-
     })
 
+  })
+
+  describe('Body', () => {
+    const parser = parse.Body
+
+    it('should recover from malformed sentence', () => {
+      `{
+            felicidad.
+      }`.should.be.parsedBy(parser)
+        .recoveringFrom('malformedSentence', 23, 24)
+        .into( new Body({
+          sentences: [
+            new Reference({ name: 'felicidad' }),
+          ],
+        }))
+    })
   })
 
   describe('Sentences', () => {
