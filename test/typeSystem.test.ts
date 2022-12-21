@@ -18,12 +18,24 @@ describe('Wollok Type System', () => {
         content: `program p { const x = 1 + 2 ; const y = x * 3 }`
     }, {
         name: 'Objects',
-        content: `object o { 
+        content: `
+        object o { 
+            const x = true
+
             @Type(returnType="wollok.lang.Number") 
-            method m1() = 0 
+            method m1() native 
 
             method m2() = self.m1()
-        }`
+
+            method m3() = if (x) 1 else 2
+
+            method m4() = if (x) 1 else 'a'
+
+            method m5(p) = p.blah()
+        }
+        
+        object o2 { method blah() = true }
+        `
     },
     ]
 
@@ -52,12 +64,22 @@ describe('Wollok Type System', () => {
     })
 
     it('Annotated method types', () => {
-        const method = environment.getNodeByFQN<Singleton>('Objects.o').methods()[0]
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m1', 0)!
         getType(method).should.be.eq('Number')
     })
     
     it('Method return inference', () => {
-        const method = environment.getNodeByFQN<Singleton>('Objects.o').methods()[1]
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m2', 0)!
         getType(method).should.be.eq('Number')
+    })
+
+    it('Method return if inference', () => {
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m3', 0)!
+        getType(method).should.be.eq('Number')
+    })
+
+    it('Method union type inference', () => {
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m4', 0)!
+        getType(method).should.be.eq('(Number | String)')
     })
 })

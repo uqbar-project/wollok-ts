@@ -1,7 +1,72 @@
-import { Assignment } from "."
-import { Environment, Field, is, Literal, Method, Module, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Super, Variable } from "./model"
+import { last } from "./extensions"
+import { Assignment, Body, Environment, Field, If, is, Literal, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Super, Variable } from "./model"
 
-type WollokType = Module | typeof ANY | typeof VOID
+type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
+type AtomicType = typeof ANY | typeof VOID
+
+class WollokAtomicType {
+    id: AtomicType
+
+    constructor(id: AtomicType) {
+        this.id = id
+    }
+
+    lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+        throw "Atomic types has no methods"
+    }
+
+    contains(type: WollokType): boolean {
+        return type instanceof WollokAtomicType && this.id === type.id
+    }
+
+    get name(): string {
+        return this.id
+    }
+}
+
+
+class WollokModuleType {
+    module: Module
+
+    constructor(module: Module) {
+        this.module = module
+    }
+
+    lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+        return this.module.lookupMethod(name, arity, options)
+    }
+
+    contains(type: WollokType): boolean {
+        return type instanceof WollokModuleType && this.module === type.module
+    }
+
+    get name(): string {
+        return this.module.name!
+    }
+
+    toString() { return this.module.toString() }
+}
+
+class WollokUnionType {
+    types: WollokType[]
+
+    constructor(types: WollokType[]) {
+        this.types = types
+    }
+
+    lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+        throw "Halt"
+    }
+
+    contains(type: WollokType): boolean {
+        if (type instanceof WollokUnionType) throw "Halt"
+        return this.types.some(_ => _.contains(type))
+    }
+
+    get name(): string {
+        return `(${this.types.map(_ => _.name).join(' | ')})`
+    }
+}
 
 const ANY = 'ANY'
 const VOID = 'VOID'
@@ -48,6 +113,7 @@ function createTypeVariables(node: Node) {
         Package: inferPackage,
         Import: skip,
         Program: inferProgram,
+        Body: inferBody,
         Module: inferModule,
 
         Send: inferSend,
@@ -55,7 +121,7 @@ function createTypeVariables(node: Node) {
         Parameter: inferParameter,
 
         Return: inferReturn,
-        If: typeVariableFor, //TODO
+        If: inferIf, //TODO
         Assignment: inferAssignment,
         Throw: typeVariableFor, //TODO
         Try: typeVariableFor, //TODO
@@ -82,7 +148,11 @@ const inferPackage = (p: Package) => {
 }
 
 const inferProgram = (p: Program) => {
-    p.body.sentences.forEach(createTypeVariables)
+    createTypeVariables(p.body)
+}
+
+const inferBody = (body: Body) => {
+    body.sentences.forEach(createTypeVariables)
 }
 
 const inferModule = (m: Module) => {
@@ -93,7 +163,7 @@ const inferModule = (m: Module) => {
 const inferNew = (n: New) => {
     const args = n.args.map(createTypeVariables)
     const clazz = n.instantiated.target()!
-    return typeVariableFor(n).setType(clazz)
+    return typeVariableFor(n).setType(new WollokModuleType(clazz))
 }
 
 const inferMethod = (m: Method) => {
@@ -104,7 +174,7 @@ const inferMethod = (m: Method) => {
     const typeAnnotation = m.metadata.find(_ => _.name === 'Type')
     if (typeAnnotation) {
         const typeRef = typeAnnotation.args['returnType'] as string
-        method.setType(environment.getNodeByFQN<Module>(typeRef))
+        method.setType(new WollokModuleType(environment.getNodeByFQN<Module>(typeRef)))
     }
     return method
 }
@@ -120,7 +190,7 @@ const inferAssignment = (a: Assignment) => {
     const variable = createTypeVariables(a.variable)!
     const value = createTypeVariables(a.value)!
     variable.isSupertypeOf(value)
-    return typeVariableFor(a).setType(VOID)
+    return typeVariableFor(a).setType(new WollokAtomicType(VOID))
 }
 
 const inferVariable = (v: Variable | Field) => {
@@ -140,8 +210,17 @@ const inferReturn = (r: Return) => {
     if (r.value)
         typeVariableFor(method).isSupertypeOf(createTypeVariables(r.value)!)
     else
-        typeVariableFor(method).setType(VOID)
-    return typeVariableFor(r).setType(VOID)
+        typeVariableFor(method).setType(new WollokAtomicType(VOID))
+    return typeVariableFor(r).setType(new WollokAtomicType(VOID))
+}
+
+const inferIf = (_if: If) => {
+    createTypeVariables(_if.condition)!.hasType(new WollokModuleType(environment.booleanClass))
+    createTypeVariables(_if.thenBody)
+    createTypeVariables(_if.elseBody)
+    return typeVariableFor(_if) // TODO: diferenciar if-expression? Cómo?
+        .isSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+        .isSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
 }
 
 const inferReference = (r: Reference<Node>) => {
@@ -152,17 +231,19 @@ const inferReference = (r: Reference<Node>) => {
 }
 
 const inferSelf = (self: Self | Super) => {
-    const module = self.ancestors().find<Module>((node: Node): node is Module => node.is('Module') && !node.fullyQualifiedName().startsWith('wollok.lang.Closure'))
+    const module = self.ancestors()
+        .find<Module>((node: Node): node is Module =>
+            node.is('Module') && !node.fullyQualifiedName().startsWith('wollok.lang.Closure')) // Ignore closures
     if (!module) throw 'Module for Self not found'
-    return typeVariableFor(self).setType(module)
+    return typeVariableFor(self).setType(new WollokModuleType(module))
 }
 
 const inferLiteral = (l: Literal) => {
     const tVar = typeVariableFor(l)
     switch (typeof l.value) {
-        case "number": return tVar.setType(environment.numberClass)
-        case "string": return tVar.setType(environment.stringClass)
-        case "boolean": return tVar.setType(environment.booleanClass)
+        case "number": return tVar.setType(new WollokModuleType(environment.numberClass))
+        case "string": return tVar.setType(new WollokModuleType(environment.stringClass))
+        case "boolean": return tVar.setType(new WollokModuleType(environment.booleanClass))
         case "object": return tVar; //tVar.setType('Null')
         default: throw "Literal type not found"
     }
@@ -184,7 +265,8 @@ class TypeVariable {
 
     type() { return this.typeInfo.type() }
 
-    hasType() { return this.type() !== ANY }
+    hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
+    hasType(type: WollokType) { return this.allMinTypes().some(minType => minType.contains(type)) }
 
     setType(type: WollokType) {
         this.typeInfo.setType(type)
@@ -202,15 +284,29 @@ class TypeVariable {
     isSubtypeOf(tVar: TypeVariable) {
         this.addSupertype(tVar)
         tVar.addSubtype(this)
+        return this
     }
 
     isSupertypeOf(tVar: TypeVariable) {
         this.addSubtype(tVar)
         tVar.addSupertype(this)
+        return this
+    }
+
+    hasSubtype(tVar: TypeVariable) {
+        return this.subtypes.includes(tVar)
+    }
+
+    hasSupertype(tVar: TypeVariable) {
+        return this.supertypes.includes(tVar)
     }
 
     addSend(send: Send) {
         this.messages.push(send)
+    }
+
+    allMinTypes() {
+        return this.typeInfo.minTypes
     }
 
     private addSubtype(tVar: TypeVariable) {
@@ -228,9 +324,11 @@ class TypeInfo {
     final: boolean = false
 
     type() {
-        if (this.minTypes.length + this.minTypes.length == 0) return ANY
+        if (this.minTypes.length + this.minTypes.length == 0) return new WollokAtomicType(ANY)
         if (this.maxTypes.length == 1) return this.maxTypes[0]
         if (this.minTypes.length == 1) return this.minTypes[0]
+
+        if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
         throw "Halt"
     }
 
@@ -240,6 +338,7 @@ class TypeInfo {
     }
 
     addMinType(type: WollokType) {
+        if (this.minTypes.some(minType => minType.contains(type))) return;
         if (this.final) throw "Variable inference finalized"
         this.minTypes.push(type)
     }
@@ -259,16 +358,16 @@ function propagateTypes() {
 }
 
 const propagateMinTypes = (tVar: TypeVariable) => {
-    const type = tVar.type()
-    if (type === ANY) return false
-
+    const types = tVar.allMinTypes()
     var changed = false
-    tVar.supertypes.forEach(superTVar => {
-        if (!superTVar.hasType()) {
-            superTVar.addMinType(type)
-            console.log(`PROPAGATE MIN TYPE (${type}) from |${tVar.node}| to |${superTVar.node}|`)
-            changed = true
-        }
+    types.forEach(type => {
+        tVar.supertypes.forEach(superTVar => {
+            if (!superTVar.hasType(type)) {
+                superTVar.addMinType(type)
+                console.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar.node}| TO |${superTVar.node}|`)
+                changed = true
+            }
+        })
     })
     return changed
 }
@@ -283,23 +382,18 @@ function bindMessages() {
 
 const bindReceivedMessages = (tVar: TypeVariable) => {
     if (!tVar.messages.length) return false
-
+    if (tVar.hasAnyType()) return false
     const type = tVar.type()
-    if (type === ANY) return false
-    if (type === VOID) throw 'Message sent to Void'
-
     var changed = false
-    tVar.messages
-        .filter(send => !typeVariableFor(send).hasType())
-        .forEach(send => {
-            const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-            if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
+    tVar.messages.forEach(send => {
+        const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+        if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
 
-            if (typeVariableFor(method).hasType()) {
-                typeVariableFor(method).isSubtypeOf(typeVariableFor(send)) // Return value
-                console.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
-                changed = true
-            }
-        })
+        if (!typeVariableFor(method).hasSupertype(typeVariableFor(send))) {
+            typeVariableFor(method).isSubtypeOf(typeVariableFor(send)) // Return value
+            console.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
+            changed = true
+        }
+    })
     return changed
 }
