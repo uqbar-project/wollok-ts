@@ -1,5 +1,5 @@
+import { cached, lazy } from './decorators'
 import { isEmpty, last, List, mapObject, notEmpty } from './extensions'
-import { lazy, cached } from './decorators'
 
 const { isArray } = Array
 const { entries, values, assign } = Object
@@ -19,7 +19,7 @@ export class SourceIndex {
   readonly line: number
   readonly column: number
 
-  constructor(args: {offset: number, line: number, column: number}) {
+  constructor(args: { offset: number, line: number, column: number }) {
     this.offset = args.offset
     this.line = args.line
     this.column = args.column
@@ -32,7 +32,7 @@ export class SourceMap {
   readonly start: SourceIndex
   readonly end: SourceIndex
 
-  constructor(args: {start: SourceIndex, end: SourceIndex}) {
+  constructor(args: { start: SourceIndex, end: SourceIndex }) {
     this.start = args.start
     this.end = args.end
   }
@@ -43,11 +43,11 @@ export class SourceMap {
 
 export class Annotation {
   readonly name: Name
-  readonly args: ReadonlyMap<Name, LiteralValue>
+  readonly args: Record<Name, LiteralValue>
 
-  constructor(name: Name, args: Record<Name, LiteralValue> = {}){
+  constructor(name: Name, args: Record<Name, LiteralValue> = {}) {
     this.name = name
-    this.args = new Map(entries(args))
+    this.args = args
   }
 }
 
@@ -131,11 +131,11 @@ abstract class $Node {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   @lazy parent!: this extends Package ? Package | Environment :
-                 this extends Module | Import ? Package :
-                 this extends Method ? Module :
-                 this extends Field ? Class | Mixin | Singleton | Describe :
-                 this extends Test ? Describe :
-                 Node
+    this extends Module | Import ? Package :
+    this extends Method ? Module :
+    this extends Field ? Class | Mixin | Singleton | Describe :
+    this extends Test ? Describe :
+    Node
 
   constructor(payload: Record<string, unknown>) {
     assign(this, payload)
@@ -146,8 +146,8 @@ abstract class $Node {
   @cached
   toString(verbose = false): string {
     return !verbose ? this.label() : JSON.stringify(this, (key, value) => {
-      if('scope' === key) return
-      if('sourceMap' === key) return `${value}`
+      if ('scope' === key) return
+      if ('sourceMap' === key) return `${value}`
       return value
     }, 2)
   }
@@ -224,8 +224,8 @@ abstract class $Node {
   }
 
   match<T>(this: Node, cases: Partial<{ [Q in Kind | Category]: (node: NodeOfKindOrCategory<Q>) => T }>): T {
-    for(const [key, handler] of entries(cases))
-      if(this.is(key as Kind)) return (handler as (node: Node) => T)(this)
+    for (const [key, handler] of entries(cases))
+      if (this.is(key as Kind)) return (handler as (node: Node) => T)(this)
     throw new Error(`Unmatched kind ${this.kind}`)
   }
 
@@ -281,7 +281,7 @@ export class Parameter extends $Node {
 
 export class ParameterizedType extends $Node {
   readonly kind = 'ParameterizedType'
-  readonly reference!: Reference<Module | Class>
+  readonly reference!: Reference<Module>
   readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<ParameterizedType, 'reference'>) {
@@ -377,7 +377,7 @@ export class Package extends $Entity {
 
     return ancestorNames.reduce<Package>((member, name) =>
       new Package({ name, members: [member] })
-    , this)
+      , this)
   }
 
   @cached
@@ -549,7 +549,7 @@ abstract class $Module extends $Entity {
       field,
       this.hierarchy().reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(supertype => supertype.args).find(arg => arg.name === field.name)?.value ?? defaultValue
-      , field.value),
+        , field.value),
     ]))
   }
 }
@@ -568,7 +568,7 @@ export class Class extends $Module {
   @cached
   superclass(): Class | undefined {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
-    if(superclassReference) return superclassReference.target() as Class
+    if (superclassReference) return superclassReference.target() as Class
     else {
       const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
@@ -599,7 +599,7 @@ export class Singleton extends $Module {
 
   superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target()?.is('Class'))?.reference
-    if(superclassReference) return superclassReference.target() as Class
+    if (superclassReference) return superclassReference.target() as Class
     else return this.environment.objectClass
   }
 
@@ -675,9 +675,9 @@ export class Method extends $Node {
     return `${this.parent.fullyQualifiedName()}.${this.name}/${this.parameters.length} ${super.label()}`
   }
 
-  isAbstract(): this is {body: undefined} { return !this.body }
-  isNative(): this is {body?: Body} { return this.body === 'native' }
-  isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
+  isAbstract(): this is { body: undefined } { return !this.body }
+  isNative(): this is { body?: Body } { return this.body === 'native' }
+  isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
 
   @cached
   hasVarArgs(): boolean {
@@ -772,7 +772,7 @@ export class Self extends $Expression {
 }
 
 
-export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression> ]
+export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression>]
 export class Literal<T extends LiteralValue = LiteralValue> extends $Expression {
   readonly kind = 'Literal'
   readonly value!: T
@@ -852,7 +852,7 @@ export class Catch extends $Expression {
   readonly parameterType!: Reference<Module>
   readonly body!: Body
 
-  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
+  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
     super({ parameterType, ...payload })
   }
 }
@@ -898,7 +898,7 @@ export class Environment extends $Node {
 
   getNodeById<N extends Node>(id: Id): N {
     const node = this.nodeCache.get(id)
-    if(!node) throw new Error(`Missing node with id ${id}`)
+    if (!node) throw new Error(`Missing node with id ${id}`)
     return node as N
   }
 
@@ -918,5 +918,14 @@ export class Environment extends $Node {
 
   get objectClass(): Class {
     return this.getNodeByFQN('wollok.lang.Object')
+  }
+  get numberClass(): Class {
+    return this.getNodeByFQN('wollok.lang.Number')
+  }
+  get stringClass(): Class {
+    return this.getNodeByFQN('wollok.lang.String')
+  }
+  get booleanClass(): Class {
+    return this.getNodeByFQN('wollok.lang.Boolean')
   }
 }
