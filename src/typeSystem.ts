@@ -19,6 +19,8 @@ class WollokAtomicType {
         return type instanceof WollokAtomicType && this.id === type.id
     }
 
+    asList() { return [this] }
+
     get name(): string {
         return this.id
     }
@@ -40,6 +42,8 @@ class WollokModuleType {
         return type instanceof WollokModuleType && this.module === type.module
     }
 
+    asList() { return [this] }
+
     get name(): string {
         return this.module.name!
     }
@@ -59,9 +63,12 @@ class WollokUnionType {
     }
 
     contains(type: WollokType): boolean {
-        if (type instanceof WollokUnionType) throw "Halt"
+        if (type instanceof WollokUnionType)
+            throw "Halt"
         return this.types.some(_ => _.contains(type))
     }
+
+    asList() { return this.types }
 
     get name(): string {
         return `(${this.types.map(_ => _.name).join(' | ')})`
@@ -82,7 +89,7 @@ export function infer(env: Environment) {
     createTypeVariables(env)
     globalChange = true
     while (globalChange) {
-        globalChange = [propagateTypes, bindMessages].some(f => f())
+        globalChange = [propagateTypes, bindMessages, maxTypesFromMessages].some(f => f())
     }
 }
 
@@ -144,6 +151,7 @@ const inferEnvironment = (env: Environment) => {
 }
 
 const inferPackage = (p: Package) => {
+    if (p.name.startsWith('game')) return; //TODO: Fix (wrong) Key inference
     p.children().forEach(createTypeVariables)
 }
 
@@ -266,7 +274,7 @@ class TypeVariable {
     type() { return this.typeInfo.type() }
 
     hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
-    hasType(type: WollokType) { return this.allMinTypes().some(minType => minType.contains(type)) }
+    hasType(type: WollokType) { return this.allPossibleTypes().some(minType => minType.contains(type)) }
 
     setType(type: WollokType) {
         this.typeInfo.setType(type)
@@ -308,12 +316,18 @@ class TypeVariable {
     allMinTypes() {
         return this.typeInfo.minTypes
     }
+    allMaxTypes() {
+        return this.typeInfo.maxTypes
+    }
+    allPossibleTypes() {
+        return [...this.allMinTypes(), ...this.allMaxTypes()]
+    }
 
-    private addSubtype(tVar: TypeVariable) {
+    addSubtype(tVar: TypeVariable) {
         this.subtypes.push(tVar)
     }
 
-    private addSupertype(tVar: TypeVariable) {
+    addSupertype(tVar: TypeVariable) {
         this.supertypes.push(tVar)
     }
 }
@@ -324,11 +338,12 @@ class TypeInfo {
     final: boolean = false
 
     type() {
-        if (this.minTypes.length + this.minTypes.length == 0) return new WollokAtomicType(ANY)
+        if (this.maxTypes.length + this.minTypes.length == 0) return new WollokAtomicType(ANY)
         if (this.maxTypes.length == 1) return this.maxTypes[0]
         if (this.minTypes.length == 1) return this.minTypes[0]
 
         if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
+        if (this.maxTypes.length > 1) return new WollokUnionType(this.maxTypes)
         throw "Halt"
     }
 
@@ -338,13 +353,18 @@ class TypeInfo {
     }
 
     addMinType(type: WollokType) {
+        if (this.maxTypes.some(maxType => maxType.contains(type))) return;
         if (this.minTypes.some(minType => minType.contains(type))) return;
-        if (this.final) throw "Variable inference finalized"
+        if (this.final) 
+            throw "Variable inference finalized"
         this.minTypes.push(type)
     }
 
     addMaxType(type: WollokType) {
-        if (this.final) throw "Variable inference finalized"
+        if (this.maxTypes.some(maxType => maxType.contains(type))) return;
+        if (this.minTypes.some(minType => minType.contains(type))) return; // TODO: Check min/max types compatibility
+        if (this.final)
+            throw "Variable inference finalized"
         this.maxTypes.push(type)
     }
 }
@@ -354,17 +374,29 @@ class TypeInfo {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function propagateTypes() {
-    return [...tVars.values()].some(propagateMinTypes)
+    return [...tVars.values()].some(tVar => propagateMinTypes(tVar) || propagateMaxTypes(tVar))
 }
 
 const propagateMinTypes = (tVar: TypeVariable) => {
-    const types = tVar.allMinTypes()
     var changed = false
-    types.forEach(type => {
+    tVar.allMinTypes().forEach(type => {
         tVar.supertypes.forEach(superTVar => {
             if (!superTVar.hasType(type)) {
                 superTVar.addMinType(type)
                 console.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar.node}| TO |${superTVar.node}|`)
+                changed = true
+            }
+        })
+    })
+    return changed
+}
+const propagateMaxTypes = (tVar: TypeVariable) => {
+    var changed = false
+    tVar.allMaxTypes().forEach(type => {
+        tVar.subtypes.forEach(superTVar => {
+            if (!superTVar.hasType(type)) {
+                superTVar.addMaxType(type)
+                console.log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar.node}| TO |${superTVar.node}|`)
                 changed = true
             }
         })
@@ -383,17 +415,48 @@ function bindMessages() {
 const bindReceivedMessages = (tVar: TypeVariable) => {
     if (!tVar.messages.length) return false
     if (tVar.hasAnyType()) return false
-    const type = tVar.type()
+    const types = tVar.type().asList()
     var changed = false
-    tVar.messages.forEach(send => {
-        const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-        if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
+    types.forEach(type => {
+        tVar.messages.forEach(send => {
+            const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+            if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
 
-        if (!typeVariableFor(method).hasSupertype(typeVariableFor(send))) {
-            typeVariableFor(method).isSubtypeOf(typeVariableFor(send)) // Return value
-            console.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
-            changed = true
-        }
+            if (!typeVariableFor(method).hasSupertype(typeVariableFor(send))) {
+                typeVariableFor(method).addSupertype(typeVariableFor(send)) // Return value
+                console.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
+                changed = true
+            }
+        })
     })
+    return changed
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// TYPE FROM MESSAGES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function maxTypesFromMessages() {
+    return [...tVars.values()].some(maxTypeFromMessages)
+}
+
+const maxTypeFromMessages = (tVar: TypeVariable) => {
+    if (!tVar.messages.length) return false
+    if (tVar.allMinTypes().length) return false //TODO: Check compatibility between min and max types
+    var changed = false
+    environment.descendants()
+        .filter(is('Module'))
+        .filter(module => tVar.messages.every(send =>
+            module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+            // TODO: check params (and return?) types
+        ))
+        .map(_ => new WollokModuleType(_))
+        .forEach(type => {
+            if (!tVar.hasType(type)) {
+                tVar.addMaxType(type)
+                console.log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
+                changed = true
+            }
+        })
     return changed
 }

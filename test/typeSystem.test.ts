@@ -32,9 +32,17 @@ describe('Wollok Type System', () => {
             method m4() = if (x) 1 else 'a'
 
             method m5(p) = p.blah()
+
+            method m6(p) = p.asd()
         }
         
-        object o2 { method blah() = true }
+        object o2 { 
+            method blah() = true 
+            method asd() = true 
+        }
+        object o3 { 
+            method asd() = 1
+        }
         `
     },
     ]
@@ -81,5 +89,17 @@ describe('Wollok Type System', () => {
     it('Method union type inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m4', 0)!
         getType(method).should.be.eq('(Number | String)')
+    })
+
+    it('Max type inference', () => {
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m5', 1)!
+        getType(method.parameters[0]).should.be.eq('o2')
+        getType(method).should.be.eq('Boolean')
+    })
+
+    it('Max union type inference', () => {
+        const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m6', 1)!
+        getType(method.parameters[0]).should.be.eq('(o2 | o3)')
+        getType(method).should.be.eq('(Boolean | Number)')
     })
 })
