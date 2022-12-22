@@ -3,13 +3,12 @@ import { buildEnvironment } from '../src'
 import { getType, infer, typeVariableFor } from '../src/typeSystem'
 import { Program, Singleton } from './../src/model'
 
-
 should()
 
 describe('Wollok Type System', () => {
     const files = [{
         name: 'Literals',
-        content: `program p { 2 'hola' true null }`
+        content: `program p { 2 'hola' true null [] [1] ['a'] #{} #{1} #{'a'} }`
     }, {
         name: 'Variables',
         content: `program p { const x = 2 ; const y = x }`
@@ -44,8 +43,7 @@ describe('Wollok Type System', () => {
             method asd() = 1
         }
         `
-    },
-    ]
+    }]
 
     const environment = buildEnvironment(files)
 
@@ -56,7 +54,13 @@ describe('Wollok Type System', () => {
         getType(sentences[0]).should.be.eq('Number')
         getType(sentences[1]).should.be.eq('String')
         getType(sentences[2]).should.be.eq('Boolean')
-        getType(sentences[3]).should.be.eq('ANY')//('Null')
+        getType(sentences[3]).should.be.eq('ANY') // ('Null')
+        getType(sentences[4]).should.be.eq('List<ANY>')
+        getType(sentences[5]).should.be.eq('List<Number>')
+        getType(sentences[6]).should.be.eq('List<String>')
+        getType(sentences[7]).should.be.eq('Set<ANY>')
+        getType(sentences[8]).should.be.eq('Set<Number>')
+        getType(sentences[9]).should.be.eq('Set<String>')
     })
 
     it('Variables inference', () => {
@@ -75,7 +79,7 @@ describe('Wollok Type System', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m1', 0)!
         getType(method).should.be.eq('Number')
     })
-    
+
     it('Method return inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m2', 0)!
         getType(method).should.be.eq('Number')
@@ -99,6 +103,7 @@ describe('Wollok Type System', () => {
 
     it('Max union type inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m6', 1)!
+        // TODO: Use parametric types for methods (return + args)
         getType(method.parameters[0]).should.be.eq('(o2 | o3)')
         getType(method).should.be.eq('(Boolean | Number)')
     })

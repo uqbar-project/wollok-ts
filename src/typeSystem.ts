@@ -1,5 +1,5 @@
-import { last } from "./extensions"
-import { Assignment, Body, Environment, Field, If, is, Literal, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Super, Variable } from "./model"
+import { last, List } from "./extensions"
+import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, is, Literal, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Super, Variable } from "./model"
 
 type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
 type AtomicType = typeof ANY | typeof VOID
@@ -51,6 +51,20 @@ class WollokModuleType {
     toString() { return this.module.toString() }
 }
 
+class WollokParametricType extends WollokModuleType {
+    params: Map<String, TypeVariable>
+
+    constructor(base: Module, params: Record<string, TypeVariable>) {
+        super(base)
+        this.params = new Map(Object.entries(params))
+    }
+
+    get name(): string {
+        const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
+        return `${super.name}<${innerTypes}>`
+    }
+}
+
 class WollokUnionType {
     types: WollokType[]
 
@@ -77,6 +91,7 @@ class WollokUnionType {
 
 const ANY = 'ANY'
 const VOID = 'VOID'
+const E = 'ELEMENT'
 const tVars = new Map<Node, TypeVariable>()
 let environment: Environment
 let globalChange: boolean
@@ -114,6 +129,10 @@ function newTVarFor(node: Node) {
     return newTVar
 }
 
+function newSynteticTVar() {
+    return newTVarFor(Closure({ code: 'Param type' })) // Using new closure as syntetic node. Is good enough?
+}
+
 function createTypeVariables(node: Node) {
     return node.match<TypeVariable | void>({
         Environment: inferEnvironment,
@@ -128,7 +147,7 @@ function createTypeVariables(node: Node) {
         Parameter: inferParameter,
 
         Return: inferReturn,
-        If: inferIf, //TODO
+        If: inferIf,
         Assignment: inferAssignment,
         Throw: typeVariableFor, //TODO
         Try: typeVariableFor, //TODO
@@ -151,7 +170,7 @@ const inferEnvironment = (env: Environment) => {
 }
 
 const inferPackage = (p: Package) => {
-    if (p.name.startsWith('game')) return; //TODO: Fix (wrong) Key inference
+    if (p.name.startsWith('wollok')) return; //TODO: Fix wrong inferences
     p.children().forEach(createTypeVariables)
 }
 
@@ -239,22 +258,32 @@ const inferReference = (r: Reference<Node>) => {
 }
 
 const inferSelf = (self: Self | Super) => {
-    const module = self.ancestors()
-        .find<Module>((node: Node): node is Module =>
-            node.is('Module') && !node.fullyQualifiedName().startsWith('wollok.lang.Closure')) // Ignore closures
+    const module = self.ancestors().find<Module>((node: Node): node is Module =>
+        node.is('Module') && !node.fullyQualifiedName().startsWith('wollok.lang.Closure')) // Ignore closures
     if (!module) throw 'Module for Self not found'
     return typeVariableFor(self).setType(new WollokModuleType(module))
 }
 
 const inferLiteral = (l: Literal) => {
     const tVar = typeVariableFor(l)
+    const { numberClass, stringClass, booleanClass } = environment
     switch (typeof l.value) {
-        case "number": return tVar.setType(new WollokModuleType(environment.numberClass))
-        case "string": return tVar.setType(new WollokModuleType(environment.stringClass))
-        case "boolean": return tVar.setType(new WollokModuleType(environment.booleanClass))
-        case "object": return tVar; //tVar.setType('Null')
+        case "number": return tVar.setType(new WollokModuleType(numberClass))
+        case "string": return tVar.setType(new WollokModuleType(stringClass))
+        case "boolean": return tVar.setType(new WollokModuleType(booleanClass))
+        case "object":
+            if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
+            if (l.value === null) return tVar //tVar.setType('Null')
         default: throw "Literal type not found"
     }
+}
+
+const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) => {
+    const elementTVar = typeVariableFor(value[0]) // TODO: Use syntetic node?
+    value[1].map(createTypeVariables).forEach(inner =>
+        elementTVar.isSupertypeOf(inner!)
+    )
+    return new WollokParametricType(value[0].target()!, { [E]: elementTVar })
 }
 
 
@@ -355,7 +384,7 @@ class TypeInfo {
     addMinType(type: WollokType) {
         if (this.maxTypes.some(maxType => maxType.contains(type))) return;
         if (this.minTypes.some(minType => minType.contains(type))) return;
-        if (this.final) 
+        if (this.final)
             throw "Variable inference finalized"
         this.minTypes.push(type)
     }
