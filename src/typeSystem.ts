@@ -15,6 +15,10 @@ class WollokAtomicType {
         throw "Atomic types has no methods"
     }
 
+    atParam(name: string): TypeVariable {
+        throw "Atomic types has no params"!
+    }
+
     contains(type: WollokType): boolean {
         return type instanceof WollokAtomicType && this.id === type.id
     }
@@ -42,6 +46,8 @@ class WollokModuleType {
         return type instanceof WollokModuleType && this.module === type.module
     }
 
+    atParam(name: string): TypeVariable { throw "Module types has no params"! }
+
     asList() { return [this] }
 
     get name(): string {
@@ -59,9 +65,34 @@ class WollokParametricType extends WollokModuleType {
         this.params = new Map(Object.entries(params))
     }
 
+    contains(type: WollokType): boolean {
+        throw "HALT"
+    }
+
+    atParam(name: string): TypeVariable { return this.params.get(name)! }
+
     get name(): string {
         const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
         return `${super.name}<${innerTypes}>`
+    }
+}
+
+class WollokMethodType extends WollokParametricType {
+    constructor(returnVar: TypeVariable, params: TypeVariable[]) {
+        // TODO: Mejorar esta herencia
+        super(null as any, {
+            ...Object.fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
+            [RETURN]: returnVar
+        })
+    }
+
+    get name(): string {
+        const params = [...this.params.entries()]
+            .filter(([name, _]) => name !== RETURN)
+            .map(([_, tVar]) => tVar.type().name)
+            .join(', ')
+        const returnType = this.atParam(RETURN).type().name
+        return `(${params}) => ${returnType}`
     }
 }
 
@@ -75,6 +106,8 @@ class WollokUnionType {
     lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
         throw "Halt"
     }
+
+    atParam(name: string): TypeVariable { throw "Union types has no params"! }
 
     contains(type: WollokType): boolean {
         if (type instanceof WollokUnionType)
@@ -91,7 +124,9 @@ class WollokUnionType {
 
 const ANY = 'ANY'
 const VOID = 'VOID'
-const E = 'ELEMENT'
+const ELEMENT = 'ELEMENT'
+const RETURN = 'RETURN'
+const PARAM = 'PARAM'
 const tVars = new Map<Node, TypeVariable>()
 let environment: Environment
 let globalChange: boolean
@@ -109,9 +144,7 @@ export function infer(env: Environment) {
 }
 
 export function getType(node: Node) {
-    const type = typeVariableFor(node).type()
-    if (typeof type === 'object') return type.name!
-    return type
+    return typeVariableFor(node).type().name
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -126,11 +159,15 @@ export function typeVariableFor(node: Node) {
 function newTVarFor(node: Node) {
     const newTVar = new TypeVariable(node)
     tVars.set(node, newTVar)
+    if (node.is('Method')) {
+        const parameters = node.parameters.map(p => createTypeVariables(p)!)
+        newTVar.setType(new WollokMethodType(newSynteticTVar(), parameters))
+    }
     return newTVar
 }
 
 function newSynteticTVar() {
-    return newTVarFor(Closure({ code: 'Param type' })) // Using new closure as syntetic node. Is good enough?
+    return newTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough?
 }
 
 function createTypeVariables(node: Node) {
@@ -194,14 +231,13 @@ const inferNew = (n: New) => {
 }
 
 const inferMethod = (m: Method) => {
-    const parameters = m.parameters.map(createTypeVariables)
+    const method = typeVariableFor(m)
     m.sentences().forEach(createTypeVariables)
 
-    const method = typeVariableFor(m)
     const typeAnnotation = m.metadata.find(_ => _.name === 'Type')
     if (typeAnnotation) {
         const typeRef = typeAnnotation.args['returnType'] as string
-        method.setType(new WollokModuleType(environment.getNodeByFQN<Module>(typeRef)))
+        method.atParam(RETURN).setType(new WollokModuleType(environment.getNodeByFQN<Module>(typeRef)))
     }
     return method
 }
@@ -235,9 +271,9 @@ const inferReturn = (r: Return) => {
     const method = r.ancestors().find(is('Method'))
     if (!method) throw 'Method for Return not found'
     if (r.value)
-        typeVariableFor(method).isSupertypeOf(createTypeVariables(r.value)!)
+        typeVariableFor(method).atParam(RETURN).isSupertypeOf(createTypeVariables(r.value)!)
     else
-        typeVariableFor(method).setType(new WollokAtomicType(VOID))
+        typeVariableFor(method).atParam(RETURN).setType(new WollokAtomicType(VOID))
     return typeVariableFor(r).setType(new WollokAtomicType(VOID))
 }
 
@@ -283,7 +319,7 @@ const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) 
     value[1].map(createTypeVariables).forEach(inner =>
         elementTVar.isSupertypeOf(inner!)
     )
-    return new WollokParametricType(value[0].target()!, { [E]: elementTVar })
+    return new WollokParametricType(value[0].target()!, { [ELEMENT]: elementTVar })
 }
 
 
@@ -295,12 +331,14 @@ class TypeVariable {
     subtypes: TypeVariable[] = []
     supertypes: TypeVariable[] = []
     messages: Send[] = []
+    syntetic: boolean = false
     node: Node
 
     constructor(node: Node) { this.node = node }
 
 
     type() { return this.typeInfo.type() }
+    atParam(name: string): TypeVariable { return this.type().atParam(name)! }
 
     hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
     hasType(type: WollokType) { return this.allPossibleTypes().some(minType => minType.contains(type)) }
@@ -359,6 +397,13 @@ class TypeVariable {
     addSupertype(tVar: TypeVariable) {
         this.supertypes.push(tVar)
     }
+
+    beSyntetic() {
+        this.syntetic = true
+        return this
+    }
+
+    toString() { return `TVar(${this.syntetic ? 'SYNTEC' : this.node})` }
 }
 
 class TypeInfo {
@@ -412,7 +457,7 @@ const propagateMinTypes = (tVar: TypeVariable) => {
         tVar.supertypes.forEach(superTVar => {
             if (!superTVar.hasType(type)) {
                 superTVar.addMinType(type)
-                console.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar.node}| TO |${superTVar.node}|`)
+                console.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
                 changed = true
             }
         })
@@ -425,7 +470,7 @@ const propagateMaxTypes = (tVar: TypeVariable) => {
         tVar.subtypes.forEach(superTVar => {
             if (!superTVar.hasType(type)) {
                 superTVar.addMaxType(type)
-                console.log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar.node}| TO |${superTVar.node}|`)
+                console.log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
                 changed = true
             }
         })
@@ -451,8 +496,8 @@ const bindReceivedMessages = (tVar: TypeVariable) => {
             const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
             if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
 
-            if (!typeVariableFor(method).hasSupertype(typeVariableFor(send))) {
-                typeVariableFor(method).addSupertype(typeVariableFor(send)) // Return value
+            if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
+                typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
                 console.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
                 changed = true
             }

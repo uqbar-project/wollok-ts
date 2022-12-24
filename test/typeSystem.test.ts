@@ -77,34 +77,31 @@ describe('Wollok Type System', () => {
 
     it('Annotated method types', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m1', 0)!
-        getType(method).should.be.eq('Number')
+        getType(method).should.be.eq('() => Number')
     })
 
     it('Method return inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m2', 0)!
-        getType(method).should.be.eq('Number')
+        getType(method).should.be.eq('() => Number')
     })
 
     it('Method return if inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m3', 0)!
-        getType(method).should.be.eq('Number')
+        getType(method).should.be.eq('() => Number')
     })
 
     it('Method union type inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m4', 0)!
-        getType(method).should.be.eq('(Number | String)')
+        getType(method).should.be.eq('() => (Number | String)')
     })
 
     it('Max type inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m5', 1)!
-        getType(method.parameters[0]).should.be.eq('o2')
-        getType(method).should.be.eq('Boolean')
+        getType(method).should.be.eq('(o2) => Boolean')
     })
 
     it('Max union type inference', () => {
         const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m6', 1)!
-        // TODO: Use parametric types for methods (return + args)
-        getType(method.parameters[0]).should.be.eq('(o2 | o3)')
-        getType(method).should.be.eq('(Boolean | Number)')
+        getType(method).should.be.eq('((o2 | o3)) => (Boolean | Number)')
     })
 })
