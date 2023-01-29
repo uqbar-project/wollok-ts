@@ -1,5 +1,8 @@
 # Changelog
 
+## v3.1.5
+- Recover from malformed sentence on parse.
+
 ## v3.1.4
 - Fixed some validations:
   - Reassign constant values
