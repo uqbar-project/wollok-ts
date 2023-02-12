@@ -430,8 +430,8 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
 
 export const catchShouldBeReachable = error<Catch>(node => {
   const previousSiblings = node.previousSiblings()
-  const exceptionType = node.parameterType.target()!
-  return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
+  const exceptionType = node.parameterType.target()
+  return !exceptionType || isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is('Catch')) return false
     const siblingType = sibling.parameterType.target()!
     return exceptionType === siblingType || exceptionType.inherits(siblingType)
@@ -493,7 +493,8 @@ const getReferencedModule = (parent: Node): Module | undefined => {
 const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && value.isSynthetic()
 
 const getUninitializedAttributesForInstantation = (node: New): string[] => {
-  const target = node.instantiated.target()!
+  const target = node.instantiated.target()
+  if (!target) return []
   const initializers = node.args.map(_ => _.name)
   return getUninitializedAttributes(target, initializers)
 }
