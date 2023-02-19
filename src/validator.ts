@@ -433,8 +433,8 @@ export const catchShouldBeReachable = error<Catch>(node => {
   const exceptionType = node.parameterType.target()
   return !exceptionType || isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is('Catch')) return false
-    const siblingType = sibling.parameterType.target()!
-    return exceptionType === siblingType || exceptionType.inherits(siblingType)
+    const siblingType = sibling.parameterType.target()
+    return !siblingType || exceptionType === siblingType || exceptionType.inherits(siblingType)
   })
 })
 
