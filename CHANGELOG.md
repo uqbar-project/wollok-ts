@@ -14,6 +14,16 @@
 - Dropped `defaultFieldValues` in favor of the cleaner `defaultValueFor` method.
 - Renamed `Variable.isGlobal` to the more accurate `isAtPackageLevel`.
 
+## v3.1.5
+- Recover from malformed sentence on parse.
+
+## v3.1.4
+- Fixed some validations:
+  - Reassign constant values
+  - Missing references
+- Changed `kindName` primitive method implementation.
+- Fixed re-link Envirionment algorithm.
+
 ## v3.1.2
 - Moved local game code to language project.
 

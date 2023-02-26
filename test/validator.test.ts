@@ -1,12 +1,12 @@
-import { Node, Problem } from './../src/model'
-import { Annotation, buildEnvironment } from '../src'
-import globby from 'globby'
-import { readFileSync } from 'fs'
-import { join } from 'path'
-import validate from '../src/validator'
-import { should } from 'chai'
 import { fail } from 'assert'
+import { should } from 'chai'
+import { readFileSync } from 'fs'
+import globby from 'globby'
+import { join } from 'path'
+import { Annotation, buildEnvironment } from '../src'
 import { notEmpty } from '../src/extensions'
+import validate from '../src/validator'
+import { Node, Problem } from './../src/model'
 
 const TESTS_PATH = 'language/test/validations'
 
@@ -21,47 +21,53 @@ describe('Wollok Validations', () => {
 
   const matchesExpectation = (problem: Problem, expected: Annotation) => {
     const code = expected.args.get('code')!
-    return problem.code === code
+    return problem.code === code && problem.sourceMap?.toString() === problem.node.sourceMap?.toString()
   }
 
   const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`
 
-  for(const file of files) {
+  for (const file of files) {
     const packageName = file.name.split('.')[0]
 
     it(packageName, () => {
       const filePackage = environment.getNodeByFQN(packageName)
-
-      const nodesWithFileErrors = filePackage.reduce((nodesWithProblems, node) => node.hasProblems ? [...nodesWithProblems, node] : nodesWithProblems, [] as Node[])
-      if (notEmpty(nodesWithFileErrors))
-        fail(`Problems in file. ${nodesWithFileErrors.map(node => node.problems![0].code + ' at ' + errorLocation(node))}`)
-
       const allProblems = validate(filePackage)
+      const allExpectations = new Map<Node, Annotation[]>()
+
+      filePackage.forEach(node => {
+        node.metadata.filter(_ => _.name === 'Expect').forEach(expectedProblem => {
+          const path = expectedProblem.args.get('path')
+          const expectedNode: Node = path ? (node as any)[path as any] : node
+          if (!allExpectations.has(expectedNode)) allExpectations.set(expectedNode, [])
+          allExpectations.get(expectedNode)!.push(expectedProblem)
+        })
+      })
 
       filePackage.forEach(node => {
         const problems = allProblems.filter(_ => _.node === node)
-        const expectedProblems = node.metadata.filter(_ => _.name === 'Expect')
+        const expectedProblems = allExpectations.get(node) || []
 
-        for(const expectedProblem of expectedProblems) {
+        for (const expectedProblem of expectedProblems) {
           const code = expectedProblem.args.get('code')!
           const level = expectedProblem.args.get('level')
 
-          if(!code) fail('Missing required "code" argument in @Expect annotation')
+          if (!code) fail('Missing required "code" argument in @Expect annotation')
 
-          const errors = allProblems.filter(problem => !matchesExpectation(problem, expectedProblem))
+          const errors = problems.filter(problem => !matchesExpectation(problem, expectedProblem))
           if (notEmpty(errors))
             fail(`File contains errors: ${errors.map((_error) => _error.code + ' at ' + errorLocation(_error)).join(', ')}`)
 
           const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
-          if(!effectiveProblem)
+          if (!effectiveProblem)
             fail(`Missing expected ${code} ${level ?? 'problem'} at ${errorLocation(node)}`)
 
-          if(level && effectiveProblem.level !== level)
+
+          if (level && effectiveProblem.level !== level)
             fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${errorLocation(node)}`)
         }
 
-        for(const problem of problems) {
-          if(!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem)))
+        for (const problem of problems) {
+          if (!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem)))
             fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
         }
       })

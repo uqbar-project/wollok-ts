@@ -175,7 +175,7 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: Sentence.skip(__).many() }).wrap(key('{'), key('}'))
+  obj({ sentences: alt(Sentence.skip(__), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
 )
 
 const inlineableBody: Parser<BodyNode> = Body.or(
@@ -330,6 +330,8 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+const sentenceError = error('malformedSentence')()
 
 export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variable, Return, Assignment, Expression))
 

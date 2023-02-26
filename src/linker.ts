@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { divideOn, List } from './extensions'
+import { divideOn, is, List } from './extensions'
 import { Id, Import, Sentence, BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, Field, Parameter, ParameterizedType, Module } from './model'
 const { assign } = Object
 
@@ -30,13 +30,14 @@ const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => 
     ? [
       ...members.filter(member => member !== existent),
       existent.copy({
-        members: isolated.members.reduce(mergePackage, existent.members),
-        imports: [
-          ...existent.imports,
-          ...isolated.imports.filter(node => !existent.imports.some(other =>
-            node.entity.name === other.entity.name && node.isGeneric === other.isGeneric
-          )),
+        members: [
+          ...isolated.members
+            .filter(is(Package))
+            .reduce(mergePackage, existent.members.filter(is(Package))),
+          ...isolated.members.filter(m => !m.is(Package)),
         ],
+        problems: isolated.problems,
+        imports: isolated.imports,
       }) as Package,
     ]
     : [...members, isolated]
@@ -150,12 +151,6 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   assign(environment, { nodeCache })
 
   assignScopes(environment)
-
-  // TODO: Move to validator?
-  // TODO: Test if the reference points to the right kind of node
-  environment.forEach(node => {
-    if(node.is(Reference) && !node.target) fail('missingReference')(node)
-  })
 
   return environment
 }

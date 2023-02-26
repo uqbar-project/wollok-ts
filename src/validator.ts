@@ -160,6 +160,9 @@ export const shouldNotReassignConst = error<Assignment>(node => {
   return referenceIsNotConstant && !target?.is(Parameter)
 })
 
+// TODO: Test if the reference points to the right kind of node
+export const missingReference = error<Reference<Node>>(node => !!node.target )
+
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
 export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node => !node.value.is(Reference) || node.value.target !== node)
@@ -192,17 +195,17 @@ export const shouldNotUseOverride = error<Method>(node =>
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent)
-  return !!parent && !!parent.lookupField(node.name)
+  return !parent || !!parent.lookupField(node.name)
 })
 
-export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node =>  {
+export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node => {
   const nodeParent = node.parent
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is(New)) siblingArguments = nodeParent.args
   return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
 })
 
-export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node =>  {
+export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node => {
   const allNamedArguments = node.supertypes.flatMap(parent => parent.args.map(_ => _.name))
   return isEmpty(duplicates(allNamedArguments))
 })
@@ -745,6 +748,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
+  when(Reference)(() => ({ missingReference })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),

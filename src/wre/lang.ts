@@ -1,6 +1,6 @@
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
-import { Class, Node } from '../model'
+import { Class, Node, Singleton } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
 const { isInteger } = Number
@@ -35,7 +35,14 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName)
+      const onlyModuleName = self.module.fullyQualifiedName.split('.').pop()!
+      const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? 'an' : 'a'
+
+      const kindName =
+        self.module.is(Singleton) && self.module.name ||
+        aOrAn + ' ' + onlyModuleName
+
+      return yield* this.reify(kindName)
     },
 
     *className(self: RuntimeObject): Execution<RuntimeValue> {
