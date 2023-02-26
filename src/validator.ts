@@ -22,7 +22,7 @@ import { count, duplicates, isEmpty, last, List, notEmpty } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import, is, Kind,
   Level, Method, Mixin, Module, NamedArgument, New, Node, NodeOfKind, Package, Parameter, Problem,
-  Program, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Try, Variable } from './model'
+  Program, Reference, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Try, Variable } from './model'
 
 const { entries } = Object
 
@@ -160,6 +160,11 @@ export const shouldNotReassignConst = error<Assignment>(node => {
   return !target || referenceIsNotConstant && !target.is('Parameter')
 })
 
+export const missingReference = error<Reference<Node>>(node => {
+  const target = node.target()
+  return !!target
+})
+
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
 export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node => !node.value.is('Reference') || node.value.target() !== node)
@@ -174,7 +179,10 @@ export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
   return !receiver.is('Reference') || !receiver.ancestors().includes(receiver.target()!)
 })
 
-export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target()?.is('Mixin')))
+export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.every(parent => {
+  const target = parent.reference.target()
+  return !target || target.is('Mixin')
+}))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
   node.isOverride || !superclassMethod(node)
@@ -191,7 +199,7 @@ export const shouldNotUseOverride = error<Method>(node =>
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent)
-  return !!parent && !!parent.lookupField(node.name)
+  return !parent || !!parent.lookupField(node.name)
 })
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node => {
@@ -430,11 +438,11 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
 
 export const catchShouldBeReachable = error<Catch>(node => {
   const previousSiblings = node.previousSiblings()
-  const exceptionType = node.parameterType.target()!
-  return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
+  const exceptionType = node.parameterType.target()
+  return !exceptionType || isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is('Catch')) return false
-    const siblingType = sibling.parameterType.target()!
-    return exceptionType === siblingType || exceptionType.inherits(siblingType)
+    const siblingType = sibling.parameterType.target()
+    return !siblingType || exceptionType === siblingType || exceptionType.inherits(siblingType)
   })
 })
 
@@ -493,7 +501,8 @@ const getReferencedModule = (parent: Node): Module | undefined => {
 const uninitializedValue = (value: Expression | undefined) => value && value.is('Literal') && !value.value && value.isSynthetic()
 
 const getUninitializedAttributesForInstantation = (node: New): string[] => {
-  const target = node.instantiated.target()!
+  const target = node.instantiated.target()
+  if (!target) return []
   const initializers = node.args.map(_ => _.name)
   return getUninitializedAttributes(target, initializers)
 }
@@ -739,7 +748,7 @@ const validationsByKind: { [K in Kind]: Record<Code, Validation<NodeOfKind<K>>> 
   Variable: { nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar },
   Return: {},
   Assignment: { shouldNotAssignToItself, shouldNotReassignConst },
-  Reference: {},
+  Reference: { missingReference },
   Self: { shouldNotUseSelf },
   New: { shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes },
   Literal: {},

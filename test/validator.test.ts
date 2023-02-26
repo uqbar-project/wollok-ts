@@ -6,7 +6,7 @@ import { join } from 'path'
 import { Annotation, buildEnvironment } from '../src'
 import { notEmpty } from '../src/extensions'
 import validate from '../src/validator'
-import { Assignment, Node, Problem } from './../src/model'
+import { Node, Problem } from './../src/model'
 
 const TESTS_PATH = 'language/test/validations'
 
@@ -36,7 +36,8 @@ describe('Wollok Validations', () => {
 
       filePackage.forEach(node => {
         node.metadata.filter(_ => _.name === 'Expect').forEach(expectedProblem => {
-          const expectedNode = expectedProblem.args.get('variable') ? (node as Assignment).variable : node
+          const path = expectedProblem.args.get('path')
+          const expectedNode: Node = path ? (node as any)[path as any] : node
           if (!allExpectations.has(expectedNode)) allExpectations.set(expectedNode, [])
           allExpectations.get(expectedNode)!.push(expectedProblem)
         })
