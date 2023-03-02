@@ -36,10 +36,26 @@ export function cached(_target: any, propertyKey: string, descriptor: PropertyDe
 // LAZY
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+export class UninitializedLazyFieldError extends Error {
+  readonly key: string
+  constructor(key: string) {
+    super(`Tried to access uninitialized lazy property ${key}`)
+    this.key = key
+  }
+}
+
 export function lazy(target: any, key: string): void {
   defineProperty(target, key, {
     configurable: true,
     set(value: any) { return defineProperty(this, key, { value, configurable: false }) },
-    get() { throw new Error(`Tried to access uninitialized lazy property ${key}`) },
+    get() { throw new UninitializedLazyFieldError(key) },
   })
+}
+
+export function getPotentiallyUninitializedLazy<T, K extends keyof T>(target: T, lazyField: K): T[K] | undefined {
+  try { return target[lazyField] }
+  catch (error) {
+    if (error instanceof UninitializedLazyFieldError) return undefined
+    else throw error
+  }
 }

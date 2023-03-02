@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { getPotentiallyUninitializedLazy } from './decorators'
 import { divideOn, is, List } from './extensions'
 import { Id, Import, Sentence, BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, Field, Parameter, ParameterizedType, Module } from './model'
 const { assign } = Object
@@ -136,7 +137,7 @@ const assignScopes = (environment: Environment) => {
 export default (newPackages: List<Package>, baseEnvironment?: Environment): Environment => {
   const environment = new Environment({
     id: uuid(),
-    scope: null as any,
+    scope: undefined,
     members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package>,
   }).transform(node => node.copy({ id: uuid() }))
 
@@ -170,7 +171,7 @@ export function linkIsolated<S extends Sentence>(sentence: S, environment: Envir
       scope: new LocalScope(
         parent
           ? node.is(Reference) && parent.is(ParameterizedType)
-            ? parent.parent?.scope ?? topLevelScope
+            ? getPotentiallyUninitializedLazy(parent, 'parent')?.scope ?? topLevelScope
             : parent.scope
           : topLevelScope
       ),

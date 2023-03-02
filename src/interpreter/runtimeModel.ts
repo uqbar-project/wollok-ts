@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Describe, Environment, Entity, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
@@ -444,7 +445,7 @@ export class Evaluation {
     const target = node.target
 
     return this.currentFrame.get(
-      target?.is(Module) || target?.is(Variable) && target.parent?.is(Package)
+      target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
         ? target.fullyQualifiedName
         : node.name
     ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))

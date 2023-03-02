@@ -1,5 +1,5 @@
 import { ConstructorFor, Definition, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty } from './extensions'
-import { lazy, cached } from './decorators'
+import { lazy, cached, getPotentiallyUninitializedLazy } from './decorators'
 
 const { isArray } = Array
 const { entries, values, assign } = Object
@@ -262,7 +262,7 @@ export function Entity<S extends Mixable<Node>>(supertype: S) {
 
     @cached
     get fullyQualifiedName(): Name {
-      const parent = this.parent
+      const parent = getPotentiallyUninitializedLazy(this, 'parent')
       const label = this.is(Singleton)
         ? this.name ?? `${this.superclass!.fullyQualifiedName}#${this.id}`
         : this.name!.replace(/\.#/g, '')
