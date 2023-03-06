@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.0.1
+**Wollok Version: `3.1.3`**
+
+- Adding mechanism to get possibly uninitialized lazy values without raising.
+- Cleaned up uses of lazy fields to handle the posibility of the field not being there when reasonable (such as `parent` in `fullyQualifiedName`)
+- Improving type exclussion for models with the same structural definition.
+
 ## v4.0.0
 **Wollok Version: `3.1.3`**
 

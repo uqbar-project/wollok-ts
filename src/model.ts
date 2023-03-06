@@ -1,4 +1,4 @@
-import { ConstructorFor, Definition, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty } from './extensions'
+import { ConstructorFor, TypeDefinition, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty } from './extensions'
 import { lazy, cached, getPotentiallyUninitializedLazy } from './decorators'
 
 const { isArray } = Array
@@ -110,7 +110,7 @@ export abstract class Node {
     }, 2)
   }
 
-  is<Q extends Definition<Node>>(kindOrCategory: Q): this is InstanceOf<Q> { return is(kindOrCategory)(this) }
+  is<Q extends TypeDefinition<Node>>(kindOrCategory: Q): this is InstanceOf<Q> { return is(kindOrCategory)(this) }
 
   copy(delta: Record<string, unknown> = {}): this {
     return new (this.constructor as any)({ ...this, ...delta })
@@ -254,6 +254,7 @@ export type Entity = InstanceType<ConstructorFor<typeof Entity>>
 export function Entity<S extends Mixable<Node>>(supertype: S) {
 
   abstract class EntityType extends supertype {
+    #isEntity: any
     static [MIXINS] = [Entity, ...supertype[MIXINS] ?? []]
 
     abstract readonly name?: Name
@@ -369,6 +370,7 @@ export type Module = InstanceType<ConstructorFor<typeof Module>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Module<S extends Mixable<Node>>(supertype: S) {
   abstract class ModuleType extends Entity(supertype) {
+    #isModule: any
     static [MIXINS]: MixinDefinition<Node>[] = [Module, ...Entity(supertype)[MIXINS] ?? []]
 
     abstract readonly name?: Name
@@ -643,6 +645,7 @@ export type Sentence = InstanceType<ConstructorFor<typeof Sentence>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Sentence<S extends Mixable<Node>>(supertype: S) {
   abstract class SentenceType extends supertype {
+    #isSentence: any
     static [MIXINS] = [Sentence, ...supertype[MIXINS] ?? []]
   }
   return SentenceType
@@ -677,6 +680,8 @@ export type Expression = InstanceType<ConstructorFor<typeof Expression>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Expression<S extends Mixable<Node>>(supertype: S) {
   abstract class ExpressionType extends Sentence(supertype) {
+    #isExpression: any
+
     static [MIXINS]: MixinDefinition<Node>[] = [Expression, ...Sentence(supertype)[MIXINS] ?? []]
   }
 

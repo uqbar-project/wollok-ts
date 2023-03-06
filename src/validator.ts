@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { count, Definition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
+import { count, TypeDefinition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
@@ -86,7 +86,7 @@ export const shouldNotBeEmpty = warning<Body>(node =>
   node.isEmpty()
 )
 
-export const isNotWithin = <N extends Node>(kind: Definition<N>): (node: N, code: Code) => Problem | null =>
+export const isNotWithin = <N extends Node>(kind: TypeDefinition<N>): (node: N, code: Code) => Problem | null =>
   error((node: N) => !node.ancestors.some(is(kind)) || node.isSynthetic)
 
 export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
@@ -689,8 +689,8 @@ const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
     const parent = nodeReturn.ancestors.find(is(Singleton))
     return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
   }),
-  when(Send)(nodeSend => nodeSend.args.includes(node) || nodeSend.receiver == node),
-  when(Super)(nodeSuper => nodeSuper.args.includes(node)),
+  when(Send)(nodeSend => node.is(Expression) && nodeSend.args.includes(node) || nodeSend.receiver == node),
+  when(Super)(nodeSuper => node.is(Expression) && nodeSuper.args.includes(node)),
   when(Variable)(() => true),
   when(Node)(() => false),
 )

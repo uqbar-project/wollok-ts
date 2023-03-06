@@ -1,8 +1,14 @@
 import { fail } from 'assert'
 import { expect, should } from 'chai'
-import { InstanceOf, is, match, Mixable, mixinOf, when } from '../src/extensions'
+import { InstanceOf, is, match, Mixable, MixinDefinition, MIXINS, when } from '../src/extensions'
 
 should()
+
+const mixinOf = <T extends object>(S: Mixable<T>) => (M: MixinDefinition<T>): Mixable<T> => {
+  return class extends S {
+    static [MIXINS] = [M, ...S[MIXINS] ?? []]
+  }
+}
 
 describe('extensions', () => {
 
