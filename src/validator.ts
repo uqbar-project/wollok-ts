@@ -156,7 +156,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
 
 export const shouldNotReassignConst = error<Assignment>(node => {
   const target = node?.variable?.target
-  const referenceIsNotConstant = !!target && (target.is(Variable) || target?.is(Field)) && !target.isConstant
+  const referenceIsNotConstant = !target || (target.is(Variable) || target?.is(Field)) && !target.isConstant
   return referenceIsNotConstant && !target?.is(Parameter)
 })
 
@@ -177,8 +177,10 @@ export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
   return !receiver.is(Reference) || !receiver.ancestors.includes(receiver.target!)
 })
 
-export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target?.is(Mixin)))
-
+export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.every(parent => {
+  const target = parent.reference.target
+  return !target || target.is(Mixin)
+}))
 export const shouldUseOverrideKeyword = warning<Method>(node =>
   node.isOverride || !superclassMethod(node)
 )
@@ -440,11 +442,11 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
 
 export const catchShouldBeReachable = error<Catch>(node => {
   const previousSiblings = node.parent.children.slice(0, node.parent.children.indexOf(node))
-  const exceptionType = node.parameterType.target!
-  return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
+  const exceptionType = node.parameterType.target
+  return !exceptionType || isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is(Catch)) return false
-    const siblingType = sibling.parameterType.target!
-    return exceptionType === siblingType || exceptionType.inherits(siblingType)
+    const siblingType = sibling.parameterType.target
+    return !siblingType || exceptionType === siblingType || exceptionType.inherits(siblingType)
   })
 })
 
@@ -505,7 +507,8 @@ const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
 )
 
 const getUninitializedAttributesForInstantation = (node: New): string[] => {
-  const target = node.instantiated.target!
+  const target = node.instantiated.target
+  if (!target) return []
   const initializers = node.args.map(_ => _.name)
   return getUninitializedAttributes(target, initializers)
 }
