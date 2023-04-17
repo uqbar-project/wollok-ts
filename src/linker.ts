@@ -73,6 +73,8 @@ export class LocalScope implements Scope {
   }
 
   include(...others: Scope[]): void { this.includedScopes.push(...others) }
+
+  localContributions(): [Name, Node][] { return [...this.contributions.entries()] }
 }
 
 
@@ -113,7 +115,7 @@ const assignScopes = (environment: Environment) => {
         const entity = node.parent.scope.resolve<Entity>(imported.entity.name)
 
         if(entity) node.scope.include(imported.isGeneric
-          ? entity.scope
+          ? new LocalScope(undefined, ...entity.scope.localContributions())
           : new LocalScope(undefined, [entity.name!, entity])
         )
       }
