@@ -6,7 +6,7 @@ import { join } from 'path'
 import { Annotation, buildEnvironment } from '../src'
 import { notEmpty } from '../src/extensions'
 import validate from '../src/validator'
-import { Assignment, Node, Problem } from './../src/model'
+import { Node, Problem } from './../src/model'
 
 const TESTS_PATH = 'language/test/validations'
 
@@ -20,7 +20,7 @@ describe('Wollok Validations', () => {
   const environment = buildEnvironment(files)
 
   const matchesExpectation = (problem: Problem, expected: Annotation) => {
-    const code = expected.args.get('code')!
+    const code = expected.args['code']!
     return problem.code === code && problem.sourceMap?.toString() === problem.node.sourceMap?.toString()
   }
 
@@ -36,7 +36,8 @@ describe('Wollok Validations', () => {
 
       filePackage.forEach(node => {
         node.metadata.filter(_ => _.name === 'Expect').forEach(expectedProblem => {
-          const expectedNode = expectedProblem.args.get('variable') ? (node as Assignment).variable : node
+          const path = expectedProblem.args['path']
+          const expectedNode: Node = path ? (node as any)[path as any] : node
           if (!allExpectations.has(expectedNode)) allExpectations.set(expectedNode, [])
           allExpectations.get(expectedNode)!.push(expectedProblem)
         })
@@ -47,8 +48,8 @@ describe('Wollok Validations', () => {
         const expectedProblems = allExpectations.get(node) || []
 
         for (const expectedProblem of expectedProblems) {
-          const code = expectedProblem.args.get('code')!
-          const level = expectedProblem.args.get('level')
+          const code = expectedProblem.args['code']!
+          const level = expectedProblem.args['level']
 
           if (!code) fail('Missing required "code" argument in @Expect annotation')
 

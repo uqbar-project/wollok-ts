@@ -1,3 +1,5 @@
+import { raise } from './extensions'
+
 const { defineProperty } = Object
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -14,25 +16,46 @@ export function getCache(target: any): Cache {
 }
 
 export function cached(_target: any, propertyKey: string, descriptor: PropertyDescriptor): void {
-  const originalMethod: Function = descriptor.value
-  descriptor.value = function (this: {[CACHE]: Cache | undefined}, ...args: any[]) {
+  const handler =
+      typeof descriptor.value === 'function' ? { get(){ return descriptor.value }, set(value: any){ descriptor.value = value } } :
+      typeof descriptor.get === 'function' ? { get(){ return descriptor.get }, set(value: any){ descriptor.get = value } } :
+      raise(new TypeError(`Can't cache ${propertyKey}: Only methods and properties can be cached`))
+
+  const originalDefinition = handler.get()
+  handler.set(function (this: any, ...args: any[]) {
     const cache = getCache(this)
     const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
     if (cache.has(key)) return cache.get(key)
-    const result = originalMethod.apply(this, args)
+    const result = originalDefinition.apply(this, args)
     cache.set(key, result)
     return result
-  }
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LAZY
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+export class UninitializedLazyFieldError extends Error {
+  readonly key: string
+  constructor(key: string) {
+    super(`Tried to access uninitialized lazy property ${key}`)
+    this.key = key
+  }
+}
+
 export function lazy(target: any, key: string): void {
   defineProperty(target, key, {
     configurable: true,
     set(value: any) { return defineProperty(this, key, { value, configurable: false }) },
-    get() { return undefined },
+    get() { throw new UninitializedLazyFieldError(key) },
   })
+}
+
+export function getPotentiallyUninitializedLazy<T, K extends keyof T>(target: T, lazyField: K): T[K] | undefined {
+  try { return target[lazyField] }
+  catch (error) {
+    if (error instanceof UninitializedLazyFieldError) return undefined
+    else throw error
+  }
 }

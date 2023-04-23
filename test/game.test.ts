@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { join } from 'path'
+import { resolve } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
 import { Environment } from '../src'
@@ -16,7 +16,7 @@ describe('Wollok Game', () => {
     let environment: Environment
 
     before(async () => {
-      environment = await buildEnvironment('**/*.wpgm', join('test', 'game'))
+      environment = await buildEnvironment('**/*.wpgm', resolve('language', 'test', 'game'))
     })
 
     it('addVisual', () => {

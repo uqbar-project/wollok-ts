@@ -69,3 +69,27 @@ export const duplicates = <T>(list: List<T>): List<T> => list.filter((element: T
 export const count = <T>(list: List<T>, condition: (element: T) => boolean): number => list.filter(condition).length
 
 export function raise(error: Error): never { throw error }
+
+
+export const MIXINS = Symbol('mixins')
+
+export type TypeDefinition<T> = ClassDefinition<T> | MixinDefinition<T>
+export type ClassDefinition<T> = abstract new (...args: any) => T
+export type MixinDefinition<T> = (...args: any) => ClassDefinition<T>
+export type Mixable<T> = ClassDefinition<T> & {[MIXINS]?: MixinDefinition<T>[]}
+
+export type ConstructorFor<D extends TypeDefinition<any>> = D extends TypeDefinition<infer T> ? ClassDefinition<T> : never
+export type InstanceOf<D extends TypeDefinition<any>> = InstanceType<ConstructorFor<D>>
+
+export const is = <D extends TypeDefinition<any>>(definition: D) => (obj: any): obj is InstanceOf<D> => {
+  return !!obj && (obj instanceof definition || (obj.constructor as any)[MIXINS]?.includes(definition))
+}
+
+export const match = <T>(matched: T) =>
+  <R, Cs extends any[]>(...cases: {[i in keyof Cs]: readonly [TypeDefinition<Cs[i]>, (m: Cs[i]) => R] }): R => {
+    for(const [key, handler] of cases)
+      if(is(key)(matched)) return handler(matched)
+    throw new Error(`${matched} exhausted all cases without a match`)
+  }
+
+export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) => R) => [definition, handler] as const

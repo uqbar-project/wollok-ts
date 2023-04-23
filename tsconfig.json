@@ -21,6 +21,7 @@
   ],
   "exclude": [
     "**/*.js",
+    "build",
     "node_modules",
   ]
 }

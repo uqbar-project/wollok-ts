@@ -1,6 +1,6 @@
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
-import { Class, Node } from '../model'
+import { Class, Node, Singleton } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
 const { isInteger } = Number
@@ -35,18 +35,18 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
-      const onlyModuleName = self.module.fullyQualifiedName().split('.').pop()!
+      const onlyModuleName = self.module.fullyQualifiedName.split('.').pop()!
       const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? 'an' : 'a'
 
       const kindName =
-        self.module.kind === 'Singleton' && self.module.name ||
+        self.module.is(Singleton) && self.module.name ||
         aOrAn + ' ' + onlyModuleName
 
       return yield* this.reify(kindName)
     },
 
     *className(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.module.fullyQualifiedName())
+      return yield* this.reify(self.module.fullyQualifiedName)
     },
 
     *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject): Execution<RuntimeValue> {
@@ -302,7 +302,7 @@ const lang: Natives = {
       value.assertIsNotNull()
 
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (let i = 0; i < bucket.length; i++) {
@@ -318,7 +318,7 @@ const lang: Natives = {
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (const entry of bucket) {
@@ -331,7 +331,7 @@ const lang: Natives = {
 
     *remove(self: RuntimeObject, key: RuntimeObject): Execution<void> {
       const buckets = self.get('<buckets>')!.innerCollection!
-      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName()}`) % buckets.length
+      const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
       const bucket = buckets[index].innerCollection!
 
       for (let i = 0; i < bucket.length; i++) {
@@ -713,7 +713,7 @@ const lang: Natives = {
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
-      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName()}#${self.id}`))
+      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName}#${self.id}`))
     },
 
   },

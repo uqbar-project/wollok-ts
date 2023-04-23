@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
-import { Id, Import, Sentence } from '.'
-import { divideOn, List } from './extensions'
-import { BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, is } from './model'
+import { getPotentiallyUninitializedLazy } from './decorators'
+import { divideOn, is, List } from './extensions'
+import { Id, Import, Sentence, BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, Field, Parameter, ParameterizedType, Module } from './model'
 const { assign } = Object
 
 
@@ -23,18 +23,19 @@ const fail = (code: Name) => (node: Reference<Node>) =>
 // MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const mergePackage = (members: List<Package>, isolated: Package): List<Package> => {
+const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => {
+  if (!isolated.is(Package)) return [...members.filter(({ name }) => name !== isolated.name), isolated]
   const existent = members.find((member: Entity): member is Package =>
-    member.is('Package') && member.name === isolated.name)
+    member.is(Package) && member.name === isolated.name)
   return existent
     ? [
       ...members.filter(member => member !== existent),
       existent.copy({
         members: [
           ...isolated.members
-            .filter(is('Package'))
-            .reduce(mergePackage, existent.members.filter(is('Package'))),
-          ...isolated.members.filter(m => !m.is('Package')),
+            .filter(is(Package))
+            .reduce(mergePackage, existent.members.filter(is(Package))),
+          ...isolated.members.filter(m => !m.is(Package)),
         ],
         problems: isolated.problems,
         imports: isolated.imports,
@@ -77,9 +78,9 @@ export class LocalScope implements Scope {
 
 const scopeContribution = (contributor: Node): List<[Name, Node]> => {
   if (
-    contributor.is('Entity') ||
-    contributor.is('Field') ||
-    contributor.is('Parameter')
+    contributor.is(Entity) ||
+    contributor.is(Field) ||
+    contributor.is(Parameter)
   ) return contributor.name ? [[contributor.name, contributor]] : []
 
   return []
@@ -90,24 +91,24 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
-        node.is('Reference') && parent!.is('ParameterizedType')
+        node.is(Reference) && parent!.is(ParameterizedType)
           ? parent?.parent.scope
           : parent?.scope
       ),
     })
 
-    if(node.is('Entity')) parent?.scope?.register(...scopeContribution(node))
+    if(node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
   })
 
   environment.forEach((node, parent) => {
-    if(node.is('Environment')){
+    if(node.is(Environment)){
       for(const globalName of GLOBAL_PACKAGES) {
         const globalPackage = environment.scope.resolve<Package>(globalName)
         if(globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
 
-    if(node.is('Package')) {
+    if(node.is(Package)) {
       for(const imported of node.imports) {
         const entity = node.parent.scope.resolve<Entity>(imported.entity.name)
 
@@ -118,10 +119,12 @@ const assignScopes = (environment: Environment) => {
       }
     }
 
-    if(node.is('Module'))
-      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+    if(node.is(Module)) {
 
-    if(parent && !node.is('Entity'))
+      node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
+    }
+
+    if(parent && !node.is(Entity))
       parent!.scope.register(...scopeContribution(node))
   })
 }
@@ -134,7 +137,7 @@ const assignScopes = (environment: Environment) => {
 export default (newPackages: List<Package>, baseEnvironment?: Environment): Environment => {
   const environment = new Environment({
     id: uuid(),
-    scope: null as any,
+    scope: undefined,
     members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package>,
   }).transform(node => node.copy({ id: uuid() }))
 
@@ -145,14 +148,10 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
     // TODO: There is no need any more for this to be on the linker. Move parent assignment to constructors
     if(parent) node.parent = parent
   })
-  environment.nodeCache = nodeCache
+
+  assign(environment, { nodeCache })
 
   assignScopes(environment)
-
-  // TODO: Move to validator?
-  environment.forEach(node => {
-    if(node.is('Reference') && !node.target()) fail('missingReference')(node)
-  })
 
   return environment
 }
@@ -171,14 +170,14 @@ export function linkIsolated<S extends Sentence>(sentence: S, environment: Envir
     assign(node, {
       scope: new LocalScope(
         parent
-          ? node.is('Reference') && parent.is('ParameterizedType')
-            ? parent.parent?.scope ?? topLevelScope
+          ? node.is(Reference) && parent.is(ParameterizedType)
+            ? getPotentiallyUninitializedLazy(parent, 'parent')?.scope ?? topLevelScope
             : parent.scope
           : topLevelScope
       ),
     })
 
-    if(node.is('Entity')) parent?.scope?.register(...scopeContribution(node))
+    if(node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
   })
 
   for(const imported of context) {
@@ -191,15 +190,15 @@ export function linkIsolated<S extends Sentence>(sentence: S, environment: Envir
   }
 
   sentence.forEach((node, parent) => {
-    if(node.is('Module'))
-      node.scope.include(...node.hierarchy().slice(1).map(supertype => supertype.scope))
+    if(node.is(Module))
+      node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
 
-    if(parent && !node.is('Entity'))
+    if(parent && !node.is(Entity))
       parent.scope.register(...scopeContribution(node))
   })
 
   sentence.forEach(node => {
-    if(node.is('Reference') && !node.target()) fail('missingReference')(node)
+    if(node.is(Reference) && !node.target) fail('missingReference')(node)
   })
 
   return sentence

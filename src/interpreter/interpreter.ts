@@ -1,5 +1,4 @@
-import { Sentence } from '..'
-import { Entity, Environment, Method, Module, Name, Node } from '../model'
+import { Entity, Environment, Method, Module, Name, Node, Sentence } from '../model'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 
 
@@ -33,7 +32,7 @@ abstract class AbstractInterpreter {
   }
 
   run(programOrTestFQN: Name): InterpreterResult<this, void> {
-    return this.exec(this.evaluation.environment.getNodeByFQN<Entity>(programOrTestFQN))
+    return this.exec(this.evaluation.environment.getNodeByFQN<Entity>(programOrTestFQN)) as any // TODO: avoid cast
   }
 
   send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): InterpreterResult<this, RuntimeValue> {

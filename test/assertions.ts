@@ -128,8 +128,8 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   Assertion.addMethod('target', function (node: Node) {
     const reference: Reference<Node> = this._obj
 
-    new Assertion(reference.is('Reference'), `can't check "target" of ${reference.kind} node`).to.be.true
-    new Assertion(this._obj.target().id).to.equal(node.id)
+    new Assertion(reference.is(Reference), `can't check "target" of ${reference.kind} node`).to.be.true
+    new Assertion(this._obj.target.id).to.equal(node.id)
   })
 }
 
@@ -170,7 +170,7 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
 
   if(!skipValidations) {
     const problems = validate(environment)
-    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node?.sourceInfo() ?? 'unknown'}`).join('\n')}`)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node?.sourceInfo ?? 'unknown'}`).join('\n')}`)
     else log('No problems found building the environment!')
   }
 

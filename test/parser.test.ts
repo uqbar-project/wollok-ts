@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, LiteralValue, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -69,7 +69,7 @@ describe('Wollok parser', () => {
     )
 
     it('should parse annotations with multiple parameters', () =>
-      '@Annotation (x = 1, y = "a", z=true)'.should.be.parsedBy(parser).into({ name: 'Annotation', args: new Map<Name, LiteralValue>([['x', 1], ['y', 'a'], ['z', true]]) })
+      '@Annotation (x = 1, y = "a", z=true)'.should.be.parsedBy(parser).into(new Annotation('Annotation', { x: 1, y: 'a', z: true }))
     )
 
     it('should not parse malformed annotations', () => {
@@ -1502,9 +1502,24 @@ describe('Wollok parser', () => {
       it('should not parse development with closures of native methods', () => {
         'method m(p,q) native { }'.should.not.be.parsedBy(parser)
       })
-
     })
 
+  })
+
+  describe('Body', () => {
+    const parser = parse.Body
+
+    it('should recover from malformed sentence', () => {
+      `{
+            felicidad.
+      }`.should.be.parsedBy(parser)
+        .recoveringFrom('malformedSentence', 23, 24)
+        .into( new Body({
+          sentences: [
+            new Reference({ name: 'felicidad' }),
+          ],
+        }))
+    })
   })
 
   describe('Sentences', () => {

@@ -1,5 +1,29 @@
 # Changelog
 
+## v4.0.1
+**Wollok Version: `3.1.3`**
+
+- Adding mechanism to get possibly uninitialized lazy values without raising.
+- Cleaned up uses of lazy fields to handle the posibility of the field not being there when reasonable (such as `parent` in `fullyQualifiedName`)
+- Improving type exclussion for models with the same structural definition.
+
+## v4.0.0
+**Wollok Version: `3.1.3`**
+
+- Updated TypeScript version to `4.9`
+- String-based Kinds and Categories were replaced with TypeScript classes and mixins (class constructor functions). All related methods were updated accordingly.
+- `match` method in Nodes replaced in favor of generic `match` function.
+- Several non-breakable, no-argument methods where replaced with computed properties.
+- Dropped `isNode` function in favor of `instanceof Node` notation.
+- `cached` decorator now supports properties as well as methods.
+- Dropped exposed `Node` methods that asumed a sibling order.
+- Added methods in `Literal` node to check value type.
+- Dropped `defaultFieldValues` in favor of the cleaner `defaultValueFor` method.
+- Renamed `Variable.isGlobal` to the more accurate `isAtPackageLevel`.
+
+## v3.1.5
+- Recover from malformed sentence on parse.
+
 ## v3.1.4
 - Fixed some validations:
   - Reassign constant values

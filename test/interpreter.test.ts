@@ -1,10 +1,10 @@
 import { expect, should, use } from 'chai'
-import sinonChai from 'sinon-chai'
 import { restore } from 'sinon'
-import { Expression, Singleton, Return, Reference, ParameterizedType, Class, Package, Literal, Method, Body, Send } from '../src/model'
+import sinonChai from 'sinon-chai'
+import { Evaluation } from '../src'
 import { DirectedInterpreter, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
-import { Evaluation } from '../src'
+import { Body, Class, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton } from '../src/model'
 
 
 use(sinonChai)
@@ -67,7 +67,7 @@ describe('Wollok Interpreter', () => {
     })
 
     it('should fail when executing a missing unlinked reference', () => {
-      const sentence: Expression = new Reference({ name: 'x' })
+      const sentence = new Reference({ name: 'x' })
       const interpreter = new Interpreter(Evaluation.build(WRE, {}))
       expect(() => interpreter.exec(sentence)).to.throw(`Could not resolve unlinked reference to ${sentence.name}`)
     })

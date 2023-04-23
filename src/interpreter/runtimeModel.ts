@@ -1,6 +1,7 @@
-import { Environment, is, Method, Module, Name, Node, Variable, Singleton, Expression, Id, Body, Assignment, Return, Reference, Self, Literal, LiteralValue, New, Send, Super, If, Try, Throw, Test, Program } from '../model'
-import { get, last, List, raise } from '../extensions'
 import { v4 as uuid } from 'uuid'
+import { getPotentiallyUninitializedLazy } from '../decorators'
+import { get, is, last, List, match, raise, when } from '../extensions'
+import { Assignment, Body, Catch, Describe, Environment, Entity, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
 const { isArray } = Array
@@ -59,8 +60,8 @@ export class WollokException extends Error {
     instance.assertIsException()
 
     this.name = instance.innerValue
-      ? `${instance.module.fullyQualifiedName()} wrapping TypeScript ${instance.innerValue.name}`
-      : instance.module.fullyQualifiedName()
+      ? `${instance.module.fullyQualifiedName} wrapping TypeScript ${instance.innerValue.name}`
+      : instance.module.fullyQualifiedName
   }
 }
 
@@ -125,23 +126,23 @@ export class Frame extends Context {
   }
 
   get description(): string {
-    return this.node.match({
-      Entity: node => `${node.fullyQualifiedName()}`,
+    return match(this.node)(
+      [Entity, (node: Entity) => `${node.fullyQualifiedName}`],
       // TODO: Add fqn to method
-      Method: node => `${node.parent.fullyQualifiedName()}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`,
-      Catch: node => `catch(${node.parameter.name}: ${node.parameterType.name})`,
-      Environment: () => 'root',
-      Node: node => `${node.kind}`,
-    })
+      when(Method)(node => `${node.parent.fullyQualifiedName}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`),
+      when(Catch)(node => `catch(${node.parameter.name}: ${node.parameterType.name})`),
+      when(Environment)(() => 'root'),
+      when(Node)(node => `${node.kind}`),
+    )
   }
 
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const target = this.node.is('Method') && this.node.name === '<apply>'
+    const target = this.node.is(Method) && this.node.name === '<apply>'
       ? this.node.parent
       : this.node
-    return target.sourceInfo()
+    return target.sourceInfo
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
@@ -213,7 +214,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
-    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName()} instead`)
+    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
     if(this.innerValue && !(this.innerValue instanceof Error)) {
       throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
     }
@@ -224,7 +225,7 @@ export class RuntimeObject extends Context {
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
-    if (this.module.fullyQualifiedName() !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName()} instead`)
+    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 }
@@ -250,28 +251,28 @@ export class Evaluation {
     const evaluation = new Evaluation(new Map(), [new Frame(environment)], new Map(), new Map())
 
     environment.forEach(node => {
-      if(node.is('Method') && node.isNative())
-        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName()}.${node.name}`)!)
+      if(node.is(Method) && node.isNative())
+        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
     })
 
-    const globalSingletons = environment.descendants().filter((node: Node): node is Singleton => node.is('Singleton') && !!node.name)
+    const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => node.is(Singleton) && !!node.name)
     for (const module of globalSingletons)
-      evaluation.rootFrame.set(module.fullyQualifiedName(), evaluation.instantiate(module))
+      evaluation.rootFrame.set(module.fullyQualifiedName, evaluation.instantiate(module))
 
 
-    const globalConstants = environment.descendants().filter((node: Node): node is Variable => node.is('Variable') && node.parent.is('Package'))
+    const globalConstants = environment.descendants.filter((node: Node): node is Variable => node.is(Variable) && node.parent.is(Package))
     for (const constant of globalConstants)
-      evaluation.rootFrame.set(constant.fullyQualifiedName(), evaluation.exec(constant.value))
+      evaluation.rootFrame.set(constant.fullyQualifiedName, evaluation.exec(constant.value))
 
 
     for (const module of globalSingletons) {
-      const instance = evaluation.object(module.fullyQualifiedName())
-      for (const field of module.allFields())
+      const instance = evaluation.object(module.fullyQualifiedName)
+      for (const field of module.allFields)
         instance!.get(field.name)
     }
 
     for (const constant of globalConstants)
-      evaluation.object(constant.fullyQualifiedName())
+      evaluation.object(constant.fullyQualifiedName)
 
 
     return evaluation
@@ -333,24 +334,25 @@ export class Evaluation {
     if(frame) this.frameStack.push(frame)
 
     try {
+      // TODO avoid casting
       switch(node.kind) {
-        case 'Test': yield* this.execTest(node); return
-        case 'Program': yield* this.execProgram(node); return
-        case 'Method': return yield* this.execMethod(node)
-        case 'Body': return yield* this.execBody(node)
-        case 'Variable': yield* this.execVariable(node); return
-        case 'Assignment': yield* this.execAssignment(node); return
-        case 'Return': return yield* this.execReturn(node)
-        case 'Reference': return yield* this.execReference(node)
-        case 'Self': return yield* this.execSelf(node)
-        case 'Literal': return yield* this.execLiteral(node)
-        case 'New': return yield* this.execNew(node)
-        case 'Send': return yield* this.execSend(node)
-        case 'Super': return yield* this.execSuper(node)
-        case 'If': return yield* this.execIf(node)
-        case 'Try': return yield* this.execTry(node)
-        case 'Throw': return yield* this.execThrow(node)
-        case 'Singleton': return yield* this.execSingleton(node)
+        case 'Test': yield* this.execTest(node as Test); return
+        case 'Program': yield* this.execProgram(node as Program); return
+        case 'Method': return yield* this.execMethod(node as Method)
+        case 'Body': return yield* this.execBody(node as Body)
+        case 'Variable': yield* this.execVariable(node as Variable); return
+        case 'Assignment': yield* this.execAssignment(node as Assignment); return
+        case 'Return': return yield* this.execReturn(node as Return)
+        case 'Reference': return yield* this.execReference(node as Reference<any>)
+        case 'Self': return yield* this.execSelf(node as Self)
+        case 'Literal': return yield* this.execLiteral(node as Literal)
+        case 'New': return yield* this.execNew(node as New)
+        case 'Send': return yield* this.execSend(node as Send)
+        case 'Super': return yield* this.execSuper(node as Super)
+        case 'If': return yield* this.execIf(node as If)
+        case 'Try': return yield* this.execTry(node as Try)
+        case 'Throw': return yield* this.execThrow(node as Throw)
+        case 'Singleton': return yield* this.execSingleton(node as Singleton)
         default: throw new Error(`Can't execute ${node.kind} node`)
       }
     } catch(error) {
@@ -368,7 +370,7 @@ export class Evaluation {
   protected *execTest(node: Test): Execution<void> {
     yield node
 
-    yield* this.exec(node.body, new Frame(node, node.parent.is('Describe')
+    yield* this.exec(node.body, new Frame(node, node.parent.is(Describe)
       ? yield* this.instantiate(node.parent)
       : this.currentFrame,
     ))
@@ -385,7 +387,7 @@ export class Evaluation {
 
     if(node.isNative()) {
       const native = this.natives.get(node)
-      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName()}.${node.name}`)
+      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName}.${node.name}`)
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
@@ -398,7 +400,7 @@ export class Evaluation {
         if(error instanceof WollokReturn) return error.instance
         else throw error
       }
-    } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName()}.${node.name}/${node.parameters.length}`)
+    } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName}.${node.name}/${node.parameters.length}`)
   }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
@@ -424,7 +426,7 @@ export class Evaluation {
 
     yield node
 
-    if(node.variable.target()?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target()?.name}`)
+    if(node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
 
     this.currentFrame.set(node.variable.name, value, true)
   }
@@ -440,11 +442,11 @@ export class Evaluation {
 
     if(!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
 
-    const target = node.target()
+    const target = node.target
 
     return this.currentFrame.get(
-      target?.is('Module') || target?.is('Variable') && target.parent?.is('Package')
-        ? target.fullyQualifiedName()
+      target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
+        ? target.fullyQualifiedName
         : node.name
     ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
   }
@@ -457,7 +459,7 @@ export class Evaluation {
   protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
     if(isArray(node.value)) {
       const [reference, args] = node.value
-      const module = reference.target()!
+      const module = reference.target!
 
       const values: RuntimeObject[] = []
       for(const arg of args) values.push(yield * this.exec(arg))
@@ -478,7 +480,7 @@ export class Evaluation {
 
     yield node
 
-    const target = node.instantiated.target() ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
+    const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
 
     return yield* this.instantiate(target, args)
   }
@@ -504,9 +506,9 @@ export class Evaluation {
     yield node
 
     const receiver = this.currentFrame.get('self')!
-    const currentMethod = node.ancestors().find(is('Method'))!
+    const currentMethod = node.ancestors.find(is(Method))!
     //TODO: pass just the parent (not the FQN) to lookup?
-    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName() })
+    const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
 
@@ -533,7 +535,7 @@ export class Evaluation {
 
       const errorType = error.instance.module
       const handler = node.catches.find(catcher => {
-        const handledType = catcher.parameterType.target()
+        const handledType = catcher.parameterType.target
         return handledType && errorType.inherits(handledType)
       })
 
@@ -647,29 +649,30 @@ export class Evaluation {
 
   *instantiate(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
     const module = typeof moduleOrFQN === 'string' ? this.environment.getNodeByFQN<Module>(moduleOrFQN) : moduleOrFQN
-    const instance = new RuntimeObject(module, module.is('Singleton') && !module.name ? this.currentFrame : this.rootFrame)
+    const instance = new RuntimeObject(module, module.is(Singleton) && !module.name ? this.currentFrame : this.rootFrame)
     yield* this.init(instance, locals)
     return instance
   }
 
   protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
-    const defaultFieldValues = instance.module.defaultFieldValues()
-    const allFieldNames = [...defaultFieldValues.keys()].map(({ name }) => name)
+    const allFieldNames =instance.module.allFields.map(({ name }) => name)
     for(const local of keys(locals))
       if(!allFieldNames.includes(local))
-        throw new Error(`Can't initialize ${instance.module.fullyQualifiedName()} with value for unexistent field ${local}`)
+        throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)
 
-    for(const [field, defaultValue] of defaultFieldValues) {
-      instance.set(field.name, field.name in locals
+    for(const field of instance.module.allFields) {
+      const defaultValue = instance.module.defaultValueFor(field)
+      const initialValue = field.name in locals
         ? locals[field.name]
-        : defaultValue && this.exec(defaultValue, new Frame(defaultValue, instance))
-      )
+        : this.exec(defaultValue, new Frame(defaultValue, instance))
+
+      instance.set(field.name, initialValue)
     }
 
     yield * this.send('initialize', instance)
 
-    if(!instance.module.name || instance.module.is('Describe'))
-      for (const [field] of defaultFieldValues)
+    if(!instance.module.name || instance.module.is(Describe))
+      for (const field of instance.module.allFields)
         instance.get(field.name)
   }
 }

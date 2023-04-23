@@ -8,7 +8,7 @@ const game: Natives = {
 
       const visuals = self.get('visuals')!.innerCollection!
 
-      if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName())
+      if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName)
 
       visuals.push(visual)
     },
@@ -111,7 +111,7 @@ const game: Natives = {
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
       else {
-        if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName())
+        if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName)
         else sounds.push(self)
       }
 
