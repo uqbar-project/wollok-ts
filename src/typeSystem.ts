@@ -14,11 +14,11 @@ class WollokAtomicType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    throw 'Atomic types has no methods'
+    throw Error('Atomic types has no methods')
   }
 
   atParam(_name: string): TypeVariable {
-    throw 'Atomic types has no params'!
+    throw Error('Atomic types has no params')
   }
 
   contains(type: WollokType): boolean {
@@ -67,8 +67,8 @@ class WollokParametricType extends WollokModuleType {
     this.params = new Map(Object.entries(params))
   }
 
-  contains(_type: WollokType): boolean {
-    throw 'HALT'
+  contains(type: WollokType): boolean {
+    return super.contains(type) && type instanceof WollokParametricType && this.sameParams(type)
   }
 
   atParam(name: string): TypeVariable { return this.params.get(name)! }
@@ -76,6 +76,10 @@ class WollokParametricType extends WollokModuleType {
   get name(): string {
     const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
     return `${super.name}<${innerTypes}>`
+  }
+
+  sameParams(type: WollokParametricType) {
+    return [...this.params.entries()].every(([name, tVar], i) => type.params.get(name) === tVar)
   }
 }
 
@@ -106,14 +110,14 @@ class WollokUnionType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    throw 'Halt'
+    throw Error('Halt')
   }
 
   atParam(_name: string): TypeVariable { throw 'Union types has no params'! }
 
   contains(type: WollokType): boolean {
     if (type instanceof WollokUnionType)
-      throw 'Halt'
+      throw Error('Halt')
     return this.types.some(_ => _.contains(type))
   }
 
@@ -124,7 +128,7 @@ class WollokUnionType {
   }
 }
 
-const ANY = 'ANY'
+const ANY = 'Any'
 const VOID = 'VOID'
 const ELEMENT = 'ELEMENT'
 const RETURN = 'RETURN'
@@ -423,7 +427,7 @@ class TypeInfo {
 
     if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
     if (this.maxTypes.length > 1) return new WollokUnionType(this.maxTypes)
-    throw 'Halt'
+    throw Error('Halt')
   }
 
   setType(type: WollokType) {

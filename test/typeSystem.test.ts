@@ -1,107 +1,52 @@
+import { fail } from 'assert'
 import { should } from 'chai'
-import { buildEnvironment } from '../src'
+import { readFileSync } from 'fs'
+import globby from 'globby'
+import { join } from 'path'
+import { Annotation, buildEnvironment } from '../src'
+import { notEmpty } from '../src/extensions'
+import validate from '../src/validator'
+import { Node, Problem } from '../src/model'
 import { getType, infer } from '../src/typeSystem'
-import { Program, Singleton } from './../src/model'
+
+const TESTS_PATH = 'language/test/typeSystem'
 
 should()
 
 describe('Wollok Type System', () => {
-  const files = [{
-    name: 'Literals',
-    content: 'program p { 2 \'hola\' true null [] [1] [\'a\'] #{} #{1} #{\'a\'} }',
-  }, {
-    name: 'Variables',
-    content: 'program p { const x = 2 ; const y = x }',
-  }, {
-    name: 'Expressions',
-    content: 'program p { const x = 1 + 2 ; const y = x * 3 }',
-  }, {
-    name: 'Objects',
-    content: `
-      object o { 
-        const x = true
-
-        @Type(returnType="wollok.lang.Number") 
-        method m1() native 
-
-        method m2() = self.m1()
-
-        method m3() = if (x) 1 else 2
-
-        method m4() = if (x) 1 else 'a'
-
-        method m5(p) = p.blah()
-
-        method m6(p) = p.asd()
-      }
-
-      object o2 { 
-        method blah() = true 
-        method asd() = true 
-      }
-      object o3 { 
-        method asd() = 1
-      }
-    `,
-  }]
-
+  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
+    name,
+    content: readFileSync(join(TESTS_PATH, name), 'utf8'),
+  }))
   const environment = buildEnvironment(files)
 
   infer(environment)
 
-  it('Literals inference', () => {
-    const sentences = environment.getNodeByFQN<Program>('Literals.p').sentences()
-    getType(sentences[0]).should.be.eq('Number')
-    getType(sentences[1]).should.be.eq('String')
-    getType(sentences[2]).should.be.eq('Boolean')
-    getType(sentences[3]).should.be.eq('ANY') // ('Null')
-    getType(sentences[4]).should.be.eq('List<ANY>')
-    getType(sentences[5]).should.be.eq('List<Number>')
-    getType(sentences[6]).should.be.eq('List<String>')
-    getType(sentences[7]).should.be.eq('Set<ANY>')
-    getType(sentences[8]).should.be.eq('Set<Number>')
-    getType(sentences[9]).should.be.eq('Set<String>')
-  })
+  for (const file of files) {
+    const packageName = file.name.split('.')[0]
 
-  it('Variables inference', () => {
-    const sentences = environment.getNodeByFQN<Program>('Variables.p').sentences()
-    getType(sentences[0]).should.be.eq('Number')
-    getType(sentences[1]).should.be.eq('Number')
-  })
+    it(packageName, () => {
+      const filePackage = environment.getNodeByFQN(packageName)
+      const allExpectations = new Map<Node, Annotation[]>()
 
-  it('Simple expressions inference', () => {
-    const sentences = environment.getNodeByFQN<Program>('Expressions.p').sentences()
-    getType(sentences[0]).should.be.eq('Number')
-    getType(sentences[1]).should.be.eq('Number')
-  })
+      filePackage.forEach(node => {
+        node.metadata.filter(_ => _.name === 'Expect').forEach(expectedProblem => {
+          if (!allExpectations.has(node)) allExpectations.set(node, [])
+          allExpectations.get(node)!.push(expectedProblem)
+        })
+      })
 
-  it('Annotated method types', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m1', 0)!
-    getType(method).should.be.eq('() => Number')
-  })
+      filePackage.forEach(node => {
+        const expectedTypes = allExpectations.get(node) || []
 
-  it('Method return inference', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m2', 0)!
-    getType(method).should.be.eq('() => Number')
-  })
+        for (const expectedType of expectedTypes) {
+          const type = expectedType.args['type']!
 
-  it('Method return if inference', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m3', 0)!
-    getType(method).should.be.eq('() => Number')
-  })
+          if (!type) fail('Missing required "type" argument in @Expect annotation')
 
-  it('Method union type inference', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m4', 0)!
-    getType(method).should.be.eq('() => (Number | String)')
-  })
-
-  it('Max type inference', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m5', 1)!
-    getType(method).should.be.eq('(o2) => Boolean')
-  })
-
-  it('Max union type inference', () => {
-    const method = environment.getNodeByFQN<Singleton>('Objects.o').lookupMethod('m6', 1)!
-    getType(method).should.be.eq('((o2 | o3)) => (Boolean | Number)')
-  })
+          if (type !== getType(node)) fail(`Expected ${type} but got ${getType(node)} for ${node}`)
+        }
+      })
+    })
+  }
 })
