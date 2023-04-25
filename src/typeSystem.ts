@@ -287,12 +287,15 @@ const inferReturn = (r: Return) => {
 }
 
 const inferIf = (_if: If) => {
-  createTypeVariables(_if.condition)!.hasType(new WollokModuleType(environment.booleanClass))
+  createTypeVariables(_if.condition)!.setType(new WollokModuleType(environment.booleanClass))
   createTypeVariables(_if.thenBody)
   createTypeVariables(_if.elseBody)
-  return typeVariableFor(_if) // TODO: diferenciar if-expression? Cómo?
-    .isSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+  if (_if.elseBody.sentences.length) {
+    typeVariableFor(_if)
     .isSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
+  }
+  return typeVariableFor(_if) // TODO: only for if-expression
+    .isSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
 }
 
 const inferReference = (r: Reference<Node>) => {
@@ -431,7 +434,8 @@ class TypeInfo {
   }
 
   setType(type: WollokType) {
-    this.addMinType(type)
+    this.minTypes = [type]
+    this.maxTypes = [type]
     this.final = true
   }
 
