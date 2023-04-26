@@ -14,11 +14,11 @@ class WollokAtomicType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    throw Error('Atomic types has no methods')
+    throw new Error('Atomic types has no methods')
   }
 
   atParam(_name: string): TypeVariable {
-    throw Error('Atomic types has no params')
+    throw new Error('Atomic types has no params')
   }
 
   contains(type: WollokType): boolean {
@@ -48,7 +48,7 @@ class WollokModuleType {
     return type instanceof WollokModuleType && this.module === type.module
   }
 
-  atParam(_name: string): TypeVariable { throw 'Module types has no params'! }
+  atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
 
   asList() { return [this] }
 
@@ -110,14 +110,14 @@ class WollokUnionType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    throw Error('Halt')
+    throw new Error('Halt')
   }
 
-  atParam(_name: string): TypeVariable { throw 'Union types has no params'! }
+  atParam(_name: string): TypeVariable { throw new Error('Union types has no params') }
 
   contains(type: WollokType): boolean {
     if (type instanceof WollokUnionType)
-      throw Error('Halt')
+      throw new Error('Halt')
     return this.types.some(_ => _.contains(type))
   }
 
@@ -230,7 +230,7 @@ const inferBody = (body: Body) => {
 
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
-  typeVariableFor(m)
+  typeVariableFor(m).setType(new WollokModuleType(m))
 }
 
 const inferNew = (n: New) => {
@@ -278,7 +278,7 @@ const inferParameter = (p: Node) => {
 
 const inferReturn = (r: Return) => {
   const method = r.ancestors.find(is(Method))
-  if (!method) throw 'Method for Return not found'
+  if (!method) throw new Error('Method for Return not found')
   if (r.value)
     typeVariableFor(method).atParam(RETURN).isSupertypeOf(createTypeVariables(r.value)!)
   else
@@ -308,7 +308,7 @@ const inferReference = (r: Reference<Node>) => {
 const inferSelf = (self: Self | Super) => {
   const module = self.ancestors.find<Module>((node: Node): node is Module =>
     node.is(Module) && !node.fullyQualifiedName.startsWith('wollok.lang.Closure')) // Ignore closures
-  if (!module) throw 'Module for Self not found'
+  if (!module) throw new Error('Module for Self not found')
   return typeVariableFor(self).setType(new WollokModuleType(module))
 }
 
@@ -323,7 +323,7 @@ const inferLiteral = (l: Literal) => {
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
       if (l.value === null) return tVar //tVar.setType('Null')
   }
-  throw 'Literal type not found'
+  throw new Error('Literal type not found')
 }
 
 const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) => {
@@ -430,7 +430,7 @@ class TypeInfo {
 
     if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
     if (this.maxTypes.length > 1) return new WollokUnionType(this.maxTypes)
-    throw Error('Halt')
+    throw new Error('Halt')
   }
 
   setType(type: WollokType) {
@@ -443,7 +443,7 @@ class TypeInfo {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return
     if (this.final)
-      throw 'Variable inference finalized'
+      throw new Error('Variable inference finalized')
     this.minTypes.push(type)
   }
 
@@ -451,7 +451,7 @@ class TypeInfo {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return // TODO: Check min/max types compatibility
     if (this.final)
-      throw 'Variable inference finalized'
+      throw new Error('Variable inference finalized')
     this.maxTypes.push(type)
   }
 }
