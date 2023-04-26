@@ -1,8 +1,6 @@
 import { is, last, List, match, when } from './extensions'
 import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Throw, Try, Variable } from './model'
 
-const { log } = console
-
 type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
 type AtomicType = typeof ANY | typeof VOID
 
@@ -128,6 +126,10 @@ class WollokUnionType {
   }
 }
 
+interface Logger {
+  log: (message: string) => void
+}
+
 const ANY = 'Any'
 const VOID = 'VOID'
 const ELEMENT = 'ELEMENT'
@@ -136,11 +138,13 @@ const PARAM = 'PARAM'
 const tVars = new Map<Node, TypeVariable>()
 let environment: Environment
 let globalChange: boolean
+let logger: Logger = { log: () => { } }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INTERFACE
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-export function infer(env: Environment): void {
+export function infer(env: Environment, someLogger?: Logger): void {
+  if (someLogger) logger = someLogger
   environment = env
   createTypeVariables(env)
   globalChange = true
@@ -207,7 +211,8 @@ function createTypeVariables(node: Node): TypeVariable | void {
     when(Literal)(inferLiteral),
     when(Self)(inferSelf),
     when(Super)(inferSelf),
-    // }
+
+    when(Node)(skip) //TODO: Not implemented?
   )
 }
 
@@ -292,7 +297,7 @@ const inferIf = (_if: If) => {
   createTypeVariables(_if.elseBody)
   if (_if.elseBody.sentences.length) {
     typeVariableFor(_if)
-    .isSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
+      .isSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
   }
   return typeVariableFor(_if) // TODO: only for if-expression
     .isSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
@@ -470,7 +475,7 @@ const propagateMinTypes = (tVar: TypeVariable) => {
     tVar.supertypes.forEach(superTVar => {
       if (!superTVar.hasType(type)) {
         superTVar.addMinType(type)
-        log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
+        logger.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
         changed = true
       }
     })
@@ -483,7 +488,7 @@ const propagateMaxTypes = (tVar: TypeVariable) => {
     tVar.subtypes.forEach(superTVar => {
       if (!superTVar.hasType(type)) {
         superTVar.addMaxType(type)
-        log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
+        logger.log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
         changed = true
       }
     })
@@ -511,7 +516,7 @@ const bindReceivedMessages = (tVar: TypeVariable) => {
 
       if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
-        log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
+        logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
         changed = true
       }
     })
@@ -541,7 +546,7 @@ const maxTypeFromMessages = (tVar: TypeVariable) => {
     .forEach(type => {
       if (!tVar.hasType(type)) {
         tVar.addMaxType(type)
-        log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
+        logger.log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
         changed = true
       }
     })
