@@ -762,7 +762,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
   return [
     ...found,
-    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], source: node.sourceMap } as const)  ) ?? [],
+    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], sourceMap: node.sourceMap } as Problem)  ) ?? [],
     ...entries(validationsByKind(node))
       .map(([code, validation]) => validation(node, code)!)
       .filter(result => result !== null),
