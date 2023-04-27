@@ -248,12 +248,15 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
   const lastElseSentence = last(node.elseBody.sentences)
-  // TODO: For Send, consider if expression returns a value
-  const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+
+  const noFlow = !lastThenSentence && !lastElseSentence
+  const thenSingleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+  const elseSingleFlow = !lastThenSentence && lastElseSentence && finishesFlow(lastElseSentence, node)
+  const singleFlow = thenSingleFlow || elseSingleFlow
 
   // Try expression is still pending
   const rightCombinations: Record<string, string[]> = {
-    'Assignment': ['Assignment', 'Send', 'Throw'],
+    'Assignment': ['Assignment', 'Send', 'Throw', 'Variable'],
     'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
@@ -261,11 +264,12 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
     'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Throw': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Variable': ['Assignment', 'Send', 'Throw', 'Variable'],
   }
 
   const twoFlows = !!lastThenSentence && !!lastElseSentence && (rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind) || rightCombinations[lastElseSentence.kind]?.includes(lastThenSentence.kind))
   const ifFlows = !!lastThenSentence && !!lastElseSentence && (lastThenSentence.is(If) || lastElseSentence.is(If))
-  return singleFlow || twoFlows || ifFlows
+  return noFlow || singleFlow || twoFlows || ifFlows
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
@@ -385,10 +389,11 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 )
 
 export const shouldUseConditionalExpression = warning<If>(node => {
-  const thenValue = valueFor(last(node.thenBody.sentences))
+  const thenValue = isEmpty(node.thenBody.sentences) ? undefined : valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
   const nextSentence = node.parent.children[node.parent.children.indexOf(node) + 1]
   return (
+    thenValue === undefined ||
     elseValue === undefined ||
     ![true, false].includes(thenValue) ||
     thenValue === elseValue) && (!nextSentence ||
@@ -528,7 +533,8 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent
   const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
-  return sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
+  // TODO: For Send, consider if expression returns a value
+  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
 }
 
 const getVariableContainer = (node: Node) =>
