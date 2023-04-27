@@ -1,5 +1,14 @@
 import { is, last, List, match, when } from './extensions'
-import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Throw, Try, Variable } from './model'
+import { Assignment, BaseProblem, Body, Class, Closure, Environment, Expression, Field, If, Import, Level, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Throw, Try, Variable } from './model'
+
+const { assign } = Object
+
+export class TypeSystemProblem implements BaseProblem {
+  constructor(public code: Name, public values: List<string> = []) { }
+
+  get level(): Level { return 'warning' }
+  get sourceMap(): undefined { return undefined }
+}
 
 type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
 type AtomicType = typeof ANY | typeof VOID
@@ -177,8 +186,13 @@ function newTVarFor(node: Node) {
 }
 
 function newSynteticTVar() {
-  return newTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough?
+  return newTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
 }
+
+function allValidTypeVariables() {
+  return [...tVars.values()].filter(tVar => !tVar.hasProblems)
+}
+
 
 function createTypeVariables(node: Node): TypeVariable | void {
   return match(node)(
@@ -306,7 +320,7 @@ const inferIf = (_if: If) => {
 const inferReference = (r: Reference<Node>) => {
   const varTVar = typeVariableFor(r.target!)! // Variable already visited
   const referenceTVar = typeVariableFor(r)
-  referenceTVar.isSupertypeOf(varTVar)
+  referenceTVar.unify(varTVar)
   return referenceTVar
 }
 
@@ -344,12 +358,13 @@ const skip = (_: Node) => { }
 
 
 class TypeVariable {
+  node: Node
   typeInfo: TypeInfo = new TypeInfo()
   subtypes: TypeVariable[] = []
   supertypes: TypeVariable[] = []
   messages: Send[] = []
   syntetic = false
-  node: Node
+  hasProblems = false
 
   constructor(node: Node) { this.node = node }
 
@@ -385,6 +400,12 @@ class TypeVariable {
     return this
   }
 
+  unify(tVar: TypeVariable) {
+    // Unification means same type, so min and max types should be propagated in both directions
+    this.isSupertypeOf(tVar)
+    this.isSubtypeOf(tVar)
+  }
+
   hasSubtype(tVar: TypeVariable) {
     return this.subtypes.includes(tVar)
   }
@@ -407,6 +428,13 @@ class TypeVariable {
     return [...this.allMinTypes(), ...this.allMaxTypes()]
   }
 
+  validSubtypes() {
+    return this.subtypes.filter(tVar => !tVar.hasProblems)
+  }
+  validSupertypes() {
+    return this.supertypes.filter(tVar => !tVar.hasProblems)
+  }
+
   addSubtype(tVar: TypeVariable) {
     this.subtypes.push(tVar)
   }
@@ -415,10 +443,17 @@ class TypeVariable {
     this.supertypes.push(tVar)
   }
 
+  addProblem(problem: TypeSystemProblem) {
+    assign(this.node, { problems: [...this.node.problems ?? [], problem] })
+    this.hasProblems = true
+  }
+
   beSyntetic() {
     this.syntetic = true
     return this
   }
+
+  get closed() { return this.typeInfo.final }
 
   toString() { return `TVar(${this.syntetic ? 'SYNTEC' : this.node})` }
 }
@@ -466,33 +501,37 @@ class TypeInfo {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function propagateTypes() {
-  return [...tVars.values()].some(tVar => propagateMinTypes(tVar) || propagateMaxTypes(tVar))
+  return allValidTypeVariables().some(tVar => propagateMinTypes(tVar) || propagateMaxTypes(tVar))
 }
 
 const propagateMinTypes = (tVar: TypeVariable) => {
   let changed = false
-  tVar.allMinTypes().forEach(type => {
-    tVar.supertypes.forEach(superTVar => {
+  for (const type of tVar.allMinTypes()) {
+    for (const superTVar of tVar.validSupertypes()) {
       if (!superTVar.hasType(type)) {
+        if (superTVar.closed)
+          return reportTypeMismatch(tVar, type, superTVar)
         superTVar.addMinType(type)
-        logger.log(`PROPAGATE MIN TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
+        logger.log(`PROPAGATE MIN TYPE (${type.name}) FROM |${tVar}| TO |${superTVar}|`)
         changed = true
       }
-    })
-  })
+    }
+  }
   return changed
 }
 const propagateMaxTypes = (tVar: TypeVariable) => {
   let changed = false
-  tVar.allMaxTypes().forEach(type => {
-    tVar.subtypes.forEach(superTVar => {
-      if (!superTVar.hasType(type)) {
-        superTVar.addMaxType(type)
-        logger.log(`PROPAGATE MAX TYPE (${type}) FROM |${tVar}| TO |${superTVar}|`)
+  for (const type of tVar.allMaxTypes()) {
+    for (const subTVar of tVar.validSubtypes()) {
+      if (!subTVar.hasType(type)) {
+        if (subTVar.closed)
+          return reportTypeMismatch(tVar, type, subTVar)
+        subTVar.addMaxType(type)
+        logger.log(`PROPAGATE MAX TYPE (${type.name}) FROM |${tVar}| TO |${subTVar}|`)
         changed = true
       }
-    })
-  })
+    }
+  }
   return changed
 }
 
@@ -501,7 +540,7 @@ const propagateMaxTypes = (tVar: TypeVariable) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function bindMessages() {
-  return [...tVars.values()].some(bindReceivedMessages)
+  return allValidTypeVariables().some(bindReceivedMessages)
 }
 
 const bindReceivedMessages = (tVar: TypeVariable) => {
@@ -509,18 +548,20 @@ const bindReceivedMessages = (tVar: TypeVariable) => {
   if (tVar.hasAnyType()) return false
   const types = tVar.type().asList()
   let changed = false
-  types.forEach(type => {
-    tVar.messages.forEach(send => {
+  for (let type of types) {
+    for (let send of tVar.messages) {
       const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-      if (!method) throw `Method ${send.message}/${send.args.length} not found for type ${type}`
+      if (!method)
+        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.name, type.name]))
+
 
       if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
         changed = true
       }
-    })
-  })
+    }
+  }
   return changed
 }
 
@@ -529,7 +570,7 @@ const bindReceivedMessages = (tVar: TypeVariable) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function maxTypesFromMessages() {
-  return [...tVars.values()].some(maxTypeFromMessages)
+  return allValidTypeVariables().some(maxTypeFromMessages)
 }
 
 const maxTypeFromMessages = (tVar: TypeVariable) => {
@@ -551,4 +592,25 @@ const maxTypeFromMessages = (tVar: TypeVariable) => {
       }
     })
   return changed
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// REPORT PROBLEMS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem) {
+  tVar.addProblem(problem)
+  return true // Something changed
+}
+
+function reportTypeMismatch(source: TypeVariable, type: WollokType, target: TypeVariable) {
+  const [reported, expected, actual] = selectVictim(source, type, target, target.type())
+  return reportProblem(reported, new TypeSystemProblem('typeMismatch', [expected.name, actual.name]))
+}
+
+function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariable, targetType: WollokType): [TypeVariable, WollokType, WollokType] {
+  // Super random, to be improved
+  if (source.node.is(Reference)) return [source, type, targetType]
+  if (target.node.is(Reference)) return [target, targetType, type]
+  throw new Error('No victim found')
 }

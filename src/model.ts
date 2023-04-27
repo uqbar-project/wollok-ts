@@ -296,7 +296,7 @@ export class Package extends Entity(Node) {
 
     return ancestorNames.reduce<Package>((member, name) =>
       new Package({ name, members: [member] })
-    , this)
+      , this)
   }
 
   @cached
@@ -472,7 +472,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
       return this.hierarchy.reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-      , field.value)
+        , field.value)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
@@ -730,6 +730,8 @@ export class Send extends Expression(Node) {
   constructor({ args = [], ...payload }: Payload<Send, 'receiver' | 'message'>) {
     super({ args, ...payload })
   }
+
+  get name() { return `${this.message}/${this.args.length}` }
 }
 
 
