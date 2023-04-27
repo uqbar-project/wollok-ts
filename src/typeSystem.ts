@@ -86,7 +86,7 @@ class WollokParametricType extends WollokModuleType {
   }
 
   sameParams(type: WollokParametricType) {
-    return [...this.params.entries()].every(([name, tVar], i) => type.params.get(name) === tVar)
+    return [...this.params.entries()].every(([name, tVar]) => type.params.get(name) === tVar)
   }
 }
 
@@ -548,11 +548,11 @@ const bindReceivedMessages = (tVar: TypeVariable) => {
   if (tVar.hasAnyType()) return false
   const types = tVar.type().asList()
   let changed = false
-  for (let type of types) {
-    for (let send of tVar.messages) {
+  for (const type of types) {
+    for (const send of tVar.messages) {
       const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
       if (!method)
-        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.name, type.name]))
+        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.label, type.name]))
 
 
       if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
