@@ -10,13 +10,13 @@ export class TypeSystemProblem implements BaseProblem {
   get sourceMap(): undefined { return undefined }
 }
 
-type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
-type AtomicType = typeof ANY | typeof VOID
+export type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
+export type AtomicType = typeof ANY | typeof VOID
 
-class WollokAtomicType {
-  id: AtomicType
+export class WollokAtomicType {
+  id: AtomicType | Name
 
-  constructor(id: AtomicType) {
+  constructor(id: AtomicType | Name) {
     this.id = id
   }
 
@@ -40,7 +40,7 @@ class WollokAtomicType {
 }
 
 
-class WollokModuleType {
+export class WollokModuleType {
   module: Module
 
   constructor(module: Module) {
@@ -66,7 +66,7 @@ class WollokModuleType {
   toString() { return this.module.toString() }
 }
 
-class WollokParametricType extends WollokModuleType {
+export class WollokParametricType extends WollokModuleType {
   params: Map<string, TypeVariable>
 
   constructor(base: Module, params: Record<string, TypeVariable>) {
@@ -90,7 +90,7 @@ class WollokParametricType extends WollokModuleType {
   }
 }
 
-class WollokMethodType extends WollokParametricType {
+export class WollokMethodType extends WollokParametricType {
   constructor(returnVar: TypeVariable, params: TypeVariable[]) {
     // TODO: Mejorar esta herencia
     super(null as any, {
@@ -109,7 +109,7 @@ class WollokMethodType extends WollokParametricType {
   }
 }
 
-class WollokUnionType {
+export class WollokUnionType {
   types: WollokType[]
 
   constructor(types: WollokType[]) {
@@ -139,12 +139,12 @@ interface Logger {
   log: (message: string) => void
 }
 
-const ANY = 'Any'
-const VOID = 'VOID'
-const ELEMENT = 'ELEMENT'
-const RETURN = 'RETURN'
-const PARAM = 'PARAM'
-const tVars = new Map<Node, TypeVariable>()
+export const ANY = 'Any'
+export const VOID = 'VOID'
+export const ELEMENT = 'ELEMENT'
+export const RETURN = 'RETURN'
+export const PARAM = 'PARAM'
+export const tVars = new Map<Node, TypeVariable>()
 let environment: Environment
 let globalChange: boolean
 let logger: Logger = { log: () => { } }
@@ -185,7 +185,7 @@ function newTVarFor(node: Node) {
   return newTVar
 }
 
-function newSynteticTVar() {
+export function newSynteticTVar() {
   return newTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
 }
 
@@ -357,7 +357,7 @@ const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) 
 const skip = (_: Node) => { }
 
 
-class TypeVariable {
+export class TypeVariable {
   node: Node
   typeInfo: TypeInfo = new TypeInfo()
   subtypes: TypeVariable[] = []
@@ -453,7 +453,7 @@ class TypeVariable {
     return this
   }
 
-  get closed() { return this.typeInfo.final }
+  get closed() { return this.typeInfo.closed }
 
   toString() { return `TVar(${this.syntetic ? 'SYNTEC' : this.node})` }
 }
@@ -461,7 +461,7 @@ class TypeVariable {
 class TypeInfo {
   minTypes: WollokType[] = []
   maxTypes: WollokType[] = []
-  final = false
+  closed = false
 
   type() {
     if (this.maxTypes.length + this.minTypes.length == 0) return new WollokAtomicType(ANY)
@@ -476,13 +476,13 @@ class TypeInfo {
   setType(type: WollokType) {
     this.minTypes = [type]
     this.maxTypes = [type]
-    this.final = true
+    this.closed = true
   }
 
   addMinType(type: WollokType) {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return
-    if (this.final)
+    if (this.closed)
       throw new Error('Variable inference finalized')
     this.minTypes.push(type)
   }
@@ -490,7 +490,7 @@ class TypeInfo {
   addMaxType(type: WollokType) {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return // TODO: Check min/max types compatibility
-    if (this.final)
+    if (this.closed)
       throw new Error('Variable inference finalized')
     this.maxTypes.push(type)
   }
@@ -504,7 +504,7 @@ function propagateTypes() {
   return allValidTypeVariables().some(tVar => propagateMinTypes(tVar) || propagateMaxTypes(tVar))
 }
 
-const propagateMinTypes = (tVar: TypeVariable) => {
+export const propagateMinTypes = (tVar: TypeVariable) => {
   let changed = false
   for (const type of tVar.allMinTypes()) {
     for (const superTVar of tVar.validSupertypes()) {
@@ -519,7 +519,8 @@ const propagateMinTypes = (tVar: TypeVariable) => {
   }
   return changed
 }
-const propagateMaxTypes = (tVar: TypeVariable) => {
+
+export const propagateMaxTypes = (tVar: TypeVariable) => {
   let changed = false
   for (const type of tVar.allMaxTypes()) {
     for (const subTVar of tVar.validSubtypes()) {
@@ -543,7 +544,7 @@ function bindMessages() {
   return allValidTypeVariables().some(bindReceivedMessages)
 }
 
-const bindReceivedMessages = (tVar: TypeVariable) => {
+export const bindReceivedMessages = (tVar: TypeVariable) => {
   if (!tVar.messages.length) return false
   if (tVar.hasAnyType()) return false
   const types = tVar.type().asList()
@@ -573,7 +574,7 @@ function maxTypesFromMessages() {
   return allValidTypeVariables().some(maxTypeFromMessages)
 }
 
-const maxTypeFromMessages = (tVar: TypeVariable) => {
+export const maxTypeFromMessages = (tVar: TypeVariable) => {
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false //TODO: Check compatibility between min and max types
   let changed = false
@@ -581,7 +582,7 @@ const maxTypeFromMessages = (tVar: TypeVariable) => {
     .filter(is(Module))
     .filter(module => tVar.messages.every(send =>
       module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-      // TODO: check params (and return?) types
+      // TODO: check params and return types
     ))
     .map(_ => new WollokModuleType(_))
     .forEach(type => {
@@ -610,6 +611,8 @@ function reportTypeMismatch(source: TypeVariable, type: WollokType, target: Type
 
 function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariable, targetType: WollokType): [TypeVariable, WollokType, WollokType] {
   // Super random, to be improved
+  if (source.syntetic) return [target, targetType, type]
+  if (target.syntetic) return [source, type, targetType]
   if (source.node.is(Reference)) return [source, type, targetType]
   if (target.node.is(Reference)) return [target, targetType, type]
   throw new Error('No victim found')

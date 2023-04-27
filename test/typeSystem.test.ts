@@ -1,72 +1,156 @@
-import { fail } from 'assert'
-import { should } from 'chai'
-import { readFileSync } from 'fs'
-import globby from 'globby'
-import { join } from 'path'
-import { Annotation, buildEnvironment, Class, Literal, Node, Reference } from '../src'
-import { List } from '../src/extensions'
-import { getType, infer } from '../src/typeSystem'
-import validate from '../src/validator'
+import { should, use } from 'chai'
+import { newSynteticTVar, propagateMaxTypes, propagateMinTypes, TypeVariable, WollokAtomicType } from '../src/typeSystem'
+import { typeAssertions } from './assertions'
 
-const TESTS_PATH = 'language/test/typeSystem'
-
+use(typeAssertions)
 should()
 
+const stubType = new WollokAtomicType('TEST')
+const otherStubType = new WollokAtomicType('OTHER_TEST')
+
 describe('Wollok Type System', () => {
-  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
-    name,
-    content: readFileSync(join(TESTS_PATH, name), 'utf8'),
-  }))
-  const environment = buildEnvironment(files)
-  const logger = undefined
-  // You can use the logger to debug the type system inference in customized way, for example:
-  // { log: (message: String) => { if (message.includes('[Reference]')) console.log(message) } }
-  infer(environment, logger)
+  let tVar: TypeVariable
 
-  for (const file of files) {
-    const packageName = file.name.split('.')[0]
+  beforeEach(() => {
+    tVar = newSynteticTVar()
+  })
 
-    it(packageName, () => {
-      const expectations = new Map<Node, Annotation[]>()
-      const filePackage = environment.getNodeByFQN(packageName)
-      const problems = [...validate(filePackage)]
+  describe('Minimal types propagation', () => {
 
-      filePackage.forEach(node => {
-        node.metadata.filter(_ => _.name === 'Expect').forEach(expectedProblem => {
-          if (!expectations.has(node)) expectations.set(node, [])
-          expectations.get(node)!.push(expectedProblem)
-        })
-      })
+    it('should propagate min types from type variable to supertypes without min types', () => {
+      const supertype = newSynteticTVar()
+      tVar.addSupertype(supertype)
+      tVar.addMinType(stubType)
 
-      filePackage.forEach(node => {
-        const expectationsForNode = expectations.get(node) || []
+      propagateMinTypes(tVar)
 
-        for (const expectation of expectationsForNode) {
-          const type = expectation.args['type']
-          if (type) { // Assert type
-            if (type !== getType(node)) fail(`Expected ${type} but got ${getType(node)} for ${node}`)
-
-          } else { // Assert error
-            //TODO: Reuse this in validator.test.ts
-            const code = expectation.args['code']
-            if (!code) fail(`Missing required "type" argument in @Expect annotation ${expectation}`)
-            const level = expectation.args['level']
-            if (!level) fail(`Missing required "level" argument in @Expect annotation ${expectation}`)
-            const literalValues = expectation.args['values'] as [Reference<Class>, List<Literal<string>>]
-            const values = literalValues
-              ? literalValues[1].map(literal => literal.value)
-              : []
-            const expectedProblem = problems.find(problem =>
-              problem.node === node && problem.code === code && problem.level === level
-              && problem.values.join(',') === values.join(','))
-
-            if (!expectedProblem) fail(`Expected problem ${code} not found for ${node}`)
-            problems.splice(problems.indexOf(expectedProblem), 1)
-          }
-        }
-      })
-
-      problems.should.be.empty
+      supertype.allMinTypes()[0].should.be.equal(stubType)
     })
-  }
+
+    it('should propagate min types from type variable to supertypes with other min types', () => {
+      const supertype = newSynteticTVar()
+      supertype.addMinType(otherStubType)
+      tVar.addSupertype(supertype)
+      tVar.addMinType(stubType)
+
+      propagateMinTypes(tVar)
+
+      supertype.allMinTypes().should.be.have.length(2)
+    })
+
+    it('should not propagate min types if already exist in supertypes', () => {
+      const supertype = newSynteticTVar()
+      supertype.addMinType(stubType)
+      tVar.addSupertype(supertype)
+      tVar.addMinType(stubType)
+
+      propagateMinTypes(tVar)
+
+      supertype.allMinTypes().should.have.length(1)
+    })
+
+    it('should not propagate max types', () => {
+      const supertype = newSynteticTVar()
+      tVar.addSupertype(supertype)
+      tVar.addMaxType(stubType)
+
+      propagateMinTypes(tVar)
+
+      supertype.allMaxTypes().should.be.empty
+    })
+
+    it('propagate to a closed type variables should report a problem', () => {
+      const supertype = newSynteticTVar().setType(otherStubType)
+      tVar.addSupertype(supertype)
+      tVar.addMinType(stubType)
+
+      supertype.closed.should.be.true
+      propagateMinTypes(tVar)
+
+      supertype.allMinTypes().should.have.length(1); // Not propagated
+      (tVar.hasProblems || supertype.hasProblems).should.be.true
+    })
+
+    it('propagate to a closed type variables with same type should not report a problem', () => {
+      const supertype = newSynteticTVar().setType(stubType)
+      tVar.addSupertype(supertype)
+      tVar.addMinType(stubType)
+
+      supertype.closed.should.be.true
+      propagateMinTypes(tVar);
+
+      (tVar.hasProblems || supertype.hasProblems).should.be.false
+    })
+
+  })
+
+  describe('Maximal types propagation', () => {
+
+    it('should propagate max types from type variable to subtypes without max types', () => {
+      const subtype = newSynteticTVar()
+      tVar.addSubtype(subtype)
+      tVar.addMaxType(stubType)
+
+      propagateMaxTypes(tVar)
+
+      subtype.allMaxTypes()[0].should.be.equal(stubType)
+    })
+
+    it('should propagate max types from type variable to subtypes with other max types', () => {
+      const subtype = newSynteticTVar()
+      subtype.addMaxType(otherStubType)
+      tVar.addSubtype(subtype)
+      tVar.addMaxType(stubType)
+
+      propagateMaxTypes(tVar)
+
+      subtype.allMaxTypes().should.be.have.length(2)
+    })
+
+    it('should not propagate max types if already exist in subtypes', () => {
+      const subtype = newSynteticTVar()
+      subtype.addMaxType(stubType)
+      tVar.addSubtype(subtype)
+      tVar.addMaxType(stubType)
+
+      propagateMaxTypes(tVar)
+
+      subtype.allMaxTypes().should.have.length(1)
+    })
+
+    it('should not propagate min types', () => {
+      const subtype = newSynteticTVar()
+      tVar.addSubtype(subtype)
+      tVar.addMinType(stubType)
+
+      propagateMaxTypes(tVar)
+
+      subtype.allMinTypes().should.be.empty
+    })
+
+    it('propagate to a closed type variables should report a problem', () => {
+      const subtype = newSynteticTVar().setType(otherStubType)
+      tVar.addSubtype(subtype)
+      tVar.addMaxType(stubType)
+
+      subtype.closed.should.be.true
+      propagateMaxTypes(tVar)
+
+      subtype.allMaxTypes().should.have.length(1); // Not propagated
+      (tVar.hasProblems || subtype.hasProblems).should.be.true
+    })
+
+    it('propagate to a closed type variables with same type should not report a problem', () => {
+      const subtype = newSynteticTVar().setType(stubType)
+      tVar.addSubtype(subtype)
+      tVar.addMaxType(stubType)
+
+      subtype.closed.should.be.true
+      propagateMaxTypes(tVar);
+
+      (tVar.hasProblems || subtype.hasProblems).should.be.false
+    })
+
+  })
+
 })

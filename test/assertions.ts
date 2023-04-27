@@ -9,6 +9,7 @@ import { promises } from 'fs'
 import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
+import { ANY, WollokAtomicType, WollokType } from '../src/typeSystem'
 
 const { readFile } = promises
 
@@ -25,6 +26,8 @@ declare global {
       target(node: Node): Assertion
 
       pass<N extends Node>(validation: Validation<N>): Assertion
+      
+      anyType(): Assertion
     }
 
     interface ArrayAssertion {
@@ -175,4 +178,18 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
   }
 
   return environment
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// TYPE ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const typeAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
+
+  Assertion.addMethod('anyType', function (node: Node) {
+    const type: WollokType = this._obj
+
+    new Assertion(type instanceof WollokAtomicType, `${type.name} is not ${ANY}`).to.be.true
+    new Assertion(this._obj.id).to.equal(ANY)
+  })
 }
