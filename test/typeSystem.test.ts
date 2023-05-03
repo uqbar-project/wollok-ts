@@ -1,12 +1,27 @@
 import { should, use } from 'chai'
-import { newSynteticTVar, propagateMaxTypes, propagateMinTypes, TypeVariable, WollokAtomicType } from '../src/typeSystem'
+import { Environment, Method, Name, Node, Self, Send } from '../src'
+import { AtomicType, bindReceivedMessages, newSynteticTVar, propagateMaxTypes, propagateMinTypes, TypeVariable, typeVariableFor, WollokAtomicType } from '../src/typeSystem'
 import { typeAssertions } from './assertions'
 
 use(typeAssertions)
 should()
 
-const stubType = new WollokAtomicType('TEST')
-const otherStubType = new WollokAtomicType('OTHER_TEST')
+class TestWollokType extends WollokAtomicType {
+  testMethod: Node = new Method({ name: 'testMethod' })
+
+  constructor(name: string) {
+    super(name as AtomicType)
+    this.testMethod.parent = new Environment({ members: [] })
+  }
+
+  override lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+    return this.testMethod
+  }
+
+}
+
+const stubType = new TestWollokType('TEST')
+const otherStubType = new TestWollokType('OTHER_TEST')
 
 describe('Wollok Type System', () => {
   let tVar: TypeVariable

@@ -14,9 +14,9 @@ export type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
 export type AtomicType = typeof ANY | typeof VOID
 
 export class WollokAtomicType {
-  id: AtomicType | Name
+  id: AtomicType
 
-  constructor(id: AtomicType | Name) {
+  constructor(id: AtomicType) {
     this.id = id
   }
 
@@ -545,19 +545,22 @@ function bindMessages() {
 }
 
 export const bindReceivedMessages = (tVar: TypeVariable) => {
+  if (tVar.hasProblems) return false
   if (!tVar.messages.length) return false
   if (tVar.hasAnyType()) return false
-  const types = tVar.type().asList()
+  const types = tVar.allPossibleTypes()
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
       const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
       if (!method)
-        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.label, type.name]))
+        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
 
       if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
+        // TOOD: Bind copies to not affect method types
         typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
+        // TODO: Bind arguments
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
         changed = true
       }
@@ -575,8 +578,9 @@ function maxTypesFromMessages() {
 }
 
 export const maxTypeFromMessages = (tVar: TypeVariable) => {
+  if (tVar.hasProblems) return false
   if (!tVar.messages.length) return false
-  if (tVar.allMinTypes().length) return false //TODO: Check compatibility between min and max types
+  if (tVar.allMinTypes().length) return false
   let changed = false
   environment.descendants
     .filter(is(Module))

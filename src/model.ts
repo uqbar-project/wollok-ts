@@ -731,7 +731,7 @@ export class Send extends Expression(Node) {
     super({ args, ...payload })
   }
 
-  override get label(): string {
+  get signature(): string {
     return `${this.message}/${this.args.length}`
   }
 }
