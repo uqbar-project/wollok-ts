@@ -1,27 +1,46 @@
 import { should, use } from 'chai'
-import { Environment, Method, Name, Node, Self, Send } from '../src'
-import { AtomicType, bindReceivedMessages, newSynteticTVar, propagateMaxTypes, propagateMinTypes, TypeVariable, typeVariableFor, WollokAtomicType } from '../src/typeSystem'
+import { Environment, Literal, Method, Name, Node, Parameter, Self, Send } from '../src'
+import { AtomicType, bindReceivedMessages, newSynteticTVar, propagateMaxTypes, propagateMinTypes, RETURN, TypeVariable, typeVariableFor, WollokAtomicType } from '../src/typeSystem'
 import { typeAssertions } from './assertions'
 
 use(typeAssertions)
 should()
 
-class TestWollokType extends WollokAtomicType {
-  testMethod: Node = new Method({ name: 'testMethod' })
+const env = new Environment({ members: [] })
 
-  constructor(name: string) {
+
+const testSend = new Send({
+  receiver: new Self(),
+  message: 'someMessage',
+  args: [new Literal({ value: 1 })],
+})
+testSend.parent = env
+
+class TestWollokType extends WollokAtomicType {
+  method: Method
+
+  constructor(name: string, method: Method) {
     super(name as AtomicType)
-    this.testMethod.parent = new Environment({ members: [] })
+    this.method = method
   }
 
   override lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    return this.testMethod
+    return this.method
   }
 
 }
 
-const stubType = new TestWollokType('TEST')
-const otherStubType = new TestWollokType('OTHER_TEST')
+function newMethod(name: string) {
+  const method = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
+  method.parent = env as any
+  return method
+}
+
+const testMethod = newMethod('TEST_METHOD')
+const otherTestMethod = newMethod('OTHER_TEST_METHOD')
+
+const stubType = new TestWollokType('TEST', testMethod)
+const otherStubType = new TestWollokType('OTHER_TEST', otherTestMethod)
 
 describe('Wollok Type System', () => {
   let tVar: TypeVariable
@@ -164,6 +183,64 @@ describe('Wollok Type System', () => {
       propagateMaxTypes(tVar);
 
       (tVar.hasProblems || subtype.hasProblems).should.be.false
+    })
+
+  })
+
+  describe('Bind sends to methods', () => {
+
+    beforeEach(() => {
+      tVar.addSend(testSend)
+    })
+
+    function assertReturnSendBinding(method: Method, send: Send) {
+      typeVariableFor(method).atParam(RETURN).supertypes.should.deep.equal([typeVariableFor(send)])
+    }
+    function assertArgsSendBinding(method: Method, send: Send) {
+      method.parameters.should.not.be.empty
+      method.parameters.forEach((param, index) => {
+        typeVariableFor(param).subtypes.should.deep.equal([typeVariableFor(send.args[index])])
+      })
+    }
+
+    it('should add send as return supertype (for next propagation)', () => {
+      tVar.setType(stubType)
+
+      bindReceivedMessages(tVar)
+
+      assertReturnSendBinding(testMethod, testSend)
+    })
+
+    it('should add send arguments as parameters subtypes (for next propagation)', () => {
+      tVar.setType(stubType)
+
+      bindReceivedMessages(tVar)
+
+      assertArgsSendBinding(testMethod, testSend)
+    })
+
+    it('send should not have references to the method (for avoiding errors propagation)', () => {
+      tVar.setType(stubType)
+
+      bindReceivedMessages(tVar)
+
+      typeVariableFor(testSend).subtypes.should.be.empty
+      testSend.args.should.not.be.empty
+      testSend.args.forEach(arg => {
+        typeVariableFor(arg).supertypes.should.be.empty
+      })
+    })
+
+    it('should bind methods for any min and max type', () => {
+      tVar.addMinType(stubType)
+      tVar.addMaxType(otherStubType)
+
+      bindReceivedMessages(tVar);
+
+      [testMethod, otherTestMethod].forEach(method => {
+        assertReturnSendBinding(method, testSend)
+        assertArgsSendBinding(method, testSend)
+      })
     })
 
   })

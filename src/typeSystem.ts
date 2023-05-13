@@ -546,8 +546,6 @@ function bindMessages() {
 
 export const bindReceivedMessages = (tVar: TypeVariable) => {
   if (tVar.hasProblems) return false
-  if (!tVar.messages.length) return false
-  if (tVar.hasAnyType()) return false
   const types = tVar.allPossibleTypes()
   let changed = false
   for (const type of types) {
@@ -560,6 +558,9 @@ export const bindReceivedMessages = (tVar: TypeVariable) => {
       if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         // TOOD: Bind copies to not affect method types
         typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
+        method.parameters.forEach((param, index) => {
+          typeVariableFor(param).addSubtype(typeVariableFor(send.args[index]))
+        })
         // TODO: Bind arguments
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
         changed = true

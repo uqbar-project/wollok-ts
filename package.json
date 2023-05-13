@@ -21,7 +21,7 @@
     "test:examples": "npm run test:wtest -- --root language/test/examples",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:validations": "mocha --parallel -r ts-node/register/transpile-only test/validator.test.ts",
-    "test:typeSystem": "mocha --parallel -r ts-node/register/transpile-only test/typeSystem.test.ts",
+    "test:typeSystem": "mocha --parallel -r ts-node/register/transpile-only test/typeSystem*.test.ts",
     "test:wtest": "mocha --delay -t 10000 -r ts-node/register/transpile-only test/wtest.ts",
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
