@@ -181,6 +181,7 @@ export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.e
   const target = parent.reference.target
   return !target || target.is(Mixin)
 }))
+
 export const shouldUseOverrideKeyword = warning<Method>(node =>
   node.isOverride || !superclassMethod(node)
 )
