@@ -12,6 +12,7 @@ export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
   include(...others: Scope[]): void
   register(...contributions: [Name, Node][]): void
+  localContributions(): [Name, Node][]
 }
 
 
