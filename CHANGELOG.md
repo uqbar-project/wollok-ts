@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.0.2
+**Wollok Version: `3.1.6`**
+
+- Update Wollok version.
+- Fixed buggy validations over incomplete AST.
+
 ## v4.0.1
 **Wollok Version: `3.1.3`**
 
