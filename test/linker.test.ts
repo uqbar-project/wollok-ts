@@ -1,4 +1,5 @@
 import { expect, should, use } from 'chai'
+import { divideOn } from '../src/extensions'
 import { fromJSON } from '../src/jsonUtils'
 import link from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
@@ -10,18 +11,19 @@ should()
 use(linkerAssertions)
 
 
-// TODO: Split uber-tests into smaller tests with clearer descriptions
-// TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
-// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ?
+// TODO: Split uber-tests into smaller tests with clearer descriptions (??)
+// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
+
+const MINIMAL_LANG = newPackageWith(WRE, 'wollok.lang.Object')
 
 describe('Wollok linker', () => {
 
-  describe('merge', () => {
+  describe.only('merge', () => {
 
     it('should merge independent packages into a single environment', () => {
       [
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'A',
           members: [
@@ -36,7 +38,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'A',
           members: [
@@ -55,7 +57,7 @@ describe('Wollok linker', () => {
 
     it('should merge same name packages into a single package', () => {
       [
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'A',
           members: [
@@ -75,7 +77,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'A',
           members: [
@@ -116,7 +118,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        ...WRE.members,
+        MINIMAL_LANG,
       ].should.be.linkedInto([
         new Package({
           name: 'A',
@@ -130,13 +132,13 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        ...WRE.members,
+        MINIMAL_LANG,
       ])
     })
 
     it('should replace old entities prioritizing right to left', () => {
       [
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'p',
           members: [
@@ -150,7 +152,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        MINIMAL_LANG,
         new Package({
           name: 'p',
           members: [
@@ -755,3 +757,16 @@ describe('Wollok linker', () => {
   })
 
 })
+
+function newPackageWith(env: Environment, fullFQN: string) {
+
+  const buildNewPackages = (_fqn: string): Package => {
+    const [start, rest] = divideOn('.')(_fqn)
+
+    return rest.length
+      ? new Package({ name: start, members: [buildNewPackages(rest)] })
+      : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
+  }
+
+  return buildNewPackages(fullFQN)
+}
