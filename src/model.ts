@@ -1,5 +1,5 @@
-import { ConstructorFor, TypeDefinition, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty } from './extensions'
-import { lazy, cached, getPotentiallyUninitializedLazy } from './decorators'
+import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
+import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty, TypeDefinition } from './extensions'
 
 const { isArray } = Array
 const { entries, values, assign } = Object

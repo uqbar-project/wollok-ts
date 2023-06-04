@@ -1,7 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import { getPotentiallyUninitializedLazy } from './decorators'
 import { divideOn, is, List } from './extensions'
-import { Id, Import, Sentence, BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, Field, Parameter, ParameterizedType, Module } from './model'
+import { BaseProblem, Entity, Environment, Field, Id, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, SourceMap } from './model'
 const { assign } = Object
 
 
@@ -16,6 +15,7 @@ export class LinkError implements BaseProblem {
   get sourceMap(): SourceMap | undefined { return undefined }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const fail = (code: Name) => (node: Node) =>
   assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
@@ -64,7 +64,7 @@ export class LocalScope implements Scope {
       ? this.contributions.get(start)
       : this.includedScopes.reduce((found, included) =>
         found ?? included.resolve(start, false)
-        , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
+      , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
 
     return rest.length ? step?.scope?.resolve<N>(rest, false) : step as N
   }
@@ -123,7 +123,6 @@ const assignScopes = (environment: Environment) => {
     }
 
     if (node.is(Module)) {
-
       node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
     }
 

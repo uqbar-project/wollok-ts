@@ -15,7 +15,7 @@ use(linkerAssertions)
 // TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
 
-const MINIMAL_LANG = newPackageWith(WRE, 'wollok.lang.Object')
+const MINIMAL_LANG = link([newPackageWith(WRE, 'wollok.lang.Object')])
 
 describe('Wollok linker', () => {
 
@@ -23,7 +23,7 @@ describe('Wollok linker', () => {
 
     it('should merge independent packages into a single environment', () => {
       [
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -38,7 +38,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -57,7 +57,7 @@ describe('Wollok linker', () => {
 
     it('should merge same name packages into a single package', () => {
       [
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -77,7 +77,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -118,7 +118,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
       ].should.be.linkedInto([
         new Package({
           name: 'A',
@@ -132,13 +132,13 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
       ])
     })
 
     it('should replace old entities prioritizing right to left', () => {
       [
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
           members: [
@@ -152,7 +152,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        MINIMAL_LANG,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
           members: [
@@ -675,13 +675,21 @@ describe('Wollok linker', () => {
 
   describe('error handling', () => {
 
+    it('should not merge packages with same name but different fqn', () => {
+      const env = link([
+        new Package({ name: 'lang', members: [new Package({ name: 'p' })] }),
+      ], MINIMAL_LANG)
+      env.getNodeByFQN<Package>('lang.p').should.be.ok
+      env.getNodeByFQN<Package>('wollok.lang.Object').should.be.ok
+    })
+
     it('should not merge package with different file name', () => {
       const env = link([
         new Package({
           name: 'g', members: [
             new Package({ fileName: 'p.wlk', name: 'p' }),
-            new Package({ fileName: 'p.wtest', name: 'p', }),
-          ]
+            new Package({ fileName: 'p.wtest', name: 'p' }),
+          ],
         }),
       ], WRE)
       env.getNodeByFQN<Package>('g').members.should.have.length(2)
