@@ -95,7 +95,10 @@ export abstract class Node {
   }
 
   get categories(): Function[] { return [this.constructor] }
-  get sourceFileName(): string | undefined { return this.parent.sourceFileName }
+  get sourceFileName(): string | undefined {
+    const parent = getPotentiallyUninitializedLazy(this, 'parent')
+    return parent?.sourceFileName
+  }
   get sourceInfo(): string { return `${this.sourceFileName ?? '--'}:${this.sourceMap?.start.line ?? '--'}` }
   get label(): string { return `[${this.kind}]{${this.id?.slice(-6) ?? '--'}} at ${this.sourceInfo}` }
 

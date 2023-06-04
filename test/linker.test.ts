@@ -19,7 +19,7 @@ const MINIMAL_LANG = newPackageWith(WRE, 'wollok.lang.Object')
 
 describe('Wollok linker', () => {
 
-  describe.only('merge', () => {
+  describe('merge', () => {
 
     it('should merge independent packages into a single environment', () => {
       [
@@ -675,16 +675,28 @@ describe('Wollok linker', () => {
 
   describe('error handling', () => {
 
-    it('should recover from missing reference in imports', () => {
+    it('should not merge package with different file name', () => {
+      const env = link([
+        new Package({
+          name: 'g', members: [
+            new Package({ fileName: 'p.wlk', name: 'p' }),
+            new Package({ fileName: 'p.wtest', name: 'p', }),
+          ]
+        }),
+      ], WRE)
+      env.getNodeByFQN<Package>('g').members.should.have.length(2)
+    })
+
+    it('should not crash with missing reference in imports', () =>
       link([
         new Package({
           name: 'p',
           imports: [new Import({ entity: new Reference({ name: 'q.A' }) })],
         }),
       ], WRE)
-    })
+    )
 
-    it('should recover from missing reference in superclass', () => {
+    it('should not crash with missing reference in superclass', () =>
       link([
         new Package({
           name: 'p',
@@ -693,9 +705,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should recover from missing reference in mixin', () => {
+    it('should not crash with missing reference in mixin', () =>
       link([
         new Package({
           name: 'p',
@@ -704,9 +716,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if a class inherits from itself', () => {
+    it('should not crash if a class inherits from itself', () =>
       link([
         new Package({
           name: 'p',
@@ -715,9 +727,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if there is an inheritance cycle', () => {
+    it('should not crash if there is an inheritance cycle', () =>
       link([
         new Package({
           name: 'p',
@@ -728,9 +740,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if a mixin includes itself', () => {
+    it('should not crash if a mixin includes itself', () =>
       link([
         new Package({
           name: 'p',
@@ -739,9 +751,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if there is a mixin linearization cycle', () => {
+    it('should not crash if there is a mixin linearization cycle', () =>
       link([
         new Package({
           name: 'p',
@@ -752,7 +764,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
   })
 
