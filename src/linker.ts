@@ -70,7 +70,12 @@ export class LocalScope implements Scope {
   }
 
   register(...contributions: [Name, Node][]): void {
-    for (const [name, node] of contributions) this.contributions.set(name, node)
+    for (const [name, node] of contributions) {
+      // (global packages) Not override previous contributions
+      if (!this.contributions.has(name)) {
+        this.contributions.set(name, node)
+      }
+    }
   }
 
   include(...others: Scope[]): void { this.includedScopes.push(...others) }

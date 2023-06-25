@@ -172,9 +172,9 @@ export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   return !isEqualMessage(node) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
 })
 
-export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
-  const receiver = node.receiver
-  return !receiver.is(Reference) || !receiver.ancestors.includes(receiver.target!)
+export const shouldUseSelfAndNotSingletonReference = warning<Reference<Node>>(node => {
+  const target = node.target
+  return !target || !target.is(Singleton) || !node.ancestors.includes(target)
 })
 
 export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.every(parent => {
@@ -743,7 +743,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Body)(() => ({ shouldNotBeEmpty })),
   when(Catch)(() => ({ shouldCatchUsingExceptionHierarchy, catchShouldBeReachable })),
   when(Package)(() => ({ shouldNotDuplicatePackageName })),
-  when(Program)(() => ({ nameShouldNotBeKeyword, shouldMatchFileExtension })),
+  when(Program)(() => ({ nameShouldNotBeKeyword, shouldNotUseReservedWords, shouldMatchFileExtension })),
   when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension })),
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
@@ -752,10 +752,10 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
-  when(Reference)(() => ({ missingReference })),
+  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
-  when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
+  when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
   when(Super)(() => ({ shouldUseSuperOnlyOnOverridingMethod })),
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
   when(Try)(() => ({ shouldHaveCatchOrAlways })),

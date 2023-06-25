@@ -15,7 +15,7 @@ use(linkerAssertions)
 // TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
 
-const MINIMAL_LANG = link([newPackageWith(WRE, 'wollok.lang.Object')])
+const MINIMAL_LANG = environmentWithEntities('wollok.lang.Object', 'wollok.game.game')
 
 describe('Wollok linker', () => {
 
@@ -653,7 +653,7 @@ describe('Wollok linker', () => {
       expect(() => environment.getNodeByFQN('p.C')).to.throw()
     })
 
-    it('Entities with string names should not be referenceable without the quotes', () => {
+    it('entities with string names should not be referenceable without the quotes', () => {
       const environment = link([
         new Package({
           name: 'p',
@@ -669,6 +669,13 @@ describe('Wollok linker', () => {
 
       expect(() => environment.getNodeByFQN('p.T')).to.throw()
       expect(() => environment.getNodeByFQN('p."T"')).to.not.throw()
+    })
+
+    it('global packages should not override package definition', () => {
+      const env = link([
+        new Package({ name: 'game', members: [new Package({ name: 'p' })] }),
+      ], MINIMAL_LANG)
+      env.getNodeByFQN<Package>('game.p').should.be.ok
     })
 
   })
@@ -777,6 +784,10 @@ describe('Wollok linker', () => {
   })
 
 })
+
+function environmentWithEntities(...fqns: string[]): Environment {
+  return fqns.reduce((env, fqn) => link([newPackageWith(WRE, fqn)], env), link([]))
+}
 
 function newPackageWith(env: Environment, fullFQN: string) {
 
