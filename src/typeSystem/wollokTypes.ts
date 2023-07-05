@@ -1,5 +1,5 @@
 import { List } from "../extensions"
-import { BaseProblem, Level, Module, Name } from "../model"
+import { BaseProblem, Environment, Level, Module, Name, Node } from "../model"
 import { newSynteticTVar, TypeVariable } from "./typeVariables"
 
 const { entries, fromEntries } = Object
@@ -206,5 +206,17 @@ export class WollokUnionType {
       .reduce((acc, type) => [...acc, type].filter(t => !t.isSubtypeOf(type)) // Remove subtypes (are redundants)
         , [] as WollokType[])
     return `(${simplifiedTypes.map(_ => _.name).join(' | ')})`
+  }
+}
+
+
+
+export class TypeRegistry {
+  constructor(private env: Environment, private tVars: Map<Node, TypeVariable>) { }
+
+  getType(node: Node): WollokType {
+    const tVar = this.tVars.get(node)
+    if (!tVar) throw new Error(`No type variable for node ${node}`)
+    return tVar.type()
   }
 }

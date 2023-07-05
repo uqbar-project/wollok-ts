@@ -21,7 +21,7 @@ describe('Wollok Type System Inference', () => {
   const logger = undefined
   // You can use the logger to debug the type system inference in customized way, for example:
   // { log: (message: String) => { if (message.includes('[Reference]')) console.log(message) } }
-  const registry = inferTypes(environment, logger)
+  inferTypes(environment, logger)
 
   for (const file of files) {
     const packageName = file.name.split('.')[0]
@@ -44,7 +44,7 @@ describe('Wollok Type System Inference', () => {
         for (const expectation of expectationsForNode) {
           const type = expectation.args['type']
           if (type) { // Assert type
-            const nodeType = registry.getType(node).name
+            const nodeType = node.type.name
             if (type !== nodeType) fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert error

@@ -1,42 +1,29 @@
 import { anyPredicate, is } from '../extensions'
 import { Environment, Module, Node, Reference } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
+import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
 
-interface Logger {
-  log: (message: string) => void
-}
+const { assign } = Object
 
+interface Logger { log: (message: string) => void }
 let logger: Logger = { log: () => { } }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INFERENCE
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-export function inferTypes(env: Environment, someLogger?: Logger): TypeRegistry {
+export function inferTypes(env: Environment, someLogger?: Logger): void {
   if (someLogger) logger = someLogger
   const tVars = newTypeVariables(env)
   let globalChange = true
   while (globalChange) {
     globalChange = [propagateTypes, bindMessages, maxTypesFromMessages].some(f => f(tVars))
   }
-  return new TypeRegistry(env, tVars)
+  assign(env, { typeRegistry: new TypeRegistry(env, tVars) })
 }
-
-class TypeRegistry {
-  constructor(private env: Environment, private tVars: Map<Node, TypeVariable>) { }
-
-  getType(node: Node): WollokType {
-    const tVar = this.tVars.get(node)
-    if (!tVar) throw new Error(`No type variable for node ${node}`)
-    return tVar.type()
-  }
-}
-
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROPAGATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
 
 function allValidTypeVariables(tVars: Map<Node, TypeVariable>) {
   return [...tVars.values()].filter(tVar => !tVar.hasProblems)

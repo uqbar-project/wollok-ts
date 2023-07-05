@@ -1,5 +1,6 @@
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty, TypeDefinition } from './extensions'
+import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
 
 const { isArray } = Array
 const { values, assign } = Object
@@ -104,6 +105,8 @@ export abstract class Node {
 
   get isSynthetic(): boolean { return !this.sourceMap }
   get hasProblems(): boolean { return notEmpty(this.problems) }
+
+  get type(): WollokType { return this.environment.typeRegistry.getType(this) }
 
   @cached
   toString(verbose = false): string {
@@ -841,6 +844,7 @@ export class Environment extends Node {
 
   readonly members!: List<Package>
   @lazy readonly nodeCache!: ReadonlyMap<Id, Node>
+  @lazy readonly typeRegistry!: TypeRegistry
 
   override parent!: never
 
