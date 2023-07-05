@@ -1,6 +1,8 @@
 import { should, use } from 'chai'
-import { Environment, Literal, Method, Name, Node, Parameter, Self, Send } from '../src'
-import { AtomicType, bindReceivedMessages, newSynteticTVar, propagateMaxTypes, propagateMinTypes, RETURN, TypeVariable, typeVariableFor, WollokAtomicType } from '../src/typeSystem'
+import { Environment, Literal, Method, Name, Parameter, Self, Send } from '../src'
+import { bindReceivedMessages, propagateMaxTypes, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
+import { newSynteticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
+import { AtomicType, RETURN, WollokAtomicType } from '../src/typeSystem/wollokTypes'
 import { typeAssertions } from './assertions'
 
 use(typeAssertions)

@@ -9,7 +9,7 @@ import { promises } from 'fs'
 import { buildEnvironment as buildEnv } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
-import { ANY, WollokAtomicType, WollokType } from '../src/typeSystem'
+import { ANY, WollokAtomicType, WollokType } from '../src/typeSystem/constraintBasedTypeSystem'
 
 const { readFile } = promises
 

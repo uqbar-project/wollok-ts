@@ -5,7 +5,7 @@ import globby from 'globby'
 import { join } from 'path'
 import { Annotation, buildEnvironment, Class, Literal, Node, Reference } from '../src'
 import { List } from '../src/extensions'
-import { getType, infer } from '../src/typeSystem'
+import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
 
 const TESTS_PATH = 'language/test/typeSystem'
@@ -21,7 +21,7 @@ describe('Wollok Type System Inference', () => {
   const logger = undefined
   // You can use the logger to debug the type system inference in customized way, for example:
   // { log: (message: String) => { if (message.includes('[Reference]')) console.log(message) } }
-  infer(environment, logger)
+  const registry = inferTypes(environment, logger)
 
   for (const file of files) {
     const packageName = file.name.split('.')[0]
@@ -44,7 +44,8 @@ describe('Wollok Type System Inference', () => {
         for (const expectation of expectationsForNode) {
           const type = expectation.args['type']
           if (type) { // Assert type
-            if (type !== getType(node)) fail(`Expected ${type} but got ${getType(node)} for ${node}`)
+            const nodeType = registry.getType(node).name
+            if (type !== nodeType) fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert error
             //TODO: Reuse this in validator.test.ts

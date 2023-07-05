@@ -300,7 +300,7 @@ export class Package extends Entity(Node) {
 
     return ancestorNames.reduce<Package>((member, name) =>
       new Package({ name, members: [member] })
-    , this)
+      , this)
   }
 
   @cached
@@ -476,7 +476,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
       return this.hierarchy.reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-      , field.value)
+        , field.value)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
@@ -847,7 +847,6 @@ export class Environment extends Node {
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   get sourceFileName(): undefined { return undefined }
-  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
 
   override get ancestors(): List<Node> { return [] }
 
@@ -870,14 +869,8 @@ export class Environment extends Node {
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }
-
-  get numberClass(): Class {
-    return this.getNodeByFQN('wollok.lang.Number')
-  }
-  get stringClass(): Class {
-    return this.getNodeByFQN('wollok.lang.String')
-  }
-  get booleanClass(): Class {
-    return this.getNodeByFQN('wollok.lang.Boolean')
-  }
+  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
+  get numberClass(): Class { return this.getNodeByFQN('wollok.lang.Number') }
+  get stringClass(): Class { return this.getNodeByFQN('wollok.lang.String') }
+  get booleanClass(): Class { return this.getNodeByFQN('wollok.lang.Boolean') }
 }
