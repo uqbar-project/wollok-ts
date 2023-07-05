@@ -20,9 +20,11 @@
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 import { count, TypeDefinition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
 // - Unified problem type
-import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
+import {
+  Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
-  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from './model'
+  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable
+} from './model'
 
 const { entries } = Object
 
@@ -116,7 +118,7 @@ export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
 export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
   !KEYWORDS.includes(node.name || ''),
-node => [node.name || ''],
+  node => [node.name || ''],
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
@@ -161,7 +163,7 @@ export const shouldNotReassignConst = error<Assignment>(node => {
 })
 
 // TODO: Test if the reference points to the right kind of node
-export const missingReference = error<Reference<Node>>(node => !!node.target )
+export const missingReference = error<Reference<Node>>(node => !!node.target)
 
 export const shouldNotHaveLoopInHierarchy = error<Class | Mixin>(node => !allParents(node).includes(node))
 
@@ -218,10 +220,14 @@ export const shouldPassValuesToAllAttributes = error<New>(
   node => getUninitializedAttributesForInstantation(node),
 )
 
-export const shouldInitializeAllAttributes = error<Singleton>(
-  node => isEmpty(getUninitializedAttributes(node)),
-  node => getUninitializedAttributes(node)
+export const shouldInitializeInheritedAttributes = error<Singleton>(
+  node => isEmpty(getInheritedUninitializedAttributes(node)),
+  node => [getInheritedUninitializedAttributes(node).join(', ')],
 )
+
+export const shouldInitializeSingletonAttribute = error<Field>(node => {
+  return !node.parent.is(Singleton) || !isUninitialized(node.value)
+})
 
 export const shouldNotUseSelf = error<Self>(node => {
   const ancestors = node.ancestors
@@ -395,8 +401,8 @@ export const shouldUseConditionalExpression = warning<If>(node => {
     elseValue === undefined ||
     ![true, false].includes(thenValue) ||
     thenValue === elseValue) && (!nextSentence ||
-    ![true, false].includes(valueFor(nextSentence))
-  )
+      ![true, false].includes(valueFor(nextSentence))
+    )
 })
 
 
@@ -511,16 +517,26 @@ const getUninitializedAttributesForInstantation = (node: New): string[] => {
   const target = node.instantiated.target
   if (!target) return []
   const initializers = node.args.map(_ => _.name)
-  return getUninitializedAttributes(target, initializers)
+  return getAllUninitializedAttributes(target, initializers)
 }
 
-const getUninitializedAttributes = (node: Module, initializers: string[] = []) =>
-  node.allFields
-    .filter(field => {
+const getAllUninitializedAttributes = (node: Module, initializers: string[] = []) =>
+  getUninitializedAttributesIn(node, [...node.allFields], initializers)
+
+const getInheritedUninitializedAttributes = (node: Module, initializers: string[] = []) =>
+  getUninitializedAttributesIn(node, [...node.allFields.filter(f => f.parent !== node)], initializers)
+
+
+const getUninitializedAttributesIn = (node: Module, fields: Field[], initializers: string[] = []) =>
+  fields.
+    filter(field => {
       const value = node.defaultValueFor(field)
-      return value.isSynthetic && value.is(Literal) && value.isNull() && !initializers.includes(field.name)
+      return isUninitialized(value) && !initializers.includes(field.name)
     })
     .map(field => field.name)
+
+
+const isUninitialized = (value: Expression) => value.isSynthetic && value.is(Literal) && value.isNull()
 
 const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) && node.value === value
 
@@ -560,10 +576,10 @@ const referencesSingleton = (node: Expression) => node.is(Reference) && node.tar
 
 const isBooleanOrUnknownType = (node: Node): boolean => match(node)(
   when(Literal)(condition => condition.value === true || condition.value === false),
-  when(Send)( _ =>  true), // tackled in a different validator
-  when(Super)( _ => true),
-  when(Reference)( condition => !condition.target?.is(Singleton)),
-  when(Node)( _ => false),
+  when(Send)(_ => true), // tackled in a different validator
+  when(Super)(_ => true),
+  when(Reference)(condition => !condition.target?.is(Singleton)),
+  when(Node)(_ => false),
 )
 
 const valueFor: any | undefined = (node: Node) =>
@@ -746,9 +762,9 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Program)(() => ({ nameShouldNotBeKeyword, shouldNotUseReservedWords, shouldMatchFileExtension, shouldNotDuplicateEntities })),
   when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension })),
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
-  when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
+  when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeInheritedAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
-  when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar })),
+  when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute })),
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
@@ -766,7 +782,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {
   return [
     ...found,
-    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], source: node.sourceMap } as const)  ) ?? [],
+    ...node.problems?.map(({ code }) => ({ code, level: 'error', node, values: [], source: node.sourceMap } as const)) ?? [],
     ...entries(validationsByKind(node))
       .map(([code, validation]) => validation(node, code)!)
       .filter(result => result !== null),
