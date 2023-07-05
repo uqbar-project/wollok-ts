@@ -14,7 +14,7 @@ describe('Wollok Game', () => {
   describe('actions', () => {
 
     let environment: Environment
-    let interpreter: Interpreter 
+    let interpreter: Interpreter
 
 
     before(async () => {

@@ -1,6 +1,6 @@
-import { List } from "../extensions"
-import { BaseProblem, Environment, Level, Module, Name, Node } from "../model"
-import { newSynteticTVar, TypeVariable } from "./typeVariables"
+import { List } from '../extensions'
+import { BaseProblem, Environment, Level, Module, Name, Node } from '../model'
+import { newSynteticTVar, TypeVariable } from './typeVariables'
 
 const { entries, fromEntries } = Object
 
@@ -94,7 +94,7 @@ export class WollokParametricType extends WollokModuleType {
 
   atParam(name: string): TypeVariable { return this.params.get(name)! }
   instanceFor(instance: TypeVariable): TypeVariable | null {
-    var changed = false
+    let changed = false
     const resolvedParamTypes = fromEntries([...this.params])
     this.params.forEach((tVar, name) => {
       const newInstance = tVar.instanceFor(instance)
@@ -208,7 +208,6 @@ export class WollokUnionType {
     return `(${simplifiedTypes.map(_ => _.name).join(' | ')})`
   }
 }
-
 
 
 export class TypeRegistry {

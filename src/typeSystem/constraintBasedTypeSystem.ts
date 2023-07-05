@@ -34,7 +34,7 @@ function propagateTypes(tVars: Map<Node, TypeVariable>) {
   return allValidTypeVariables(tVars).some(anyPredicate(propagateMinTypes, propagateMaxTypes))
 }
 
-export const propagateMinTypes = (tVar: TypeVariable) => {
+export const propagateMinTypes = (tVar: TypeVariable): boolean => {
   return propagateMinTypesTo(tVar, tVar.allMinTypes(), tVar.validSupertypes())
 }
 const propagateMinTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[]) => {
@@ -53,7 +53,7 @@ const propagateMinTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVar
   return changed
 }
 
-export const propagateMaxTypes = (tVars: TypeVariable) => {
+export const propagateMaxTypes = (tVars: TypeVariable): boolean => {
   return propagateMaxTypesTo(tVars, tVars.allMaxTypes(), tVars.validSubtypes())
 }
 
@@ -81,7 +81,7 @@ function bindMessages(tVars: Map<Node, TypeVariable>) {
   return allValidTypeVariables(tVars).some(bindReceivedMessages)
 }
 
-export const bindReceivedMessages = (tVar: TypeVariable) => {
+export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
   const types = tVar.allPossibleTypes()
   let changed = false
   for (const type of types) {
@@ -113,7 +113,7 @@ function maxTypesFromMessages(tVars: Map<Node, TypeVariable>) {
   return allValidTypeVariables(tVars).some(anyPredicate(maxTypeFromMessages, guessType))
 }
 
-export const maxTypeFromMessages = (tVar: TypeVariable) => {
+export const maxTypeFromMessages = (tVar: TypeVariable): boolean => {
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
   let changed = false
@@ -134,7 +134,7 @@ export const maxTypeFromMessages = (tVar: TypeVariable) => {
   return changed
 }
 
-export const guessType = (tVar: TypeVariable) => {
+export const guessType = (tVar: TypeVariable): boolean => {
   if (tVar.allPossibleTypes().length) return false
   let changed = false
   for (const superTVar of tVar.validSupertypes()) {
@@ -176,5 +176,3 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
   if (target.node.is(Reference)) return [target, targetType, type]
   throw new Error('No victim found')
 }
-
-

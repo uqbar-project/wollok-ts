@@ -1,6 +1,6 @@
-import { is, last, List, match, when } from "../extensions"
-import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Test, Throw, Try, Variable } from "../model"
-import { ANY, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from "./wollokTypes"
+import { is, last, List, match, when } from '../extensions'
+import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Test, Throw, Try, Variable } from '../model'
+import { ANY, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -26,7 +26,7 @@ export function typeVariableFor(node: Node): TypeVariable {
 function newTVarFor(node: Node) {
   const newTVar = new TypeVariable(node)
   tVars.set(node, newTVar)
-  var annotatedVar = newTVar // By default, annotations reference the same tVar
+  let annotatedVar = newTVar // By default, annotations reference the same tVar
   if (node.is(Method)) {
     const parameters = node.parameters.map(p => createTypeVariables(p)!)
     annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
@@ -112,7 +112,7 @@ const inferBody = (body: Body) => {
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
 
-  var params = undefined
+  let params = undefined
   const annotation = typeAnnotation(m)
   if (annotation && annotation.args['variable']) {
     const typeName = annotation.args['variable'] as string
@@ -123,14 +123,14 @@ const inferModule = (m: Module) => {
 
 const inferNew = (n: New) => {
   const clazz = n.instantiated.target!
-  var clazzParams = undefined
+  let clazzParams = undefined
   const annotation = typeAnnotation(clazz)
   if (annotation && annotation.args['variable']) {
     const typeName = annotation.args['variable'] as string
     clazzParams = { [typeName]: newSynteticTVar() }
   }
   const tVar = typeVariableFor(n).setType(new WollokParametricType(clazz, clazzParams))
-/*const args =*/ n.args.map(createTypeVariables)
+  /*const args =*/ n.args.map(createTypeVariables)
   return tVar
 }
 
@@ -163,7 +163,7 @@ const inferMethod = (m: Method) => {
 
 const inferSend = (send: Send) => {
   const receiver = createTypeVariables(send.receiver)!
-/*const args =*/ send.args.map(createTypeVariables)
+  /*const args =*/ send.args.map(createTypeVariables)
   receiver.addSend(send)
   // TODO: Save args info for max type inference
   return typeVariableFor(send)
@@ -402,4 +402,3 @@ function typeAnnotation(node: Node) {
 function isParameterName(name: string, node: Node) {
   return node.ancestors.find(n => typeAnnotation(n)?.args['variable'] === name)
 }
-

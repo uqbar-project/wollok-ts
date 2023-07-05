@@ -1,11 +1,9 @@
-import { should, use } from 'chai'
+import { should } from 'chai'
 import { Environment, Literal, Method, Name, Parameter, Self, Send } from '../src'
 import { bindReceivedMessages, propagateMaxTypes, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSynteticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType } from '../src/typeSystem/wollokTypes'
-import { typeAssertions } from './assertions'
 
-use(typeAssertions)
 should()
 
 const env = new Environment({ members: [] })
