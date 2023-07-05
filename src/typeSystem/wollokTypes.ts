@@ -107,16 +107,16 @@ export class WollokParametricType extends WollokModuleType {
     // If nothing changes, we can use the original TVar
     if (!changed) return super.instanceFor(instance)
 
-    // TODO: Creating a new syntetic TVar *each time* is not the best solution
-    //      We should attach this syntetic TVar to the instance, so we can reuse it
+    // TODO: Creating a new syntetic TVar *each time* is not the best solution.
+    //      We should attach this syntetic TVar to the instance, so we can reuse it.
+    //      We also need to take care of MethodType (subclasses of ParametricType)
     return newSynteticTVar().setType(new WollokParametricType(this.module, resolvedParamTypes))
   }
 
   get name(): string {
+    // TODO: Avoid duplicates?
     const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
-    // TODO: rollback this change
-    const suffix = innerTypes ? `<${innerTypes}>` : ''
-    return `${super.name}${suffix}`
+    return `${super.name}<${innerTypes}>`
   }
 
   sameParams(type: WollokParametricType) {
@@ -126,7 +126,7 @@ export class WollokParametricType extends WollokModuleType {
 
 export class WollokMethodType extends WollokParametricType {
   constructor(returnVar: TypeVariable, params: TypeVariable[]) {
-    // TODO: Mejorar esta herencia
+    // TODO: Improve this inheritance
     super(null as any, {
       ...fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
       [RETURN]: returnVar,

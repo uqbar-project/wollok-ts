@@ -33,21 +33,9 @@ function newTVarFor(node: Node) {
     newTVar.setType(new WollokMethodType(annotatedVar, parameters))
   }
 
-  const annotation = typeAnnotation(node)
-  if (annotation && annotation.args['name']) {
-    const typeName = annotation.args['name'] as string
-    if (isParameterName(typeName, node)) {
-      annotatedVar.setType(new WollokParameterType(typeName)) // Add parametric type definition, not just parameter name
-      return newTVar
-    }
-    let module = node.environment.getNodeOrUndefinedByFQN<Module>(typeName)
-    if (!module) { // If not found, try to find in same package
-      const p = node.ancestors.find(is(Package))
-      const moduleFQN = p ? `${p.name}.${typeName}` : typeName
-      module = node.environment.getNodeByFQN<Module>(moduleFQN)
-    }
-    annotatedVar.setType(new WollokModuleType(module))
-  }
+  const typeName = annotatedTypeName(node)
+  if (typeName) setAnnotatedType(typeName, annotatedVar, node)
+
   return newTVar
 }
 
@@ -111,25 +99,12 @@ const inferBody = (body: Body) => {
 
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
-
-  let params = undefined
-  const annotation = typeAnnotation(m)
-  if (annotation && annotation.args['variable']) {
-    const typeName = annotation.args['variable'] as string
-    params = { [typeName]: newSynteticTVar() }
-  }
-  typeVariableFor(m).setType(new WollokParametricType(m, params))
+  typeVariableFor(m).setType(typeForModule(m))
 }
 
 const inferNew = (n: New) => {
   const clazz = n.instantiated.target!
-  let clazzParams = undefined
-  const annotation = typeAnnotation(clazz)
-  if (annotation && annotation.args['variable']) {
-    const typeName = annotation.args['variable'] as string
-    clazzParams = { [typeName]: newSynteticTVar() }
-  }
-  const tVar = typeVariableFor(n).setType(new WollokParametricType(clazz, clazzParams))
+  const tVar = typeVariableFor(n).setType(typeForModule(clazz))
   /*const args =*/ n.args.map(createTypeVariables)
   return tVar
 }
@@ -399,6 +374,39 @@ function typeAnnotation(node: Node) {
   return node.metadata.find(_ => _.name === 'Type')
 }
 
+function annotatedTypeName(node: Node): string | undefined {
+  return typeAnnotation(node)?.args['name'] as string
+}
+// TODO: Could be many
+function annotatedVariableName(node: Node): string | undefined {
+  return typeAnnotation(node)?.args['variable'] as string
+}
+
+
+function setAnnotatedType(typeName: string, tVar: TypeVariable, node: Node): void {
+  // First try parametric types
+  if (isParameterName(typeName, node)) {
+    // TODO: Add parametric type definition, not just parameter name
+    tVar.setType(new WollokParameterType(typeName))
+    return;
+  }
+
+  // Then try by FQN
+  let module = node.environment.getNodeOrUndefinedByFQN<Module>(typeName)
+  if (!module) {
+    // If not found, try to find just by name in same package (sibling definition)
+    const p = node.ancestors.find(is(Package))!
+    module = p.getNodeByQN<Module>(typeName)
+  }
+  tVar.setType(new WollokModuleType(module))
+}
+
 function isParameterName(name: string, node: Node) {
-  return node.ancestors.find(n => typeAnnotation(n)?.args['variable'] === name)
+  return node.ancestors.find(n => annotatedVariableName(n) === name)
+}
+
+function typeForModule(m: Module) {
+  const varName = annotatedVariableName(m)
+  if (varName) return new WollokParametricType(m, { [varName]: newSynteticTVar() })
+  return new WollokModuleType(m)
 }
