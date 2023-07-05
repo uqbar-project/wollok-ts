@@ -156,7 +156,7 @@ export const shouldNotAssignToItself = error<Assignment>(node => {
 
 export const shouldNotReassignConst = error<Assignment>(node => {
   const target = node?.variable?.target
-  const referenceIsNotConstant = !!target && (target.is(Variable) || target?.is(Field)) && !target.isConstant
+  const referenceIsNotConstant = !target || (target.is(Variable) || target?.is(Field)) && !target.isConstant
   return referenceIsNotConstant && !target?.is(Parameter)
 })
 
@@ -172,12 +172,15 @@ export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   return !isEqualMessage(node) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
 })
 
-export const shouldUseSelfAndNotSingletonReference = warning<Send>(node => {
-  const receiver = node.receiver
-  return !receiver.is(Reference) || !receiver.ancestors.includes(receiver.target!)
+export const shouldUseSelfAndNotSingletonReference = warning<Reference<Node>>(node => {
+  const target = node.target
+  return !target || !target.is(Singleton) || !node.ancestors.includes(target)
 })
 
-export const shouldOnlyInheritFromMixin = error<Mixin>(node => !node.supertypes.some(parent => !parent.reference.target?.is(Mixin)))
+export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.every(parent => {
+  const target = parent.reference.target
+  return !target || target.is(Mixin)
+}))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
   node.isOverride || !superclassMethod(node)
@@ -445,15 +448,15 @@ export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
 
 export const catchShouldBeReachable = error<Catch>(node => {
   const previousSiblings = node.parent.children.slice(0, node.parent.children.indexOf(node))
-  const exceptionType = node.parameterType.target!
-  return isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
+  const exceptionType = node.parameterType.target
+  return !exceptionType || isEmpty(previousSiblings) || !previousSiblings.some(sibling => {
     if (!sibling.is(Catch)) return false
-    const siblingType = sibling.parameterType.target!
-    return exceptionType === siblingType || exceptionType.inherits(siblingType)
+    const siblingType = sibling.parameterType.target
+    return !siblingType || exceptionType === siblingType || exceptionType.inherits(siblingType)
   })
 })
 
-export const shouldNotDuplicateEntities = error<Class | Mixin | Singleton>(node =>
+export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
   !node.name || !node.parent.is(Package) || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target, node.name!))
 )
 
@@ -510,7 +513,8 @@ const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
 )
 
 const getUninitializedAttributesForInstantation = (node: New): string[] => {
-  const target = node.instantiated.target!
+  const target = node.instantiated.target
+  if (!target) return []
   const initializers = node.args.map(_ => _.name)
   return getUninitializedAttributes(target, initializers)
 }
@@ -745,19 +749,19 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Body)(() => ({ shouldNotBeEmpty })),
   when(Catch)(() => ({ shouldCatchUsingExceptionHierarchy, catchShouldBeReachable })),
   when(Package)(() => ({ shouldNotDuplicatePackageName })),
-  when(Program)(() => ({ nameShouldNotBeKeyword, shouldMatchFileExtension })),
+  when(Program)(() => ({ nameShouldNotBeKeyword, shouldNotUseReservedWords, shouldMatchFileExtension, shouldNotDuplicateEntities })),
   when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension })),
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeAllAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
   when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar })),
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue })),
-  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar })),
+  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
-  when(Reference)(() => ({ missingReference })),
+  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
-  when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldUseSelfAndNotSingletonReference, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
+  when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
   when(Super)(() => ({ shouldUseSuperOnlyOnOverridingMethod })),
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
   when(Try)(() => ({ shouldHaveCatchOrAlways })),

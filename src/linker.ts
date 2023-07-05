@@ -1,7 +1,6 @@
 import { v4 as uuid } from 'uuid'
-import { getPotentiallyUninitializedLazy } from './decorators'
 import { divideOn, is, List } from './extensions'
-import { Id, Import, Sentence, BaseProblem, Entity, Environment, Level, Name, Node, Package, Scope, Reference, SourceMap, Field, Parameter, ParameterizedType, Module } from './model'
+import { BaseProblem, Entity, Environment, Field, Id, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, SourceMap } from './model'
 const { assign } = Object
 
 
@@ -9,14 +8,15 @@ export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game']
 
 
 export class LinkError implements BaseProblem {
-  constructor(public code: Name){}
+  constructor(public code: Name) { }
 
   get level(): Level { return 'error' }
   get values(): List<string> { return [] }
   get sourceMap(): SourceMap | undefined { return undefined }
 }
 
-const fail = (code: Name) => (node: Reference<Node>) =>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const fail = (code: Name) => (node: Node) =>
   assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -26,7 +26,8 @@ const fail = (code: Name) => (node: Reference<Node>) =>
 const mergePackage = (members: List<Entity>, isolated: Entity): List<Entity> => {
   if (!isolated.is(Package)) return [...members.filter(({ name }) => name !== isolated.name), isolated]
   const existent = members.find((member: Entity): member is Package =>
-    member.is(Package) && member.name === isolated.name)
+    member.is(Package) && member.name === isolated.name && member.sourceFileName === isolated.sourceFileName)
+
   return existent
     ? [
       ...members.filter(member => member !== existent),
@@ -52,11 +53,11 @@ export class LocalScope implements Scope {
   protected contributions = new Map<Name, Node>()
   protected includedScopes: Scope[] = []
 
-  constructor(public containerScope?: Scope, ...contributions: [ Name, Node][]) {
+  constructor(public containerScope?: Scope, ...contributions: [Name, Node][]) {
     this.register(...contributions)
   }
 
-  resolve<N extends Node>(qualifiedName: Name, allowLookup = true):  N | undefined {
+  resolve<N extends Node>(qualifiedName: Name, allowLookup = true): N | undefined {
     const [start, rest] = divideOn('.')(qualifiedName)
 
     const step = !allowLookup
@@ -68,11 +69,18 @@ export class LocalScope implements Scope {
     return rest.length ? step?.scope?.resolve<N>(rest, false) : step as N
   }
 
-  register(...contributions: [ Name, Node][]): void {
-    for(const [name, node] of contributions) this.contributions.set(name, node)
+  register(...contributions: [Name, Node][]): void {
+    for (const [name, node] of contributions) {
+      // (global packages) Not override previous contributions
+      if (!this.contributions.has(name)) {
+        this.contributions.set(name, node)
+      }
+    }
   }
 
   include(...others: Scope[]): void { this.includedScopes.push(...others) }
+
+  localContributions(): [Name, Node][] { return [...this.contributions.entries()] }
 }
 
 
@@ -97,34 +105,33 @@ const assignScopes = (environment: Environment) => {
       ),
     })
 
-    if(node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
+    if (node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
   })
 
   environment.forEach((node, parent) => {
-    if(node.is(Environment)){
-      for(const globalName of GLOBAL_PACKAGES) {
+    if (node.is(Environment)) {
+      for (const globalName of GLOBAL_PACKAGES) {
         const globalPackage = environment.scope.resolve<Package>(globalName)
-        if(globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
+        if (globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
 
-    if(node.is(Package)) {
-      for(const imported of node.imports) {
+    if (node.is(Package)) {
+      for (const imported of node.imports) {
         const entity = node.parent.scope.resolve<Entity>(imported.entity.name)
 
-        if(entity) node.scope.include(imported.isGeneric
-          ? entity.scope
+        if (entity) node.scope.include(imported.isGeneric
+          ? new LocalScope(undefined, ...entity.scope.localContributions())
           : new LocalScope(undefined, [entity.name!, entity])
         )
       }
     }
 
-    if(node.is(Module)) {
-
+    if (node.is(Module)) {
       node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
     }
 
-    if(parent && !node.is(Entity))
+    if (parent && !node.is(Entity))
       parent!.scope.register(...scopeContribution(node))
   })
 }
@@ -146,7 +153,7 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
     nodeCache.set(node.id, node)
     node.environment = environment
     // TODO: There is no need any more for this to be on the linker. Move parent assignment to constructors
-    if(parent) node.parent = parent
+    if (parent) node.parent = parent
   })
 
   assign(environment, { nodeCache })
@@ -154,52 +161,4 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   assignScopes(environment)
 
   return environment
-}
-
-//TODO: Cleanup repetition with default link
-export function linkIsolated<S extends Sentence>(sentence: S, environment: Environment, context: Import[] = []): S {
-  sentence = sentence.transform(node => node.copy({ id: uuid() })) as S
-
-  const topLevelScope = new LocalScope(environment.scope)
-
-  sentence.forEach(node => {
-    node.environment = environment
-  })
-
-  sentence.forEach((node, parent) => {
-    assign(node, {
-      scope: new LocalScope(
-        parent
-          ? node.is(Reference) && parent.is(ParameterizedType)
-            ? getPotentiallyUninitializedLazy(parent, 'parent')?.scope ?? topLevelScope
-            : parent.scope
-          : topLevelScope
-      ),
-    })
-
-    if(node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
-  })
-
-  for(const imported of context) {
-    const entity = environment.scope.resolve<Entity>(imported.entity.name)
-
-    if(entity) topLevelScope.include(imported.isGeneric
-      ? entity.scope
-      : new LocalScope(undefined, [entity.name!, entity])
-    )
-  }
-
-  sentence.forEach((node, parent) => {
-    if(node.is(Module))
-      node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
-
-    if(parent && !node.is(Entity))
-      parent.scope.register(...scopeContribution(node))
-  })
-
-  sentence.forEach(node => {
-    if(node.is(Reference) && !node.target) fail('missingReference')(node)
-  })
-
-  return sentence
 }

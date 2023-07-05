@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.0.3
+**Wollok Version: `3.1.7`**
+
+- Update Wollok version.
+- Fixed linking packages with the same name.
+
+## v4.0.2
+**Wollok Version: `3.1.6`**
+
+- Update Wollok version.
+- Fixed buggy validations over incomplete AST.
+
 ## v4.0.1
 **Wollok Version: `3.1.3`**
 

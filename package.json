@@ -1,7 +1,7 @@
 {
   "name": "wollok-ts",
-  "version": "4.0.2",
-  "wollokVersion": "3.1.3",
+  "version": "4.0.4",
+  "wollokVersion": "3.1.7",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",

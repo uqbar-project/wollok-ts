@@ -1,4 +1,5 @@
 import { expect, should, use } from 'chai'
+import { divideOn } from '../src/extensions'
 import { fromJSON } from '../src/jsonUtils'
 import link from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
@@ -10,10 +11,11 @@ should()
 use(linkerAssertions)
 
 
-// TODO: Split uber-tests into smaller tests with clearer descriptions
-// TODO: Using the whole WRE in tests was a mistake. Build back a minimal WRE for testing so analysis is easier.
-// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ?
+// TODO: Split uber-tests into smaller tests with clearer descriptions (??)
+// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
+
+const MINIMAL_LANG = environmentWithEntities('wollok.lang.Object', 'wollok.game.game')
 
 describe('Wollok linker', () => {
 
@@ -21,7 +23,7 @@ describe('Wollok linker', () => {
 
     it('should merge independent packages into a single environment', () => {
       [
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -36,7 +38,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -55,7 +57,7 @@ describe('Wollok linker', () => {
 
     it('should merge same name packages into a single package', () => {
       [
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -75,7 +77,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
           members: [
@@ -116,7 +118,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
       ].should.be.linkedInto([
         new Package({
           name: 'A',
@@ -130,13 +132,13 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
       ])
     })
 
     it('should replace old entities prioritizing right to left', () => {
       [
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
           members: [
@@ -150,7 +152,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ].should.be.linkedInto([
-        ...WRE.members,
+        ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
           members: [
@@ -651,7 +653,7 @@ describe('Wollok linker', () => {
       expect(() => environment.getNodeByFQN('p.C')).to.throw()
     })
 
-    it('Entities with string names should not be referenceable without the quotes', () => {
+    it('entities with string names should not be referenceable without the quotes', () => {
       const environment = link([
         new Package({
           name: 'p',
@@ -669,20 +671,47 @@ describe('Wollok linker', () => {
       expect(() => environment.getNodeByFQN('p."T"')).to.not.throw()
     })
 
+    it('global packages should not override package definition', () => {
+      const env = link([
+        new Package({ name: 'game', members: [new Package({ name: 'p' })] }),
+      ], MINIMAL_LANG)
+      env.getNodeByFQN<Package>('game.p').should.be.ok
+    })
+
   })
 
   describe('error handling', () => {
 
-    it('should recover from missing reference in imports', () => {
+    it('should not merge packages with same name but different fqn', () => {
+      const env = link([
+        new Package({ name: 'lang', members: [new Package({ name: 'p' })] }),
+      ], MINIMAL_LANG)
+      env.getNodeByFQN<Package>('lang.p').should.be.ok
+      env.getNodeByFQN<Package>('wollok.lang.Object').should.be.ok
+    })
+
+    it('should not merge package with different file name', () => {
+      const env = link([
+        new Package({
+          name: 'g', members: [
+            new Package({ fileName: 'p.wlk', name: 'p' }),
+            new Package({ fileName: 'p.wtest', name: 'p' }),
+          ],
+        }),
+      ], WRE)
+      env.getNodeByFQN<Package>('g').members.should.have.length(2)
+    })
+
+    it('should not crash with missing reference in imports', () =>
       link([
         new Package({
           name: 'p',
           imports: [new Import({ entity: new Reference({ name: 'q.A' }) })],
         }),
       ], WRE)
-    })
+    )
 
-    it('should recover from missing reference in superclass', () => {
+    it('should not crash with missing reference in superclass', () =>
       link([
         new Package({
           name: 'p',
@@ -691,9 +720,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should recover from missing reference in mixin', () => {
+    it('should not crash with missing reference in mixin', () =>
       link([
         new Package({
           name: 'p',
@@ -702,9 +731,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if a class inherits from itself', () => {
+    it('should not crash if a class inherits from itself', () =>
       link([
         new Package({
           name: 'p',
@@ -713,9 +742,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if there is an inheritance cycle', () => {
+    it('should not crash if there is an inheritance cycle', () =>
       link([
         new Package({
           name: 'p',
@@ -726,9 +755,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if a mixin includes itself', () => {
+    it('should not crash if a mixin includes itself', () =>
       link([
         new Package({
           name: 'p',
@@ -737,9 +766,9 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
-    it('should not crash if there is a mixin linearization cycle', () => {
+    it('should not crash if there is a mixin linearization cycle', () =>
       link([
         new Package({
           name: 'p',
@@ -750,8 +779,25 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WRE)
-    })
+    )
 
   })
 
 })
+
+function environmentWithEntities(...fqns: string[]): Environment {
+  return fqns.reduce((env, fqn) => link([newPackageWith(WRE, fqn)], env), link([]))
+}
+
+function newPackageWith(env: Environment, fullFQN: string) {
+
+  const buildNewPackages = (_fqn: string): Package => {
+    const [start, rest] = divideOn('.')(_fqn)
+
+    return rest.length
+      ? new Package({ name: start, members: [buildNewPackages(rest)] })
+      : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
+  }
+
+  return buildNewPackages(fullFQN)
+}
