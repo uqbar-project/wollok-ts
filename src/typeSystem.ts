@@ -1,7 +1,7 @@
 import { is, last, List, match, when } from './extensions'
 import { Assignment, BaseProblem, Body, Class, Closure, Environment, Expression, Field, If, Import, Level, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Test, Throw, Try, Variable } from './model'
 
-const { assign } = Object
+const { assign, entries, fromEntries } = Object
 interface Logger {
   log: (message: string) => void
 }
@@ -52,10 +52,13 @@ function newTVarFor(node: Node) {
     newTVar.setType(new WollokMethodType(annotatedVar, parameters))
   }
 
-  const typeAnnotation = node.metadata.find(_ => _.name === 'Type')
-  if (typeAnnotation) {
-    const typeName = typeAnnotation.args['name'] as string
-    // TODO: Method type annotation missing
+  const annotation = typeAnnotation(node)
+  if (annotation && annotation.args['name']) {
+    const typeName = annotation.args['name'] as string
+    if (isParameterName(typeName, node)) {
+      annotatedVar.setType(new WollokParameterType(typeName)) // Add parametric type definition, not just parameter name
+      return newTVar
+    }
     let module = environment.getNodeOrUndefinedByFQN<Module>(typeName)
     if (!module) { // If not found, try to find in same package
       const p = node.ancestors.find(is(Package))
@@ -99,7 +102,7 @@ function createTypeVariables(node: Node): TypeVariable | void {
     when(Try)(typeVariableFor), //TODO
 
     when(New)(inferNew),
-    when(NamedArgument)(typeVariableFor), //TODO
+    when(NamedArgument)(inferNamedArgument),
 
     when(Variable)(inferVariable),
     when(Field)(inferVariable),
@@ -136,13 +139,42 @@ const inferBody = (body: Body) => {
 
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
-  typeVariableFor(m).setType(new WollokModuleType(m))
+
+  var params = undefined
+  const annotation = typeAnnotation(m)
+  if (annotation && annotation.args['variable']) {
+    const typeName = annotation.args['variable'] as string
+    params = { [typeName]: newSynteticTVar() }
+  }
+  typeVariableFor(m).setType(new WollokParametricType(m, params))
 }
 
 const inferNew = (n: New) => {
-  /*const args =*/ n.args.map(createTypeVariables)
   const clazz = n.instantiated.target!
-  return typeVariableFor(n).setType(new WollokModuleType(clazz))
+  var clazzParams = undefined
+  const annotation = typeAnnotation(clazz)
+  if (annotation && annotation.args['variable']) {
+    const typeName = annotation.args['variable'] as string
+    clazzParams = { [typeName]: newSynteticTVar() }
+  }
+  const tVar = typeVariableFor(n).setType(new WollokParametricType(clazz, clazzParams))
+  /*const args =*/ n.args.map(createTypeVariables)
+  return tVar
+}
+
+const inferNamedArgument = (n: NamedArgument) => {
+  const valueTVar = createTypeVariables(n.value)!
+  if (n.parent instanceof New) {
+    // Named arguments value should be subtype of field definition
+    const clazz = n.parent.instantiated.target!
+    const field = clazz.lookupField(n.name)
+    if (field) { // Validation already checked that field exists
+      const fieldTVar = typeVariableFor(field)
+      const instanceTVar = typeVariableFor(n.parent)
+      fieldTVar.instanceFor(instanceTVar).beSupertypeOf(valueTVar)
+    }
+  }
+  return valueTVar
 }
 
 const inferMethod = (m: Method) => {
@@ -258,7 +290,8 @@ export class TypeVariable {
 
 
   type() { return this.typeInfo.type() }
-  atParam(name: string): TypeVariable { return this.type().atParam(name)! }
+  atParam(name: string): TypeVariable { return this.type().atParam(name) }
+  instanceFor(instance: TypeVariable): TypeVariable { return this.type().instanceFor(instance) || this }
 
   hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
   hasType(type: WollokType) { return this.allPossibleTypes().some(_type => _type.contains(type)) }
@@ -351,7 +384,7 @@ class TypeInfo {
   maxTypes: WollokType[] = []
   closed = false
 
-  type() {
+  type(): WollokType {
     if (this.maxTypes.length + this.minTypes.length == 0) return new WollokAtomicType(ANY)
     if (this.maxTypes.length == 1) return this.maxTypes[0]
     if (this.minTypes.length == 1) return this.minTypes[0]
@@ -452,14 +485,13 @@ export const bindReceivedMessages = (tVar: TypeVariable) => {
       if (!method)
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
-
-      if (!typeVariableFor(method).atParam(RETURN).hasSupertype(typeVariableFor(send))) {
-        // TOOD: Bind copies to not affect method types
-        typeVariableFor(method).atParam(RETURN).addSupertype(typeVariableFor(send))
-        method.parameters.forEach((param, index) => {
-          typeVariableFor(param).addSubtype(typeVariableFor(send.args[index]))
+      const methodInstance = typeVariableFor(method).instanceFor(tVar)
+      if (!methodInstance.atParam(RETURN).hasSupertype(typeVariableFor(send))) {
+        methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
+        method.parameters.forEach((_param, i) => {
+          methodInstance.atParam(`${PARAM}${i}`).addSubtype(typeVariableFor(send.args[i]))
         })
-        // TODO: Bind arguments
+
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
         changed = true
       }
@@ -543,6 +575,20 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
 
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// ANNOTATIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+
+function typeAnnotation(node: Node) {
+  return node.metadata.find(_ => _.name === 'Type')
+}
+
+function isParameterName(name: string, node: Node) {
+  return node.ancestors.find(n => typeAnnotation(n)?.args['variable'] === name)
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // WOLLOK TYPES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -553,7 +599,7 @@ export class TypeSystemProblem implements BaseProblem {
   get sourceMap(): undefined { return undefined }
 }
 
-export type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType
+export type WollokType = WollokAtomicType | WollokModuleType | WollokUnionType | WollokParameterType
 export type AtomicType = typeof ANY | typeof VOID
 
 export class WollokAtomicType {
@@ -567,9 +613,8 @@ export class WollokAtomicType {
     throw new Error('Atomic types has no methods')
   }
 
-  atParam(_name: string): TypeVariable {
-    throw new Error('Atomic types has no params')
-  }
+  atParam(_name: string): TypeVariable { throw new Error('Atomic types has no params') }
+  instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
     return type instanceof WollokAtomicType && this.id === type.id
@@ -601,6 +646,7 @@ export class WollokModuleType {
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
+  instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
 
   asList() { return [this] }
 
@@ -619,20 +665,39 @@ export class WollokModuleType {
 export class WollokParametricType extends WollokModuleType {
   params: Map<string, TypeVariable>
 
-  constructor(base: Module, params: Record<string, TypeVariable>) {
+  constructor(base: Module, params: Record<string, TypeVariable> = {}) {
     super(base)
-    this.params = new Map(Object.entries(params))
+    this.params = new Map(entries(params))
   }
 
   contains(type: WollokType): boolean {
-    return super.contains(type) && type instanceof WollokParametricType && this.sameParams(type)
+    return super.contains(type) && (!this.params.size || type instanceof WollokParametricType && this.sameParams(type))
   }
 
   atParam(name: string): TypeVariable { return this.params.get(name)! }
+  instanceFor(instance: TypeVariable): TypeVariable | null {
+    var changed = false
+    const resolvedParamTypes = fromEntries([...this.params])
+    this.params.forEach((tVar, name) => {
+      const newInstance = tVar.instanceFor(instance) 
+      if (newInstance !== tVar) {
+        resolvedParamTypes[name] = newInstance
+        changed = true
+      }
+    })
+
+    // If nothing changes, we can use the original TVar
+    if (!changed) return super.instanceFor(instance)
+    
+    // TODO: Creating a new syntetic TVar *each time* is not the best solution
+    //      We should attach this syntetic TVar to the instance, so we can reuse it
+    return newSynteticTVar().setType(new WollokParametricType(this.module, resolvedParamTypes))
+  }
 
   get name(): string {
     const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
-    return `${super.name}<${innerTypes}>`
+    const suffix = innerTypes ? `<${innerTypes}>` : ''
+    return `${super.name}${suffix}`
   }
 
   sameParams(type: WollokParametricType) {
@@ -644,7 +709,7 @@ export class WollokMethodType extends WollokParametricType {
   constructor(returnVar: TypeVariable, params: TypeVariable[]) {
     // TODO: Mejorar esta herencia
     super(null as any, {
-      ...Object.fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
+      ...fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
       [RETURN]: returnVar,
     })
   }
@@ -659,6 +724,40 @@ export class WollokMethodType extends WollokParametricType {
   }
 }
 
+export class WollokParameterType {
+  id: Name
+
+  constructor(id: Name) {
+    this.id = id
+  }
+
+  instanceFor(instance: TypeVariable): TypeVariable | null { return instance.type().atParam(this.name) }
+
+  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+    throw new Error('Parameters types has no methods')
+  }
+
+  atParam(_name: string): TypeVariable {
+    throw new Error('Parameters types has no params')
+  }
+
+  contains(type: WollokType): boolean {
+    if (this === type) return true
+    throw new Error('Parameters types does not contains other types')
+  }
+
+  asList() { return [this] }
+
+  isSubtypeOf(_type: WollokType) {
+    throw new Error('Parameters types cannot be subtype of other types (invariant)')
+  }
+
+  get name(): string {
+    return this.id
+  }
+}
+
+
 export class WollokUnionType {
   types: WollokType[]
 
@@ -671,6 +770,7 @@ export class WollokUnionType {
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Union types has no params') }
+  instanceFor(_instance: TypeVariable) { return null }
 
   contains(type: WollokType): boolean {
     if (type instanceof WollokUnionType)
