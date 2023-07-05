@@ -1,5 +1,5 @@
 import { is, last, List, match, when } from './extensions'
-import { Assignment, BaseProblem, Body, Class, Closure, Environment, Expression, Field, If, Import, Level, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Throw, Try, Variable } from './model'
+import { Assignment, BaseProblem, Body, Class, Closure, Environment, Expression, Field, If, Import, Level, Literal, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Test, Throw, Try, Variable } from './model'
 
 const { assign } = Object
 interface Logger {
@@ -45,9 +45,11 @@ export function typeVariableFor(node: Node): TypeVariable {
 function newTVarFor(node: Node) {
   const newTVar = new TypeVariable(node)
   tVars.set(node, newTVar)
+  var annotatedVar = newTVar // By default, annotations reference the same tVar
   if (node.is(Method)) {
     const parameters = node.parameters.map(p => createTypeVariables(p)!)
-    newTVar.setType(new WollokMethodType(newSynteticTVar(), parameters))
+    annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
+    newTVar.setType(new WollokMethodType(annotatedVar, parameters))
   }
 
   const typeAnnotation = node.metadata.find(_ => _.name === 'Type')
@@ -60,7 +62,7 @@ function newTVarFor(node: Node) {
       const moduleFQN = p ? `${p.name}.${typeName}` : typeName
       module = environment.getNodeByFQN<Module>(moduleFQN)
     }
-    newTVar.setType(new WollokModuleType(module))
+    annotatedVar.setType(new WollokModuleType(module))
   }
   return newTVar
 }
@@ -87,6 +89,7 @@ function createTypeVariables(node: Node): TypeVariable | void {
 
     when(Send)(inferSend),
     when(Method)(inferMethod),
+    when(Test)(inferTest),
     when(Parameter)(inferParameter),
 
     when(Return)(inferReturn),
@@ -121,6 +124,10 @@ const inferPackage = (p: Package) => {
 
 const inferProgram = (p: Program) => {
   createTypeVariables(p.body)
+}
+
+const inferTest = (t: Test) => {
+  createTypeVariables(t.body)
 }
 
 const inferBody = (body: Body) => {
@@ -221,7 +228,7 @@ const inferLiteral = (l: Literal) => {
     case 'boolean': return tVar.setType(new WollokModuleType(booleanClass))
     case 'object':
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
-      if (l.value === null) return tVar //tVar.setType('Null')
+      if (l.value === null) return tVar //tVar.setType('Nullable?')
   }
   throw new Error('Literal type not found')
 }
@@ -570,6 +577,8 @@ export class WollokAtomicType {
 
   asList() { return [this] }
 
+  isSubtypeOf(_type: WollokType) { return false }
+
   get name(): string {
     return this.id
   }
@@ -594,6 +603,11 @@ export class WollokModuleType {
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
 
   asList() { return [this] }
+
+  isSubtypeOf(type: WollokType) {
+    return type instanceof WollokModuleType && this.module !== type.module &&
+      (environment.objectClass === type.module || this.module.inherits(type.module))
+  }
 
   get name(): string {
     return this.module.name!
@@ -666,7 +680,12 @@ export class WollokUnionType {
 
   asList() { return this.types }
 
+  isSubtypeOf(type: WollokType): boolean { return this.types.every(t => t.isSubtypeOf(type)) }
+
   get name(): string {
-    return `(${this.types.map(_ => _.name).join(' | ')})`
+    const simplifiedTypes = this.types
+      .reduce((acc, type) => [...acc, type].filter(t => !t.isSubtypeOf(type)) // Remove subtypes (are redundants)
+        , [] as WollokType[])
+    return `(${simplifiedTypes.map(_ => _.name).join(' | ')})`
   }
 }
