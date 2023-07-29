@@ -41,6 +41,7 @@ export class SourceMap {
 
   toString(): string { return `[${this.start}, ${this.end}]` }
   covers(offset: number): boolean { return this.start.offset <= offset && this.end.offset >= offset }
+  includes(other: SourceMap): boolean { return this.start.offset <= other.start.offset && this.end.offset >= other.end.offset }
 }
 
 export class Annotation {
