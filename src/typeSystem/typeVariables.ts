@@ -1,6 +1,6 @@
 import { is, last, List, match, when } from '../extensions'
-import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Super, Test, Throw, Try, Variable } from '../model'
-import { ANY, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
+import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { ANY, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -13,7 +13,7 @@ export function newTypeVariables(env: Environment): Map<Node, TypeVariable> {
 }
 
 export function newSynteticTVar() {
-  return newTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
+  return doNewTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
 }
 
 export function typeVariableFor(node: Node): TypeVariable {
@@ -24,18 +24,30 @@ export function typeVariableFor(node: Node): TypeVariable {
 
 
 function newTVarFor(node: Node) {
-  const newTVar = new TypeVariable(node)
-  tVars.set(node, newTVar)
+  const newTVar = doNewTVarFor(node)
   let annotatedVar = newTVar // By default, annotations reference the same tVar
   if (node.is(Method)) {
     const parameters = node.parameters.map(p => createTypeVariables(p)!)
     annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     newTVar.setType(new WollokMethodType(annotatedVar, parameters))
   }
+  if (node.is(Singleton) && node.isClosure()) {
+    const methodApply = node.methods.find(_ => _.name === '<apply>')!
+    const parameters = methodApply.parameters.map(p => typeVariableFor(p))
+    // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
+    const returnType = typeVariableFor(methodApply).atParam(RETURN)
+    newTVar.setType(new WollokClosureType(returnType, parameters))
+  }
 
   const typeName = annotatedTypeName(node)
   if (typeName) setAnnotatedType(typeName, annotatedVar, node)
 
+  return newTVar
+}
+
+function doNewTVarFor(node: Node) {
+  const newTVar = new TypeVariable(node)
+  tVars.set(node, newTVar)
   return newTVar
 }
 
@@ -99,7 +111,9 @@ const inferBody = (body: Body) => {
 
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
-  typeVariableFor(m).setType(typeForModule(m))
+  const tVar = typeVariableFor(m)
+  if (m.is(Singleton) && m.isClosure()) return;
+  tVar.setType(typeForModule(m))
 }
 
 const inferNew = (n: New) => {

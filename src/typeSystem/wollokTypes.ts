@@ -143,6 +143,15 @@ export class WollokMethodType extends WollokParametricType {
   }
 }
 
+export class WollokClosureType extends WollokMethodType {
+
+  get name(): string {
+    return `{${super.name}}`
+  }
+
+}
+
+
 export class WollokParameterType {
   id: Name
 
