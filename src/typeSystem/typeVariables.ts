@@ -36,7 +36,7 @@ function newTVarFor(node: Node) {
     const parameters = methodApply.parameters.map(p => typeVariableFor(p))
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     const returnType = typeVariableFor(methodApply).atParam(RETURN)
-    newTVar.setType(new WollokClosureType(returnType, parameters))
+    newTVar.setType(new WollokClosureType(returnType, parameters, node))
   }
 
   const typeName = annotatedTypeName(node)
@@ -112,8 +112,9 @@ const inferBody = (body: Body) => {
 const inferModule = (m: Module) => {
   m.members.forEach(createTypeVariables)
   const tVar = typeVariableFor(m)
-  if (m.is(Singleton) && m.isClosure()) return;
-  tVar.setType(typeForModule(m))
+  if (!(m.is(Singleton) && m.isClosure())) // Avoid closures
+    tVar.setType(typeForModule(m)) // Set module type
+  return tVar
 }
 
 const inferNew = (n: New) => {
@@ -143,9 +144,11 @@ const inferMethod = (m: Method) => {
   m.sentences.forEach(createTypeVariables)
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
-    if (!lastSentence.is(Return)) { // Return inference already propagate type to method
+    if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
       method.atParam(RETURN).beSupertypeOf(typeVariableFor(lastSentence))
     }
+  } else { // Empty body
+    method.atParam(RETURN).setType(new WollokAtomicType(VOID))
   }
   return method
 }

@@ -125,9 +125,9 @@ export class WollokParametricType extends WollokModuleType {
 }
 
 export class WollokMethodType extends WollokParametricType {
-  constructor(returnVar: TypeVariable, params: TypeVariable[]) {
+  constructor(returnVar: TypeVariable, params: TypeVariable[], base?: Module) {
     // TODO: Improve this inheritance
-    super(null as any, {
+    super(base!, {
       ...fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
       [RETURN]: returnVar,
     })
@@ -144,6 +144,10 @@ export class WollokMethodType extends WollokParametricType {
 }
 
 export class WollokClosureType extends WollokMethodType {
+
+  constructor(returnVar: TypeVariable, params: TypeVariable[], closure: Module) {
+    super(returnVar, params, closure)
+  }
 
   get name(): string {
     return `{${super.name}}`

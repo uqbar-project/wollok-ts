@@ -86,7 +86,8 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
-      const method = type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+      const message = send.message == 'apply' ? '<apply>' : send.message // 'apply' is a special case for closures
+      const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
