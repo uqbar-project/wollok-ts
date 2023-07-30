@@ -303,7 +303,7 @@ export class Package extends Entity(Node) {
 
     return ancestorNames.reduce<Package>((member, name) =>
       new Package({ name, members: [member] })
-    , this)
+      , this)
   }
 
   @cached
@@ -479,7 +479,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
       return this.hierarchy.reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-      , field.value)
+        , field.value)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
@@ -774,6 +774,11 @@ export class If extends Expression(Node) {
   constructor({ elseBody = new Body(), ...payload }: Payload<If, 'condition' | 'thenBody'>) {
     super({ elseBody, ...payload })
   }
+
+  isIfExpression(): boolean {
+    return this.thenBody.sentences.length > 0 && last(this.thenBody.sentences)!.is(Expression)
+      && this.elseBody.sentences.length > 0 && last(this.elseBody.sentences)!.is(Expression)
+  }
 }
 
 
@@ -825,7 +830,7 @@ type ClosurePayload = {
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
   const initialSentences = sentences?.slice(0, -1) ?? []
-  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) ? new Return({ value }) : value) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
