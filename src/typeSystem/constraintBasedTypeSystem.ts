@@ -91,7 +91,7 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
       if (!method)
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
-      const methodInstance = typeVariableFor(method).instanceFor(tVar)
+      const methodInstance = typeVariableFor(method).instanceFor(tVar, typeVariableFor(send))
       if (!methodInstance.atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
         method.parameters.forEach((_param, i) => {
@@ -175,5 +175,6 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
   if (target.syntetic) return [source, type, targetType]
   if (source.node.is(Reference)) return [source, type, targetType]
   if (target.node.is(Reference)) return [target, targetType, type]
-  throw new Error('No victim found')
+  return [target, targetType, type]
+  // throw new Error('No victim found')
 }

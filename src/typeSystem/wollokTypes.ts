@@ -32,7 +32,7 @@ export class WollokAtomicType {
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Atomic types has no params') }
-  instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
+  instanceFor(_instance: TypeVariable, _send?: TypeVariable): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
     return type instanceof WollokAtomicType && this.id === type.id
@@ -64,7 +64,7 @@ export class WollokModuleType {
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
-  instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
+  instanceFor(_instance: TypeVariable, _send?: TypeVariable): TypeVariable | null { return null }
 
   asList() { return [this] }
 
@@ -93,11 +93,11 @@ export class WollokParametricType extends WollokModuleType {
   }
 
   atParam(name: string): TypeVariable { return this.params.get(name)! }
-  instanceFor(instance: TypeVariable): TypeVariable | null {
+  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
     let changed = false
     const resolvedParamTypes = fromEntries([...this.params])
     this.params.forEach((tVar, name) => {
-      const newInstance = tVar.instanceFor(instance)
+      const newInstance = tVar.instanceFor(instance, send)
       if (newInstance !== tVar) {
         resolvedParamTypes[name] = newInstance
         changed = true
@@ -105,7 +105,7 @@ export class WollokParametricType extends WollokModuleType {
     })
 
     // If nothing changes, we can use the original TVar
-    if (!changed) return super.instanceFor(instance)
+    if (!changed) return super.instanceFor(instance, send)
 
     // TODO: Creating a new syntetic TVar *each time* is not the best solution.
     //      We should attach this syntetic TVar to the instance, so we can reuse it.
@@ -163,7 +163,9 @@ export class WollokParameterType {
     this.id = id
   }
 
-  instanceFor(instance: TypeVariable): TypeVariable | null { return instance.type().atParam(this.name) }
+  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null { 
+    return instance.atParam(this.name) || send?.cachedParam(this.name)
+  }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
     throw new Error('Parameters types has no methods')

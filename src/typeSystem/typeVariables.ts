@@ -247,6 +247,7 @@ export class TypeVariable {
   subtypes: TypeVariable[] = []
   supertypes: TypeVariable[] = []
   messages: Send[] = []
+  cachedParams: Map<string, TypeVariable> = new Map()
   syntetic = false
   hasProblems = false
 
@@ -255,7 +256,11 @@ export class TypeVariable {
 
   type() { return this.typeInfo.type() }
   atParam(name: string): TypeVariable { return this.type().atParam(name) }
-  instanceFor(instance: TypeVariable): TypeVariable { return this.type().instanceFor(instance) || this }
+  cachedParam(name: string): TypeVariable {
+    return this.cachedParams.get(name) ??
+      this.cachedParams.set(name, newSynteticTVar()).get(name)!
+  }
+  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable { return this.type().instanceFor(instance, send) || this }
 
   hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
   hasType(type: WollokType) { return this.allPossibleTypes().some(_type => _type.contains(type)) }
