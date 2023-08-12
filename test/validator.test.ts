@@ -4,9 +4,9 @@ import { readFileSync } from 'fs'
 import globby from 'globby'
 import { join } from 'path'
 import { Annotation, buildEnvironment } from '../src'
-import { notEmpty } from '../src/extensions'
+import { List, notEmpty } from '../src/extensions'
 import validate from '../src/validator'
-import { Node, Problem } from './../src/model'
+import { Class, Literal, Node, Problem, Reference } from './../src/model'
 
 const TESTS_PATH = 'language/test/validations'
 
@@ -50,6 +50,7 @@ describe('Wollok Validations', () => {
         for (const expectedProblem of expectedProblems) {
           const code = expectedProblem.args.get('code')!
           const level = expectedProblem.args.get('level')
+          const values = expectedProblem.args.get('values')
 
           if (!code) fail('Missing required "code" argument in @Expect annotation')
 
@@ -64,6 +65,12 @@ describe('Wollok Validations', () => {
 
           if (level && effectiveProblem.level !== level)
             fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${errorLocation(node)}`)
+
+          if (values) {
+            const stringValues = (values as [Reference<Class>, List<Literal<string>>])[1].map(v => v.value)
+            if (stringValues.join('||') !== effectiveProblem.values.join('||'))
+              fail(`Expected ${code} to have ${JSON.stringify(stringValues)} but was ${JSON.stringify(effectiveProblem.values)} at ${errorLocation(node)}`)
+          }
         }
 
         for (const problem of problems) {
