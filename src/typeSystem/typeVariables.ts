@@ -12,7 +12,7 @@ export function newTypeVariables(env: Environment): Map<Node, TypeVariable> {
   return tVars
 }
 
-export function newSynteticTVar() {
+export function newSynteticTVar(): TypeVariable {
   return doNewTVarFor(Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
 }
 
@@ -39,8 +39,8 @@ function newTVarFor(node: Node) {
     newTVar.setType(new WollokClosureType(returnType, parameters, node))
   }
 
-  const typeName = annotatedTypeName(node)
-  if (typeName) setAnnotatedType(typeName, annotatedVar, node)
+  const annotatedType = annotatedTypeName(node)
+  if (annotatedType) annotatedVar.setType(annotatedWollokType(annotatedType, node))
 
   return newTVar
 }
@@ -254,7 +254,7 @@ export class TypeVariable {
   constructor(node: Node) { this.node = node }
 
 
-  type() { return this.typeInfo.type() }
+  type(): WollokType { return this.typeInfo.type() }
   atParam(name: string): TypeVariable { return this.type().atParam(name) }
   cachedParam(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
@@ -262,7 +262,6 @@ export class TypeVariable {
   }
   instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable { return this.type().instanceFor(instance, send) || this }
 
-  hasAnyType() { return this.type().contains(new WollokAtomicType(ANY)) }
   hasType(type: WollokType) { return this.allPossibleTypes().some(_type => _type.contains(type)) }
 
   setType(type: WollokType) {
@@ -405,22 +404,34 @@ function annotatedVariableName(node: Node): string | undefined {
 }
 
 
-function setAnnotatedType(typeName: string, tVar: TypeVariable, node: Node): void {
-  // First try parametric types
-  if (isParameterName(typeName, node)) {
+function annotatedWollokType(annotatedType: string, node: Node): WollokType {
+  // First try with closures
+  if (annotatedType.startsWith('{') && annotatedType.endsWith('}')) {
+    return parseAnnotatedClosure(annotatedType, node)
+  }
+
+  // Then try parametric types
+  if (isParameterName(annotatedType, node)) {
     // TODO: Add parametric type definition, not just parameter name
-    tVar.setType(new WollokParameterType(typeName))
-    return;
+    return (new WollokParameterType(annotatedType))
   }
 
   // Then try by FQN
-  let module = node.environment.getNodeOrUndefinedByFQN<Module>(typeName)
+  let module = node.environment.getNodeOrUndefinedByFQN<Module>(annotatedType)
   if (!module) {
     // If not found, try to find just by name in same package (sibling definition)
     const p = node.ancestors.find(is(Package))!
-    module = p.getNodeByQN<Module>(typeName)
+    module = p.getNodeByQN<Module>(annotatedType)
   }
-  tVar.setType(new WollokModuleType(module))
+  return typeForModule(module)
+}
+
+function parseAnnotatedClosure(annotatedType: string, node: Node) {
+  const [params, returnTypeName] = annotatedType.slice(1, -1).split('=>')
+  const parameters = params.trim().slice(1, -1).split(',').map(_ => _.trim())
+  const parametersTVar = parameters.map(_ => newSynteticTVar().setType(annotatedWollokType(_, node)))
+  const returnTypeTVar = newSynteticTVar().setType(annotatedWollokType(returnTypeName.trim(), node))
+  return new WollokClosureType(returnTypeTVar, parametersTVar, Closure({ code: 'Annotated type' }))
 }
 
 function isParameterName(name: string, node: Node) {

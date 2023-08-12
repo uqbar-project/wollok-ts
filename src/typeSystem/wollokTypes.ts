@@ -163,7 +163,7 @@ export class WollokParameterType {
     this.id = id
   }
 
-  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null { 
+  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
     return instance.atParam(this.name) || send?.cachedParam(this.name)
   }
 
@@ -226,7 +226,7 @@ export class WollokUnionType {
 
 
 export class TypeRegistry {
-  constructor(private env: Environment, private tVars: Map<Node, TypeVariable>) { }
+  constructor(private tVars: Map<Node, TypeVariable>) { }
 
   getType(node: Node): WollokType {
     const tVar = this.tVars.get(node)

@@ -18,7 +18,7 @@ export function inferTypes(env: Environment, someLogger?: Logger): void {
   while (globalChange) {
     globalChange = [propagateTypes, bindMessages, maxTypesFromMessages].some(f => f(tVars))
   }
-  assign(env, { typeRegistry: new TypeRegistry(env, tVars) })
+  assign(env, { typeRegistry: new TypeRegistry(tVars) })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
