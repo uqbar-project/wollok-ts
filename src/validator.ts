@@ -20,11 +20,9 @@
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 import { count, TypeDefinition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
 // - Unified problem type
-import {
-  Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
+import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
-  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable
-} from './model'
+  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from './model'
 
 const { entries } = Object
 
@@ -118,7 +116,7 @@ export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
 export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
   !KEYWORDS.includes(node.name || ''),
-  node => [node.name || ''],
+node => [node.name || ''],
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
@@ -402,7 +400,7 @@ export const shouldUseConditionalExpression = warning<If>(node => {
     ![true, false].includes(thenValue) ||
     thenValue === elseValue) && (!nextSentence ||
       ![true, false].includes(valueFor(nextSentence))
-    )
+  )
 })
 
 
