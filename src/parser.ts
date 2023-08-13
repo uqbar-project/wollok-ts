@@ -1,4 +1,4 @@
-import Parsimmon, { alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index } from 'parsimmon'
+import Parsimmon, { alt as alt_parser, index, lazy, makeSuccess, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace, any, Index, newline } from 'parsimmon'
 import unraw from 'unraw'
 import { BaseProblem, SourceIndex, Assignment as AssignmentNode, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Literal as LiteralNode, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode, SourceMap, Closure as ClosureNode, ParameterizedType as ParameterizedTypeNode, Level, LiteralValue, Annotation } from './model'
 import { List, mapObject, discriminate, is } from './extensions'
@@ -58,7 +58,7 @@ const error = (code: string) => (...safewords: string[]) => {
     alt(
       skippableContext,
       comment,
-      notFollowedBy(alt(key('}'), ...breakpoints)).then(any),
+      notFollowedBy(alt(key('}'), newline, ...breakpoints)).then(any),
     )
   )
 
@@ -177,6 +177,17 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
   obj({ sentences: alt(Sentence.skip(__), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
 )
+
+export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
+  return obj(
+    {
+      sentences: alt(Expression.skip(__).map(value => {
+        return new ReturnNode({ value })
+      }), sentenceError).times(1),
+    }
+  ).wrap(_, _).map(recover)
+})
+
 
 const inlineableBody: Parser<BodyNode> = Body.or(
   node(BodyNode)(() => obj({ sentences: Sentence.times(1) })).map(body =>
@@ -315,10 +326,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
     name: key('method').then(alt(name, operator(ALL_OPERATORS))),
     parameters,
     body: alt(
-      key('=').then(Expression.map(value => new BodyNode({
-        sentences: [new ReturnNode({ value })],
-        sourceMap: value.sourceMap,
-      }))),
+      key('=').then(ExpressionBody),
 
       key('native'),
 

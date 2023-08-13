@@ -1445,7 +1445,7 @@ describe('Wollok parser', () => {
       })
 
       it('should parse annotated subnodes within expression bodies', () => {
-        'method m() = @A(x = 1) 5'.should.be.parsedBy(parser).into(
+        'method m() = (@A(x = 1) 5)'.should.be.parsedBy(parser).into(
           new Method({
             name: 'm', body: new Body({
               sentences: [
