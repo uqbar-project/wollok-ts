@@ -1,6 +1,6 @@
 import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { ANY, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
+import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -406,6 +406,8 @@ function annotatedVariableName(node: Node): string | undefined {
 
 
 function annotatedWollokType(annotatedType: string, node: Node): WollokType {
+  if([VOID, ANY].includes(annotatedType)) return new WollokAtomicType(annotatedType as AtomicType)
+
   // First try with closures
   if (annotatedType.startsWith('{') && annotatedType.endsWith('}')) {
     return parseAnnotatedClosure(annotatedType, node)
@@ -414,7 +416,7 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
   // Then try parametric types
   if (isParameterName(annotatedType, node)) {
     // TODO: Add parametric type definition, not just parameter name
-    return (new WollokParameterType(annotatedType))
+    return new WollokParameterType(annotatedType)
   }
 
   // Then try by FQN
