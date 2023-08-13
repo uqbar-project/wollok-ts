@@ -19,9 +19,9 @@ describe('Wollok Validations', () => {
   }))
   const environment = buildEnvironment(files)
 
-  const matchesExpectation = (problem: Problem, expected: Annotation) => {
+  const matchesExpectation = (problem: Problem, annotatedNode: Node, expected: Annotation) => {
     const code = expected.args.get('code')!
-    return problem.code === code && problem.sourceMap?.toString() === problem.node.sourceMap?.toString()
+    return problem.code === code && annotatedNode.sourceMap?.includes(problem.sourceMap!)
   }
 
   const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`
@@ -54,11 +54,11 @@ describe('Wollok Validations', () => {
 
           if (!code) fail('Missing required "code" argument in @Expect annotation')
 
-          const errors = problems.filter(problem => !matchesExpectation(problem, expectedProblem))
+          const errors = problems.filter(problem => !matchesExpectation(problem, node, expectedProblem))
           if (notEmpty(errors))
             fail(`File contains errors: ${errors.map((_error) => _error.code + ' at ' + errorLocation(_error)).join(', ')}`)
 
-          const effectiveProblem = problems.find(problem => matchesExpectation(problem, expectedProblem))
+          const effectiveProblem = problems.find(problem => matchesExpectation(problem, node, expectedProblem))
           if (!effectiveProblem)
             fail(`Missing expected ${code} ${level ?? 'problem'} at ${errorLocation(node)}`)
 
@@ -74,7 +74,7 @@ describe('Wollok Validations', () => {
         }
 
         for (const problem of problems) {
-          if (!expectedProblems.some(expectedProblem => matchesExpectation(problem, expectedProblem)))
+          if (!expectedProblems.some(expectedProblem => matchesExpectation(problem, node, expectedProblem)))
             fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
         }
       })
