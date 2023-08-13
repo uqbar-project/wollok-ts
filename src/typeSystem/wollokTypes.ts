@@ -1,12 +1,12 @@
 import { List } from '../extensions'
-import { BaseProblem, Environment, Level, Module, Name, Node } from '../model'
+import { BaseProblem, Level, Module, Name, Node } from '../model'
 import { newSynteticTVar, TypeVariable } from './typeVariables'
 
 const { entries, fromEntries } = Object
 
 export const ANY = 'Any'
 export const VOID = 'Void'
-export const ELEMENT = 'ELEMENT'
+export const ELEMENT = 'Element'
 export const RETURN = 'RETURN'
 export const PARAM = 'PARAM'
 

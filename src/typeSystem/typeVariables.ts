@@ -230,11 +230,12 @@ const inferLiteral = (l: Literal) => {
 }
 
 const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) => {
-  const elementTVar = typeVariableFor(value[0]) // TODO: Use syntetic node?
+  const arrayTVar = typeForModule(value[0].target!)
+  const elementTVar = arrayTVar.atParam(ELEMENT)
   value[1].map(createTypeVariables).forEach(inner =>
     elementTVar.beSupertypeOf(inner!)
   )
-  return new WollokParametricType(value[0].target!, { [ELEMENT]: elementTVar })
+  return arrayTVar
 }
 
 
