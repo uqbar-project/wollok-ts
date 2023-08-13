@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.0.4
+**Wollok Version: `3.1.8`**
+
+- Update Wollok version.
+- Fixed validation `shouldNotDuplicateEntities` for programs and globals. https://github.com/uqbar-project/wollok-ts/pull/157
+- Fixed `malformedSentence` error for return methods. https://github.com/uqbar-project/wollok-ts/pull/162
+- Split validation `shouldInitializeAllAttributes` in two. https://github.com/uqbar-project/wollok-ts/pull/161
+
+
 ## v4.0.3
 **Wollok Version: `3.1.7`**
 
