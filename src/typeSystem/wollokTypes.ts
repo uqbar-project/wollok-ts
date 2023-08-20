@@ -9,6 +9,7 @@ export const VOID = 'Void'
 export const ELEMENT = 'Element'
 export const RETURN = 'RETURN'
 export const PARAM = 'PARAM'
+export const INSTANCE = 'INSTANCE'
 
 export class TypeSystemProblem implements BaseProblem {
   constructor(public code: Name, public values: List<string> = []) { }
@@ -77,7 +78,7 @@ export class WollokModuleType {
     return this.module.name!
   }
 
-  toString() { return this.module.toString() }
+  toString(): string { return this.module.toString() }
 }
 
 export class WollokParametricType extends WollokModuleType {
@@ -110,7 +111,7 @@ export class WollokParametricType extends WollokModuleType {
     // TODO: Creating a new syntetic TVar *each time* is not the best solution.
     //      We should attach this syntetic TVar to the instance, so we can reuse it.
     //      We also need to take care of MethodType (subclasses of ParametricType)
-    return newSynteticTVar().setType(new WollokParametricType(this.module, resolvedParamTypes))
+    return instance.cachedParam(INSTANCE).setType(new WollokParametricType(this.module, resolvedParamTypes))
   }
 
   get name(): string {

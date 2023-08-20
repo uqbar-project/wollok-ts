@@ -111,7 +111,7 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 function maxTypesFromMessages(tVars: Map<Node, TypeVariable>) {
-  return allValidTypeVariables(tVars).some(anyPredicate(maxTypeFromMessages, guessType))
+  return allValidTypeVariables(tVars).some(anyPredicate(maxTypeFromMessages, mergeSuperAndSubTypes, closeTypes))
 }
 
 export const maxTypeFromMessages = (tVar: TypeVariable): boolean => {
@@ -135,7 +135,7 @@ export const maxTypeFromMessages = (tVar: TypeVariable): boolean => {
   return changed
 }
 
-export const guessType = (tVar: TypeVariable): boolean => {
+export const mergeSuperAndSubTypes = (tVar: TypeVariable): boolean => {
   if (tVar.allPossibleTypes().length) return false
   let changed = false
   for (const superTVar of tVar.validSupertypes()) {
@@ -151,6 +151,22 @@ export const guessType = (tVar: TypeVariable): boolean => {
       logger.log(`GUESS TYPE OF |${tVar}| FROM |${subTVar}|`)
       changed = true
     }
+  }
+  return changed
+}
+
+export const closeTypes = (tVar: TypeVariable): boolean => {
+  // if(tVar.syntetic) return false
+  let changed = false
+  if(tVar.allMaxTypes().length === 0 && tVar.allMinTypes().length > 0  && tVar.supertypes.length === 0) {
+    tVar.typeInfo.maxTypes = tVar.allMinTypes()
+    logger.log(`MAX TYPES FROM MIN FOR |${tVar}|`)
+    changed = true
+  }
+  if(tVar.allMinTypes().length === 0 && tVar.allMaxTypes().length > 0 && tVar.subtypes.length === 0) {
+    tVar.typeInfo.minTypes = tVar.allMaxTypes()
+    logger.log(`MIN TYPES FROM MAX FOR |${tVar}|`)
+    changed = true
   }
   return changed
 }
