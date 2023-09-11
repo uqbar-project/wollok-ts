@@ -302,8 +302,8 @@ export const shouldImplementInheritedAbstractMethods = error<Singleton>(node =>
 )
 
 export const shouldHaveBody = error<Method>(node => {
-  const parent = node.parent
-  return !parent.is(Singleton) || node.isNative() || !node.isAbstract()
+  const parentModule = node.parent
+  return !parentModule.is(Singleton) || node.isNative() || !node.isAbstract()
 })
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
