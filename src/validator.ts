@@ -298,7 +298,7 @@ export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => 
 })
 
 export const shouldImplementInheritedAbstractMethods = error<Singleton>(node =>
-  !inheritsCustom(node) || !node.allMethods.some(method => !isImplemented(node.allMethods, method) && method.isAbstract())
+  !inheritsCustomDefinition(node) || !node.allMethods.some(method => !isImplemented(node.allMethods, method) && method.isAbstract())
 )
 
 export const shouldHaveBody = error<Method>(node => {
@@ -511,7 +511,7 @@ const baseClass = 'Object'
 const allParents = (module: Module) =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
-const inheritsCustom = (module: Module) =>
+const inheritsCustomDefinition = (module: Module) =>
   notEmpty(allParents(module).filter(element => element.name !== baseClass))
 
 const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
