@@ -511,7 +511,8 @@ const baseClass = 'Object'
 const allParents = (module: Module) =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
-const inheritsCustom = (module: Module) => notEmpty(allParents(module).filter(element => element.name === baseClass))
+const inheritsCustom = (module: Module) =>
+  notEmpty(allParents(module).filter(element => element.name !== baseClass))
 
 const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(ParameterizedType)(node => node.reference.target),
