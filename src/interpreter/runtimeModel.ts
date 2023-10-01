@@ -155,7 +155,8 @@ export class Frame extends Context {
   }
 
   isCustom(): boolean {
-    return !this.node.sourceFileName?.startsWith(WOLLOK_BASE_PACKAGE) && !this.node.is(Environment) // TODO: create constant
+    const module = this.node.ancestors.find(ancestor => ancestor.is(Module)) as Module
+    return !module?.fullyQualifiedName?.startsWith(WOLLOK_BASE_PACKAGE) && !this.node.is(Environment)
   }
 }
 
