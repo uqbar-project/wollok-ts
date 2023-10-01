@@ -704,7 +704,7 @@ const usesReservedWords = (node: Class | Singleton | Variable | Field | Paramete
   const parent = node.ancestors.find(ancestor => ancestor.is(Package)) as Package | undefined
   const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
   wordsReserved.push('wollok')
-  return !!parent && !parent.fullyQualifiedName.includes(`${WOLLOK_BASE_PACKAGE}.`) && wordsReserved.includes(node.name)
+  return !!parent && !parent.fullyQualifiedName.includes(WOLLOK_BASE_PACKAGE) && wordsReserved.includes(node.name)
 }
 
 const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
