@@ -1,4 +1,3 @@
-import * as constants from './constants'
 import link from './linker'
 import { Environment } from './model'
 import { List } from './extensions'
