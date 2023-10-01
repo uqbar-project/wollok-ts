@@ -18,6 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
+import { WOLLOK_BASE_PACKAGE } from './constants'
 import { count, TypeDefinition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -703,7 +704,7 @@ const usesReservedWords = (node: Class | Singleton | Variable | Field | Paramete
   const parent = node.ancestors.find(ancestor => ancestor.is(Package)) as Package | undefined
   const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
   wordsReserved.push('wollok')
-  return !!parent && !parent.fullyQualifiedName.includes('wollok.') && wordsReserved.includes(node.name)
+  return !!parent && !parent.fullyQualifiedName.includes(`${WOLLOK_BASE_PACKAGE}.`) && wordsReserved.includes(node.name)
 }
 
 const supposedToReturnValue = (node: Node): boolean => match(node.parent)(

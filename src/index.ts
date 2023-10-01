@@ -1,3 +1,4 @@
+import * as constants from './constants'
 import link from './linker'
 import { Environment } from './model'
 import { List } from './extensions'
@@ -19,6 +20,7 @@ function buildEnvironment(files: List<{ name: string, content: string }>, baseEn
   }), baseEnvironment)
 }
 
+export * from './constants'
 export * from './model'
 export * from './interpreter/runtimeModel'
 export {

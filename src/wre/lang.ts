@@ -11,7 +11,8 @@ const lang: Natives = {
   Exception: {
     *initialize(self: RuntimeObject): Execution<void> {
       const stackTraceElements: RuntimeObject[] = []
-      for(const frame of this.frameStack.slice(0, -1)){
+      const customFrames = this.frameStack.slice(0, -1).filter(frame => frame.isCustom())
+      for(const frame of customFrames){
         const stackTraceElement = yield* this.send('createStackTraceElement', self, yield* this.reify(frame.description), yield* this.reify(frame.sourceInfo))
         stackTraceElements.unshift(stackTraceElement!)
       }
