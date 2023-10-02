@@ -19,6 +19,7 @@ function buildEnvironment(files: List<{ name: string, content: string }>, baseEn
   }), baseEnvironment)
 }
 
+export * from './constants'
 export * from './model'
 export * from './interpreter/runtimeModel'
 export {

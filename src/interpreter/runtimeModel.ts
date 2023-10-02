@@ -1,3 +1,4 @@
+import { WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { v4 as uuid } from 'uuid'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
@@ -50,7 +51,7 @@ export class WollokException extends Error {
   get message(): string {
     const error: RuntimeObject = this.instance
     error.assertIsException()
-    return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     Derived from TypeScript stack`
+    return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     ${WOLLOK_EXTRA_STACK_TRACE_HEADER}`
   }
 
   // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
@@ -151,6 +152,11 @@ export class Frame extends Context {
 
   override toString(): string {
     return `${this.description}(${this.sourceInfo})`
+  }
+
+  isCustom(): boolean {
+    const module = this.node.ancestors.find(ancestor => ancestor.is(Module)) as Module
+    return !module?.fullyQualifiedName?.startsWith(WOLLOK_BASE_PACKAGE) && !this.node.is(Environment)
   }
 }
 
