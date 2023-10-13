@@ -184,7 +184,7 @@ export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.e
 }))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !superclassMethod(node)
+  !(!node.isOverride && superclassMethod(node) && !['initialize'].includes(node.name))
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
