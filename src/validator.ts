@@ -439,6 +439,17 @@ export const shouldInitializeGlobalReference = error<Variable>(node =>
   !(node.isAtPackageLevel && node.value.isSynthetic && node.value.is(Literal) && node.value.isNull())
 )
 
+export const shouldInitializeConst = error<Variable>(node => {
+  const isInProgram = getContainer(node)?.kind == 'Program'
+  return !(
+    isInProgram &&
+    !node.isAtPackageLevel &&
+    node.isConstant &&
+    node.value.isSynthetic &&
+    node.value.is(Literal) &&
+    node.value.isNull())
+})
+
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
@@ -774,7 +785,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
   when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute })),
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
-  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities })),
+  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldInitializeConst, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
   when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference })),
   when(Self)(() => ({ shouldNotUseSelf })),
