@@ -440,7 +440,7 @@ export const shouldInitializeGlobalReference = error<Variable>(node =>
 )
 
 export const shouldInitializeConst = error<Variable>(node => {
-  const isInProgram = getContainer(node)?.kind == 'Program'
+  const isInProgram = getContainer(node)?.is(Program)
   return !(
     isInProgram &&
     !node.isAtPackageLevel &&
