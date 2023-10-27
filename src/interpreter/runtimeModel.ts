@@ -488,7 +488,7 @@ export class Evaluation {
 
     const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
 
-    if (!target.is(Class)) raise(new Error(`${node.instantiated.name} is not a class, you cannot generate instances of a ${node.instantiated.kind}`))
+    if (!target.is(Class)) raise(new Error(`${node.instantiated.name} is not a class, you cannot generate instances of a ${node.instantiated.target?.kind}`))
 
     if (target.isAbstract) raise(new Error(`${node.instantiated.name} is an abstract class, you cannot generate instances`))
 
