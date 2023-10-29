@@ -4,6 +4,7 @@ import { List } from './extensions'
 import { fromJSON } from './jsonUtils'
 import * as parse from './parser'
 import validate from './validator'
+import print from './printer/print'
 import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
 
@@ -29,4 +30,5 @@ export {
   parse,
   link,
   validate,
+  print,
 }

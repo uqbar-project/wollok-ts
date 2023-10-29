@@ -22,6 +22,7 @@
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:validations": "mocha --parallel -r ts-node/register/transpile-only test/validator.test.ts",
     "test:wtest": "mocha --delay -t 10000 -r ts-node/register/transpile-only test/wtest.ts",
+    "test:printer": "mocha --parallel -r ts-node/register/transpile-only test/printer.test.ts",
     "prepublishOnly": "npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
     "prepack": "npm run build"
@@ -29,6 +30,7 @@
   "dependencies": {
     "@types/parsimmon": "^1.10.6",
     "parsimmon": "^1.18.1",
+    "prettier-printer": "^1.1.4",
     "unraw": "^2.0.1",
     "uuid": "9.0.0"
   },
@@ -44,6 +46,7 @@
     "@typescript-eslint/parser": "^5.53.0",
     "chai": "^4.3.7",
     "chalk": "^5.2.0",
+    "dedent": "^1.5.1",
     "eslint": "^8.35.0",
     "globby": "^11.1.0",
     "mocha": "^10.2.0",

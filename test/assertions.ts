@@ -3,12 +3,13 @@ import link from '../src/linker'
 import { Name, Node, Package, Reference, Environment as EnvironmentType, Environment } from '../src/model'
 import { List } from '../src/extensions'
 import { Validation } from '../src/validator'
-import { ParseError } from '../src/parser'
+import { File, ParseError } from '../src/parser'
 import globby from 'globby'
 import { promises } from 'fs'
-import { buildEnvironment as buildEnv } from '../src'
+import { buildEnvironment as buildEnv, print } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
+import dedent from 'dedent'
 
 const { readFile } = promises
 
@@ -20,6 +21,8 @@ declare global {
       into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
       recoveringFrom(code: Name, start: number, end: number): Assertion
+
+      formattedTo(expected: string): Assertion
 
       linkedInto(expected: List<Package>): Assertion
       target(node: Node): Assertion
@@ -107,6 +110,21 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
   Assertion.addMethod('recoveringFrom', function (this: Chai.AssertionStatic, code: Name, start: number, end: number) {
     flag(this, 'expectedProblems', [...flag(this, 'expectedProblems') ?? [], { code, start, end }])
+  })
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// PRINTER ASSERTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export const printerAssertions: Chai.ChaiPlugin = (chai) => {
+  const { Assertion } = chai
+
+  Assertion.addMethod('formattedTo', function (expected: string) {
+    const parsed = File('formatted').parse(this._obj)
+    if(!parsed.status) throw new Error('Failed to parse code')
+
+    new Assertion(print(parsed.value, 80)).to.equal(dedent(expected).replaceAll('  ', '\t'))
   })
 }
 
