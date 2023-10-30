@@ -124,7 +124,9 @@ export const printerAssertions: Chai.ChaiPlugin = (chai) => {
     const parsed = File('formatted').parse(this._obj)
     if(!parsed.status) throw new Error('Failed to parse code')
 
-    new Assertion(print(parsed.value, 80)).to.equal(dedent(expected).replaceAll('  ', '\t'))
+    const printerConfig = { maxWidth: 80, indentation: { size: 2, useSpaces: true }, abbreviateAssignments: true }
+    const formatted = print(parsed.value, printerConfig)
+    new Assertion(formatted).to.equal(dedent(expected))
   })
 }
 

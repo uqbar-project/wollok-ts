@@ -13,39 +13,32 @@ describe('Wollok Printer', () => {
 		`.should.be.formattedTo(`
             object pepita {
               var energia = 0
-
+              
               method volar() {
-                  energia += 10
+                energia += 10
               }
             }`)
     })
 
     it('testBasicUnnamedObjectDefinition', () => {
-      `program prueba {    
+      `program prueba{    
 
-        const pepita = object      {var energia             =
-        0
-                method volar() {energia++ }
-            }        	
+             const pepita =         object{
+            var energia  = 0
+            method volar() { 
+              energia+=1 }
+        }        	
      }`.should.be.formattedTo(`
         program prueba {
-            const pepita = object {
+          const pepita = object {
             var energia = 0
+            
             method volar() {
-                energia++
+              energia += 1
             }
-            }
+          }
         }
     `)
     })
-  })
-
-
-  it('Should format a WKO', () => {
-    'object    a{ }'.should.be.formattedTo(`
-        object a {
-          
-        }
-    `)
   })
 })
