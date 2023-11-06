@@ -6,10 +6,11 @@ import { Validation } from '../src/validator'
 import { File, ParseError } from '../src/parser'
 import globby from 'globby'
 import { promises } from 'fs'
-import { buildEnvironment as buildEnv, print } from '../src'
+import { buildEnvironment as buildEnv, print, WRE } from '../src'
 import { join } from 'path'
 import validate from '../src/validator'
 import dedent from 'dedent'
+import { fromJSON } from '../src/jsonUtils'
 
 const { readFile } = promises
 
@@ -121,11 +122,12 @@ export const printerAssertions: Chai.ChaiPlugin = (chai) => {
   const { Assertion } = chai
 
   Assertion.addMethod('formattedTo', function (expected: string) {
-    const parsed = File('formatted').parse(this._obj)
+    const fileName = 'formatted'
+    const parsed = File(fileName).parse(this._obj)
     if(!parsed.status) throw new Error('Failed to parse code')
-
+    const environment = link([parsed.value], fromJSON(WRE))
     const printerConfig = { maxWidth: 80, indentation: { size: 2, useSpaces: true }, abbreviateAssignments: true }
-    const formatted = print(parsed.value, printerConfig)
+    const formatted = print(environment.getNodeByFQN(fileName), printerConfig)
     new Assertion(formatted).to.equal(dedent(expected))
   })
 }

@@ -1,8 +1,8 @@
-import { IDoc, append, braces, choice, enclose, intersperse, lineBreak, lineBreaks, indent as nativeIndent, parens, render, softBreak } from 'prettier-printer'
-import { KEYWORDS, LIST_MODULE, OBJECT_MODULE, SET_MODULE } from '../constants'
+import { IDoc, append, braces, choice, enclose, intersperse, lineBreak, lineBreaks, indent as nativeIndent, nest as nativeNest, parens, render, softBreak } from 'prettier-printer'
+import { KEYWORDS, LIST_MODULE, SET_MODULE } from '../constants'
 import { List, match, when } from '../extensions'
-import { Assignment, Body, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Test, Variable } from '../model'
-import { Indent, WS, body, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
+import { Assignment, Body, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Test, Variable } from '../model'
+import { DocTransformer, WS, body, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
 type PrintSettings = {
   maxWidth: number,
@@ -11,21 +11,27 @@ type PrintSettings = {
     size: number,
   },
   /**
-   * i.e. `x += 1` instead of `x = x + 1`
+   * @example `x += 1` abbreviated to `x = x + 1`
    */
   abbreviateAssignments: boolean
 }
 
 type PrintContext = {
-  indent: Indent,
-  abbreviateAssignments: boolean
+  indent: DocTransformer,
+  nest: DocTransformer,
+  abbreviateAssignments: boolean,
 }
 
-export default (node: Node, { maxWidth, indentation, abbreviateAssignments }: PrintSettings): string => {
+export default print
+
+
+function print(node: Node, { maxWidth, indentation, abbreviateAssignments }: PrintSettings): string {
+  const indentationCharacters = (indentation.useSpaces ? ' ' : '\t').repeat(indentation.size)
   return render(
     maxWidth,
     format({
-      indent: nativeIndent((indentation.useSpaces ? ' ' : '\t').repeat(indentation.size)),
+      indent: nativeIndent(indentationCharacters),
+      nest: nativeNest(indentationCharacters),
       abbreviateAssignments,
     })(node))
 }
@@ -55,7 +61,8 @@ const format: FormatterWithContext<Node> = context => node => {
     when(Send)(formatSend(context)),
     when(If)(formatIf(context)),
     when(New)(formatNew(context)),
-    when(ParameterizedType)(formatParameterizedType),
+    when(ParameterizedType)(formatParameterizedType(context)),
+    when(NamedArgument)(formatNamedArgument(context)),
     when(Return)(formatReturn(context)),
     when(Reference)(formatReference),
     when(Self)(formatSelf),
@@ -78,10 +85,11 @@ const formatProgram: FormatterWithContext<Program> = context => node => interspe
 const formatMethod: FormatterWithContext<Method> = context => node => {
   const formatWithContext = format(context)
   const signature = [
+    node.isOverride ? [KEYWORDS.OVERRIDE, WS] : [],
     KEYWORDS.METHOD,
     WS,
     node.name,
-    enclosedList(context.indent)(parens, node.parameters.map(formatWithContext)),
+    enclosedList(context.nest)(parens, node.parameters.map(formatWithContext)),
   ]
 
   if(node.isNative()){
@@ -104,7 +112,7 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
   }
 }
 
-const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.indent)(formatSentences(context)(node.sentences))
+const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)(formatSentences(context)(node.sentences))
 
 const formatReturn: FormatterWithContext<Return> = context => node => node.value ?
   [KEYWORDS.RETURN, WS,  format(context)(node.value)]
@@ -120,7 +128,7 @@ const formatField: FormatterWithContext<Field> = context => node => {
   return [
     modifiers,
     WS,
-    formatAssign(context)(node.name, node.value),
+    formatAssign(context, true)(node.name, node.value),
   ]
 }
 
@@ -138,7 +146,7 @@ const formatTest: FormatterWithContext<Test> = context => node => {
   return intersperse(WS, [
     KEYWORDS.TEST,
     node.name,
-    body(context.indent)(formatSentences(context)(node.body.sentences)),
+    body(context.nest)(formatSentences(context)(node.body.sentences)),
   ])
 }
 
@@ -156,8 +164,8 @@ const formatAssignment: FormatterWithContext<Assignment>= context => node =>
 
 const formatIf: FormatterWithContext<If> = context => node => {
   const condition = [KEYWORDS.IF, WS, enclose(parens, format(context)(node.condition))]
-  const thenBody = body(context.indent)(formatSentences(context)(node.thenBody.sentences))
-  const elseBody = node.elseBody.sentences.length > 0 ? body(context.indent)(formatSentences(context)(node.elseBody.sentences)) : undefined
+  const thenBody = body(context.nest)(formatSentences(context)(node.thenBody.sentences))
+  const elseBody = node.elseBody.sentences.length > 0 ? body(context.nest)(formatSentences(context)(node.elseBody.sentences)) : undefined
   return [
     condition,
     WS,
@@ -168,7 +176,7 @@ const formatIf: FormatterWithContext<If> = context => node => {
 
 const formatNew: FormatterWithContext<New> = context => node => {
   const args =
-    enclosedList(context.indent)(parens, node.args.map(arg => intersperse(WS, [arg.name, '=', format(context)(arg.value)])))
+    enclosedList(context.nest)(parens, node.args.map(arg => intersperse(WS, [arg.name, '=', format(context)(arg.value)])))
   return [
     KEYWORDS.NEW,
     WS,
@@ -204,18 +212,16 @@ const formatLiteral: FormatterWithContext<Literal> = context => node => {
 const formatSelf: Formatter<Self> = (_: Self) => KEYWORDS.SELF
 
 const formatClass: FormatterWithContext<Class> = context => node => {
-  const header = [
+  let header: IDoc = [
     KEYWORDS.CLASS,
-    WS,
     node.name,
-    node.superclass && node.superclass?.fullyQualifiedName !== OBJECT_MODULE ? [WS, KEYWORDS.INHERITS, WS, node.superclass.name] : [],
   ]
 
-  return [
-    header,
-    WS,
-    formatModuleMembers(context)(node.members),
-  ]
+  if(inherits(node)){
+    header = [...header, formatInheritance(context)(node)]
+  }
+
+  return intersperse(WS, [...header, formatModuleMembers(context)(node.members)])
 }
 
 const formatMixin: FormatterWithContext<Mixin> =context => node => {
@@ -229,20 +235,22 @@ const formatMixin: FormatterWithContext<Mixin> =context => node => {
   return [declaration, WS, formatModuleMembers(context)(node.members)]
 }
 
-const formatParameterizedType: Formatter<ParameterizedType> = node => node.reference.name
+const formatParameterizedType: FormatterWithContext<ParameterizedType> =
+  context => node => [
+    node.reference.name,
+    node.args.length > 0 ?
+      enclosedList(context.nest)(parens, node.args.map(format(context))) :
+      [],
+  ]
+
+const formatNamedArgument: FormatterWithContext<NamedArgument> =
+  context => node => intersperse(WS, [node.name, '=', format(context)(node.value)])
 
 // SINGLETON FORMATTERS
 
 const formatSingleton: FormatterWithContext<Singleton> = context => (node: Singleton) => {
-  if(node.name){
-    return formatWKO(context)(node)
-  } else {
-    if(node.isClosure()){
-      return  formatClosure(context)(node)
-    } else {
-      return formatAnonymousSingleton(context)(node)
-    }
-  }
+  const formatter = node.isClosure() ?  formatClosure : formatWKO
+  return formatter(context)(node)
 }
 
 const formatClosure: FormatterWithContext<Singleton> = context => node => {
@@ -258,16 +266,30 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
     : enclose(braces, [parameters, lineBreak, context.indent(formatSentences(context)((applyMethod.body! as Body).sentences)), lineBreak])
 }
 
-const formatAnonymousSingleton: FormatterWithContext<Singleton> = context => node => intersperse(WS, [
-  KEYWORDS.WKO,
-  formatModuleMembers(context)(node.members),
-])
+const formatWKO: FormatterWithContext<Singleton> = context => node => {
+  const members = formatModuleMembers(context)(node.members)
+  let formatted: IDoc = [KEYWORDS.WKO]
 
-const formatWKO: FormatterWithContext<Singleton> = context => node => intersperse(WS, [
-  KEYWORDS.WKO,
-  node.name!,
-  formatModuleMembers(context)(node.members),
-])
+  if(node.name){
+    formatted = [...formatted, node.name]
+  }
+
+  if(inherits(node)){
+    formatted = [...formatted, formatInheritance(context)(node)]
+  }
+
+  return intersperse(WS, [...formatted, members])
+}
+
+const inherits = (node: Singleton | Class) => node.supertypes.length > 0
+
+const formatInheritance: FormatterWithContext<Singleton | Class> = (context: PrintContext) => node => {
+  return intersperse(WS, [
+    KEYWORDS.INHERITS,
+    listed(node.supertypes.map(format(context))),
+  ])
+}
+
 
 // SEND FORMATTERS
 
@@ -281,7 +303,7 @@ const formatDotSend: FormatterWithContext<Send> = context => node => [
   format(context)(node.receiver),
   '.',
   node.message,
-  enclosedList(context.indent)(parens, node.args.map(format(context))),
+  enclosedList(context.nest)(parens, node.args.map(format(context))),
 ]
 
 const formatInfixSend: FormatterWithContext<Send> = context => node => {
@@ -311,19 +333,30 @@ const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, pre
   return [Array(distanceFromLastSentence + 1).fill(lineBreak), format(context)(sentence)]
 }
 
-const formatAssign = (context: PrintContext) => (name: string, value: Expression, assignmentOperator = '=') => [
+const formatAssign = (context: PrintContext, ignoreNull = false) => (name: string, value: Expression, assignmentOperator = '=') => [
   name,
-  WS,
-  assignmentOperator,
-  [softBreak, choice(WS, context.indent([]))],
-  format(context)(value),
+  // ToDo: diffentiate `var x` from `var x = null`
+  ignoreNull && value.is(Literal) && value.isNull() ?
+    [] :
+    [
+      WS,
+      assignmentOperator,
+      [softBreak, choice(WS, context.indent([]))],
+      format(context)(value),
+    ],
 ]
 
 const formatCollection = (context: PrintContext) => (values: Expression[], enclosers: [IDoc, IDoc]) => {
-  return enclosedList(context.indent)(enclosers, values.map(format(context)))
+  return enclosedList(context.nest)(enclosers, values.map(format(context)))
 }
 
-const formatModuleMembers = (context: PrintContext) => (members: List<Field | Method | Test>): IDoc => body(context.indent)(intersperse(lineBreaks, members.filter(member => !member.isSynthetic).map(format(context))))
+const formatModuleMembers = (context: PrintContext) => (members: List<Field | Method | Test>): IDoc => {
+  const formatter = format(context)
+  const concreteMembers = members.filter(member => !member.isSynthetic)
+  const fields = concreteMembers.filter(member => member.is(Field)).map(formatter)
+  const others = concreteMembers.filter(member => !member.is(Field)).map(formatter)
+  return body(context.nest)([fields.length > 0 ? [intersperse(lineBreak, fields), others.length > 0 ? lineBreaks : []] : [], intersperse(lineBreaks, others)])
+}
 
 // assignment operations
 const canBeAbbreviated = (node: Assignment): node is Assignment & {value: Send & {message: keyof typeof assignmentOperationByMessage}} => node.value.is(Send) && node.value.receiver.is(Reference) && node.value.receiver.name === node.variable.name && node.value.message in assignmentOperationByMessage
