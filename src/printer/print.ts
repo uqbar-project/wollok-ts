@@ -298,7 +298,7 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const sentences = (applyMethod.body! as Body).sentences
 
   return sentences.length === 1 ?
-    enclose(braces, append(WS, [parameters, WS, format(context)(sentences[0])]))
+    enclose(braces, append(WS, [parameters, WS, format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])]))
     : enclose(braces, [parameters, lineBreak, context.indent(formatSentences(context)((applyMethod.body! as Body).sentences)), lineBreak])
 }
 
@@ -374,8 +374,7 @@ const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, pre
 
 const formatAssign = (context: PrintContext, ignoreNull = false) => (name: string, value: Expression, assignmentOperator = '=') => [
   name,
-  // ToDo: diffentiate `var x` from `var x = null`
-  ignoreNull && value.is(Literal) && value.isNull() && value.isSynthetic?
+  ignoreNull && value.is(Literal) && value.isNull() && value.isSynthetic ?
     [] :
     [
       WS,

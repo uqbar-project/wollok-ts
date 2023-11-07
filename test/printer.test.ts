@@ -831,5 +831,277 @@ describe('Wollok Printer', () => {
         method efficiency() = (self.numberOfPassengers() * self.maxSpeed()) / self.expenseFor100Km()
       }`)
     })
+
+    it('testClassFormattingOneLineMethod', () => {
+      `class    Golondrina {    const    energia      =      10 
+		
+		
+        const                  kmRecorridos= 0 method comer(gr) { energia = energia + gr } }`.should.be.formattedTo(`
+      class Golondrina {
+        const energia = 10
+        const kmRecorridos = 0
+        
+        method comer(gr) {
+          energia += gr
+        }
+      }`)
+    })
+
+    it('testClassFormattingOneLineMethodStaysInNewLine', () => {
+      `class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
+    		energia = energia + gr
+    	} }`.should.be.formattedTo(`
+      class Golondrina {
+        const energia = 10
+        const kmRecorridos = 0
+        
+        method comer(gr) {
+          energia += gr
+        }
+      }`)
+    })
+
+    it('keepNewlinesInSequences', () => {
+      `object foo {
+        method bar() {
+          self.bar().bar().bar()
+          
+          console.println("") console.println("")
+          
+          console.println("") 
+          console.println("")
+        }
+      }`.should.be.formattedTo( `
+      object foo {
+        method bar() {
+          self.bar().bar().bar()
+          console.println("")
+          console.println("")
+          console.println("")
+          console.println("")
+        }
+      }`)
+    })
+
+    it('testClassFormattingOneLineMethodStaysInNewLine', () => {
+      `class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
+    		energia = energia + gr
+    	} }`.should.be.formattedTo (`
+      class Golondrina {
+        const energia = 10
+        const kmRecorridos = 0
+        
+        method comer(gr) {
+          energia += gr
+        }
+      }`)
+    })
+
+    it('keepNewlinesInSequences', () => {
+      `
+      object foo {
+        method bar() {
+          self.bar().bar().bar()
+          
+          console.println("") console.println("")
+          
+          console.println("") 
+          console.println("")
+        }
+      }`.should.be.formattedTo (`
+      object foo {
+        method bar() {
+          self.bar().bar().bar()
+          console.println("")
+          console.println("")
+          console.println("")
+          console.println("")
+        }
+      }`)
+    })
+
+    // ToDo: Not parsable
+    // it('messageSendParameters', () => {
+    //   `program p {
+    // 		const a = null
+
+    // 		a . doSomething  ( a, a,    a , a ,  a   )
+    // 		a ?. doSomething  ( a, a,    a , a ,  a   )
+    // 		a ?. doSomething  ({=> a .doSomething()})
+    // 	}`.should.be.formattedTo (`
+    //   program p {
+    //     const a = null
+    //     a.doSomething(a, a, a, a, a)
+    //     a?.doSomething(a, a, a, a, a)
+    //     a?.doSomething({=> a.doSomething() })
+    //   })`)
+    // })
+
+
+    it('listWithPreviousConflicts', () => {
+      `
+        class Presentacion {
+        var fecha
+        var musicos = []
+        var lugar
+
+        method fecha(_fecha) {
+          fecha = _fecha
+        }
+        method lugar(_lugar) {
+          lugar = _lugar
+        }
+        method agregarMusico(musico) {
+          musicos.add(musico)
+        }
+        method eliminarMusicos() {
+          musicos.clear()
+        }
+        method fecha() = fecha
+
+        method lugarConcurrido() = lugar.capacidad(fecha) > 5000
+        method tocaSolo(musico) = [ musico ] == musicos
+        method costo() = musicos.sum{
+          musico =>
+            musico.precioPorPresentacion(self)
+        }
+      }		
+		  `.should.be.formattedTo(`
+      class Presentacion {
+        var fecha
+        var musicos = []
+        var lugar
+        
+        method fecha(_fecha) {
+          fecha = _fecha
+        }
+        
+        method lugar(_lugar) {
+          lugar = _lugar
+        }
+        
+        method agregarMusico(musico) {
+          musicos.add(musico)
+        }
+        
+        method eliminarMusicos() {
+          musicos.clear()
+        }
+        
+        method fecha() = fecha
+        
+        method lugarConcurrido() = lugar.capacidad(fecha) > 5000
+        
+        method tocaSolo(musico) = [musico] == musicos
+        
+        method costo() = musicos.sum({ musico => musico.precioPorPresentacion(self) })
+      }`)
+    })
+
+
+    it('testSuperInvocation', () => {
+      `class   Ave { 
+			
+			
+			var energia = 0
+			method volar(minutos) { energia -= minutos}}
+			class Golondrina {
+				
+				override method volar(minutos) {  super
+				
+				(minutos * ( 10 - 2 ) ) }        
+      }`.should.be.formattedTo (`
+      class Ave {
+        var energia = 0
+        
+        method volar(minutos) {
+          energia -= minutos
+        }
+      }
+      
+      class Golondrina {
+        override method volar(minutos) {
+          super(minutos * (10 - 2))
+        }
+      }`)
+    })
+
+
+    it('methodReturningValuesFromIfExpression', () => {
+      `
+			object luisAlberto inherits Musico (       valor
+			
+			 =    8) {
+			
+				var guitarra
+			
+				method guitarra() = guitarra
+			
+				method guitarra(_guitarra) {
+					guitarra = _guitarra
+				}
+			
+				override method costo(presentacion) {
+					if (presentacion.dia() < ( new Date(day = 30, month = 9, year = 2017) )) {
+						return 
+						
+						
+						
+						1000
+					} else {
+						return 1200
+					}
+				}
+			
+			}
+			`.should.be.formattedTo(`
+      object luisAlberto inherits Musico (valor = 8) {
+        var guitarra
+        
+        method guitarra() = guitarra
+        
+        method guitarra(_guitarra) {
+          guitarra = _guitarra
+        }
+        
+        override method costo(presentacion) {
+          if (presentacion.dia() < new Date(day = 30, month = 9, year = 2017)) {
+            return 1000
+          } else {
+            return 1200
+          }
+        }
+      }`)
+    })
+
+    it('testWithSeveralExpressions', () => {
+      `
+        class Presentacion {
+        
+          var escenario
+          var dia
+          var musicos = #{}
+          var restricciones = #{}
+        
+          method agregarMusico(_musico) {
+            restricciones.forEach{ restriccion => restriccion.aplica(_musico) }
+            musicos.add(_musico)
+            return self
+          }
+        }
+        `.should.be.formattedTo(`
+        class Presentacion {
+          var escenario
+          var dia
+          var musicos = #{}
+          var restricciones = #{}
+          
+          method agregarMusico(_musico) {
+            restricciones.forEach({ restriccion => restriccion.aplica(_musico) })
+            musicos.add(_musico)
+            return self
+          }
+        }`)
+    })
   })
 })
