@@ -789,7 +789,47 @@ describe('Wollok Printer', () => {
           a += 1
         }
       }`)
+    })
 
+    it('testNativeMethod', () => {
+      `
+      object        foo     {
+      method bar(     param  ,  param2      )           native
+      method bar2()
+      
+      
+      native
+      
+      }
+      `.should.be.formattedTo(`
+      object foo {
+        method bar(param, param2) native
+        
+        method bar2() native
+      }`)
+    })
+
+    it('abstractMethods', () => {
+      `class Vehicle {
+          method numberOfPassengers()   method maxSpeed() 
+          method expenseFor100Km() 
+          method efficiency() {
+              return        self.numberOfPassengers()      *     self.maxSpeed()     /       
+              
+              
+              self.expenseFor100Km()
+          } 
+      }
+      `.should.be.formattedTo(`
+      class Vehicle {
+        method numberOfPassengers()
+        
+        method maxSpeed()
+        
+        method expenseFor100Km()
+        
+        method efficiency() = (self.numberOfPassengers() * self.maxSpeed()) / self.expenseFor100Km()
+      }`)
     })
   })
 })

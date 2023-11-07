@@ -19,14 +19,16 @@ export const body = (nest: DocTransformer) => (content: IDoc): IDoc => encloseIn
  */
 export const listed = (contents: IDoc[], separator: IDoc = ','): IDoc => intersperse([separator, softLine], contents)
 
-export const enclosedList = (nest: DocTransformer) => (enclosers: [IDoc, IDoc], content: IDoc[], separator: IDoc = ','): IDoc =>
-  enclose(
+export const enclosedList = (nest: DocTransformer) => (enclosers: [IDoc, IDoc], content: IDoc[], separator: IDoc = ','): IDoc => {
+  if(content.length === 0) return enclose(enclosers, '')
+  return enclose(
     enclosers,
     choice(
       intersperse([separator, WS], content),
       encloseIndented(['', ''], intersperse([separator, lineBreak], content), nest)
     )
   )
+}
 
 export const encloseIndented = (enclosers: [IDoc, IDoc], content: IDoc, nest: DocTransformer): IDoc =>
   enclose(enclosers, append(lineBreak, nest([lineBreak, content])))
