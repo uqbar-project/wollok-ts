@@ -74,7 +74,10 @@ const format: FormatterWithContext<Node> = context => node => {
 }
 
 const formatPackage: FormatterWithContext<Package> = context => node => {
-  return intersperse(lineBreaks, node.children.map(format(context)))
+  return [node.imports.length > 0 ? [intersperse(lineBreak, node.imports.map(format(context))), lineBreaks] : [], intersperse(
+    lineBreaks,
+    node.members.map(format(context))
+  )]
 }
 
 const formatImport: Formatter<Import> = node => {
