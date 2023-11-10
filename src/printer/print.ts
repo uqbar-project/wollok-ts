@@ -1,7 +1,7 @@
-import { IDoc, append, braces, choice, enclose, hang as nativeHang, intersperse, lineBreak, lineBreaks, indent as nativeIndent, nest as nativeNest, parens, render, softBreak, softLine, align } from 'prettier-printer'
+import { IDoc, align, append, braces, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
 import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
-import { List, match, when, notEmpty, isEmpty } from '../extensions'
-import { Assignment, Body, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Variable } from '../model'
+import { List, isEmpty, match, notEmpty, when } from '../extensions'
+import { Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { DocTransformer, WS, body, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
 type PrintSettings = {
@@ -66,6 +66,9 @@ const format: FormatterWithContext<Node> = context => node => {
     when(ParameterizedType)(formatParameterizedType(context)),
     when(NamedArgument)(formatNamedArgument(context)),
     when(Return)(formatReturn(context)),
+    when(Try)(formatTry(context)),
+    when(Catch)(formatCatch(context)),
+    when(Throw)(formatThrow(context)),
     when(Reference)(formatReference),
     when(Self)(formatSelf),
     when(Import)(formatImport),
@@ -173,7 +176,7 @@ const formatSuper: FormatterWithContext<Super> = context => node =>
 const formatIf: FormatterWithContext<If> = context => node => {
   const condition = [KEYWORDS.IF, WS, enclose(parens, format(context)(node.condition))]
 
-  if(isOneLineBody(node.thenBody) && (node.elseBody.isSynthetic || isOneLineBody(node.elseBody))){
+  if(isInlineBody(node.thenBody) && (node.elseBody.isSynthetic || isInlineBody(node.elseBody))){
     return choice(
       [
         condition,
@@ -209,7 +212,7 @@ const formatIf: FormatterWithContext<If> = context => node => {
   ]
 }
 
-function isOneLineBody(aBody: Body): aBody is Body & { sentences: [Expression] } {
+function isInlineBody(aBody: Body): aBody is Body & { sentences: [Expression] } {
   return aBody.sentences.length === 1 && aBody.sentences[0].is(Expression)
 }
 
@@ -221,6 +224,37 @@ const formatNew: FormatterWithContext<New> = context => node => {
     WS,
     node.instantiated.name,
     args,
+  ]
+}
+
+const formatThrow: FormatterWithContext<Throw> = context => node => [
+  KEYWORDS.THROW,
+  WS,
+  format(context)(node.exception),
+]
+
+const formatTry: FormatterWithContext<Try> = context => node => {
+  const formatter = format(context)
+  const always = notEmpty(node.always.sentences) ?
+    prepend(WS, intersperse(WS, [KEYWORDS.THEN, KEYWORDS.ALWAYS, formatter(node.always)]))
+    : []
+
+  return [
+    KEYWORDS.TRY,
+    WS,
+    formatter(node.body),
+    node.catches ? [WS, intersperse(WS, node.catches.map(formatter))] : [],
+    always,
+  ]
+}
+
+const formatCatch: FormatterWithContext<Catch> = context => node => {
+  const type = prepend(WS, intersperse(WS, [node.parameter.name, ':', format(context)(node.parameterType)]))
+  return [
+    KEYWORDS.CATCH,
+    type,
+    WS,
+    format(context)(node.body),
   ]
 }
 
@@ -301,7 +335,7 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const sentences = (applyMethod.body! as Body).sentences
 
   return sentences.length === 1 ?
-    enclose(braces, append(WS, [parameters, WS, format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])]))
+    enclose(braces, append(WS, [parameters, softLine, format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])]))
     : enclose(braces, [parameters, lineBreak, context.indent(formatSentences(context)((applyMethod.body! as Body).sentences)), lineBreak])
 }
 
@@ -387,7 +421,11 @@ const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, s
 const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedList(context.nest)(parens, args.map(format(context)))
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
-  const distanceFromLastSentence = previousSentence ? sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line : -1
+  const distanceFromLastSentence = sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
+    previousSentence  ?
+      sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line
+      : -1
+    : 0
   return [Array(distanceFromLastSentence + 1).fill(lineBreak), format(context)(sentence)]
 }
 
