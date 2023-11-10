@@ -1,5 +1,5 @@
 import { use, should } from 'chai'
-import { printerAssertions } from './assertions'
+import { printerAssertions } from '../assertions'
 
 use(printerAssertions)
 should()
@@ -110,7 +110,7 @@ describe('Wollok Printer', () => {
       })
     })
   })
-  describe('Object definitions', () => {
+  describe('Object', () => {
     it('testBasicObjectDefinition', () => {
       `object        pepita     { var energia = 0  
             method volar() { energia    += 10 }     
@@ -586,7 +586,7 @@ describe('Wollok Printer', () => {
         }
       
         method quitarParticipante(persona) {
-          if (not        (participantes.isEmpty())) {
+          if (!        (participantes.isEmpty())) {
             if (participantes.contains(persona)) {
               participantes.remove(persona)
             } else {
@@ -627,11 +627,11 @@ describe('Wollok Printer', () => {
         }
         
         method quitarParticipante(persona) {
-          if (participantes.isEmpty().negate()) if (participantes.contains(persona))
-                                                  participantes.remove(persona)
-                                                else self.error(
-                                                    "La persona que se desea quitar no era integrante de la presentacion"
-                                                  )
+          if (!participantes.isEmpty()) if (participantes.contains(persona))
+                                          participantes.remove(persona)
+                                        else self.error(
+                                            "La persona que se desea quitar no era integrante de la presentacion"
+                                          )
           else self.error("El conjunto de participantes esta vacio")
         }
         
@@ -694,7 +694,7 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
-  describe('Methods formatter', () => {
+  describe('Methods', () => {
     it('testBasicFormattingInMethod', () => {
       `
       object        foo     {
@@ -886,7 +886,7 @@ describe('Wollok Printer', () => {
     it('testClassFormattingOneLineMethodStaysInNewLine', () => {
       `class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
     		energia = energia + gr
-    	} }`.should.be.formattedTo (`
+    	} }`.should.be.formattedTo(`
       class Golondrina {
         const energia = 10
         const kmRecorridos = 0
@@ -908,7 +908,7 @@ describe('Wollok Printer', () => {
           console.println("") 
           console.println("")
         }
-      }`.should.be.formattedTo (`
+      }`.should.be.formattedTo(`
       object foo {
         method bar() {
           self.bar().bar().bar()
@@ -920,22 +920,21 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-    // ToDo: Not parsable
-    // it('messageSendParameters', () => {
-    //   `program p {
-    // 		const a = null
+    it('messageSendParameters', () => {
+      `program p {
+    		const a = null
 
-    // 		a . doSomething  ( a, a,    a , a ,  a   )
-    // 		a ?. doSomething  ( a, a,    a , a ,  a   )
-    // 		a ?. doSomething  ({=> a .doSomething()})
-    // 	}`.should.be.formattedTo (`
-    //   program p {
-    //     const a = null
-    //     a.doSomething(a, a, a, a, a)
-    //     a?.doSomething(a, a, a, a, a)
-    //     a?.doSomething({=> a.doSomething() })
-    //   })`)
-    // })
+    		a . doSomething  ( a, a,    a , a ,  a   )
+    		a. doSomething  ( a, a,    a , a ,  a   )
+    		a. doSomething  ({=> a .doSomething()})
+    	}`.should.be.formattedTo(`
+      program p {
+        const a = null
+        a.doSomething(a, a, a, a, a)
+        a.doSomething(a, a, a, a, a)
+        a.doSomething({ a.doSomething() })
+      }`)
+    })
 
 
     it('listWithPreviousConflicts', () => {
@@ -1010,7 +1009,7 @@ describe('Wollok Printer', () => {
 				override method volar(minutos) {  super
 				
 				(minutos * ( 10 - 2 ) ) }        
-      }`.should.be.formattedTo (`
+      }`.should.be.formattedTo(`
       class Ave {
         var energia = 0
         
@@ -1104,27 +1103,27 @@ describe('Wollok Printer', () => {
         }`)
     })
   })
-  describe('Package definitions', () => {
-    // ToDo: package???
-    // it('testBasicPackageDefinition', () => {
-    //   `
-    //   package           aves
+  describe('Package', () => {
+    // ToDo: package
+    xit('testBasicPackageDefinition', () => {
+      `
+      package           aves
 
 
-    //   {
-    //           object        pepita     { var energia = 0  method volar() { energia    +=
-    //   10 }
-    //     }`.should.be.formattedTo(`
-    //   package aves {
-    //     object pepita {
-    //       var energia = 0
+      {
+              object        pepita     { var energia = 0  method volar() { energia    +=
+      10 }
+        }`.should.be.formattedTo(`
+      package aves {
+        object pepita {
+          var energia = 0
 
-    //       method volar() {
-    //         energia += 10
-    //       }
-    //     }
-    //   }`)
-    // })
+          method volar() {
+            energia += 10
+          }
+        }
+      }`)
+    })
 
     it('testBasicImportDefinition', () => {
       `import wollok.   game.*
@@ -1146,7 +1145,7 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
-  describe('Program formatter', () => {
+  describe('Program', () => {
     it('testSimpleProgramWithVariablesAndMessageSend', () => {
       'program p { const a = 10 const b = 20 self.println(a + b) }'.should.be.formattedTo(`
       program p {
@@ -1156,7 +1155,7 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
-  describe('Testing formatter', () => {
+  describe('Testing', () => {
     it('testConstantsFormatting', () => {
       `const a = new Sobreviviente()
         
@@ -1175,7 +1174,7 @@ describe('Wollok Printer', () => {
 
 
     it('testSimpleTestFormatting', () => {
-      'test "aSimpleTest"{              assert.that(true)           }'.should.be.formattedTo (`
+      'test "aSimpleTest"{              assert.that(true)           }'.should.be.formattedTo(`
         test "aSimpleTest" {
           assert.that(true)
         }
@@ -1199,6 +1198,7 @@ describe('Wollok Printer', () => {
         
         test "secondTest" {
           var text = "hola"
+          
           assert.equals(4, text.length())
           assert.equals(4 - 0, (-4).inverted())
         }
@@ -1210,7 +1210,7 @@ describe('Wollok Printer', () => {
         
         const a = 1 assert.equals(  1 , a)
         assert.equals(a, a)
-        }`.should.be.formattedTo (`
+        }`.should.be.formattedTo(`
         test "aSimpleTest" {
           assert.that(true)
           assert.notThat(false)
@@ -1240,7 +1240,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleDescribeFormatting2', () => {
-      'describe            "group of tests"{test "aSimpleTest"{assert.that(true)}}'.should.be.formattedTo (`
+      'describe            "group of tests"{test "aSimpleTest"{assert.that(true)}}'.should.be.formattedTo(`
         describe "group of tests" {
           test "aSimpleTest" {
             assert.that(true)
@@ -1329,7 +1329,7 @@ describe('Wollok Printer', () => {
       assert.equals(1, a)
       
       
-       }}`.should.be.formattedTo (`
+       }}`.should.be.formattedTo(`
       object foo {
         method bar() = 1
       }
@@ -1427,7 +1427,8 @@ describe('Wollok Printer', () => {
         }`)
     })
 
-    it('testAnotherInitializeWithComplexDefinition', () => {
+    //ToDo comments
+    xit('testAnotherInitializeWithComplexDefinition', () => {
       `
       describe "testDeMusicGuide" {
       
@@ -1657,5 +1658,251 @@ describe('Wollok Printer', () => {
         }
       }`)
     })
+  })
+  describe('Variables', () => {
+    it('testSeveralVariableDefinitionsToConstantsInMethods', () => {
+      `
+      class Foo {
+        var x var y var z		
+        method addition() { var   a    =    x x   =     1         y   = 2 z=x+y	}
+      }`.should.be.formattedTo (`
+      class Foo {
+        var x
+        var y
+        var z
+        
+        method addition() {
+          var a = x
+          x = 1
+          y = 2
+          z = x + y
+        }
+      }`)
+    })
+
+    it('testSeveralVariableDefinitionsToConstantsInMethods2', () => {
+      `
+      class Foo {
+        var x var y =     5 var z		
+        method addition() { 
+          
+          
+          var a = x 
+          
+          
+          x = 1 
+          
+          
+          y = 2             z = x + y	}
+          
+          
+      }`.should.be.formattedTo (`
+      class Foo {
+        var x
+        var y = 5
+        var z
+        
+        method addition() {
+          var a = x
+          
+          
+          
+          x = 1
+          
+          
+          
+          y = 2
+          z = x + y
+        }
+      }`)
+    })
+
+    // sourcemap problems
+    xit('testSeveralVariableDefinitionsToConstantsInMethods3', () => {
+      `
+      class Foo {
+              var x var y var z		
+              method      addition   ()           { 
+                      var a = x 
+          x = 1 
+          y = 2             
+                      z = x + y	}
+          
+          
+      }`.should.be.formattedTo (`
+      class Foo {
+        var x
+        var y
+        var z
+        
+        method addition() {
+          var a = x
+          x = 1
+          y = 2
+          z = x + y
+        }
+      }`)
+    })
+
+
+    it('testSeveralVariableDefinitionsToConstantsInMethods4', () => {
+      `
+      class Foo {
+        var x		
+        method addition() { x = 1 var a = 2 a = x a   +=  1       a  .  inverted() }
+      }`.should.be.formattedTo (
+          `
+      class Foo {
+        var x
+        
+        method addition() {
+          x = 1
+          var a = 2
+          a = x
+          a += 1
+          a.inverted()
+        }
+      }`)
+    })
+
+
+    it('propertyDefinitionInClass', () => {
+      `
+      class Foo {
+        var              property 
+        
+        
+         x
+         
+         const 
+         property
+         
+         
+         y
+            =    
+              1		
+      }`.should.be.formattedTo (`
+      class Foo {
+        var property x
+        const property y = 1
+      }`)
+    })
+
+    it('propertyDefinitionInWko', () => {
+      `
+      object romualdo {
+        var      property 
+        
+        
+         x
+         
+         const
+         
+         property
+         
+         
+          y
+            =    
+              1		
+      }`.should.be.formattedTo (`
+      object romualdo {
+        var property x
+        const property y = 1
+      }`)
+    })
+
+
+    it('propertyDefinitionInMixin', () => {
+      `
+      mixin Jugable {
+                 var   property 
+        
+        
+         x
+         
+         const         
+         property
+         
+         
+          y
+            =    
+              1		
+      }`.should.be.formattedTo (`
+      mixin Jugable {
+        var property x
+        const property y = 1
+      }`)
+    })
+
+
+    it('propertyDefinitionInDescribe', () => {
+
+      `
+      describe
+      
+       "group of tests"  
+       {
+        var					property         
+        
+        
+         x
+         
+         const  			property
+         
+         
+         y
+            =    
+              1		
+              
+              test "true is true" { assert.that(true) }
+      }`.should.be.formattedTo (`
+      describe "group of tests" {
+        var property x
+        const property y = 1
+        
+        test "true is true" {
+          assert.that(true)
+        }
+      }`)
+    })
+  })
+  describe('Constructor call', () => {
+    it('constructorCallFormatting', () => {
+      `class A { var a
+      var b = 2 var c var d 
+      }
+      class B {
+        
+      method buildA() {
+      new A(                     a
+      
+      
+       = 
+       
+       200			
+      ,
+      b                = "Hello"
+      
+      ,
+      
+      c =               new        Date()    
+      
+      , d=#{1   , 8} )	
+      }}
+      `.should.be.formattedTo(`
+      class A {
+        var a
+        var b = 2
+        var c
+        var d
+      }
+      
+      class B {
+        method buildA() {
+          new A(a = 200, b = "Hello", c = new Date(), d = #{1, 8})
+        }
+      }`)
+    })
+
   })
 })

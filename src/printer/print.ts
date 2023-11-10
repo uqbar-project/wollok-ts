@@ -1,7 +1,7 @@
 import { IDoc, append, braces, choice, enclose, hang as nativeHang, intersperse, lineBreak, lineBreaks, indent as nativeIndent, nest as nativeNest, parens, render, softBreak, softLine, align } from 'prettier-printer'
-import { KEYWORDS, LIST_MODULE, SET_MODULE } from '../constants'
+import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
 import { List, match, when, notEmpty, isEmpty } from '../extensions'
-import { Assignment, Body, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Variable } from '../model'
+import { Assignment, Body, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Variable } from '../model'
 import { DocTransformer, WS, body, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
 type PrintSettings = {
@@ -74,7 +74,7 @@ const format: FormatterWithContext<Node> = context => node => {
 }
 
 const formatPackage: FormatterWithContext<Package> = context => node => {
-  return [node.imports.length > 0 ? [intersperse(lineBreak, node.imports.map(format(context))), lineBreaks] : [], intersperse(
+  return [notEmpty(node.imports) ? [intersperse(lineBreak, node.imports.map(format(context))), lineBreaks] : [], intersperse(
     lineBreaks,
     node.members.map(format(context))
   )]
@@ -268,7 +268,7 @@ const formatMixin: FormatterWithContext<Mixin> =context => node => {
     KEYWORDS.MIXIN,
     WS,
     node.name,
-    node.supertypes.length > 0 ? [WS, KEYWORDS.INHERITS, WS, intersperse([WS, KEYWORDS.MIXED_AND, WS], node.supertypes.map(format(context)))] : [],
+    notEmpty(node.supertypes) ? [WS, KEYWORDS.INHERITS, WS, intersperse([WS, KEYWORDS.MIXED_AND, WS], node.supertypes.map(format(context)))] : [],
   ]
 
   return [declaration, WS, formatModuleMembers(context)(node.members)]
@@ -277,7 +277,7 @@ const formatMixin: FormatterWithContext<Mixin> =context => node => {
 const formatParameterizedType: FormatterWithContext<ParameterizedType> =
   context => node => [
     node.reference.name,
-    node.args.length > 0 ?
+    notEmpty(node.args) ?
       [WS, enclosedList(context.nest)(parens, node.args.map(format(context)))] :
       [],
   ]
@@ -294,7 +294,7 @@ const formatSingleton: FormatterWithContext<Singleton> = context => (node: Singl
 
 const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const applyMethod = node.members[0] as Method
-  const parameters = applyMethod.parameters.length > 0 ?
+  const parameters = notEmpty(applyMethod.parameters) ?
     [WS, listed(applyMethod.parameters.map(format(context))), WS, '=>']
     : []
 
@@ -320,7 +320,7 @@ const formatWKO: FormatterWithContext<Singleton> = context => node => {
   return intersperse(WS, [...formatted, members])
 }
 
-const inherits = (node: Singleton | Class) => node.supertypes.length > 0
+const inherits = (node: Singleton | Class) => notEmpty(node.supertypes)
 
 const formatInheritance: FormatterWithContext<Singleton | Class> = (context: PrintContext) => node => {
   return intersperse(WS, [
@@ -333,9 +333,19 @@ const formatInheritance: FormatterWithContext<Singleton | Class> = (context: Pri
 // SEND FORMATTERS
 
 const formatSend: FormatterWithContext<Send> = context => node => {
-  return infixOperators.includes(node.message) ?
-    formatInfixSend(context)(node)
-    : formatDotSend(context)(node)
+  let formatter: FormatterWithContext<Send>
+
+  if(isInfixOperator(node)) {
+    formatter = formatInfixSend
+  } else if(
+    isPrefixOperator(node)
+  ) {
+    formatter = formatPrefixSend
+  } else {
+    formatter = formatDotSend
+  }
+
+  return formatter(context)(node)
 }
 
 const formatDotSend: FormatterWithContext<Send> = context => node => [
@@ -353,10 +363,16 @@ const formatInfixSend: FormatterWithContext<Send> = context => node => {
   ])
 }
 
+const formatPrefixSend: FormatterWithContext<Send> = context => node => {
+  return [prefixOperatorByMessage[node.message], addParenthesisIfNeeded(context, node.receiver)]
+}
+
 function addParenthesisIfNeeded(context: PrintContext, expression: Expression): IDoc {
   // ToDo: add more cases where parenthesis aren't needed
   const formatted = format(context)(expression)
-  return expression.is(Send) && infixOperators.includes(expression.message) ? enclose(parens, formatted) : formatted
+  return expression.is(Send) && (isInfixOperator(expression) || isPrefixOperator(expression)) ?
+    enclose(parens, formatted) :
+    formatted
 }
 
 
@@ -403,3 +419,24 @@ const formatModuleMembers = (context: PrintContext) => (members: List<Field | Me
 const canBeAbbreviated = (node: Assignment): node is Assignment & {value: Send & {message: keyof typeof assignmentOperationByMessage}} => node.value.is(Send) && node.value.receiver.is(Reference) && node.value.receiver.name === node.variable.name && node.value.message in assignmentOperationByMessage
 
 const assignmentOperationByMessage = { '||':'||=', '/':'/=', '-':'-=', '+':'+=', '*':'*=', '&&':'&&=', '%':'%=' } as const
+
+// send utils
+
+/*
+ * ToDo: safe way of telling if this is a parser-generated message or a user-defined one
+ *  e.g. x.negate() shouldnt be formatted to !x
+ */
+const isPrefixOperator = (node: Send): boolean =>
+  Object.values(PREFIX_OPERATORS).includes(node.message) &&
+  isEmpty(node.args)
+
+const isInfixOperator = (node: Send): boolean =>
+  infixOperators.includes(node.message) &&
+  node.args.length === 1
+
+//ToDo: missing 'not'
+const prefixOperatorByMessage: Record<Name, Name> = {
+  'negate': '!',
+  'invert': '-',
+  'plus': '+',
+}
