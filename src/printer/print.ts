@@ -328,7 +328,8 @@ const formatSingleton: FormatterWithContext<Singleton> = context => (node: Singl
 
 const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const applyMethod = node.members[0] as Method
-  const parameters = notEmpty(applyMethod.parameters) ?
+  const hasParameters = notEmpty(applyMethod.parameters)
+  const parameters = hasParameters ?
     [listed(applyMethod.parameters.map(format(context))), WS, '=>']
     : []
 
@@ -337,7 +338,7 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
   if(sentences.length === 1) {
     // remove 'return' if it's the only sentence
     const sentence = format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])
-    return enclose([['{', WS], [WS, '}']], context.nest([parameters, softLine, sentence]))
+    return enclose([['{', WS], [WS, '}']], context.nest([hasParameters ? [parameters, softLine] : [], sentence]))
   } else {
     return enclose([['{', WS], '}'], [parameters, lineBreak, context.indent(formatSentences(context)(sentences)), lineBreak])
   }

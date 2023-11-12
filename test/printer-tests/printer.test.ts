@@ -627,12 +627,14 @@ describe('Wollok Printer', () => {
         }
         
         method quitarParticipante(persona) {
-          if (!participantes.isEmpty()) if (participantes.contains(persona))
-                                          participantes.remove(persona)
-                                        else self.error(
-                                            "La persona que se desea quitar no era integrante de la presentacion"
-                                          )
-          else self.error("El conjunto de participantes esta vacio")
+          if (!participantes.isEmpty()) {
+            if (participantes.contains(persona)) participantes.remove(persona)
+            else self.error(
+                "La persona que se desea quitar no era integrante de la presentacion"
+              )
+          } else {
+            self.error("El conjunto de participantes esta vacio")
+          }
         }
         
         method costoPresentacion() {
