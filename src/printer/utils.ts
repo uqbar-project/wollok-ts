@@ -19,13 +19,14 @@ export const body = (nest: DocTransformer) => (content: IDoc): IDoc => encloseIn
  */
 export const listed = (contents: IDoc[], separator: IDoc = ','): IDoc => intersperse([separator, softLine], contents)
 
-export const enclosedList = (nest: DocTransformer) => (enclosers: [IDoc, IDoc], content: IDoc[], separator: IDoc = ','): IDoc => {
+export const enclosedList = (nest: DocTransformer) => (enclosers: [IDoc, IDoc], content: IDoc[], forceSpread = false, separator: IDoc = ','): IDoc => {
   if(content.length === 0) return enclose(enclosers, '')
+  const narrowFormat = encloseIndented(['', ''], intersperse([separator, lineBreak], content), nest)
   return enclose(
     enclosers,
-    choice(
+    forceSpread ? narrowFormat : choice(
       intersperse([separator, WS], content),
-      encloseIndented(['', ''], intersperse([separator, lineBreak], content), nest)
+      narrowFormat
     )
   )
 }
@@ -34,6 +35,8 @@ export const encloseIndented = (enclosers: [IDoc, IDoc], content: IDoc, nest: Do
   enclose(enclosers, append(lineBreak, nest([lineBreak, content])))
 
 export const stringify = enclose(dquotes)
+
+export const defaultToEmpty = (condition: boolean, doc: IDoc): IDoc => condition ? doc : []
 
 export const prefixIfNotEmpty = (prefix: IDoc) => (docs: IDocArray): IDoc =>
   docs.length === 0 ? prepend(prefix, docs) : docs

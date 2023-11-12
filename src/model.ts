@@ -54,6 +54,14 @@ export class Annotation {
   }
 }
 
+export class Comment {
+  readonly text: string
+
+  constructor(name: Name){
+    this.text = name
+  }
+}
+
 export type Code = string
 export type Level = 'warning' | 'error'
 
@@ -472,6 +480,12 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     }
 
     @cached
+    get isAbstract(): boolean {
+      const abstractMethods = this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
+      return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
+    }
+
+    @cached
     defaultValueFor(field: Field): Expression {
       if(!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
 
@@ -507,12 +521,6 @@ export class Class extends Module(Node) {
       const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
     }
-  }
-
-  @cached
-  get isAbstract(): boolean {
-    const abstractMethods = this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
-    return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
 }
 
@@ -750,7 +758,7 @@ export class Super extends Expression(Node) {
 
 export class New extends Expression(Node) {
   get kind(): 'New' { return 'New' }
-  readonly instantiated!: Reference<Class>
+  readonly instantiated!: Reference<Class | Mixin>
   readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<New, 'instantiated'>) {

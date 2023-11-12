@@ -1,8 +1,8 @@
 import { IDoc, align, append, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
 import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
 import { List, isEmpty, match, notEmpty, when } from '../extensions'
-import { Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { DocTransformer, WS, body, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
+import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
 type PrintSettings = {
   maxWidth: number,
@@ -45,7 +45,8 @@ function print(node: Node, { maxWidth, indentation, abbreviateAssignments }: Pri
 type Formatter<T extends Node> = (node: T) => IDoc
 type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter<T>
 const format: FormatterWithContext<Node> = context => node => {
-  return match(node)(
+  const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
+  const formattedNode: IDoc =  match(node)(
     when(Package)(formatPackage(context)),
     when(Program)(formatProgram(context)),
     when(Assignment)(formatAssignment(context)),
@@ -74,6 +75,8 @@ const format: FormatterWithContext<Node> = context => node => {
     when(Import)(formatImport),
     when(Super)(formatSuper(context)),
   )
+
+  return enclose(metadata, formattedNode)
 }
 
 const formatPackage: FormatterWithContext<Package> = context => node => {
@@ -102,7 +105,7 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
     KEYWORDS.METHOD,
     WS,
     node.name,
-    enclosedList(context.nest)(parens, node.parameters.map(formatWithContext)),
+    enclosedListOfNodes(context)(parens, node.parameters),
   ]
 
   if(node.isNative()){
@@ -222,7 +225,7 @@ function isInlineBody(aBody: Body): aBody is Body & { sentences: [Expression] } 
 
 const formatNew: FormatterWithContext<New> = context => node => {
   const args =
-    enclosedList(context.nest)(parens, node.args.map(format(context)))
+    enclosedListOfNodes(context)(parens, node.args)
   return [
     KEYWORDS.NEW,
     WS,
@@ -316,7 +319,7 @@ const formatParameterizedType: FormatterWithContext<ParameterizedType> =
   context => node => [
     node.reference.name,
     notEmpty(node.args) ?
-      [WS, enclosedList(context.nest)(parens, node.args.map(format(context)))] :
+      [WS, enclosedListOfNodes(context)(parens, node.args)] :
       [],
   ]
 
@@ -427,7 +430,7 @@ const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, s
   return [formatted, formatSentenceInBody(context)(!shouldShortenReturn ? sentence : sentence.value,  previousSentence)]
 }, [])
 
-const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedList(context.nest)(parens, args.map(format(context)))
+const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedListOfNodes(context)(parens, args)
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
   const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
@@ -452,7 +455,7 @@ const formatAssign = (context: PrintContext, ignoreNull = false) => (name: strin
 ]
 
 const formatCollection = (context: PrintContext) => (values: Expression[], enclosers: [IDoc, IDoc]) => {
-  return enclosedList(context.nest)(enclosers, values.map(format(context)))
+  return enclosedListOfNodes(context)(enclosers, values)
 }
 
 const formatModuleMembers = (context: PrintContext) => (members: List<Field | Method | Test>): IDoc => {
@@ -488,3 +491,38 @@ const prefixOperatorByMessage: Record<Name, Name> = {
   'invert': '-',
   'plus': '+',
 }
+
+// metadata
+const splitMetadata = (context: PrintContext, metadata: List<Annotation>): [IDoc, IDoc] => {
+  const withSplittedMultilineComments = metadata.map(annotation => annotation.name === 'comment' && (annotation.args.get('text')! as string).includes('\n') ?
+    (annotation.args.get('text')! as string).split('\n').map(commentSection => new Annotation('comment', { text: commentSection.trimStart(), position:annotation.args.get('position')! } )) :
+    annotation
+  ).flat()
+
+  const prevMetadata = withSplittedMultilineComments.filter(metadata => !isComment(metadata) || metadata.args.get('position') === 'start')
+  const afterMetadata = withSplittedMultilineComments.filter(metadata => metadata.args.get('position') === 'end')
+  const metadataBefore =  defaultToEmpty(notEmpty(prevMetadata), [intersperse(lineBreak, prevMetadata.map(formatAnnotation(context))), lineBreak])
+  const metadataAfter = defaultToEmpty(notEmpty(afterMetadata), [softLine, intersperse(lineBreak, afterMetadata.map(formatAnnotation(context)))])
+
+  return [metadataBefore, metadataAfter]
+}
+
+const formatAnnotation = (context: PrintContext) => (annotation: Annotation): IDoc => {
+  if(annotation.name === 'comment') return annotation.args.get('text')! as string
+  return ['@', annotation.name, enclosedList(context.nest)(parens, [...annotation.args.entries()].map(
+    ([name, value]) => intersperse(WS, [name, '=', format(context)(new Literal({ value }))])
+  ))]
+}
+
+function isComment(annotation: Annotation): annotation is Annotation & {name: 'comment'} {
+  return annotation.name === 'comment'
+}
+
+
+//lists
+const enclosedListOfNodes = (context: PrintContext) => (enclosers: [IDoc, IDoc], nodes: List<Node>): IDoc =>
+  enclosedList(context.nest)(
+    enclosers,
+    nodes.map(format(context)),
+    nodes.some(aNode => aNode.metadata.some(entry => entry.name ==='comment'))
+  )

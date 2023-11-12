@@ -109,6 +109,85 @@ describe('Wollok Printer', () => {
         }`)
       })
     })
+
+    describe('Comments', () => {
+      it('single line comment', () => {
+        `program prueba {
+          // comentario
+          const a = 1 // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
+          const b = 2
+          // last comentario
+        }`.should.be.formattedTo(`
+        program prueba {
+          // comentario
+          const a = 1
+          // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
+          const b = 2 // last comentario
+        }`)
+      })
+
+      it('comments on send', () => {
+        `program prueba {
+          // ok
+          5.even() // ok
+        }`.should.be.formattedTo(`
+        program prueba {
+          // ok
+          5.even() // ok
+        }`)
+      })
+
+      it('many comments', () => {
+        `program prueba {
+          // comentario
+          // comentario
+          const a = 1
+        }`.should.be.formattedTo(`
+        program prueba {
+          // comentario
+          // comentario
+          const a = 1
+        }`)
+      })
+
+      //ToDo smarter trimming
+      it('multi line comments', () => {
+        `program prueba {
+          /* comentario
+           comentario */
+          const a = 1
+        }`.should.be.formattedTo(`
+        program prueba {
+          /* comentario
+          comentario */
+          const a = 1
+        }`)
+      })
+
+      it('side comment', () => {
+        `program prueba {
+          const a = 1 // comentario
+          }`.should.be.formattedTo(`
+          program prueba {
+            const a = 1 // comentario
+          }`)
+      })
+
+      xit('comment on a list', () => {
+        `program prueba {
+          const a = [1
+            ,2//comment on a lista
+            ,3]
+          }`.should.be.formattedTo(`
+          program prueba {
+            const a = [
+              1,
+              2, //comment on a lista
+              3
+            ]
+          }`)
+      })
+    })
   })
   describe('Object', () => {
     it('testBasicObjectDefinition', () => {
@@ -1428,17 +1507,14 @@ describe('Wollok Printer', () => {
         }`)
     })
 
-    //ToDo comments
-    xit('testAnotherInitializeWithComplexDefinition', () => {
+    it('testAnotherInitializeWithComplexDefinition', () => {
       `
       describe "testDeMusicGuide" {
       
-        // musicos
         var soledad
         var kike
         var lucia
         var joaquin
-        // canciones
         const cisne = new Cancion(titulo = "Cisne", minutos    =   312,    letra    ="Hoy el viento se abrio quedo vacio el aire una vez mas y el manantial broto y nadie esta aqui y puedo ver que solo estallan las hojas al brillar")
         const laFamilia = new Cancion(titulo = "La Familia", minutos=264, letra      = "Quiero brindar por mi gente sencilla, por el amor brindo por la familia")
         const almaDeDiamante = new Cancion(titulo
@@ -1455,15 +1531,12 @@ describe('Wollok Printer', () => {
         =    
         laFamilia.duracion(), letra =laFamilia.letra())
         const mashupAlmaCrisantemo = new Mashup(titulo = "nombre", minutos = "duracion", letra = "letra", temas = [ almaDeDiamante, crisantemo ])
-        // albumes
         const paraLosArboles = new Album(titulo = "Para los arboles", fecha = new Date(day = 31, month = 3, year = 2003), editados = 50000, vendidos = 49000).agregarCancion(cisne).agregarCancion(almaDeDiamante)
         const justCrisantemo = new Album(titulo = "Just Crisantemo", fecha = new Date(day=05, month=12, year=2007), editados = 28000, vendidos=27500).agregarCancion(crisantemo)
         const especialLaFamilia = new Album(titulo = "Especial La Familia", fecha = new Date(day = 17, month = 06, year = 1992), editados = 100000, vendidos = 89000).agregarCancion(laFamilia)
         const laSole = new Album(titulo = "La Sole", fecha = new Date(day = 04, month = 02, year = 2005), editados = 200000, vendidos = 130000).agregarCancion(eres).agregarCancion(corazonAmericano)
-        // presentaciones
         var presentacionEnLuna
         var presentacionEnTrastienda
-        // guitarras
         const fender = new Guitarra()
         const gibson = new Gibson() method
       
@@ -1484,15 +1557,12 @@ describe('Wollok Printer', () => {
         
         test "fake" { assert.that(true) }
         }			
-        `.should.be.formattedTo(`
+      `.should.be.formattedTo(`
         describe "testDeMusicGuide" {
-        
-          // musicos
           var soledad
           var kike
           var lucia
           var joaquin
-          // canciones
           const cisne = new Cancion(
             titulo = "Cisne",
             minutos = 312,
@@ -1539,7 +1609,6 @@ describe('Wollok Printer', () => {
             letra = "letra",
             temas = [almaDeDiamante, crisantemo]
           )
-          // albumes
           const paraLosArboles = new Album(
             titulo = "Para los arboles",
             fecha = new Date(day = 31, month = 3, year = 2003),
@@ -1564,10 +1633,8 @@ describe('Wollok Printer', () => {
             editados = 200000,
             vendidos = 130000
           ).agregarCancion(eres).agregarCancion(corazonAmericano)
-          // presentaciones
           var presentacionEnLuna
           var presentacionEnTrastienda
-          // guitarras
           const fender = new Guitarra()
           const gibson = new Gibson()
           
@@ -1609,8 +1676,6 @@ describe('Wollok Printer', () => {
             assert.that(true)
           }
         }`)
-
-
     })
 
     it('testDescribeWithMethodDefinition', () => {
@@ -1979,22 +2044,21 @@ describe('Wollok Printer', () => {
 
     it('program_maxOneLineBreakBetweenLines', () => {
       `program p {
-    		const a = 10
-    		const b = 0
-    		
-    		
-    		
-    		const c = a + b
-    	}`.should.be.formattedTo( `
-    program p {
-      const a = 10
-      const b = 0
-      
-      
-      
-      const c = a + b
-    }
-		`)
+        const a = 10
+        const b = 0
+        
+        
+        
+        const c = a + b
+      }`.should.be.formattedTo( `
+      program p {
+        const a = 10
+        const b = 0
+        
+        
+        
+        const c = a + b
+      }`)
     })
 
     it('basicTryCatch', () => {

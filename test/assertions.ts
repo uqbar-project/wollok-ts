@@ -1,16 +1,14 @@
-import { formatError, Parser } from 'parsimmon'
-import link from '../src/linker'
-import { Name, Node, Package, Reference, Environment as EnvironmentType, Environment } from '../src/model'
-import { List } from '../src/extensions'
-import { Validation } from '../src/validator'
-import { File, ParseError } from '../src/parser'
-import globby from 'globby'
-import { promises } from 'fs'
-import { buildEnvironment as buildEnv, print, WRE } from '../src'
-import { join } from 'path'
-import validate from '../src/validator'
 import dedent from 'dedent'
-import { fromJSON } from '../src/jsonUtils'
+import { promises } from 'fs'
+import globby from 'globby'
+import { formatError, Parser } from 'parsimmon'
+import { join } from 'path'
+import { buildEnvironment as buildEnv, print } from '../src'
+import { List } from '../src/extensions'
+import link from '../src/linker'
+import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
+import { ParseError } from '../src/parser'
+import validate, { Validation } from '../src/validator'
 
 const { readFile } = promises
 
@@ -97,7 +95,6 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
     new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
     new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
-
     new Assertion(plucked(this._obj)).to.deep.equal(plucked(expected))
   })
 
@@ -122,12 +119,10 @@ export const printerAssertions: Chai.ChaiPlugin = (chai) => {
   const { Assertion } = chai
 
   Assertion.addMethod('formattedTo', function (expected: string) {
-    const fileName = 'formatted'
-    const parsed = File(fileName).parse(this._obj)
-    if(!parsed.status) throw new Error('Failed to parse code')
-    const environment = link([parsed.value], fromJSON(WRE))
+    const name = 'formatted'
+    const environment = buildEnv([{ name, content: this._obj }])
     const printerConfig = { maxWidth: 80, indentation: { size: 2, useSpaces: true }, abbreviateAssignments: true }
-    const formatted = print(environment.getNodeByFQN(fileName), printerConfig)
+    const formatted = print(environment.getNodeByFQN(name), printerConfig)
     new Assertion(formatted).to.equal(dedent(expected))
   })
 }
