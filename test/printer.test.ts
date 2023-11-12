@@ -1106,20 +1106,19 @@ describe('Wollok Printer', () => {
     })
   })
   describe('Package', () => {
-    // ToDo: package
-    xit('testBasicPackageDefinition', () => {
+    it('testBasicPackageDefinition', () => {
       `
       package           aves
 
 
       {
               object        pepita     { var energia = 0  method volar() { energia    +=
-      10 }
+      10 }}
         }`.should.be.formattedTo(`
       package aves {
         object pepita {
           var energia = 0
-
+          
           method volar() {
             energia += 10
           }
@@ -1907,7 +1906,6 @@ describe('Wollok Printer', () => {
     })
 
   })
-
   describe('Complex flow', () => {
     it('program_ifInline', () => {
       `program p {

@@ -77,10 +77,14 @@ const format: FormatterWithContext<Node> = context => node => {
 }
 
 const formatPackage: FormatterWithContext<Package> = context => node => {
-  return [notEmpty(node.imports) ? [intersperse(lineBreak, node.imports.map(format(context))), lineBreaks] : [], intersperse(
+  const contents = [notEmpty(node.imports) ? [intersperse(lineBreak, node.imports.map(format(context))), lineBreaks] : [], intersperse(
     lineBreaks,
     node.members.map(format(context))
   )]
+
+  return node.isSynthetic ?
+    contents :
+    intersperse(WS, [KEYWORDS.PACKAGE, node.name, body(context.nest)(contents)])
 }
 
 const formatImport: Formatter<Import> = node => {
