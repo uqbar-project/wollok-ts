@@ -1718,15 +1718,14 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-    // sourcemap problems
-    xit('testSeveralVariableDefinitionsToConstantsInMethods3', () => {
+    it('testSeveralVariableDefinitionsToConstantsInMethods3', () => {
       `
       class Foo {
               var x var y var z		
               method      addition   ()           { 
-                      var a = x 
-          x = 1 
-          y = 2             
+                      var a = x
+          x = 1
+          y = 2
                       z = x + y	}
           
           
