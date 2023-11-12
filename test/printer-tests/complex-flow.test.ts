@@ -209,9 +209,9 @@ program abc {
     object foo {
       method attack(target) {
         var attackers = self.standingMembers()
-        if (attackers.isEmpty()) throw new CannotAttackException(
-            message = "No attackers available"
-          )
+        if (attackers.isEmpty()) {
+          throw new CannotAttackException(message = "No attackers available")
+        }
         attackers.forEach({ aMember => aMember.attack(target) })
       }
     }`)
@@ -262,8 +262,7 @@ method esMinimalista() = albumes.all{
     }`)
   })
 
-  xit('doubleIfInMethod', () => {
-
+  it('doubleIfInMethod', () => {
     `
 		object pepita {
 			const posicion = game.at(2, 0)
@@ -427,36 +426,45 @@ method esMinimalista() = albumes.all{
     }`)
   })
 
-  xit('unaryWordExpression', () => {
+  it('unaryWordExpression', () => {
     `
 		object lunaPark {}
 		class Presentacion { var fecha var lugar var musicos }
     object pdpalooza inherits Presentacion(fecha = new Date(day = 15, month = 12, year = 2017), lugar = lunaPark, musicos = []){
       const restriccionHabilidad = { musico => if (musico.habilidad() < 70) throw new Exception(message = "La habilidad del músico debe ser mayor a 70")}
-      const restriccionCompusoAlgunaCancion = {musico => if (not musico.compusoAlgunaCancion()) throw new Exception(message = "El músico debe haber compuesto al menos una canción")}
+      const restriccionCompusoAlgunaCancion = {musico => if (!  musico.compusoAlgunaCancion()) throw new Exception(message = "El músico debe haber compuesto al menos una canción")}
     }		
-		`.should.be.formattedTo(`
+    `.should.be.formattedTo(`
     object lunaPark {
-    
+      
     }
-
+    
     class Presentacion {
       var fecha
       var lugar
       var musicos
     }
     
-    object pdpalooza inherits Presentacion(fecha = new Date(day = 15, month = 12, year = 2017), lugar = lunaPark, musicos = []) {
-      const restriccionHabilidad = { musico =>
-        if (musico.habilidad() < 70) throw new Exception(message = "La habilidad del músico debe ser mayor a 70")
-      }
+    object pdpalooza inherits Presentacion (
+      fecha = new Date(day = 15, month = 12, year = 2017),
+      lugar = lunaPark,
+      musicos = []
+    ) {
+      const restriccionHabilidad = { musico => if (musico.habilidad() < 70) {
+          throw new Exception(
+            message = "La habilidad del músico debe ser mayor a 70"
+          )
+        } }
       const restriccionCompusoAlgunaCancion = { musico =>
-        if (not musico.compusoAlgunaCancion()) throw new Exception(message = "El músico debe haber compuesto al menos una canción")
-      }
+        if (!musico.compusoAlgunaCancion()) {
+          throw new Exception(
+            message = "El músico debe haber compuesto al menos una canción"
+          )
+        } }
     }`)
   })
 
-  xit('testObjectWithClosureImplementingRestrictions', () => {
+  it('testObjectWithClosureImplementingRestrictions', () => {
 
     `
     object restriccionCompositor {
@@ -471,8 +479,12 @@ method esMinimalista() = albumes.all{
     `.should.be.formattedTo(`
     object restriccionCompositor {
       method verificarMusico(musico) {
-        if (!musico.cancionesPublicadas().any({ unaCancion => musico.esSuCancion(unaCancion)})) {
-          throw new UserException(message = "No se puede agregar al musico ya que no compuso ninguna cancion")
+        if (!musico.cancionesPublicadas().any(
+          { unaCancion => musico.esSuCancion(unaCancion) }
+        )) {
+          throw new UserException(
+            message = "No se puede agregar al musico ya que no compuso ninguna cancion"
+          )
         }
       }
     }`)

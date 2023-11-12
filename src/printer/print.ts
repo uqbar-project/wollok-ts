@@ -1,4 +1,4 @@
-import { IDoc, align, append, braces, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
+import { IDoc, align, append, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
 import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
 import { List, isEmpty, match, notEmpty, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
@@ -177,29 +177,7 @@ const formatIf: FormatterWithContext<If> = context => node => {
   const condition = [KEYWORDS.IF, WS, enclose(parens, format(context)(node.condition))]
 
   if(isInlineBody(node.thenBody) && (node.elseBody.isSynthetic || isInlineBody(node.elseBody))){
-    return choice(
-      [
-        condition,
-        WS,
-        format(context)(node.thenBody.sentences[0]),
-        notEmpty(node.elseBody.sentences) ? [WS, KEYWORDS.ELSE, WS, format(context)(node.elseBody.sentences[0])] : [],
-      ],
-      [
-        align([
-          context.hang([
-            condition,
-            softLine,
-            format(context)(node.thenBody.sentences[0]),
-          ]),
-          notEmpty(node.elseBody.sentences) ? [
-            lineBreak,
-            context.hang([KEYWORDS.ELSE, softLine, format(context)(node.elseBody.sentences[0])]),
-          ] : [],
-        ]),
-      ]
-    )
-
-
+    return formatInlineIf(condition)(context)(node)
   }
 
   const thenBody = body(context.nest)(formatSentences(context)(node.thenBody.sentences))
@@ -212,8 +190,30 @@ const formatIf: FormatterWithContext<If> = context => node => {
   ]
 }
 
+const formatInlineIf: (condition: IDoc) => FormatterWithContext<If> = condition => context => node => choice(
+  [
+    condition,
+    WS,
+    format(context)(node.thenBody.sentences[0]),
+    notEmpty(node.elseBody.sentences) ? [WS, KEYWORDS.ELSE, WS, format(context)(node.elseBody.sentences[0])] : [],
+  ],
+  [
+    align([
+      context.hang([
+        condition,
+        softLine,
+        format(context)(node.thenBody.sentences[0]),
+      ]),
+      notEmpty(node.elseBody.sentences) ? [
+        lineBreak,
+        context.hang([KEYWORDS.ELSE, softLine, format(context)(node.elseBody.sentences[0])]),
+      ] : [],
+    ]),
+  ]
+)
+
 function isInlineBody(aBody: Body): aBody is Body & { sentences: [Expression] } {
-  return aBody.sentences.length === 1 && aBody.sentences[0].is(Expression)
+  return aBody.sentences.length === 1 && [Send, Literal, Reference].some(kind => aBody.sentences[0].is(kind))
 }
 
 const formatNew: FormatterWithContext<New> = context => node => {
@@ -329,14 +329,18 @@ const formatSingleton: FormatterWithContext<Singleton> = context => (node: Singl
 const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const applyMethod = node.members[0] as Method
   const parameters = notEmpty(applyMethod.parameters) ?
-    [WS, listed(applyMethod.parameters.map(format(context))), WS, '=>']
+    [listed(applyMethod.parameters.map(format(context))), WS, '=>']
     : []
 
   const sentences = (applyMethod.body! as Body).sentences
 
-  return sentences.length === 1 ?
-    enclose(braces, append(WS, [parameters, softLine, format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])]))
-    : enclose(braces, [parameters, lineBreak, context.indent(formatSentences(context)((applyMethod.body! as Body).sentences)), lineBreak])
+  if(sentences.length === 1) {
+    // remove 'return' if it's the only sentence
+    const sentence = format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])
+    return enclose([['{', WS], [WS, '}']], context.nest([parameters, softLine, sentence]))
+  } else {
+    return enclose([['{', WS], '}'], [parameters, lineBreak, context.indent(formatSentences(context)(sentences)), lineBreak])
+  }
 }
 
 const formatWKO: FormatterWithContext<Singleton> = context => node => {
@@ -421,12 +425,13 @@ const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, s
 const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedList(context.nest)(parens, args.map(format(context)))
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
-  const distanceFromLastSentence = sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
+  const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
     previousSentence  ?
-      sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line
-      : -1
-    : 0
-  return [Array(distanceFromLastSentence + 1).fill(lineBreak), format(context)(sentence)]
+      sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line //difference
+      : -1 // first sentence
+    : 0 // defaults to 1 line diff
+  ) + 1
+  return [Array(distanceFromLastSentence).fill(lineBreak), format(context)(sentence)]
 }
 
 const formatAssign = (context: PrintContext, ignoreNull = false) => (name: string, value: Expression, assignmentOperator = '=') => [
