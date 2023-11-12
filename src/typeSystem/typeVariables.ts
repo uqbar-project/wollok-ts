@@ -171,7 +171,7 @@ const inferAssignment = (a: Assignment) => {
 const inferVariable = (v: Variable | Field) => {
   const valueTVar = createTypeVariables(v.value)
   const varTVar = typeVariableFor(v)
-  if (valueTVar) varTVar.beSupertypeOf(valueTVar)
+  if (valueTVar && !varTVar.closed) varTVar.beSupertypeOf(valueTVar)
   return varTVar
 }
 
@@ -406,7 +406,7 @@ function annotatedVariableName(node: Node): string | undefined {
 
 
 function annotatedWollokType(annotatedType: string, node: Node): WollokType {
-  if([VOID, ANY].includes(annotatedType)) return new WollokAtomicType(annotatedType as AtomicType)
+  if ([VOID, ANY].includes(annotatedType)) return new WollokAtomicType(annotatedType as AtomicType)
 
   // First try with closures
   if (annotatedType.startsWith('{') && annotatedType.endsWith('}')) {
@@ -419,7 +419,12 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
     return new WollokParameterType(annotatedType)
   }
 
-  // Then try by FQN
+  // First try generics
+  if (annotatedType.includes('<') && annotatedType.includes('>')) {
+    return parseAnnotatedGeneric(annotatedType, node)
+  }
+
+  // Then try defined modules
   let module = node.environment.getNodeOrUndefinedByFQN<Module>(annotatedType)
   if (!module) {
     // If not found, try to find just by name in same package (sibling definition)
@@ -431,14 +436,23 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
 
 function parseAnnotatedClosure(annotatedType: string, node: Node) {
   const [params, returnTypeName] = annotatedType.slice(1, -1).split('=>')
-  const parameters = params.trim().slice(1, -1).split(',').map(_ => _.trim())
+  const parameters = params.trim().slice(1, -1).split(',').map(_ => _.trim()).filter(_ => _ /* clean empty arguments */)
   const parametersTVar = parameters.map(_ => newSynteticTVar().setType(annotatedWollokType(_, node)))
   const returnTypeTVar = newSynteticTVar().setType(annotatedWollokType(returnTypeName.trim(), node))
   return new WollokClosureType(returnTypeTVar, parametersTVar, Closure({ code: 'Annotated type' }))
 }
 
+function parseAnnotatedGeneric(annotatedType: string, node: Node) {
+  const [baseTypeName] = annotatedType.split('<')
+  const paramTypeNames = annotatedType.slice(baseTypeName.length + 1, -1).split(',').map(_ => _.trim())
+  const baseType = annotatedWollokType(baseTypeName, node) as WollokParametricType
+  const paramTypes = paramTypeNames.map(t => annotatedWollokType(t, node));
+  [...baseType.params.values()].forEach((param, i) => param.setType(paramTypes[i]))
+  return baseType
+}
+
 function isParameterName(name: string, node: Node) {
-  return node.ancestors.find(n => annotatedVariableName(n) === name)
+  return [node, ...node.ancestors].find(n => annotatedVariableName(n) === name)
 }
 
 function typeForModule(m: Module) {

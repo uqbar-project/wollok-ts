@@ -121,7 +121,7 @@ export class WollokParametricType extends WollokModuleType {
   }
 
   sameParams(type: WollokParametricType) {
-    return [...this.params.entries()].every(([name, tVar]) => type.params.get(name) === tVar)
+    return [...this.params.entries()].every(([name, tVar]) => type.params.get(name)?.type().contains(tVar.type()))
   }
 }
 
@@ -208,9 +208,7 @@ export class WollokUnionType {
   instanceFor(_instance: TypeVariable) { return null }
 
   contains(type: WollokType): boolean {
-    if (type instanceof WollokUnionType)
-      throw new Error('Halt')
-    return this.types.some(_ => _.contains(type))
+    return type.asList().every(t => this.types.some(_ => _.contains(t))) 
   }
 
   asList() { return this.types }
