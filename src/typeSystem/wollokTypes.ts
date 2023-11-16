@@ -1,6 +1,6 @@
 import { List } from '../extensions'
-import { BaseProblem, Level, Module, Name, Node } from '../model'
-import { newSynteticTVar, TypeVariable } from './typeVariables'
+import { BaseProblem, Level, Module, Name, Node, Singleton } from '../model'
+import { TypeVariable } from './typeVariables'
 
 const { entries, fromEntries } = Object
 
@@ -33,7 +33,7 @@ export class WollokAtomicType {
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Atomic types has no params') }
-  instanceFor(_instance: TypeVariable, _send?: TypeVariable): TypeVariable | null { return null }
+  instanceFor(_instance: TypeVariable, _send?: TypeVariable, _name?: string): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
     return type instanceof WollokAtomicType && this.id === type.id
@@ -61,7 +61,9 @@ export class WollokModuleType {
   }
 
   contains(type: WollokType): boolean {
-    return type instanceof WollokModuleType && this.module === type.module
+    return type instanceof WollokModuleType && (this.module === type.module ||
+      (this.module instanceof Singleton && type.module instanceof Singleton
+      && this.module.isClosure() && type.module.isClosure()))
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
@@ -94,11 +96,12 @@ export class WollokParametricType extends WollokModuleType {
   }
 
   atParam(name: string): TypeVariable { return this.params.get(name)! }
-  instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
+  instanceFor(instance: TypeVariable, send?: TypeVariable, name: string = INSTANCE): TypeVariable | null {
     let changed = false
     const resolvedParamTypes = fromEntries([...this.params])
     this.params.forEach((tVar, name) => {
-      const newInstance = tVar.instanceFor(instance, send)
+      // Possible name callision
+      const newInstance = tVar.instanceFor(instance, send, name)
       if (newInstance !== tVar) {
         resolvedParamTypes[name] = newInstance
         changed = true
@@ -111,26 +114,27 @@ export class WollokParametricType extends WollokModuleType {
     // TODO: Creating a new syntetic TVar *each time* is not the best solution.
     //      We should attach this syntetic TVar to the instance, so we can reuse it.
     //      We also need to take care of MethodType (subclasses of ParametricType)
-    return instance.cachedParam(INSTANCE).setType(new WollokParametricType(this.module, resolvedParamTypes))
+    return instance.newParam(name).setType(new WollokParametricType(this.module, resolvedParamTypes), false)
   }
 
   get name(): string {
-    // TODO: Avoid duplicates?
     const innerTypes = [...this.params.values()].map(_ => _.type().name).join(', ')
+    if (!innerTypes) return super.name
     return `${super.name}<${innerTypes}>`
   }
 
   sameParams(type: WollokParametricType) {
-    return [...this.params.entries()].every(([name, tVar]) => type.params.get(name)?.type().contains(tVar.type()))
+    return [...this.params.entries()].every(([name, tVar]) => type.atParam(name)?.type().name == ANY || type.atParam(name)?.type().contains(tVar.type()))
   }
 }
 
 export class WollokMethodType extends WollokParametricType {
-  constructor(returnVar: TypeVariable, params: TypeVariable[], base?: Module) {
+  constructor(returnVar: TypeVariable, params: TypeVariable[], extra: Record<string, TypeVariable> = {}, base?: Module) {
     // TODO: Improve this inheritance
     super(base!, {
       ...fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
       [RETURN]: returnVar,
+      ...extra
     })
   }
 
@@ -147,7 +151,7 @@ export class WollokMethodType extends WollokParametricType {
 export class WollokClosureType extends WollokMethodType {
 
   constructor(returnVar: TypeVariable, params: TypeVariable[], closure: Module) {
-    super(returnVar, params, closure)
+    super(returnVar, params, {}, closure)
   }
 
   get name(): string {
@@ -165,7 +169,7 @@ export class WollokParameterType {
   }
 
   instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
-    return instance.atParam(this.name) || send?.cachedParam(this.name)
+    return instance.atParam(this.name) || send?.newParam(this.name)
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
@@ -208,7 +212,7 @@ export class WollokUnionType {
   instanceFor(_instance: TypeVariable) { return null }
 
   contains(type: WollokType): boolean {
-    return type.asList().every(t => this.types.some(_ => _.contains(t))) 
+    return type.asList().every(t => this.types.some(_ => _.contains(t)))
   }
 
   asList() { return this.types }

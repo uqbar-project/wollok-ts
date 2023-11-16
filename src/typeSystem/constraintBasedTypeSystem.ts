@@ -1,7 +1,7 @@
 import { anyPredicate, is } from '../extensions'
 import { Environment, Module, Node, Reference } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
+import { ANY, PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -95,7 +95,8 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
       if (!methodInstance.atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
         method.parameters.forEach((_param, i) => {
-          methodInstance.atParam(`${PARAM}${i}`).addSubtype(typeVariableFor(send.args[i]))
+          const argTVAR= typeVariableFor(send.args[i])
+          methodInstance.atParam(`${PARAM}${i}`).addSubtype(argTVAR)
         })
 
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
@@ -136,7 +137,7 @@ export const maxTypeFromMessages = (tVar: TypeVariable): boolean => {
 }
 
 export const mergeSuperAndSubTypes = (tVar: TypeVariable): boolean => {
-  if (tVar.allPossibleTypes().length) return false
+  if (tVar.type().name == ANY) return false
   let changed = false
   for (const superTVar of tVar.validSupertypes()) {
     if (!tVar.subtypes.includes(superTVar)) {
@@ -182,6 +183,7 @@ function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem) {
 
 function reportTypeMismatch(source: TypeVariable, type: WollokType, target: TypeVariable) {
   const [reported, expected, actual] = selectVictim(source, type, target, target.type())
+  logger.log(`TYPE ERROR REPORTED ON |${reported}| - Expected: ${expected.name} Actual: ${actual.name}`)
   return reportProblem(reported, new TypeSystemProblem('typeMismatch', [expected.name, actual.name]))
 }
 
