@@ -1,46 +1,10 @@
 import { should } from 'chai'
-import { Environment, Literal, Method, Name, Parameter, Self, Send } from '../src'
+import { Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
 import { bindReceivedMessages, propagateMaxTypes, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSynteticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
-import { AtomicType, RETURN, WollokAtomicType } from '../src/typeSystem/wollokTypes'
+import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
 
 should()
-
-const env = new Environment({ members: [] })
-
-
-const testSend = new Send({
-  receiver: new Self(),
-  message: 'someMessage',
-  args: [new Literal({ value: 1 })],
-})
-testSend.parent = env
-
-class TestWollokType extends WollokAtomicType {
-  method: Method
-
-  constructor(name: string, method: Method) {
-    super(name as AtomicType)
-    this.method = method
-  }
-
-  override lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    return this.method
-  }
-
-}
-
-function newMethod(name: string) {
-  const method = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
-  method.parent = env as any
-  return method
-}
-
-const testMethod = newMethod('TEST_METHOD')
-const otherTestMethod = newMethod('OTHER_TEST_METHOD')
-
-const stubType = new TestWollokType('TEST', testMethod)
-const otherStubType = new TestWollokType('OTHER_TEST', otherTestMethod)
 
 describe('Wollok Type System', () => {
   let tVar: TypeVariable
@@ -245,4 +209,154 @@ describe('Wollok Type System', () => {
 
   })
 
+  describe('Wollok types', () => {
+    const module = new Singleton({ name: 'MODULE_TEST' })
+
+    // TODO: Test method `includes()` for all Wollok Types
+
+    describe('Parametric types', () => {
+      let parametricType: WollokParametricType
+
+      beforeEach(() => {
+        parametricType = new WollokParametricType(module, { 'param': newSynteticTVar() })
+        tVar.setType(parametricType)
+      })
+
+      describe('should be propagated', () => {
+
+        it('To Any variable', () => {
+          const supertype = newSynteticTVar()
+          tVar.addSupertype(supertype)
+          propagateMinTypes(tVar)
+
+          supertype.allMinTypes()[0].should.be.equal(parametricType)
+        })
+
+        it('To param inside an equivalent type', () => {
+          parametricType.atParam('param').setType(stubType)
+          const param = newSynteticTVar()
+          tVar.addSupertype(newSynteticTVar().setType(new WollokParametricType(module, { param }), false))
+          propagateMinTypes(tVar)
+
+          param.allMinTypes()[0].should.be.equal(stubType)
+        })
+
+        it('To partial params inside an equivalent type', () => {
+          tVar.setType(new WollokParametricType(module, {
+            'param1': newSynteticTVar(),
+            'param2': newSynteticTVar().setType(otherStubType),
+            'param3': newSynteticTVar()
+          }))
+          const param1 = newSynteticTVar().setType(stubType)
+          const param2 = newSynteticTVar()
+          const param3 = newSynteticTVar()
+          tVar.addSupertype(newSynteticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false))
+          propagateMinTypes(tVar)
+
+          param1.allMinTypes()[0].should.be.equal(stubType)
+          param2.allMinTypes()[0].should.be.equal(otherStubType)
+          param3.allMinTypes().should.be.empty
+        })
+
+      })
+
+      it('Link instance type variables', () => {
+        tVar.atParam('param').setType(new WollokParameterType('ELEMENT_TEST'))
+        const innerInstance = newSynteticTVar().setType(stubType)
+        const instance = newSynteticTVar().setType(new WollokParametricType(module, { 'ELEMENT_TEST': innerInstance }))
+        const newInstance = tVar.instanceFor(instance)
+
+        newInstance.should.not.be.eq(tVar) // New TVAR
+        newInstance.atParam('param').should.be.eq(innerInstance)
+      })
+
+      it('Create message type variables', () => {
+        const innerTVar = tVar.atParam('param').setType(new WollokParameterType('MAP_TEST'))
+        const instance = newSynteticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
+        const send = newSynteticTVar() // Without send there is no instance
+        const newInstance = tVar.instanceFor(instance, send)
+
+        newInstance.should.not.be.eq(tVar) // New TVAR
+        newInstance.atParam('param').should.not.be.eq(innerTVar)  // New inner TVAR
+      })
+
+      it('Link message type variables between them', () => {
+        const parameter = new WollokParameterType('MAP_TEST')
+        const innerType = newSynteticTVar().setType(parameter)
+        const otherInnerType = newSynteticTVar().setType(parameter)
+        tVar.setType(new WollokParametricType(module, { innerType, otherInnerType }))
+
+        const instance = newSynteticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
+        const send = newSynteticTVar() // Without send there is no instance
+        const newInstance = tVar.instanceFor(instance, send)
+
+        newInstance.should.not.be.eq(tVar) // New TVAR
+        newInstance.atParam('innerType').should.not.be.eq(innerType)  // New inner TVAR
+        newInstance.atParam('otherInnerType').should.not.be.eq(otherInnerType)  // New inner TVAR
+        newInstance.atParam('innerType').should.be.eq(newInstance.atParam('otherInnerType')) // Same instance
+      })
+
+      it('Not create new type variables if there is not new intances (optimised)', () => {
+        const newInstance = tVar.instanceFor(newSynteticTVar(), newSynteticTVar())
+        newInstance.should.be.eq(tVar)
+      })
+
+    })
+
+    it('Generic type string', () => {
+      const parametricType = new WollokParametricType(module, { 'param': newSynteticTVar().setType(stubType) })
+      parametricType.name.should.be.eq(`${module.name}<${stubType.name}>`)
+    })
+
+    it('Method type string', () => {
+      const methodType = new WollokMethodType(newSynteticTVar().setType(stubType), [newSynteticTVar().setType(otherStubType)])
+      methodType.name.should.be.eq(`(${otherStubType.name}) => ${stubType.name}`)
+
+    })
+    it('Closure type string', () => {
+      const closureType = new WollokClosureType(newSynteticTVar().setType(stubType), [newSynteticTVar().setType(otherStubType)], Closure({ code: 'TEST' }))
+      closureType.name.should.be.eq(`{ (${otherStubType.name}) => ${stubType.name} }`)
+    })
+
+  })
+
 })
+
+
+
+
+const env = new Environment({ members: [] })
+
+
+const testSend = new Send({
+  receiver: new Self(),
+  message: 'someMessage',
+  args: [new Literal({ value: 1 })],
+})
+testSend.parent = env
+
+class TestWollokType extends WollokAtomicType {
+  method: Method
+
+  constructor(name: string, method: Method) {
+    super(name as AtomicType)
+    this.method = method
+  }
+
+  override lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+    return this.method
+  }
+
+}
+
+function newMethod(name: string) {
+  const method = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
+  method.parent = env as any
+  return method
+}
+
+const testMethod = newMethod('TEST_METHOD')
+const otherTestMethod = newMethod('OTHER_TEST_METHOD')
+
+const stubType = new TestWollokType('TEST_TYPE', testMethod)
+const otherStubType = new TestWollokType('OTHER_TEST_TYPE', otherTestMethod)

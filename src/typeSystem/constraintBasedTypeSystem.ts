@@ -94,9 +94,11 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
       const methodInstance = typeVariableFor(method).instanceFor(tVar, typeVariableFor(send))
       if (!methodInstance.atParam(RETURN).hasSupertype(typeVariableFor(send))) {
         methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
+        logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| for |${methodInstance.atParam(RETURN)}|`)
         method.parameters.forEach((_param, i) => {
           const argTVAR= typeVariableFor(send.args[i])
           methodInstance.atParam(`${PARAM}${i}`).addSubtype(argTVAR)
+          logger.log(`NEW SUBTYPE |${argTVAR}| for |${methodInstance.atParam(`${PARAM}${i}`)}|`)
         })
 
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
@@ -137,7 +139,7 @@ export const maxTypeFromMessages = (tVar: TypeVariable): boolean => {
 }
 
 export const mergeSuperAndSubTypes = (tVar: TypeVariable): boolean => {
-  if (tVar.type().name == ANY) return false
+  if (tVar.hasTypeInfered()) return false
   let changed = false
   for (const superTVar of tVar.validSupertypes()) {
     if (!tVar.subtypes.includes(superTVar)) {

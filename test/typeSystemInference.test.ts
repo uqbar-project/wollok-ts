@@ -13,7 +13,7 @@ const TESTS_PATH = 'language/test/typeSystem'
 should()
 
 describe('Wollok Type System Inference', () => {
-  const files = globby.sync('**/annotations.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
+  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: TESTS_PATH }).map(name => ({
     name,
     content: readFileSync(join(TESTS_PATH, name), 'utf8'),
   }))

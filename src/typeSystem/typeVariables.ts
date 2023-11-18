@@ -2,7 +2,7 @@ import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
-const { assign, entries } = Object
+const { assign } = Object
 
 const tVars = new Map<Node, TypeVariable>()
 
@@ -13,7 +13,8 @@ export function newTypeVariables(env: Environment): Map<Node, TypeVariable> {
 }
 
 export function newSynteticTVar(node?: Node): TypeVariable {
-  return doNewTVarFor(node?.copy() ?? Closure({ code: 'Param type' })).beSyntetic() // Using new closure as syntetic node. Is good enough? No.
+  return doNewTVarFor(node?.copy() ?? Closure({ code: 'Param type' })) // Using new closure as syntetic node. Is good enough? No.
+    .beSyntetic()
 }
 
 export function typeVariableFor(node: Node): TypeVariable {
@@ -29,18 +30,18 @@ function newTVarFor(node: Node) {
   if (node.is(Method)) {
     const parameters = node.parameters.map(p => createTypeVariables(p)!)
     annotatedVar = newSynteticTVar(node) // But for methods, annotations reference to return tVar
-    newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)))
+    newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)), false)
   }
   if (node.is(Singleton) && node.isClosure()) {
     const methodApply = node.methods.find(_ => _.name === '<apply>')!
     const parameters = methodApply.parameters.map(p => typeVariableFor(p))
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     const returnType = typeVariableFor(methodApply).atParam(RETURN)
-    newTVar.setType(new WollokClosureType(returnType, parameters, node))
+    newTVar.setType(new WollokClosureType(returnType, parameters, node), false)
   }
 
   const annotatedType = annotatedTypeName(node)
-  if (annotatedType) annotatedVar.setType(annotatedWollokType(annotatedType, node))
+  if (annotatedType) annotatedVar.setType(annotatedWollokType(annotatedType, node), false)
 
   return newTVar
 }
@@ -257,7 +258,7 @@ export class TypeVariable {
 
   type(): WollokType { return this.typeInfo.type() }
   atParam(name: string): TypeVariable { return this.type().atParam(name) }
-  newParam(name: string): TypeVariable {
+  newInstance(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
       this.cachedParams.set(name, newSynteticTVar(this.node)).get(name)!
   }
@@ -318,6 +319,12 @@ export class TypeVariable {
     return [...this.allMinTypes(), ...this.allMaxTypes()]
   }
 
+  hasTypeInfered() {
+    return this.allPossibleTypes().some(t => t.isComplete)
+  }
+
+
+
   validSubtypes() {
     return this.subtypes.filter(tVar => !tVar.hasProblems)
   }
@@ -374,6 +381,14 @@ class TypeInfo {
     if (this.minTypes.some(minType => minType.contains(type))) return
     if (this.closed)
       throw new Error('Variable inference finalized')
+
+    // Try to fill inner types!
+    // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
+    if (type instanceof WollokParametricType && type.params.size) {
+      const myType = this.minTypes.find((t): t is WollokParametricType => t.kind == type.kind)
+      if (myType) return myType.addMinType(type)
+    }
+
     this.minTypes.push(type)
   }
 
@@ -382,6 +397,14 @@ class TypeInfo {
     if (this.minTypes.some(minType => minType.contains(type))) return // TODO: Check min/max types compatibility
     if (this.closed)
       throw new Error('Variable inference finalized')
+
+    // Try to fill inner types!
+    // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
+    if (type instanceof WollokParametricType && type.params.size) {
+      const myType = this.maxTypes.find((t): t is WollokParametricType => t.kind == type.kind)
+      if (myType) return myType.addMaxType(type)
+    }
+
     this.maxTypes.push(type)
   }
 }
