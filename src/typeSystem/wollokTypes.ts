@@ -1,5 +1,5 @@
 import { List } from '../extensions'
-import { BaseProblem, Level, Module, Name, Node, Singleton } from '../model'
+import { BaseProblem, Level, Method, Module, Name, Node, Singleton } from '../model'
 import { TypeVariable } from './typeVariables'
 
 const { entries, fromEntries } = Object
@@ -28,7 +28,7 @@ export class WollokAtomicType {
     this.id = id
   }
 
-  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
     throw new Error('Atomic types has no methods')
   }
 
@@ -39,9 +39,9 @@ export class WollokAtomicType {
     return type instanceof WollokAtomicType && this.id === type.id
   }
 
-  asList() { return [this] }
+  asList(): WollokType[] { return [this] }
 
-  isSubtypeOf(_type: WollokType) { return false }
+  isSubtypeOf(_type: WollokType): boolean { return false }
 
   get name(): string { return this.id }
   get kind(): string { return this.name }
@@ -56,27 +56,27 @@ export class WollokModuleType {
     this.module = module
   }
 
-  lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+  lookupMethod(name: Name, arity: number, options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method | undefined {
     return this.module.lookupMethod(name, arity, options)
   }
 
   contains(type: WollokType): boolean {
     return type instanceof WollokModuleType && (this.module === type.module ||
-      (this.module instanceof Singleton && type.module instanceof Singleton
-        && this.module.isClosure() && type.module.isClosure()))
+      this.module instanceof Singleton && type.module instanceof Singleton
+      && this.module.isClosure() && type.module.isClosure())
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
   instanceFor(_instance: TypeVariable, _send?: TypeVariable): TypeVariable | null { return null }
 
-  asList() { return [this] }
+  asList(): WollokType[] { return [this] }
 
-  isSubtypeOf(type: WollokType) {
+  isSubtypeOf(type: WollokType): boolean {
     return type instanceof WollokModuleType && this.module !== type.module &&
       (type.module.name === 'Object' || this.module.inherits(type.module))
   }
 
-  get name(): string { return this.module?.name! }
+  get name(): string { return this.module.name! }
   get kind(): string { return this.module?.name ?? 'null' }
   get isComplete(): boolean { return true }
 
@@ -117,14 +117,14 @@ export class WollokParametricType extends WollokModuleType {
     return instance.newInstance(name).setType(new WollokParametricType(this.module, resolvedParamTypes), false)
   }
 
-  addMinType(minType: WollokParametricType) {
+  addMinType(minType: WollokParametricType): void {
     this.params.forEach((paramTVar, name) =>
       minType.atParam(name).allPossibleTypes().forEach(paramMinType =>
         paramTVar.addMinType(paramMinType)
       )
     )
   }
-  addMaxType(minType: WollokParametricType) {
+  addMaxType(minType: WollokParametricType): void {
     this.params.forEach((paramTVar, name) =>
       minType.atParam(name).allPossibleTypes().forEach(paramMaxType =>
         paramTVar.addMaxType(paramMaxType)
@@ -146,7 +146,7 @@ export class WollokParametricType extends WollokModuleType {
     return [...this.params.values()].every((tVar) => tVar.hasTypeInfered())
   }
 
-  sameParams(type: WollokParametricType) {
+  sameParams(type: WollokParametricType): boolean {
     return [...this.params.entries()].every(([name, tVar]) =>
       type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type()))
   }
@@ -158,7 +158,7 @@ export class WollokMethodType extends WollokParametricType {
     super(base!, {
       ...fromEntries(params.map((p, i) => [`${PARAM}${i}`, p])),
       [RETURN]: returnVar,
-      ...extra
+      ...extra,
     })
   }
 
@@ -194,7 +194,7 @@ export class WollokParameterType {
     return instance.atParam(this.name) || send?.newInstance(this.name)
   }
 
-  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
     throw new Error('Parameters types has no methods')
   }
 
@@ -207,9 +207,9 @@ export class WollokParameterType {
     throw new Error('Parameters types does not contains other types')
   }
 
-  asList() { return [this] }
+  asList(): WollokType[] { return [this] }
 
-  isSubtypeOf(_type: WollokType) {
+  isSubtypeOf(_type: WollokType): boolean {
     throw new Error('Parameters types cannot be subtype of other types (invariant)')
   }
 
@@ -226,18 +226,18 @@ export class WollokUnionType {
     this.types = types
   }
 
-  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
+  lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
     throw new Error('Halt')
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Union types has no params') }
-  instanceFor(_instance: TypeVariable) { return null }
+  instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
     return type.asList().every(t => this.types.some(_ => _.contains(t)))
   }
 
-  asList() { return this.types }
+  asList(): WollokType[] { return this.types }
 
   isSubtypeOf(type: WollokType): boolean { return this.types.every(t => t.isSubtypeOf(type)) }
 

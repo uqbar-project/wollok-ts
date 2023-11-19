@@ -265,95 +265,94 @@ export class TypeVariable {
   }
   instanceFor(instance: TypeVariable, send?: TypeVariable, name?: string): TypeVariable { return this.type().instanceFor(instance, send, name) || this }
 
-  hasType(type: WollokType) { return this.allPossibleTypes().some(_type => _type.contains(type)) }
+  hasType(type: WollokType): boolean { return this.allPossibleTypes().some(_type => _type.contains(type)) }
 
-  setType(type: WollokType, closed?: boolean) {
+  setType(type: WollokType, closed?: boolean): this {
     this.typeInfo.setType(type, closed)
     return this
   }
 
-  addMinType(type: WollokType) {
+  addMinType(type: WollokType): void {
     this.typeInfo.addMinType(type)
   }
 
-  addMaxType(type: WollokType) {
+  addMaxType(type: WollokType): void {
     this.typeInfo.addMaxType(type)
   }
 
-  beSubtypeOf(tVar: TypeVariable) {
+  beSubtypeOf(tVar: TypeVariable): this {
     this.addSupertype(tVar)
     tVar.addSubtype(this)
     return this
   }
 
-  beSupertypeOf(tVar: TypeVariable) {
+  beSupertypeOf(tVar: TypeVariable): this {
     this.addSubtype(tVar)
     tVar.addSupertype(this)
     return this
   }
 
-  unify(tVar: TypeVariable) {
+  unify(tVar: TypeVariable): void {
     // Unification means same type, so min and max types should be propagated in both directions
     this.beSupertypeOf(tVar)
     this.beSubtypeOf(tVar)
   }
 
-  hasSubtype(tVar: TypeVariable) {
+  hasSubtype(tVar: TypeVariable): boolean {
     return this.subtypes.includes(tVar)
   }
 
-  hasSupertype(tVar: TypeVariable) {
+  hasSupertype(tVar: TypeVariable): boolean {
     return this.supertypes.includes(tVar)
   }
 
-  addSend(send: Send) {
+  addSend(send: Send): void {
     this.messages.push(send)
   }
 
-  allMinTypes() {
+  allMinTypes(): WollokType[] {
     return this.typeInfo.minTypes
   }
-  allMaxTypes() {
+  allMaxTypes(): WollokType[] {
     return this.typeInfo.maxTypes
   }
-  allPossibleTypes() {
+  allPossibleTypes(): WollokType[] {
     return [...this.allMinTypes(), ...this.allMaxTypes()]
   }
 
-  hasTypeInfered() {
+  hasTypeInfered(): boolean {
     return this.allPossibleTypes().some(t => t.isComplete)
   }
 
 
-
-  validSubtypes() {
+  validSubtypes(): TypeVariable[] {
     return this.subtypes.filter(tVar => !tVar.hasProblems)
   }
-  validSupertypes() {
+  validSupertypes(): TypeVariable[] {
     return this.supertypes.filter(tVar => !tVar.hasProblems)
   }
 
-  addSubtype(tVar: TypeVariable) {
+  addSubtype(tVar: TypeVariable): void {
     this.subtypes.push(tVar)
   }
 
-  addSupertype(tVar: TypeVariable) {
+  addSupertype(tVar: TypeVariable): void {
     this.supertypes.push(tVar)
   }
 
-  addProblem(problem: TypeSystemProblem) {
+  addProblem(problem: TypeSystemProblem): void {
     assign(this.node, { problems: [...this.node.problems ?? [], problem] })
     this.hasProblems = true
   }
 
-  beSyntetic() {
+  beSyntetic(): this {
     this.syntetic = true
     return this
   }
 
-  get closed() { return this.typeInfo.closed }
+  get closed(): boolean { return this.typeInfo.closed }
 
-  toString() { return `TVar(${this.syntetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
+  toString(): string { return `TVar(${this.syntetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
 }
 
 class TypeInfo {
@@ -371,7 +370,7 @@ class TypeInfo {
     throw new Error('Halt')
   }
 
-  setType(type: WollokType, closed: boolean = true) {
+  setType(type: WollokType, closed = true) {
     this.minTypes = [type]
     this.maxTypes = [type]
     this.closed = closed

@@ -1,7 +1,7 @@
 import { anyPredicate, is } from '../extensions'
 import { Environment, Module, Node, Reference } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
-import { ANY, PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
+import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -96,7 +96,7 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
         methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
         logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| for |${methodInstance.atParam(RETURN)}|`)
         method.parameters.forEach((_param, i) => {
-          const argTVAR= typeVariableFor(send.args[i])
+          const argTVAR = typeVariableFor(send.args[i])
           methodInstance.atParam(`${PARAM}${i}`).addSubtype(argTVAR)
           logger.log(`NEW SUBTYPE |${argTVAR}| for |${methodInstance.atParam(`${PARAM}${i}`)}|`)
         })
@@ -161,12 +161,12 @@ export const mergeSuperAndSubTypes = (tVar: TypeVariable): boolean => {
 export const closeTypes = (tVar: TypeVariable): boolean => {
   // if(tVar.syntetic) return false
   let changed = false
-  if(tVar.allMaxTypes().length === 0 && tVar.allMinTypes().length > 0  && tVar.supertypes.length === 0) {
+  if (tVar.allMaxTypes().length === 0 && tVar.allMinTypes().length > 0 && tVar.supertypes.length === 0) {
     tVar.typeInfo.maxTypes = tVar.allMinTypes()
     logger.log(`MAX TYPES FROM MIN FOR |${tVar}|`)
     changed = true
   }
-  if(tVar.allMinTypes().length === 0 && tVar.allMaxTypes().length > 0 && tVar.subtypes.length === 0) {
+  if (tVar.allMinTypes().length === 0 && tVar.allMaxTypes().length > 0 && tVar.subtypes.length === 0) {
     tVar.typeInfo.minTypes = tVar.allMaxTypes()
     logger.log(`MIN TYPES FROM MAX FOR |${tVar}|`)
     changed = true

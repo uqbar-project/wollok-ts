@@ -247,7 +247,7 @@ describe('Wollok Type System', () => {
           parametricType =new WollokParametricType(module, {
             'param1': newSynteticTVar(),
             'param2': newSynteticTVar().setType(otherStubType),
-            'param3': newSynteticTVar()
+            'param3': newSynteticTVar(),
           })
           const param1 = newSynteticTVar().setType(stubType)
           const param2 = newSynteticTVar()
@@ -326,8 +326,6 @@ describe('Wollok Type System', () => {
   })
 
 })
-
-
 
 
 const env = new Environment({ members: [] })
