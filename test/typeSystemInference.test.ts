@@ -20,7 +20,7 @@ describe('Wollok Type System Inference', () => {
   const environment = buildEnvironment(files)
   const logger = undefined
   // You can use the logger to debug the type system inference in customized way, for example:
-  // { log: (message: String) => { if (message.includes('[Reference]')) console.log(message) } }
+  // { log: (message: string) => { if (message.includes('[Reference]')) console.log(message) } }
   inferTypes(environment, logger)
 
   for (const file of files) {

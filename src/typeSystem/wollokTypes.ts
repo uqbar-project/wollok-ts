@@ -119,14 +119,14 @@ export class WollokParametricType extends WollokModuleType {
 
   addMinType(minType: WollokParametricType) {
     this.params.forEach((paramTVar, name) =>
-      minType.atParam(name).allMaxTypes().forEach(paramMinType =>
+      minType.atParam(name).allPossibleTypes().forEach(paramMinType =>
         paramTVar.addMinType(paramMinType)
       )
     )
   }
   addMaxType(minType: WollokParametricType) {
     this.params.forEach((paramTVar, name) =>
-      minType.atParam(name).allMinTypes().forEach(paramMaxType =>
+      minType.atParam(name).allPossibleTypes().forEach(paramMaxType =>
         paramTVar.addMaxType(paramMaxType)
       )
     )
@@ -148,7 +148,7 @@ export class WollokParametricType extends WollokModuleType {
 
   sameParams(type: WollokParametricType) {
     return [...this.params.entries()].every(([name, tVar]) =>
-      type.atParam(name).type().name == ANY || type.atParam(name).type().contains(tVar.type()))
+      type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type()))
   }
 }
 

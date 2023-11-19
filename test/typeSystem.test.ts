@@ -235,27 +235,32 @@ describe('Wollok Type System', () => {
         it('To param inside an equivalent type', () => {
           parametricType.atParam('param').setType(stubType)
           const param = newSynteticTVar()
-          tVar.addSupertype(newSynteticTVar().setType(new WollokParametricType(module, { param }), false))
+          const supertype = newSynteticTVar().setType(new WollokParametricType(module, { param }), false)
+          tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
           param.allMinTypes()[0].should.be.equal(stubType)
+          supertype.hasType(parametricType).should.be.true
         })
 
         it('To partial params inside an equivalent type', () => {
-          tVar.setType(new WollokParametricType(module, {
+          parametricType =new WollokParametricType(module, {
             'param1': newSynteticTVar(),
             'param2': newSynteticTVar().setType(otherStubType),
             'param3': newSynteticTVar()
-          }))
+          })
           const param1 = newSynteticTVar().setType(stubType)
           const param2 = newSynteticTVar()
           const param3 = newSynteticTVar()
-          tVar.addSupertype(newSynteticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false))
+          const supertype = newSynteticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false)
+          tVar.setType(parametricType)
+          tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
           param1.allMinTypes()[0].should.be.equal(stubType)
           param2.allMinTypes()[0].should.be.equal(otherStubType)
           param3.allMinTypes().should.be.empty
+          supertype.hasType(parametricType)
         })
 
       })
