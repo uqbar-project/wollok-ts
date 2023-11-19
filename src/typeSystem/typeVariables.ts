@@ -1,5 +1,5 @@
 import { is, last, List, match, when } from '../extensions'
-import { Assignment, Body, Class, Closure, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
@@ -62,6 +62,7 @@ function createTypeVariables(node: Node): TypeVariable | void {
     when(Program)(inferProgram),
     when(Body)(inferBody),
     when(Module)(inferModule),
+    when(Describe)(inferModule),
 
     when(Send)(inferSend),
     when(Method)(inferMethod),
@@ -110,7 +111,7 @@ const inferBody = (body: Body) => {
   body.sentences.forEach(createTypeVariables)
 }
 
-const inferModule = (m: Module) => {
+const inferModule = (m: Module | Describe) => {
   m.members.forEach(createTypeVariables)
   const tVar = typeVariableFor(m)
   if (!(m.is(Singleton) && m.isClosure())) // Avoid closures
@@ -408,7 +409,6 @@ class TypeInfo {
     this.maxTypes.push(type)
   }
 }
-
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ANNOTATIONS
