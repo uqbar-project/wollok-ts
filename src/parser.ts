@@ -84,7 +84,7 @@ const key = <T extends string>(str: T): Parser<T> => (
 const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(_))
 
-const comment = (position: 'start'|'end') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
+const comment = (position: 'start' | 'end') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
 const endComment =  alt(
   optional(_).then(comment('end')), // same-line comment
   comment('end').sepBy(_) // after-line comments
@@ -395,9 +395,10 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     index,
     receiver,
     seq(message, args, index).many(),
-  ).map(([start, initialReceiver, calls]) =>
+    endComment,
+  ).map(([start, initialReceiver, calls, comments]) =>
     calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(start, end) })
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(start, end), metadata: Array.isArray(comments) ? comments : [comments] })
     , initialReceiver)
   )
 )

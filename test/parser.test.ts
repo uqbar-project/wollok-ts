@@ -41,6 +41,15 @@ describe('Wollok parser', () => {
         .and.have.nested.property('entity').tracedTo(28, 29)
     })
 
+    it('comments after sends should be parsed', () => {
+      'pepita.vola() //some comment'
+        .should.be.parsedBy(parse.Send).into(new Send({
+          receiver: new Reference({ name: 'pepita' }),
+          message: 'vola',
+          metadata: [new Annotation('comment', { text: 'some asa comment' })],
+        }))
+    })
+
     it('should not parse elements inside line comment', () => {
       '// import p'.should.not.be.parsedBy(parser)
     })
