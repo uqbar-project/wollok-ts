@@ -121,7 +121,7 @@ export const printerAssertions: Chai.ChaiPlugin = (chai) => {
   Assertion.addMethod('formattedTo', function (expected: string) {
     const name = 'formatted'
     const environment = buildEnv([{ name, content: this._obj }])
-    const printerConfig = { maxWidth: 80, indentation: { size: 2, useSpaces: true }, abbreviateAssignments: true }
+    const printerConfig = { maxWidth: 80, useSpaces: true, abbreviateAssignments: true }
     const formatted = print(environment.getNodeByFQN(name), printerConfig)
     new Assertion(formatted).to.equal(dedent(expected))
   })

@@ -6,10 +6,7 @@ import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators,
 
 type PrintSettings = {
   maxWidth: number,
-  indentation: {
-    useSpaces: boolean,
-    size: number,
-  },
+  useSpaces: boolean,
   /**
    * @example `x = x + 1` abbreviated to `x += 1`
    */
@@ -26,8 +23,8 @@ type PrintContext = {
 export default print
 
 
-function print(node: Node, { maxWidth, indentation, abbreviateAssignments }: PrintSettings): string {
-  const indentationCharacters = (indentation.useSpaces ? ' ' : '\t').repeat(indentation.size)
+function print(node: Node, { maxWidth, useSpaces, abbreviateAssignments }: PrintSettings): string {
+  const indentationCharacters = useSpaces ? '  ' : '\t'
   return render(
     maxWidth,
     format({
