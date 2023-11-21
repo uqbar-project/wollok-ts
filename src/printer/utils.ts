@@ -1,4 +1,4 @@
-import { IDoc, IDocArray, append, braces, brackets, choice, dquotes, enclose, intersperse, lineBreak, prepend, softLine } from 'prettier-printer'
+import { IDoc, append, braces, brackets, choice, dquotes, enclose, intersperse, lineBreak, softLine } from 'prettier-printer'
 import { INFIX_OPERATORS } from '../constants'
 
 export type DocTransformer = (doc: IDoc) => IDoc
@@ -37,8 +37,3 @@ export const encloseIndented = (enclosers: [IDoc, IDoc], content: IDoc, nest: Do
 export const stringify = enclose(dquotes)
 
 export const defaultToEmpty = (condition: boolean, doc: IDoc): IDoc => condition ? doc : []
-
-export const prefixIfNotEmpty = (prefix: IDoc) => (docs: IDocArray): IDoc =>
-  docs.length === 0 ? prepend(prefix, docs) : docs
-
-export const spaceIfNotEmpty = prefixIfNotEmpty(WS)

@@ -11,7 +11,7 @@ type PrintSettings = {
     size: number,
   },
   /**
-   * @example `x += 1` abbreviated to `x = x + 1`
+   * @example `x = x + 1` abbreviated to `x += 1`
    */
   abbreviateAssignments: boolean
 }
