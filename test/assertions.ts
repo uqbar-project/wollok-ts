@@ -6,7 +6,7 @@ import { join } from 'path'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
-import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
+import { Annotation, Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
 import { ParseError } from '../src/parser'
 import validate, { Validation } from '../src/validator'
 
@@ -93,6 +93,7 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
     const expectedProblems = flag(this, 'expectedProblems') ?? []
     const actualProblems = this._obj.problems?.map(({ code, sourceMap: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
 
+    new Assertion(this._obj.metadata ?? []).to.have.deep.members(expected.metadata ?? [])
     new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
     new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
     new Assertion(plucked(this._obj)).to.deep.equal(plucked(expected))
