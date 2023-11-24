@@ -6,7 +6,7 @@ import { join } from 'path'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
-import { Annotation, Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
+import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
 import { ParseError } from '../src/parser'
 import validate, { Validation } from '../src/validator'
 
