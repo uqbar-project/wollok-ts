@@ -180,7 +180,7 @@ const formatSuper: FormatterWithContext<Super> = context => node =>
 const formatIf: FormatterWithContext<If> = context => node => {
   const condition = [KEYWORDS.IF, WS, enclose(parens, format(context)(node.condition))]
 
-  if(isInlineBody(node.thenBody) && (node.elseBody.isSynthetic || isInlineBody(node.elseBody))){
+  if(canInlineBody(node.thenBody) && (node.elseBody.isSynthetic || canInlineBody(node.elseBody))){
     return formatInlineIf(condition)(context)(node)
   }
 
@@ -216,7 +216,7 @@ const formatInlineIf: (condition: IDoc) => FormatterWithContext<If> = condition 
   ]
 )
 
-function isInlineBody(aBody: Body): aBody is Body & { sentences: [Expression] } {
+function canInlineBody(aBody: Body): aBody is Body & { sentences: [Expression] } {
   return aBody.sentences.length === 1 && [Send, Literal, Reference].some(kind => aBody.sentences[0].is(kind))
 }
 
@@ -340,8 +340,9 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
   const sentences = (applyMethod.body! as Body).sentences
 
   if(sentences.length === 1) {
+    const firstSentence = sentences[0]
     // remove 'return' if it's the only sentence
-    const sentence = format(context)(sentences[0].is(Return) && sentences[0].value ? sentences[0].value : sentences[0])
+    const sentence = format(context)(firstSentence.is(Return) && firstSentence.value ? firstSentence.value : firstSentence)
     return enclose([['{', WS], [WS, '}']], context.nest([hasParameters ? [parameters, softLine] : [], sentence]))
   } else {
     return enclose([['{', WS], '}'], [parameters, lineBreak, context.indent(formatSentences(context)(sentences)), lineBreak])
