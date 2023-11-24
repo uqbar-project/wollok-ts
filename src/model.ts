@@ -54,14 +54,6 @@ export class Annotation {
   }
 }
 
-export class Comment {
-  readonly text: string
-
-  constructor(name: Name){
-    this.text = name
-  }
-}
-
 export type Code = string
 export type Level = 'warning' | 'error'
 
