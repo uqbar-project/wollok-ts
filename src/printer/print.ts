@@ -376,18 +376,7 @@ const formatInheritance: FormatterWithContext<Singleton | Class> = (context: Pri
 // SEND FORMATTERS
 
 const formatSend: FormatterWithContext<Send> = context => node => {
-  let formatter: FormatterWithContext<Send>
-
-  if(isInfixOperator(node)) {
-    formatter = formatInfixSend
-  } else if(
-    isPrefixOperator(node)
-  ) {
-    formatter = formatPrefixSend
-  } else {
-    formatter = formatDotSend
-  }
-
+  const formatter = isInfixOperator(node) ? formatInfixSend : isPrefixOperator(node) ? formatPrefixSend : formatDotSend
   return formatter(context)(node)
 }
 
