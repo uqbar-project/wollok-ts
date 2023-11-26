@@ -30,7 +30,7 @@ describe('Wollok parser', () => {
           entity: new Reference({
             name: 'p',
             // the assertion is not validating metadata recursively
-            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'end' } )],
+            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'start' } )],
           }),
           metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
         }))
@@ -40,7 +40,7 @@ describe('Wollok parser', () => {
 
     it('line comments should be ignored at the end of line', () => {
       `import //some comment
-      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p', metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })] }) }))
+      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p', metadata: [new Annotation('comment', { text: '//some comment', position: 'start' })] }) }))
         .and.be.tracedTo(0, 29)
         .and.have.nested.property('entity').tracedTo(28, 29)
     })
