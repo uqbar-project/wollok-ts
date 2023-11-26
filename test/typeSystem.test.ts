@@ -1,7 +1,7 @@
 import { should } from 'chai'
 import { Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
 import { bindReceivedMessages, propagateMaxTypes, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
-import { newSynteticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
+import { newSyntheticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
 
 should()
@@ -10,13 +10,13 @@ describe('Wollok Type System', () => {
   let tVar: TypeVariable
 
   beforeEach(() => {
-    tVar = newSynteticTVar()
+    tVar = newSyntheticTVar()
   })
 
   describe('Minimal types propagation', () => {
 
     it('should propagate min types from type variable to supertypes without min types', () => {
-      const supertype = newSynteticTVar()
+      const supertype = newSyntheticTVar()
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
 
@@ -26,7 +26,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should propagate min types from type variable to supertypes with other min types', () => {
-      const supertype = newSynteticTVar()
+      const supertype = newSyntheticTVar()
       supertype.addMinType(otherStubType)
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
@@ -37,7 +37,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should not propagate min types if already exist in supertypes', () => {
-      const supertype = newSynteticTVar()
+      const supertype = newSyntheticTVar()
       supertype.addMinType(stubType)
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
@@ -48,7 +48,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should not propagate max types', () => {
-      const supertype = newSynteticTVar()
+      const supertype = newSyntheticTVar()
       tVar.addSupertype(supertype)
       tVar.addMaxType(stubType)
 
@@ -58,7 +58,7 @@ describe('Wollok Type System', () => {
     })
 
     it('propagate to a closed type variables should report a problem', () => {
-      const supertype = newSynteticTVar().setType(otherStubType)
+      const supertype = newSyntheticTVar().setType(otherStubType)
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
 
@@ -70,7 +70,7 @@ describe('Wollok Type System', () => {
     })
 
     it('propagate to a closed type variables with same type should not report a problem', () => {
-      const supertype = newSynteticTVar().setType(stubType)
+      const supertype = newSyntheticTVar().setType(stubType)
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
 
@@ -85,7 +85,7 @@ describe('Wollok Type System', () => {
   describe('Maximal types propagation', () => {
 
     it('should propagate max types from type variable to subtypes without max types', () => {
-      const subtype = newSynteticTVar()
+      const subtype = newSyntheticTVar()
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
 
@@ -95,7 +95,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should propagate max types from type variable to subtypes with other max types', () => {
-      const subtype = newSynteticTVar()
+      const subtype = newSyntheticTVar()
       subtype.addMaxType(otherStubType)
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
@@ -106,7 +106,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should not propagate max types if already exist in subtypes', () => {
-      const subtype = newSynteticTVar()
+      const subtype = newSyntheticTVar()
       subtype.addMaxType(stubType)
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
@@ -117,7 +117,7 @@ describe('Wollok Type System', () => {
     })
 
     it('should not propagate min types', () => {
-      const subtype = newSynteticTVar()
+      const subtype = newSyntheticTVar()
       tVar.addSubtype(subtype)
       tVar.addMinType(stubType)
 
@@ -127,7 +127,7 @@ describe('Wollok Type System', () => {
     })
 
     it('propagate to a closed type variables should report a problem', () => {
-      const subtype = newSynteticTVar().setType(otherStubType)
+      const subtype = newSyntheticTVar().setType(otherStubType)
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
 
@@ -139,7 +139,7 @@ describe('Wollok Type System', () => {
     })
 
     it('propagate to a closed type variables with same type should not report a problem', () => {
-      const subtype = newSynteticTVar().setType(stubType)
+      const subtype = newSyntheticTVar().setType(stubType)
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
 
@@ -218,14 +218,14 @@ describe('Wollok Type System', () => {
       let parametricType: WollokParametricType
 
       beforeEach(() => {
-        parametricType = new WollokParametricType(module, { 'param': newSynteticTVar() })
+        parametricType = new WollokParametricType(module, { 'param': newSyntheticTVar() })
         tVar.setType(parametricType)
       })
 
       describe('should be propagated', () => {
 
         it('To Any variable', () => {
-          const supertype = newSynteticTVar()
+          const supertype = newSyntheticTVar()
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
@@ -234,8 +234,8 @@ describe('Wollok Type System', () => {
 
         it('To param inside an equivalent type', () => {
           parametricType.atParam('param').setType(stubType)
-          const param = newSynteticTVar()
-          const supertype = newSynteticTVar().setType(new WollokParametricType(module, { param }), false)
+          const param = newSyntheticTVar()
+          const supertype = newSyntheticTVar().setType(new WollokParametricType(module, { param }), false)
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
@@ -245,14 +245,14 @@ describe('Wollok Type System', () => {
 
         it('To partial params inside an equivalent type', () => {
           parametricType =new WollokParametricType(module, {
-            'param1': newSynteticTVar(),
-            'param2': newSynteticTVar().setType(otherStubType),
-            'param3': newSynteticTVar(),
+            'param1': newSyntheticTVar(),
+            'param2': newSyntheticTVar().setType(otherStubType),
+            'param3': newSyntheticTVar(),
           })
-          const param1 = newSynteticTVar().setType(stubType)
-          const param2 = newSynteticTVar()
-          const param3 = newSynteticTVar()
-          const supertype = newSynteticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false)
+          const param1 = newSyntheticTVar().setType(stubType)
+          const param2 = newSyntheticTVar()
+          const param3 = newSyntheticTVar()
+          const supertype = newSyntheticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false)
           tVar.setType(parametricType)
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
@@ -267,8 +267,8 @@ describe('Wollok Type System', () => {
 
       it('Link instance type variables', () => {
         tVar.atParam('param').setType(new WollokParameterType('ELEMENT_TEST'))
-        const innerInstance = newSynteticTVar().setType(stubType)
-        const instance = newSynteticTVar().setType(new WollokParametricType(module, { 'ELEMENT_TEST': innerInstance }))
+        const innerInstance = newSyntheticTVar().setType(stubType)
+        const instance = newSyntheticTVar().setType(new WollokParametricType(module, { 'ELEMENT_TEST': innerInstance }))
         const newInstance = tVar.instanceFor(instance)
 
         newInstance.should.not.be.eq(tVar) // New TVAR
@@ -277,8 +277,8 @@ describe('Wollok Type System', () => {
 
       it('Create message type variables', () => {
         const innerTVar = tVar.atParam('param').setType(new WollokParameterType('MAP_TEST'))
-        const instance = newSynteticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
-        const send = newSynteticTVar() // Without send there is no instance
+        const instance = newSyntheticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
+        const send = newSyntheticTVar() // Without send there is no instance
         const newInstance = tVar.instanceFor(instance, send)
 
         newInstance.should.not.be.eq(tVar) // New TVAR
@@ -287,12 +287,12 @@ describe('Wollok Type System', () => {
 
       it('Link message type variables between them', () => {
         const parameter = new WollokParameterType('MAP_TEST')
-        const innerType = newSynteticTVar().setType(parameter)
-        const otherInnerType = newSynteticTVar().setType(parameter)
+        const innerType = newSyntheticTVar().setType(parameter)
+        const otherInnerType = newSyntheticTVar().setType(parameter)
         tVar.setType(new WollokParametricType(module, { innerType, otherInnerType }))
 
-        const instance = newSynteticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
-        const send = newSynteticTVar() // Without send there is no instance
+        const instance = newSyntheticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
+        const send = newSyntheticTVar() // Without send there is no instance
         const newInstance = tVar.instanceFor(instance, send)
 
         newInstance.should.not.be.eq(tVar) // New TVAR
@@ -302,24 +302,24 @@ describe('Wollok Type System', () => {
       })
 
       it('Not create new type variables if there is not new intances (optimised)', () => {
-        const newInstance = tVar.instanceFor(newSynteticTVar(), newSynteticTVar())
+        const newInstance = tVar.instanceFor(newSyntheticTVar(), newSyntheticTVar())
         newInstance.should.be.eq(tVar)
       })
 
     })
 
     it('Generic type string', () => {
-      const parametricType = new WollokParametricType(module, { 'param': newSynteticTVar().setType(stubType) })
+      const parametricType = new WollokParametricType(module, { 'param': newSyntheticTVar().setType(stubType) })
       parametricType.name.should.be.eq(`${module.name}<${stubType.name}>`)
     })
 
     it('Method type string', () => {
-      const methodType = new WollokMethodType(newSynteticTVar().setType(stubType), [newSynteticTVar().setType(otherStubType)])
+      const methodType = new WollokMethodType(newSyntheticTVar().setType(stubType), [newSyntheticTVar().setType(otherStubType)])
       methodType.name.should.be.eq(`(${otherStubType.name}) => ${stubType.name}`)
 
     })
     it('Closure type string', () => {
-      const closureType = new WollokClosureType(newSynteticTVar().setType(stubType), [newSynteticTVar().setType(otherStubType)], Closure({ code: 'TEST' }))
+      const closureType = new WollokClosureType(newSyntheticTVar().setType(stubType), [newSyntheticTVar().setType(otherStubType)], Closure({ code: 'TEST' }))
       closureType.name.should.be.eq(`{ (${otherStubType.name}) => ${stubType.name} }`)
     })
 

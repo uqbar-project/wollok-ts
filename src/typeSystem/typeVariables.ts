@@ -12,9 +12,9 @@ export function newTypeVariables(env: Environment): Map<Node, TypeVariable> {
   return tVars
 }
 
-export function newSynteticTVar(node?: Node): TypeVariable {
-  return doNewTVarFor(node?.copy() ?? Closure({ code: 'Param type' })) // Using new closure as syntetic node. Is good enough? No.
-    .beSyntetic()
+export function newSyntheticTVar(node?: Node): TypeVariable {
+  return doNewTVarFor(node?.copy() ?? Closure({ code: 'Param type' })) // Using new closure as synthetic node. Is it good enough? Not for logging.
+    .beSynthetic()
 }
 
 export function typeVariableFor(node: Node): TypeVariable {
@@ -27,7 +27,7 @@ function newTVarFor(node: Node) {
   let annotatedVar = newTVar // By default, annotations reference the same tVar
   if (node.is(Method)) {
     const parameters = node.parameters.map(p => createTypeVariables(p)!)
-    annotatedVar = newSynteticTVar(node) // But for methods, annotations reference to return tVar
+    annotatedVar = newSyntheticTVar(node) // But for methods, annotations reference to return tVar
     newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)), false)
   }
   if (node.is(Singleton) && node.isClosure()) {
@@ -260,7 +260,7 @@ export class TypeVariable {
   atParam(name: string): TypeVariable { return this.type().atParam(name) }
   newInstance(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
-      this.cachedParams.set(name, newSynteticTVar(this.node)).get(name)!
+      this.cachedParams.set(name, newSyntheticTVar(this.node)).get(name)!
   }
   instanceFor(instance: TypeVariable, send?: TypeVariable, name?: string): TypeVariable { return this.type().instanceFor(instance, send, name) || this }
 
@@ -344,7 +344,7 @@ export class TypeVariable {
     this.hasProblems = true
   }
 
-  beSyntetic(): this {
+  beSynthetic(): this {
     this.synthetic = true
     return this
   }
@@ -457,8 +457,8 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
 function parseAnnotatedClosure(annotatedType: string, node: Node) {
   const [params, returnTypeName] = annotatedType.slice(1, -1).split('=>')
   const parameters = params.trim().slice(1, -1).split(',').map(_ => _.trim()).filter(_ => _ /* clean empty arguments */)
-  const parametersTVar = parameters.map(_ => newSynteticTVar(node).setType(annotatedWollokType(_, node)))
-  const returnTypeTVar = newSynteticTVar(node).setType(annotatedWollokType(returnTypeName.trim(), node))
+  const parametersTVar = parameters.map(_ => newSyntheticTVar(node).setType(annotatedWollokType(_, node)))
+  const returnTypeTVar = newSyntheticTVar(node).setType(annotatedWollokType(returnTypeName.trim(), node))
   return new WollokClosureType(returnTypeTVar, parametersTVar, Closure({ code: annotatedType }))
 }
 
@@ -478,7 +478,7 @@ function isParameterName(name: string, node: Node) {
 // TODO: Support many variables
 function annotatedVariableMap(n: Node) {
   const varName = annotatedVariableName(n)
-  if (varName) return { [varName]: newSynteticTVar(n) }
+  if (varName) return { [varName]: newSyntheticTVar(n) }
   return {}
 }
 
