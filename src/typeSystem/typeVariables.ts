@@ -201,9 +201,11 @@ const inferIf = (_if: If) => {
 }
 
 const inferReference = (r: Reference<Node>) => {
-  const varTVar = typeVariableFor(r.target!)! // Variable already visited
   const referenceTVar = typeVariableFor(r)
-  referenceTVar.unify(varTVar)
+  if (r.target) {
+    const varTVar = typeVariableFor(r.target)! // Variable already visited
+    referenceTVar.unify(varTVar)
+  }
   return referenceTVar
 }
 
