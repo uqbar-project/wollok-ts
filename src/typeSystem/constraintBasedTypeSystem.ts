@@ -92,13 +92,15 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
       const methodInstance = typeVariableFor(method).instanceFor(tVar, typeVariableFor(send))
-      if (!methodInstance.atParam(RETURN).hasSupertype(typeVariableFor(send))) {
-        methodInstance.atParam(RETURN).addSupertype(typeVariableFor(send))
-        logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| for |${methodInstance.atParam(RETURN)}|`)
+      const returnParam = methodInstance.atParam(RETURN)
+      if (!returnParam.hasSupertype(typeVariableFor(send))) {
+        returnParam.addSupertype(typeVariableFor(send))
+        logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| for |${returnParam}|`)
         method.parameters.forEach((_param, i) => {
           const argTVAR = typeVariableFor(send.args[i])
-          methodInstance.atParam(`${PARAM}${i}`).addSubtype(argTVAR)
-          logger.log(`NEW SUBTYPE |${argTVAR}| for |${methodInstance.atParam(`${PARAM}${i}`)}|`)
+          const currentParam = methodInstance.atParam(`${PARAM}${i}`)
+          currentParam.addSubtype(argTVAR)
+          logger.log(`NEW SUBTYPE |${argTVAR}| for |${currentParam}|`)
         })
 
         logger.log(`BIND MESSAGE |${send}| WITH METHOD |${method}|`)
