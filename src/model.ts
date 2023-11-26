@@ -754,7 +754,7 @@ export class Super extends Expression(Node) {
 
 export class New extends Expression(Node) {
   get kind(): 'New' { return 'New' }
-  readonly instantiated!: Reference<Class>
+  readonly instantiated!: Reference<Module>
   readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<New, 'instantiated'>) {
