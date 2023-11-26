@@ -18,9 +18,7 @@ export function newSynteticTVar(node?: Node): TypeVariable {
 }
 
 export function typeVariableFor(node: Node): TypeVariable {
-  const tVar = tVars.get(node)
-  if (!tVar) return newTVarFor(node)
-  return tVar
+  return tVars.get(node) ?? newTVarFor(node)
 }
 
 
@@ -56,7 +54,6 @@ function createTypeVariables(node: Node): TypeVariable | void {
   return match(node)(
     when(Environment)(inferEnvironment),
 
-    when(Environment)(inferEnvironment),
     when(Package)(inferPackage),
     when(Import)(skip),
     when(Program)(inferProgram),
@@ -251,7 +248,7 @@ export class TypeVariable {
   supertypes: TypeVariable[] = []
   messages: Send[] = []
   cachedParams: Map<string, TypeVariable> = new Map()
-  syntetic = false
+  synthetic = false
   hasProblems = false
 
   constructor(node: Node) { this.node = node }
@@ -346,13 +343,13 @@ export class TypeVariable {
   }
 
   beSyntetic(): this {
-    this.syntetic = true
+    this.synthetic = true
     return this
   }
 
   get closed(): boolean { return this.typeInfo.closed }
 
-  toString(): string { return `TVar(${this.syntetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
+  toString(): string { return `TVar(${this.synthetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
 }
 
 class TypeInfo {

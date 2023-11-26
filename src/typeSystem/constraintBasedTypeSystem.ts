@@ -1,4 +1,4 @@
-import { anyPredicate, is } from '../extensions'
+import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Module, Node, Reference } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
 import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType } from './wollokTypes'
@@ -16,7 +16,7 @@ export function inferTypes(env: Environment, someLogger?: Logger): void {
   const tVars = newTypeVariables(env)
   let globalChange = true
   while (globalChange) {
-    globalChange = [propagateTypes, bindMessages, maxTypesFromMessages].some(f => f(tVars))
+    globalChange = [propagateTypes, bindMessages, maxTypesFromMessages].some(stage => stage(tVars))
   }
   assign(env, { typeRegistry: new TypeRegistry(tVars) })
 }
@@ -25,47 +25,41 @@ export function inferTypes(env: Environment, someLogger?: Logger): void {
 // PROPAGATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-function allValidTypeVariables(tVars: Map<Node, TypeVariable>) {
-  return [...tVars.values()].filter(tVar => !tVar.hasProblems)
-}
-
-
-function propagateTypes(tVars: Map<Node, TypeVariable>) {
-  return allValidTypeVariables(tVars).some(anyPredicate(propagateMinTypes, propagateMaxTypes))
-}
-
 export const propagateMinTypes = (tVar: TypeVariable): boolean => {
   return propagateMinTypesTo(tVar, tVar.allMinTypes(), tVar.validSupertypes())
-}
-const propagateMinTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[]) => {
-  let changed = false
-  for (const type of types) {
-    for (const targetTVar of targetTVars) {
-      if (!targetTVar.hasType(type)) {
-        if (targetTVar.closed)
-          return reportTypeMismatch(tVar, type, targetTVar)
-        targetTVar.addMinType(type)
-        logger.log(`PROPAGATE MIN TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
-        changed = true
-      }
-    }
-  }
-  return changed
 }
 
 export const propagateMaxTypes = (tVars: TypeVariable): boolean => {
   return propagateMaxTypesTo(tVars, tVars.allMaxTypes(), tVars.validSubtypes())
 }
 
-const propagateMaxTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[]) => {
+function propagateTypes(tVars: Map<Node, TypeVariable>) {
+  return allValidTypeVariables(tVars).some(anyPredicate(propagateMinTypes, propagateMaxTypes))
+}
+
+const propagateMinTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[]) =>
+  propagateTypesUsing(tVar, types, targetTVars, (targetTVar, type) => {
+    targetTVar.addMinType(type)
+    logger.log(`PROPAGATE MIN TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
+  })
+
+const propagateMaxTypesTo = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[]) =>
+  propagateTypesUsing(tVar, types, targetTVars, (targetTVar, type) => {
+    targetTVar.addMaxType(type)
+    logger.log(`PROPAGATE MAX TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
+  })
+
+
+type Propagator = (targetTVar: TypeVariable, type: WollokType) => void
+
+const propagateTypesUsing = (tVar: TypeVariable, types: WollokType[], targetTVars: TypeVariable[], propagator: Propagator) => {
   let changed = false
   for (const type of types) {
     for (const targetTVar of targetTVars) {
       if (!targetTVar.hasType(type)) {
         if (targetTVar.closed)
           return reportTypeMismatch(tVar, type, targetTVar)
-        targetTVar.addMaxType(type)
-        logger.log(`PROPAGATE MAX TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
+        propagator(targetTVar, type)
         changed = true
       }
     }
@@ -161,14 +155,13 @@ export const mergeSuperAndSubTypes = (tVar: TypeVariable): boolean => {
 }
 
 export const closeTypes = (tVar: TypeVariable): boolean => {
-  // if(tVar.syntetic) return false
   let changed = false
-  if (tVar.allMaxTypes().length === 0 && tVar.allMinTypes().length > 0 && tVar.supertypes.length === 0) {
+  if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes)) {
     tVar.typeInfo.maxTypes = tVar.allMinTypes()
     logger.log(`MAX TYPES FROM MIN FOR |${tVar}|`)
     changed = true
   }
-  if (tVar.allMinTypes().length === 0 && tVar.allMaxTypes().length > 0 && tVar.subtypes.length === 0) {
+  if (isEmpty(tVar.allMinTypes()) && notEmpty(tVar.allMaxTypes()) && isEmpty(tVar.subtypes)) {
     tVar.typeInfo.minTypes = tVar.allMaxTypes()
     logger.log(`MIN TYPES FROM MAX FOR |${tVar}|`)
     changed = true
@@ -193,10 +186,18 @@ function reportTypeMismatch(source: TypeVariable, type: WollokType, target: Type
 
 function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariable, targetType: WollokType): [TypeVariable, WollokType, WollokType] {
   // Super random, to be improved
-  if (source.syntetic) return [target, targetType, type]
-  if (target.syntetic) return [source, type, targetType]
+  if (source.synthetic) return [target, targetType, type]
+  if (target.synthetic) return [source, type, targetType]
   if (source.node.is(Reference)) return [source, type, targetType]
   if (target.node.is(Reference)) return [target, targetType, type]
   return [target, targetType, type]
   // throw new Error('No victim found')
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// OTHERS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function allValidTypeVariables(tVars: Map<Node, TypeVariable>) {
+  return [...tVars.values()].filter(tVar => !tVar.hasProblems)
 }

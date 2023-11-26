@@ -1,3 +1,4 @@
+import { OBJECT_MODULE } from '../constants'
 import { List } from '../extensions'
 import { BaseProblem, Level, Method, Module, Name, Node, Singleton } from '../model'
 import { TypeVariable } from './typeVariables'
@@ -73,7 +74,7 @@ export class WollokModuleType {
 
   isSubtypeOf(type: WollokType): boolean {
     return type instanceof WollokModuleType && this.module !== type.module &&
-      (type.module.name === 'Object' || this.module.inherits(type.module))
+      (type.module.fullyQualifiedName == OBJECT_MODULE || this.module.inherits(type.module))
   }
 
   get name(): string { return this.module.name! }
@@ -204,7 +205,7 @@ export class WollokParameterType {
 
   contains(type: WollokType): boolean {
     if (this === type) return true
-    throw new Error('Parameters types don't contain other types')
+    throw new Error('Parameters types don\'t contain other types')
   }
 
   asList(): WollokType[] { return [this] }
@@ -241,17 +242,17 @@ export class WollokUnionType {
 
   isSubtypeOf(type: WollokType): boolean { return this.types.every(t => t.isSubtypeOf(type)) }
 
-  get name(): string {
-    const simplifiedTypes = this.types
+  get simplifiedTypes(): WollokType[] {
+    return this.types
       .reduce((acc, type) => [...acc, type].filter(t => !t.isSubtypeOf(type)) // Remove subtypes (are redundants)
         , [] as WollokType[])
-    return `(${simplifiedTypes.map(_ => _.name).join(' | ')})`
   }
-  get kind(): string {
-    const simplifiedTypes = this.types
-      .reduce((acc, type) => [...acc, type].filter(t => !t.isSubtypeOf(type)) // Remove subtypes (are redundants)
-        , [] as WollokType[])
-    return `(${simplifiedTypes.map(_ => _.kind).join(' | ')})`
+
+  get name(): string { return this.printBy(_ => _.name) }
+  get kind(): string { return this.printBy(_ => _.kind) }
+
+  printBy(property: (type: WollokType) => string): string {
+    return `(${this.simplifiedTypes.map(property).join(' | ')})`
   }
 
   get isComplete(): boolean {
@@ -264,6 +265,8 @@ export class TypeRegistry {
   constructor(private tVars: Map<Node, TypeVariable>) { }
 
   getType(node: Node): WollokType {
-    this.tVars.get(node)?.type() ?? throw new Error(`No type variable for node ${node}`)
+    const type = this.tVars.get(node)?.type()
+    if (!type) throw new Error(`No type variable for node ${node}`)
+    return type
   }
 }

@@ -726,10 +726,10 @@ export class Literal<T extends LiteralValue = LiteralValue> extends Expression(N
   constructor(payload: Payload<Literal<T>, 'value'>) { super(payload) }
 
   isNumeric(): this is { value: number } { return typeof this.value === 'number' }
-  isString(): this is { value: number } { return typeof this.value === 'string' }
-  isBoolean(): this is { value: number } { return typeof this.value === 'boolean' }
-  isNull(): this is { value: number } { return this.value === null }
-  isCollection(): this is { value: number } { return isArray(this.value) }
+  isString(): this is { value: string } { return typeof this.value === 'string' }
+  isBoolean(): this is { value: boolean } { return typeof this.value === 'boolean' }
+  isNull(): this is { value: null } { return this.value === null }
+  isCollection(): this is { value: readonly [Reference<Class>, List<Expression>] } { return isArray(this.value) }
 }
 
 
@@ -781,8 +781,7 @@ export class If extends Expression(Node) {
   }
 
   isIfExpression(): boolean {
-    return this.thenBody.sentences.length > 0 && last(this.thenBody.sentences)!.is(Expression)
-      && this.elseBody.sentences.length > 0 && last(this.elseBody.sentences)!.is(Expression)
+    return !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression)
   }
 }
 

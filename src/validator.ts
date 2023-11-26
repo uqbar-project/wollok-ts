@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { WOLLOK_BASE_PACKAGE } from './constants'
+import { OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, TypeDefinition, duplicates, is, isEmpty, last, List, match, notEmpty, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -512,13 +512,11 @@ export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const baseClass = 'Object'
-
 const allParents = (module: Module) =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
 const inheritsCustomDefinition = (module: Module) =>
-  notEmpty(allParents(module).filter(element => element.name !== baseClass))
+  notEmpty(allParents(module).filter(element => element.fullyQualifiedName == OBJECT_MODULE))
 
 const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(ParameterizedType)(node => node.reference.target),

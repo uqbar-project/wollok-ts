@@ -95,5 +95,5 @@ export const match = <T>(matched: T) =>
 export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) => R) =>
   [definition, handler] as const
 
-export const anyPredicate = <T>(...fs: ((x: T) => boolean)[]): (x: T) => boolean => x =>
-  fs.some(f => f(x))
+export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]): (x: Element) => boolean => x =>
+  conditions.some(condition => condition(x))
