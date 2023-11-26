@@ -14,18 +14,44 @@ describe('Wollok parser', () => {
   describe('Comments', () => {
     const parser = parse.Import
 
+    it('line comments should be parsed as metadata', () => {
+      `//some comment
+      import p`.should.be.parsedBy(parser).into(new Import({
+          entity: new Reference({ name: 'p' }),
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'start' })],
+        }))
+        .and.be.tracedTo(21, 29)
+        .and.have.nested.property('entity').tracedTo(28, 29)
+    })
+
     it('multiline comments should be ignored in between tokens', () => {
       `/*some comment*/import /* some
-      comment */ p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p' }) }))
+      comment */ p`.should.be.parsedBy(parser).into(new Import({
+          entity: new Reference({
+            name: 'p',
+            // the assertion is not validating metadata recursively
+            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'end' } )],
+          }),
+          metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
+        }))
         .and.be.tracedTo(16, 49)
         .and.have.nested.property('entity').tracedTo(48, 49)
     })
 
     it('line comments should be ignored at the end of line', () => {
       `import //some comment
-      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p' }) }))
+      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p', metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })] }) }))
         .and.be.tracedTo(0, 29)
         .and.have.nested.property('entity').tracedTo(28, 29)
+    })
+
+    it('comments after sends should be parsed', () => {
+      'pepita.vola() //some comment'
+        .should.be.parsedBy(parse.Send).into(new Send({
+          receiver: new Reference({ name: 'pepita' }),
+          message: 'vola',
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+        }))
     })
 
     it('should not parse elements inside line comment', () => {
