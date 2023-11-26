@@ -29,10 +29,10 @@ export class WollokAtomicType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
-    throw new Error('Atomic types has no methods')
+    throw new Error('Atomic types have no methods')
   }
 
-  atParam(_name: string): TypeVariable { throw new Error('Atomic types has no params') }
+  atParam(_name: string): TypeVariable { throw new Error('Atomic types have no params') }
   instanceFor(_instance: TypeVariable, _send?: TypeVariable, _name?: string): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
@@ -195,16 +195,16 @@ export class WollokParameterType {
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
-    throw new Error('Parameters types has no methods')
+    throw new Error('Parameters types have no methods')
   }
 
   atParam(_name: string): TypeVariable {
-    throw new Error('Parameters types has no params')
+    throw new Error('Parameters types have no params')
   }
 
   contains(type: WollokType): boolean {
     if (this === type) return true
-    throw new Error('Parameters types does not contains other types')
+    throw new Error('Parameters types don't contain other types')
   }
 
   asList(): WollokType[] { return [this] }
@@ -264,8 +264,6 @@ export class TypeRegistry {
   constructor(private tVars: Map<Node, TypeVariable>) { }
 
   getType(node: Node): WollokType {
-    const tVar = this.tVars.get(node)
-    if (!tVar) throw new Error(`No type variable for node ${node}`)
-    return tVar.type()
+    this.tVars.get(node)?.type() ?? throw new Error(`No type variable for node ${node}`)
   }
 }

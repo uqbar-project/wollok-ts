@@ -34,7 +34,7 @@ function newTVarFor(node: Node) {
   }
   if (node.is(Singleton) && node.isClosure()) {
     const methodApply = node.methods.find(_ => _.name === '<apply>')!
-    const parameters = methodApply.parameters.map(p => typeVariableFor(p))
+    const parameters = methodApply.parameters.map(typeVariableFor)
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     const returnType = typeVariableFor(methodApply).atParam(RETURN)
     newTVar.setType(new WollokClosureType(returnType, parameters, node), false)
