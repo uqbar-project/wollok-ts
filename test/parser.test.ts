@@ -29,6 +29,7 @@ describe('Wollok parser', () => {
       comment */ p`.should.be.parsedBy(parser).into(new Import({
           entity: new Reference({
             name: 'p',
+            // the assertion is not validating metadata recursively
             metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'end' } )],
           }),
           metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
