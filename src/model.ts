@@ -1,5 +1,5 @@
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
-import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty, TypeDefinition } from './extensions'
+import { ConstructorFor, InstanceOf, List, MIXINS, Mixable, MixinDefinition, TypeDefinition, is, last, mapObject, notEmpty } from './extensions'
 
 const { isArray } = Array
 const { entries, values, assign } = Object
@@ -472,6 +472,16 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
     }
 
     @cached
+    get isAbstract(): boolean {
+      return this.abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
+    }
+
+    @cached
+    get abstractMethods(): List<Method> {
+      return this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
+    }
+
+    @cached
     defaultValueFor(field: Field): Expression {
       if(!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
 
@@ -507,12 +517,6 @@ export class Class extends Module(Node) {
       const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
     }
-  }
-
-  @cached
-  get isAbstract(): boolean {
-    const abstractMethods = this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
-    return abstractMethods.some(method => !this.lookupMethod(method.name, method.parameters.length))
   }
 }
 
@@ -750,7 +754,7 @@ export class Super extends Expression(Node) {
 
 export class New extends Expression(Node) {
   get kind(): 'New' { return 'New' }
-  readonly instantiated!: Reference<Class>
+  readonly instantiated!: Reference<Module>
   readonly args!: List<NamedArgument>
 
   constructor({ args = [], ...payload }: Payload<New, 'instantiated'>) {
