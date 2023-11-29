@@ -487,11 +487,8 @@ export class Evaluation {
     yield node
 
     const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
-
     const name = node.instantiated.name
-
-    if (!target.is(Class)) raise(new Error(`${name} is not a class, you cannot generate instances of a ${target?.kind}`))
-
+    if (!target.is(Class)) raise(new Error(`${name} is not a class, you cannot generate instances of it`))
     if (target.isAbstract) raise(new Error(`${name} is an abstract class, you cannot generate instances`))
 
     return yield* this.instantiate(target, args)

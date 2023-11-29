@@ -436,10 +436,17 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !(node.isAtPackageLevel && node.value.isSynthetic && node.value.is(Literal) && node.value.isNull())
+  !(node.isAtPackageLevel && isInitialized(node))
 )
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
+
+export const shouldInitializeConst = error<Variable>(node =>
+  !(
+    getContainer(node)?.is(Program) &&
+    node.isConstant &&
+    isInitialized(node))
+)
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
   !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name)
@@ -745,6 +752,11 @@ const methodExists = (node: Send): boolean => match(node.receiver)(
   when(Node)(() => true),
 )
 
+const isInitialized = (node: Variable) =>
+  node.value.isSynthetic &&
+  node.value.is(Literal) &&
+  node.value.isNull()
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -774,7 +786,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
   when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute })),
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
-  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities })),
+  when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
   when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference })),
   when(Self)(() => ({ shouldNotUseSelf })),
