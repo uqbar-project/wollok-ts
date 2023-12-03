@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.0.6
+**Wollok Version: `3.1.9`**
+
+- New Formatter / Printer.
+- Validate concrete class on instantiation.
+- Validate uninitialized consts.
+
 ## v4.0.5
 **Wollok Version: `3.1.9`**
 
