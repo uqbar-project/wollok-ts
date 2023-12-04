@@ -137,9 +137,9 @@ export const shouldHaveCatchOrAlways = error<Try>(node =>
   notEmpty(node.catches) || notEmpty(node.always.sentences)
 )
 
-export const methodShouldHaveDifferentSignature = error<Method>(node => {
-  return node.parent.methods.every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
-})
+export const methodShouldHaveDifferentSignature = error<Method>(node =>
+  node.parent.methods.every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+)
 
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is(Super) && sentence.args.every((arg, index) => arg.is(Reference) && arg.target === node.parameters[index])
@@ -511,6 +511,15 @@ export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   return !method || method.isNative() || method.isAbstract() || returnsValue(method)
 })
 
+export const shouldHaveDifferentName = error<Test>(node => {
+  const tests: List<Test> = match(node.parent)(
+    when(Describe)(describe => describe.tests),
+    when(Package)(module => module.members.filter(member => member.is(Test)) as unknown as List<Test>),
+    when(Node)(_ => []),
+  )
+  return !tests || tests.every(other => node === other || other.name !== node.name)
+})
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -780,7 +789,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Catch)(() => ({ shouldCatchUsingExceptionHierarchy, catchShouldBeReachable })),
   when(Package)(() => ({ shouldNotDuplicatePackageName })),
   when(Program)(() => ({ nameShouldNotBeKeyword, shouldNotUseReservedWords, shouldMatchFileExtension, shouldNotDuplicateEntities })),
-  when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension })),
+  when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension, shouldHaveDifferentName })),
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeInheritedAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementInheritedAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
