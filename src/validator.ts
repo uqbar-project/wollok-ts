@@ -80,6 +80,28 @@ const warning = problem('warning')
 const error = problem('error')
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// VALIDATION MESSAGES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const valuesForNodeName = (node: { name: string}) => [node.name ?? '']
+
+const sourceMapForNodeName = (node: Node & { name: string }) => {
+  if (!node.sourceMap) return undefined
+  const nodeOffset = getOffsetForName(node)
+  return node.sourceMap && new SourceMap({
+    start: new SourceIndex({
+      ...node.sourceMap.start,
+      offset: node.sourceMap.start.offset + nodeOffset,
+    }),
+    end: new SourceIndex({
+      ...node.sourceMap.end,
+      offset: node.sourceMap.start.offset + (node.name?.length ?? 0) + nodeOffset,
+    }),
+  })
+
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -90,25 +112,11 @@ export const shouldNotBeEmpty = warning<Body>(node =>
 export const isNotWithin = <N extends Node>(kind: TypeDefinition<N>): (node: N, code: Code) => Problem | null =>
   error((node: N) => !node.ancestors.some(is(kind)) || node.isSynthetic)
 
-export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
+export const nameMatches = (regex: RegExp): (node: Node & { name: string }, code: Code) => Problem | null =>
   warning(
     node => !node.name || regex.test(node.name),
-    node => [node.name ?? ''],
-    node => {
-      if (!node.sourceMap) return undefined
-      const nodeOffset = getOffsetForName(node)
-      return node.sourceMap && new SourceMap({
-        // TODO: reify node information (like class names)
-        start: new SourceIndex({
-          ...node.sourceMap.start,
-          offset: node.sourceMap.start.offset + nodeOffset,
-        }),
-        end: new SourceIndex({
-          ...node.sourceMap.end,
-          offset: node.sourceMap.start.offset + (node.name?.length ?? 0) + nodeOffset,
-        }),
-      })
-    }
+    valuesForNodeName,
+    sourceMapForNodeName,
   )
 
 export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
@@ -444,7 +452,7 @@ export const shouldInitializeGlobalReference = error<Variable>(node =>
   !(node.isAtPackageLevel && isInitialized(node))
 )
 
-export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
+export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node), valuesForNodeName, sourceMapForNodeName)
 
 export const shouldInitializeConst = error<Variable>(node =>
   !(
