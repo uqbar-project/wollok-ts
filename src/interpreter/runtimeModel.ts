@@ -1,4 +1,4 @@
-import { WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { v4 as uuid } from 'uuid'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
@@ -490,6 +490,9 @@ export class Evaluation {
     const name = node.instantiated.name
     if (!target.is(Class)) raise(new Error(`${name} is not a class, you cannot generate instances of it`))
     if (target.isAbstract) raise(new Error(`${name} is an abstract class, you cannot generate instances`))
+
+    if (target.fullyQualifiedName === LIST_MODULE) return yield* this.list()
+    if (target.fullyQualifiedName === SET_MODULE) return yield* this.set()
 
     return yield* this.instantiate(target, args)
   }
