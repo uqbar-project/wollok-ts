@@ -8,8 +8,12 @@ import print from './printer/print'
 import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
 
+export type FileContent = {
+  name: string,
+  content: string,
+}
 
-function buildEnvironment(files: List<{ name: string, content: string }>, baseEnvironment: Environment = fromJSON<Environment>(WRE)): Environment {
+function buildEnvironment(files: List<FileContent>, baseEnvironment: Environment = fromJSON<Environment>(WRE)): Environment {
 
   return link(files.map(({ name, content }) => {
     try {

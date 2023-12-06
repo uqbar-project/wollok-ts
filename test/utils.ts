@@ -2,10 +2,10 @@ import { fail } from 'assert'
 import { readFileSync } from 'fs'
 import globby from 'globby'
 import { join } from 'path'
-import { Annotation, buildEnvironment, Class, Literal, Node, Package, Problem, Reference } from '../src'
+import { Annotation, buildEnvironment, Class, FileContent, Literal, Node, Package, Problem, Reference, SourceMap } from '../src'
 import { List, notEmpty } from '../src/extensions'
 
-export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package) => void): void {
+export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
   const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: folderPath }).map(name => ({
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
@@ -14,7 +14,7 @@ export function buildEnvironmentForEachFile(folderPath: string, iterator: (fileP
 
   for (const file of files) {
     const packageName = file.name.split('.')[0]
-    iterator(environment.getNodeByFQN(packageName))
+    iterator(environment.getNodeByFQN(packageName), file)
   }
 }
 
@@ -38,8 +38,10 @@ export const matchesExpectationProblem = (problem: Problem, annotatedNode: Node,
 
 export const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`
 
+const getProblemAsTextFor = (content: string, sourceMap: SourceMap) =>
+  content.substring(sourceMap.start.offset, sourceMap.end.offset)
 
-export const validateExpectationProblem = (expectedProblem: Annotation, nodeProblems: Problem[], node: Node): Problem => {
+export const validateExpectationProblem = (expectedProblem: Annotation, nodeProblems: Problem[], node: Node, fileContent: FileContent): Problem => {
   const code = expectedProblem.args['code']
   const level = expectedProblem.args['level']
   const values = expectedProblem.args['values']
@@ -54,9 +56,16 @@ export const validateExpectationProblem = (expectedProblem: Annotation, nodeProb
   if (!effectiveProblem)
     fail(`Missing expected ${code} ${level ?? 'problem'} at ${errorLocation(node)}`)
 
-
   if (level && effectiveProblem.level !== level)
     fail(`Expected ${code} to be ${level} but was ${effectiveProblem.level} at ${errorLocation(node)}`)
+
+  const expectedOn = expectedProblem.args['expectedOn']
+  if (expectedOn) {
+    const underlinedProblem = getProblemAsTextFor(fileContent.content, effectiveProblem.sourceMap ?? node.sourceMap!)
+    if (underlinedProblem != expectedOn) {
+      fail(`Expected ${code} to fail in [${expectedOn}] but failed in [${underlinedProblem}] at ${errorLocation(node)}`)
+    }
+  }
 
   if (values) {
     const stringValues = (values as [Reference<Class>, List<Literal<string>>])[1].map(v => v.value)
