@@ -87,7 +87,6 @@ const valuesForNodeName = (node: { name: string}) => [node.name ?? '']
 
 const sourceMapForNodeName = (node: Node & { name: string }) => {
   if (!node.sourceMap) return undefined
-  console.info('offset', node.kind, node.name, getOffsetForName(node))
   const nodeOffset = getOffsetForName(node)
   return node.sourceMap && new SourceMap({
     start: new SourceIndex({
@@ -124,9 +123,10 @@ export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
 
 export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
-export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
+export const nameShouldNotBeKeyword = error<Parameter | Variable | Field | Method>(node =>
   !RESERVED_WORDS.includes(node.name || ''),
-node => [node.name || ''],
+node => [node.name ?? ''],
+sourceMapForNodeName,
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
