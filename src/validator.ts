@@ -83,9 +83,9 @@ const error = problem('error')
 // VALIDATION MESSAGES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const valuesForNodeName = (node: { name: string}) => [node.name ?? '']
+const valuesForNodeName = (node: { name?: string }) => [node.name ?? '']
 
-const sourceMapForNodeName = (node: Node & { name: string }) => {
+const sourceMapForNodeName = (node: Node & { name?: string }) => {
   if (!node.sourceMap) return undefined
   const nodeOffset = getOffsetForName(node)
   return node.sourceMap && new SourceMap({
@@ -125,7 +125,7 @@ export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
 export const nameShouldNotBeKeyword = error<Parameter | Variable | Field | Method>(node =>
   !RESERVED_WORDS.includes(node.name || ''),
-node => [node.name ?? ''],
+valuesForNodeName,
 sourceMapForNodeName,
 )
 
@@ -303,7 +303,9 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
 export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node), valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
-  !node.name || !node.parent.is(Package) || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
+  !node.name || !node.parent.is(Package) || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name)),
+valuesForNodeName,
+sourceMapForNodeName,
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
