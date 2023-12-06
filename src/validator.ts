@@ -300,7 +300,7 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent, node.name)
 })
 
-export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node))
+export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node), valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
   !node.name || !node.parent.is(Package) || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
