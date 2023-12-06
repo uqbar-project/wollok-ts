@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { INITIALIZE_METHOD_NAME, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -27,7 +27,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
 
 const { entries } = Object
 
-const KEYWORDS = [
+const RESERVED_WORDS = [
   'import',
   'package',
   'program',
@@ -87,6 +87,7 @@ const valuesForNodeName = (node: { name: string}) => [node.name ?? '']
 
 const sourceMapForNodeName = (node: Node & { name: string }) => {
   if (!node.sourceMap) return undefined
+  console.info('offset', node.kind, node.name, getOffsetForName(node))
   const nodeOffset = getOffsetForName(node)
   return node.sourceMap && new SourceMap({
     start: new SourceIndex({
@@ -124,7 +125,7 @@ export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
 export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
 export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
-  !KEYWORDS.includes(node.name || ''),
+  !RESERVED_WORDS.includes(node.name || ''),
 node => [node.name || ''],
 )
 
@@ -494,7 +495,7 @@ export const shouldNotImportMoreThanOnce = warning<Import>(node =>
 )
 
 export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
-  if (node.isConstant || usesReservedWords(node) || KEYWORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
+  if (node.isConstant || usesReservedWords(node) || RESERVED_WORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
   const module = getContainer(node)
   if (!module) return true
   return match(module)(
@@ -782,10 +783,13 @@ const isInitialized = (node: Variable) =>
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+const getVariableOffset = (node: Variable | Field) => (node.isConstant ? KEYWORDS.CONST.length : KEYWORDS.VAR.length) + 1
+
 const getOffsetForName = (node: Node): number => match(node)(
   when(Parameter)(() => 0),
-  when(Field)(node => node.isConstant ? 6 : 4 + (node.isProperty ? 9 : 0)),
-  when(Entity)(node => node.is(Singleton) ? 7 : node.kind.length + 1),
+  when(Variable)(node => getVariableOffset(node)),
+  when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
+  when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
   when(Method)(node => node.kind.length + 1),
 )
 
