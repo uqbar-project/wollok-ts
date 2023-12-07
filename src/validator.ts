@@ -457,7 +457,8 @@ export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | 
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
   !(node.isAtPackageLevel && isInitialized(node))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node), valuesForNodeName, sourceMapForNodeName)
 
