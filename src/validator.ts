@@ -211,14 +211,14 @@ export const shouldNotUseOverride = error<Method>(node =>
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent)
   return !parent || !!parent.lookupField(node.name)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node => {
   const nodeParent = node.parent
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is(New)) siblingArguments = nodeParent.args
   return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node => {
   const allNamedArguments = node.supertypes.flatMap(parent => parent.args.map(_ => _.name))
@@ -791,6 +791,7 @@ const getVariableOffset = (node: Variable | Field) => (node.isConstant ? KEYWORD
 
 const getOffsetForName = (node: Node): number => match(node)(
   when(Parameter)(() => 0),
+  when(NamedArgument)(() => 0),
   when(Variable)(node => getVariableOffset(node)),
   when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
   when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
