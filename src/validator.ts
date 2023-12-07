@@ -354,7 +354,8 @@ export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
 
 export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
   (node.name ?? '').replaceAll('"', '').trim() !== ''
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
   !node.isOnly || count(node.siblings(), element => element.is(Test) && element.isOnly) <= 1
