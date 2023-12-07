@@ -466,7 +466,8 @@ export const shouldInitializeConst = error<Variable>(node =>
     getContainer(node)?.is(Program) &&
     node.isConstant &&
     isInitialized(node))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
   !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name)
