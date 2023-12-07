@@ -412,7 +412,8 @@ export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
 
 export const overridingMethodShouldHaveABody = error<Method>(node =>
   !node.isOverride || node.isNative() || node.isConcrete()
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = isEmpty(node.thenBody.sentences) ? undefined : valueFor(last(node.thenBody.sentences))
@@ -794,8 +795,8 @@ const getOffsetForName = (node: Node): number => match(node)(
   when(NamedArgument)(() => 0),
   when(Variable)(node => getVariableOffset(node)),
   when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
+  when(Method)(node => (node.isOverride ? KEYWORDS.OVERRIDE.length + 1 : 0) + node.kind.length + 1),
   when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
-  when(Method)(node => node.kind.length + 1),
 )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
