@@ -537,7 +537,7 @@ export const shouldHaveDifferentName = error<Test>(node => {
     when(Node)(_ => []),
   )
   return !tests || tests.every(other => node === other || other.name !== node.name)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
