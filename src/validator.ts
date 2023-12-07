@@ -237,7 +237,7 @@ export const shouldInitializeInheritedAttributes = error<Singleton>(
 
 export const shouldInitializeSingletonAttribute = error<Field>(node => {
   return !node.parent.is(Singleton) || !isUninitialized(node.value)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseSelf = error<Self>(node => {
   const ancestors = node.ancestors
