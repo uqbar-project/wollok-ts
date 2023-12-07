@@ -512,7 +512,7 @@ export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
     ),
     when(Module)(module => module.methods.some(method => assigns(method, node))),
   )
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   if (!methodExists(node) || !supposedToReturnValue(node)) return true
