@@ -130,7 +130,9 @@ sourceMapForNodeName,
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
-  singleton => singleton.parent.is(Package) || !singleton.name
+  singleton => singleton.parent.is(Package) || !singleton.name,
+  valuesForNodeName,
+  sourceMapForNodeName,
 )
 
 export const topLevelSingletonShouldHaveAName = error<Singleton>(
