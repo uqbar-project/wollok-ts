@@ -115,8 +115,15 @@ const sourceMapForSentences = (sentences: List<Sentence>) => new SourceMap({
   end: last(sentences)!.sourceMap!.end,
 })
 
+const sourceMapForReturnValue = (node: Method) => {
+  if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
+  const lastSentence = last(node.body.sentences)!
+  if (!lastSentence.is(Return)) return node.sourceMap
+  return lastSentence.value!.sourceMap
+}
+
 const sourceMapForBody = (node: Method) => {
-  if (!node.body || node.body === 'native') return node.sourceMap
+  if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
   return sourceMapForSentences(node.body.sentences)
 }
 
@@ -233,7 +240,7 @@ export const possiblyReturningBlock = warning<Method>(node => {
   if (node.sentences.length !== 1) return true
   const singleSentence = node.sentences[0]
   return !(singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure(0))
-})
+}, undefined, sourceMapForReturnValue)
 
 export const shouldNotUseOverride = error<Method>(node =>
   node.parent.is(Mixin) || !node.isOverride || !!superclassMethod(node)
