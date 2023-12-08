@@ -61,4 +61,5 @@ export const KEYWORDS = {
   FIXTURE: 'fixture',
   PROGRAM: 'program',
   PACKAGE: 'package',
+  ONLY: 'only',
 } as const

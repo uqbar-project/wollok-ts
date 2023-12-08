@@ -85,21 +85,27 @@ const error = problem('error')
 
 const valuesForNodeName = (node: { name?: string }) => [node.name ?? '']
 
-const sourceMapForNodeName = (node: Node & { name?: string }) => {
-  if (!node.sourceMap) return undefined
-  const nodeOffset = getOffsetForName(node)
-  return node.sourceMap && new SourceMap({
+const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number) =>
+  node.sourceMap && new SourceMap({
     start: new SourceIndex({
       ...node.sourceMap.start,
-      offset: node.sourceMap.start.offset + nodeOffset,
+      offset: node.sourceMap.start.offset + initialOffset,
     }),
     end: new SourceIndex({
       ...node.sourceMap.end,
-      offset: node.sourceMap.start.offset + (node.name?.length ?? 0) + nodeOffset,
+      offset: node.sourceMap.start.offset + finalOffset + initialOffset,
     }),
   })
 
+const sourceMapForNodeName = (node: Node & { name?: string }) => {
+  if (!node.sourceMap) return undefined
+  const initialOffset = getOffsetForName(node)
+  const finalOffset = node.name?.length ?? 0
+  return buildSourceMap(node, initialOffset, finalOffset)
 }
+
+const sourceMapForOnlyTest = (node: Test) =>
+  buildSourceMap(node, 0, KEYWORDS.ONLY.length)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
@@ -362,7 +368,8 @@ sourceMapForNodeName)
 
 export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
   !node.isOnly || count(node.siblings(), element => element.is(Test) && element.isOnly) <= 1
-)
+, valuesForNodeName,
+sourceMapForOnlyTest)
 
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {
   const parent = node.parent
