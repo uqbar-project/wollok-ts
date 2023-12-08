@@ -326,7 +326,9 @@ export const shouldHaveBody = error<Method>(node => {
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
   return variable.isConstant || !variable.isAtPackageLevel
-})
+},
+valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
   const arg: Expression = node.args[0]
