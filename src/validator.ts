@@ -360,7 +360,8 @@ export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
 
 export const shouldNotDefineUnnecesaryIf = error<If>(node =>
   notEmpty(node.elseBody.sentences) || !node.condition.is(Literal) || node.condition.value !== true
-)
+, undefined,
+sourceMapForConditionInIf)
 
 export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
   notEmpty(node.tests)
