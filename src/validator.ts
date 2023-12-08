@@ -469,7 +469,10 @@ export const getterMethodShouldReturnAValue = warning<Method>(node =>
   !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
 )
 
-export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
+export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node =>
+  !usesReservedWords(node)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
   !(node.isAtPackageLevel && isInitialized(node))
