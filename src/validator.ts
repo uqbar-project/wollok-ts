@@ -110,6 +110,8 @@ const sourceMapForOnlyTest = (node: Test) => buildSourceMap(node, 0, KEYWORDS.ON
 
 const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEYWORDS.OVERRIDE.length)
 
+const sourceMapForConditionInIf = (node: If) => node.condition.sourceMap
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -348,7 +350,8 @@ export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
 
 export const shouldUseBooleanValueInIfCondition = error<If>(node =>
   isBooleanOrUnknownType(node.condition)
-)
+, undefined,
+sourceMapForConditionInIf)
 
 export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
   if (!isBooleanMessage(node)) return true
