@@ -122,7 +122,7 @@ const sourceMapForReturnValue = (node: Method) => {
   return lastSentence.value!.sourceMap
 }
 
-const sourceMapForBody = (node: Method) => {
+const sourceMapForBody = (node: Method | Test) => {
   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
   return sourceMapForSentences(node.body.sentences)
 }
@@ -477,10 +477,10 @@ export const shouldUseConditionalExpression = warning<If>(node => {
   )
 })
 
-
 export const shouldHaveAssertInTest = warning<Test>(node =>
   !node.body.isEmpty() || sendsMessageToAssert(node.body)
-)
+, undefined,
+sourceMapForBody)
 
 export const shouldMatchFileExtension = error<Test | Program>(node => {
   const filename = node.sourceFileName
