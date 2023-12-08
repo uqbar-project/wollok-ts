@@ -104,6 +104,8 @@ const sourceMapForNodeName = (node: Node & { name?: string }) => {
   return buildSourceMap(node, initialOffset, finalOffset)
 }
 
+const sourceMapForAssignmentVariable = (node: Assignment) => node.variable.sourceMap
+
 const sourceMapForOnlyTest = (node: Test) =>
   buildSourceMap(node, 0, KEYWORDS.ONLY.length)
 
@@ -176,7 +178,7 @@ export const shouldNotReassignConst = error<Assignment>(node => {
   const target = node?.variable?.target
   const referenceIsNotConstant = !target || (target.is(Variable) || target?.is(Field)) && !target.isConstant
   return referenceIsNotConstant && !target?.is(Parameter)
-})
+}, undefined, sourceMapForAssignmentVariable)
 
 // TODO: Test if the reference points to the right kind of node
 export const missingReference = error<Reference<Node>>(node => !!node.target)
@@ -813,6 +815,7 @@ const getOffsetForName = (node: Node): number => match(node)(
   when(Variable)(node => getVariableOffset(node)),
   when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
   when(Method)(node => (node.isOverride ? KEYWORDS.OVERRIDE.length + 1 : 0) + node.kind.length + 1),
+  when(Reference)(node => node.name.length + 1),
   when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
 )
 
