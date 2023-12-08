@@ -301,7 +301,7 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   const lastSentence = last(node.sentences)
   const superclassSentence = last(overridenMethod.sentences)
   return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
-})
+}, undefined, sourceMapForBody)
 
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
