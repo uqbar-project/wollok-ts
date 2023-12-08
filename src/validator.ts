@@ -106,8 +106,9 @@ const sourceMapForNodeName = (node: Node & { name?: string }) => {
 
 const sourceMapForAssignmentVariable = (node: Assignment) => node.variable.sourceMap
 
-const sourceMapForOnlyTest = (node: Test) =>
-  buildSourceMap(node, 0, KEYWORDS.ONLY.length)
+const sourceMapForOnlyTest = (node: Test) => buildSourceMap(node, 0, KEYWORDS.ONLY.length)
+
+const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEYWORDS.OVERRIDE.length)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
@@ -214,7 +215,8 @@ export const possiblyReturningBlock = warning<Method>(node => {
 
 export const shouldNotUseOverride = error<Method>(node =>
   node.parent.is(Mixin) || !node.isOverride || !!superclassMethod(node)
-)
+, valuesForNodeName,
+sourceMapForOverrideMethod)
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent)
