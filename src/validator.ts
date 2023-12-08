@@ -477,7 +477,8 @@ sourceMapForNodeName)
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
   !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name)
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
   const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>('wollok.lang.Exception')
