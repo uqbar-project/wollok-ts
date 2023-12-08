@@ -110,6 +110,28 @@ const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEY
 
 const sourceMapForConditionInIf = (node: If) => node.condition.sourceMap
 
+const sourceMapForSentences = (sentences: List<Sentence>) => new SourceMap({
+  start: sentences[0]!.sourceMap!.start,
+  end: last(sentences)!.sourceMap!.end,
+})
+
+const sourceMapForBody = (node: Method) => {
+  if (!node.body || node.body === 'native') return node.sourceMap
+  return sourceMapForSentences(node.body.sentences)
+}
+
+const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
+  match(node)(
+    when(If)(node => {
+      const whichBody = isBooleanLiteral(node.condition, true) ? node.elseBody : node.thenBody
+      return sourceMapForSentences(whichBody.sentences)
+    }),
+    when(Send)(node => new SourceMap({
+      start: node.args[0].sourceMap!.start,
+      end: node.sourceMap!.end,
+    })),
+  )
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -397,7 +419,8 @@ export const codeShouldBeReachable = error<If | Send>(node =>
       return !(isBooleanLiteral(receiver, true) && ['or', '||'].includes(message)) && !(isBooleanLiteral(receiver, false) && ['and', '&&'].includes(message))
     }),
   )
-)
+, undefined,
+sourceMapForUnreachableCode)
 
 export const methodShouldExist = error<Send>(node => methodExists(node))
 
@@ -469,7 +492,8 @@ export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(nod
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
   !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
-)
+, undefined,
+sourceMapForBody)
 
 export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node =>
   !usesReservedWords(node)
