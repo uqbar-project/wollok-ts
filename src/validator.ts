@@ -366,7 +366,9 @@ export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {
   const parent = node.parent
   return !node.isNative() || !parent.is(Singleton) || !!parent.name
-})
+},
+valuesForNodeName,
+sourceMapForNodeName)
 
 export const codeShouldBeReachable = error<If | Send>(node =>
   match(node)(
