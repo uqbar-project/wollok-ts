@@ -496,7 +496,8 @@ export const catchShouldBeReachable = error<Catch>(node => {
 
 export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
   !node.name || !node.parent.is(Package) || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target, node.name!))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotImportSameFile = error<Import>(node =>
   ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
