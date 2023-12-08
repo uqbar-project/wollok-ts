@@ -293,7 +293,8 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 
 export const shouldNotDuplicateFields = error<Field>(node =>
   count(node.parent.allFields, _ => _.name == node.name) === 1
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
