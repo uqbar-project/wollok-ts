@@ -110,9 +110,12 @@ const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEY
 
 const sourceMapForConditionInIf = (node: If) => node.condition.sourceMap
 
+const sourceMapForSentence = (sentence: Sentence) =>
+  sentence.is(Return) ? sentence.value?.sourceMap : sentence.sourceMap
+
 const sourceMapForSentences = (sentences: List<Sentence>) => new SourceMap({
-  start: sentences[0]!.sourceMap!.start,
-  end: last(sentences)!.sourceMap!.end,
+  start: sourceMapForSentence(sentences[0])!.start,
+  end: sourceMapForSentence(last(sentences)!)!.end,
 })
 
 const sourceMapForReturnValue = (node: Method) => {
@@ -195,7 +198,7 @@ export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   return isEmpty(node.sentences) || !node.sentences.every(sentence =>
     callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
-})
+}, undefined, sourceMapForBody)
 
 export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target?.isAbstract)
 
