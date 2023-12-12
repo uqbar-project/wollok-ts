@@ -91,12 +91,11 @@ const endComment =  alt(
 )
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: any): SourceIndex[] => {
-  const hasWhitespacesBefore = hasWhitespace(input[originalTo.offset - 1])
-  const firstCharacterWhitespace = hasWhitespace(input[originalFrom.offset])
-  if (!hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) || !hasWhitespacesBefore && !firstCharacterWhitespace) return [originalFrom, originalTo]
+  const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
+  const shouldBeSanitized = hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) && hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
+  if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
-  const adjustTo = hasWhitespacesBefore ? 1 : 0
-  const to = { ...originalTo, offset: originalTo.offset - adjustTo }
+  const to = { ...originalTo, offset: originalTo.offset - (hasWhitespaceAtTheEnd ? 1 : 0) }
   while(hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     from.offset++
   }
