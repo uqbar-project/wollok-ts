@@ -97,3 +97,8 @@ export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) =>
 
 export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]): (x: Element) => boolean => x =>
   conditions.some(condition => condition(x))
+
+export const hasWhitespace = (value: string): boolean => {
+  // console.info('   chequeo', `[${value}]`)
+  return !value || /\s/.test(value ?? '')
+}
