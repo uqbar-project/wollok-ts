@@ -1,8 +1,6 @@
 import { fail } from 'assert'
 import { should } from 'chai'
-import { Annotation } from '../src'
 import validate from '../src/validator'
-import { Node, Problem } from './../src/model'
 import { allExpectations, buildEnvironmentForEachFile, errorLocation, matchesExpectationProblem, validateExpectationProblem } from './utils'
 
 const TESTS_PATH = 'language/test/validations'

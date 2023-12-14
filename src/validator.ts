@@ -21,11 +21,9 @@
 import { INITIALIZE_METHOD_NAME, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
-import {
-  Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
+import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
-  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable
-} from './model'
+  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from './model'
 
 const { entries } = Object
 
