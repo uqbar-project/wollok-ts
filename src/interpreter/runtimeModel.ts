@@ -1,8 +1,8 @@
-import { LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { v4 as uuid } from 'uuid'
+import { INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
-import { Assignment, Body, Catch, Describe, Environment, Entity, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable, Class } from '../model'
+import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
 const { isArray } = Array
@@ -681,7 +681,7 @@ export class Evaluation {
       instance.set(field.name, initialValue)
     }
 
-    yield * this.send('initialize', instance)
+    yield * this.send(INITIALIZE_METHOD_NAME, instance)
 
     if(!instance.module.name || instance.module.is(Describe))
       for (const field of instance.module.allFields)
