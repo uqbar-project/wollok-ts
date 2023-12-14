@@ -1,8 +1,8 @@
 import { v4 as uuid } from 'uuid'
-import { INITIALIZE_METHOD_NAME, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
-import { Assignment, Body, Catch, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
 const { isArray } = Array
@@ -487,6 +487,12 @@ export class Evaluation {
     yield node
 
     const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
+    const name = node.instantiated.name
+    if (!target.is(Class)) raise(new Error(`${name} is not a class, you cannot generate instances of it`))
+    if (target.isAbstract) raise(new Error(`${name} is an abstract class, you cannot generate instances`))
+
+    if (target.fullyQualifiedName === LIST_MODULE) return yield* this.list()
+    if (target.fullyQualifiedName === SET_MODULE) return yield* this.set()
 
     return yield* this.instantiate(target, args)
   }
