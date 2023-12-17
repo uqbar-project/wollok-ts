@@ -1,11 +1,12 @@
 import { fail } from 'assert'
 import { should } from 'chai'
+import { join } from 'path'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
 import { allExpectations, buildEnvironmentForEachFile, validateExpectationProblem } from './utils'
 
-const TESTS_PATH = 'language/test/typeSystem'
+const TESTS_PATH = join('language', 'test', 'typesystem')
 
 should()
 

@@ -1,9 +1,10 @@
 import { fail } from 'assert'
 import { should } from 'chai'
+import { join } from 'path'
 import validate from '../src/validator'
 import { allExpectations, buildEnvironmentForEachFile, errorLocation, matchesExpectationProblem, validateExpectationProblem } from './utils'
 
-const TESTS_PATH = 'language/test/validations'
+const TESTS_PATH = join('language', 'test', 'validations')
 
 should()
 
