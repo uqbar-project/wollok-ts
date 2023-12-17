@@ -4,6 +4,8 @@ import { List, isEmpty, match, notEmpty, when } from '../extensions'
 import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
+const { entries } = Object
+
 type PrintSettings = {
   maxWidth: number,
   useSpaces: boolean,
@@ -43,7 +45,7 @@ type Formatter<T extends Node> = (node: T) => IDoc
 type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter<T>
 const format: FormatterWithContext<Node> = context => node => {
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
-  const formattedNode: IDoc =  match(node)(
+  const formattedNode: IDoc = match(node)(
     when(Package)(formatPackage(context)),
     when(Program)(formatProgram(context)),
     when(Assignment)(formatAssignment(context)),
@@ -105,12 +107,12 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
     enclosedListOfNodes(context)(parens, node.parameters),
   ]
 
-  if(node.isNative()){
+  if (node.isNative()) {
     return [signature, WS, KEYWORDS.NATIVE]
-  } else if (node.isAbstract()){
+  } else if (node.isAbstract()) {
     return signature
-  } else if(node.isConcrete()) {
-    if(
+  } else if (node.isConcrete()) {
+    if (
       node.body.sentences.length === 1 &&
       node.body.sentences[0].is(Return) &&
       node.body.sentences[0].value
@@ -128,14 +130,14 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
 const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)(formatSentences(context)(node.sentences))
 
 const formatReturn: FormatterWithContext<Return> = context => node => node.value ?
-  [KEYWORDS.RETURN, WS,  format(context)(node.value)]
+  [KEYWORDS.RETURN, WS, format(context)(node.value)]
   : KEYWORDS.RETURN
 
 const formatReference = (node: Reference<Node>) => node.name
 
 const formatField: FormatterWithContext<Field> = context => node => {
   let modifiers: IDoc = [node.isConstant ? KEYWORDS.CONST : KEYWORDS.VAR]
-  if(node.isProperty){
+  if (node.isProperty) {
     modifiers = append([WS, KEYWORDS.PROPERTY], modifiers)
   }
   return [
@@ -169,7 +171,7 @@ const formatDescribe: FormatterWithContext<Describe> = context => node => inters
 )
 
 
-const formatAssignment: FormatterWithContext<Assignment>= context => node =>
+const formatAssignment: FormatterWithContext<Assignment> = context => node =>
   canBeAbbreviated(node) && context.abbreviateAssignments ?
     formatAssign(context)(node.variable.name, node.value.args[0], assignmentOperationByMessage[node.value.message]) :
     formatAssign(context)(node.variable.name, node.value)
@@ -180,7 +182,7 @@ const formatSuper: FormatterWithContext<Super> = context => node =>
 const formatIf: FormatterWithContext<If> = context => node => {
   const condition = [KEYWORDS.IF, WS, enclose(parens, format(context)(node.condition))]
 
-  if(canInlineBody(node.thenBody) && (node.elseBody.isSynthetic || canInlineBody(node.elseBody))){
+  if (canInlineBody(node.thenBody) && (node.elseBody.isSynthetic || canInlineBody(node.elseBody))) {
     return formatInlineIf(condition)(context)(node)
   }
 
@@ -263,21 +265,21 @@ const formatCatch: FormatterWithContext<Catch> = context => node => {
 }
 
 const formatLiteral: FormatterWithContext<Literal> = context => node => {
-  if(node.isBoolean()){
+  if (node.isBoolean()) {
     return `${node.value}`
-  } else if(node.isNumeric()) {
+  } else if (node.isNumeric()) {
     return node.value.toString() //ToDo presition
-  } else if(node.isNull()){
+  } else if (node.isNull()) {
     return KEYWORDS.NULL
-  } else if(node.isString()){
+  } else if (node.isString()) {
     return stringify(`${node.value}`)
-  } else if(node.isCollection()){
-    const [{ name: moduleName }, elements] = node.value as any
-    switch(moduleName){
+  } else if (node.isCollection()) {
+    const [{ name: moduleFQN }, elements] = node.value
+    switch (moduleFQN) {
       case LIST_MODULE:
-        return formatCollection(context)(elements as Expression[], listEnclosers)
+        return formatCollection(context)(elements, listEnclosers)
       case SET_MODULE:
-        return formatCollection(context)(elements as Expression[], setEnclosers)
+        return formatCollection(context)(elements, setEnclosers)
       default:
         throw new Error('Unknown collection type')
     }
@@ -294,14 +296,14 @@ const formatClass: FormatterWithContext<Class> = context => node => {
     node.name,
   ]
 
-  if(inherits(node)){
+  if (inherits(node)) {
     header = [...header, formatInheritance(context)(node)]
   }
 
   return intersperse(WS, [...header, formatModuleMembers(context)(node.members)])
 }
 
-const formatMixin: FormatterWithContext<Mixin> =context => node => {
+const formatMixin: FormatterWithContext<Mixin> = context => node => {
   const declaration = [
     KEYWORDS.MIXIN,
     WS,
@@ -326,7 +328,7 @@ const formatNamedArgument: FormatterWithContext<NamedArgument> =
 // SINGLETON FORMATTERS
 
 const formatSingleton: FormatterWithContext<Singleton> = context => (node: Singleton) => {
-  const formatter = node.isClosure() ?  formatClosure : formatWKO
+  const formatter = node.isClosure() ? formatClosure : formatWKO
   return formatter(context)(node)
 }
 
@@ -339,7 +341,7 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
 
   const sentences = (applyMethod.body! as Body).sentences
 
-  if(sentences.length === 1) {
+  if (sentences.length === 1) {
     const firstSentence = sentences[0]
     // remove 'return' if it's the only sentence
     const sentence = format(context)(firstSentence.is(Return) && firstSentence.value ? firstSentence.value : firstSentence)
@@ -353,11 +355,11 @@ const formatWKO: FormatterWithContext<Singleton> = context => node => {
   const members = formatModuleMembers(context)(node.members)
   let formatted: IDoc = [KEYWORDS.WKO]
 
-  if(node.name){
+  if (node.name) {
     formatted = [...formatted, node.name]
   }
 
-  if(inherits(node)){
+  if (inherits(node)) {
     formatted = [...formatted, formatInheritance(context)(node)]
   }
 
@@ -413,15 +415,15 @@ function addParenthesisIfNeeded(context: PrintContext, expression: Expression): 
 
 const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, simplifyLastReturn = false) => sentences.reduce<IDoc>((formatted, sentence, i, sentences) => {
   const shouldShortenReturn = i === sentences.length - 1 && sentence.is(Return) && sentence.value && simplifyLastReturn
-  const previousSentence = sentences[i-1]
-  return [formatted, formatSentenceInBody(context)(!shouldShortenReturn ? sentence : sentence.value,  previousSentence)]
+  const previousSentence = sentences[i - 1]
+  return [formatted, formatSentenceInBody(context)(!shouldShortenReturn ? sentence : sentence.value, previousSentence)]
 }, [])
 
 const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedListOfNodes(context)(parens, args)
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
   const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
-    previousSentence  ?
+    previousSentence ?
       sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line //difference
       : -1 // first sentence
     : 0 // defaults to 1 line diff
@@ -441,7 +443,7 @@ const formatAssign = (context: PrintContext, ignoreNull = false) => (name: strin
     ],
 ]
 
-const formatCollection = (context: PrintContext) => (values: Expression[], enclosers: [IDoc, IDoc]) => {
+const formatCollection = (context: PrintContext) => (values: List<Expression>, enclosers: [IDoc, IDoc]) => {
   return enclosedListOfNodes(context)(enclosers, values)
 }
 
@@ -454,9 +456,9 @@ const formatModuleMembers = (context: PrintContext) => (members: List<Field | Me
 }
 
 // assignment operations
-const canBeAbbreviated = (node: Assignment): node is Assignment & {value: Send & {message: keyof typeof assignmentOperationByMessage}} => node.value.is(Send) && node.value.receiver.is(Reference) && node.value.receiver.name === node.variable.name && node.value.message in assignmentOperationByMessage
+const canBeAbbreviated = (node: Assignment): node is Assignment & { value: Send & { message: keyof typeof assignmentOperationByMessage } } => node.value.is(Send) && node.value.receiver.is(Reference) && node.value.receiver.name === node.variable.name && node.value.message in assignmentOperationByMessage
 
-const assignmentOperationByMessage = { '||':'||=', '/':'/=', '-':'-=', '+':'+=', '*':'*=', '&&':'&&=', '%':'%=' } as const
+const assignmentOperationByMessage = { '||': '||=', '/': '/=', '-': '-=', '+': '+=', '*': '*=', '&&': '&&=', '%': '%=' } as const
 
 // send utils
 
@@ -481,27 +483,27 @@ const prefixOperatorByMessage: Record<Name, Name> = {
 
 // metadata
 const splitMetadata = (context: PrintContext, metadata: List<Annotation>): [IDoc, IDoc] => {
-  const withSplittedMultilineComments = metadata.map(annotation => annotation.name === 'comment' && (annotation.args.get('text')! as string).includes('\n') ?
-    (annotation.args.get('text')! as string).split('\n').map(commentSection => new Annotation('comment', { text: commentSection.trimStart(), position:annotation.args.get('position')! } )) :
+  const withSplittedMultilineComments = metadata.map(annotation => annotation.name === 'comment' && (annotation.args['text']! as string).includes('\n') ?
+    (annotation.args['text']! as string).split('\n').map(commentSection => new Annotation('comment', { text: commentSection.trimStart(), position: annotation.args['position']! })) :
     annotation
   ).flat()
 
-  const prevMetadata = withSplittedMultilineComments.filter(metadata => !isComment(metadata) || metadata.args.get('position') === 'start')
-  const afterMetadata = withSplittedMultilineComments.filter(metadata => metadata.args.get('position') === 'end')
-  const metadataBefore =  defaultToEmpty(notEmpty(prevMetadata), [intersperse(lineBreak, prevMetadata.map(formatAnnotation(context))), lineBreak])
+  const prevMetadata = withSplittedMultilineComments.filter(metadata => !isComment(metadata) || metadata.args['position'] === 'start')
+  const afterMetadata = withSplittedMultilineComments.filter(metadata => metadata.args['position'] === 'end')
+  const metadataBefore = defaultToEmpty(notEmpty(prevMetadata), [intersperse(lineBreak, prevMetadata.map(formatAnnotation(context))), lineBreak])
   const metadataAfter = defaultToEmpty(notEmpty(afterMetadata), [softLine, intersperse(lineBreak, afterMetadata.map(formatAnnotation(context)))])
 
   return [metadataBefore, metadataAfter]
 }
 
 const formatAnnotation = (context: PrintContext) => (annotation: Annotation): IDoc => {
-  if(annotation.name === 'comment') return annotation.args.get('text')! as string
-  return ['@', annotation.name, enclosedList(context.nest)(parens, [...annotation.args.entries()].map(
+  if (annotation.name === 'comment') return annotation.args['text']! as string
+  return ['@', annotation.name, enclosedList(context.nest)(parens, [...entries(annotation.args)].map(
     ([name, value]) => intersperse(WS, [name, '=', format(context)(new Literal({ value }))])
   ))]
 }
 
-function isComment(annotation: Annotation): annotation is Annotation & {name: 'comment'} {
+function isComment(annotation: Annotation): annotation is Annotation & { name: 'comment' } {
   return annotation.name === 'comment'
 }
 
@@ -511,5 +513,5 @@ const enclosedListOfNodes = (context: PrintContext) => (enclosers: [IDoc, IDoc],
   enclosedList(context.nest)(
     enclosers,
     nodes.map(format(context)),
-    nodes.some(aNode => aNode.metadata.some(entry => entry.name ==='comment'))
+    nodes.some(aNode => aNode.metadata.some(entry => entry.name === 'comment'))
   )

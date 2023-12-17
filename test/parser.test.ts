@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, LiteralValue, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -30,7 +30,7 @@ describe('Wollok parser', () => {
           entity: new Reference({
             name: 'p',
             // the assertion is not validating metadata recursively
-            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'end' } )],
+            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'start' } )],
           }),
           metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
         }))
@@ -40,7 +40,7 @@ describe('Wollok parser', () => {
 
     it('line comments should be ignored at the end of line', () => {
       `import //some comment
-      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p', metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })] }) }))
+      p`.should.be.parsedBy(parser).into(new Import({ entity: new Reference({ name: 'p', metadata: [new Annotation('comment', { text: '//some comment', position: 'start' })] }) }))
         .and.be.tracedTo(0, 29)
         .and.have.nested.property('entity').tracedTo(28, 29)
     })
@@ -95,7 +95,7 @@ describe('Wollok parser', () => {
     )
 
     it('should parse annotations with multiple parameters', () =>
-      '@Annotation (x = 1, y = "a", z=true)'.should.be.parsedBy(parser).into({ name: 'Annotation', args: new Map<Name, LiteralValue>([['x', 1], ['y', 'a'], ['z', true]]) })
+      '@Annotation (x = 1, y = "a", z=true)'.should.be.parsedBy(parser).into(new Annotation('Annotation', { x: 1, y: 'a', z: true }))
     )
 
     it('should not parse malformed annotations', () => {

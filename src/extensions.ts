@@ -9,15 +9,15 @@ export const divideOn = (separator: string) => (str: string): [string, string] =
 
 export const get = <T>(obj: any, path: string): T | undefined => path.split('.').reduce((current, step) => current?.[step], obj)
 
-export function discriminate<A, B = unknown>(isA: (obj: A|B) => obj is A): (list: ReadonlyArray<A | B>) => [A[], B[]]
+export function discriminate<A, B = unknown>(isA: (obj: A | B) => obj is A): (list: ReadonlyArray<A | B>) => [A[], B[]]
 export function discriminate<T>(isA: (obj: T) => boolean): (list: ReadonlyArray<T>) => [T[], T[]]
 export function discriminate<T>(isA: (obj: T) => boolean) {
   return (list: ReadonlyArray<T>): [T[], T[]] => {
     const as: T[] = []
     const bs: T[] = []
 
-    for(const member of list)
-      if(isA(member)) as.push(member)
+    for (const member of list)
+      if (isA(member)) as.push(member)
       else bs.push(member)
 
     return [as, bs]
@@ -46,7 +46,7 @@ export const sumBy = <T>(array: ReadonlyArray<T>, tx: (elem: T) => number): numb
 
 export const traverse = <R>(generator: Generator<unknown, R>): R => {
   let result = generator.next()
-  while(!result.done) result = generator.next()
+  while (!result.done) result = generator.next()
   return result.value
 }
 
@@ -76,7 +76,7 @@ export const MIXINS = Symbol('mixins')
 export type TypeDefinition<T> = ClassDefinition<T> | MixinDefinition<T>
 export type ClassDefinition<T> = abstract new (...args: any) => T
 export type MixinDefinition<T> = (...args: any) => ClassDefinition<T>
-export type Mixable<T> = ClassDefinition<T> & {[MIXINS]?: MixinDefinition<T>[]}
+export type Mixable<T> = ClassDefinition<T> & { [MIXINS]?: MixinDefinition<T>[] }
 
 export type ConstructorFor<D extends TypeDefinition<any>> = D extends TypeDefinition<infer T> ? ClassDefinition<T> : never
 export type InstanceOf<D extends TypeDefinition<any>> = InstanceType<ConstructorFor<D>>
@@ -86,10 +86,14 @@ export const is = <D extends TypeDefinition<any>>(definition: D) => (obj: any): 
 }
 
 export const match = <T>(matched: T) =>
-  <R, Cs extends any[]>(...cases: {[i in keyof Cs]: readonly [TypeDefinition<Cs[i]>, (m: Cs[i]) => R] }): R => {
-    for(const [key, handler] of cases)
-      if(is(key)(matched)) return handler(matched)
+  <R, Cs extends any[]>(...cases: { [i in keyof Cs]: readonly [TypeDefinition<Cs[i]>, (m: Cs[i]) => R] }): R => {
+    for (const [key, handler] of cases)
+      if (is(key)(matched)) return handler(matched)
     throw new Error(`${matched} exhausted all cases without a match`)
   }
 
-export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) => R) => [definition, handler] as const
+export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) => R) =>
+  [definition, handler] as const
+
+export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]): (x: Element) => boolean => x =>
+  conditions.some(condition => condition(x))

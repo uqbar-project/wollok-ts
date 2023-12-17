@@ -18,14 +18,12 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { INITIALIZE_METHOD_NAME, WOLLOK_BASE_PACKAGE } from './constants'
+import { INITIALIZE_METHOD_NAME, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
-import {
-  Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
+import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
-  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable
-} from './model'
+  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from './model'
 
 const { entries } = Object
 
@@ -258,12 +256,15 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
   const lastElseSentence = last(node.elseBody.sentences)
-  // TODO: For Send, consider if expression returns a value
-  const singleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+
+  const noFlow = !lastThenSentence && !lastElseSentence
+  const thenSingleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
+  const elseSingleFlow = !lastThenSentence && lastElseSentence && finishesFlow(lastElseSentence, node)
+  const singleFlow = thenSingleFlow || elseSingleFlow
 
   // Try expression is still pending
   const rightCombinations: Record<string, string[]> = {
-    'Assignment': ['Assignment', 'Send', 'Throw'],
+    'Assignment': ['Assignment', 'Send', 'Throw', 'Variable'],
     'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
@@ -271,11 +272,12 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
     'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Throw': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+    'Variable': ['Assignment', 'Send', 'Throw', 'Variable'],
   }
 
   const twoFlows = !!lastThenSentence && !!lastElseSentence && (rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind) || rightCombinations[lastElseSentence.kind]?.includes(lastThenSentence.kind))
   const ifFlows = !!lastThenSentence && !!lastElseSentence && (lastThenSentence.is(If) || lastElseSentence.is(If))
-  return singleFlow || twoFlows || ifFlows
+  return noFlow || singleFlow || twoFlows || ifFlows
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
@@ -400,10 +402,11 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 )
 
 export const shouldUseConditionalExpression = warning<If>(node => {
-  const thenValue = valueFor(last(node.thenBody.sentences))
+  const thenValue = isEmpty(node.thenBody.sentences) ? undefined : valueFor(last(node.thenBody.sentences))
   const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
   const nextSentence = node.parent.children[node.parent.children.indexOf(node) + 1]
   return (
+    thenValue === undefined ||
     elseValue === undefined ||
     ![true, false].includes(thenValue) ||
     thenValue === elseValue) && (!nextSentence ||
@@ -525,13 +528,11 @@ export const shouldHaveDifferentName = error<Test>(node => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const baseClass = 'Object'
-
 const allParents = (module: Module) =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
 const inheritsCustomDefinition = (module: Module) =>
-  notEmpty(allParents(module).filter(element => element.name !== baseClass))
+  notEmpty(allParents(module).filter(element => element.fullyQualifiedName == OBJECT_MODULE))
 
 const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(ParameterizedType)(node => node.reference.target),
@@ -574,7 +575,8 @@ const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent
   const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
-  return sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
+  // TODO: For Send, consider if expression returns a value
+  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
 }
 
 const getVariableContainer = (node: Node) =>

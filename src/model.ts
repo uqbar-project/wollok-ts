@@ -1,8 +1,9 @@
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
-import { ConstructorFor, InstanceOf, List, MIXINS, Mixable, MixinDefinition, TypeDefinition, is, last, mapObject, notEmpty } from './extensions'
+import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, notEmpty, TypeDefinition } from './extensions'
+import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
 
 const { isArray } = Array
-const { entries, values, assign } = Object
+const { values, assign } = Object
 
 export type Name = string
 export type Id = string
@@ -21,7 +22,7 @@ export class SourceIndex {
   readonly line: number
   readonly column: number
 
-  constructor(args: {offset: number, line: number, column: number}) {
+  constructor(args: { offset: number, line: number, column: number }) {
     this.offset = args.offset
     this.line = args.line
     this.column = args.column
@@ -34,7 +35,7 @@ export class SourceMap {
   readonly start: SourceIndex
   readonly end: SourceIndex
 
-  constructor(args: {start: SourceIndex, end: SourceIndex}) {
+  constructor(args: { start: SourceIndex, end: SourceIndex }) {
     this.start = args.start
     this.end = args.end
   }
@@ -46,11 +47,11 @@ export class SourceMap {
 
 export class Annotation {
   readonly name: Name
-  readonly args: ReadonlyMap<Name, LiteralValue>
+  readonly args: Record<Name, LiteralValue>
 
-  constructor(name: Name, args: Record<Name, LiteralValue> = {}){
+  constructor(name: Name, args: Record<Name, LiteralValue> = {}) {
     this.name = name
-    this.args = new Map(entries(args))
+    this.args = args
   }
 }
 
@@ -106,11 +107,13 @@ export abstract class Node {
   get isSynthetic(): boolean { return !this.sourceMap }
   get hasProblems(): boolean { return notEmpty(this.problems) }
 
+  get type(): WollokType { return this.environment.typeRegistry.getType(this) }
+
   @cached
   toString(verbose = false): string {
     return !verbose ? this.label : JSON.stringify(this, (key, value) => {
-      if('scope' === key) return
-      if('sourceMap' === key) return `${value}`
+      if ('scope' === key) return
+      if ('sourceMap' === key) return `${value}`
       return value
     }, 2)
   }
@@ -197,7 +200,7 @@ export class Parameter extends Node {
 
 
 export class ParameterizedType extends Node {
-  get kind(): 'ParameterizedType' {return 'ParameterizedType' }
+  get kind(): 'ParameterizedType' { return 'ParameterizedType' }
   readonly reference!: Reference<Module | Class>
   readonly args!: List<NamedArgument>
 
@@ -210,7 +213,7 @@ export class ParameterizedType extends Node {
 
 
 export class NamedArgument extends Node {
-  get kind(): 'NamedArgument' {return 'NamedArgument' }
+  get kind(): 'NamedArgument' { return 'NamedArgument' }
   readonly name!: Name
   readonly value!: Expression
 
@@ -221,7 +224,7 @@ export class NamedArgument extends Node {
 
 
 export class Import extends Node {
-  get kind(): 'Import' {return 'Import' }
+  get kind(): 'Import' { return 'Import' }
   readonly entity!: Reference<Entity>
   readonly isGeneric!: boolean
 
@@ -234,7 +237,7 @@ export class Import extends Node {
 
 
 export class Body extends Node {
-  get kind(): 'Body' {return 'Body' }
+  get kind(): 'Body' { return 'Body' }
   readonly sentences!: List<Sentence>
 
   constructor({ sentences = [], ...payload }: Payload<Body> = {}) {
@@ -483,7 +486,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
     @cached
     defaultValueFor(field: Field): Expression {
-      if(!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
+      if (!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
 
       return this.hierarchy.reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
@@ -512,7 +515,7 @@ export class Class extends Module(Node) {
   @cached
   get superclass(): Class | undefined {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target?.is(Class))?.reference
-    if(superclassReference) return superclassReference.target as Class
+    if (superclassReference) return superclassReference.target as Class
     else {
       const objectClass = this.environment.objectClass
       return this === objectClass ? undefined : objectClass
@@ -535,7 +538,7 @@ export class Singleton extends Expression(Module(Node)) {
 
   get superclass(): Class {
     const superclassReference = this.supertypes.find(supertype => supertype.reference.target?.is(Class))?.reference
-    if(superclassReference) return superclassReference.target as Class
+    if (superclassReference) return superclassReference.target as Class
     else return this.environment.objectClass
   }
 
@@ -622,9 +625,9 @@ export class Method extends Node {
     return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
   }
 
-  isAbstract(): this is {body: undefined} { return !this.body }
-  isNative(): this is {body?: Body} { return this.body === 'native' }
-  isConcrete(): this is {body: Body} {return !this.isAbstract() && !this.isNative()}
+  isAbstract(): this is { body: undefined } { return !this.body }
+  isNative(): this is { body?: Body } { return this.body === 'native' }
+  isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
 
   @cached
   get hasVarArgs(): boolean { return !!last(this.parameters)?.isVarArg }
@@ -715,18 +718,18 @@ export class Self extends Expression(Node) {
 }
 
 
-export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression> ]
+export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression>]
 export class Literal<T extends LiteralValue = LiteralValue> extends Expression(Node) {
   get kind(): 'Literal' { return 'Literal' }
   readonly value!: T
 
   constructor(payload: Payload<Literal<T>, 'value'>) { super(payload) }
 
-  isNumeric(): this is {value: number} { return typeof this.value === 'number' }
-  isString(): this is {value: number} { return typeof this.value === 'string' }
-  isBoolean(): this is {value: number} { return typeof this.value === 'boolean' }
-  isNull(): this is {value: number} { return this.value === null }
-  isCollection(): this is {value: number} { return isArray(this.value) }
+  isNumeric(): this is { value: number } { return typeof this.value === 'number' }
+  isString(): this is { value: string } { return typeof this.value === 'string' }
+  isBoolean(): this is { value: boolean } { return typeof this.value === 'boolean' }
+  isNull(): this is { value: null } { return this.value === null }
+  isCollection(): this is { value: readonly [Reference<Class>, List<Expression>] } { return isArray(this.value) }
 }
 
 
@@ -738,6 +741,10 @@ export class Send extends Expression(Node) {
 
   constructor({ args = [], ...payload }: Payload<Send, 'receiver' | 'message'>) {
     super({ args, ...payload })
+  }
+
+  get signature(): string {
+    return `${this.message}/${this.args.length}`
   }
 }
 
@@ -772,6 +779,10 @@ export class If extends Expression(Node) {
   constructor({ elseBody = new Body(), ...payload }: Payload<If, 'condition' | 'thenBody'>) {
     super({ elseBody, ...payload })
   }
+
+  isIfExpression(): boolean {
+    return !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression)
+  }
 }
 
 
@@ -803,7 +814,7 @@ export class Catch extends Node {
 
   override parent!: Try
 
-  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter'| 'body'>) {
+  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
     super({ parameterType, ...payload })
   }
 }
@@ -823,7 +834,7 @@ type ClosurePayload = {
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
   const initialSentences = sentences?.slice(0, -1) ?? []
-  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) ? new Return({ value }) : value) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
@@ -838,23 +849,23 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
 }
 
 export class Environment extends Node {
-  get kind(): 'Environment' { return 'Environment'}
+  get kind(): 'Environment' { return 'Environment' }
 
   readonly members!: List<Package>
   @lazy readonly nodeCache!: ReadonlyMap<Id, Node>
+  @lazy readonly typeRegistry!: TypeRegistry
 
   override parent!: never
 
   constructor(payload: Payload<Environment, 'members'>) { super(payload) }
 
   get sourceFileName(): undefined { return undefined }
-  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
 
   override get ancestors(): List<Node> { return [] }
 
   getNodeById<N extends Node>(id: Id): N {
     const node = this.nodeCache.get(id)
-    if(!node) throw new Error(`Missing node with id ${id}`)
+    if (!node) throw new Error(`Missing node with id ${id}`)
     return node as N
   }
 
@@ -871,4 +882,8 @@ export class Environment extends Node {
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }
+  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
+  get numberClass(): Class { return this.getNodeByFQN('wollok.lang.Number') }
+  get stringClass(): Class { return this.getNodeByFQN('wollok.lang.String') }
+  get booleanClass(): Class { return this.getNodeByFQN('wollok.lang.Boolean') }
 }

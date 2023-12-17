@@ -27,6 +27,8 @@ declare global {
       target(node: Node): Assertion
 
       pass<N extends Node>(validation: Validation<N>): Assertion
+
+      anyType(): Assertion
     }
 
     interface ArrayAssertion {
@@ -170,7 +172,6 @@ export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   })
 
 }
-
 
 // TODO: check if needed
 export const buildEnvironment = async (pattern: string, cwd: string, skipValidations = false): Promise<EnvironmentType> => {
