@@ -127,9 +127,9 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
     endComment,
     index,
   )
-    .chain(payload => Parsimmon((input, index) => {
-      const [from, to] = sanitizeWhitespaces(payload[1], payload[4], input)
-      return makeSuccess<[Annotation[], Parsimmon.Index, P, Annotation | Annotation[], Parsimmon.Index]> (index, [payload[0], from, payload[2], payload[3], to])
+    .chain(([metadata, _start, payload, comment, _end]) => Parsimmon((input, index) => {
+      const [start, end] = sanitizeWhitespaces(_start, _end, input)
+      return makeSuccess<[Annotation[], Parsimmon.Index, P, Annotation | Annotation[], Parsimmon.Index]>(index, [metadata, start, payload, comment, end])
     }))
     .map(([metadata, start, payload, comment, end]) =>
       new constructor({ metadata: metadata.concat(comment), sourceMap: buildSourceMap(start, end), ...payload })
