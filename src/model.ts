@@ -246,6 +246,7 @@ export class Body extends Node {
 
   override parent!: Program | Test | Method | If | Try | Catch
 
+  // TODO: is this ok? => this.parent.is(Method?)
   isEmpty(): boolean {
     return this.isSynthetic || this.parent.is(Method) || notEmpty(this.sentences)
   }

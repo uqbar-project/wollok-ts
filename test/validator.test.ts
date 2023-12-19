@@ -10,7 +10,7 @@ should()
 
 describe('Wollok Validations', () => {
 
-  buildEnvironmentForEachFile(TESTS_PATH, (filePackage) => {
+  buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
 
     it(filePackage.name, () => {
       const allProblems = validate(filePackage)
@@ -21,7 +21,7 @@ describe('Wollok Validations', () => {
         const expectedProblems = expectations.get(node) || []
 
         for (const expectedProblem of expectedProblems) {
-          validateExpectationProblem(expectedProblem, problems, node)
+          validateExpectationProblem(expectedProblem, problems, node, fileContent)
         }
 
         for (const problem of problems) {

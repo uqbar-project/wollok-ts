@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { INITIALIZE_METHOD_NAME, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -27,7 +27,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
 
 const { entries } = Object
 
-const KEYWORDS = [
+const RESERVED_WORDS = [
   'import',
   'package',
   'program',
@@ -80,6 +80,69 @@ const warning = problem('warning')
 const error = problem('error')
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// VALIDATION MESSAGES
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const valuesForNodeName = (node: { name?: string }) => [node.name ?? '']
+
+const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number) =>
+  node.sourceMap && new SourceMap({
+    start: new SourceIndex({
+      ...node.sourceMap.start,
+      offset: node.sourceMap.start.offset + initialOffset,
+    }),
+    end: new SourceIndex({
+      ...node.sourceMap.end,
+      offset: node.sourceMap.start.offset + finalOffset + initialOffset,
+    }),
+  })
+
+const sourceMapForNodeName = (node: Node & { name?: string }) => {
+  if (!node.sourceMap) return undefined
+  const initialOffset = getOffsetForName(node)
+  const finalOffset = node.name?.length ?? 0
+  return buildSourceMap(node, initialOffset, finalOffset)
+}
+
+const sourceMapForOnlyTest = (node: Test) => buildSourceMap(node, 0, KEYWORDS.ONLY.length)
+
+const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEYWORDS.OVERRIDE.length)
+
+const sourceMapForConditionInIf = (node: If) => node.condition.sourceMap
+
+const sourceMapForSentence = (sentence: Sentence) =>
+  sentence.is(Return) ? sentence.value?.sourceMap : sentence.sourceMap
+
+const sourceMapForSentences = (sentences: List<Sentence>) => new SourceMap({
+  start: sourceMapForSentence(sentences[0])!.start,
+  end: sourceMapForSentence(last(sentences)!)!.end,
+})
+
+// const sourceMapForReturnValue = (node: Method) => {
+//   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
+//   const lastSentence = last(node.body.sentences)!
+//   if (!lastSentence.is(Return)) return lastSentence.sourceMap
+//   return lastSentence.value!.sourceMap
+// }
+
+const sourceMapForBody = (node: Method | Test) => {
+  if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
+  return sourceMapForSentences(node.body.sentences)
+}
+
+const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
+  match(node)(
+    when(If)(node => {
+      const whichBody = isBooleanLiteral(node.condition, true) ? node.elseBody : node.thenBody
+      return sourceMapForSentences(whichBody.sentences)
+    }),
+    when(Send)(node => new SourceMap({
+      start: node.args[0].sourceMap!.start,
+      end: node.sourceMap!.end,
+    })),
+  )
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -90,38 +153,27 @@ export const shouldNotBeEmpty = warning<Body>(node =>
 export const isNotWithin = <N extends Node>(kind: TypeDefinition<N>): (node: N, code: Code) => Problem | null =>
   error((node: N) => !node.ancestors.some(is(kind)) || node.isSynthetic)
 
-export const nameMatches = (regex: RegExp): (node: Parameter | Entity | Field | Method, code: Code) => Problem | null =>
+export const nameMatches = (regex: RegExp): (node: Node & { name: string }, code: Code) => Problem | null =>
   warning(
     node => !node.name || regex.test(node.name),
-    node => [node.name ?? ''],
-    node => {
-      if (!node.sourceMap) return undefined
-      const nodeOffset = getOffsetForName(node)
-      return node.sourceMap && new SourceMap({
-        // TODO: reify node information (like class names)
-        start: new SourceIndex({
-          ...node.sourceMap.start,
-          offset: node.sourceMap.start.offset + nodeOffset,
-        }),
-        end: new SourceIndex({
-          ...node.sourceMap.end,
-          offset: node.sourceMap.start.offset + (node.name?.length ?? 0) + nodeOffset,
-        }),
-      })
-    }
+    valuesForNodeName,
+    sourceMapForNodeName,
   )
 
 export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
 
 export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
 
-export const nameShouldNotBeKeyword = error<Entity | Parameter | Variable | Field | Method>(node =>
-  !KEYWORDS.includes(node.name || ''),
-node => [node.name || ''],
+export const nameShouldNotBeKeyword = error<Parameter | Variable | Field | Method>(node =>
+  !RESERVED_WORDS.includes(node.name || ''),
+valuesForNodeName,
+sourceMapForNodeName,
 )
 
 export const inlineSingletonShouldBeAnonymous = error<Singleton>(
-  singleton => singleton.parent.is(Package) || !singleton.name
+  singleton => singleton.parent.is(Package) || !singleton.name,
+  valuesForNodeName,
+  sourceMapForNodeName,
 )
 
 export const topLevelSingletonShouldHaveAName = error<Singleton>(
@@ -146,7 +198,7 @@ export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   return isEmpty(node.sentences) || !node.sentences.every(sentence =>
     callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
-})
+}, undefined, sourceMapForBody)
 
 export const shouldNotInstantiateAbstractClass = error<New>(node => !node.instantiated.target?.isAbstract)
 
@@ -192,22 +244,24 @@ export const possiblyReturningBlock = warning<Method>(node => {
   const singleSentence = node.sentences[0]
   return !(singleSentence.isSynthetic && singleSentence.is(Return) && singleSentence.value?.is(Singleton) && singleSentence.value.isClosure(0))
 })
+//, undefined, sourceMapForReturnValue)
 
 export const shouldNotUseOverride = error<Method>(node =>
   node.parent.is(Mixin) || !node.isOverride || !!superclassMethod(node)
-)
+, valuesForNodeName,
+sourceMapForOverrideMethod)
 
 export const namedArgumentShouldExist = error<NamedArgument>(node => {
   const parent = getReferencedModule(node.parent)
   return !parent || !!parent.lookupField(node.name)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const namedArgumentShouldNotAppearMoreThanOnce = warning<NamedArgument>(node => {
   const nodeParent = node.parent
   let siblingArguments: List<NamedArgument> | undefined
   if (nodeParent.is(New)) siblingArguments = nodeParent.args
   return !siblingArguments || count(siblingArguments, _ => _.name === node.name) === 1
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Class>(node => {
   const allNamedArguments = node.supertypes.flatMap(parent => parent.args.map(_ => _.name))
@@ -226,7 +280,7 @@ export const shouldInitializeInheritedAttributes = error<Singleton>(
 
 export const shouldInitializeSingletonAttribute = error<Field>(node => {
   return !node.parent.is(Singleton) || !isUninitialized(node.value)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseSelf = error<Self>(node => {
   const ancestors = node.ancestors
@@ -251,7 +305,7 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   const lastSentence = last(node.sentences)
   const superclassSentence = last(overridenMethod.sentences)
   return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
-})
+}, undefined, sourceMapForBody)
 
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
@@ -282,7 +336,8 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 
 export const shouldNotDuplicateFields = error<Field>(node =>
   count(node.parent.allFields, _ => _.name == node.name) === 1
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node => {
   const nodeMethod = getVariableContainer(node)
@@ -291,10 +346,12 @@ export const parameterShouldNotDuplicateExistingVariable = error<Parameter>(node
   return parameterNotDuplicated && !hasDuplicatedVariable(nodeMethod.parent, node.name)
 })
 
-export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node))
+export const shouldNotDuplicateLocalVariables = error<Variable>(node => !duplicatesLocalVariable(node), valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotDuplicateGlobalDefinitions = error<Module | Variable>(node =>
-  !node.name || !node.parent.is(Package) || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name))
+  !node.name || !node.parent.is(Package) || isEmpty(node.siblings().filter(child => (child as Entity).name == node.name)),
+valuesForNodeName,
+sourceMapForNodeName,
 )
 
 export const shouldNotDuplicateVariablesInLinearization = error<Module>(node => {
@@ -313,7 +370,9 @@ export const shouldHaveBody = error<Method>(node => {
 
 export const shouldNotDefineGlobalMutableVariables = error<Variable>(variable => {
   return variable.isConstant || !variable.isAtPackageLevel
-})
+},
+valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
   const arg: Expression = node.args[0]
@@ -322,7 +381,8 @@ export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
 
 export const shouldUseBooleanValueInIfCondition = error<If>(node =>
   isBooleanOrUnknownType(node.condition)
-)
+, undefined,
+sourceMapForConditionInIf)
 
 export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
   if (!isBooleanMessage(node)) return true
@@ -333,7 +393,8 @@ export const shouldUseBooleanValueInLogicOperation = error<Send>(node => {
 
 export const shouldNotDefineUnnecesaryIf = error<If>(node =>
   notEmpty(node.elseBody.sentences) || !node.condition.is(Literal) || node.condition.value !== true
-)
+, undefined,
+sourceMapForConditionInIf)
 
 export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
   notEmpty(node.tests)
@@ -341,16 +402,20 @@ export const shouldNotDefineEmptyDescribe = warning<Describe>(node =>
 
 export const shouldHaveNonEmptyName = warning<Describe | Test>(node =>
   (node.name ?? '').replaceAll('"', '').trim() !== ''
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotMarkMoreThanOneOnlyTest = warning<Test>(node =>
   !node.isOnly || count(node.siblings(), element => element.is(Test) && element.isOnly) <= 1
-)
+, valuesForNodeName,
+sourceMapForOnlyTest)
 
 export const shouldNotDefineNativeMethodsOnUnnamedSingleton = error<Method>(node => {
   const parent = node.parent
   return !node.isNative() || !parent.is(Singleton) || !!parent.name
-})
+},
+valuesForNodeName,
+sourceMapForNodeName)
 
 export const codeShouldBeReachable = error<If | Send>(node =>
   match(node)(
@@ -365,7 +430,8 @@ export const codeShouldBeReachable = error<If | Send>(node =>
       return !(isBooleanLiteral(receiver, true) && ['or', '||'].includes(message)) && !(isBooleanLiteral(receiver, false) && ['and', '&&'].includes(message))
     }),
   )
-)
+, undefined,
+sourceMapForUnreachableCode)
 
 export const methodShouldExist = error<Send>(node => methodExists(node))
 
@@ -399,7 +465,8 @@ export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
 
 export const overridingMethodShouldHaveABody = error<Method>(node =>
   !node.isOverride || node.isNative() || node.isConcrete()
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenValue = isEmpty(node.thenBody.sentences) ? undefined : valueFor(last(node.thenBody.sentences))
@@ -414,10 +481,10 @@ export const shouldUseConditionalExpression = warning<If>(node => {
   )
 })
 
-
 export const shouldHaveAssertInTest = warning<Test>(node =>
   !node.body.isEmpty() || sendsMessageToAssert(node.body)
-)
+, undefined,
+sourceMapForBody)
 
 export const shouldMatchFileExtension = error<Test | Program>(node => {
   const filename = node.sourceFileName
@@ -436,26 +503,33 @@ export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(nod
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
   !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
-)
+, undefined,
+sourceMapForBody)
 
-export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node => !usesReservedWords(node))
+export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | Field | Parameter>(node =>
+  !usesReservedWords(node)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
   !(node.isAtPackageLevel && isInitialized(node))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
-export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node))
+export const shouldNotDefineUnusedVariables = warning<Field>(node => !unusedVariable(node), valuesForNodeName, sourceMapForNodeName)
 
 export const shouldInitializeConst = error<Variable>(node =>
   !(
     getContainer(node)?.is(Program) &&
     node.isConstant &&
     isInitialized(node))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
   !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name)
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
   const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>('wollok.lang.Exception')
@@ -475,7 +549,8 @@ export const catchShouldBeReachable = error<Catch>(node => {
 
 export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
   !node.name || !node.parent.is(Package) || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target, node.name!))
-)
+, valuesForNodeName,
+sourceMapForNodeName)
 
 export const shouldNotImportSameFile = error<Import>(node =>
   ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
@@ -486,7 +561,7 @@ export const shouldNotImportMoreThanOnce = warning<Import>(node =>
 )
 
 export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
-  if (node.isConstant || usesReservedWords(node) || KEYWORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
+  if (node.isConstant || usesReservedWords(node) || RESERVED_WORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
   const module = getContainer(node)
   if (!module) return true
   return match(module)(
@@ -498,7 +573,7 @@ export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
     ),
     when(Module)(module => module.methods.some(method => assigns(method, node))),
   )
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   if (!methodExists(node) || !supposedToReturnValue(node)) return true
@@ -523,7 +598,7 @@ export const shouldHaveDifferentName = error<Test>(node => {
     when(Node)(_ => []),
   )
   return !tests || tests.every(other => node === other || other.name !== node.name)
-})
+}, valuesForNodeName, sourceMapForNodeName)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -774,11 +849,16 @@ const isInitialized = (node: Variable) =>
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+const getVariableOffset = (node: Variable | Field) => (node.isConstant ? KEYWORDS.CONST.length : KEYWORDS.VAR.length) + 1
+
 const getOffsetForName = (node: Node): number => match(node)(
   when(Parameter)(() => 0),
-  when(Field)(node => node.isConstant ? 6 : 4 + (node.isProperty ? 9 : 0)),
-  when(Entity)(node => node.is(Singleton) ? 7 : node.kind.length + 1),
-  when(Method)(node => node.kind.length + 1),
+  when(NamedArgument)(() => 0),
+  when(Variable)(node => getVariableOffset(node)),
+  when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
+  when(Method)(node => (node.isOverride ? KEYWORDS.OVERRIDE.length + 1 : 0) + node.kind.length + 1),
+  when(Reference)(node => node.name.length + 1),
+  when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
 )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

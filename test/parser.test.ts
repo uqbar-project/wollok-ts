@@ -1,5 +1,5 @@
 import { should, use } from 'chai'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -268,7 +268,7 @@ describe('Wollok parser', () => {
             members: [new Class({ name: 'C' })],
           })
         ).and.be.tracedTo(0, 24)
-          .and.have.nested.property('members.0').tracedTo(12, 23)
+          .and.have.nested.property('members.0').tracedTo(12, 22)
       })
 
       it('should parse non-empty packages with more than one class', () => {
@@ -281,8 +281,8 @@ describe('Wollok parser', () => {
             ],
           })
         ).and.be.tracedTo(0, 35)
-          .and.have.nested.property('members.0').tracedTo(12, 23)
-          .and.also.have.nested.property('members.1').tracedTo(23, 34)
+          .and.have.nested.property('members.0').tracedTo(12, 22)
+          .and.also.have.nested.property('members.1').tracedTo(23, 33)
 
       })
 
@@ -396,7 +396,7 @@ describe('Wollok parser', () => {
           })
         ).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
-          .and.also.have.nested.property('members.1').tracedTo(16, 29)
+          .and.also.have.nested.property('members.1').tracedTo(16, 28)
       })
 
       it('should parse classes that inherit from other class', () => {
@@ -418,7 +418,7 @@ describe('Wollok parser', () => {
             ],
           })
         ).and.be.tracedTo(0, 28)
-          .and.have.nested.property('supertypes.0').tracedTo(17, 26)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 25)
           .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
       })
 
@@ -624,7 +624,7 @@ describe('Wollok parser', () => {
             ],
           })
         ).and.be.tracedTo(0, 28)
-          .and.have.nested.property('supertypes.0').tracedTo(17, 26)
+          .and.have.nested.property('supertypes.0').tracedTo(17, 25)
           .and.also.have.nested.property('supertypes.0.reference').tracedTo(17, 18)
       })
 
@@ -639,7 +639,7 @@ describe('Wollok parser', () => {
           })
         ).and.be.tracedTo(0, 30)
           .and.have.nested.property('members.0').tracedTo(10, 15)
-          .and.also.have.nested.property('members.1').tracedTo(16, 29)
+          .and.also.have.nested.property('members.1').tracedTo(16, 28)
       })
 
       it('should parse annotated nodes', () => {
@@ -765,7 +765,7 @@ describe('Wollok parser', () => {
           })
         ).and.be.tracedTo(0, 32)
           .and.have.nested.property('members.0').tracedTo(12, 17)
-          .and.also.have.nested.property('members.1').tracedTo(18, 31)
+          .and.also.have.nested.property('members.1').tracedTo(18, 30)
       })
 
       it('should parse objects that inherits from a class', () => {
@@ -792,7 +792,7 @@ describe('Wollok parser', () => {
             })],
           })
         ).and.be.tracedTo(0, 36)
-          .and.have.nested.property('supertypes.0').tracedTo(18, 34)
+          .and.have.nested.property('supertypes.0').tracedTo(18, 33)
           .and.also.have.nested.property('supertypes.0.reference').tracedTo(18, 19)
           .and.also.have.nested.property('supertypes.0.args.0').tracedTo(20, 25)
           .and.also.have.nested.property('supertypes.0.args.0.value').tracedTo(24, 25)
@@ -1148,8 +1148,8 @@ describe('Wollok parser', () => {
             ],
           })
         ).and.be.tracedTo(0, 47)
-          .and.have.nested.property('members.0').tracedTo(18, 32)
-          .and.also.have.nested.property('members.1').tracedTo(32, 46)
+          .and.have.nested.property('members.0').tracedTo(18, 31)
+          .and.also.have.nested.property('members.1').tracedTo(32, 45)
       })
 
       it('should parse describes with fields', () => {
@@ -1163,7 +1163,7 @@ describe('Wollok parser', () => {
         'describe "name" { method m(){} }'.should.be.parsedBy(parser).into(
           new Describe({ name: '"name"', members: [new Method({ name: 'm', body: new Body() })] })
         ).and.be.tracedTo(0, 32)
-          .and.have.nested.property('members.0').tracedTo(18, 31)
+          .and.have.nested.property('members.0').tracedTo(18, 30)
       })
 
       it('should parse annotated nodes', () => {
@@ -2509,7 +2509,7 @@ describe('Wollok parser', () => {
             })
           ).and.be.tracedTo(0, 17)
             .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(5, 9)
+            .and.also.have.nested.property('thenBody').tracedTo(5, 8)
             .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
             .and.also.have.nested.property('elseBody').tracedTo(14, 17)
             .and.also.have.nested.property('elseBody.sentences.0').tracedTo(15, 16)
@@ -3058,7 +3058,7 @@ describe('Wollok parser', () => {
             }),
           ).and.be.tracedTo(0, 29)
             .and.have.nested.property('members.0').tracedTo(9, 14)
-            .and.also.have.nested.property('members.1').tracedTo(15, 28)
+            .and.also.have.nested.property('members.1').tracedTo(15, 27)
         })
 
         it('should parse literal objects that inherit from a class', () => {
@@ -3097,7 +3097,7 @@ describe('Wollok parser', () => {
               ],
             }),
           ).and.be.tracedTo(0, 27)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 25)
+            .and.have.nested.property('supertypes.0').tracedTo(16, 24)
             .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
             .and.also.have.nested.property('supertypes.0.args.0').tracedTo(18, 23)
         })
@@ -3545,6 +3545,54 @@ describe('Wollok parser', () => {
 
       })
 
+    })
+
+  })
+
+  describe('sanitizeWhitespaces', () => {
+
+    const input = `
+class Bird {
+  var property energy = 100
+  var times = 0
+
+  method fly() {
+    energy = energy - 50
+    times = times + 1
+  }
+
+  method eat(grams) {
+    energy = energy + 10 * grams
+  }
+
+  method energy() = energy
+
+}
+
+class OtherClass {
+
+}
+`
+    const textFor = ([from, to]: SourceIndex[], input: string): string => input.substring(from.offset, to.offset)
+
+    it('should return same input if there are no whitespaces', () => {
+      const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 2, column: 1, offset: 1 }), new SourceIndex({ line: 2, column: 6, offset: 6 }), input)
+      textFor(result, input).should.be.equal('class')
+    })
+
+    it('should trim trailing whitespaces', () => {
+      const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 2, column: 1, offset: 1 }), new SourceIndex({ line: 2, column: 7, offset: 7 }), input)
+      textFor(result, input).should.be.equal('class')
+    })
+
+    it('should trim beginning whitespaces for the input', () => {
+      const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 4, column: 16, offset: 57 }), new SourceIndex({ line: 6, column: 15, offset: 73 }), input)
+      textFor(result, input).should.be.equal('method fly()')
+    })
+
+    it('should trim beginning & trailing whitespaces for the input', () => {
+      const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 4, column: 16, offset: 57 }), new SourceIndex({ line: 6, column: 16, offset: 74 }), input)
+      textFor(result, input).should.be.equal('method fly()')
     })
 
   })
