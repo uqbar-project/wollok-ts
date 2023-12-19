@@ -13,7 +13,7 @@ should()
 describe('Wollok Type System Inference', () => {
 
 
-  buildEnvironmentForEachFile(TESTS_PATH, (filePackage) => {
+  buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
     if (!getPotentiallyUninitializedLazy(environment, 'typeRegistry')) { // Just run type inference once
       const logger = undefined
@@ -38,7 +38,7 @@ describe('Wollok Type System Inference', () => {
             if (type !== nodeType) fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert problem
-            const expectedProblem = validateExpectationProblem(expectation, problems, node)
+            const expectedProblem = validateExpectationProblem(expectation, problems, node, fileContent)
             problems.splice(problems.indexOf(expectedProblem), 1)
           }
         }
