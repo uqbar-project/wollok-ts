@@ -1,3 +1,4 @@
+import { WOLLOK_BASE_PACKAGE } from '../constants'
 import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
@@ -92,7 +93,7 @@ const inferEnvironment = (env: Environment) => {
 }
 
 const inferPackage = (p: Package) => {
-  if (p.name.startsWith('wollok')) return //TODO: Fix wrong inferences
+  if (p.isBaseWollokCode) return // Wollok code should be typed by annotations
   p.children.forEach(createTypeVariables)
 }
 
