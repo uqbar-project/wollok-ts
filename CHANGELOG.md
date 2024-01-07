@@ -1,9 +1,19 @@
 # Changelog
 
+## v4.0.7
+**Wollok Version: `3.2.0`**
+
+- New Type System 🎉 - based on the Xtext's implementation.
+- Fixed instantiation of `List` and `Set` classes using `new`.
+- Some validations changed:
+  - Take care about the `SourceMap` for reporting.
+  - Avoid tests with the same name.
+  - Avoid override validation at `initialize()` method.
+
 ## v4.0.6
 **Wollok Version: `3.1.9`**
 
-- New Formatter / Printer.
+- New Formatter / Printer 🎉
 - Validate concrete class on instantiation.
 - Validate uninitialized consts.
 
