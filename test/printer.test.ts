@@ -52,6 +52,17 @@ describe('Wollok Printer', () => {
           }
         `)
       })
+      it('Prefix operator', () => {
+        `object pepita {
+          method prueba() {
+            return not(!false && false.negate()) && (-1 < +2)
+          }
+        }`.should.be.formattedTo(`
+          object pepita {
+            method prueba() = (not ((!false) && false.negate())) && ((-1) < (+2))
+          }
+        `)
+      })
     })
 
     describe('If', () => {

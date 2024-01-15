@@ -2075,7 +2075,7 @@ describe('Wollok parser', () => {
 
         it('should parse the negation of a reference with the "!" operator', () => {
           '!a'.should.be.parsedBy(parser).into(
-            new Send({ receiver: new Reference({ name: 'a' }), message: 'negate' })
+            new Send({ receiver: new Reference({ name: 'a' }), message: 'negate', originalOperator: '!' })
           ).and.be.tracedTo(0, 2)
             .and.have.nested.property('receiver').tracedTo(1, 2)
         })
@@ -2087,10 +2087,13 @@ describe('Wollok parser', () => {
                 receiver: new Send({
                   receiver: new Reference({ name: 'a' }),
                   message: 'negate',
+                  originalOperator: '!',
                 }),
                 message: 'negate',
+                originalOperator: '!',
               }),
               message: 'negate',
+              originalOperator: '!',
             })
           ).and.be.tracedTo(0, 4)
             .and.have.nested.property('receiver').tracedTo(1, 4)
@@ -2099,7 +2102,7 @@ describe('Wollok parser', () => {
         })
 
         it('should parse arithmetic operators in prefix operations', () => {
-          '-1'.should.be.parsedBy(parser).into(new Send({ receiver: new Literal({ value: 1 }), message: 'invert' }))
+          '-1'.should.be.parsedBy(parser).into(new Send({ receiver: new Literal({ value: 1 }), message: 'invert', originalOperator: '-' }))
             .and.be.tracedTo(0, 2)
             .and.have.nested.property('receiver').tracedTo(1, 2)
         })
@@ -2110,8 +2113,10 @@ describe('Wollok parser', () => {
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
                 message: 'negate',
+                originalOperator: '!',
               }),
               message: 'negate',
+              originalOperator: '!',
               metadata: [new Annotation('A', { x: 1 })],
             })
           )
@@ -2123,9 +2128,11 @@ describe('Wollok parser', () => {
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
                 message: 'negate',
+                originalOperator: '!',
                 metadata: [new Annotation('A', { x: 1 })],
               }),
               message: 'negate',
+              originalOperator: '!',
             })
           )
 
@@ -2134,8 +2141,10 @@ describe('Wollok parser', () => {
               receiver: new Send({
                 receiver: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
                 message: 'negate',
+                originalOperator: '!',
               }),
               message: 'negate',
+              originalOperator: '!',
             })
           )
         })
