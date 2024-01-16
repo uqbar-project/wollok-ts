@@ -1,8 +1,8 @@
 import { IDoc, align, append, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
 import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
 import { List, isEmpty, match, notEmpty, when } from '../extensions'
-import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
+import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { DocTransformer, WS, body, defaultToEmpty, enclosedList, listEnclosers, listed, setEnclosers, stringify } from './utils'
 
 const { entries } = Object
 
@@ -379,7 +379,7 @@ const formatInheritance: FormatterWithContext<Singleton | Class> = (context: Pri
 // SEND FORMATTERS
 
 const formatSend: FormatterWithContext<Send> = context => node => {
-  const formatter = isInfixOperator(node) ? formatInfixSend : isPrefixOperator(node) ? formatPrefixSend : formatDotSend
+  const formatter = node.isInfixOperator() ? formatInfixSend : node.isPrefixOperator() ? formatPrefixSend : formatDotSend
   return formatter(context)(node)
 }
 
@@ -399,13 +399,13 @@ const formatInfixSend: FormatterWithContext<Send> = context => node => {
 }
 
 const formatPrefixSend: FormatterWithContext<Send> = context => node => {
-  return [prefixOperatorByMessage[node.message], addParenthesisIfNeeded(context, node.receiver)]
+  return [[node.originalOperator!, useSpacingForPrefixOperators[node.originalOperator!] ? WS : []], addParenthesisIfNeeded(context, node.receiver)]
 }
 
 function addParenthesisIfNeeded(context: PrintContext, expression: Expression): IDoc {
   // ToDo: add more cases where parenthesis aren't needed
   const formatted = format(context)(expression)
-  return expression.is(Send) && (isInfixOperator(expression) || isPrefixOperator(expression)) ?
+  return expression.is(Send) && (expression.isInfixOperator() || expression.isPrefixOperator()) ?
     enclose(parens, formatted) :
     formatted
 }
@@ -462,23 +462,11 @@ const assignmentOperationByMessage = { '||': '||=', '/': '/=', '-': '-=', '+': '
 
 // send utils
 
-/*
- * ToDo: safe way of telling if this is a parser-generated message or a user-defined one
- *  e.g. x.negate() shouldnt be formatted to !x
- */
-const isPrefixOperator = (node: Send): boolean =>
-  Object.values(PREFIX_OPERATORS).includes(node.message) &&
-  isEmpty(node.args)
-
-const isInfixOperator = (node: Send): boolean =>
-  infixOperators.includes(node.message) &&
-  node.args.length === 1
-
-//ToDo: missing 'not'
-const prefixOperatorByMessage: Record<Name, Name> = {
-  'negate': '!',
-  'invert': '-',
-  'plus': '+',
+const useSpacingForPrefixOperators: Record<keyof typeof PREFIX_OPERATORS, boolean> = {
+  '!': false,
+  '-': false,
+  '+': false,
+  'not': true,
 }
 
 // metadata

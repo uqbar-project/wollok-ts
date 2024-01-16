@@ -1,10 +1,6 @@
 import { IDoc, append, braces, brackets, choice, dquotes, enclose, intersperse, lineBreak, softLine } from 'prettier-printer'
-import { INFIX_OPERATORS } from '../constants'
 
 export type DocTransformer = (doc: IDoc) => IDoc
-
-export const infixOperators = INFIX_OPERATORS.flat()
-
 
 type Encloser = [IDoc, IDoc]
 export const listEnclosers: Encloser = brackets

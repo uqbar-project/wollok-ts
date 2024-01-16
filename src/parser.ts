@@ -396,9 +396,9 @@ const infixMessageChain = (precedenceLevel = 0): Parser<ExpressionNode> => {
 const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
   alt(
     node(SendNode)(() => obj({
-      message: operator(keys(PREFIX_OPERATORS)).map(_ => PREFIX_OPERATORS[_]),
+      message: operator(keys(PREFIX_OPERATORS)),
       receiver: prefixMessageChain,
-    })),
+    }).map((send) => ({ ...send, message: PREFIX_OPERATORS[send.message], originalOperator: send.message }))),
     postfixMessageChain
   )
 )
