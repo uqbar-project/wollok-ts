@@ -284,7 +284,7 @@ export function Entity<S extends Mixable<Node>>(supertype: S) {
     }
 
     get isBaseWollokCode(): boolean {
-      return this.fullyQualifiedName.includes(WOLLOK_BASE_PACKAGE)
+      return this.fullyQualifiedName.startsWith(WOLLOK_BASE_PACKAGE)
     }
   }
 
