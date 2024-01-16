@@ -1,4 +1,3 @@
-import { WOLLOK_BASE_PACKAGE } from '../constants'
 import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
@@ -9,7 +8,7 @@ const tVars = new Map<Node, TypeVariable>()
 
 export function newTypeVariables(env: Environment): Map<Node, TypeVariable> {
   tVars.clear()
-  createTypeVariables(env)
+  inferTypeVariables(env)
   return tVars
 }
 
@@ -27,7 +26,7 @@ function newTVarFor(node: Node) {
   const newTVar = doNewTVarFor(node)
   let annotatedVar = newTVar // By default, annotations reference the same tVar
   if (node.is(Method)) {
-    const parameters = node.parameters.map(p => createTypeVariables(p)!)
+    const parameters = node.parameters.map(p => inferTypeVariables(p)!)
     annotatedVar = newSyntheticTVar(node) // But for methods, annotations reference to return tVar
     newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)), false)
   }
@@ -51,7 +50,7 @@ function doNewTVarFor(node: Node) {
   return newTVar
 }
 
-function createTypeVariables(node: Node): TypeVariable | void {
+function inferTypeVariables(node: Node): TypeVariable | void {
   return match(node)(
     when(Environment)(inferEnvironment),
 
@@ -89,28 +88,29 @@ function createTypeVariables(node: Node): TypeVariable | void {
 }
 
 const inferEnvironment = (env: Environment) => {
-  env.children.forEach(createTypeVariables)
+  env.children.forEach(inferTypeVariables)
 }
 
 const inferPackage = (p: Package) => {
-  if (p.isBaseWollokCode) return // Wollok code should be typed by annotations
-  p.children.forEach(createTypeVariables)
+  // Wollok code should be typed by annotations, avoid inference.
+  if (p.isBaseWollokCode) return;
+  p.children.forEach(inferTypeVariables)
 }
 
 const inferProgram = (p: Program) => {
-  createTypeVariables(p.body)
+  inferTypeVariables(p.body)
 }
 
 const inferTest = (t: Test) => {
-  createTypeVariables(t.body)
+  inferTypeVariables(t.body)
 }
 
 const inferBody = (body: Body) => {
-  body.sentences.forEach(createTypeVariables)
+  body.sentences.forEach(inferTypeVariables)
 }
 
 const inferModule = (m: Module | Describe) => {
-  m.members.forEach(createTypeVariables)
+  m.members.forEach(inferTypeVariables)
   const tVar = typeVariableFor(m)
   if (!(m.is(Singleton) && m.isClosure())) // Avoid closures
     tVar.setType(typeForModule(m)) // Set module type
@@ -120,12 +120,12 @@ const inferModule = (m: Module | Describe) => {
 const inferNew = (n: New) => {
   const clazz = n.instantiated.target!
   const tVar = typeVariableFor(n).setType(typeForModule(clazz))
-  /*const args =*/ n.args.map(createTypeVariables)
+  /*const args =*/ n.args.map(inferTypeVariables)
   return tVar
 }
 
 const inferNamedArgument = (n: NamedArgument) => {
-  const valueTVar = createTypeVariables(n.value)!
+  const valueTVar = inferTypeVariables(n.value)!
   if (n.parent instanceof New) {
     // Named arguments value should be subtype of field definition
     const clazz = n.parent.instantiated.target!
@@ -141,7 +141,7 @@ const inferNamedArgument = (n: NamedArgument) => {
 
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
-  m.sentences.forEach(createTypeVariables)
+  m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
     if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
@@ -154,22 +154,22 @@ const inferMethod = (m: Method) => {
 }
 
 const inferSend = (send: Send) => {
-  const receiver = createTypeVariables(send.receiver)!
-  /*const args =*/ send.args.map(createTypeVariables)
+  const receiver = inferTypeVariables(send.receiver)!
+  /*const args =*/ send.args.map(inferTypeVariables)
   receiver.addSend(send)
   // TODO: Save args info for max type inference
   return typeVariableFor(send)
 }
 
 const inferAssignment = (a: Assignment) => {
-  const variable = createTypeVariables(a.variable)!
-  const value = createTypeVariables(a.value)!
+  const variable = inferTypeVariables(a.variable)!
+  const value = inferTypeVariables(a.value)!
   variable.beSupertypeOf(value)
   return typeVariableFor(a).setType(new WollokAtomicType(VOID))
 }
 
 const inferVariable = (v: Variable | Field) => {
-  const valueTVar = createTypeVariables(v.value)
+  const valueTVar = inferTypeVariables(v.value)
   const varTVar = typeVariableFor(v)
   if (valueTVar && !varTVar.closed) varTVar.beSupertypeOf(valueTVar)
   return varTVar
@@ -183,16 +183,16 @@ const inferReturn = (r: Return) => {
   const method = r.ancestors.find(is(Method))
   if (!method) throw new Error('Method for Return not found')
   if (r.value)
-    typeVariableFor(method).atParam(RETURN).beSupertypeOf(createTypeVariables(r.value)!)
+    typeVariableFor(method).atParam(RETURN).beSupertypeOf(inferTypeVariables(r.value)!)
   else
     typeVariableFor(method).atParam(RETURN).setType(new WollokAtomicType(VOID))
   return typeVariableFor(r).setType(new WollokAtomicType(VOID))
 }
 
 const inferIf = (_if: If) => {
-  createTypeVariables(_if.condition)!.setType(new WollokModuleType(_if.environment.booleanClass))
-  createTypeVariables(_if.thenBody)
-  createTypeVariables(_if.elseBody)
+  inferTypeVariables(_if.condition)!.setType(new WollokModuleType(_if.environment.booleanClass))
+  inferTypeVariables(_if.thenBody)
+  inferTypeVariables(_if.elseBody)
   if (_if.elseBody.sentences.length) {
     typeVariableFor(_if)
       .beSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
@@ -234,7 +234,7 @@ const inferLiteral = (l: Literal) => {
 const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) => {
   const arrayTVar = typeForModule(value[0].target!)
   const elementTVar = arrayTVar.atParam(ELEMENT)
-  value[1].map(createTypeVariables).forEach(inner =>
+  value[1].map(inferTypeVariables).forEach(inner =>
     elementTVar.beSupertypeOf(inner!)
   )
   return arrayTVar
