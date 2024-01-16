@@ -739,6 +739,10 @@ export class Send extends Expression(Node) {
   get kind(): 'Send' { return 'Send' }
   readonly receiver!: Expression
   readonly message!: Name
+  /**
+   * @description Used for prefix operators, represents the original
+   * operator name before it was transformed to a message
+   */
   readonly originalOperator?: Name
   readonly args!: List<Expression>
 
