@@ -15,6 +15,10 @@ const ALL_OPERATORS = [
   ...INFIX_OPERATORS.flat(),
 ].sort((a, b) => b.localeCompare(a))
 
+export const MALFORMED_ENTITY = 'malformedEntity'
+export const MALFORMED_MEMBER = 'malformedMember'
+export const MALFORMED_SENTENCE = 'malformedSentence'
+
 export class ParseError implements BaseProblem {
   constructor(public code: Name, public sourceMap: SourceMap){ }
 
@@ -221,7 +225,7 @@ const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.m
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const entityError = error('malformedEntity')('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const')
+const entityError = error(MALFORMED_ENTITY)('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const')
 
 export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
   Package,
@@ -315,8 +319,8 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const memberError = error('malformedMember')('method', 'var', 'const', 'test', 'describe')
-const classMemberError = error('malformedMember')('method', 'var', 'const')
+const memberError = error(MALFORMED_MEMBER)('method', 'var', 'const', 'test', 'describe')
+const classMemberError = error(MALFORMED_MEMBER)('method', 'var', 'const')
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
@@ -346,7 +350,7 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
 // SENTENCES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const sentenceError = error('malformedSentence')()
+const sentenceError = error(MALFORMED_SENTENCE)()
 
 export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variable, Return, Assignment, Expression))
 

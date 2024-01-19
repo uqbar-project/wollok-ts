@@ -3,6 +3,7 @@ import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constant
 import { List, isEmpty, match, notEmpty, when } from '../extensions'
 import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
+import { MALFORMED_ENTITY, MALFORMED_MEMBER, MALFORMED_SENTENCE } from '../parser'
 
 const { entries } = Object
 
@@ -43,12 +44,14 @@ function print(node: Node, { maxWidth, useSpaces, abbreviateAssignments }: Print
 
 type Formatter<T extends Node> = (node: T) => IDoc
 type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter<T>
+const criticalProblems = [MALFORMED_MEMBER, MALFORMED_ENTITY, MALFORMED_SENTENCE]
+
 const format: FormatterWithContext<Node> = context => node => {
   if(
     node.hasProblems &&
-    node.problems?.some(problem =>  ['malformedMember', 'malformedEntity', 'malformedSentence'].includes(problem.code))
+    node.problems?.some(problem =>  criticalProblems.includes(problem.code))
   ){
-    throw new Error('Failed to print')
+    throw new Error('Failed to print, found malformed node')
   }
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
   const formattedNode: IDoc = match(node)(

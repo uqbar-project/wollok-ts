@@ -189,7 +189,7 @@ describe('Wollok parser', () => {
 
     it('should recover from entity parse error', () => {
       'class A {} clazz B {method m () {}} class C{}'.should.be.parsedBy(parser)
-        .recoveringFrom('malformedEntity', 11, 36)
+        .recoveringFrom(parse.MALFORMED_ENTITY, 11, 36)
         .into(new Package({
           fileName: 'foo.wlk',
           name: 'foo',
@@ -320,7 +320,7 @@ describe('Wollok parser', () => {
 
       it('should recover from entity parse error', () => {
         'package p { class A {} clazz B {method m () {}} class C{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 23, 48)
+          .recoveringFrom(parse.MALFORMED_ENTITY, 23, 48)
           .into(new Package({
             name: 'p',
             members: [
@@ -332,7 +332,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'package p { clazz A {method m () {}} class B {} class C{} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 12, 37)
+          .recoveringFrom(parse.MALFORMED_ENTITY, 12, 37)
           .into(
             new Package({
               name: 'p',
@@ -346,7 +346,7 @@ describe('Wollok parser', () => {
 
       it('should recover from final member parse error', () => {
         'package p { class A {} class B {} clazz C{method m () {}} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 34, 58)
+          .recoveringFrom(parse.MALFORMED_ENTITY, 34, 58)
           .into(
             new Package({
               name: 'p',
@@ -360,8 +360,8 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'package p { clazz A {method m () {}} clazz B {} class C{} clazz D{method m () {}} clazz E{method m () {}} }'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedEntity', 12, 48)
-          .recoveringFrom('malformedEntity', 58, 106)
+          .recoveringFrom(parse.MALFORMED_ENTITY, 12, 48)
+          .recoveringFrom(parse.MALFORMED_ENTITY, 58, 106)
           .into(
             new Package({
               name: 'p',
@@ -482,7 +482,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'class C {var var1 methd m() {} var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 35)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 18, 35)
           .into(
             new Class({
               name: 'C',
@@ -496,7 +496,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'class C {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 16)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 9, 16)
           .into(
             new Class({
               name: 'C',
@@ -510,7 +510,7 @@ describe('Wollok parser', () => {
 
       it('should recover from final member parse error', () => {
         'class C {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 27, 34)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 27, 34)
           .into(
             new Class({
               name: 'C',
@@ -524,8 +524,8 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'class C {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 32)
-          .recoveringFrom('malformedMember', 42, 57)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 9, 32)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 42, 57)
           .into(
             new Class({
               name: 'C',
@@ -536,7 +536,7 @@ describe('Wollok parser', () => {
 
       it('should recover from annotated member parse error', () => {
         'class C {var var1 @A vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 28)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 18, 28)
           .into(
             new Class({
               name: 'C',
@@ -679,7 +679,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'mixin M {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 18, 25)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 18, 25)
           .into(
             new Mixin({
               name: 'M',
@@ -693,7 +693,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'mixin M {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 16)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 9, 16)
           .into(
             new Mixin({
               name: 'M',
@@ -707,7 +707,7 @@ describe('Wollok parser', () => {
 
       it('should recover from final member parse error', () => {
         'mixin M {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 27, 34)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 27, 34)
           .into(
             new Mixin({
               name: 'M',
@@ -721,8 +721,8 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'mixin M {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 9, 32)
-          .recoveringFrom('malformedMember', 42, 57)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 9, 32)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 42, 57)
           .into(
             new Mixin({
               name: 'M',
@@ -904,7 +904,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'object o {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 19, 26)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 19, 26)
           .into(
             new Singleton({
               name: 'o',
@@ -918,7 +918,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'object o {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 17)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 10, 17)
           .into(
             new Singleton({
               name: 'o',
@@ -932,7 +932,7 @@ describe('Wollok parser', () => {
 
       it('should recover from final member parse error', () => {
         'object o {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 28, 35)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 28, 35)
           .into(
             new Singleton({
               name: 'o',
@@ -946,8 +946,8 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'object o {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 10, 33)
-          .recoveringFrom('malformedMember', 43, 58)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 10, 33)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 43, 58)
           .into(
             new Singleton({
               name: 'o',
@@ -1208,7 +1208,7 @@ describe('Wollok parser', () => {
 
       it('should recover from member parse error', () => {
         'describe "name" {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 26, 33)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 26, 33)
           .into(
             new Describe({
               name: '"name"',
@@ -1222,7 +1222,7 @@ describe('Wollok parser', () => {
 
       it('should recover from intial member parse error', () => {
         'describe "name" {vr var1 var var2 var var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 17, 24)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 17, 24)
           .into(
             new Describe({
               name: '"name"',
@@ -1236,7 +1236,7 @@ describe('Wollok parser', () => {
 
       it('should recover from final member parse error', () => {
         'describe "name" {var var1 var var2 vr var3}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 35, 42)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 35, 42)
           .into(
             new Describe({
               name: '"name"', members: [
@@ -1249,8 +1249,8 @@ describe('Wollok parser', () => {
 
       it('should recover from multiple member parse errors', () => {
         'describe "name" {vr var1 vr var2 vr var3 var var4 vr var5 vr var6}'.should.be.parsedBy(parser)
-          .recoveringFrom('malformedMember', 17, 40)
-          .recoveringFrom('malformedMember', 50, 65)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 17, 40)
+          .recoveringFrom(parse.MALFORMED_MEMBER, 50, 65)
           .into(new Describe({ name: '"name"', members: [new Field({ name: 'var4', isConstant: false })] }))
       })
 
@@ -1539,7 +1539,7 @@ describe('Wollok parser', () => {
       `{
             felicidad.
       }`.should.be.parsedBy(parser)
-        .recoveringFrom('malformedSentence', 23, 24)
+        .recoveringFrom(parse.MALFORMED_SENTENCE, 23, 24)
         .into( new Body({
           sentences: [
             new Reference({ name: 'felicidad' }),

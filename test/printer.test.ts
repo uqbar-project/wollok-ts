@@ -16,7 +16,7 @@ describe('Wollok Printer', () => {
       abbreviateAssignments: true,
       maxWidth: 80,
       useSpaces: true,
-    })).to.throw('Failed to print')
+    })).to.throw('Failed to print, found malformed node')
   })
   describe('Basic expressions', () => {
     describe('Send', () => {
