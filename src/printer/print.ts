@@ -44,6 +44,12 @@ function print(node: Node, { maxWidth, useSpaces, abbreviateAssignments }: Print
 type Formatter<T extends Node> = (node: T) => IDoc
 type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter<T>
 const format: FormatterWithContext<Node> = context => node => {
+  if(
+    node.hasProblems &&
+    node.problems?.some(problem =>  ['malformedMember', 'malformedEntity', 'malformedSentence'].includes(problem.code))
+  ){
+    throw new Error('Failed to print')
+  }
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
   const formattedNode: IDoc = match(node)(
     when(Package)(formatPackage(context)),
