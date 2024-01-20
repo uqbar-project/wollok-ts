@@ -1,4 +1,4 @@
-import { INFIX_OPERATORS, PREFIX_OPERATORS } from './constants'
+import { INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
@@ -281,6 +281,10 @@ export function Entity<S extends Mixable<Node>>(supertype: S) {
       return parent?.is(Package) || parent?.is(Describe)
         ? `${parent.fullyQualifiedName}.${label}`
         : label
+    }
+
+    get isBaseWollokCode(): boolean {
+      return this.fullyQualifiedName.startsWith(WOLLOK_BASE_PACKAGE)
     }
   }
 
