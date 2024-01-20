@@ -4,6 +4,7 @@ import { List, isEmpty, match, notEmpty, when } from '../extensions'
 import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { DocTransformer, WS, body, defaultToEmpty, enclosedList, infixOperators, listEnclosers, listed, setEnclosers, stringify } from './utils'
 import { MALFORMED_ENTITY, MALFORMED_MEMBER, MALFORMED_SENTENCE } from '../parser'
+import { PrintingMalformedNodeError } from './exceptions'
 
 const { entries } = Object
 
@@ -51,7 +52,7 @@ const format: FormatterWithContext<Node> = context => node => {
     node.hasProblems &&
     node.problems?.some(problem =>  criticalProblems.includes(problem.code))
   ){
-    throw new Error('Failed to print, found malformed node')
+    throw new PrintingMalformedNodeError(node)
   }
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
   const formattedNode: IDoc = match(node)(
