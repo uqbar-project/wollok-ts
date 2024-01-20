@@ -2340,7 +2340,7 @@ method esMinimalista() = albumes.all{
           
           
           )
-        })
+        }
 
 			}
 			`.should.be.formattedTo(`
