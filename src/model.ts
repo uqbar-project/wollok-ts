@@ -713,6 +713,7 @@ export class Reference<N extends Node> extends Expression(Node) {
 
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
+  @cached
   get target(): N | undefined { return this.scope.resolve(this.name) }
 }
 
