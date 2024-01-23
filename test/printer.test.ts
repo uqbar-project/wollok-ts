@@ -1,10 +1,23 @@
-import { use, should } from 'chai'
+import { use, should, expect } from 'chai'
 import { printerAssertions } from './assertions'
+import { buildEnvironment, print } from '../src'
 
 use(printerAssertions)
 should()
 
 describe('Wollok Printer', () => {
+  it('aborts on malformed nodes', () => {
+    expect(() => print(buildEnvironment([{
+      name: 'formatted', content: `object pepita {
+      var energia =
+      method tieneEnergia() = energia > 50
+      }`,
+    }]).getNodeByFQN('formatted'), {
+      abbreviateAssignments: true,
+      maxWidth: 80,
+      useSpaces: true,
+    })).to.throw('Failed to print, found malformed node')
+  })
   describe('Basic expressions', () => {
     describe('Send', () => {
       it('Send long parameters', () => {
@@ -2327,7 +2340,7 @@ method esMinimalista() = albumes.all{
           
           
           )
-        })
+        }
 
 			}
 			`.should.be.formattedTo(`
