@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
-import { BaseProblem, Entity, Environment, Field, Id, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, SourceMap } from './model'
+import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, SourceMap } from './model'
 const { assign } = Object
 
 
@@ -99,13 +99,13 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
-        node.is(Reference) && parent!.is(ParameterizedType)
+        node.is(Import) || (node.is(Reference) && parent!.is(ParameterizedType))
           ? parent?.parent.scope
           : parent?.scope
       ),
     })
 
-    if (node.is(Entity)) parent?.scope?.register(...scopeContribution(node))
+    parent?.scope?.register(...scopeContribution(node))
   })
 
   environment.forEach((node, parent) => {
@@ -130,9 +130,6 @@ const assignScopes = (environment: Environment) => {
     if (node.is(Module)) {
       node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
     }
-
-    if (parent && !node.is(Entity))
-      parent!.scope.register(...scopeContribution(node))
   })
 }
 

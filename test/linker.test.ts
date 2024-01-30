@@ -615,6 +615,34 @@ describe('Wollok linker', () => {
       D.supertypes[0].reference.should.target(T)
     })
 
+    it('should not mix imported references with same name at different level', () => {
+      const environment = link([
+        new Package({
+          name: 'p',
+          imports: [
+            new Import({ entity: new Reference({ name: 'q' }), isGeneric: true }),
+          ],
+          members: [
+            new Singleton({ name: 'o', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'q' }) })] }),
+          ],
+        }),
+        new Package({
+          name: 'q',
+          members: [
+            new Singleton({ name: 'q' }),
+          ],
+        }),
+      ], WRE)
+
+      const p = environment.getNodeByFQN<Package>('p')
+      const o = environment.getNodeByFQN<Singleton>('p.o')
+      const packageQ = environment.getNodeByFQN<Package>('q')
+      const objQ = environment.getNodeByFQN<Singleton>('q.q')
+
+      p.imports[0].entity.should.target(packageQ)
+      o.supertypes[0].reference.should.target(objQ)
+    })
+
     it('qualified references should not consider parent scopes for non-root steps', () => {
       const environment = link([
         new Package({
