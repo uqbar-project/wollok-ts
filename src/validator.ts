@@ -643,7 +643,7 @@ const initializesInsideInitMethod = (node: Module, field: Field) => {
   return allInitMethods.some(method => initializesReference(method, field))
 }
 
-const initializesReference = (method: Method, field: Field) => 
+const initializesReference = (method: Method, field: Field) =>
   method.sentences.some(sentence => sentence.is(Assignment) && sentence.variable.target === field)
 
 const isUninitialized = (value: Expression) => value.isSynthetic && value.is(Literal) && value.isNull()
