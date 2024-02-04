@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.0.8
+**Wollok Version: `3.2.0`**
+
+- 🐛 Fix Type System in order to ignore Wollok internal code
+- 🐞 Fix Formatter for Prefix operators
+- 🚧 Error handling for print
+- 🛠 Fix for imports with duplicate names (now you can import an object pepita inside a file pepita)
+
 ## v4.0.7
 **Wollok Version: `3.2.0`**
 
