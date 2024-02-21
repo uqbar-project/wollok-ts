@@ -4,6 +4,7 @@ import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
+import { getUninitializedAttributesForInstantiation } from '../validator'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -490,6 +491,11 @@ export class Evaluation {
     const name = node.instantiated.name
     if (!target.is(Class)) raise(new Error(`${name} is not a class, you cannot generate instances of it`))
     if (target.isAbstract) raise(new Error(`${name} is an abstract class, you cannot generate instances`))
+
+    const uninitializedAttributes = getUninitializedAttributesForInstantiation(node)
+    if (uninitializedAttributes.length) {
+      raise(new Error(`${name} cannot be instantiated, you must pass values to the following attributes: ${uninitializedAttributes.join(', ')}`))
+    }
 
     if (target.fullyQualifiedName === LIST_MODULE) return yield* this.list()
     if (target.fullyQualifiedName === SET_MODULE) return yield* this.set()

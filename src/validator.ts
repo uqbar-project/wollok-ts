@@ -269,8 +269,8 @@ export const linearizationShouldNotRepeatNamedArguments = warning<Singleton | Cl
 })
 
 export const shouldPassValuesToAllAttributes = error<New>(
-  node => isEmpty(getUninitializedAttributesForInstantation(node)),
-  node => getUninitializedAttributesForInstantation(node),
+  node => isEmpty(getUninitializedAttributesForInstantiation(node)),
+  node => [node.instantiated?.name, getUninitializedAttributesForInstantiation(node).join(', ')],
 )
 
 export const shouldInitializeInheritedAttributes = error<Singleton>(
@@ -615,7 +615,7 @@ const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(Node)(() => undefined),
 )
 
-const getUninitializedAttributesForInstantation = (node: New): string[] => {
+export const getUninitializedAttributesForInstantiation = (node: New): string[] => {
   const target = node.instantiated.target
   if (!target) return []
   const initializers = node.args.map(_ => _.name)
@@ -633,10 +633,18 @@ const getUninitializedAttributesIn = (node: Module, fields: Field[], initializer
   fields.
     filter(field => {
       const value = node.defaultValueFor(field)
-      return isUninitialized(value) && !initializers.includes(field.name)
+      return isUninitialized(value) && !initializers.includes(field.name) && !initializesInsideInitMethod(node, field)
     })
     .map(field => field.name)
 
+
+const initializesInsideInitMethod = (node: Module, field: Field) => {
+  const allInitMethods = node.allMethods.filter(method => method.matchesSignature('initialize', 0))
+  return allInitMethods.some(method => initializesReference(method, field))
+}
+
+const initializesReference = (method: Method, field: Field) =>
+  method.sentences.some(sentence => sentence.is(Assignment) && sentence.variable.target === field)
 
 const isUninitialized = (value: Expression) => value.isSynthetic && value.is(Literal) && value.isNull()
 
