@@ -99,7 +99,7 @@ const assignScopes = (environment: Environment) => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
-        node.is(Import) || (node.is(Reference) && parent!.is(ParameterizedType))
+        node.is(Import) || node.is(Reference) && parent!.is(ParameterizedType)
           ? parent?.parent.scope
           : parent?.scope
       ),
@@ -108,7 +108,7 @@ const assignScopes = (environment: Environment) => {
     parent?.scope?.register(...scopeContribution(node))
   })
 
-  environment.forEach((node, parent) => {
+  environment.forEach((node, _parent) => {
     if (node.is(Environment)) {
       for (const globalName of GLOBAL_PACKAGES) {
         const globalPackage = environment.scope.resolve<Package>(globalName)
