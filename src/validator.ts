@@ -502,7 +502,7 @@ export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(nod
 })
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
-  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
+  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(returnsAValue)
 , undefined,
 sourceMapForBody)
 
