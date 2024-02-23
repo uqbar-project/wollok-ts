@@ -591,6 +591,8 @@ export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   return !method || method.isNative() || method.isAbstract() || returnsValue(method)
 })
 
+export const shouldNotAssignValueInLoop = error<Field>(node => !loopInAssignment(node.value, node.name))
+
 export const shouldHaveDifferentName = error<Test>(node => {
   const tests: List<Test> = match(node.parent)(
     when(Describe)(describe => describe.tests),
@@ -853,6 +855,9 @@ const isInitialized = (node: Variable) =>
   node.value.is(Literal) &&
   node.value.isNull()
 
+export const loopInAssignment = (node: Expression, variableName: string) =>
+  node.is(Send) && methodExists(node) && node.receiver.is(Self) && node.message === variableName
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -885,7 +890,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeInheritedAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementInheritedAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
-  when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute })),
+  when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute, shouldNotAssignValueInLoop })),
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
