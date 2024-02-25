@@ -1,4 +1,4 @@
-import { INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_METHOD_NAME, INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
@@ -551,8 +551,8 @@ export class Singleton extends Expression(Module(Node)) {
   @cached
   isClosure(arity?: number): boolean {
     return arity === undefined
-      ? this.methods.some(_ => _.name === '<apply>')
-      : !!this.lookupMethod('<apply>', arity)
+      ? this.methods.some(_ => _.name === CLOSURE_METHOD_NAME)
+      : !!this.lookupMethod(CLOSURE_METHOD_NAME, arity)
   }
 }
 
@@ -862,7 +862,7 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
     members: [
-      new Method({ name: '<apply>', parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
+      new Method({ name: CLOSURE_METHOD_NAME, parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
         new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
       ] : [],

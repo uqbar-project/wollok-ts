@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
@@ -141,7 +141,7 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const target = this.node.is(Method) && this.node.name === '<apply>'
+    const target = this.node.is(Method) && this.node.name === CLOSURE_METHOD_NAME
       ? this.node.parent
       : this.node
     return target.sourceInfo

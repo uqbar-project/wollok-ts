@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -745,20 +745,26 @@ const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.nam
 
 const methodOrTestUsesField = (parent: Method | Test, field: Field) => parent.sentences.some(sentence => usesField(sentence, field))
 
-const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean => match(node)(
-  when(Variable)(node => usesField(node.value, field)),
-  when(Return)(node => !!node.value && usesField(node.value, field)),
-  when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
-  when(Reference)(node => node.target === field),
-  when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
-  when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
-  when(New)(node => node.args.some(arg => usesField(arg, field))),
-  when(NamedArgument)(node => usesField(node.value, field)),
-  when(Throw)(node => usesField(node.exception, field)),
-  when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
-  when(Expression)(() => false),
-  when(Body)(node => node.sentences.some(sentence => usesField(sentence, field))),
-)
+const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean =>
+  match(node)(
+    when(Singleton)(node => {
+      if (!node.isClosure()) return false
+      const applyMethod = node.methods.find(method => method.name === CLOSURE_METHOD_NAME)
+      return !!applyMethod && methodOrTestUsesField(applyMethod, field)
+    }),
+    when(Variable)(node => usesField(node.value, field)),
+    when(Return)(node => !!node.value && usesField(node.value, field)),
+    when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
+    when(Reference)(node => node.target === field),
+    when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
+    when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
+    when(New)(node => node.args.some(arg => usesField(arg, field))),
+    when(NamedArgument)(node => usesField(node.value, field)),
+    when(Throw)(node => usesField(node.exception, field)),
+    when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
+    when(Expression)(() => false),
+    when(Body)(node => node.sentences.some(sentence => usesField(sentence, field))),
+  )
 
 // TODO: Import could offer a list of imported entities
 const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string) => target && match(target)(
