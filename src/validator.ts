@@ -622,7 +622,7 @@ export const getUninitializedAttributesForInstantiation = (node: New): string[] 
   return getAllUninitializedAttributes(target, initializers)
 }
 
-const getAllUninitializedAttributes = (node: Module, initializers: string[] = []) =>
+export const getAllUninitializedAttributes = (node: Module, initializers: string[] = []): string[] =>
   getUninitializedAttributesIn(node, [...node.allFields], initializers)
 
 const getInheritedUninitializedAttributes = (node: Module, initializers: string[] = []) =>
