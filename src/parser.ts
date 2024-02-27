@@ -1,6 +1,6 @@
 import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace } from 'parsimmon'
 import unraw from 'unraw'
-import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, PREFIX_OPERATORS } from './constants'
+import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
 import { List, discriminate, is, hasWhitespace, mapObject } from './extensions'
 import { Annotation, Assignment as AssignmentNode, BaseProblem, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Closure as ClosureNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Level, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, ParameterizedType as ParameterizedTypeNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, SourceIndex, SourceMap, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
@@ -510,8 +510,8 @@ export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
       key('true').result(true),
       key('false').result(false),
       lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
+      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
       stringLiteral,
     ),
   })

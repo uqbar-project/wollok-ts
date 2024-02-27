@@ -26,6 +26,7 @@ export const INFIX_OPERATORS = [
   ['**', '%'],
 ]
 
+export const COLLECTION_MODULE = 'wollok.lang.Collection'
 export const LIST_MODULE = 'wollok.lang.List'
 export const SET_MODULE = 'wollok.lang.Set'
 export const BOOLEAN_MODULE = 'wollok.lang.Boolean'
@@ -36,8 +37,13 @@ export const PAIR_MODULE = 'wollok.lang.Pair'
 export const RANGE_MODULE = 'wollok.lang.Range'
 export const DICTIONARY_MODULE = 'wollok.lang.Dictionary'
 export const OBJECT_MODULE = 'wollok.lang.Object'
+export const EXCEPTION_MODULE = 'wollok.lang.Exception'
+export const CLOSURE_MODULE = 'wollok.lang.Closure'
+
+export const GAME_MODULE = 'wollok.game.game'
 
 export const TO_STRING_METHOD = 'toString'
+export const CLOSURE_METHOD = 'apply'
 
 export const KEYWORDS = {
   IF: 'if',

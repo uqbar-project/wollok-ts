@@ -1,4 +1,4 @@
-import { INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_MODULE, EXCEPTION_MODULE, INFIX_OPERATORS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
@@ -577,7 +577,7 @@ export class Describe extends Module(Node) {
   get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
   readonly members!: List<Field | Method | Test>
-  readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
+  readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: OBJECT_MODULE }) })]
 
   override parent!: Package
 
@@ -837,7 +837,7 @@ export class Catch extends Node {
 
   override parent!: Try
 
-  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
+  constructor({ parameterType = new Reference({ name: EXCEPTION_MODULE }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
     super({ parameterType, ...payload })
   }
 }
@@ -860,7 +860,7 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
   const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
-    supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
+    supertypes: [new ParameterizedType({ reference: new Reference({ name: CLOSURE_MODULE }) })],
     members: [
       new Method({ name: '<apply>', parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
@@ -905,8 +905,8 @@ export class Environment extends Node {
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }
-  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
-  get numberClass(): Class { return this.getNodeByFQN('wollok.lang.Number') }
-  get stringClass(): Class { return this.getNodeByFQN('wollok.lang.String') }
-  get booleanClass(): Class { return this.getNodeByFQN('wollok.lang.Boolean') }
+  get objectClass(): Class { return this.getNodeByFQN(OBJECT_MODULE) }
+  get numberClass(): Class { return this.getNodeByFQN(NUMBER_MODULE) }
+  get stringClass(): Class { return this.getNodeByFQN(STRING_MODULE) }
+  get booleanClass(): Class { return this.getNodeByFQN(BOOLEAN_MODULE) }
 }

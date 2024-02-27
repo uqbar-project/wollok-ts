@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { Evaluation } from '../src'
+import { EXCEPTION_MODULE, Evaluation } from '../src'
 import { DirectedInterpreter, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton } from '../src/model'
@@ -23,7 +23,7 @@ const WRE = link([
           new Class({ name: 'String' }),
           new Class({ name: 'List' }),
           new Class({ name: 'Set' }),
-          new Class({ name: 'EvaluationError', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Exception' }) })] }),
+          new Class({ name: 'EvaluationError', supertypes: [new ParameterizedType({ reference: new Reference({ name: EXCEPTION_MODULE }) })] }),
           new Class({ name: 'Exception' }),
         ],
       }),

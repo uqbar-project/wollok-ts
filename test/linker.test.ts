@@ -5,6 +5,7 @@ import link from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
+import { GAME_MODULE, OBJECT_MODULE } from '../src'
 
 
 should()
@@ -15,7 +16,7 @@ use(linkerAssertions)
 // TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
 
-const MINIMAL_LANG = environmentWithEntities('wollok.lang.Object', 'wollok.game.game')
+const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE, GAME_MODULE)
 
 describe('Wollok linker', () => {
 
@@ -260,7 +261,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'C',
-              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })],
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: OBJECT_MODULE }) })],
               members: [
                 new Field({ name: 'f', isConstant: true, value: new Reference({ name: 'C' }) }),
                 new Field({ name: 'g', isConstant: true, value: new Reference({ name: 'p' }) }),
@@ -271,7 +272,7 @@ describe('Wollok linker', () => {
         }),
       ], WRE)
 
-      const Object = environment.getNodeByFQN<Class>('wollok.lang.Object')
+      const Object = environment.getNodeByFQN<Class>(OBJECT_MODULE)
       const p = environment.getNodeByFQN<Package>('p')
       const C = environment.getNodeByFQN<Class>('p.C')
       const f = C.fields[0]
@@ -293,7 +294,7 @@ describe('Wollok linker', () => {
               name: 'x',
               supertypes: [
                 new ParameterizedType({
-                  reference: new Reference({ name: 'wollok.lang.Object' }),
+                  reference: new Reference({ name: OBJECT_MODULE }),
                   args: [new NamedArgument({ name: 'x', value: new Reference({ name: 'x' }) })],
                 }),
               ],
@@ -715,7 +716,7 @@ describe('Wollok linker', () => {
         new Package({ name: 'lang', members: [new Package({ name: 'p' })] }),
       ], MINIMAL_LANG)
       env.getNodeByFQN<Package>('lang.p').should.be.ok
-      env.getNodeByFQN<Package>('wollok.lang.Object').should.be.ok
+      env.getNodeByFQN<Package>(OBJECT_MODULE).should.be.ok
     })
 
     it('should not merge package with different file name', () => {
