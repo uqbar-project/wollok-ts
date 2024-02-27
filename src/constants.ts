@@ -26,9 +26,18 @@ export const INFIX_OPERATORS = [
   ['**', '%'],
 ]
 
-export const LIST_MODULE= 'wollok.lang.List'
-export const SET_MODULE= 'wollok.lang.Set'
-export const OBJECT_MODULE= 'wollok.lang.Object'
+export const LIST_MODULE = 'wollok.lang.List'
+export const SET_MODULE = 'wollok.lang.Set'
+export const BOOLEAN_MODULE = 'wollok.lang.Boolean'
+export const NUMBER_MODULE = 'wollok.lang.Number'
+export const STRING_MODULE = 'wollok.lang.String'
+export const DATE_MODULE = 'wollok.lang.Date'
+export const PAIR_MODULE = 'wollok.lang.Pair'
+export const RANGE_MODULE = 'wollok.lang.Range'
+export const DICTIONARY_MODULE = 'wollok.lang.Dictionary'
+export const OBJECT_MODULE = 'wollok.lang.Object'
+
+export const TO_STRING_METHOD = 'toString'
 
 export const KEYWORDS = {
   IF: 'if',
@@ -63,3 +72,7 @@ export const KEYWORDS = {
   PACKAGE: 'package',
   ONLY: 'only',
 } as const
+
+export const TEST_FILE_EXTENSION = 'wtest'
+export const PROGRAM_FILE_EXTENSION = 'wpgm'
+export const WOLLOK_FILE_EXTENSION = 'wlk'
