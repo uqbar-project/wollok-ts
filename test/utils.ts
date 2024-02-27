@@ -2,11 +2,11 @@ import { fail } from 'assert'
 import { readFileSync } from 'fs'
 import globby from 'globby'
 import { join } from 'path'
-import { Annotation, buildEnvironment, Class, FileContent, Literal, Node, Package, Problem, Reference, SourceMap } from '../src'
+import { Annotation, buildEnvironment, Class, FileContent, Literal, Node, Package, Problem, PROGRAM_FILE_EXTENSION, Reference, SourceMap, TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
 import { List, notEmpty } from '../src/extensions'
 
 export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
-  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: folderPath }).map(name => ({
+  const files = globby.sync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map(name => ({
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
   }))

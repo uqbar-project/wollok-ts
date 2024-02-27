@@ -2,7 +2,7 @@ import { should } from 'chai'
 import { resolve } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { Environment } from '../src'
+import { Environment, PROGRAM_FILE_EXTENSION } from '../src'
 import interpret, { Interpreter } from '../src/interpreter/interpreter'
 
 should()
@@ -18,7 +18,7 @@ describe('Wollok Game', () => {
 
 
     before(async () => {
-      environment = await buildEnvironment('**/*.wpgm', resolve('language', 'test', 'game'))
+      environment = await buildEnvironment(`**/*.${PROGRAM_FILE_EXTENSION}`, resolve('language', 'test', 'game'))
     })
 
     beforeEach(() => {

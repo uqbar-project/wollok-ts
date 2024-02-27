@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -493,8 +493,8 @@ export const shouldMatchFileExtension = error<Test | Program>(node => {
   const filename = node.sourceFileName
   if (!filename) return true
   return match(node)(
-    when(Test)(_ => filename.endsWith('wtest')),
-    when(Program)(_ => filename.endsWith('wpgm')),
+    when(Test)(_ => filename.endsWith(TEST_FILE_EXTENSION)),
+    when(Program)(_ => filename.endsWith(PROGRAM_FILE_EXTENSION)),
   )
 })
 
@@ -561,7 +561,7 @@ export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
 sourceMapForNodeName)
 
 export const shouldNotImportSameFile = error<Import>(node =>
-  ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
+  [TEST_FILE_EXTENSION, PROGRAM_FILE_EXTENSION].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
 )
 
 export const shouldNotImportMoreThanOnce = warning<Import>(node =>
