@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD_NAME } from '../constants'
+import { CLOSURE_METHOD, CLOSURE_METHOD_NAME, COLLECTION_MODULE, DATE_MODULE } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
@@ -74,9 +74,9 @@ const lang: Natives = {
   Collection: {
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send('apply', predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.send('apply', continuation)
+      return yield* this.send(CLOSURE_METHOD, continuation)
     },
   },
 
@@ -92,7 +92,7 @@ const lang: Natives = {
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.send('apply', closure, acum, elem))!
+        acum = (yield* this.send(CLOSURE_METHOD, closure, acum, elem))!
 
       return acum
     },
@@ -100,22 +100,22 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send('apply', closure, elem))!.innerBoolean)
+        if((yield* this.send(CLOSURE_METHOD, closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.set(...result)
     },
 
     *max(self: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('max', 0)!
       return yield* this.invoke(method, self)
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send('apply', predicate, elem))!.innerBoolean!) return elem
+        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean!) return elem
 
-      return yield* this.send('apply', continuation)
+      return yield* this.send(CLOSURE_METHOD, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -143,12 +143,12 @@ const lang: Natives = {
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('join', separator ? 1 : 0)!
       return yield* this.invoke(method, self, ...separator ? [separator]: [])
     },
 
     *contains(self: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('contains', 1)!
       return yield* this.invoke(method, self, value)
     },
 
@@ -187,7 +187,7 @@ const lang: Natives = {
         const after: RuntimeObject[] = []
 
         for(const elem of tail)
-          if((yield* this.send('apply', closure, elem, head))!.innerBoolean)
+          if((yield* this.send(CLOSURE_METHOD, closure, elem, head))!.innerBoolean)
             before.push(elem)
           else
             after.push(elem)
@@ -207,35 +207,35 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send('apply', closure, elem))!.innerBoolean)
+        if((yield* this.send(CLOSURE_METHOD, closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.list(...result)
     },
 
     *contains(self: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('contains', 1)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('contains', 1)!
       return yield* this.invoke(method, self, value)
     },
 
     *max(self: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('max', 0)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('max', 0)!
       return yield* this.invoke(method, self)
     },
 
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.send('apply', closure, acum, elem))!
+        acum = (yield* this.send(CLOSURE_METHOD, closure, acum, elem))!
 
       return acum
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send('apply', predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.send('apply', continuation)
+      return yield* this.send(CLOSURE_METHOD, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -258,7 +258,7 @@ const lang: Natives = {
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>('wollok.lang.Collection').lookupMethod('join', separator ? 1 : 0)!
+      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('join', separator ? 1 : 0)!
       return yield* this.invoke(method, self, ...separator ? [separator]: [])
     },
 
@@ -379,7 +379,7 @@ const lang: Natives = {
       for (const bucket of buckets) {
         for (const entry of bucket.innerCollection!) {
           const [entryKey, entryValue] = entry.innerCollection!
-          yield* this.send('apply', closure, entryKey, entryValue)
+          yield* this.send(CLOSURE_METHOD, closure, entryKey, entryValue)
         }
       }
     },
@@ -672,11 +672,11 @@ const lang: Natives = {
 
       if (start <= end && step > 0)
         for (let value = start; value <= end; value += step)
-          yield* this.send('apply', closure, yield* this.reify(value))
+          yield* this.send(CLOSURE_METHOD, closure, yield* this.reify(value))
 
       if (start >= end && step < 0)
         for (let value = start; value >= end; value += step)
-          yield* this.send('apply', closure, yield* this.reify(value))
+          yield* this.send(CLOSURE_METHOD, closure, yield* this.reify(value))
     },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
@@ -704,7 +704,7 @@ const lang: Natives = {
       args.assertIsCollection()
 
       const method = self.module.lookupMethod(CLOSURE_METHOD_NAME, args.innerCollection.length)
-      if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify('apply'), args)
+      if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify(CLOSURE_METHOD), args)
 
       const locals = yield* this.localsFor(method, args.innerCollection)
       const frame = new Frame(method, self, locals)
@@ -723,7 +723,7 @@ const lang: Natives = {
   calendar: {
     *today(_self: RuntimeObject): Execution<RuntimeObject> {
       const today = new Date()
-      return yield* this.instantiate('wollok.lang.Date', {
+      return yield* this.instantiate(DATE_MODULE, {
         day: yield* this.reify(today.getDate()),
         month: yield* this.reify(today.getMonth() + 1),
         year: yield* this.reify(today.getFullYear()),

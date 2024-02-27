@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_METHOD_NAME, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -540,7 +540,7 @@ export const shouldNotDuplicatePackageName = error<Package>(node =>
 sourceMapForNodeName)
 
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
-  const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>('wollok.lang.Exception')
+  const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>(EXCEPTION_MODULE)
   const exceptionType = node.parameterType.target
   return !exceptionType || exceptionType?.inherits(EXCEPTION_CLASS)
 })
