@@ -5,6 +5,7 @@ export const WOLLOK_EXTRA_STACK_TRACE_HEADER = 'Derived from TypeScript stack'
 export const WOLLOK_BASE_PACKAGE = 'wollok.'
 
 export const INITIALIZE_METHOD_NAME = 'initialize'
+export const CLOSURE_METHOD_NAME = '<apply>'
 
 export const PREFIX_OPERATORS: Record<Name, Name> = {
   '!': 'negate',
