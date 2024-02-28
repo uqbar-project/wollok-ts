@@ -104,6 +104,9 @@ const sourceMapForNodeName = (node: Node & { name?: string }) => {
   return buildSourceMap(node, initialOffset, finalOffset)
 }
 
+const sourceMapForNodeNameOrFullNode = (node: Node & { name?: string }) =>
+  node.name ? sourceMapForNodeName(node) : node.sourceMap
+
 const sourceMapForOnlyTest = (node: Test) => buildSourceMap(node, 0, KEYWORDS.ONLY.length)
 
 const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEYWORDS.OVERRIDE.length)
@@ -495,14 +498,19 @@ export const shouldMatchFileExtension = error<Test | Program>(node => {
   )
 })
 
-export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(node => {
-  const methodsCallingToSuper = node.allMethods.filter(method => callsToSuper(method))
-  return methodsCallingToSuper
-    .every(method => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName }))
-})
+export const shouldImplementAllMethodsInHierarchy = error<Class | Singleton>(node =>
+  methodsCallingToSuper(node).every(methodIsImplementedInSuperclass(node))
+, node =>
+  [
+    methodsCallingToSuper(node)
+      .filter(method => !methodIsImplementedInSuperclass(node)(method))
+      .map(method => method.name)
+      .join(', '),
+  ]
+, sourceMapForNodeNameOrFullNode)
 
 export const getterMethodShouldReturnAValue = warning<Method>(node =>
-  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(_ => _.is(Return))
+  !isGetter(node) || node.isSynthetic || node.isNative() || node.isAbstract() || node.sentences.some(returnsAValue)
 , undefined,
 sourceMapForBody)
 
@@ -857,6 +865,10 @@ const isInitialized = (node: Variable) =>
 
 export const loopInAssignment = (node: Expression, variableName: string) =>
   node.is(Send) && methodExists(node) && node.receiver.is(Self) && node.message === variableName
+
+const methodsCallingToSuper = (node: Class | Singleton) => node.allMethods.filter(method => callsToSuper(method))
+
+const methodIsImplementedInSuperclass = (node: Class | Singleton) => (method: Method) => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // REPORT HELPERS
