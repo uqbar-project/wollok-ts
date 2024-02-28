@@ -23,7 +23,7 @@ export const CLOSURE_MODULE = 'wollok.lang.Closure'
 export const GAME_MODULE = 'wollok.game.game'
 
 export const TO_STRING_METHOD = 'toString'
-export const CLOSURE_METHOD = 'apply'
+export const APPLY_METHOD = 'apply'
 export const INITIALIZE_METHOD_NAME = 'initialize'
 export const CLOSURE_METHOD_NAME = '<apply>'
 

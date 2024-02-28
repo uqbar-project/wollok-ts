@@ -27,11 +27,9 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
 
 const { entries } = Object
 
-const RESERVED_WORDS = [
-  'null',
-  'false',
-  'true',
-].concat(Object.values(KEYWORDS))
+const RESERVED_WORDS = ['null', 'false', 'true']
+  .concat(Object.values(KEYWORDS))
+  .filter(word => word !== KEYWORDS.MIXED_AND)
 
 const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 

@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD, CLOSURE_METHOD_NAME, COLLECTION_MODULE, DATE_MODULE, TO_STRING_METHOD } from '../constants'
+import { APPLY_METHOD, CLOSURE_METHOD_NAME, COLLECTION_MODULE, DATE_MODULE, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
@@ -74,9 +74,9 @@ const lang: Natives = {
   Collection: {
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.send(CLOSURE_METHOD, continuation)
+      return yield* this.send(APPLY_METHOD, continuation)
     },
   },
 
@@ -92,7 +92,7 @@ const lang: Natives = {
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.send(CLOSURE_METHOD, closure, acum, elem))!
+        acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
 
       return acum
     },
@@ -100,7 +100,7 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send(CLOSURE_METHOD, closure, elem))!.innerBoolean)
+        if((yield* this.send(APPLY_METHOD, closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.set(...result)
@@ -113,9 +113,9 @@ const lang: Natives = {
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean!) return elem
+        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean!) return elem
 
-      return yield* this.send(CLOSURE_METHOD, continuation)
+      return yield* this.send(APPLY_METHOD, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -187,7 +187,7 @@ const lang: Natives = {
         const after: RuntimeObject[] = []
 
         for(const elem of tail)
-          if((yield* this.send(CLOSURE_METHOD, closure, elem, head))!.innerBoolean)
+          if((yield* this.send(APPLY_METHOD, closure, elem, head))!.innerBoolean)
             before.push(elem)
           else
             after.push(elem)
@@ -207,7 +207,7 @@ const lang: Natives = {
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send(CLOSURE_METHOD, closure, elem))!.innerBoolean)
+        if((yield* this.send(APPLY_METHOD, closure, elem))!.innerBoolean)
           result.push(elem)
 
       return yield* this.list(...result)
@@ -226,16 +226,16 @@ const lang: Natives = {
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
       let acum = initialValue
       for(const elem of [...self.innerCollection!])
-        acum = (yield* this.send(CLOSURE_METHOD, closure, acum, elem))!
+        acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
 
       return acum
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
       for(const elem of [...self.innerCollection!])
-        if((yield* this.send(CLOSURE_METHOD, predicate, elem))!.innerBoolean) return elem
+        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
 
-      return yield* this.send(CLOSURE_METHOD, continuation)
+      return yield* this.send(APPLY_METHOD, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -379,7 +379,7 @@ const lang: Natives = {
       for (const bucket of buckets) {
         for (const entry of bucket.innerCollection!) {
           const [entryKey, entryValue] = entry.innerCollection!
-          yield* this.send(CLOSURE_METHOD, closure, entryKey, entryValue)
+          yield* this.send(APPLY_METHOD, closure, entryKey, entryValue)
         }
       }
     },
@@ -672,11 +672,11 @@ const lang: Natives = {
 
       if (start <= end && step > 0)
         for (let value = start; value <= end; value += step)
-          yield* this.send(CLOSURE_METHOD, closure, yield* this.reify(value))
+          yield* this.send(APPLY_METHOD, closure, yield* this.reify(value))
 
       if (start >= end && step < 0)
         for (let value = start; value >= end; value += step)
-          yield* this.send(CLOSURE_METHOD, closure, yield* this.reify(value))
+          yield* this.send(APPLY_METHOD, closure, yield* this.reify(value))
     },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
@@ -704,7 +704,7 @@ const lang: Natives = {
       args.assertIsCollection()
 
       const method = self.module.lookupMethod(CLOSURE_METHOD_NAME, args.innerCollection.length)
-      if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify(CLOSURE_METHOD), args)
+      if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify(APPLY_METHOD), args)
 
       const locals = yield* this.localsFor(method, args.innerCollection)
       const frame = new Frame(method, self, locals)
