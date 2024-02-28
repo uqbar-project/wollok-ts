@@ -1,3 +1,4 @@
+import { CLOSURE_METHOD_NAME } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
@@ -702,7 +703,7 @@ const lang: Natives = {
     *apply(this: Evaluation, self: RuntimeObject, args: RuntimeObject): Execution<RuntimeValue> {
       args.assertIsCollection()
 
-      const method = self.module.lookupMethod('<apply>', args.innerCollection.length)
+      const method = self.module.lookupMethod(CLOSURE_METHOD_NAME, args.innerCollection.length)
       if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify('apply'), args)
 
       const locals = yield* this.localsFor(method, args.innerCollection)
