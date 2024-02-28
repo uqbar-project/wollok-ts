@@ -108,7 +108,7 @@ const assignScopes = (environment: Environment) => {
     parent?.scope?.register(...scopeContribution(node))
   })
 
-  environment.forEach((node, parent) => {
+  environment.forEach((node, _parent) => {
     if (node.is(Environment)) {
       for (const globalName of GLOBAL_PACKAGES) {
         const globalPackage = environment.scope.resolve<Package>(globalName)

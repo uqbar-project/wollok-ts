@@ -1,3 +1,4 @@
+import { KEYWORDS } from './../constants';
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
@@ -398,7 +399,7 @@ export class Evaluation {
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
-      return (yield* native.call(this, this.currentFrame.get('self')!, ...args)) ?? undefined
+      return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? undefined
     } else if(node.isConcrete()) {
       try {
         yield* this.exec(node.body!)
@@ -460,7 +461,7 @@ export class Evaluation {
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
     yield node
-    return this.currentFrame.get('self')
+    return this.currentFrame.get(KEYWORDS.SELF)
   }
 
   protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
@@ -523,7 +524,7 @@ export class Evaluation {
 
     yield node
 
-    const receiver = this.currentFrame.get('self')!
+    const receiver = this.currentFrame.get(KEYWORDS.SELF)!
     const currentMethod = node.ancestors.find(is(Method))!
     //TODO: pass just the parent (not the FQN) to lookup?
     const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
@@ -640,10 +641,10 @@ export class Evaluation {
       return instance
     }
 
-    const existing = this.rootFrame.get('null')
+    const existing = this.rootFrame.get(KEYWORDS.NULL)
     if(existing) return existing
     const instance = new RuntimeObject(this.environment.getNodeByFQN(OBJECT_MODULE), this.rootFrame, value)
-    this.rootFrame.set('null', instance)
+    this.rootFrame.set(KEYWORDS.NULL, instance)
     return instance
   }
 

@@ -1,4 +1,4 @@
-import { BOOLEAN_MODULE, CLOSURE_MODULE, EXCEPTION_MODULE, INFIX_OPERATORS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_MODULE, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
@@ -632,7 +632,7 @@ export class Method extends Node {
   }
 
   isAbstract(): this is { body: undefined } { return !this.body }
-  isNative(): this is { body?: Body } { return this.body === 'native' }
+  isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
   isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
 
   @cached

@@ -28,33 +28,10 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
 const { entries } = Object
 
 const RESERVED_WORDS = [
-  'import',
-  'package',
-  'program',
-  'test',
-  'class',
-  'inherits',
-  'object',
-  'mixin',
-  'var',
-  'const',
-  'override',
-  'method',
-  'native',
-  'self',
-  'super',
-  'new',
-  'if',
-  'else',
-  'return',
-  'throw',
-  'try',
-  'then always',
-  'catch',
   'null',
   'false',
   'true',
-]
+].concat(Object.values(KEYWORDS))
 
 const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -639,7 +616,7 @@ const getUninitializedAttributesIn = (node: Module, fields: Field[], initializer
 
 
 const initializesInsideInitMethod = (node: Module, field: Field) => {
-  const allInitMethods = node.allMethods.filter(method => method.matchesSignature('initialize', 0))
+  const allInitMethods = node.allMethods.filter(method => method.matchesSignature(INITIALIZE_METHOD_NAME, 0))
   return allInitMethods.some(method => initializesReference(method, field))
 }
 
@@ -703,20 +680,18 @@ const valueFor: any | undefined = (node: Node) =>
 const sendsMessageToAssert = (node: Node): boolean =>
   match(node)(
     when(Body)(node => node.children.some(child => sendsMessageToAssert(child))),
-    when(Send)<boolean>(nodeSend =>
-      match(nodeSend.receiver)(
+    when(Send)<boolean>(nodeSend => {
+      const objectSendsMessageToAssert = (_: Node) => {
+        const method = findMethod(nodeSend)
+        return !!method && !!method.body && method.body !== KEYWORDS.NATIVE && sendsMessageToAssert(method.body)
+      }
+      return match(nodeSend.receiver)(
         when(Reference)(receiver => receiver.name === 'assert'),
-        when(Literal)(_ => {
-          const method = findMethod(nodeSend)
-          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
-        }),
-        when(Self)(_ => {
-          const method = findMethod(nodeSend)
-          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
-        }),
+        when(Literal)(objectSendsMessageToAssert),
+        when(Self)(objectSendsMessageToAssert),
         when(Expression)(_ => false),
       )
-    ),
+    }),
     when(Try)(node =>
       sendsMessageToAssert(node.body) ||
       node.catches.every(_catch => sendsMessageToAssert(_catch.body)) || sendsMessageToAssert(node.always)

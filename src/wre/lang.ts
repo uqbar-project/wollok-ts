@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD, COLLECTION_MODULE, DATE_MODULE } from '../constants'
+import { CLOSURE_METHOD, COLLECTION_MODULE, DATE_MODULE, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
@@ -531,7 +531,7 @@ const lang: Natives = {
     },
 
     *concat(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.innerString! + (yield * this.send('toString', other))!.innerString!)
+      return yield* this.reify(self.innerString! + (yield * this.send(TO_STRING_METHOD, other))!.innerString!)
     },
 
     *startsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
