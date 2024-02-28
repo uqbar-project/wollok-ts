@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD } from '../constants'
+import { APPLY_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Module, Node, Reference } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
@@ -81,7 +81,7 @@ export const bindReceivedMessages = (tVar: TypeVariable): boolean => {
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
-      const message = send.message == CLOSURE_METHOD ? '<apply>' : send.message // 'apply' is a special case for closures
+      const message = send.message == APPLY_METHOD ? '<apply>' : send.message // 'apply' is a special case for closures
       const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
