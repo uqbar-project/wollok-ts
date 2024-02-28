@@ -93,6 +93,7 @@ const inferEnvironment = (env: Environment) => {
 
 const inferPackage = (p: Package) => {
   // Wollok code should be typed by annotations, avoid inference.
+  // eslint-disable-next-line @typescript-eslint/semi
   if (p.isBaseWollokCode) return;
   p.children.forEach(inferTypeVariables)
 }
