@@ -2,9 +2,9 @@ import { v4 as uuid } from 'uuid'
 import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
-import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
-import { getUninitializedAttributesForInstantiation } from '../validator'
+import { getUninitializedAttributesForInstantiation, loopInAssignment } from '../validator'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -450,6 +450,9 @@ export class Evaluation {
     if(!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
 
     const target = node.target
+    if (target?.is(Field) && loopInAssignment(target.value, target.name)) {
+      raise(new Error(`Error initializing field ${target.name}: stack overflow`))
+    }
 
     return this.currentFrame.get(
       target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
