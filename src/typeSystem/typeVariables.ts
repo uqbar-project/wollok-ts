@@ -199,8 +199,10 @@ const inferIf = (_if: If) => {
     typeVariableFor(_if)
       .beSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
   }
-  return typeVariableFor(_if) // TODO: only for if-expression
-    .beSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+  if (_if.thenBody.sentences.length) {
+    return typeVariableFor(_if) // TODO: only for if-expression
+      .beSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+  }
 }
 
 const inferReference = (r: Reference<Node>) => {
