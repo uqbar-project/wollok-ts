@@ -1,4 +1,4 @@
-import { APPLY_METHOD, COLLECTION_MODULE, DATE_MODULE, TO_STRING_METHOD } from '../constants'
+import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
 import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
@@ -703,19 +703,19 @@ const lang: Natives = {
     *apply(this: Evaluation, self: RuntimeObject, args: RuntimeObject): Execution<RuntimeValue> {
       args.assertIsCollection()
 
-      const method = self.module.lookupMethod('<apply>', args.innerCollection.length)
+      const method = self.module.lookupMethod(CLOSURE_EVALUATE_METHOD, args.innerCollection.length)
       if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify(APPLY_METHOD), args)
 
       const locals = yield* this.localsFor(method, args.innerCollection)
       const frame = new Frame(method, self, locals)
 
-      frame.set('self', self.parentContext?.get('self'))
+      frame.set(KEYWORDS.SELF, self.parentContext?.get(KEYWORDS.SELF))
 
       return yield* this.exec(method, frame)
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
-      return self.get('<toString>') ?? (yield* this.reify(`${self.module.fullyQualifiedName}#${self.id}`))
+      return self.get(CLOSURE_TO_STRING_METHOD) ?? (yield* this.reify(`${self.module.fullyQualifiedName}#${self.id}`))
     },
 
   },

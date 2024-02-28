@@ -1,4 +1,4 @@
-import { KEYWORDS } from './../constants';
+import { CLOSURE_EVALUATE_METHOD, KEYWORDS } from './../constants';
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
@@ -142,7 +142,7 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const target = this.node.is(Method) && this.node.name === '<apply>'
+    const target = this.node.is(Method) && this.node.name === CLOSURE_EVALUATE_METHOD
       ? this.node.parent
       : this.node
     return target.sourceInfo

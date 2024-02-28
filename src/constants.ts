@@ -1,11 +1,14 @@
 import { Name } from './model'
 
+// Packages
 export const WOLLOK_BASE_PACKAGE = 'wollok.'
 
+// Extensions
 export const TEST_FILE_EXTENSION = 'wtest'
 export const PROGRAM_FILE_EXTENSION = 'wpgm'
 export const WOLLOK_FILE_EXTENSION = 'wlk'
 
+// Module constants
 export const COLLECTION_MODULE = 'wollok.lang.Collection'
 export const LIST_MODULE = 'wollok.lang.List'
 export const SET_MODULE = 'wollok.lang.Set'
@@ -22,10 +25,16 @@ export const CLOSURE_MODULE = 'wollok.lang.Closure'
 
 export const GAME_MODULE = 'wollok.game.game'
 
+// Special methods
+export const INITIALIZE_METHOD_NAME = 'initialize'
 export const TO_STRING_METHOD = 'toString'
 export const APPLY_METHOD = 'apply'
-export const INITIALIZE_METHOD_NAME = 'initialize'
 
+// Constants for Closures
+export const CLOSURE_EVALUATE_METHOD = '<apply>'
+export const CLOSURE_TO_STRING_METHOD = '<toString>'
+
+// Operators
 export const PREFIX_OPERATORS: Record<Name, Name> = {
   '!': 'negate',
   '-': 'invert',
@@ -46,6 +55,7 @@ export const INFIX_OPERATORS = [
   ['**', '%'],
 ]
 
+// Keywords
 export const KEYWORDS = {
   IF: 'if',
   ELSE: 'else',
