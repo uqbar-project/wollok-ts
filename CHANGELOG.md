@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.0.9
+**Wollok Version: `3.2.1`**
+
+- 🐛 Fix Type System with empty `if`
+- 🐞 Fix some Validations
+- 🚧 Error handling for recursive attribute initialization
+
 ## v4.0.8
 **Wollok Version: `3.2.0`**
 
