@@ -1,6 +1,5 @@
-import { KEYWORDS } from './../constants';
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, CLOSURE_METHOD_NAME, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
@@ -142,7 +141,7 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const target = this.node.is(Method) && this.node.name === CLOSURE_METHOD_NAME
+    const target = this.node.is(Method) && this.node.name === CLOSURE_EVALUATE_METHOD
       ? this.node.parent
       : this.node
     return target.sourceInfo

@@ -1,4 +1,4 @@
-import { BOOLEAN_MODULE, CLOSURE_METHOD_NAME, CLOSURE_MODULE, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
@@ -551,8 +551,8 @@ export class Singleton extends Expression(Module(Node)) {
   @cached
   isClosure(arity?: number): boolean {
     return arity === undefined
-      ? this.methods.some(_ => _.name === CLOSURE_METHOD_NAME)
-      : !!this.lookupMethod(CLOSURE_METHOD_NAME, arity)
+      ? this.methods.some(_ => _.name === CLOSURE_EVALUATE_METHOD)
+      : !!this.lookupMethod(CLOSURE_EVALUATE_METHOD, arity)
   }
 }
 
@@ -862,9 +862,9 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: CLOSURE_MODULE }) })],
     members: [
-      new Method({ name: CLOSURE_METHOD_NAME, parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
+      new Method({ name: CLOSURE_EVALUATE_METHOD, parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
-        new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
+        new Field({ name: CLOSURE_TO_STRING_METHOD, isConstant: true, value: new Literal({ value: code }) }),
       ] : [],
     ],
     ...payload,
