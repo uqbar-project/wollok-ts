@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { CLOSURE_TO_STRING_METHOD, CLOSURE_EVALUATE_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -842,7 +842,7 @@ const isInitialized = (node: Variable) =>
   node.value.is(Literal) &&
   node.value.isNull()
 
-export const loopInAssignment = (node: Expression, variableName: string) =>
+export const loopInAssignment = (node: Expression, variableName: string): boolean =>
   node.is(Send) && methodExists(node) && node.receiver.is(Self) && node.message === variableName
 
 const methodsCallingToSuper = (node: Class | Singleton) => node.allMethods.filter(method => callsToSuper(method))

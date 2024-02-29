@@ -1,5 +1,6 @@
+import { CLOSURE_EVALUATE_METHOD, KEYWORDS } from './../constants'
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
