@@ -26,7 +26,7 @@ export const CLOSURE_MODULE = 'wollok.lang.Closure'
 export const GAME_MODULE = 'wollok.game.game'
 
 // Special methods
-export const INITIALIZE_METHOD_NAME = 'initialize'
+export const INITIALIZE_METHOD = 'initialize'
 export const TO_STRING_METHOD = 'toString'
 export const APPLY_METHOD = 'apply'
 

@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
+import { CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, OBJECT_MODULE, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
 import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -29,7 +29,7 @@ const { entries } = Object
 
 const RESERVED_WORDS = ['null', 'false', 'true']
   .concat(Object.values(KEYWORDS))
-  .filter(word => word !== KEYWORDS.MIXED_AND)
+  .filter(word => word !== 'and')
 
 const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -214,7 +214,7 @@ export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.e
 }))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !superclassMethod(node) || node.name == INITIALIZE_METHOD_NAME
+  node.isOverride || !superclassMethod(node) || node.name == INITIALIZE_METHOD
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -624,7 +624,7 @@ const getUninitializedAttributesIn = (node: Module, fields: Field[], initializer
 
 
 const initializesInsideInitMethod = (node: Module, field: Field) => {
-  const allInitMethods = node.allMethods.filter(method => method.matchesSignature(INITIALIZE_METHOD_NAME, 0))
+  const allInitMethods = node.allMethods.filter(method => method.matchesSignature(INITIALIZE_METHOD, 0))
   return allInitMethods.some(method => initializesReference(method, field))
 }
 
