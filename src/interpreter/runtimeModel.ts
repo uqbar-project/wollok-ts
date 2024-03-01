@@ -236,6 +236,11 @@ export class RuntimeObject extends Context {
     if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
+
+  isConstant(localName: string): boolean {
+    return this.module.lookupField(localName)?.isConstant ?? false
+  }
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

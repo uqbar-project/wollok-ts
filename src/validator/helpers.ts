@@ -54,6 +54,7 @@ export const isUninitialized = (value: Expression): boolean => value.isSynthetic
 
 export const isBooleanLiteral = (node: Expression, value: boolean): boolean => node.is(Literal) && node.value === value
 
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target)
 
 export const superclassMethod = (node: Method): Method | undefined => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName, allowAbstractMethods: true })

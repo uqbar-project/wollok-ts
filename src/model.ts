@@ -327,6 +327,10 @@ export class Package extends Entity(Node) {
     return this.scope.resolve<N>(qualifiedName)
   }
 
+  isConstant(localName: string): boolean {
+    return this.scope.resolve<Variable>(localName)?.isConstant ?? false
+  }
+
 }
 
 

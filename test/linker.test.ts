@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { divideOn } from '../src/extensions'
 import { fromJSON } from '../src/jsonUtils'
-import link from '../src/linker'
+import link, { canBeReferenced } from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
@@ -13,7 +13,7 @@ use(linkerAssertions)
 
 
 // TODO: Split uber-tests into smaller tests with clearer descriptions (??)
-// TODO: How about creting FQN for more nodes? Like p.q.C.m(0) ? YES!
+// TODO: How about creating FQN for more nodes? Like p.q.C.m(0) ? YES!
 const WRE: Environment = fromJSON(wre)
 
 const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE, GAME_MODULE)
@@ -810,6 +810,20 @@ describe('Wollok linker', () => {
       ], WRE)
     )
 
+  })
+
+})
+
+describe('Can be referenced', () => {
+
+  it('things that can be referenced', () => {
+    canBeReferenced(new Class({ name: 'A' })).should.be.true
+    canBeReferenced(new Field({ name: 'A', isConstant: true })).should.be.true
+    canBeReferenced(new Parameter({ name: 'A' })).should.be.true
+  })
+
+  it('things that cannot be referenced', () => {
+    canBeReferenced(new Body())?.should.be.undefined
   })
 
 })
