@@ -1,6 +1,6 @@
-import { CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from '../constants'
-import { List, count, is, isEmpty, last, match, notEmpty, when } from '../extensions'
-import { Assignment, Body, Class, Describe, Entity, Expression, Field, If, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { List, count, is, isEmpty, last, match, notEmpty, when } from './extensions'
+import { Assignment, Body, Class, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -268,3 +268,52 @@ export const loopInAssignment = (node: Expression, variableName: string): boolea
 export const methodsCallingToSuper = (node: Class | Singleton): Method[] => node.allMethods.filter(method => callsToSuper(method))
 
 export const methodIsImplementedInSuperclass = (node: Class | Singleton) => (method: Method): Method | undefined => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName })
+
+export const literalValueToClass = (environment: Environment, literal: LiteralValue): Class => {
+  const clazz = (() => { switch (typeof literal) {
+    case 'number':
+      return NUMBER_MODULE
+    case 'string':
+      return STRING_MODULE
+    case 'boolean':
+      return BOOLEAN_MODULE
+    case 'object':
+      try {
+        const referenceClasses = literal as unknown as Reference<Class>[]
+        return referenceClasses[0].name
+      } catch (e) {
+        return OBJECT_MODULE
+      }
+  }})()
+  return environment.getNodeByFQN(clazz)
+}
+
+export const allAvailableMethods = (environment: Environment): Method[] =>
+  environment.descendants.filter(is(Method)) as Method[]
+
+export const allMethods = (environment: Environment, referenceClass: Reference<Module>): Method[] =>
+  (referenceClass.target ?? environment.objectClass).allMethods as Method[]
+
+export const firstNodeWithProblems = (node: Node): Node | undefined => {
+  const { start, end } = node.problems![0].sourceMap ?? { start: { offset: -1 }, end: { offset: -1 } }
+  return node.children.find(child =>
+    child.sourceMap?.covers(start.offset) || child.sourceMap?.covers(end.offset)
+  )
+}
+
+export const parentModule = (node: Node): Module => (node.ancestors.find(ancestor => ancestor.is(Module))) as Module ?? node.environment.objectClass
+
+export const parentImport = (node: Node): Import | undefined => node.ancestors.find(ancestor => ancestor.is(Import)) as Import
+
+export const implicitImport = (node: Node): boolean => ['wollok/lang.wlk', 'wollok/lib.wlk'].includes(node.sourceFileName ?? '')
+
+// @ToDo Workaround because package fqn is absolute in the lsp.
+export const fqnRelativeToPackage =
+  (pckg: Package, node: Entity): string =>
+    node.fullyQualifiedName.replace(pckg.fullyQualifiedName, pckg.name)
+
+
+export const workspacePackage = (environment: Environment): Package => environment.members[1]
+
+export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): anotherNode is Reference<T>  =>
+  anotherNode.is(Reference) && anotherNode.target === aNode

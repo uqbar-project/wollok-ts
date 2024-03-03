@@ -5,7 +5,7 @@
 import { KEYWORDS } from '../constants'
 import { List, isEmpty, last, match, when } from '../extensions'
 import { Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
-import { isBooleanLiteral } from './helpers'
+import { isBooleanLiteral } from '../helpers'
 
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
   node.sourceMap && new SourceMap({

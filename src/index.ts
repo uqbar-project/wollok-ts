@@ -25,6 +25,8 @@ function buildEnvironment(files: List<FileContent>, baseEnvironment: Environment
 }
 
 export * from './constants'
+export * from './helpers'
+export * from './extensions'
 export * from './model'
 export * from './interpreter/runtimeModel'
 export {
