@@ -28,7 +28,9 @@ export * from './constants'
 export * from './helpers'
 export * from './extensions'
 export * from './model'
+export * from './interpreter/interpreter'
 export * from './interpreter/runtimeModel'
+export * from './interpreter/utils'
 export {
   WRE,
   WRENatives,
