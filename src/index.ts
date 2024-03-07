@@ -38,6 +38,7 @@ export * from './interpreter/runtimeModel'
 export * from './typeSystem/constraintBasedTypeSystem'
 export * from './typeSystem/typeVariables'
 export * from './typeSystem/wollokTypes'
+export * from './wre/wre.natives'
 export {
   WRE,
   WRENatives,
