@@ -152,12 +152,12 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   return environment
 }
 
-export function linkSentenceWithPackage<S extends Sentence>(newSentence: S, environment: Environment, basePackage: Package): void {
-  const { scope } = basePackage
+export function linkSentenceInNode<S extends Sentence>(newSentence: S, parentNode: Node): void {
+  const { scope } = parentNode
   scope.register(...scopeContribution(newSentence))
   newSentence.reduce((parentScope: Scope, node: Node) => {
     const localScope = new LocalScope(parentScope, ...scopeContribution(node))
-    Object.assign(node, { scope: localScope, environment })
+    Object.assign(node, { scope: localScope, environment: parentNode.environment })
     return localScope
   }, scope)
 }

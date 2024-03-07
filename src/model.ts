@@ -234,6 +234,18 @@ export class Import extends Node {
   constructor({ isGeneric = false, ...payload }: Payload<Import, 'entity'>) {
     super({ isGeneric, ...payload })
   }
+
+  get importedEntity(): Entity {
+    return this.entity.target!
+  }
+
+  allImportedEntities(): Entity[] {
+    const importedEntity = this.importedEntity
+    return this.isGeneric
+      ? [...(importedEntity as Package).members]
+      : [importedEntity]
+  }
+
 }
 
 
@@ -329,6 +341,13 @@ export class Package extends Entity(Node) {
 
   isConstant(localName: string): boolean {
     return this.scope.resolve<Variable>(localName)?.isConstant ?? false
+  }
+
+  allScopedEntities(): Entity[] {
+    return [
+      ...this.members,
+      ...this.imports.flatMap(imp => imp.allImportedEntities()),
+    ]
   }
 
 }

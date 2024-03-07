@@ -25,12 +25,19 @@ function buildEnvironment(files: List<FileContent>, baseEnvironment: Environment
 }
 
 export * from './constants'
-export * from './helpers'
 export * from './extensions'
+export * from './helpers'
+export * from './linker'
+export * from './jsonUtils'
 export * from './model'
+export * from './printer/exceptions'
+export * from './printer/print'
+export * from './printer/utils'
 export * from './interpreter/interpreter'
 export * from './interpreter/runtimeModel'
-export * from './interpreter/utils'
+export * from './typeSystem/constraintBasedTypeSystem'
+export * from './typeSystem/typeVariables'
+export * from './typeSystem/wollokTypes'
 export {
   WRE,
   WRENatives,

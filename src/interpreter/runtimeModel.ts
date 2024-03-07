@@ -238,7 +238,7 @@ export class RuntimeObject extends Context {
   }
 
   isConstant(localName: string): boolean {
-    return this.module.lookupField(localName)?.isConstant ?? false
+    return this.module.lookupField(localName)?.isConstant ?? false // TODO: instead of false we should throw an error
   }
 
 }
