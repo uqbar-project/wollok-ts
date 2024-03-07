@@ -3,6 +3,7 @@ import { Environment } from './model'
 import { List } from './extensions'
 import { fromJSON } from './jsonUtils'
 import * as parse from './parser'
+import { ParseError } from './parser'
 import validate from './validator'
 import print from './printer/print'
 import WRE from './wre/wre.json'
@@ -30,21 +31,22 @@ export * from './helpers'
 export * from './linker'
 export * from './jsonUtils'
 export * from './model'
+export * from './interpreter/interpreter'
+export * from './interpreter/runtimeModel'
 export * from './printer/exceptions'
 export * from './printer/print'
 export * from './printer/utils'
-export * from './interpreter/interpreter'
-export * from './interpreter/runtimeModel'
 export * from './typeSystem/constraintBasedTypeSystem'
 export * from './typeSystem/typeVariables'
 export * from './typeSystem/wollokTypes'
-export * from './wre/wre.natives'
+export * as natives from './wre/wre.natives'
 export {
-  WRE,
-  WRENatives,
   buildEnvironment,
-  parse,
   link,
+  parse,
+  ParseError,
   validate,
   print,
+  WRE,
+  WRENatives,
 }
