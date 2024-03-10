@@ -33,12 +33,8 @@ export * from './jsonUtils'
 export * from './model'
 export * from './interpreter/runtimeModel'
 export * from './printer/exceptions'
-export * from './printer/print'
 export * from './printer/utils'
-export * from './typeSystem/constraintBasedTypeSystem'
-export * from './typeSystem/typeVariables'
-export * from './typeSystem/wollokTypes'
-export * as natives from './wre/wre.natives'
+
 export {
   buildEnvironment,
   link,
