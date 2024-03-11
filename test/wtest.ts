@@ -3,7 +3,7 @@ import yargs from 'yargs'
 import { Describe, Node, Package, Test } from '../src/model'
 import { List } from '../src/extensions'
 import { buildEnvironment } from './assertions'
-import interpret, { Interpreter } from '../src/interpreter/interpreter'
+import { interpret, Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
 import { TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
 

@@ -23,6 +23,7 @@ function buildEnvironment(files: List<FileContent>, baseEnvironment: Environment
       throw new Error(`Failed to parse ${name}: ${(error as Error).message}`)
     }
   }), baseEnvironment)
+
 }
 
 export * from './constants'
@@ -31,7 +32,9 @@ export * from './helpers'
 export * from './linker'
 export * from './jsonUtils'
 export * from './model'
+export * from './interpreter/interpreter'
 export * from './interpreter/runtimeModel'
+export * from './typeSystem/constraintBasedTypeSystem'
 export * from './printer/exceptions'
 export * from './printer/utils'
 

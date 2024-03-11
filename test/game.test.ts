@@ -3,7 +3,7 @@ import { resolve } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
 import { Environment, GAME_MODULE, PROGRAM_FILE_EXTENSION } from '../src'
-import interpret, { Interpreter } from '../src/interpreter/interpreter'
+import { interpret, Interpreter } from '../src/interpreter/interpreter'
 
 should()
 
