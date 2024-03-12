@@ -419,7 +419,7 @@ class TypeInfo {
 
 
 function typeAnnotation(node: Node) {
-  return node.metadata.find(_ => _.name === 'Type')
+  return node?.metadata.find(_ => _.name === 'Type')
 }
 
 function annotatedTypeName(node: Node): string | undefined {
