@@ -1,3 +1,4 @@
+import { CLOSURE_METHOD_NAME } from '../constants'
 import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
@@ -31,7 +32,7 @@ function newTVarFor(node: Node) {
     newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)), false)
   }
   if (node.is(Singleton) && node.isClosure()) {
-    const methodApply = node.methods.find(_ => _.name === '<apply>')!
+    const methodApply = node.methods.find(_ => _.name === CLOSURE_METHOD_NAME)!
     const parameters = methodApply.parameters.map(typeVariableFor)
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     const returnType = typeVariableFor(methodApply).atParam(RETURN)
@@ -93,6 +94,7 @@ const inferEnvironment = (env: Environment) => {
 
 const inferPackage = (p: Package) => {
   // Wollok code should be typed by annotations, avoid inference.
+  // eslint-disable-next-line @typescript-eslint/semi
   if (p.isBaseWollokCode) return;
   p.children.forEach(inferTypeVariables)
 }
@@ -197,8 +199,10 @@ const inferIf = (_if: If) => {
     typeVariableFor(_if)
       .beSupertypeOf(typeVariableFor(last(_if.elseBody.sentences)!))
   }
-  return typeVariableFor(_if) // TODO: only for if-expression
-    .beSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+  if (_if.thenBody.sentences.length) {
+    return typeVariableFor(_if) // TODO: only for if-expression
+      .beSupertypeOf(typeVariableFor(last(_if.thenBody.sentences)!))
+  }
 }
 
 const inferReference = (r: Reference<Node>) => {
