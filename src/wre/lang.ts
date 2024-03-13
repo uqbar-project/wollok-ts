@@ -620,10 +620,6 @@ const lang: Natives = {
       return self
     },
 
-    *toSmartString(self: RuntimeObject): Execution<RuntimeValue> {
-      return self
-    },
-
     *['=='](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       return yield* this.reify(self.innerString! === other.innerString)
     },
@@ -647,10 +643,6 @@ const lang: Natives = {
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(`${self.innerBoolean!}`)
-    },
-
-    *toSmartString(self: RuntimeObject): Execution<RuntimeValue> {
       return yield* this.reify(`${self.innerBoolean!}`)
     },
 
