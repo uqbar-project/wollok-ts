@@ -1,6 +1,7 @@
 import { CLOSURE_METHOD_NAME, INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
+import { GLOBAL_PACKAGES } from './linker'
 import { TypeRegistry, WollokType } from './typeSystem/wollokTypes'
 
 const { isArray } = Array
@@ -315,6 +316,10 @@ export class Package extends Entity(Node) {
 
   @cached
   get sourceFileName(): string | undefined { return this.fileName ?? super.sourceFileName }
+
+  get isGlobalPackage(): boolean {
+    return GLOBAL_PACKAGES.includes(this.fullyQualifiedName)
+  }
 
   getNodeByQN<N extends Entity>(qualifiedName: Name): N {
     const node = this.getNodeOrUndefinedByQN<N>(qualifiedName)
