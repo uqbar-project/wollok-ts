@@ -143,7 +143,7 @@ describe('Wollok model', () => {
     const environment = link([new Package({
       name: 'pajaros',
       members: [
-        new Class({ name: 'Ave', members: [new Method({ name: 'volar', body: new Body() })] }),
+        new Class({ name: 'Ave', members: [new Field({ name: 'amigues', isProperty: false, isConstant: true }), new Field({ name: 'energia', isProperty: false, isConstant: false }), new Method({ name: 'volar', body: new Body() })] }),
       ],
     })], WRE)
     new Interpreter(Evaluation.build(environment, WRENatives))
@@ -161,5 +161,24 @@ describe('Wollok model', () => {
       })
 
     })
+
+    describe('isConstant', () => {
+
+      it('should return true if field is constant', () => {
+        wollokPackage.isConstant('pajaros.Ave.amigues').should.be.true
+      })
+
+      it('should return false if field is variable', () => {
+        wollokPackage.isConstant('pajaros.Ave.energia').should.be.false
+      })
+
+      it('should return false if field does not exist', () => {
+        wollokPackage.isConstant('pajaros.Ave.edad').should.be.false
+      })
+
+    })
+
+    // TODO: armar tests para variable
+
   })
 })
