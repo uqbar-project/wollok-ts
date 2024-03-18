@@ -1,12 +1,12 @@
 import { expect, should, use } from 'chai'
 import { divideOn } from '../src/extensions'
 import { fromJSON } from '../src/jsonUtils'
-import link, { canBeReferenced } from '../src/linker'
-import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
+import { Body, Class, Closure, Describe, Environment, Field, Import, Literal, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import wre from '../src/wre/wre.json'
 import { linkerAssertions } from './assertions'
-import { GAME_MODULE, OBJECT_MODULE } from '../src'
-
+import { Evaluation, GAME_MODULE, Interpreter, OBJECT_MODULE, WRENatives } from '../src'
+import * as parse from '../src/parser'
 
 should()
 use(linkerAssertions)
@@ -814,7 +814,7 @@ describe('Wollok linker', () => {
 
 })
 
-describe('Can be referenced', () => {
+describe('can be referenced', () => {
 
   it('things that can be referenced', () => {
     canBeReferenced(new Class({ name: 'A' })).should.be.true
@@ -824,6 +824,22 @@ describe('Can be referenced', () => {
 
   it('things that cannot be referenced', () => {
     canBeReferenced(new Body())?.should.be.undefined
+  })
+
+})
+
+describe('link sentence in node', () => {
+  const replPackage = new Package({ name: 'repl' })
+  const environment = link([replPackage], WRE)
+  new Interpreter(Evaluation.build(environment, WRENatives))
+
+  it('should link a new sentence for an existing node', () => {
+    const replScope = environment.getNodeByFQN('repl').scope
+    replScope.localContributions().should.be.empty
+    const aAssignmentSentence = parse.Variable.tryParse('const a = 4')
+    linkSentenceInNode(aAssignmentSentence, environment.getNodeByFQN('repl'))
+    const [variableName] = replScope.localContributions()[0]
+    variableName.should.be.equal('a')
   })
 
 })
