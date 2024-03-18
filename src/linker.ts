@@ -15,10 +15,6 @@ export class LinkError implements BaseProblem {
   get sourceMap(): SourceMap | undefined { return undefined }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fail = (code: Name) => (node: Node) =>
-  assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
-
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
