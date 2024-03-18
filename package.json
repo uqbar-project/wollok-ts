@@ -19,6 +19,7 @@
     "test:coverage": "nyc --reporter=lcov npm run test",
     "test:unit": "mocha --parallel -r ts-node/register/transpile-only test/**/*.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
+    "test:linker": "mocha --parallel -r ts-node/register/transpile-only test/linker.test.ts",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:validations": "mocha --parallel -r ts-node/register/transpile-only test/validator.test.ts",
     "test:typeSystem": "mocha --parallel -r ts-node/register/transpile-only test/typeSystem*.test.ts",
