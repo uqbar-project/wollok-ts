@@ -1,7 +1,9 @@
-import { should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType } from '../src/model'
+import { expect, should } from 'chai'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
+import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
+import wre from '../src/wre/wre.json'
 
 should()
 
@@ -136,4 +138,28 @@ describe('Wollok model', () => {
 
   })
 
+  describe('Package', () => {
+    const WRE: Environment = fromJSON(wre)
+    const environment = link([new Package({
+      name: 'pajaros',
+      members: [
+        new Class({ name: 'Ave', members: [new Method({ name: 'volar', body: new Body() })] }),
+      ],
+    })], WRE)
+    new Interpreter(Evaluation.build(environment, WRENatives))
+    const wollokPackage = environment.getNodeByFQN('pajaros') as Package
+
+    describe('getNodeByQN', () => {
+
+      it('should return an existing node filtering by QN', () => {
+        const numberClass = wollokPackage.getNodeByQN('pajaros.Ave')
+        numberClass.should.not.be.empty
+      })
+
+      it('should throw an error if node filtering by QN is not found', () => {
+        expect(() => wollokPackage.getNodeByQN('pajaros.Map')).to.throw('Could not resolve reference to pajaros.Map from pajaros')
+      })
+
+    })
+  })
 })
