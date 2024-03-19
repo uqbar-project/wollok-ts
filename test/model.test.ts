@@ -1,5 +1,5 @@
 import { expect, should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
@@ -142,8 +142,25 @@ describe('Wollok model', () => {
     const WRE: Environment = fromJSON(wre)
     const environment = link([new Package({
       name: 'pajaros',
+      imports: [
+        new Import({ isGeneric: false, entity: new Reference({ name: 'entrenador.tito' }) }),
+        new Import({ isGeneric: true, entity: new Reference({ name: 'animales' }) }),
+      ],
       members: [
         new Class({ name: 'Ave', members: [new Field({ name: 'amigues', isProperty: false, isConstant: true }), new Field({ name: 'energia', isProperty: false, isConstant: false }), new Method({ name: 'volar', body: new Body() })] }),
+      ],
+    }),
+    new Package({
+      name: 'entrenador',
+      members: [
+        new Singleton({ name: 'tito' }),
+      ],
+    }),
+    new Package({
+      name: 'animales',
+      members: [
+        new Singleton({ name: 'cabra' }),
+        new Singleton({ name: 'cebra' }),
       ],
     })], WRE)
     new Interpreter(Evaluation.build(environment, WRENatives))
@@ -178,7 +195,17 @@ describe('Wollok model', () => {
 
     })
 
-    // TODO: armar tests para variable
+    describe('allScopedEntities', () => {
+
+      it('should return all local and imported entities', () => {
+        wollokPackage.allScopedEntities().map(entity => entity.fullyQualifiedName).should.deep.equal([
+          'pajaros.Ave',
+          'entrenador.tito',
+          'animales.cabra',
+          'animales.cebra',
+        ])
+      })
+    })
 
   })
 })
