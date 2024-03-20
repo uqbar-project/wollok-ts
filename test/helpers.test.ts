@@ -18,12 +18,16 @@ const basicEnvironmentWithSingleClass = () => link([new Package({
   ],
 })], WREEnvironment)
 
+const getLinkedEnvironment = () => {
+  const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
+  return interpreter.evaluation.environment
+}
+
 describe('Wollok helpers', () => {
 
   describe('literalValueToClass', () => {
 
-    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
-    const environment = interpreter.evaluation.environment
+    const environment = getLinkedEnvironment()
 
     it('should work for numbers', () => {
       const numberClass = environment.getNodeByFQN(NUMBER_MODULE)
@@ -97,8 +101,7 @@ describe('Wollok helpers', () => {
 
   describe('parentModule', () => {
 
-    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
-    const environment = interpreter.evaluation.environment
+    const environment = getLinkedEnvironment()
 
     it('should detect a module as a method parent module', () => {
       const aveClass = environment.getNodeByFQN('aves.Ave') as Class
@@ -109,8 +112,7 @@ describe('Wollok helpers', () => {
 
   describe('implicitImport', () => {
 
-    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
-    const environment = interpreter.evaluation.environment
+    const environment = getLinkedEnvironment()
 
     it('should be true for a lang class', () => {
       const listClass = environment.getNodeByFQN(LIST_MODULE)
