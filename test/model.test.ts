@@ -1,8 +1,10 @@
 import { should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Singleton, Environment } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
-
+import link from '../src/linker'
+import { fromJSON } from '../src/jsonUtils'
+import { WRE } from '../src'
 should()
 
 describe('Wollok model', () => {
@@ -32,6 +34,27 @@ describe('Wollok model', () => {
 
       node.lookupMethod(method.name, method.parameters.length)!.should.equal(otherMethod)
     })
+
+  })
+
+  describe('Node', () => {
+    it('parentPackage', () => {
+      const env = link([new Package({
+        name: 'src',
+        members: [
+          new Package({
+            name: 'pepitaFile',
+            members: [
+              new Singleton({ name: 'pepita' }),
+            ],
+          }),
+        ],
+      })], fromJSON<Environment>(WRE))
+
+      const pepita: Singleton = (env.members[1].members[0] as Package).members[0] as Singleton
+      pepita.parentPackage?.name.should.equal('pepitaFile')
+    })
+
 
   })
 
