@@ -1,13 +1,11 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Class, Environment, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, fromJSON, link, literalValueToClass } from '../src'
-import wre from '../src/wre/wre.json'
-import { environmentWithEntities } from './utils'
+import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, link, literalValueToClass, parentModule } from '../src'
+import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
 should()
 
-const WRE: Environment = fromJSON(wre)
 const pepitaPackage: Package = new Package({
   name: 'p',
   members: [
@@ -30,7 +28,7 @@ describe('Wollok helpers', () => {
       members: [
         new Class({ name: 'c' }),
       ],
-    })], WRE)
+    })], WREEnvironment)
     const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
     const environment = interpreter.evaluation.environment
 
@@ -92,5 +90,27 @@ describe('Wollok helpers', () => {
 
   })
 
+  describe('parentModule', () => {
+
+    const baseEnvironment = link([new Package({
+      name: 'aves',
+      members: [
+        new Class({
+          name: 'Ave',
+          members: [
+            new Method({ name: 'volar', body: new Body() }),
+          ],
+        }),
+      ],
+    })], WREEnvironment)
+    const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
+    const environment = interpreter.evaluation.environment
+
+    it('should detect a module as a method parent module', () => {
+      const aveClass = environment.getNodeByFQN('aves.Ave') as Class
+      parentModule(aveClass.lookupMethod('volar', 0)!).should.equal(aveClass)
+    })
+
+  })
 
 })
