@@ -2,11 +2,12 @@ import { fail } from 'assert'
 import { readFileSync } from 'fs'
 import globby from 'globby'
 import { join } from 'path'
-import { Annotation, buildEnvironment, Class, FileContent, Literal, Node, Package, Problem, Reference, SourceMap } from '../src'
-import { List, notEmpty } from '../src/extensions'
+import { Annotation, buildEnvironment, Class, Environment, FileContent, fromJSON, link, Literal, Node, Package, Problem, PROGRAM_FILE_EXTENSION, Reference, SourceMap, TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
+import { divideOn, List, notEmpty } from '../src/extensions'
+import wre from '../src/wre/wre.json'
 
 export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
-  const files = globby.sync('**/*.@(wlk|wtest|wpgm)', { cwd: folderPath }).map(name => ({
+  const files = globby.sync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map(name => ({
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
   }))
@@ -75,3 +76,25 @@ export const validateExpectationProblem = (expectedProblem: Annotation, nodeProb
 
   return effectiveProblem
 }
+
+export function environmentWithEntities(...fqns: string[]): Environment {
+  return fqns.reduce((env, fqn) => link([newPackageWith(WREEnvironment, fqn)], env), link([]))
+}
+
+
+function newPackageWith(env: Environment, fullFQN: string) {
+
+  const buildNewPackages = (_fqn: string): Package => {
+    const [start, rest] = divideOn('.')(_fqn)
+
+    return rest.length
+      ? new Package({ name: start, members: [buildNewPackages(rest)] })
+      : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
+  }
+
+  return buildNewPackages(fullFQN)
+}
+
+// TODO: Split uber-tests into smaller tests with clearer descriptions (??)
+// TODO: How about creating FQN for more nodes? Like p.q.C.m(0) ? YES!
+export const WREEnvironment: Environment = fromJSON(wre)

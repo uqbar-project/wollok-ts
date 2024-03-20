@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
-import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, SourceMap } from './model'
+import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, SourceMap } from './model'
 const { assign } = Object
 
 
@@ -14,10 +14,6 @@ export class LinkError implements BaseProblem {
   get values(): List<string> { return [] }
   get sourceMap(): SourceMap | undefined { return undefined }
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fail = (code: Name) => (node: Node) =>
-  assign(node, { problems: [...node.problems ?? [], new LinkError(code)] })
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // MERGING
@@ -83,19 +79,10 @@ export class LocalScope implements Scope {
   localContributions(): [Name, Node][] { return [...this.contributions.entries()] }
 }
 
+export const scopeContribution = (contributor: Node): List<[Name, Node]> =>
+  canBeReferenced(contributor) && contributor.name ? [[contributor.name, contributor]] : []
 
-const scopeContribution = (contributor: Node): List<[Name, Node]> => {
-  if (
-    contributor.is(Entity) ||
-    contributor.is(Field) ||
-    contributor.is(Parameter)
-  ) return contributor.name ? [[contributor.name, contributor]] : []
-
-  return []
-}
-
-
-const assignScopes = (environment: Environment) => {
+export const assignScopes = (environment: Environment): void => {
   environment.forEach((node, parent) => {
     assign(node, {
       scope: new LocalScope(
@@ -133,6 +120,7 @@ const assignScopes = (environment: Environment) => {
   })
 }
 
+export const canBeReferenced = (node: Node): node is Entity | Field | Parameter => node.is(Entity) || node.is(Field) || node.is(Parameter)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER
@@ -158,4 +146,14 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   assignScopes(environment)
 
   return environment
+}
+
+export function linkSentenceInNode<S extends Sentence>(newSentence: S, parentNode: Node): void {
+  const { scope } = parentNode
+  scope.register(...scopeContribution(newSentence))
+  newSentence.reduce((parentScope: Scope, node: Node) => {
+    const localScope = new LocalScope(parentScope, ...scopeContribution(node))
+    Object.assign(node, { scope: localScope, environment: parentNode.environment })
+    return localScope
+  }, scope)
 }

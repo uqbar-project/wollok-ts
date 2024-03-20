@@ -2,7 +2,7 @@ import { Entity, Environment, Method, Module, Name, Node, Sentence } from '../mo
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 
 
-export default (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
+export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
 
 // TODO: Replace this with Higher Kinded Types if TS ever implements it...

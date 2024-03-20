@@ -1,3 +1,4 @@
+import { TO_STRING_METHOD } from '../constants'
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const lib: Natives = {
@@ -5,7 +6,7 @@ const lib: Natives = {
   console: {
 
     *println(_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
-      this.console.log((yield* this.send('toString', obj))!.innerString)
+      this.console.log((yield* this.send(TO_STRING_METHOD, obj))!.innerString)
     },
 
     *readLine(_self: RuntimeObject): Execution<RuntimeValue> {

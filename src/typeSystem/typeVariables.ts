@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD_NAME } from '../constants'
+import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
@@ -32,7 +32,7 @@ function newTVarFor(node: Node) {
     newTVar.setType(new WollokMethodType(annotatedVar, parameters, annotatedVariableMap(node)), false)
   }
   if (node.is(Singleton) && node.isClosure()) {
-    const methodApply = node.methods.find(_ => _.name === CLOSURE_METHOD_NAME)!
+    const methodApply = node.methods.find(_ => _.name === CLOSURE_EVALUATE_METHOD)!
     const parameters = methodApply.parameters.map(typeVariableFor)
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
     const returnType = typeVariableFor(methodApply).atParam(RETURN)
@@ -216,7 +216,7 @@ const inferReference = (r: Reference<Node>) => {
 
 const inferSelf = (self: Self | Super) => {
   const module = self.ancestors.find<Module>((node: Node): node is Module =>
-    node.is(Module) && !node.fullyQualifiedName.startsWith('wollok.lang.Closure')) // Ignore closures
+    node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
   if (!module) throw new Error('Module for Self not found')
   return typeVariableFor(self).setType(new WollokModuleType(module))
 }
@@ -419,7 +419,7 @@ class TypeInfo {
 
 
 function typeAnnotation(node: Node) {
-  return node.metadata.find(_ => _.name === 'Type')
+  return node?.metadata.find(_ => _.name === 'Type')
 }
 
 function annotatedTypeName(node: Node): string | undefined {

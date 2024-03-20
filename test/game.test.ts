@@ -2,8 +2,8 @@ import { should } from 'chai'
 import { resolve } from 'path'
 import { buildEnvironment } from './assertions'
 import natives from '../src/wre/wre.natives'
-import { Environment } from '../src'
-import interpret, { Interpreter } from '../src/interpreter/interpreter'
+import { Environment, GAME_MODULE, PROGRAM_FILE_EXTENSION } from '../src'
+import { interpret, Interpreter } from '../src/interpreter/interpreter'
 
 should()
 
@@ -18,7 +18,7 @@ describe('Wollok Game', () => {
 
 
     before(async () => {
-      environment = await buildEnvironment('**/*.wpgm', resolve('language', 'test', 'game'))
+      environment = await buildEnvironment(`**/*.${PROGRAM_FILE_EXTENSION}`, resolve('language', 'test', 'game'))
     })
 
     beforeEach(() => {
@@ -27,13 +27,13 @@ describe('Wollok Game', () => {
 
     it('addVisual', () => {
       interpreter.run('actions.addVisual')
-      const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
+      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
       visuals.should.have.length(1)
     })
 
     it('removeVisual', () => {
       interpreter.run('actions.removeVisual')
-      const visuals = interpreter.object('wollok.game.game').get('visuals')!.innerValue!
+      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
       visuals.should.have.length(0)
     })
 
@@ -45,13 +45,13 @@ describe('Wollok Game', () => {
 
     it('clear', () => {
       interpreter.run('actions.clear')
-      const visuals = interpreter.object('wollok.game.game')!.get('visuals')!.innerValue!
+      const visuals = interpreter.object(GAME_MODULE)!.get('visuals')!.innerValue!
       visuals.should.have.length(0)
 
     })
 
     it('flush event', () => {
-      const game = interpreter.object('wollok.game.game')!
+      const game = interpreter.object(GAME_MODULE)!
       const time = interpreter.reify(1)
       interpreter.send('flushEvents', game, time)
     })

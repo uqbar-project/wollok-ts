@@ -1,4 +1,4 @@
-import { CLOSURE_METHOD_NAME, INFIX_OPERATORS, PREFIX_OPERATORS, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { GLOBAL_PACKAGES } from './linker'
@@ -235,6 +235,18 @@ export class Import extends Node {
   constructor({ isGeneric = false, ...payload }: Payload<Import, 'entity'>) {
     super({ isGeneric, ...payload })
   }
+
+  get importedEntity(): Entity {
+    return this.entity.target!
+  }
+
+  allImportedEntities(): Entity[] {
+    const importedEntity = this.importedEntity
+    return this.isGeneric
+      ? [...(importedEntity as Package).members]
+      : [importedEntity]
+  }
+
 }
 
 
@@ -330,6 +342,17 @@ export class Package extends Entity(Node) {
   @cached
   getNodeOrUndefinedByQN<N extends Entity>(qualifiedName: Name): N | undefined {
     return this.scope.resolve<N>(qualifiedName)
+  }
+
+  isConstant(localName: string): boolean {
+    return this.scope.resolve<Variable | Field>(localName)?.isConstant ?? false
+  }
+
+  allScopedEntities(): Entity[] {
+    return [
+      ...this.members,
+      ...this.imports.flatMap(imp => imp.allImportedEntities()),
+    ]
   }
 
 }
@@ -556,8 +579,8 @@ export class Singleton extends Expression(Module(Node)) {
   @cached
   isClosure(arity?: number): boolean {
     return arity === undefined
-      ? this.methods.some(_ => _.name === CLOSURE_METHOD_NAME)
-      : !!this.lookupMethod(CLOSURE_METHOD_NAME, arity)
+      ? this.methods.some(_ => _.name === CLOSURE_EVALUATE_METHOD)
+      : !!this.lookupMethod(CLOSURE_EVALUATE_METHOD, arity)
   }
 }
 
@@ -582,7 +605,7 @@ export class Describe extends Module(Node) {
   get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
   readonly members!: List<Field | Method | Test>
-  readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Object' }) })]
+  readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: OBJECT_MODULE }) })]
 
   override parent!: Package
 
@@ -637,7 +660,7 @@ export class Method extends Node {
   }
 
   isAbstract(): this is { body: undefined } { return !this.body }
-  isNative(): this is { body?: Body } { return this.body === 'native' }
+  isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
   isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
 
   @cached
@@ -842,7 +865,7 @@ export class Catch extends Node {
 
   override parent!: Try
 
-  constructor({ parameterType = new Reference({ name: 'wollok.lang.Exception' }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
+  constructor({ parameterType = new Reference({ name: EXCEPTION_MODULE }), ...payload }: Payload<Catch, 'parameter' | 'body'>) {
     super({ parameterType, ...payload })
   }
 }
@@ -865,11 +888,11 @@ export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayl
   const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
-    supertypes: [new ParameterizedType({ reference: new Reference({ name: 'wollok.lang.Closure' }) })],
+    supertypes: [new ParameterizedType({ reference: new Reference({ name: CLOSURE_MODULE }) })],
     members: [
-      new Method({ name: CLOSURE_METHOD_NAME, parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
+      new Method({ name: CLOSURE_EVALUATE_METHOD, parameters, body: new Body({ sentences: [...initialSentences, ...lastSentence] }) }),
       ...code ? [
-        new Field({ name: '<toString>', isConstant: true, value: new Literal({ value: code }) }),
+        new Field({ name: CLOSURE_TO_STRING_METHOD, isConstant: true, value: new Literal({ value: code }) }),
       ] : [],
     ],
     ...payload,
@@ -910,8 +933,8 @@ export class Environment extends Node {
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }
-  get objectClass(): Class { return this.getNodeByFQN('wollok.lang.Object') }
-  get numberClass(): Class { return this.getNodeByFQN('wollok.lang.Number') }
-  get stringClass(): Class { return this.getNodeByFQN('wollok.lang.String') }
-  get booleanClass(): Class { return this.getNodeByFQN('wollok.lang.Boolean') }
+  get objectClass(): Class { return this.getNodeByFQN(OBJECT_MODULE) }
+  get numberClass(): Class { return this.getNodeByFQN(NUMBER_MODULE) }
+  get stringClass(): Class { return this.getNodeByFQN(STRING_MODULE) }
+  get booleanClass(): Class { return this.getNodeByFQN(BOOLEAN_MODULE) }
 }
