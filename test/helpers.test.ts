@@ -6,30 +6,23 @@ import { WREEnvironment, environmentWithEntities } from './utils'
 use(sinonChai)
 should()
 
-const pepitaPackage: Package = new Package({
-  name: 'p',
+const basicEnvironmentWithSingleClass = () => link([new Package({
+  name: 'aves',
   members: [
-    new Singleton({
-      name: 'pepita',
+    new Class({
+      name: 'Ave',
       members: [
-        new Method({ name: 'volar' }),
-        new Method({ name: 'comer' }),
+        new Method({ name: 'volar', body: new Body() }),
       ],
     }),
   ],
-})
+})], WREEnvironment)
 
 describe('Wollok helpers', () => {
 
   describe('literalValueToClass', () => {
 
-    const baseEnvironment = link([new Package({
-      name: 'p',
-      members: [
-        new Class({ name: 'c' }),
-      ],
-    })], WREEnvironment)
-    const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
+    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
     const environment = interpreter.evaluation.environment
 
     it('should work for numbers', () => {
@@ -59,6 +52,18 @@ describe('Wollok helpers', () => {
 
   describe('allAvailableMethods', () => {
 
+    const pepitaPackage: Package = new Package({
+      name: 'aves',
+      members: [
+        new Singleton({
+          name: 'pepita',
+          members: [
+            new Method({ name: 'volar' }),
+            new Method({ name: 'comer' }),
+          ],
+        }),
+      ],
+    })
     const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
     const baseEnvironment = link([
       pepitaPackage,
@@ -92,18 +97,7 @@ describe('Wollok helpers', () => {
 
   describe('parentModule', () => {
 
-    const baseEnvironment = link([new Package({
-      name: 'aves',
-      members: [
-        new Class({
-          name: 'Ave',
-          members: [
-            new Method({ name: 'volar', body: new Body() }),
-          ],
-        }),
-      ],
-    })], WREEnvironment)
-    const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
+    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
     const environment = interpreter.evaluation.environment
 
     it('should detect a module as a method parent module', () => {
@@ -115,13 +109,7 @@ describe('Wollok helpers', () => {
 
   describe('implicitImport', () => {
 
-    const baseEnvironment = link([new Package({
-      name: 'p',
-      members: [
-        new Class({ name: 'c' }),
-      ],
-    })], WREEnvironment)
-    const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
+    const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
     const environment = interpreter.evaluation.environment
 
     it('should be true for a lang class', () => {
@@ -130,11 +118,10 @@ describe('Wollok helpers', () => {
     })
 
     it('should be false for a custom class', () => {
-      const customClass = environment.getNodeByFQN('p.c')
+      const customClass = environment.getNodeByFQN('aves.Ave')
       implicitImport(customClass).should.be.false
     })
 
   })
-
 
 })
