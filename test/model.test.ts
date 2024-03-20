@@ -37,6 +37,27 @@ describe('Wollok model', () => {
 
   })
 
+  describe('Node', () => {
+    it('parentPackage', () => {
+      const env = link([new Package({
+        name: 'src',
+        members: [
+          new Package({
+            name: 'pepitaFile',
+            members: [
+              new Singleton({ name: 'pepita' }),
+            ],
+          }),
+        ],
+      })], fromJSON<Environment>(wre))
+
+      const pepita: Singleton = (env.members[1].members[0] as Package).members[0] as Singleton
+      pepita.parentPackage?.name.should.equal('pepitaFile')
+    })
+
+
+  })
+
   describe('Method', () => {
 
     describe('isAbstract', () => {

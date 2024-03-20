@@ -111,6 +111,10 @@ export abstract class Node {
 
   get type(): WollokType { return this.environment.typeRegistry.getType(this) }
 
+  get parentPackage(): Package | undefined {
+    return this.ancestors.find(node => node.is(Package)) as Package | undefined
+  }
+
   @cached
   toString(verbose = false): string {
     return !verbose ? this.label : JSON.stringify(this, (key, value) => {
