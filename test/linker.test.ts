@@ -1,20 +1,13 @@
 import { expect, should, use } from 'chai'
-import { divideOn } from '../src/extensions'
-import { fromJSON } from '../src/jsonUtils'
 import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
-import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
-import wre from '../src/wre/wre.json'
+import { Body, Class, Closure, Describe, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
 import { linkerAssertions } from './assertions'
 import { Evaluation, GAME_MODULE, Interpreter, OBJECT_MODULE, WRENatives } from '../src'
 import * as parse from '../src/parser'
+import { WREEnvironment, environmentWithEntities } from './utils'
 
 should()
 use(linkerAssertions)
-
-
-// TODO: Split uber-tests into smaller tests with clearer descriptions (??)
-// TODO: How about creating FQN for more nodes? Like p.q.C.m(0) ? YES!
-const WRE: Environment = fromJSON(wre)
 
 const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE, GAME_MODULE)
 
@@ -169,7 +162,7 @@ describe('Wollok linker', () => {
           name: 'p',
           members: [new Class({ name: 'X' })],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const nextEnvironment = link([
         new Package({
@@ -246,7 +239,7 @@ describe('Wollok linker', () => {
           }),
         ],
       }),
-    ], WRE)
+    ], WREEnvironment)
 
     environment.should.have.property('id')
     environment.descendants.forEach(node => node.should.have.property('id'))
@@ -270,7 +263,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const Object = environment.getNodeByFQN<Class>(OBJECT_MODULE)
       const p = environment.getNodeByFQN<Package>('p')
@@ -338,7 +331,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const S = environment.getNodeByFQN<Singleton>('x.x')
       const C = environment.getNodeByFQN<Class>('x.C')
@@ -399,7 +392,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const A = environment.getNodeByFQN<Class>('p.A')
       const M = environment.getNodeByFQN<Class>('p.M')
@@ -432,7 +425,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
@@ -463,7 +456,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
@@ -500,7 +493,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
@@ -538,7 +531,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
@@ -572,7 +565,7 @@ describe('Wollok linker', () => {
             }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const B = environment.getNodeByFQN<Class>('p.B')
       const C = environment.getNodeByFQN<Class>('p.C')
@@ -605,7 +598,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'T' }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const C = environment.getNodeByFQN<Class>('p.C')
       const D = environment.getNodeByFQN<Class>('p.D')
@@ -633,7 +626,7 @@ describe('Wollok linker', () => {
             new Singleton({ name: 'q' }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       const p = environment.getNodeByFQN<Package>('p')
       const o = environment.getNodeByFQN<Singleton>('p.o')
@@ -660,7 +653,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'C' }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       expect(() => environment.getNodeByFQN('p.q.s')).to.throw()
     })
@@ -677,7 +670,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'C' }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       expect(() => environment.getNodeByFQN('p.C')).to.throw()
     })
@@ -691,7 +684,7 @@ describe('Wollok linker', () => {
             new Test({ name: '"T"', body: new Body() }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
 
       expect(() => environment.getNodeByFQN('p.G')).to.throw()
       expect(() => environment.getNodeByFQN('p."G"')).to.not.throw()
@@ -727,7 +720,7 @@ describe('Wollok linker', () => {
             new Package({ fileName: 'p.wtest', name: 'p' }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
       env.getNodeByFQN<Package>('g').members.should.have.length(2)
     })
 
@@ -737,7 +730,7 @@ describe('Wollok linker', () => {
           name: 'p',
           imports: [new Import({ entity: new Reference({ name: 'q.A' }) })],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash with missing reference in superclass', () =>
@@ -748,7 +741,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'S' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash with missing reference in mixin', () =>
@@ -759,7 +752,7 @@ describe('Wollok linker', () => {
             new Mixin({ name: 'M1', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'M2' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash if a class inherits from itself', () =>
@@ -770,7 +763,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'C' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash if there is an inheritance cycle', () =>
@@ -783,7 +776,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash if a mixin includes itself', () =>
@@ -794,7 +787,7 @@ describe('Wollok linker', () => {
             new Mixin({ name: 'M', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'M' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
     it('should not crash if there is a mixin linearization cycle', () =>
@@ -807,7 +800,7 @@ describe('Wollok linker', () => {
             new Mixin({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })] }),
           ],
         }),
-      ], WRE)
+      ], WREEnvironment)
     )
 
   })
@@ -830,7 +823,7 @@ describe('can be referenced', () => {
 
 describe('link sentence in node', () => {
   const replPackage = new Package({ name: 'repl' })
-  const environment = link([replPackage], WRE)
+  const environment = link([replPackage], WREEnvironment)
   new Interpreter(Evaluation.build(environment, WRENatives))
 
   it('should link a new sentence for an existing node', () => {
@@ -843,20 +836,3 @@ describe('link sentence in node', () => {
   })
 
 })
-
-function environmentWithEntities(...fqns: string[]): Environment {
-  return fqns.reduce((env, fqn) => link([newPackageWith(WRE, fqn)], env), link([]))
-}
-
-function newPackageWith(env: Environment, fullFQN: string) {
-
-  const buildNewPackages = (_fqn: string): Package => {
-    const [start, rest] = divideOn('.')(_fqn)
-
-    return rest.length
-      ? new Package({ name: start, members: [buildNewPackages(rest)] })
-      : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
-  }
-
-  return buildNewPackages(fullFQN)
-}
