@@ -1,10 +1,10 @@
-import { should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Singleton, Environment } from '../src/model'
+import { expect, should } from 'chai'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
-import link from '../src/linker'
-import { fromJSON } from '../src/jsonUtils'
-import { WRE } from '../src'
+import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
+import wre from '../src/wre/wre.json'
+
 should()
 
 describe('Wollok model', () => {
@@ -49,7 +49,7 @@ describe('Wollok model', () => {
             ],
           }),
         ],
-      })], fromJSON<Environment>(WRE))
+      })], fromJSON<Environment>(wre))
 
       const pepita: Singleton = (env.members[1].members[0] as Package).members[0] as Singleton
       pepita.parentPackage?.name.should.equal('pepitaFile')
@@ -159,4 +159,74 @@ describe('Wollok model', () => {
 
   })
 
+  describe('Package', () => {
+    const WRE: Environment = fromJSON(wre)
+    const environment = link([new Package({
+      name: 'pajaros',
+      imports: [
+        new Import({ isGeneric: false, entity: new Reference({ name: 'entrenador.tito' }) }),
+        new Import({ isGeneric: true, entity: new Reference({ name: 'animales' }) }),
+      ],
+      members: [
+        new Class({ name: 'Ave', members: [new Field({ name: 'amigues', isProperty: false, isConstant: true }), new Field({ name: 'energia', isProperty: false, isConstant: false }), new Method({ name: 'volar', body: new Body() })] }),
+      ],
+    }),
+    new Package({
+      name: 'entrenador',
+      members: [
+        new Singleton({ name: 'tito' }),
+      ],
+    }),
+    new Package({
+      name: 'animales',
+      members: [
+        new Singleton({ name: 'cabra' }),
+        new Singleton({ name: 'cebra' }),
+      ],
+    })], WRE)
+    new Interpreter(Evaluation.build(environment, WRENatives))
+    const wollokPackage = environment.getNodeByFQN('pajaros') as Package
+
+    describe('getNodeByQN', () => {
+
+      it('should return an existing node filtering by QN', () => {
+        const numberClass = wollokPackage.getNodeByQN('pajaros.Ave')
+        numberClass.should.not.be.empty
+      })
+
+      it('should throw an error if node filtering by QN is not found', () => {
+        expect(() => wollokPackage.getNodeByQN('pajaros.Map')).to.throw('Could not resolve reference to pajaros.Map from pajaros')
+      })
+
+    })
+
+    describe('isConstant', () => {
+
+      it('should return true if field is constant', () => {
+        wollokPackage.isConstant('pajaros.Ave.amigues').should.be.true
+      })
+
+      it('should return false if field is variable', () => {
+        wollokPackage.isConstant('pajaros.Ave.energia').should.be.false
+      })
+
+      it('should return false if field does not exist', () => {
+        wollokPackage.isConstant('pajaros.Ave.edad').should.be.false
+      })
+
+    })
+
+    describe('allScopedEntities', () => {
+
+      it('should return all local and imported entities', () => {
+        wollokPackage.allScopedEntities().map(entity => entity.fullyQualifiedName).should.deep.equal([
+          'pajaros.Ave',
+          'entrenador.tito',
+          'animales.cabra',
+          'animales.cebra',
+        ])
+      })
+    })
+
+  })
 })

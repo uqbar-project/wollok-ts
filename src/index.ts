@@ -3,6 +3,7 @@ import { Environment } from './model'
 import { List } from './extensions'
 import { fromJSON } from './jsonUtils'
 import * as parse from './parser'
+import { ParseError } from './parser'
 import validate from './validator'
 import print from './printer/print'
 import WRE from './wre/wre.json'
@@ -22,17 +23,28 @@ function buildEnvironment(files: List<FileContent>, baseEnvironment: Environment
       throw new Error(`Failed to parse ${name}: ${(error as Error).message}`)
     }
   }), baseEnvironment)
+
 }
 
 export * from './constants'
+export * from './extensions'
+export * from './helpers'
+export * from './linker'
+export * from './jsonUtils'
 export * from './model'
+export * from './interpreter/interpreter'
 export * from './interpreter/runtimeModel'
+export * from './typeSystem/constraintBasedTypeSystem'
+export * from './printer/exceptions'
+export * from './printer/utils'
+
 export {
-  WRE,
-  WRENatives,
   buildEnvironment,
-  parse,
   link,
+  parse,
+  ParseError,
   validate,
   print,
+  WRE,
+  WRENatives,
 }

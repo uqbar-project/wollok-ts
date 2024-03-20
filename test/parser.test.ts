@@ -2,6 +2,7 @@ import { should, use } from 'chai'
 import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
+import { LIST_MODULE, SET_MODULE } from '../src'
 
 const { raw } = String
 
@@ -3464,14 +3465,14 @@ describe('Wollok parser', () => {
 
           it('should parse empty lists', () => {
             '[]'.should.be.parsedBy(parser).into(
-              new Literal({ value: [new Reference({ name: 'wollok.lang.List' }), []] })
+              new Literal({ value: [new Reference({ name: LIST_MODULE }), []] })
             ).and.be.tracedTo(0, 2)
           })
 
           it('should parse non-empty lists', () => {
             '[1,2,3]'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.List' }), [
+                value: [new Reference({ name: LIST_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2 }),
                   new Literal({ value: 3 }),
@@ -3485,14 +3486,14 @@ describe('Wollok parser', () => {
 
           it('should parse empty sets', () => {
             '#{}'.should.be.parsedBy(parser).into(
-              new Literal({ value: [new Reference({ name: 'wollok.lang.Set' }), []] })
+              new Literal({ value: [new Reference({ name: SET_MODULE }), []] })
             ).and.be.tracedTo(0, 3)
           })
 
           it('should parse non-empty sets', () => {
             '#{1,2,3}'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2 }),
                   new Literal({ value: 3 }),
@@ -3507,7 +3508,7 @@ describe('Wollok parser', () => {
           it('should parse annotated nodes', () => {
             '@A(x=1)[1,2,3]'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.List' }), [
+                value: [new Reference({ name: LIST_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2 }),
                   new Literal({ value: 3 }),
@@ -3518,7 +3519,7 @@ describe('Wollok parser', () => {
 
             '@A(x=1)#{1,2,3}'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2 }),
                   new Literal({ value: 3 }),
@@ -3531,7 +3532,7 @@ describe('Wollok parser', () => {
           it('should parse inner annotated nodes', () => {
             '[1,@A(x=1) 2,3]'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.List' }), [
+                value: [new Reference({ name: LIST_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
                   new Literal({ value: 3 }),
@@ -3541,7 +3542,7 @@ describe('Wollok parser', () => {
 
             '#{1,@A(x=1) 2,3}'.should.be.parsedBy(parser).into(
               new Literal({
-                value: [new Reference({ name: 'wollok.lang.Set' }), [
+                value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
                   new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
                   new Literal({ value: 3 }),

@@ -1,3 +1,4 @@
+import { GAME_MODULE } from '../constants'
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const game: Natives = {
@@ -106,7 +107,7 @@ const game: Natives = {
 
   Sound: {
     *play(self: RuntimeObject): Execution<void> {
-      const game = this.object('wollok.game.game')!
+      const game = this.object(GAME_MODULE)!
 
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
@@ -121,7 +122,7 @@ const game: Natives = {
     *stop(self: RuntimeObject): Execution<void> {
       if (self.get('status')?.innerString !== 'played') throw new Error('You cannot stop a sound that is not played')
 
-      const game = this.object('wollok.game.game')!
+      const game = this.object(GAME_MODULE)!
       const sounds = game.get('sounds')
       if(sounds) yield* this.send('remove', sounds, self)
 

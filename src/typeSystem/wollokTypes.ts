@@ -1,4 +1,4 @@
-import { OBJECT_MODULE } from '../constants'
+import { KEYWORDS, OBJECT_MODULE } from '../constants'
 import { List } from '../extensions'
 import { BaseProblem, Level, Method, Module, Name, Node, Singleton } from '../model'
 import { TypeVariable } from './typeVariables'
@@ -78,7 +78,7 @@ export class WollokModuleType {
   }
 
   get name(): string { return this.module.name! }
-  get kind(): string { return this.module?.name ?? 'null' }
+  get kind(): string { return this.module?.name ?? KEYWORDS.NULL }
   get isComplete(): boolean { return true }
 
   toString(): string { return this.module.toString() }

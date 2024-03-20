@@ -18,45 +18,22 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, KEYWORDS, OBJECT_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
-import { count, duplicates, is, isEmpty, last, List, match, notEmpty, TypeDefinition, when } from './extensions'
+import { EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION } from '../constants'
+import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, when } from '../extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
-  Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem,
-  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from './model'
+  Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
+  Problem,
+  Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
+import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, isBooleanLiteral, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isInitialized, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
+import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
+import { valuesForNodeName } from './values'
 
 const { entries } = Object
 
-const RESERVED_WORDS = [
-  'import',
-  'package',
-  'program',
-  'test',
-  'class',
-  'inherits',
-  'object',
-  'mixin',
-  'var',
-  'const',
-  'override',
-  'method',
-  'native',
-  'self',
-  'super',
-  'new',
-  'if',
-  'else',
-  'return',
-  'throw',
-  'try',
-  'then always',
-  'catch',
-  'null',
-  'false',
-  'true',
-]
-
-const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
+const RESERVED_WORDS = ['null', 'false', 'true']
+  .concat(Object.values(KEYWORDS))
+  .filter(word => word !== 'and')
 
 export type Validation<N extends Node> = (node: N, code: Code) => Problem | null
 
@@ -79,71 +56,6 @@ const warning = problem('warning')
 
 const error = problem('error')
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// VALIDATION MESSAGES
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const valuesForNodeName = (node: { name?: string }) => [node.name ?? '']
-
-const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number) =>
-  node.sourceMap && new SourceMap({
-    start: new SourceIndex({
-      ...node.sourceMap.start,
-      offset: node.sourceMap.start.offset + initialOffset,
-    }),
-    end: new SourceIndex({
-      ...node.sourceMap.end,
-      offset: node.sourceMap.start.offset + finalOffset + initialOffset,
-    }),
-  })
-
-const sourceMapForNodeName = (node: Node & { name?: string }) => {
-  if (!node.sourceMap) return undefined
-  const initialOffset = getOffsetForName(node)
-  const finalOffset = node.name?.length ?? 0
-  return buildSourceMap(node, initialOffset, finalOffset)
-}
-
-const sourceMapForNodeNameOrFullNode = (node: Node & { name?: string }) =>
-  node.name ? sourceMapForNodeName(node) : node.sourceMap
-
-const sourceMapForOnlyTest = (node: Test) => buildSourceMap(node, 0, KEYWORDS.ONLY.length)
-
-const sourceMapForOverrideMethod = (node: Method) => buildSourceMap(node, 0, KEYWORDS.OVERRIDE.length)
-
-const sourceMapForConditionInIf = (node: If) => node.condition.sourceMap
-
-const sourceMapForSentence = (sentence: Sentence) =>
-  sentence.is(Return) ? sentence.value?.sourceMap : sentence.sourceMap
-
-const sourceMapForSentences = (sentences: List<Sentence>) => new SourceMap({
-  start: sourceMapForSentence(sentences[0])!.start,
-  end: sourceMapForSentence(last(sentences)!)!.end,
-})
-
-// const sourceMapForReturnValue = (node: Method) => {
-//   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
-//   const lastSentence = last(node.body.sentences)!
-//   if (!lastSentence.is(Return)) return lastSentence.sourceMap
-//   return lastSentence.value!.sourceMap
-// }
-
-const sourceMapForBody = (node: Method | Test) => {
-  if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
-  return sourceMapForSentences(node.body.sentences)
-}
-
-const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
-  match(node)(
-    when(If)(node => {
-      const whichBody = isBooleanLiteral(node.condition, true) ? node.elseBody : node.thenBody
-      return sourceMapForSentences(whichBody.sentences)
-    }),
-    when(Send)(node => new SourceMap({
-      start: node.args[0].sourceMap!.start,
-      end: node.sourceMap!.end,
-    })),
-  )
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // VALIDATIONS
@@ -239,7 +151,7 @@ export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.e
 }))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !superclassMethod(node) || node.name == INITIALIZE_METHOD_NAME
+  node.isOverride || !superclassMethod(node) || node.name == INITIALIZE_METHOD
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -493,8 +405,8 @@ export const shouldMatchFileExtension = error<Test | Program>(node => {
   const filename = node.sourceFileName
   if (!filename) return true
   return match(node)(
-    when(Test)(_ => filename.endsWith('wtest')),
-    when(Program)(_ => filename.endsWith('wpgm')),
+    when(Test)(_ => filename.endsWith(TEST_FILE_EXTENSION)),
+    when(Program)(_ => filename.endsWith(PROGRAM_FILE_EXTENSION)),
   )
 })
 
@@ -540,7 +452,7 @@ export const shouldNotDuplicatePackageName = error<Package>(node =>
 sourceMapForNodeName)
 
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
-  const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>('wollok.lang.Exception')
+  const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>(EXCEPTION_MODULE)
   const exceptionType = node.parameterType.target
   return !exceptionType || exceptionType?.inherits(EXCEPTION_CLASS)
 })
@@ -561,7 +473,7 @@ export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
 sourceMapForNodeName)
 
 export const shouldNotImportSameFile = error<Import>(node =>
-  ['wtest', 'wpgm'].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
+  [TEST_FILE_EXTENSION, PROGRAM_FILE_EXTENSION].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
 )
 
 export const shouldNotImportMoreThanOnce = warning<Import>(node =>
@@ -610,287 +522,6 @@ export const shouldHaveDifferentName = error<Test>(node => {
   return !tests || tests.every(other => node === other || other.name !== node.name)
 }, valuesForNodeName, sourceMapForNodeName)
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-const allParents = (module: Module) =>
-  module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
-
-const inheritsCustomDefinition = (module: Module) =>
-  notEmpty(allParents(module).filter(element => element.fullyQualifiedName == OBJECT_MODULE))
-
-const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
-  when(ParameterizedType)(node => node.reference.target),
-  when(New)(node => node.instantiated.target),
-  when(Node)(() => undefined),
-)
-
-export const getUninitializedAttributesForInstantiation = (node: New): string[] => {
-  const target = node.instantiated.target
-  if (!target) return []
-  const initializers = node.args.map(_ => _.name)
-  return getAllUninitializedAttributes(target, initializers)
-}
-
-const getAllUninitializedAttributes = (node: Module, initializers: string[] = []) =>
-  getUninitializedAttributesIn(node, [...node.allFields], initializers)
-
-const getInheritedUninitializedAttributes = (node: Module, initializers: string[] = []) =>
-  getUninitializedAttributesIn(node, [...node.allFields.filter(f => f.parent !== node)], initializers)
-
-
-const getUninitializedAttributesIn = (node: Module, fields: Field[], initializers: string[] = []) =>
-  fields.
-    filter(field => {
-      const value = node.defaultValueFor(field)
-      return isUninitialized(value) && !initializers.includes(field.name) && !initializesInsideInitMethod(node, field)
-    })
-    .map(field => field.name)
-
-
-const initializesInsideInitMethod = (node: Module, field: Field) => {
-  const allInitMethods = node.allMethods.filter(method => method.matchesSignature('initialize', 0))
-  return allInitMethods.some(method => initializesReference(method, field))
-}
-
-const initializesReference = (method: Method, field: Field) =>
-  method.sentences.some(sentence => sentence.is(Assignment) && sentence.variable.target === field)
-
-const isUninitialized = (value: Expression) => value.isSynthetic && value.is(Literal) && value.isNull()
-
-const isBooleanLiteral = (node: Expression, value: boolean) => node.is(Literal) && node.value === value
-
-const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target)
-
-const superclassMethod = (node: Method) => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName, allowAbstractMethods: true })
-
-const finishesFlow = (sentence: Sentence, node: Node): boolean => {
-  const parent = node.parent
-  const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
-  const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
-  // TODO: For Send, consider if expression returns a value
-  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
-}
-
-const getVariableContainer = (node: Node) =>
-  node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as Method | Test | undefined
-
-const getContainer = (node: Node) =>
-  node.ancestors.find(parent => parent.is(Module) || parent.is(Program) || parent.is(Test)) as Module | Program | Test | undefined
-
-const getAllVariables = (node: Method | Test): List<Variable> => node.sentences.filter(is(Variable))
-
-const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
-  node.is(Module) && !!node.lookupField(variableName)
-
-const isImplemented = (allMethods: List<Method>, method: Method): boolean => {
-  return allMethods.some(someMethod => method.matchesSignature(someMethod.name, someMethod.parameters.length) && !someMethod.isAbstract())
-}
-
-const isEqualMessage = (node: Send): boolean =>
-  ['==', '!=', '===', '!==', 'equals'].includes(node.message) && node.args.length === 1
-
-const isBooleanMessage = (node: Send): boolean =>
-  ['&&', 'and', '||', 'or'].includes(node.message) && node.args.length === 1 || ['negate', 'not'].includes(node.message) && isEmpty(node.args)
-
-const referencesSingleton = (node: Expression) => node.is(Reference) && node.target?.is(Singleton)
-
-const isBooleanOrUnknownType = (node: Node): boolean => match(node)(
-  when(Literal)(condition => condition.value === true || condition.value === false),
-  when(Send)(_ => true), // tackled in a different validator
-  when(Super)(_ => true),
-  when(Reference)(condition => !condition.target?.is(Singleton)),
-  when(Node)(_ => false),
-)
-
-const valueFor: any | undefined = (node: Node) =>
-  match(node)(
-    when(Literal)(node => node.value),
-    when(Return)(node => valueFor(node.value)),
-    when(Node)(_ => undefined),
-  )
-
-const sendsMessageToAssert = (node: Node): boolean =>
-  match(node)(
-    when(Body)(node => node.children.some(child => sendsMessageToAssert(child))),
-    when(Send)<boolean>(nodeSend =>
-      match(nodeSend.receiver)(
-        when(Reference)(receiver => receiver.name === 'assert'),
-        when(Literal)(_ => {
-          const method = findMethod(nodeSend)
-          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
-        }),
-        when(Self)(_ => {
-          const method = findMethod(nodeSend)
-          return !!method && !!method.body && method.body !== 'native' && sendsMessageToAssert(method.body)
-        }),
-        when(Expression)(_ => false),
-      )
-    ),
-    when(Try)(node =>
-      sendsMessageToAssert(node.body) ||
-      node.catches.every(_catch => sendsMessageToAssert(_catch.body)) || sendsMessageToAssert(node.always)
-    ),
-    when(If)(node => sendsMessageToAssert(node.thenBody) && node.elseBody && sendsMessageToAssert(node.elseBody)),
-    when(Node)(_ => false),
-  )
-
-// TODO: this should be no longer necessary when the type system is implemented
-const findMethod = (messageSend: Send): Method | undefined => {
-  const parent = messageSend.receiver.ancestors.find(ancestor => ancestor.is(Module)) as Module
-  return parent?.lookupMethod(messageSend.message, messageSend.args.length)
-}
-
-const callsToSuper = (node: Method): boolean => node.sentences.some(sentence => isCallToSuper(sentence))
-
-const isCallToSuper = (node: Node): boolean =>
-  match(node)(
-    when(Super)(() => true),
-    when(Return)(node => !!node.value && isCallToSuper(node.value)),
-    when(Send)(node => isCallToSuper(node.receiver) || node.args.some(arg => isCallToSuper(arg))),
-    when(Node)(() => false),
-  )
-
-const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
-
-const methodOrTestUsesField = (parent: Method | Test, field: Field) => parent.sentences.some(sentence => usesField(sentence, field))
-
-const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean =>
-  match(node)(
-    when(Singleton)(node => {
-      if (!node.isClosure()) return false
-      const applyMethod = node.methods.find(method => method.name === CLOSURE_METHOD_NAME)
-      return !!applyMethod && methodOrTestUsesField(applyMethod, field)
-    }),
-    when(Variable)(node => usesField(node.value, field)),
-    when(Return)(node => !!node.value && usesField(node.value, field)),
-    when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
-    when(Reference)(node => node.target === field),
-    when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
-    when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
-    when(New)(node => node.args.some(arg => usesField(arg, field))),
-    when(NamedArgument)(node => usesField(node.value, field)),
-    when(Throw)(node => usesField(node.exception, field)),
-    when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
-    when(Expression)(() => false),
-    when(Body)(node => node.sentences.some(sentence => usesField(sentence, field))),
-  )
-
-// TODO: Import could offer a list of imported entities
-const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string) => target && match(target)(
-  when(Package)(node => node.members.some(member => member.name == entityName)),
-  when(Entity)(node => node.name == entityName),
-)
-
-const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefined) => !!target && node && match(node)(
-  when(Package)(node => node.name == target.name),
-  when(Entity)(node => entityIsAlreadyUsedInImport(target, node.name!)),
-)
-
-const duplicatesLocalVariable = (node: Variable): boolean => {
-  if (node.ancestors.some(is(Program)) || node.isAtPackageLevel) return false
-
-  const container = getVariableContainer(node)
-  if (!container) return false
-  const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
-  return duplicateReference || hasDuplicatedVariable(container.parent, node.name) || !container.is(Test) && container.parameters.some(_ => _.name == node.name)
-}
-
-const assigns = (method: Method, variable: Variable | Field) => method.sentences.some(sentence => assignsVariable(sentence, variable))
-
-const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field): boolean => match(sentence)(
-  when(Body)(node => node.sentences.some(sentence => assignsVariable(sentence, variable))),
-  when(Variable)(node => assignsVariable(node.value, variable)),
-  when(Return)(node => !!node.value && assignsVariable(node.value, variable)),
-  when(Assignment)(node => node.variable.target == variable),
-  when(Send)(node => assignsVariable(node.receiver, variable) || node.args.some(arg => assignsVariable(arg, variable))),
-  when(If)(node => assignsVariable(node.condition, variable) || assignsVariable(node.thenBody, variable) || assignsVariable(node.elseBody, variable)),
-  when(Try)(node => assignsVariable(node.body, variable) || node.catches.some(catchBlock => assignsVariable(catchBlock.body, variable)) || assignsVariable(node.always, variable)),
-  when(Singleton)(node => node.methods.some(method => assigns(method, variable))),
-  when(Expression)(_ => false),
-)
-
-const unusedVariable = (node: Field) => {
-  const parent = node.parent
-  const allFields = parent.allFields
-  const allMethods: List<Test | Method> = parent.is(Describe) ? parent.tests : parent.allMethods
-  return !node.isProperty && node.name != '<toString>'
-    && allMethods.every(method => !methodOrTestUsesField(method, node))
-    && allFields.every(field => !usesField(field.value, node))
-}
-
-const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter) => {
-  const parent = node.ancestors.find(ancestor => ancestor.is(Package)) as Package | undefined
-  const wordsReserved = LIBRARY_PACKAGES.flatMap(libPackage => node.environment.getNodeByFQN<Package>(libPackage).members.map(_ => _.name))
-  wordsReserved.push('wollok')
-  return !!parent && !parent.fullyQualifiedName.includes(WOLLOK_BASE_PACKAGE) && wordsReserved.includes(node.name)
-}
-
-const supposedToReturnValue = (node: Node): boolean => match(node.parent)(
-  when(Assignment)(() => true),
-  when(If)(() => true),
-  when(Literal)(nodeLiteral => Array.isArray(nodeLiteral.value) && nodeLiteral.value[1].includes(node)),
-  when(NamedArgument)(nodeArg => nodeArg.value == node),
-  when(New)(nodeNew => nodeNew.args.some(namedArgument => namedArgument.value == node)),
-  when(Return)(nodeReturn => {
-    const parent = nodeReturn.ancestors.find(is(Singleton))
-    return !nodeReturn.isSynthetic || !(parent && parent.isClosure())
-  }),
-  when(Send)(nodeSend => node.is(Expression) && nodeSend.args.includes(node) || nodeSend.receiver == node),
-  when(Super)(nodeSuper => node.is(Expression) && nodeSuper.args.includes(node)),
-  when(Variable)(() => true),
-  when(Node)(() => false),
-)
-
-const returnsValue = (node: Method): boolean => node.sentences.some(sentence => returnsAValue(sentence))
-
-const returnsAValue = (node: Node): boolean => match(node)(
-  when(Return)(() => true),
-  when(Body)(node => node.sentences.some(sentence => returnsAValue(sentence))),
-  when(If)(node => returnsAValue(node.thenBody) || returnsAValue(node.elseBody)),
-  when(Try)(node => returnsAValue(node.body) || node.catches.some(sentence => returnsAValue(sentence)) || returnsAValue(node.always)),
-  when(Node)(() => false),
-)
-
-const methodExists = (node: Send): boolean => match(node.receiver)(
-  when(Self)(selfNode => {
-    const allAncestors = selfNode.ancestors.filter(ancestor => ancestor.is(Module))
-    return isEmpty(allAncestors) || allAncestors.some(ancestor => (ancestor as Module).lookupMethod(node.message, node.args.length, { allowAbstractMethods: true }))
-  }),
-  when(Reference)(referenceNode => {
-    const receiver = referenceNode.target
-    return !receiver?.is(Module) || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
-  }),
-  when(Node)(() => true),
-)
-
-const isInitialized = (node: Variable) =>
-  node.value.isSynthetic &&
-  node.value.is(Literal) &&
-  node.value.isNull()
-
-export const loopInAssignment = (node: Expression, variableName: string) =>
-  node.is(Send) && methodExists(node) && node.receiver.is(Self) && node.message === variableName
-
-const methodsCallingToSuper = (node: Class | Singleton) => node.allMethods.filter(method => callsToSuper(method))
-
-const methodIsImplementedInSuperclass = (node: Class | Singleton) => (method: Method) => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName })
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// REPORT HELPERS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-const getVariableOffset = (node: Variable | Field) => (node.isConstant ? KEYWORDS.CONST.length : KEYWORDS.VAR.length) + 1
-
-const getOffsetForName = (node: Node): number => match(node)(
-  when(Parameter)(() => 0),
-  when(NamedArgument)(() => 0),
-  when(Variable)(node => getVariableOffset(node)),
-  when(Field)(node => getVariableOffset(node) + (node.isProperty ? KEYWORDS.PROPERTY.length + 1 : 0)),
-  when(Method)(node => (node.isOverride ? KEYWORDS.OVERRIDE.length + 1 : 0) + node.kind.length + 1),
-  when(Reference)(node => node.name.length + 1),
-  when(Entity)(node => node.is(Singleton) ? KEYWORDS.WKO.length + 1 : node.kind.length + 1),
-)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND

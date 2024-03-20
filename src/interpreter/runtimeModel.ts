@@ -1,10 +1,11 @@
+import { CLOSURE_EVALUATE_METHOD, KEYWORDS } from './../constants'
 import { v4 as uuid } from 'uuid'
-import { CLOSURE_METHOD_NAME, INITIALIZE_METHOD_NAME, LIST_MODULE, SET_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
-import { getUninitializedAttributesForInstantiation, loopInAssignment } from '../validator'
+import { getUninitializedAttributesForInstantiation, loopInAssignment } from '../helpers'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -141,7 +142,7 @@ export class Frame extends Context {
   // TODO: On error report, this tells the node line, but not the actual error line.
   //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
-    const target = this.node.is(Method) && this.node.name === CLOSURE_METHOD_NAME
+    const target = this.node.is(Method) && this.node.name === CLOSURE_EVALUATE_METHOD
       ? this.node.parent
       : this.node
     return target.sourceInfo
@@ -205,15 +206,15 @@ export class RuntimeObject extends Context {
   }
 
   assertIsNumber(): asserts this is BasicRuntimeObject<number> {
-    this.assertIs('wollok.lang.Number', this.innerNumber)
+    this.assertIs(NUMBER_MODULE, this.innerNumber)
   }
 
   assertIsBoolean(): asserts this is BasicRuntimeObject<boolean> {
-    this.assertIs('wollok.lang.Boolean', this.innerBoolean)
+    this.assertIs(BOOLEAN_MODULE, this.innerBoolean)
   }
 
   assertIsString(): asserts this is BasicRuntimeObject<string> {
-    this.assertIs('wollok.lang.String', this.innerString)
+    this.assertIs(STRING_MODULE, this.innerString)
   }
 
   assertIsCollection(): asserts this is BasicRuntimeObject<RuntimeObject[]> {
@@ -221,7 +222,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
-    if (!this.module.inherits(this.module.environment.getNodeByFQN('wollok.lang.Exception'))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
+    if (!this.module.inherits(this.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
     if(this.innerValue && !(this.innerValue instanceof Error)) {
       throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
     }
@@ -235,6 +236,11 @@ export class RuntimeObject extends Context {
     if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
+
+  isConstant(localName: string): boolean {
+    return this.module.lookupField(localName)?.isConstant ?? false // TODO: instead of false we should throw an error
+  }
+
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -398,7 +404,7 @@ export class Evaluation {
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
-      return (yield* native.call(this, this.currentFrame.get('self')!, ...args)) ?? undefined
+      return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? undefined
     } else if(node.isConcrete()) {
       try {
         yield* this.exec(node.body!)
@@ -463,7 +469,7 @@ export class Evaluation {
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
     yield node
-    return this.currentFrame.get('self')
+    return this.currentFrame.get(KEYWORDS.SELF)
   }
 
   protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
@@ -526,7 +532,7 @@ export class Evaluation {
 
     yield node
 
-    const receiver = this.currentFrame.get('self')!
+    const receiver = this.currentFrame.get(KEYWORDS.SELF)!
     const currentMethod = node.ancestors.find(is(Method))!
     //TODO: pass just the parent (not the FQN) to lookup?
     const method = receiver.module.lookupMethod(currentMethod.name, node.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
@@ -616,7 +622,7 @@ export class Evaluation {
     if(typeof value === 'boolean'){
       const existing = this.rootFrame.get(`${value}`)
       if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Boolean'), this.rootFrame, value)
+      const instance = new RuntimeObject(this.environment.getNodeByFQN(BOOLEAN_MODULE), this.rootFrame, value)
       this.rootFrame.set(`${value}`, instance)
       return instance
     }
@@ -630,7 +636,7 @@ export class Evaluation {
         if(existing) return existing
       }
 
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Number'), this.rootFrame, preciseValue)
+      const instance = new RuntimeObject(this.environment.getNodeByFQN(NUMBER_MODULE), this.rootFrame, preciseValue)
       if(isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
       return instance
     }
@@ -638,24 +644,24 @@ export class Evaluation {
     if(typeof value === 'string'){
       const existing = this.stringCache.get(value)?.deref()
       if(existing) return existing
-      const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.String'), this.rootFrame, value)
+      const instance = new RuntimeObject(this.environment.getNodeByFQN(STRING_MODULE), this.rootFrame, value)
       this.stringCache.set(value, new WeakRef(instance))
       return instance
     }
 
-    const existing = this.rootFrame.get('null')
+    const existing = this.rootFrame.get(KEYWORDS.NULL)
     if(existing) return existing
-    const instance = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Object'), this.rootFrame, value)
-    this.rootFrame.set('null', instance)
+    const instance = new RuntimeObject(this.environment.getNodeByFQN(OBJECT_MODULE), this.rootFrame, value)
+    this.rootFrame.set(KEYWORDS.NULL, instance)
     return instance
   }
 
   *list(...value: RuntimeObject[]): Execution<RuntimeObject> {
-    return new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.List'), this.rootFrame, value)
+    return new RuntimeObject(this.environment.getNodeByFQN(LIST_MODULE), this.rootFrame, value)
   }
 
   *set(...value: RuntimeObject[]): Execution<RuntimeObject> {
-    const result = new RuntimeObject(this.environment.getNodeByFQN('wollok.lang.Set'), this.rootFrame, [])
+    const result = new RuntimeObject(this.environment.getNodeByFQN(SET_MODULE), this.rootFrame, [])
     for(const elem of value)
       yield* this.send('add', result, elem)
     return result
@@ -690,7 +696,7 @@ export class Evaluation {
       instance.set(field.name, initialValue)
     }
 
-    yield * this.send(INITIALIZE_METHOD_NAME, instance)
+    yield * this.send(INITIALIZE_METHOD, instance)
 
     if(!instance.module.name || instance.module.is(Describe))
       for (const field of instance.module.allFields)

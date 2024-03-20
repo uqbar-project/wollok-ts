@@ -1,6 +1,6 @@
 import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace } from 'parsimmon'
 import unraw from 'unraw'
-import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, PREFIX_OPERATORS } from './constants'
+import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
 import { List, discriminate, is, hasWhitespace, mapObject } from './extensions'
 import { Annotation, Assignment as AssignmentNode, BaseProblem, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Closure as ClosureNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Level, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, ParameterizedType as ParameterizedTypeNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, SourceIndex, SourceMap, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
@@ -151,7 +151,7 @@ export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
 
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
-  key('import').then(obj({
+  key(KEYWORDS.IMPORT).then(obj({
     entity: FullyQualifiedReference,
     isGeneric: string('.*').result(true).fallback(false),
   }))
@@ -225,7 +225,7 @@ const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.m
 // ENTITIES
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const entityError = error(MALFORMED_ENTITY)('package', 'class', 'singleton', 'mixin', 'program', 'describe', 'test', 'var', 'const')
+const entityError = error(MALFORMED_ENTITY)(KEYWORDS.PACKAGE, KEYWORDS.CLASS, 'singleton', KEYWORDS.MIXIN, KEYWORDS.PROGRAM, KEYWORDS.SUITE, KEYWORDS.TEST, KEYWORDS.VAR, KEYWORDS.CONST)
 
 export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
   Package,
@@ -239,7 +239,7 @@ export const Entity: Parser<EntityNode> = lazy(() => alt<EntityNode>(
 ))
 
 export const Package: Parser<PackageNode> = node(PackageNode)(() =>
-  key('package').then(obj({
+  key(KEYWORDS.PACKAGE).then(obj({
     name: name.skip(key('{')),
     imports: Import.skip(__).many(),
     members: Entity.or(entityError).sepBy(_).skip(key('}')),
@@ -247,7 +247,7 @@ export const Package: Parser<PackageNode> = node(PackageNode)(() =>
 )
 
 export const Program: Parser<ProgramNode> = node(ProgramNode)(() =>
-  key('program').then(obj({
+  key(KEYWORDS.PROGRAM).then(obj({
     name,
     body: Body,
   }))
@@ -255,8 +255,8 @@ export const Program: Parser<ProgramNode> = node(ProgramNode)(() =>
 
 export const Test: Parser<TestNode> = node(TestNode)(() =>
   obj({
-    isOnly: check(key('only')),
-    name: key('test').then(stringLiteral.map(name => `"${name}"`)),
+    isOnly: check(key(KEYWORDS.ONLY)),
+    name: key(KEYWORDS.TEST).then(stringLiteral.map(name => `"${name}"`)),
     body: Body,
   })
 )
@@ -272,12 +272,12 @@ export const ParameterizedType = node(ParameterizedTypeNode)(() => obj({
   args: optional(namedArguments),
 }))
 
-const supertypes = lazy(() => key('inherits').then(ParameterizedType.sepBy1(key('and'))).fallback([]))
+const supertypes = lazy(() => key(KEYWORDS.INHERITS).then(ParameterizedType.sepBy1(key(KEYWORDS.MIXED_AND))).fallback([]))
 
 
 //TODO: It looks like current typing detects missing fields but not inexistent ones
 export const Class: Parser<ClassNode> = node(ClassNode)(() =>
-  key('class').then(obj({
+  key(KEYWORDS.CLASS).then(obj({
     name,
     supertypes,
     members: alt(Field, Method, classMemberError)
@@ -287,8 +287,8 @@ export const Class: Parser<ClassNode> = node(ClassNode)(() =>
 )
 
 export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
-  key('object').then(obj({
-    name: optional(notFollowedBy(key('inherits')).then(name)),
+  key(KEYWORDS.WKO).then(obj({
+    name: optional(notFollowedBy(key(KEYWORDS.INHERITS)).then(name)),
     supertypes,
     members: alt(Field, Method, memberError)
       .sepBy(_)
@@ -297,7 +297,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
 )
 
 export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
-  key('mixin').then(obj({
+  key(KEYWORDS.MIXIN).then(obj({
     name,
     supertypes,
     members: alt(Field, Method, memberError)
@@ -307,7 +307,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
 )
 
 export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
-  key('describe').then(obj({
+  key(KEYWORDS.SUITE).then(obj({
     name: stringLiteral.map(name => `"${name}"`),
     members: alt(Field, Method, Test, memberError)
       .sepBy(_)
@@ -319,13 +319,13 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
 // MEMBERS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const memberError = error(MALFORMED_MEMBER)('method', 'var', 'const', 'test', 'describe')
-const classMemberError = error(MALFORMED_MEMBER)('method', 'var', 'const')
+const memberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST, KEYWORDS.TEST, KEYWORDS.SUITE)
+const classMemberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST)
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
-    isConstant: alt(key('var').result(false), key('const').result(true)),
-    isProperty: check(key('property')),
+    isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
+    isProperty: check(key(KEYWORDS.PROPERTY)),
     name,
     value: optional(key('=').then(Expression)),
   })
@@ -333,13 +333,13 @@ export const Field: Parser<FieldNode> = node(FieldNode)(() =>
 
 export const Method: Parser<MethodNode> = node(MethodNode)(() =>
   obj({
-    isOverride: check(key('override')),
-    name: key('method').then(alt(name, operator(ALL_OPERATORS))),
+    isOverride: check(key(KEYWORDS.OVERRIDE)),
+    name: key(KEYWORDS.METHOD).then(alt(name, operator(ALL_OPERATORS))),
     parameters,
     body: alt(
       key('=').then(ExpressionBody),
 
-      key('native'),
+      key(KEYWORDS.NATIVE),
 
       optional(Body),
     ),
@@ -356,14 +356,14 @@ export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variabl
 
 export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
-    isConstant: alt(key('var').result(false), key('const').result(true)),
+    isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     name,
     value: optional(key('=').then(Expression)),
   })
 )
 
 export const Return: Parser<ReturnNode> = node(ReturnNode)(() =>
-  key('return').then(obj({ value: optional(Expression) }))
+  key(KEYWORDS.RETURN).then(obj({ value: optional(Expression) }))
 )
 
 export const Assignment: Parser<AssignmentNode> = node(AssignmentNode)(() =>
@@ -453,15 +453,15 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => {
 
 
 export const Self: Parser<SelfNode> = node(SelfNode)(() =>
-  key('self').result({})
+  key(KEYWORDS.SELF).result({})
 )
 
 export const Super: Parser<SuperNode> = node(SuperNode)(() =>
-  key('super').then(obj({ args: unamedArguments }))
+  key(KEYWORDS.SUPER).then(obj({ args: unamedArguments }))
 )
 
 export const New: Parser<NewNode> = node(NewNode)(() =>
-  key('new').then(
+  key(KEYWORDS.NEW).then(
     obj({
       instantiated: FullyQualifiedReference,
       args: namedArguments,
@@ -473,24 +473,24 @@ export const If: Parser<IfNode> = node(IfNode)(() =>
   key('if').then(obj({
     condition: Expression.wrap(key('('), key(')')),
     thenBody: inlineableBody,
-    elseBody: optional(key('else').then(inlineableBody)),
+    elseBody: optional(key(KEYWORDS.ELSE).then(inlineableBody)),
   }))
 )
 
 export const Throw: Parser<ThrowNode> = node(ThrowNode)(() =>
-  key('throw').then(obj({ exception: Expression }))
+  key(KEYWORDS.THROW).then(obj({ exception: Expression }))
 )
 
 export const Try: Parser<TryNode> = node(TryNode)(() =>
-  key('try').then(obj({
+  key(KEYWORDS.TRY).then(obj({
     body: inlineableBody,
     catches: Catch.many(),
-    always: optional(key('then always').then(inlineableBody)),
+    always: optional(key(`${KEYWORDS.THEN} ${KEYWORDS.ALWAYS}`).then(inlineableBody)),
   }))
 )
 
 export const Catch: Parser<CatchNode> = node(CatchNode)(() =>
-  key('catch').then(obj({
+  key(KEYWORDS.CATCH).then(obj({
     parameter: Parameter,
     parameterType: optional(key(':').then(FullyQualifiedReference)),
     body: inlineableBody,
@@ -506,12 +506,12 @@ export const Send: Parser<SendNode> = postfixMessageChain.assert(is(SendNode), '
 export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
   node(LiteralNode)(() => obj({
     value: alt<LiteralValue>(
-      key('null').result(null),
+      key(KEYWORDS.NULL).result(null),
       key('true').result(true),
       key('false').result(false),
       lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: 'wollok.lang.List' }), args]),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: 'wollok.lang.Set' }), args]),
+      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
       stringLiteral,
     ),
   })

@@ -4,7 +4,7 @@
     "module": "commonjs",
     "outDir": "dist/temp",
     "lib": [
-      "esNext"
+      "es2021"
     ],
     "declaration": true,
     "strict": true,

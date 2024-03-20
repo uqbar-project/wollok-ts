@@ -3,8 +3,9 @@ import yargs from 'yargs'
 import { Describe, Node, Package, Test } from '../src/model'
 import { List } from '../src/extensions'
 import { buildEnvironment } from './assertions'
-import interpret, { Interpreter } from '../src/interpreter/interpreter'
+import { interpret, Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
+import { TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
 
 const { error } = console
 
@@ -38,7 +39,7 @@ function registerTests(nodes: List<Node>, interpreter: Interpreter) {
 }
 
 (async function () {
-  const environment = await buildEnvironment('**/*.@(wlk|wtest)', (await ARGUMENTS).root, true)
+  const environment = await buildEnvironment(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION})`, (await ARGUMENTS).root, true)
   describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, interpret(environment, natives)))
 })()
   .then(run)
