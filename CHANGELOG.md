@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.1.0
+**Wollok Version: `3.2.2`**
+
+- 🚧 Refactor: Revamp the API
+    - 🛠 export utils used on Validations 
+    - 📚 more utilities for Model & Linker 
+
 ## v4.0.9
 **Wollok Version: `3.2.1`**
 
