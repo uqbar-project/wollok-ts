@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, link, literalValueToClass, parentModule } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, link, literalValueToClass, parentModule } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -112,5 +112,29 @@ describe('Wollok helpers', () => {
     })
 
   })
+
+  describe('implicitImport', () => {
+
+    const baseEnvironment = link([new Package({
+      name: 'p',
+      members: [
+        new Class({ name: 'c' }),
+      ],
+    })], WREEnvironment)
+    const interpreter = new Interpreter(Evaluation.build(baseEnvironment, WRENatives))
+    const environment = interpreter.evaluation.environment
+
+    it('should be true for a lang class', () => {
+      const listClass = environment.getNodeByFQN(LIST_MODULE)
+      implicitImport(listClass).should.be.true
+    })
+
+    it('should be false for a custom class', () => {
+      const customClass = environment.getNodeByFQN('p.c')
+      implicitImport(customClass).should.be.false
+    })
+
+  })
+
 
 })
