@@ -169,6 +169,7 @@ const formatParameter: Formatter<Parameter> = node => node.name
 
 const formatTest: FormatterWithContext<Test> = context => node => {
   return intersperse(WS, [
+    ...node.isOnly ? [KEYWORDS.ONLY] : [],
     KEYWORDS.TEST,
     node.name,
     body(context.nest)(formatSentences(context)(node.body.sentences)),

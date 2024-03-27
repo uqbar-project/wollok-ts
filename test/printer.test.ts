@@ -212,6 +212,19 @@ describe('Wollok Printer', () => {
           }`)
       })
     })
+
+    describe('Test', () => {
+      it('only test', () => {
+        'only test "aSimpleTest"{assert.that(true)} test "anotherTest" {assert.that(true)}'.should.be.formattedTo(`
+        only test "aSimpleTest" {
+          assert.that(true)
+        }
+
+        test "anotherTest" {
+          assert.that(true)
+        }`)
+      })
+    })
   })
   describe('Object', () => {
     it('testBasicObjectDefinition', () => {
