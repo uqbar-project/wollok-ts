@@ -322,12 +322,10 @@ export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): a
 export const projectPackages = (environment: Environment): Package[] =>
   environment.members.slice(1)
 
-export const isNotImportedIn = (importedPackage: Package, importingPackage: Package): boolean => {
-  console.info(importedPackage !== importingPackage, !importingPackage.imports.some(imported => imported.entity.target === importedPackage), !importedPackage.isGlobalPackage)
-  return importedPackage !== importingPackage &&
+export const isNotImportedIn = (importedPackage: Package, importingPackage: Package): boolean =>
+  importedPackage !== importingPackage &&
   !importingPackage.imports.some(imported => imported.entity.target && belongsTo(imported.entity.target, importedPackage)) &&
   !importedPackage.isGlobalPackage
-}
 
 export const belongsTo = (node: Node, mainPackage: Package): boolean =>
   match(node)(
