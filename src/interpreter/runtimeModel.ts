@@ -280,8 +280,12 @@ export class Evaluation {
 
     for (const module of globalSingletons) {
       const instance = evaluation.object(module.fullyQualifiedName)
-      for (const field of module.allFields)
-        instance!.get(field.name)
+      for (const field of module.allFields) {
+        const value = instance!.get(field.name)
+        if (value?.innerValue === null && field.value?.isSynthetic) {
+          raise(new Error(`Error in ${module.name}: '${field.name}' attribute uninitialized`))
+        }
+      }
     }
 
     for (const constant of globalConstants)
