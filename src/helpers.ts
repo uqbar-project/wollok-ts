@@ -1,3 +1,4 @@
+import { parentModule } from './helpers';
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { List, count, is, isEmpty, last, match, notEmpty, when } from './extensions'
 import { Assignment, Body, Class, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
@@ -321,10 +322,18 @@ export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): a
 export const projectPackages = (environment: Environment): Package[] =>
   environment.members.slice(1)
 
-export const isImportedIn = (importedPackage: Package, importingPackage: Package): boolean =>
-  importedPackage !== importingPackage &&
-  !importingPackage.imports.some(imported => imported.entity.target === importedPackage) &&
+export const isNotImportedIn = (importedPackage: Package, importingPackage: Package): boolean => {
+  console.info(importedPackage !== importingPackage, !importingPackage.imports.some(imported => imported.entity.target === importedPackage), !importedPackage.isGlobalPackage)
+  return importedPackage !== importingPackage &&
+  !importingPackage.imports.some(imported => imported.entity.target && belongsTo(imported.entity.target, importedPackage)) &&
   !importedPackage.isGlobalPackage
+}
+
+export const belongsTo = (node: Node, mainPackage: Package): boolean =>
+  match(node)(
+    when(Package)((pkg) => pkg === mainPackage),
+    when(Node)((node) => node.parent === mainPackage),
+  )
 
 export const mayExecute = (method: Method) => (node: Node): boolean =>
   node.is(Send) &&

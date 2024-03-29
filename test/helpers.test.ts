@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, link, literalValueToClass, parentModule, projectPackages } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, literalValueToClass, parentModule, projectPackages } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -18,8 +18,8 @@ const basicEnvironmentWithSingleClass = () => link([new Package({
   ],
 })], WREEnvironment)
 
-const getLinkedEnvironment = () => {
-  const interpreter = new Interpreter(Evaluation.build(basicEnvironmentWithSingleClass(), WRENatives))
+const getLinkedEnvironment = (baseEnvironment?: Environment) => {
+  const interpreter = new Interpreter(Evaluation.build(baseEnvironment ?? basicEnvironmentWithSingleClass(), WRENatives))
   return interpreter.evaluation.environment
 }
 
@@ -126,13 +126,70 @@ describe('Wollok helpers', () => {
 
   })
 
-  describe('project packages', () => {
+  describe('projectPackages', () => {
 
     it('should return the right package from an environment', () => {
       const environment = basicEnvironmentWithSingleClass()
       const mainPackage = environment.getNodeByFQN('aves')
       projectPackages(environment).should.deep.equal([mainPackage])
     })
+
+  })
+
+  describe('isNotImportedIn', () => {
+
+    const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+    const environment = getLinkedEnvironment(link([
+      new Package({
+        name: 'A',
+        imports: [
+          new Import({ isGeneric: false, entity: new Reference({ name: 'B.pepita' }) }),
+          new Import({ isGeneric: true, entity: new Reference({ name: 'D' }) }),
+        ],
+        members: [
+          new Singleton({ name: 'entrenador' }),
+        ],
+      }),
+      new Package({
+        name: 'B',
+        members: [
+          new Singleton(
+            { name: 'pepita' }),
+        ],
+      }),
+      new Package({
+        name: 'C',
+        members: [
+          new Singleton(
+            { name: 'alpiste' }),
+        ],
+      }),
+      new Package({
+        name: 'D',
+        members: [
+          new Singleton(
+            { name: 'quilmes' }),
+        ],
+      }),
+    ], MINIMAL_LANG))
+
+    const packageA = environment.getNodeByFQN('A') as Package
+    const packageB = environment.getNodeByFQN('B') as Package
+    const packageC = environment.getNodeByFQN('C') as Package
+    const packageD = environment.getNodeByFQN('D') as Package
+
+    it('should return false if a definition is imported, using a specific import', () => {
+      isNotImportedIn(packageB, packageA).should.be.false
+    })
+
+    it('should return false if a definition is imported, use generic import', () => {
+      isNotImportedIn(packageD, packageA).should.be.false
+    })
+
+    it('should return true if a definition is not imported', () => {
+      isNotImportedIn(packageC, packageA).should.be.true
+    })
+
   })
 
 })
