@@ -32,22 +32,22 @@ const game: Natives = {
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
       const visuals = self.get('visuals')!
       const result: RuntimeObject[] = []
+      const x = position.get("x")?.innerValue
+      const y = position.get("y")?.innerValue
 
-      for(const visual of visuals.innerCollection!) {
-        const otherPosition = yield* this.send('position', visual)
-        const x = position.get("x")?.innerValue
-        const otherX = otherPosition?.get("x")?.innerValue
-        const y = position.get("y")?.innerValue
-        const otherY = otherPosition?.get("y")?.innerValue
+      if(x && y) {
+        for(const visual of visuals.innerCollection!) {
+          const otherPosition = yield* this.send('position', visual)
+          const otherX = otherPosition?.get("x")?.innerValue
+          const otherY = otherPosition?.get("y")?.innerValue
 
-        const samePosition = (
-          x && otherX &&
-          x == otherX &&
-          y && otherY &&
-          y && otherY
-        )
-        if(samePosition)
-          result.push(visual)
+          const samePosition = (
+            x == otherX &&
+            y == otherY
+          )
+          if(samePosition)
+            result.push(visual)
+        }
       }
       return yield* this.list(...result)
     },
