@@ -36,10 +36,10 @@ const game: Natives = {
       for(const visual of visuals.innerCollection!) {
         const otherPosition = yield* this.send('position', visual)
         const x = position.get("x")?.innerValue
-        const otherX = otherPosition.get("x")?.innerValue
+        const otherX = otherPosition?.get("x")?.innerValue
         const y = position.get("y")?.innerValue
-        const otherY = otherPosition.get("y")?.innerValue
-        
+        const otherY = otherPosition?.get("y")?.innerValue
+
         const samePosition = (
           x && otherX &&
           x == otherX &&
