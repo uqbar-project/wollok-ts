@@ -317,3 +317,17 @@ export const workspacePackage = (environment: Environment): Package => environme
 
 export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): anotherNode is Reference<T>  =>
   anotherNode.is(Reference) && anotherNode.target === aNode
+
+export const projectPackages = (environment: Environment): Package[] =>
+  environment.members.slice(1)
+
+export const isImportedIn = (importedPackage: Package, importingPackage: Package): boolean =>
+  importedPackage !== importingPackage &&
+  !importingPackage.imports.some(imported => imported.entity.target === importedPackage) &&
+  !importedPackage.isGlobalPackage
+
+export const mayExecute = (method: Method) => (node: Node): boolean =>
+  node.is(Send) &&
+  node.message === method.name &&
+  // exclude cases where a message is sent to a different singleton
+  !(node.receiver.is(Reference) && node.receiver.target?.is(Singleton) && node.receiver.target !== method.parent)
