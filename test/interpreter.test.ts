@@ -63,7 +63,7 @@ describe('Wollok Interpreter', () => {
       const sentence = new Send({ receiver: new Reference({ name: 'p.o' }), message: 'm' })
       const interpreter = new Interpreter(Evaluation.build(environment, {}))
 
-        interpreter.exec(sentence)!.innerNumber!.should.equal(5)
+      interpreter.exec(sentence)!.innerNumber!.should.equal(5)
     })
 
     it('should fail when executing a missing unlinked reference', () => {

@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, literalValueToClass, parentModule, projectPackages } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Send, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -192,4 +192,54 @@ describe('Wollok helpers', () => {
 
   })
 
+  describe('mayExecute', () => {
+
+    let baseEnvironment: Environment
+    let testMethod: Method
+
+    beforeEach(() => {
+      const pepitaPackage: Package = new Package({
+        name: 'aves',
+        members: [
+          new Singleton({
+            name: 'pepita',
+            members: [
+              new Method({ name: 'volar', body: new Body() }),
+              new Method({ name: 'comer' }),
+            ],
+          }),
+        ],
+      })
+      const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+      baseEnvironment = link([
+        pepitaPackage,
+        new Package({ name: 'repl' }  ),
+      ], MINIMAL_LANG)
+
+      const pepitaWKO = baseEnvironment.getNodeByFQN('aves.pepita') as Singleton
+      testMethod = pepitaWKO.lookupMethod('volar', 0)!
+    })
+
+    it('should not execute if second parameter is not a Send object', () => {
+      const assignmentForConst = parse.Variable.tryParse('const a = 1')
+      linkSentenceInNode(assignmentForConst, baseEnvironment.getNodeByFQN('repl'))
+
+      mayExecute(testMethod)(assignmentForConst).should.be.false
+    })
+
+    it('should not execute if method is different', () => {
+      const sendDifferentMethod = parse.Send.tryParse('aves.pepita.comer()')
+      linkSentenceInNode(sendDifferentMethod, baseEnvironment.getNodeByFQN('repl'))
+
+      mayExecute(testMethod)(sendDifferentMethod).should.be.false
+    })
+
+    it('should execute if node receiver is a singleton and is the same method', () => {
+      const sendOkSentence = parse.Send.tryParse('aves.pepita.volar()')
+      linkSentenceInNode(sendOkSentence, baseEnvironment.getNodeByFQN('repl'))
+
+      mayExecute(testMethod)(sendOkSentence).should.be.true
+    })
+
+  })
 })
