@@ -31,16 +31,19 @@ const game: Natives = {
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
       const visuals = self.get('visuals')!
-
       const result: RuntimeObject[] = []
 
       for(const visual of visuals.innerCollection!) {
         const otherPosition = yield* this.send('position', visual)
-        const samePosition = yield* this.send('onSameCell', self, position, otherPosition!)
-        if(samePosition!.innerBoolean)
+        const samePosition = (
+          position.get("x")?.innerValue && otherPosition?.get("x")?.innerValue &&
+          position.get("x")?.innerValue == otherPosition?.get("x")?.innerValue &&
+          position.get("y")?.innerValue && otherPosition?.get("y")?.innerValue &&
+          position.get("y")?.innerValue == otherPosition?.get("y")?.innerValue
+        )
+        if(samePosition)
           result.push(visual)
       }
-
       return yield* this.list(...result)
     },
 
