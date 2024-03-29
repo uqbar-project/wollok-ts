@@ -2,7 +2,7 @@
 
 TypeScript based Wollok language implementation
 
-## Usage 
+## Usage
 
 For an in-dept explanation of the API and how to use it please refer to [the documentation page](https://uqbar-project.github.io/wollok-ts/).
 
@@ -22,6 +22,7 @@ Before anything else, you will need a *TypeScript* editor. We recomend [Visual S
 - [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
 - [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
 - [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
+- [EditorConfig](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig)
 
 
 ### Node
@@ -60,7 +61,7 @@ A full list of the available scripts is listed on the `package.json` file, on th
 ### File Description
 [[TODO]]: Describe what is each file
 
-- src/model.ts: It has all the type declarations of the nodes in each stage. 
+- src/model.ts: It has all the type declarations of the nodes in each stage.
 - src/parser.ts: Parsing stage functions.
 - src/filler.ts: Filling stage functions.
 - src/log.ts and src/cache.ts: logging and optimization.
