@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, link, literalValueToClass, parentModule } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Evaluation, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, link, literalValueToClass, parentModule, projectPackages } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -124,6 +124,15 @@ describe('Wollok helpers', () => {
       implicitImport(customClass).should.be.false
     })
 
+  })
+
+  describe('project packages', () => {
+
+    it('should return the right package from an environment', () => {
+      const environment = basicEnvironmentWithSingleClass()
+      const mainPackage = environment.getNodeByFQN('aves')
+      projectPackages(environment).should.deep.equal([mainPackage])
+    })
   })
 
 })
