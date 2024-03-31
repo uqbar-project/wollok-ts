@@ -1,5 +1,6 @@
 import { GAME_MODULE } from '../constants'
 import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+const { round } = Math
 
 const game: Natives = {
   game: {
@@ -32,20 +33,20 @@ const game: Natives = {
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
       const visuals = self.get('visuals')!
       const result: RuntimeObject[] = []
-      const x = position.get("x")?.innerValue
-      const y = position.get("y")?.innerValue
+      const x = position.get('x')?.innerNumber
+      const y = position.get('y')?.innerNumber
 
-      if(x && y) {
+      if(x != undefined && y != undefined) {
+        const roundedX = round(x)
+        const roundedY = round(y)
         for(const visual of visuals.innerCollection!) {
           const otherPosition = yield* this.send('position', visual)
-          const otherX = otherPosition?.get("x")?.innerValue
-          const otherY = otherPosition?.get("y")?.innerValue
+          const otherX = otherPosition?.get('x')?.innerNumber
+          const otherY = otherPosition?.get('y')?.innerNumber
 
-          const samePosition = (
-            x == otherX &&
-            y == otherY
-          )
-          if(samePosition)
+          if(otherX == undefined || otherY == undefined) continue
+
+          if(roundedX == round(otherX) && roundedY == round(otherY))
             result.push(visual)
         }
       }
