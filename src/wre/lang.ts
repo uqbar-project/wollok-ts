@@ -37,6 +37,8 @@ const lang: Natives = {
     },
 
     *kindName(self: RuntimeObject): Execution<RuntimeValue> {
+      if (self.innerValue === null) return yield* this.reify('null')
+
       const onlyModuleName = self.module.fullyQualifiedName.split('.').pop()!
       const aOrAn = onlyModuleName.match(/^[AEIOUaeiou]+.*/) ? 'an' : 'a'
 
