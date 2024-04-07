@@ -148,8 +148,11 @@ export const isGetter = (node: Method): boolean => node.parent.allFields.map(_ =
 
 export const methodOrTestUsesField = (parent: Method | Test, field: Field): boolean => parent.sentences.some(sentence => usesField(sentence, field))
 
-export const usesField = (node: Sentence | Body | NamedArgument, field: Field): boolean =>
-  match(node)(
+export const usesField = (node: Sentence | Body | NamedArgument | Field, field: Field): boolean => {
+  if (node.sourceFileName === 'shouldNotDefineUnusedVariables2.wtest' && node.kind === 'Field') {
+    console.info(node.kind, node.name, node.value)
+  }
+  return match(node)(
     when(Singleton)(node => {
       if (!node.isClosure()) return false
       const applyMethod = node.methods.find(method => method.name === CLOSURE_EVALUATE_METHOD)
@@ -158,7 +161,7 @@ export const usesField = (node: Sentence | Body | NamedArgument, field: Field): 
     when(Variable)(node => usesField(node.value, field)),
     when(Return)(node => !!node.value && usesField(node.value, field)),
     when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
-    when(Reference)(node => node.target === field),
+    when(Reference)(node => node.target === field || (!!node.target && node.target.is(Field) && usesField(node.target, field))),
     when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
     when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
     when(New)(node => node.args.some(arg => usesField(arg, field))),
@@ -167,7 +170,9 @@ export const usesField = (node: Sentence | Body | NamedArgument, field: Field): 
     when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
     when(Expression)(() => false),
     when(Body)(node => node.sentences.some(sentence => usesField(sentence, field))),
+    when(Field)(node => Array.isArray(node.value) && node.value.some(value => value === field)),
   )
+}
 
 // TODO: Import could offer a list of imported entities
 export const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string): boolean | undefined => target && match(target)(
