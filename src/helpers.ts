@@ -158,7 +158,11 @@ export const usesField = (node: Sentence | Body | NamedArgument | Field, field: 
     when(Variable)(node => usesField(node.value, field)),
     when(Return)(node => !!node.value && usesField(node.value, field)),
     when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
-    when(Reference)(node => node.target === field),
+    when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
+    when(Field)(node => node.value && node.value.is(Literal) && usesField(node.value, field)),
+    when(Literal)(node =>
+      // Literal has [ Array[referenceToClass, Array[elementsExpressions] ] ]
+      Array.isArray(node.value) && node.value.length == 2 && node.value[1].length && node.value[1].some((expression: any) => usesField(expression, field))),
     when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
     when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
     when(New)(node => node.args.some(arg => usesField(arg, field))),
@@ -206,7 +210,7 @@ export const assignsVariable = (sentence: Sentence | Body, variable: Variable | 
 export const unusedVariable = (node: Field): boolean => {
   const parent = node.parent
   const allFields = parent.allFields
-  const allMethods: List<Test | Method> = parent.is(Describe) ? parent.tests : parent.allMethods
+  const allMethods = parent.is(Describe) ? (parent.methods as List<Test | Method>).concat(parent.tests) : parent.allMethods
   return !node.isProperty && node.name != CLOSURE_TO_STRING_METHOD
     && allMethods.every(method => !methodOrTestUsesField(method, node))
     && allFields.every(field => !usesField(field.value, node))
