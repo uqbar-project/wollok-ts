@@ -207,10 +207,13 @@ export const assignsVariable = (sentence: Sentence | Body, variable: Variable | 
   when(Expression)(_ => false),
 )
 
+export const callables = (node: Describe): (Method | Test)[] =>
+  node.members.filter(member => member.is(Test) || member.is(Method)) as (Test | Method)[]
+
 export const unusedVariable = (node: Field): boolean => {
   const parent = node.parent
   const allFields = parent.allFields
-  const allMethods = parent.is(Describe) ? (parent.methods as List<Test | Method>).concat(parent.tests) : parent.allMethods
+  const allMethods = parent.is(Describe) ? callables(parent) : [...parent.allMethods]
   return !node.isProperty && node.name != CLOSURE_TO_STRING_METHOD
     && allMethods.every((method: Method | Test) => !methodOrTestUsesField(method, node))
     && allFields.every((field: Field) => !usesField(field.value, node))
