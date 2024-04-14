@@ -212,8 +212,8 @@ export const unusedVariable = (node: Field): boolean => {
   const allFields = parent.allFields
   const allMethods = parent.is(Describe) ? (parent.methods as List<Test | Method>).concat(parent.tests) : parent.allMethods
   return !node.isProperty && node.name != CLOSURE_TO_STRING_METHOD
-    && allMethods.every(method => !methodOrTestUsesField(method, node))
-    && allFields.every(field => !usesField(field.value, node))
+    && allMethods.every((method: Method | Test) => !methodOrTestUsesField(method, node))
+    && allFields.every((field: Field) => !usesField(field.value, node))
 }
 
 export const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter): boolean => {
