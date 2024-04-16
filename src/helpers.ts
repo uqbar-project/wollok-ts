@@ -1,6 +1,6 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { List, count, is, isEmpty, last, match, notEmpty, when } from './extensions'
-import { Assignment, Body, Class, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Class, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -146,33 +146,6 @@ export const isCallToSuper = (node: Node): boolean =>
 
 export const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
 
-export const methodOrTestUsesField = (parent: Method | Test, field: Field): boolean => parent.sentences.some(sentence => usesField(sentence, field))
-
-export const usesField = (node: Sentence | Body | NamedArgument | Field, field: Field): boolean =>
-  match(node)(
-    when(Singleton)(node => {
-      if (!node.isClosure()) return false
-      const applyMethod = node.methods.find(method => method.name === CLOSURE_EVALUATE_METHOD)
-      return !!applyMethod && methodOrTestUsesField(applyMethod, field)
-    }),
-    when(Variable)(node => usesField(node.value, field)),
-    when(Return)(node => !!node.value && usesField(node.value, field)),
-    when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
-    when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
-    when(Field)(node => node.value && node.value.is(Literal) && usesField(node.value, field)),
-    when(Literal)(node =>
-      // Literal has [ Array[referenceToClass, Array[elementsExpressions] ] ]
-      Array.isArray(node.value) && node.value.length == 2 && node.value[1].length && node.value[1].some((expression: any) => usesField(expression, field))),
-    when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
-    when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
-    when(New)(node => node.args.some(arg => usesField(arg, field))),
-    when(NamedArgument)(node => usesField(node.value, field)),
-    when(Throw)(node => usesField(node.exception, field)),
-    when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
-    when(Expression)(() => false),
-    when(Body)(node => node.sentences.some(sentence => usesField(sentence, field))),
-  )
-
 // TODO: Import could offer a list of imported entities
 export const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string): boolean | undefined => target && match(target)(
   when(Package)(node => node.members.some(member => member.name == entityName)),
@@ -207,17 +180,36 @@ export const assignsVariable = (sentence: Sentence | Body, variable: Variable | 
   when(Expression)(_ => false),
 )
 
-export const callables = (node: Describe): (Method | Test)[] =>
-  node.members.filter(member => member.is(Test) || member.is(Method)) as (Test | Method)[]
-
 export const unusedVariable = (node: Field): boolean => {
   const parent = node.parent
-  const allFields = parent.allFields
-  const allMethods = parent.is(Describe) ? callables(parent) : [...parent.allMethods]
   return !node.isProperty && node.name != CLOSURE_TO_STRING_METHOD
-    && allMethods.every((method: Method | Test) => !methodOrTestUsesField(method, node))
-    && allFields.every((field: Field) => !usesField(field.value, node))
+    && parent.allMembers.every((member: Field | Method | Variable | Test) => !usesField(member, node))
 }
+
+export const usesField = (node: Node, field: Field): boolean =>
+  match(node)(
+    when(Singleton)(node => {
+      if (!node.isClosure()) return false
+      const applyMethod = node.methods.find(method => method.name === CLOSURE_EVALUATE_METHOD)
+      return !!applyMethod && usesField(applyMethod, field)
+    }),
+    when(Variable)(node => usesField(node.value, field)),
+    when(Return)(node => !!node.value && usesField(node.value, field)),
+    when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
+    when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
+    when(Field)(node => node.value && (node.value.is(Literal) || node.value.is(Send)) && usesField(node.value, field)),
+    when(Literal)(node =>
+      // See type LiteralValue for collection values
+      Array.isArray(node.value) && node.value[1].some((expression: any) => usesField(expression, field))),
+    when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
+    when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
+    when(New)(node => node.args.some(arg => usesField(arg, field))),
+    when(NamedArgument)(node => usesField(node.value, field)),
+    when(Throw)(node => usesField(node.exception, field)),
+    when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
+    when(Expression)(() => false),
+    when(Node)(node => (node.is(Body) || node.is(Method) || node.is(Test)) && node.sentences.some(sentence => usesField(sentence, field))),
+  )
 
 export const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter): boolean => {
   const parent = node.ancestors.find(ancestor => ancestor.is(Package)) as Package | undefined
