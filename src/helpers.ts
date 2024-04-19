@@ -1,5 +1,5 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
-import { List, count, is, isEmpty, last, match, notEmpty, when } from './extensions'
+import { List, count, is, isEmpty, last, match, notEmpty, valueAsListOrEmpty, when } from './extensions'
 import { Assignment, Body, Class, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
@@ -336,3 +336,45 @@ export const mayExecute = (method: Method) => (node: Node): boolean =>
   node.message === method.name &&
   // exclude cases where a message is sent to a different singleton
   !(node.receiver.is(Reference) && node.receiver.target?.is(Singleton) && node.receiver.target !== method.parent)
+
+/** Definitions **/
+export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
+  try {
+    return match(send.receiver)(
+      when(Reference)(node => {
+        const target = node.target
+        return target && is(Singleton)(target) ?
+          valueAsListOrEmpty(target.lookupMethod(send.message, send.args.length))
+          : allMethodDefinitions(environment, send)
+      }),
+      when(New)(node => valueAsListOrEmpty(node.instantiated.target?.lookupMethod(send.message, send.args.length))),
+      when(Self)(_ => moduleFinderWithBackup(environment, send)(
+        (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
+      )),
+    )
+  } catch (error) {
+    return allMethodDefinitions(environment, send)
+  }
+}
+
+export const superMethodDefinition = (superNode: Super): Method | undefined => {
+  const currentMethod = superNode.ancestors.find(is(Method))!
+  const module = superNode.ancestors.find(is(Module))
+  // TODO: return module?.lookupMethod...
+  return module ? module.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: module.fullyQualifiedName }) : undefined
+}
+
+export const allMethodDefinitions = (environment: Environment, send: Send): Method[] => {
+  const arity = send.args.length
+  const name = send.message
+  return environment.descendants.filter(method =>
+    is(Method)(method) &&
+    method.name === name &&
+    method.parameters.length === arity
+  ) as Method[]
+}
+
+export const moduleFinderWithBackup = (environment: Environment, send: Send) => (methodFinder: (module: Module) => Method[]): Method[] => {
+  const module = send.ancestors.find(is(Module))
+  return module ? methodFinder(module) : allMethodDefinitions(environment, send)
+}
