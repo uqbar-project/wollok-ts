@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, OBJECT_MODULE, Package, Reference, STRING_MODULE, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages } from '../src'
+import { Assignment, BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Send, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -241,5 +241,55 @@ describe('Wollok helpers', () => {
       mayExecute(testMethod)(sendOkSentence).should.be.true
     })
 
+  })
+
+  describe('sendDefinitions', () => {
+
+    const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+    const environment = getLinkedEnvironment(link([
+      new Package({
+        name: 'A',
+        members: [
+          new Class({
+            name: 'Bird',
+            members: [
+              new Method({
+                name: 'fly',
+                body: new Body({
+                  sentences: [],
+                }),
+              }),
+            ],
+          }),
+          new Singleton({
+            name: 'trainer',
+            members: [
+              new Method({
+                name: 'play',
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new New({ instantiated: new Reference({ name: 'Bird' }) }),
+                      message: 'fly',
+                      args: [],
+                    }),
+                  ],
+                }),
+              }),
+            ],
+          }),
+        ],
+      }),
+    ], MINIMAL_LANG))
+
+    const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
+    const pepitaClass = environment.getNodeByFQN('A.Bird') as Singleton
+
+    it('for a new expression should return the single constructor', () => {
+      const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
+      const birdFlyMethod = pepitaClass.allMethods[0] as Method
+      const definitions = sendDefinitions(environment)(sendToNewBird)
+      definitions.should.deep.equal([birdFlyMethod])
+    })
   })
 })
