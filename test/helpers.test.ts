@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { Assignment, BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Send, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -255,9 +255,7 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'fly',
-                body: new Body({
-                  sentences: [],
-                }),
+                body: new Body({ sentences: [] }),
               }),
             ],
           }),
@@ -276,6 +274,51 @@ describe('Wollok helpers', () => {
                   ],
                 }),
               }),
+              new Method({
+                name: 'pick',
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Self(),
+                      message: 'play',
+                      args: [],
+                    }),
+                  ],
+                }),
+              }),
+            ],
+          }),
+          new Singleton({
+            name: 'anotherTrainer',
+            members: [
+              new Field({
+                name: 'pepita',
+                isConstant: true,
+                value: new New({ instantiated: new Reference({ name: 'Bird' }) }),
+              }),
+              new Method({
+                name: 'play',
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Reference({ name: 'A.trainer' }),
+                      message: 'pick',
+                      args: [],
+                    }),
+                    new Send({
+                      receiver: new Reference({ name: 'pepita' }),
+                      message: 'fly',
+                      args: [],
+                    }),
+                  ],
+                }),
+              }),
+              new Method({
+                name: 'fly',
+                body: new Body({
+                  sentences: [],
+                }),
+              }),
             ],
           }),
         ],
@@ -283,13 +326,29 @@ describe('Wollok helpers', () => {
     ], MINIMAL_LANG))
 
     const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
+    const anotherTrainerWKO = environment.getNodeByFQN('A.anotherTrainer') as Singleton
     const pepitaClass = environment.getNodeByFQN('A.Bird') as Singleton
+    const pickTrainerMethod = trainerWKO.allMethods[1] as Method
+    const anotherTrainerFlyMethod = anotherTrainerWKO.allMethods[1] as Method
+    const birdFlyMethod = pepitaClass.allMethods[0] as Method
 
-    it('for a new expression should return the single constructor', () => {
+    it('should return the methods of a class when using New', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
-      const birdFlyMethod = pepitaClass.allMethods[0] as Method
       const definitions = sendDefinitions(environment)(sendToNewBird)
       definitions.should.deep.equal([birdFlyMethod])
     })
+
+    it('should return the methods of a singleton when calling to the WKO', () => {
+      const sendToTrainer = anotherTrainerWKO.allMethods[0].sentences[0] as Send
+      const definitions = sendDefinitions(environment)(sendToTrainer)
+      definitions.should.deep.equal([pickTrainerMethod])
+    })
+
+    it('should return all methods definitions matching message & arity when calling to a class', () => {
+      const sendToBird = anotherTrainerWKO.allMethods[0].sentences[1] as Send
+      const definitions = sendDefinitions(environment)(sendToBird)
+      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
   })
 })
