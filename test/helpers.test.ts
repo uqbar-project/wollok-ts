@@ -257,6 +257,18 @@ describe('Wollok helpers', () => {
                 name: 'fly',
                 body: new Body({ sentences: [] }),
               }),
+              new Method({
+                name: 'sing',
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Self(),
+                      message: 'fly',
+                      args: [],
+                    }),
+                  ]
+                }),
+              }),
             ],
           }),
           new Singleton({
@@ -332,7 +344,7 @@ describe('Wollok helpers', () => {
     const anotherTrainerFlyMethod = anotherTrainerWKO.allMethods[1] as Method
     const birdFlyMethod = pepitaClass.allMethods[0] as Method
 
-    it('should return the methods of a class when using New', () => {
+    it('should return the methods of a class when using new', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToNewBird)
       definitions.should.deep.equal([birdFlyMethod])
@@ -348,6 +360,12 @@ describe('Wollok helpers', () => {
       const sendToBird = anotherTrainerWKO.allMethods[0].sentences[1] as Send
       const definitions = sendDefinitions(environment)(sendToBird)
       definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
+    it('should return the methods of a class when calling to self', () => {
+      const sendToSelf = pepitaClass.allMethods[1].sentences[0] as Send
+      const definitions = sendDefinitions(environment)(sendToSelf)
+      definitions.should.deep.equal([birdFlyMethod])
     })
 
   })
