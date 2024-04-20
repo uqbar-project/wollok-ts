@@ -368,5 +368,14 @@ describe('Wollok helpers', () => {
       definitions.should.deep.equal([birdFlyMethod])
     })
 
+    it('should return all methods with the same name when an error is thrown', () => {
+      const sendToSelf = {
+        ...pepitaClass.allMethods[1].sentences[0],
+        receiver: undefined as unknown,
+      } as Send
+      const definitions = sendDefinitions(environment)(sendToSelf)
+      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
   })
 })
