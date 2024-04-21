@@ -348,6 +348,15 @@ describe('Wollok helpers', () => {
       definitions.should.deep.equal([birdFlyMethod])
     })
 
+    it('should return all methods with same interface if using new to an unreferenced class', () => {
+      const sendToNew = {
+        ...trainerWKO.allMethods[0].sentences[0],
+        receiver: new New({ instantiated: new Reference({ name: 'UnexistentBird' }) }) as unknown,
+      } as Send
+      const definitions = sendDefinitions(environment)(sendToNew)
+      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
     it('should return the methods of a singleton when calling to the WKO', () => {
       const sendToTrainer = anotherTrainerWKO.allMethods[0].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToTrainer)
