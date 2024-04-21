@@ -1,5 +1,5 @@
 import { expect, should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Variable, Literal, Send } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Variable, Literal, Send, Test } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
@@ -230,7 +230,7 @@ describe('Wollok model', () => {
 
     describe('allVariables', () => {
 
-      it('should return all variables', () => {
+      it('should return all variables for a method', () => {
         const aNumberVariable = new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) })
         const aStringVariable = new Variable({ name:'aString', isConstant: false, value: new Literal({ value: 'hello' }) })
         const anotherNumberVariable = new Variable({ name:'anotherNumber', isConstant: true, value: new Literal({ value: 1 }) })
@@ -246,6 +246,22 @@ describe('Wollok model', () => {
           }),
         })
         method.allVariables.should.deep.equal([aNumberVariable, aStringVariable, anotherNumberVariable])
+      })
+
+      it('should return all variables for a test', () => {
+        const aNumberVariable = new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) })
+        const anotherVariable = new Variable({ name:'anotherNumber', isConstant: false, value: new Literal({ value: 0 }) })
+
+        const method = new Test({
+          name: 'test something', id: 'test1', body: new Body({
+            id: 'b1',  sentences: [
+              aNumberVariable,
+              anotherVariable,
+              new Send({ receiver: new Reference({ name: 'assert' }), message: 'equals', args: [new Reference({ name: 'aNumber'}), new Reference({ name: 'anotherNumber' })] }),
+            ],
+          }),
+        })
+        method.allVariables.should.deep.equal([aNumberVariable, anotherVariable])
       })
 
     })
