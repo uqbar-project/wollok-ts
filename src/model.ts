@@ -676,6 +676,9 @@ export class Method extends Node {
   }
 
   @cached
+  get allVariables(): List<Variable> { return this.sentences.filter(is(Variable)) }
+
+  @cached
   matchesSignature(name: Name, arity: number): boolean {
     return this.name == name && (
       this.hasVarArgs && this.parameters.length - 1 <= arity ||
