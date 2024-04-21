@@ -4,7 +4,7 @@ import sinonChai from 'sinon-chai'
 import { EXCEPTION_MODULE, Evaluation } from '../src'
 import { DirectedInterpreter, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
-import { Body, Class, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton } from '../src/model'
+import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 
 
 use(sinonChai)
@@ -63,13 +63,70 @@ describe('Wollok Interpreter', () => {
       const sentence = new Send({ receiver: new Reference({ name: 'p.o' }), message: 'm' })
       const interpreter = new Interpreter(Evaluation.build(environment, {}))
 
-        interpreter.exec(sentence)!.innerNumber!.should.equal(5)
+      interpreter.exec(sentence)!.innerNumber!.should.equal(5)
     })
 
     it('should fail when executing a missing unlinked reference', () => {
       const sentence = new Reference({ name: 'x' })
       const interpreter = new Interpreter(Evaluation.build(WRE, {}))
       expect(() => interpreter.exec(sentence)).to.throw(`Could not resolve unlinked reference to ${sentence.name}`)
+    })
+
+    it('should fail if there is an uninitialized field in a singleton', () => {
+      const environment = link([
+        new Package({
+          name:'p',
+          members: [
+            new Singleton({
+              name: 'o',
+              members: [
+                new Field({
+                  name: 'nullAttribute',
+                  isConstant: false,
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
+
+      expect(() => Evaluation.build(environment, {})).to.throw('Error in o: \'nullAttribute\' attribute uninitialized')
+    })
+
+    it('should not fail if there is an explicit null initialization for a field in a singleton', () => {
+      const environment = link([
+        new Package({
+          name:'p',
+          members: [
+            new Singleton({
+              name: 'o',
+              members: [
+                new Field({
+                  name: 'nullAttribute',
+                  isConstant: true,
+                  value: new Literal({
+                    value: null,
+                    sourceMap: new SourceMap({
+                      start: new SourceIndex({
+                        offset: 19,
+                        line: 1,
+                        column: 19,
+                      }),
+                      end: new SourceIndex({
+                        offset: 23,
+                        line: 1,
+                        column: 23,
+                      }),
+                    }),
+                  }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], WRE)
+
+      Evaluation.build(environment, {})
     })
 
   })
