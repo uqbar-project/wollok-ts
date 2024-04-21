@@ -375,6 +375,15 @@ describe('Wollok helpers', () => {
       definitions.should.deep.equal([birdFlyMethod])
     })
 
+    it('should return all methods with the same interface when calling to self is not linked to a module', () => {
+      const sendToSelf = new Send({
+        receiver: new Self(),
+        message: 'fly',
+      })
+      const definitions = sendDefinitions(environment)(sendToSelf)
+      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
     it('should return all methods with the same name when an error is thrown', () => {
       const sendToSelf = {
         ...birdClass.allMethods[1].sentences[0],
