@@ -357,13 +357,6 @@ export const sendDefinitions = (environment: Environment) => (send: Send): Metho
   }
 }
 
-export const superMethodDefinition = (superNode: Super): Method | undefined => {
-  const currentMethod = superNode.ancestors.find(is(Method))!
-  const module = superNode.ancestors.find(is(Module))
-  // TODO: return module?.lookupMethod...
-  return module ? module.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: module.fullyQualifiedName }) : undefined
-}
-
 export const allMethodDefinitions = (environment: Environment, send: Send): Method[] => {
   const arity = send.args.length
   const name = send.message

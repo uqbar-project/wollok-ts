@@ -266,7 +266,7 @@ describe('Wollok helpers', () => {
                       message: 'fly',
                       args: [],
                     }),
-                  ]
+                  ],
                 }),
               }),
             ],
@@ -327,9 +327,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'fly',
-                body: new Body({
-                  sentences: [],
-                }),
+                body: new Body({ sentences: [] }),
               }),
             ],
           }),
@@ -339,10 +337,10 @@ describe('Wollok helpers', () => {
 
     const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
     const anotherTrainerWKO = environment.getNodeByFQN('A.anotherTrainer') as Singleton
-    const pepitaClass = environment.getNodeByFQN('A.Bird') as Singleton
+    const birdClass = environment.getNodeByFQN('A.Bird') as Class
     const pickTrainerMethod = trainerWKO.allMethods[1] as Method
     const anotherTrainerFlyMethod = anotherTrainerWKO.allMethods[1] as Method
-    const birdFlyMethod = pepitaClass.allMethods[0] as Method
+    const birdFlyMethod = birdClass.allMethods[0] as Method
 
     it('should return the methods of a class when using new', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
@@ -363,14 +361,14 @@ describe('Wollok helpers', () => {
     })
 
     it('should return the methods of a class when calling to self', () => {
-      const sendToSelf = pepitaClass.allMethods[1].sentences[0] as Send
+      const sendToSelf = birdClass.allMethods[1].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod])
     })
 
     it('should return all methods with the same name when an error is thrown', () => {
       const sendToSelf = {
-        ...pepitaClass.allMethods[1].sentences[0],
+        ...birdClass.allMethods[1].sentences[0],
         receiver: undefined as unknown,
       } as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
