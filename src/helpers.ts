@@ -337,6 +337,8 @@ export const mayExecute = (method: Method) => (node: Node): boolean =>
   // exclude cases where a message is sent to a different singleton
   !(node.receiver.is(Reference) && node.receiver.target?.is(Singleton) && node.receiver.target !== method.parent)
 
+export const allVariables = (node: Test | Method): List<Variable> => node.sentences.filter(is(Variable))
+
 /** Definitions **/
 export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
   try {

@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, WRENatives, allAvailableMethods, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allVariables, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -391,6 +391,44 @@ describe('Wollok helpers', () => {
       } as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
+  })
+
+  describe('allVariables', () => {
+
+    it('should return all variables for a method', () => {
+      const aNumberVariable = new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) })
+      const aStringVariable = new Variable({ name:'aString', isConstant: false, value: new Literal({ value: 'hello' }) })
+      const anotherNumberVariable = new Variable({ name:'anotherNumber', isConstant: true, value: new Literal({ value: 1 }) })
+
+      const method = new Method({
+        name: 'm', parameters: [], isOverride: false, id: 'm1',  body: new Body({
+          id: 'b1',  sentences: [
+            aNumberVariable,
+            aStringVariable,
+            new Send({ receiver: new Reference({ name: 'aNumber' }), message: 'even', args: [] }),
+            anotherNumberVariable,
+          ],
+        }),
+      })
+      allVariables(method).should.deep.equal([aNumberVariable, aStringVariable, anotherNumberVariable])
+    })
+
+    it('should return all variables for a test', () => {
+      const aNumberVariable = new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) })
+      const anotherVariable = new Variable({ name:'anotherNumber', isConstant: false, value: new Literal({ value: 0 }) })
+
+      const test = new Test({
+        name: 'test something', id: 'test1', body: new Body({
+          id: 'b1',  sentences: [
+            aNumberVariable,
+            anotherVariable,
+            new Send({ receiver: new Reference({ name: 'assert' }), message: 'equals', args: [new Reference({ name: 'aNumber' }), new Reference({ name: 'anotherNumber' })] }),
+          ],
+        }),
+      })
+      allVariables(test).should.deep.equal([aNumberVariable, anotherVariable])
     })
 
   })

@@ -391,9 +391,6 @@ export class Test extends Entity(Node) {
   @cached
   get sentences(): List<Sentence> { return this.body.sentences }
 
-  @cached
-  get allVariables(): List<Variable> { return this.sentences.filter(is(Variable)) }
-
 }
 
 
@@ -678,9 +675,6 @@ export class Method extends Node {
   get sentences(): List<Sentence> {
     return this.isConcrete() ? this.body.sentences : []
   }
-
-  @cached
-  get allVariables(): List<Variable> { return this.sentences.filter(is(Variable)) }
 
   @cached
   matchesSignature(name: Name, arity: number): boolean {
