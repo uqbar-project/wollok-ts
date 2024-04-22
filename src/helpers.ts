@@ -311,7 +311,6 @@ export const fqnRelativeToPackage =
   (pckg: Package, node: Entity): string =>
     node.fullyQualifiedName.replace(pckg.fullyQualifiedName, pckg.name)
 
-
 export const workspacePackage = (environment: Environment): Package => environment.members[1]
 
 export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): anotherNode is Reference<T>  =>
@@ -339,7 +338,8 @@ export const mayExecute = (method: Method) => (node: Node): boolean =>
 
 export const allVariables = (node: Test | Method): List<Variable> => node.sentences.filter(is(Variable))
 
-/** Definitions **/
+export const isNamedSingleton = (node: Node): node is Singleton => node.is(Singleton) && !!node.name
+
 export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
   try {
     return match(send.receiver)(

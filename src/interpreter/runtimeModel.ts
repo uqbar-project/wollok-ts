@@ -5,7 +5,7 @@ import { getPotentiallyUninitializedLazy } from '../decorators'
 import { get, is, last, List, match, raise, when } from '../extensions'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
-import { getUninitializedAttributesForInstantiation, loopInAssignment } from '../helpers'
+import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment } from '../helpers'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -268,7 +268,7 @@ export class Evaluation {
         evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
     })
 
-    const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => node.is(Singleton) && !!node.name)
+    const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => isNamedSingleton(node))
     for (const module of globalSingletons)
       evaluation.rootFrame.set(module.fullyQualifiedName, evaluation.instantiate(module))
 

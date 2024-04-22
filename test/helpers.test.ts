@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allVariables, implicitImport, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -432,4 +432,21 @@ describe('Wollok helpers', () => {
     })
 
   })
+
+  describe('isNamedSingleton', () => {
+
+    it('should return true for a named singleton', () => {
+      isNamedSingleton(new Singleton({ name: 'entrenador' })).should.be.true
+    })
+
+    it('should return false for an unnamed singleton', () => {
+      isNamedSingleton(new Singleton({})).should.be.false
+    })
+
+    it('should return false for an named module which is not a singleton', () => {
+      isNamedSingleton(new Class({ name: 'Bird' })).should.be.false
+    })
+
+  })
+
 })
