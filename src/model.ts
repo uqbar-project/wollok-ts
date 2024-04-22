@@ -664,6 +664,10 @@ export class Method extends Node {
     return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
   }
 
+  get fullLabel(): string {
+    return `${this.name}(${this.parameters.map(_ => _.name).join(', ')})`
+  }
+
   isAbstract(): this is { body: undefined } { return !this.body }
   isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
   isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
