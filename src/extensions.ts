@@ -85,15 +85,22 @@ export const is = <D extends TypeDefinition<any>>(definition: D) => (obj: any): 
   return !!obj && (obj instanceof definition || (obj.constructor as any)[MIXINS]?.includes(definition))
 }
 
+const OTHERWISE = 'OTHERWISE' as const
+export type TypeDefinitionMatch<T> = TypeDefinition<T> | typeof OTHERWISE
+
 export const match = <T>(matched: T) =>
-  <R, Cs extends any[]>(...cases: { [i in keyof Cs]: readonly [TypeDefinition<Cs[i]>, (m: Cs[i]) => R] }): R => {
+  <R, Cs extends any[]>(...cases: { [i in keyof Cs]: readonly [TypeDefinitionMatch<Cs[i]>, (m: Cs[i]) => R] }): R => {
     for (const [key, handler] of cases)
-      if (is(key)(matched)) return handler(matched)
+      if (key === OTHERWISE || is(key)(matched)) return handler(matched)
     throw new Error(`${matched} exhausted all cases without a match`)
   }
 
 export const when = <T>(definition: TypeDefinition<T>) => <R>(handler: (m: T) => R) =>
   [definition, handler] as const
+
+export const otherwise = <T, R>(handler: (m: T) => R) =>
+  [OTHERWISE, handler] as const
+
 
 export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]): (x: Element) => boolean => x =>
   conditions.some(condition => condition(x))
