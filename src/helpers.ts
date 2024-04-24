@@ -1,6 +1,6 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { List, count, is, isEmpty, last, match, notEmpty, valueAsListOrEmpty, when } from './extensions'
-import { Assignment, Body, Class, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Class, CodeContainer, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -67,13 +67,19 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
 }
 
-export const getVariableContainer = (node: Node): Method | Test | undefined =>
-  node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as Method | Test | undefined
+export const getVariableContainer = (node: Node): CodeContainer | undefined =>
+  node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as CodeContainer | undefined
 
 export const getContainer = (node: Node): Module | Program | Test | undefined =>
   node.ancestors.find(parent => parent.is(Module) || parent.is(Program) || parent.is(Test)) as Module | Program | Test | undefined
 
-export const getAllVariables = (node: Method | Test): List<Variable> => node.sentences.filter(is(Variable))
+export const allScopedVariables = (node: CodeContainer): Referenciable[] => {
+  const fields = node.parent.allFields ?? []
+  const params = node.is(Method) ? node.parameters : []
+  const codeContainerVars = allVariables(node)
+
+  return [...fields, ...params, ...codeContainerVars]
+}
 
 export const hasDuplicatedVariable = (node: Module, variableName: string): boolean =>
   node.is(Module) && !!node.lookupField(variableName)
@@ -162,7 +168,7 @@ export const duplicatesLocalVariable = (node: Variable): boolean => {
 
   const container = getVariableContainer(node)
   if (!container) return false
-  const duplicateReference = count(getAllVariables(container), reference => reference.name == node.name) > 1
+  const duplicateReference = count(allVariables(container), reference => reference.name == node.name) > 1
   return duplicateReference || hasDuplicatedVariable(container.parent, node.name) || !container.is(Test) && container.parameters.some(_ => _.name == node.name)
 }
 
@@ -336,7 +342,7 @@ export const mayExecute = (method: Method) => (node: Node): boolean =>
   // exclude cases where a message is sent to a different singleton
   !(node.receiver.is(Reference) && node.receiver.target?.is(Singleton) && node.receiver.target !== method.parent)
 
-export const allVariables = (node: Test | Method): List<Variable> => node.sentences.filter(is(Variable))
+export const allVariables = (node: CodeContainer): List<Variable> => node.sentences.filter(is(Variable))
 
 export const isNamedSingleton = (node: Node): node is Singleton => node.is(Singleton) && !!node.name
 

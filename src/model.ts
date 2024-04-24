@@ -609,7 +609,7 @@ export class Mixin extends Module(Node) {
 export class Describe extends Module(Node) {
   get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
-  readonly members!: List<Field | Method | Test>
+  readonly members!: List<Field | CodeContainer>
   readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: OBJECT_MODULE }) })]
 
   override parent!: Package
@@ -947,3 +947,7 @@ export class Environment extends Node {
   get stringClass(): Class { return this.getNodeByFQN(STRING_MODULE) }
   get booleanClass(): Class { return this.getNodeByFQN(BOOLEAN_MODULE) }
 }
+
+export type CodeContainer = Method | Test
+
+export type Referenciable = Variable | Field | Parameter

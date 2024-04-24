@@ -4,7 +4,7 @@
 
 import { KEYWORDS } from '../constants'
 import { List, isEmpty, last, match, when } from '../extensions'
-import { Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
+import { CodeContainer, Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
 import { isBooleanLiteral } from '../helpers'
 
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
@@ -50,7 +50,7 @@ export const sourceMapForSentences = (sentences: List<Sentence>): SourceMap => n
 //   return lastSentence.value!.sourceMap
 // }
 
-export const sourceMapForBody = (node: Method | Test): SourceMap | undefined => {
+export const sourceMapForBody = (node: CodeContainer): SourceMap | undefined => {
   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
   return sourceMapForSentences(node.body.sentences)
 }

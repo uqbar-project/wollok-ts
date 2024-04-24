@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -429,6 +429,101 @@ describe('Wollok helpers', () => {
         }),
       })
       allVariables(test).should.deep.equal([aNumberVariable, anotherVariable])
+    })
+
+  })
+
+  describe('allScopedVariables', () => {
+
+    it('should return all scoped variables for a method', () => {
+      const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+      const environment = getLinkedEnvironment(link([
+        new Package({
+          name: 'A',
+          members: [
+            new Class({
+              name: 'Bird',
+              members: [
+                new Method({
+                  name: 'm',
+                  parameters: [
+                    new Parameter({ name: 'energy' }),
+                  ], isOverride: false, id: 'm1',  body: new Body({
+                    id: 'b1',  sentences: [
+                      new Variable({ name: 'aNumber', isConstant: false, value: new Literal({ value: 0 }) }),
+                      new Variable({ name: 'aString', isConstant: false, value: new Literal({ value: 'hello' }) }),
+                      new Send({ receiver: new Reference({ name: 'aNumber' }), message: 'even', args: [] }),
+                      new Variable({ name: 'anotherNumber', isConstant: true, value: new Literal({ value: 1 }) }),
+                    ],
+                  }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], MINIMAL_LANG))
+
+      const birdClass = environment.getNodeByFQN('A.Bird') as Class
+      const method = birdClass.allMethods[0] as Method
+
+      allScopedVariables(method).map(variable => variable.name).should.deep.equal(['energy', 'aNumber', 'aString', 'anotherNumber'])
+    })
+
+    it('should return all variables for a lonely test (not surrounded by a describe)', () => {
+      const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+      const environment = getLinkedEnvironment(link([
+        new Package({
+          name: 'A',
+          members: [
+            new Test({
+              name: 'test something', id: 'test1', body: new Body({
+                id: 'b1',  sentences: [
+                  new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) }),
+                  new Variable({ name:'anotherNumber', isConstant: false, value: new Literal({ value: 0 }) }),
+                  new Send({ receiver: new Reference({ name: 'assert' }), message: 'equals', args: [new Reference({ name: 'aNumber' }), new Reference({ name: 'anotherNumber' })] }),
+                ],
+              }),
+            }),
+          ],
+        }),
+      ], MINIMAL_LANG))
+
+      const aPackage = environment.getNodeByFQN('A') as Package
+      const method = aPackage.members[0] as Test
+
+      allScopedVariables(method).map(variable => variable.name).should.deep.equal(['aNumber', 'anotherNumber'])
+    })
+
+    it('should return all variables for a test inside a describe', () => {
+      const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+      const environment = getLinkedEnvironment(link([
+        new Package({
+          name: 'A',
+          members: [
+            new Describe({
+              name: 'a describe',
+              members: [
+                new Field({ name:'describeVariable', isConstant: false, value: new Literal({ value: 0 }) }),
+                new Test({
+                  name: 'test something', id: 'test1', body: new Body({
+                    id: 'b1',  sentences: [
+                      new Variable({ name:'aNumber', isConstant: false, value: new Literal({ value: 0 }) }),
+                      new Variable({ name:'anotherNumber', isConstant: false, value: new Literal({ value: 0 }) }),
+                      new Send({ receiver: new Reference({ name: 'assert' }), message: 'equals', args: [new Reference({ name: 'aNumber' }), new Reference({ name: 'anotherNumber' })] }),
+                    ],
+                  }),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], MINIMAL_LANG))
+
+      const aPackage = environment.getNodeByFQN('A') as Package
+      const aDescribe = aPackage.members[0] as Describe
+      const aTest = aDescribe.members[1] as Test
+
+      allScopedVariables(aTest).map(variable => variable.name).should.deep.equal(['describeVariable', 'aNumber', 'anotherNumber'])
     })
 
   })
