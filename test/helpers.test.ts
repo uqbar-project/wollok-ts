@@ -583,8 +583,8 @@ describe('Wollok helpers', () => {
       isError({ level: 'error', node: new Body(), code: '', values: [] }).should.be.true
     })
 
-    it('should return false if problem has an info level', () => {
-      isError({ level: 'info', node: new Body(), code: '', values: [] }).should.be.false
+    it('should return false if problem has an warning level', () => {
+      isError({ level: 'warning', node: new Body(), code: '', values: [] }).should.be.false
     })
 
   })
