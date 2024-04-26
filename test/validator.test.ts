@@ -12,7 +12,7 @@ describe('Wollok Validations', () => {
 
   buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
 
-    it(filePackage.name, () => {
+    it(filePackage.fileName!, () => {
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
 

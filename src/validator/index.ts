@@ -27,7 +27,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
 import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, isBooleanLiteral, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isInitialized, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
-import { valuesForNodeName } from './values'
+import { valuesForFileName, valuesForNodeName } from './values'
 
 const { entries } = Object
 
@@ -451,6 +451,11 @@ export const shouldNotDuplicatePackageName = error<Package>(node =>
 , valuesForNodeName,
 sourceMapForNodeName)
 
+export const shouldNotUseSpecialCharactersInName = error<Package>(node =>
+  !node.fileName || node.fileName.match(/\./g)!.length === 1
+, valuesForFileName,
+sourceMapForNodeName)
+
 export const shouldCatchUsingExceptionHierarchy = error<Catch>(node => {
   const EXCEPTION_CLASS = node.environment.getNodeByFQN<Class>(EXCEPTION_MODULE)
   const exceptionType = node.parameterType.target
@@ -533,7 +538,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Import)(() => ({ shouldNotImportSameFile, shouldNotImportMoreThanOnce })),
   when(Body)(() => ({ shouldNotBeEmpty })),
   when(Catch)(() => ({ shouldCatchUsingExceptionHierarchy, catchShouldBeReachable })),
-  when(Package)(() => ({ shouldNotDuplicatePackageName })),
+  when(Package)(() => ({ shouldNotDuplicatePackageName, shouldNotUseSpecialCharactersInName })),
   when(Program)(() => ({ nameShouldNotBeKeyword, shouldNotUseReservedWords, shouldMatchFileExtension, shouldNotDuplicateEntities })),
   when(Test)(() => ({ shouldHaveNonEmptyName, shouldNotMarkMoreThanOneOnlyTest, shouldHaveAssertInTest, shouldMatchFileExtension, shouldHaveDifferentName })),
   when(Class)(() => ({ nameShouldBeginWithUppercase, nameShouldNotBeKeyword, shouldNotHaveLoopInHierarchy, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
