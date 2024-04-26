@@ -1,7 +1,6 @@
-import { methodByFQN } from './../src/helpers';
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -574,6 +573,18 @@ describe('Wollok helpers', () => {
 
     it('should return a undefined if an incorrect fqn is sent', () => {
       methodByFQN(environment, 'A.Bird.m1/1')?.should.be.undefined
+    })
+
+  })
+
+  describe('isError', () => {
+
+    it('should return true if problem has an error level', () => {
+      isError({ level: 'error', node: new Body(), code: '', values: [] }).should.be.true
+    })
+
+    it('should return false if problem has an info level', () => {
+      isError({ level: 'info', node: new Body(), code: '', values: [] }).should.be.false
     })
 
   })
