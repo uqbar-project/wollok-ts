@@ -346,6 +346,15 @@ export const allVariables = (node: CodeContainer): List<Variable> => node.senten
 
 export const isNamedSingleton = (node: Node): node is Singleton => node.is(Singleton) && !!node.name
 
+export const methodByFQN = (environment: Environment, fqn: string): Method | undefined => {
+  const parts = fqn.split('.')
+  const methodWithArity = last(parts)
+  const [methodName, methodArity] = methodWithArity!.split('/')
+  const entityFQN = fqn.replace(`.${methodWithArity}`, '')
+  const entity = environment.getNodeByFQN<Module>(entityFQN)
+  return entity.lookupMethod(methodName, Number.parseInt(methodArity, 10))
+}
+
 export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
   try {
     return match(send.receiver)(

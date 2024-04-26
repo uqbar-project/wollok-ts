@@ -1,3 +1,4 @@
+import { methodByFQN } from './../src/helpers';
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, LIST_MODULE, Literal, Method, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
@@ -540,6 +541,39 @@ describe('Wollok helpers', () => {
 
     it('should return false for an named module which is not a singleton', () => {
       isNamedSingleton(new Class({ name: 'Bird' })).should.be.false
+    })
+
+  })
+
+  describe('methodByFQN', () => {
+
+    const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+    const environment = getLinkedEnvironment(link([
+      new Package({
+        name: 'A',
+        members: [
+          new Class({
+            name: 'Bird',
+            members: [
+              new Method({
+                name: 'm',
+                parameters: [
+                  new Parameter({ name: 'energy' }),
+                ], isOverride: false, id: 'm',  body: new Body({}),
+              })
+            ],
+          }),
+        ],
+      }),
+    ], MINIMAL_LANG))
+    const aMethod = (environment.getNodeByFQN('A.Bird') as Class).members[0]
+
+    it('should return a method if a correct fqn is sent', () => {
+      methodByFQN(environment, 'A.Bird.m/1')!.should.equal(aMethod)
+    })
+
+    it('should return a undefined if an incorrect fqn is sent', () => {
+      methodByFQN(environment, 'A.Bird.m1/1')?.should.be.undefined
     })
 
   })

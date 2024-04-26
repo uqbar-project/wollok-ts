@@ -661,7 +661,7 @@ export class Method extends Node {
   }
 
   override get label(): string {
-    return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
+    return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length}`
   }
 
   get fullLabel(): string {

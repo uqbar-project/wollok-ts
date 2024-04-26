@@ -117,13 +117,13 @@ describe('Wollok model', () => {
       it('should return the label for a method with no parameters', () => {
         const pepitaWKO = environment.getNodeByFQN('src.pepitaFile.pepita') as Singleton
         const method = pepitaWKO.methods[0]
-        method.label.should.include('src.pepitaFile.pepita.eat/0')
+        method.label.should.equal('src.pepitaFile.pepita.eat/0')
       })
 
       it('should return the label for a method with several parameters', () => {
         const pepitaWKO = environment.getNodeByFQN('src.pepitaFile.pepita') as Singleton
         const method = pepitaWKO.methods[1]
-        method.label.should.include('src.pepitaFile.pepita.fly/2')
+        method.label.should.equal('src.pepitaFile.pepita.fly/2')
       })
 
     })
