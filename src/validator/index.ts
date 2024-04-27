@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, isBooleanLiteral, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isInitialized, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
+import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
 import { valuesForNodeName } from './values'
 
@@ -137,7 +137,7 @@ export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node
 
 export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return !isEqualMessage(node) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
+  return !isEqualMessage(node) || !arg || !(hasBooleanValue(arg, true) || hasBooleanValue(arg, false) || hasBooleanValue(node.receiver, true) || hasBooleanValue(node.receiver, false))
 })
 
 export const shouldUseSelfAndNotSingletonReference = warning<Reference<Node>>(node => {
@@ -337,12 +337,12 @@ export const codeShouldBeReachable = error<If | Send>(node =>
     when(If)(node => {
       const condition = node.condition
       if (!condition.is(Literal) || condition.value !== true && condition.value !== false) return true
-      return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
+      return hasBooleanValue(condition, true) && isEmpty(node.elseBody.sentences) || hasBooleanValue(condition, false) && isEmpty(node.thenBody.sentences)
     }),
     when(Send)(node => {
       const receiver = node.receiver
       const message = node.message
-      return !(isBooleanLiteral(receiver, true) && ['or', '||'].includes(message)) && !(isBooleanLiteral(receiver, false) && ['and', '&&'].includes(message))
+      return !(hasBooleanValue(receiver, true) && ['or', '||'].includes(message)) && !(hasBooleanValue(receiver, false) && ['and', '&&'].includes(message))
     }),
   )
 , undefined,
@@ -371,8 +371,8 @@ export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
       const argument = node.args[0]
       const andOperation = ['and', '&&'].includes(node.message)
       const orOperation = ['or', '||'].includes(node.message)
-      if (andOperation) return !isBooleanLiteral(receiver, true) && !isBooleanLiteral(argument, true)
-      if (orOperation) return !isBooleanLiteral(receiver, false) && !isBooleanLiteral(argument, false)
+      if (andOperation) return !hasBooleanValue(receiver, true) && !hasBooleanValue(argument, true)
+      if (orOperation) return !hasBooleanValue(receiver, false) && !hasBooleanValue(argument, false)
       return true
     }),
   )
@@ -432,7 +432,7 @@ export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | 
 sourceMapForNodeName)
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !(node.isAtPackageLevel && isInitialized(node))
+  !(node.isAtPackageLevel && isUninitialized(node))
 , valuesForNodeName,
 sourceMapForNodeName)
 
@@ -442,7 +442,7 @@ export const shouldInitializeConst = error<Variable>(node =>
   !(
     getContainer(node)?.is(Program) &&
     node.isConstant &&
-    isInitialized(node))
+    isUninitialized(node))
 , valuesForNodeName,
 sourceMapForNodeName)
 

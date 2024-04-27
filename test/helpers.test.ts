@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions, hasNullValue, hasBooleanValue } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -559,7 +559,7 @@ describe('Wollok helpers', () => {
                 parameters: [
                   new Parameter({ name: 'energy' }),
                 ], isOverride: false, id: 'm',  body: new Body({}),
-              })
+              }),
             ],
           }),
         ],
@@ -585,6 +585,30 @@ describe('Wollok helpers', () => {
 
     it('should return false if problem has an warning level', () => {
       isError({ level: 'warning', node: new Body(), code: '', values: [] }).should.be.false
+    })
+
+  })
+
+  describe('hasNullValue', () => {
+
+    it('should return true for a null expression', () => {
+      hasNullValue(new Literal({ value: null })).should.be.true
+    })
+
+    it('should return false for a non null expression', () => {
+      hasNullValue(new Literal({ value: 2 })).should.be.false
+    })
+
+  })
+
+  describe('hasBooleanValue', () => {
+
+    it('should return true if boolean value matches', () => {
+      hasBooleanValue(new Literal({ value: true }), true).should.be.true
+    })
+
+    it('should return false if boolean value does not match', () => {
+      hasBooleanValue(new Literal({ value: true }), false).should.be.false
     })
 
   })

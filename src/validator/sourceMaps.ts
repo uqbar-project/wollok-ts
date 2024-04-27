@@ -5,7 +5,7 @@
 import { KEYWORDS } from '../constants'
 import { List, isEmpty, last, match, when } from '../extensions'
 import { CodeContainer, Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
-import { isBooleanLiteral } from '../helpers'
+import { hasBooleanValue } from '../helpers'
 
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
   node.sourceMap && new SourceMap({
@@ -58,7 +58,7 @@ export const sourceMapForBody = (node: CodeContainer): SourceMap | undefined => 
 export const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
   match(node)(
     when(If)(node => {
-      const whichBody = isBooleanLiteral(node.condition, true) ? node.elseBody : node.thenBody
+      const whichBody = hasBooleanValue(node.condition, true) ? node.elseBody : node.thenBody
       return sourceMapForSentences(whichBody.sentences)
     }),
     when(Send)(node => new SourceMap({

@@ -50,9 +50,15 @@ export const initializesInsideInitMethod = (node: Module, field: Field): boolean
 export const initializesReference = (method: Method, field: Field): boolean =>
   method.sentences.some(sentence => sentence.is(Assignment) && sentence.variable.target === field)
 
-export const isUninitialized = (value: Expression): boolean => value.isSynthetic && value.is(Literal) && value.isNull()
+export const isUninitialized = (node: Expression | Variable): boolean =>
+  match(node)(
+    when(Expression)(node => node.isSynthetic && hasNullValue(node)),
+    when(Variable)(node => isUninitialized(node.value)),
+  )
 
-export const isBooleanLiteral = (node: Expression, value: boolean): boolean => node.is(Literal) && node.value === value
+export const hasBooleanValue = (node: Expression, value: boolean): boolean => node.is(Literal) && node.value === value
+
+export const hasNullValue = (node: Expression): boolean => node.is(Literal) && node.isNull()
 
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target)
@@ -261,11 +267,6 @@ export const methodExists = (node: Send): boolean => match(node.receiver)(
   }),
   when(Node)(() => true),
 )
-
-export const isInitialized = (node: Variable): boolean =>
-  node.value.isSynthetic &&
-  node.value.is(Literal) &&
-  node.value.isNull()
 
 export const loopInAssignment = (node: Expression, variableName: string): boolean =>
   node.is(Send) && methodExists(node) && node.receiver.is(Self) && node.message === variableName
