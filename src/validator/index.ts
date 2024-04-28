@@ -483,8 +483,7 @@ export const shouldNotImportMoreThanOnce = warning<Import>(node =>
 export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
   if (node.isConstant || usesReservedWords(node) || RESERVED_WORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
   const module = getContainer(node)
-  if (!module) return true
-  return match(module)(
+  return !module || match(module)(
     when(Program)(program => assignsVariable(program.body, node)),
     when(Test)(test => assignsVariable(test.body, node)),
     when(Describe)(describe =>
