@@ -300,6 +300,12 @@ export const allAvailableMethods = (environment: Environment): Method[] =>
 export const allMethods = (environment: Environment, referenceClass: Reference<Module>): Method[] =>
   (referenceClass.target ?? environment.objectClass).allMethods as Method[]
 
+export const projectToJSON = (wre: Environment): string => JSON.stringify(
+  wre,
+  (key, value) => key.startsWith('_') ? undefined : value,
+  2,
+)
+
 export const firstNodeWithProblems = (node: Node): Node | undefined => {
   const { start, end } = node.problems![0].sourceMap ?? { start: { offset: -1 }, end: { offset: -1 } }
   return node.children.find(child =>

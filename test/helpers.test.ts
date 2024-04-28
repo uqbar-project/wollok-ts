@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions, hasNullValue, hasBooleanValue } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions, hasNullValue, hasBooleanValue, projectToJSON } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -609,6 +609,38 @@ describe('Wollok helpers', () => {
 
     it('should return false if boolean value does not match', () => {
       hasBooleanValue(new Literal({ value: true }), false).should.be.false
+    })
+
+  })
+
+  describe('projectToJSON', () => {
+
+    it('should return a stringified JSON of an environment', () => {
+      const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+      const environment = getLinkedEnvironment(link([
+        new Package({
+          name: 'AwesomePackage',
+          members: [
+            new Class({
+              name: 'AwesomeClass',
+              members: [
+                new Method({
+                  name: 'awesomeMethod',
+                  parameters: [
+                    new Parameter({ name: 'awesomeParameter' }),
+                  ], isOverride: false, body: new Body({}),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ], MINIMAL_LANG))
+      const projectAsJSON = projectToJSON(environment)
+      projectAsJSON.should.be.not.empty
+      projectAsJSON.should.contain('AwesomePackage')
+      projectAsJSON.should.contain('AwesomeClass')
+      projectAsJSON.should.contain('awesomeMethod')
+      projectAsJSON.should.contain('awesomeParameter')
     })
 
   })
