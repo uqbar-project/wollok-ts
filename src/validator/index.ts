@@ -19,7 +19,7 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 import { EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION } from '../constants'
-import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, when } from '../extensions'
+import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, otherwise, when } from '../extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
@@ -517,7 +517,7 @@ export const shouldHaveDifferentName = error<Test>(node => {
   const tests: List<Test> = match(node.parent)(
     when(Describe)(describe => describe.tests),
     when(Package)(module => module.members.filter(member => member.is(Test)) as unknown as List<Test>),
-    when(Node)(_ => []),
+    otherwise(_ => []),
   )
   return !tests || tests.every(other => node === other || other.name !== node.name)
 }, valuesForNodeName, sourceMapForNodeName)
@@ -551,7 +551,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
   when(Try)(() => ({ shouldHaveCatchOrAlways })),
   when(Describe)(() => ({ shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe, shouldHaveNonEmptyName })),
-  when(Node)(() => ({})),
+  otherwise(() => ({})),
 )
 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {

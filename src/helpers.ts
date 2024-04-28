@@ -1,5 +1,5 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
-import { List, count, is, isEmpty, last, match, notEmpty, valueAsListOrEmpty, when } from './extensions'
+import { List, count, is, isEmpty, last, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
 import { Assignment, Body, Class, CodeContainer, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
@@ -16,7 +16,7 @@ export const inheritsCustomDefinition = (module: Module): boolean =>
 export const getReferencedModule = (parent: Node): Module | undefined => match(parent)(
   when(ParameterizedType)(node => node.reference.target),
   when(New)(node => node.instantiated.target),
-  when(Node)(() => undefined),
+  otherwise(() => undefined),
 )
 
 export const getUninitializedAttributesForInstantiation = (node: New): string[] => {
@@ -107,14 +107,14 @@ export const isBooleanOrUnknownType = (node: Node): boolean => match(node)(
   when(Send)(_ => true), // tackled in a different validator
   when(Super)(_ => true),
   when(Reference)(condition => !condition.target?.is(Singleton)),
-  when(Node)(_ => false),
+  otherwise(_ => false),
 )
 
 export const valueFor: any | undefined = (node: Node) =>
   match(node)(
     when(Literal)(node => node.value),
     when(Return)(node => valueFor(node.value)),
-    when(Node)(_ => undefined),
+    otherwise(_ => undefined),
   )
 
 export const sendsMessageToAssert = (node: Node): boolean =>
@@ -137,7 +137,7 @@ export const sendsMessageToAssert = (node: Node): boolean =>
       node.catches.every(_catch => sendsMessageToAssert(_catch.body)) || sendsMessageToAssert(node.always)
     ),
     when(If)(node => sendsMessageToAssert(node.thenBody) && node.elseBody && sendsMessageToAssert(node.elseBody)),
-    when(Node)(_ => false),
+    otherwise(_ => false),
   )
 
 // TODO: this should be no longer necessary when the type system is implemented
@@ -153,7 +153,7 @@ export const isCallToSuper = (node: Node): boolean =>
     when(Super)(() => true),
     when(Return)(node => !!node.value && isCallToSuper(node.value)),
     when(Send)(node => isCallToSuper(node.receiver) || node.args.some(arg => isCallToSuper(arg))),
-    when(Node)(() => false),
+    otherwise(() => false),
   )
 
 export const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
@@ -220,7 +220,7 @@ export const usesField = (node: Node, field: Field): boolean =>
     when(Throw)(node => usesField(node.exception, field)),
     when(Try)(node => usesField(node.body, field) || node.catches.some(catchBlock => usesField(catchBlock.body, field)) || !!node.always && usesField(node.always, field)),
     when(Expression)(() => false),
-    when(Node)(node => (node.is(Body) || node.is(Method) || node.is(Test)) && node.sentences.some(sentence => usesField(sentence, field))),
+    otherwise((node: Node) => (node.is(Body) || node.is(Method) || node.is(Test)) && node.sentences.some(sentence => usesField(sentence, field))),
   )
 
 export const usesReservedWords = (node: Class | Singleton | Variable | Field | Parameter): boolean => {
@@ -243,7 +243,7 @@ export const supposedToReturnValue = (node: Node): boolean => match(node.parent)
   when(Send)(nodeSend => node.is(Expression) && nodeSend.args.includes(node) || nodeSend.receiver == node),
   when(Super)(nodeSuper => node.is(Expression) && nodeSuper.args.includes(node)),
   when(Variable)(() => true),
-  when(Node)(() => false),
+  otherwise(() => false),
 )
 
 export const returnsValue = (node: Method): boolean => node.sentences.some(sentence => returnsAValue(sentence))
@@ -253,7 +253,7 @@ export const returnsAValue = (node: Node): boolean => match(node)(
   when(Body)(node => node.sentences.some(sentence => returnsAValue(sentence))),
   when(If)(node => returnsAValue(node.thenBody) || returnsAValue(node.elseBody)),
   when(Try)(node => returnsAValue(node.body) || node.catches.some(sentence => returnsAValue(sentence)) || returnsAValue(node.always)),
-  when(Node)(() => false),
+  otherwise(() => false),
 )
 
 export const methodExists = (node: Send): boolean => match(node.receiver)(
@@ -265,7 +265,7 @@ export const methodExists = (node: Send): boolean => match(node.receiver)(
     const receiver = referenceNode.target
     return !receiver?.is(Module) || isBooleanMessage(node) || !!receiver.lookupMethod(node.message, node.args.length, { allowAbstractMethods: true })
   }),
-  when(Node)(() => true),
+  otherwise(() => true),
 )
 
 export const loopInAssignment = (node: Expression, variableName: string): boolean =>
@@ -342,7 +342,7 @@ export const isNotImportedIn = (importedPackage: Package, importingPackage: Pack
 export const belongsTo = (node: Node, mainPackage: Package): boolean =>
   match(node)(
     when(Package)((pkg) => pkg === mainPackage),
-    when(Node)((node) => node.parent === mainPackage),
+    otherwise((node: Node) => node.parent === mainPackage),
   )
 
 export const mayExecute = (method: Method) => (node: Node): boolean =>
