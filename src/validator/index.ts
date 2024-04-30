@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
 import { valuesForNodeName } from './values'
 
@@ -488,18 +488,8 @@ export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
 
 export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   if (!methodExists(node) || !supposedToReturnValue(node)) return true
-
-  const method: Method | undefined = match(node.receiver)(
-    when(Reference)(nodeRef => {
-      const target = nodeRef.target
-      return target?.is(Module) ? target.lookupMethod(node.message, node.args.length) : undefined
-    }),
-    when(Literal)(_ => findMethod(node)),
-    when(Self)(_ => findMethod(node)),
-    when(Expression)(_ => undefined),
-  )
-
-  return !method || method.isNative() || method.isAbstract() || returnsValue(method)
+  const method = findMethod(node)
+  return !method || method.isNative() || method.isAbstract() || returnsAValue(method)
 })
 
 export const shouldNotAssignValueInLoop = error<Field>(node => !loopInAssignment(node.value, node.name))

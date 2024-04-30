@@ -142,8 +142,19 @@ export const sendsMessageToAssert = (node: Node): boolean =>
 
 // TODO: this should be no longer necessary when the type system is implemented
 export const findMethod = (messageSend: Send): Method | undefined => {
-  const parent = messageSend.receiver.ancestors.find(ancestor => ancestor.is(Module)) as Module
-  return parent?.lookupMethod(messageSend.message, messageSend.args.length)
+  const findModule = (node: Send) => node.receiver.ancestors.find(ancestor => ancestor.is(Module)) as Module
+
+  const module: Module | undefined = match(messageSend.receiver)(
+    when(Reference)(nodeRef => {
+      const target = nodeRef.target
+      return target?.is(Module) ? target : undefined
+    }),
+    when(Literal)(_ => findModule(messageSend)),
+    when(Self)(_ => findModule(messageSend)),
+    when(Expression)(_ => undefined),
+  )
+
+  return module?.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
 export const callsToSuper = (node: Method): boolean => node.sentences.some(sentence => isCallToSuper(sentence))
@@ -249,12 +260,11 @@ export const supposedToReturnValue = (node: Node): boolean => match(node.parent)
   otherwise(() => false),
 )
 
-export const returnsValue = (node: Method): boolean => node.sentences.some(sentence => returnsAValue(sentence))
-
 export const returnsAValue = (node: Node): boolean => match(node)(
-  when(Return)(() => true),
   when(Body)(node => node.sentences.some(sentence => returnsAValue(sentence))),
   when(If)(node => returnsAValue(node.thenBody) || returnsAValue(node.elseBody)),
+  when(Method)(node => node.sentences.some(sentence => returnsAValue(sentence))),
+  when(Return)(() => true),
   when(Try)(node => returnsAValue(node.body) || node.catches.some(sentence => returnsAValue(sentence)) || returnsAValue(node.always)),
   otherwise(() => false),
 )
