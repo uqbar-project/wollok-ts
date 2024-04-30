@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
 import { valuesForNodeName } from './values'
 
@@ -96,7 +96,7 @@ export const topLevelSingletonShouldHaveAName = error<Singleton>(
 )
 
 export const onlyLastParameterCanBeVarArg = error<Method>(node => {
-  const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
+  const varArgIndex = node.parameters.findIndex(parameter => parameter.isVarArg)
   return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
 })
 
@@ -105,7 +105,7 @@ export const shouldHaveCatchOrAlways = error<Try>(node =>
 )
 
 export const methodShouldHaveDifferentSignature = error<Method>(node =>
-  node.parent.methods.every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+  node.parent.methods.every(parentMethod => node === parentMethod || !parentMethod.matchesSignature(node.name, node.parameters.length))
 )
 
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
@@ -482,16 +482,8 @@ export const shouldNotImportMoreThanOnce = warning<Import>(node =>
 
 export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
   if (node.isConstant || usesReservedWords(node) || RESERVED_WORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
-  const module = getContainer(node)
-  return !module || match(module)(
-    when(Program)(program => assignsVariable(program.body, node)),
-    when(Test)(test => assignsVariable(test.body, node)),
-    when(Describe)(describe =>
-      describe.methods.some(method => assigns(method, node)) ||
-      describe.tests.some(test => assignsVariable(test.body, node))
-    ),
-    when(Module)(module => module.methods.some(method => assigns(method, node))),
-  )
+  const container = getContainer(node)
+  return !container || assignsVariable(container, node)
 }, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseVoidMethodAsValue = error<Send>(node => {

@@ -605,7 +605,6 @@ export class Mixin extends Module(Node) {
   get superclass(): undefined { return undefined }
 }
 
-
 export class Describe extends Module(Node) {
   get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
@@ -621,6 +620,7 @@ export class Describe extends Module(Node) {
   get superclass(): Class { return this.supertypes[0].reference.target! as Class }
 
   get tests(): List<Test> { return this.members.filter(is(Test)) }
+
 }
 
 // // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

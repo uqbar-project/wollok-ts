@@ -1,6 +1,6 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { List, count, is, isEmpty, last, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
-import { Assignment, Body, Class, CodeContainer, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
+import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -178,18 +178,21 @@ export const duplicatesLocalVariable = (node: Variable): boolean => {
   return duplicateReference || hasDuplicatedVariable(container.parent, node.name) || !container.is(Test) && container.parameters.some(_ => _.name == node.name)
 }
 
-export const assigns = (method: Method, variable: Variable | Field): boolean => method.sentences.some(sentence => assignsVariable(sentence, variable))
-
-export const assignsVariable = (sentence: Sentence | Body, variable: Variable | Field): boolean => match(sentence)(
-  when(Body)(node => node.sentences.some(sentence => assignsVariable(sentence, variable))),
-  when(Variable)(node => assignsVariable(node.value, variable)),
-  when(Return)(node => !!node.value && assignsVariable(node.value, variable)),
+export const assignsVariable = (sentence: Node, variable: Variable | Field): boolean => match(sentence)(
   when(Assignment)(node => node.variable.target == variable),
-  when(Send)(node => assignsVariable(node.receiver, variable) || node.args.some(arg => assignsVariable(arg, variable))),
+  when(Body)(node => node.sentences.some(sentence => assignsVariable(sentence, variable))),
+  when(Describe)(node => node.members.some(member => assignsVariable(member, variable))),
   when(If)(node => assignsVariable(node.condition, variable) || assignsVariable(node.thenBody, variable) || assignsVariable(node.elseBody, variable)),
+  when(Method)(node => node.sentences.some(sentence => assignsVariable(sentence, variable))),
+  when(Module)(node => node.methods.some(method => assignsVariable(method, variable))),
+  when(Program)(node => assignsVariable(node.body, variable)),
+  when(Return)(node => !!node.value && assignsVariable(node.value, variable)),
+  when(Send)(node => assignsVariable(node.receiver, variable) || node.args.some(arg => assignsVariable(arg, variable))),
+  when(Singleton)(node => node.methods.some(method => assignsVariable(method, variable))),
+  when(Test)(node => assignsVariable(node.body, variable)),
   when(Try)(node => assignsVariable(node.body, variable) || node.catches.some(catchBlock => assignsVariable(catchBlock.body, variable)) || assignsVariable(node.always, variable)),
-  when(Singleton)(node => node.methods.some(method => assigns(method, variable))),
-  when(Expression)(_ => false),
+  when(Variable)(node => assignsVariable(node.value, variable)),
+  otherwise(_ => false),
 )
 
 export const unusedVariable = (node: Field): boolean => {
