@@ -59,7 +59,7 @@ const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E>
   const problems: ParseError[] = []
   const purged = mapObject((value: any) => {
     if(isArray(value)) {
-      const [newProblems, nonProblems] = discriminate<ParseError>((member): member is ParseError => member instanceof ParseError)(value)
+      const [newProblems, nonProblems] = discriminate<ParseError>(member => member instanceof ParseError)(value)
       problems.push(...newProblems)
       return nonProblems
     } else return value
@@ -144,11 +144,13 @@ export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
     fileName: of(fileName),
     name: of(fileName.split('.')[0].replaceAll('/', '.')),
     imports: Import.sepBy(_).skip(_),
-    members: Entity.or(entityError).sepBy(_),
+    content: Entity.or(alt(annotation, comment('start'))).or(entityError).sepBy(_),
   }).skip(_)
-    .map(filePackage => new PackageNode(recover(filePackage)))
+    .map(({ content, ...filePackage }) => {
+      const [metadata, members] = discriminate<Annotation, EntityNode | ParseError>((member): member is Annotation => member instanceof Annotation)(content)
+      return new PackageNode(recover({ ...filePackage, members, metadata }))
+    })
 )
-
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
   key(KEYWORDS.IMPORT).then(obj({

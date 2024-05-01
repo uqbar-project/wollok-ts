@@ -26,7 +26,7 @@ export function allExpectations(parentNode: Node): Map<Node, Annotation[]> {
       const path = expectedProblem.args['path']
       const expectedNode: Node = path ? (node as any)[path as any] : node
       if (!allExpectations.has(expectedNode)) allExpectations.set(expectedNode, [])
-            allExpectations.get(expectedNode)!.push(expectedProblem)
+      allExpectations.get(expectedNode)!.push(expectedProblem)
     })
   })
   return allExpectations
@@ -34,7 +34,13 @@ export function allExpectations(parentNode: Node): Map<Node, Annotation[]> {
 
 export const matchesExpectationProblem = (problem: Problem, annotatedNode: Node, expected: Annotation): boolean => {
   const code = expected.args['code']!
-  return problem.code === code && !!annotatedNode.sourceMap?.includes(problem.sourceMap!)
+  return problem.code === code && matchSourceMap(annotatedNode.sourceMap, problem.sourceMap)
+}
+
+
+function matchSourceMap(annotatedSourceMap?: SourceMap, problemSourceMap?: SourceMap): boolean {
+  return annotatedSourceMap === undefined && problemSourceMap === undefined
+    || !!problemSourceMap && !!annotatedSourceMap?.includes(problemSourceMap)
 }
 
 export const errorLocation = (node: Node | Problem): string => `${node.sourceMap}`

@@ -724,6 +724,20 @@ describe('Wollok linker', () => {
       env.getNodeByFQN<Package>('g').members.should.have.length(2)
     })
 
+    it('should import wlk files on fqn collisions', () => {
+      const env = link([
+        new Package({ fileName: 'p.wtest', name: 'p' }), // First declare the test
+        new Package({ fileName: 'p.wlk', name: 'p' }),
+        new Package({
+          name: 'g',
+          imports: [new Import({ entity: new Reference({ name: 'p' }) })],
+        }),
+      ], MINIMAL_LANG)
+      const entity = env.getNodeByFQN<Package>('p')
+      entity.fileName!.should.be.eql('p.wlk')
+      env.getNodeByFQN<Package>('g').imports[0].entity.should.target(entity)
+    })
+
     it('should not crash with missing reference in imports', () =>
       link([
         new Package({

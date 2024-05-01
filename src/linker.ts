@@ -66,9 +66,11 @@ export class LocalScope implements Scope {
   }
 
   register(...contributions: [Name, Node][]): void {
+    const shouldBeOverrided = (older: Node, newer: Node) => // Override wtest files with same name than wlk
+      older.is(Package) && newer.is(Package) && older.isTestFile && !newer.isTestFile
     for (const [name, node] of contributions) {
-      // (global packages) Not override previous contributions
-      if (!this.contributions.has(name)) {
+      const alreadyRegistered = this.contributions.get(name)
+      if (!alreadyRegistered || shouldBeOverrided(alreadyRegistered, node)) {
         this.contributions.set(name, node)
       }
     }
@@ -104,10 +106,10 @@ export const assignScopes = (environment: Environment): void => {
     }
 
     if (node.is(Package)) {
-      for (const imported of node.imports) {
-        const entity = node.parent.scope.resolve<Entity>(imported.entity.name)
+      for (const importNode of node.imports) {
+        const entity = importNode.scope.resolve<Entity>(importNode.entity.name)
 
-        if (entity) node.scope.include(imported.isGeneric
+        if (entity) node.scope.include(importNode.isGeneric
           ? new LocalScope(undefined, ...entity.scope.localContributions())
           : new LocalScope(undefined, [entity.name!, entity])
         )
