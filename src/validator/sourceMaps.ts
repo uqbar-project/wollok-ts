@@ -4,8 +4,8 @@
 
 import { KEYWORDS } from '../constants'
 import { List, isEmpty, last, match, when } from '../extensions'
-import { Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
-import { isBooleanLiteral } from '../helpers'
+import { CodeContainer, Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
+import { hasBooleanValue } from '../helpers'
 
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
   node.sourceMap && new SourceMap({
@@ -50,7 +50,7 @@ export const sourceMapForSentences = (sentences: List<Sentence>): SourceMap => n
 //   return lastSentence.value!.sourceMap
 // }
 
-export const sourceMapForBody = (node: Method | Test): SourceMap | undefined => {
+export const sourceMapForBody = (node: CodeContainer): SourceMap | undefined => {
   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
   return sourceMapForSentences(node.body.sentences)
 }
@@ -58,7 +58,7 @@ export const sourceMapForBody = (node: Method | Test): SourceMap | undefined => 
 export const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
   match(node)(
     when(If)(node => {
-      const whichBody = isBooleanLiteral(node.condition, true) ? node.elseBody : node.thenBody
+      const whichBody = hasBooleanValue(node.condition, true) ? node.elseBody : node.thenBody
       return sourceMapForSentences(whichBody.sentences)
     }),
     when(Send)(node => new SourceMap({

@@ -1,5 +1,5 @@
 import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
-import { is, last, List, match, when } from '../extensions'
+import { is, last, List, match, otherwise, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
@@ -84,7 +84,7 @@ function inferTypeVariables(node: Node): TypeVariable | void {
     when(Self)(inferSelf),
     when(Super)(inferSelf),
 
-    when(Node)(skip) //TODO: Not implemented?
+    otherwise(skip) //TODO: Not implemented?
   )
 }
 
@@ -230,7 +230,7 @@ const inferLiteral = (l: Literal) => {
     case 'boolean': return tVar.setType(new WollokModuleType(booleanClass))
     case 'object':
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
-      if (l.value === null) return tVar //tVar.setType('Nullable?')
+      if (l.isNull()) return tVar //tVar.setType('Nullable?')
   }
   throw new Error('Literal type not found')
 }

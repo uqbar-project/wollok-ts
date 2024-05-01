@@ -1,7 +1,7 @@
 import { IDoc, align, append, choice, enclose, intersperse, lineBreak, lineBreaks, hang as nativeHang, indent as nativeIndent, nest as nativeNest, parens, prepend, render, softBreak, softLine } from 'prettier-printer'
 import { KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from '../constants'
 import { List, isEmpty, match, notEmpty, when } from '../extensions'
-import { Annotation, Assignment, Body, Catch, Class, Describe, Expression, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { Annotation, Assignment, Body, Catch, Class, CodeContainer, Describe, Expression, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { MALFORMED_ENTITY, MALFORMED_MEMBER, MALFORMED_SENTENCE } from '../parser'
 import { PrintingMalformedNodeError } from './exceptions'
 import { DocTransformer, WS, body, defaultToEmpty, enclosedList, listEnclosers, listed, setEnclosers, stringify } from './utils'
@@ -458,7 +458,7 @@ const formatCollection = (context: PrintContext) => (values: List<Expression>, e
   return enclosedListOfNodes(context)(enclosers, values)
 }
 
-const formatModuleMembers = (context: PrintContext) => (members: List<Field | Method | Test>): IDoc => {
+const formatModuleMembers = (context: PrintContext) => (members: List<Field | CodeContainer>): IDoc => {
   const formatter = format(context)
   const concreteMembers = members.filter(member => !member.isSynthetic)
   const fields = concreteMembers.filter(member => member.is(Field)).map(formatter)

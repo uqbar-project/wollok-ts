@@ -24,8 +24,9 @@ jobs:
         node-version: "${{ steps.nvm.outputs.NVMRC }}"
     - run: npm ci
     - run: npm run build && npm run test:coverage
-    - name: Coveralls
-      uses: coverallsapp/github-action@master
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v4.0.1
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-      continue-on-error: true
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: uqbar-project/wollok-ts
+      continue-on-error: true        

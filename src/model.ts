@@ -389,6 +389,7 @@ export class Test extends Entity(Node) {
 
   @cached
   get sentences(): List<Sentence> { return this.body.sentences }
+
 }
 
 
@@ -603,11 +604,10 @@ export class Mixin extends Module(Node) {
   get superclass(): undefined { return undefined }
 }
 
-
 export class Describe extends Module(Node) {
   get kind(): 'Describe' { return 'Describe' }
   readonly name!: Name
-  readonly members!: List<Field | Method | Test>
+  readonly members!: List<Field | CodeContainer>
   readonly supertypes: List<ParameterizedType> = [new ParameterizedType({ reference: new Reference({ name: OBJECT_MODULE }) })]
 
   override parent!: Package
@@ -619,6 +619,7 @@ export class Describe extends Module(Node) {
   get superclass(): Class { return this.supertypes[0].reference.target! as Class }
 
   get tests(): List<Test> { return this.members.filter(is(Test)) }
+
 }
 
 // // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -659,7 +660,11 @@ export class Method extends Node {
   }
 
   override get label(): string {
-    return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length} ${super.label}`
+    return `${this.parent.fullyQualifiedName}.${this.name}/${this.parameters.length}`
+  }
+
+  get fullLabel(): string {
+    return `${this.name}(${this.parameters.map(_ => _.name).join(', ')})`
   }
 
   isAbstract(): this is { body: undefined } { return !this.body }
@@ -941,3 +946,7 @@ export class Environment extends Node {
   get stringClass(): Class { return this.getNodeByFQN(STRING_MODULE) }
   get booleanClass(): Class { return this.getNodeByFQN(BOOLEAN_MODULE) }
 }
+
+export type CodeContainer = Method | Test
+
+export type Referenciable = Variable | Field | Parameter
