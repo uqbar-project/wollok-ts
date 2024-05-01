@@ -173,9 +173,9 @@ export const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityNa
   when(Entity)(node => node.name == entityName),
 )
 
-export const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity | undefined): boolean | undefined => !!target && node && match(node)(
-  when(Package)(node => node.name == target.name),
+export const isAlreadyUsedInImport = (target: Entity | Package | undefined, node: Entity | undefined): boolean | undefined => !!target && node && match(node)(
   when(Entity)(node => entityIsAlreadyUsedInImport(target, node.name!)),
+  when(Package)(node => node.name == target.name),
 )
 
 export const duplicatesLocalVariable = (node: Variable): boolean => {
