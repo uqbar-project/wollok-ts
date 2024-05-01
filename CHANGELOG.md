@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.1.1
+**Wollok Version: `3.2.3`**
+
+- 🚧 Fix `import` on collisions between `.wlk` and `.wtest` files
+- 🔤 Add validation for _special characters_ in file names
+- 🧰 Add a lot of util functions (see [`extensions`](./src/extensions.ts) [`helpers`](./src/helpers.ts))
+- ✍️ Support `only` keyword on printer
+- 👁️‍🗨️ Fix _unused variable_ and _uninitialized attributes for wko_ validations
+- 👾 Fix Wollok Game performance issues
+
+
 ## v4.1.0
 **Wollok Version: `3.2.2`**
 
