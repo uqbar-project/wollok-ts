@@ -452,7 +452,9 @@ export const shouldNotDuplicatePackageName = error<Package>(node =>
 sourceMapForNodeName)
 
 export const shouldNotUseSpecialCharactersInName = error<Package>(node =>
-  !node.fileName || node.fileName.match(/\./g)!.length === 1
+  !node.fileName ||
+    node.fileName.match(/([A-Za-z._/\d])/g)!.length === node.fileName.length 
+    && node.fileName.match(/\./g)!.length === 1
 , valuesForFileName,
 sourceMapForNodeName)
 
