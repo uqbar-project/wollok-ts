@@ -369,9 +369,11 @@ export const isNamedSingleton = (node: Node): node is Singleton => node.is(Singl
 export const methodByFQN = (environment: Environment, fqn: string): Method | undefined => {
   const parts = fqn.split('.')
   const methodWithArity = last(parts)
-  const [methodName, methodArity] = methodWithArity!.split('/')
+  const [methodName, originalMethodArity] = methodWithArity!.split('/')
+  const methodArity = originalMethodArity ?? 0
   const entityFQN = fqn.replace(`.${methodWithArity}`, '')
   const entity = environment.getNodeByFQN<Module>(entityFQN)
+  if (!entity.is(Module)) return undefined
   return entity.lookupMethod(methodName, Number.parseInt(methodArity, 10))
 }
 

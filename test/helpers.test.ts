@@ -560,19 +560,38 @@ describe('Wollok helpers', () => {
                   new Parameter({ name: 'energy' }),
                 ], isOverride: false, id: 'm',  body: new Body({}),
               }),
+              new Method({
+                name: 'm2',
+                parameters: [
+                ], isOverride: false, id: 'm2',  body: new Body({}),
+              }),
             ],
           }),
         ],
       }),
     ], MINIMAL_LANG))
-    const aMethod = (environment.getNodeByFQN('A.Bird') as Class).members[0]
+    const classA = environment.getNodeByFQN('A.Bird') as Class
+    const aMethod = classA.members[0]
+    const noParameterMethod = classA.members[1]
 
     it('should return a method if a correct fqn is sent', () => {
       methodByFQN(environment, 'A.Bird.m/1')!.should.equal(aMethod)
     })
 
-    it('should return a undefined if an incorrect fqn is sent', () => {
+    it('should return a method if a fqn with no arity is sent', () => {
+      methodByFQN(environment, 'A.Bird.m2')!.should.equal(noParameterMethod)
+    })
+
+    it('should return undefined if an incorrect fqn is sent', () => {
       methodByFQN(environment, 'A.Bird.m1/1')?.should.be.undefined
+    })
+
+    it('should return undefined if an incorrect fqn is sent', () => {
+      methodByFQN(environment, 'A.Bird.m/2')?.should.be.undefined
+    })
+
+    it('should return undefined if a Class fqn is sent', () => {
+      methodByFQN(environment, 'A.Bird')?.should.be.undefined
     })
 
   })
