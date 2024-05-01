@@ -30,8 +30,7 @@ export const getAllUninitializedAttributes = (node: Module, initializers: string
   getUninitializedAttributesIn(node, [...node.allFields], initializers)
 
 export const getInheritedUninitializedAttributes = (node: Module, initializers: string[] = []): string[] =>
-  getUninitializedAttributesIn(node, [...node.allFields.filter(f => f.parent !== node)], initializers)
-
+  getUninitializedAttributesIn(node, [...node.allFields.filter(field => field.parent !== node)], initializers)
 
 export const getUninitializedAttributesIn = (node: Module, fields: Field[], initializers: string[] = []): string[] =>
   fields.
@@ -41,7 +40,7 @@ export const getUninitializedAttributesIn = (node: Module, fields: Field[], init
     })
     .map(field => field.name)
 
-
+// TODO: Fix because it won´t work if an initialize method is overriden by subclass
 export const initializesInsideInitMethod = (node: Module, field: Field): boolean => {
   const allInitMethods = node.allMethods.filter(method => method.matchesSignature(INITIALIZE_METHOD, 0))
   return allInitMethods.some(method => initializesReference(method, field))
@@ -157,13 +156,12 @@ export const findMethod = (messageSend: Send): Method | undefined => {
   return module?.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
-export const callsToSuper = (node: Method): boolean => node.sentences.some(sentence => isCallToSuper(sentence))
-
-export const isCallToSuper = (node: Node): boolean =>
+export const callsToSuper = (node: Node): boolean =>
   match(node)(
+    when(Method)(node => node.sentences.some(sentence => callsToSuper(sentence))),
+    when(Return)(node => !!node.value && callsToSuper(node.value)),
     when(Super)(() => true),
-    when(Return)(node => !!node.value && isCallToSuper(node.value)),
-    when(Send)(node => isCallToSuper(node.receiver) || node.args.some(arg => isCallToSuper(arg))),
+    when(Send)(node => callsToSuper(node.receiver) || node.args.some(arg => callsToSuper(arg))),
     otherwise(() => false),
   )
 
