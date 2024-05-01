@@ -1,6 +1,6 @@
 import { fail } from 'assert'
 import { expect, should } from 'chai'
-import { InstanceOf, is, match, Mixable, MixinDefinition, MIXINS, when } from '../src/extensions'
+import { InstanceOf, is, match, Mixable, MixinDefinition, MIXINS, valueAsListOrEmpty, when } from '../src/extensions'
 
 should()
 
@@ -123,4 +123,16 @@ describe('extensions', () => {
 
   })
 
+  describe('valuesAsList', () => {
+
+    it('returns empty list if value is falsy', () => {
+      valueAsListOrEmpty<string | undefined>(undefined).should.deep.equal([])
+      valueAsListOrEmpty<string | null>(null).should.deep.equal([])
+    })
+
+    it('returns a list with a value if value is truthy', () => {
+      valueAsListOrEmpty<number | undefined>(1).should.deep.equal([1])
+    })
+
+  })
 })

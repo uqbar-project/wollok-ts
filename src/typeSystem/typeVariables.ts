@@ -230,7 +230,7 @@ const inferLiteral = (l: Literal) => {
     case 'boolean': return tVar.setType(new WollokModuleType(booleanClass))
     case 'object':
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
-      if (l.value === null) return tVar //tVar.setType('Nullable?')
+      if (l.isNull()) return tVar //tVar.setType('Nullable?')
   }
   throw new Error('Literal type not found')
 }

@@ -19,13 +19,13 @@
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
 import { EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION } from '../constants'
-import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, when } from '../extensions'
+import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, otherwise, when } from '../extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assigns, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, isBooleanLiteral, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isInitialized, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, returnsValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
 import { valuesForNodeName } from './values'
 
@@ -96,7 +96,7 @@ export const topLevelSingletonShouldHaveAName = error<Singleton>(
 )
 
 export const onlyLastParameterCanBeVarArg = error<Method>(node => {
-  const varArgIndex = node.parameters.findIndex(p => p.isVarArg)
+  const varArgIndex = node.parameters.findIndex(parameter => parameter.isVarArg)
   return varArgIndex < 0 || varArgIndex === node.parameters.length - 1
 })
 
@@ -105,7 +105,7 @@ export const shouldHaveCatchOrAlways = error<Try>(node =>
 )
 
 export const methodShouldHaveDifferentSignature = error<Method>(node =>
-  node.parent.methods.every(other => node === other || !other.matchesSignature(node.name, node.parameters.length))
+  node.parent.methods.every(parentMethod => node === parentMethod || !parentMethod.matchesSignature(node.name, node.parameters.length))
 )
 
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
@@ -137,7 +137,7 @@ export const shouldNotAssignToItselfInDeclaration = error<Field | Variable>(node
 
 export const shouldNotCompareAgainstBooleanLiterals = warning<Send>(node => {
   const arg: Expression = node.args[0]
-  return !isEqualMessage(node) || !arg || !(isBooleanLiteral(arg, true) || isBooleanLiteral(arg, false) || isBooleanLiteral(node.receiver, true) || isBooleanLiteral(node.receiver, false))
+  return !isEqualMessage(node) || !arg || !(hasBooleanValue(arg, true) || hasBooleanValue(arg, false) || hasBooleanValue(node.receiver, true) || hasBooleanValue(node.receiver, false))
 })
 
 export const shouldUseSelfAndNotSingletonReference = warning<Reference<Node>>(node => {
@@ -337,12 +337,12 @@ export const codeShouldBeReachable = error<If | Send>(node =>
     when(If)(node => {
       const condition = node.condition
       if (!condition.is(Literal) || condition.value !== true && condition.value !== false) return true
-      return isBooleanLiteral(condition, true) && isEmpty(node.elseBody.sentences) || isBooleanLiteral(condition, false) && isEmpty(node.thenBody.sentences)
+      return hasBooleanValue(condition, true) && isEmpty(node.elseBody.sentences) || hasBooleanValue(condition, false) && isEmpty(node.thenBody.sentences)
     }),
     when(Send)(node => {
       const receiver = node.receiver
       const message = node.message
-      return !(isBooleanLiteral(receiver, true) && ['or', '||'].includes(message)) && !(isBooleanLiteral(receiver, false) && ['and', '&&'].includes(message))
+      return !(hasBooleanValue(receiver, true) && ['or', '||'].includes(message)) && !(hasBooleanValue(receiver, false) && ['and', '&&'].includes(message))
     }),
   )
 , undefined,
@@ -371,8 +371,8 @@ export const shouldNotDefineUnnecessaryCondition = warning<If | Send>(node =>
       const argument = node.args[0]
       const andOperation = ['and', '&&'].includes(node.message)
       const orOperation = ['or', '||'].includes(node.message)
-      if (andOperation) return !isBooleanLiteral(receiver, true) && !isBooleanLiteral(argument, true)
-      if (orOperation) return !isBooleanLiteral(receiver, false) && !isBooleanLiteral(argument, false)
+      if (andOperation) return !hasBooleanValue(receiver, true) && !hasBooleanValue(argument, true)
+      if (orOperation) return !hasBooleanValue(receiver, false) && !hasBooleanValue(argument, false)
       return true
     }),
   )
@@ -432,7 +432,7 @@ export const shouldNotUseReservedWords = warning<Class | Singleton | Variable | 
 sourceMapForNodeName)
 
 export const shouldInitializeGlobalReference = error<Variable>(node =>
-  !(node.isAtPackageLevel && isInitialized(node))
+  !(node.isAtPackageLevel && isUninitialized(node))
 , valuesForNodeName,
 sourceMapForNodeName)
 
@@ -442,7 +442,7 @@ export const shouldInitializeConst = error<Variable>(node =>
   !(
     getContainer(node)?.is(Program) &&
     node.isConstant &&
-    isInitialized(node))
+    isUninitialized(node))
 , valuesForNodeName,
 sourceMapForNodeName)
 
@@ -482,33 +482,14 @@ export const shouldNotImportMoreThanOnce = warning<Import>(node =>
 
 export const shouldDefineConstInsteadOfVar = warning<Variable | Field>(node => {
   if (node.isConstant || usesReservedWords(node) || RESERVED_WORDS.includes(node.name || '') || node.is(Field) && unusedVariable(node) || node.is(Variable) && duplicatesLocalVariable(node)) return true
-  const module = getContainer(node)
-  if (!module) return true
-  return match(module)(
-    when(Program)(program => assignsVariable(program.body, node)),
-    when(Test)(test => assignsVariable(test.body, node)),
-    when(Describe)(describe =>
-      describe.methods.some(method => assigns(method, node)) ||
-      describe.tests.some(test => assignsVariable(test.body, node))
-    ),
-    when(Module)(module => module.methods.some(method => assigns(method, node))),
-  )
+  const container = getContainer(node)
+  return !container || assignsVariable(container, node)
 }, valuesForNodeName, sourceMapForNodeName)
 
 export const shouldNotUseVoidMethodAsValue = error<Send>(node => {
   if (!methodExists(node) || !supposedToReturnValue(node)) return true
-
-  const method: Method | undefined = match(node.receiver)(
-    when(Reference)(nodeRef => {
-      const target = nodeRef.target
-      return target?.is(Module) ? target.lookupMethod(node.message, node.args.length) : undefined
-    }),
-    when(Literal)(_ => findMethod(node)),
-    when(Self)(_ => findMethod(node)),
-    when(Expression)(_ => undefined),
-  )
-
-  return !method || method.isNative() || method.isAbstract() || returnsValue(method)
+  const method = findMethod(node)
+  return !method || method.isNative() || method.isAbstract() || returnsAValue(method)
 })
 
 export const shouldNotAssignValueInLoop = error<Field>(node => !loopInAssignment(node.value, node.name))
@@ -517,7 +498,7 @@ export const shouldHaveDifferentName = error<Test>(node => {
   const tests: List<Test> = match(node.parent)(
     when(Describe)(describe => describe.tests),
     when(Package)(module => module.members.filter(member => member.is(Test)) as unknown as List<Test>),
-    when(Node)(_ => []),
+    otherwise(_ => []),
   )
   return !tests || tests.every(other => node === other || other.name !== node.name)
 }, valuesForNodeName, sourceMapForNodeName)
@@ -551,7 +532,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
   when(Try)(() => ({ shouldHaveCatchOrAlways })),
   when(Describe)(() => ({ shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe, shouldHaveNonEmptyName })),
-  when(Node)(() => ({})),
+  otherwise(() => ({})),
 )
 
 export default (target: Node): List<Problem> => target.reduce<Problem[]>((found, node) => {

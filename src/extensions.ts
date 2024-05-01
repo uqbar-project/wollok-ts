@@ -2,6 +2,8 @@ export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
 
+export const valueAsListOrEmpty = <T>(value: T | undefined): T[] => value ? [value] : []
+
 export const divideOn = (separator: string) => (str: string): [string, string] => {
   const [head, ...tail] = str.split(separator)
   return [head, tail.join(separator)]

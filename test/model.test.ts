@@ -1,5 +1,5 @@
 import { expect, should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Parameter } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
@@ -89,6 +89,63 @@ describe('Wollok model', () => {
       })
     })
 
+    describe('label', () => {
+
+      const environment = link([new Package({
+        name: 'src',
+        members: [
+          new Package({
+            name: 'pepitaFile',
+            members: [
+              new Singleton({
+                name: 'pepita',
+                members: [
+                  new Method({ name: 'eat', parameters: [], isOverride: false, id: 'm1',  body: 'native' }),
+                  new Method({
+                    name: 'fly', parameters: [
+                      new Parameter({ name: 'minutes' }),
+                      new Parameter({ name: 'round' }),
+                    ], isOverride: false, id: 'm1',  body: 'native',
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      })], fromJSON<Environment>(wre))
+
+      it('should return the label for a method with no parameters', () => {
+        const pepitaWKO = environment.getNodeByFQN('src.pepitaFile.pepita') as Singleton
+        const method = pepitaWKO.methods[0]
+        method.label.should.equal('src.pepitaFile.pepita.eat/0')
+      })
+
+      it('should return the label for a method with several parameters', () => {
+        const pepitaWKO = environment.getNodeByFQN('src.pepitaFile.pepita') as Singleton
+        const method = pepitaWKO.methods[1]
+        method.label.should.equal('src.pepitaFile.pepita.fly/2')
+      })
+
+    })
+
+    describe('fullLabel', () => {
+
+      it('should return the full label for a method with no parameters', () => {
+        const method = new Method({ name: 'fly', parameters: [], isOverride: false, id: 'm1',  body: 'native' })
+        method.fullLabel.should.equal('fly()')
+      })
+
+      it('should return the full label for a method with several parameters', () => {
+        const method = new Method({
+          name: 'fly', parameters: [
+            new Parameter({ name: 'minutes' }),
+            new Parameter({ name: 'round' }),
+          ], isOverride: false, id: 'm1',  body: 'native',
+        })
+        method.fullLabel.should.equal('fly(minutes, round)')
+      })
+
+    })
   })
 
   describe('Class', () => {

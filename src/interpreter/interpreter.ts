@@ -1,6 +1,6 @@
 import { Entity, Environment, Method, Module, Name, Node, Sentence } from '../model'
+import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
-
 
 export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
@@ -93,6 +93,9 @@ export class DirectedInterpreter extends AbstractInterpreter {
     return new ExecutionDirector(this.evaluation, executionDefinition) as InterpreterResult<this, T>
   }
 }
+
+export const executionFor = (environment: Environment): DirectedInterpreter =>
+  new DirectedInterpreter(Evaluation.build(environment, WRENatives))
 
 // TODO:
 // - track history
