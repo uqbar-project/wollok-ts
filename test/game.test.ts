@@ -7,8 +7,6 @@ import { interpret, Interpreter } from '../src/interpreter/interpreter'
 
 should()
 
-// TODO: Move the wollok code to language -> We need to run programs!
-
 describe('Wollok Game', () => {
 
   describe('actions', () => {
@@ -25,19 +23,7 @@ describe('Wollok Game', () => {
       interpreter = interpret(environment, natives)
     })
 
-    it('addVisual', () => {
-      interpreter.run('actions.addVisual')
-      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
-      visuals.should.have.length(1)
-    })
-
-    it('removeVisual', () => {
-      interpreter.run('actions.removeVisual')
-      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
-      visuals.should.have.length(0)
-    })
-
-    it('say', () => {
+    it('say set message and time to visual', () => {
       interpreter.run('actions.say')
       interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('Hi!')
       interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
