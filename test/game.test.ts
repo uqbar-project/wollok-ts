@@ -35,17 +35,23 @@ describe('Wollok Game', () => {
       interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
-    it('on DomainError, visual says the message', () => {
+    it('on DomainError, visual source says the message', () => {
       interpreter.run('actions.domainError')
       interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('DOMAIN_ERROR')
       interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
+    })
+
+    it('on DomainError with error reporter, it says the message', () => {
+      interpreter.run('actions.domainErrorWithReporter')
+      interpreter.object('actions.reporter').get('message')!.innerValue!.should.equal('DOMAIN_ERROR')
+      interpreter.object('actions.reporter').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
     it('on Error, console should print stack trace', () => {
       interpreter.run('actions.genericError')
       logs.should.be.deep.eq([
         'wollok.lang.Exception: ERROR',
-        '\tat actions.genericError [actions.wpgm:21]'])
+        '\tat actions.genericError [actions.wpgm:33]'])
     })
 
     it('with file name game (devil test)', () => {
