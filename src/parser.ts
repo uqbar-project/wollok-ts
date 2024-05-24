@@ -20,7 +20,7 @@ export const MALFORMED_MEMBER = 'malformedMember'
 export const MALFORMED_SENTENCE = 'malformedSentence'
 
 export class ParseError implements BaseProblem {
-  constructor(public code: Name, public sourceMap: SourceMap){ }
+  constructor(public code: Name, public sourceMap: SourceMap) { }
 
   get level(): Level { return 'error' }
   get values(): List<string> { return [] }
@@ -55,16 +55,20 @@ const error = (code: string) => (...safewords: string[]) => {
     .map(({ start, end }) => new ParseError(code, buildSourceMap(start, end)))
 }
 
-const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
+const recover = <T>(recoverable: T & { metadata?: Annotation[] }): { [K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError | Annotation>> : T[K] } & { problems: List<ParseError> } => {
   const problems: ParseError[] = []
+  const metadata: Annotation[] = []
   const purged = mapObject((value: any) => {
-    if(isArray(value)) {
-      const [newProblems, nonProblems] = discriminate<ParseError>(member => member instanceof ParseError)(value)
+    if (isArray(value)) {
+      const [newMetadata, otherValues] = discriminate<Annotation, any>((member): member is Annotation => member instanceof Annotation)(value)
+      const [newProblems, payload] = discriminate<ParseError, any>((member): member is ParseError => member instanceof ParseError)(otherValues)
       problems.push(...newProblems)
-      return nonProblems
+      metadata.push(...newMetadata)
+      return payload
     } else return value
   }, recoverable)
-  return { ...purged, problems }
+  const a = { ...purged, problems, metadata }
+  return a
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -75,7 +79,7 @@ const check = <T>(parser: Parser<T>) => parser.result(true).fallback(false)
 
 const optional = <T>(parser: Parser<T>) => parser.fallback(undefined)
 
-const obj = <T>(parsers: {[K in keyof T]: Parser<T[K]>}): Parser<T> =>
+const obj = <T>(parsers: { [K in keyof T]: Parser<T[K]> }): Parser<T> =>
   seqObj<T>(...keys(parsers).map(fieldName => [fieldName, parsers[fieldName as keyof T]] as any))
 
 const key = <T extends string>(str: T): Parser<T> => (
@@ -89,7 +93,7 @@ const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(_))
 
 const comment = (position: 'start' | 'end') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const endComment =  alt(
+const endComment = alt(
   optional(_).then(comment('end')), // same-line comment
   comment('end').sepBy(_) // after-line comments
 )
@@ -100,10 +104,10 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
   const to = { ...originalTo, offset: originalTo.offset - (hasWhitespaceAtTheEnd ? 1 : 0) }
-  while(hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
+  while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     from.offset++
   }
-  while(hasWhitespace(input[to.offset]) && to.offset > originalFrom.offset) {
+  while (hasWhitespace(input[to.offset]) && to.offset > originalFrom.offset) {
     to.offset--
   }
   to.offset = to.offset + (hasWhitespace(input[to.offset]) ? 0 : 1)
@@ -123,7 +127,7 @@ export const annotation: Parser<Annotation> = lazy(() =>
   ).map(({ name, args }) => new Annotation(name, fromEntries(args)))
 )
 
-const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P>): Parser<N> =>
+const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P & { metadata?: Annotation[] }>): Parser<N> =>
   seq(
     alt(annotation, comment('start')).sepBy(_).wrap(_, _),
     index,
@@ -133,10 +137,10 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
   )
     .chain(([metadata, _start, payload, comment, _end]) => Parsimmon((input, index) => {
       const [start, end] = sanitizeWhitespaces(_start, _end, input)
-      return makeSuccess<[Annotation[], Parsimmon.Index, P, Annotation | Annotation[], Parsimmon.Index]>(index, [metadata, start, payload, comment, end])
+      return makeSuccess<[Annotation[], Parsimmon.Index, P & { metadata?: Annotation[] }, Annotation | Annotation[], Parsimmon.Index]>(index, [metadata, start, payload, comment, end])
     }))
     .map(([metadata, start, payload, comment, end]) =>
-      new constructor({ metadata: metadata.concat(comment), sourceMap: buildSourceMap(start, end), ...payload })
+      new constructor({ ...payload, metadata: metadata.concat(comment).concat(payload.metadata || []), sourceMap: buildSourceMap(start, end) })
     )
 
 export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
@@ -144,12 +148,9 @@ export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
     fileName: of(fileName),
     name: of(fileName.split('.')[0].replaceAll('/', '.')),
     imports: Import.sepBy(_).skip(_),
-    content: Entity.or(alt(annotation, comment('start'))).or(entityError).sepBy(_),
+    members: Entity.or(alt(annotation, comment('start'))).or(entityError).sepBy(_),
   }).skip(_)
-    .map(({ content, ...filePackage }) => {
-      const [metadata, members] = discriminate<Annotation, EntityNode | ParseError>((member): member is Annotation => member instanceof Annotation)(content)
-      return new PackageNode(recover({ ...filePackage, members, metadata }))
-    })
+    .map(payload => new PackageNode(recover(payload)))
 )
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
@@ -188,7 +189,7 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: alt(Sentence.skip(__), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
+  obj({ sentences: alt(Sentence.skip(__), comment('start'), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
 )
 
 export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
