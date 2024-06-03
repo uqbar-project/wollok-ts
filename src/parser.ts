@@ -92,18 +92,19 @@ const key = <T extends string>(str: T): Parser<T> => (
 const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(_))
 
-const comment = (position: 'start' | 'end' | 'inner' | 'line') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
+const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
+const lineBreak = optional(regexp(/[\r\n]/))
 const sameLineSpace = optional(regexp(/[\t ]/))
-const sameLineComment = sameLineSpace.then(comment('line'))
+const sameLineComment = sameLineSpace.then(comment('end'))
 
 const endComment = alt(
   sameLineComment,
   comment('end').sepBy(_) // after-line comments
 )
 
-export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): SourceIndex[] => {
+export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
-  const shouldBeSanitized = hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) && hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
+  const shouldBeSanitized = hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
   const to = { ...originalTo, offset: originalTo.offset - (hasWhitespaceAtTheEnd ? 1 : 0) }
@@ -114,13 +115,15 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
     } else from.column++
     from.offset++
   }
-  while (hasWhitespace(input[to.offset]) && to.offset > originalFrom.offset) {
-    if (hasLineBreaks(input[to.offset])) to.line--
+  while (hasWhitespace(input[to.offset - 1]) && to.offset > originalFrom.offset) {
+    if (hasLineBreaks(input[to.offset - 1])) to.line--
     to.offset--
   }
-  to.offset = to.offset + (hasWhitespace(input[to.offset]) ? 0 : 1)
-  const lastLine = input.substring(from.offset, to.offset).split('\n').pop()!
-  to.column = lastLine.length + 1
+  // to.offset = to.offset + (hasWhitespace(input[to.offset]) ? 0 : 1)
+  if (hasLineBreaks(input.substring(from.offset, to.offset))) {
+    const lastLine = input.substring(from.offset, to.offset).split('\n').pop()!
+    to.column = lastLine.length + 1
+  }
 
   return [from, to]
 }
@@ -140,15 +143,14 @@ export const annotation: Parser<Annotation> = lazy(() =>
 
 const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P & { metadata?: Annotation[] }>): Parser<N> =>
   seq(
-    alt(annotation, comment('start')).sepBy(_),
-    optional(_),
+    alt(annotation, comment('start')).sepBy(_).wrap(_, _),
     index,
     lazy(parser),
-    optional(sameLineComment),
     index,
-    optional(sameLineSpace),
+    optional(sameLineComment),
+    alt(sameLineSpace),
   )
-    .chain(([_metadata, _, _start, payload, comment, _end]) => Parsimmon((input, index) => {
+    .chain(([_metadata, _start, payload, _end, comment, _]) => Parsimmon((input, index) => {
       const [start, end] = sanitizeWhitespaces(_start, _end, input)
       const metadata = comment ? _metadata.concat(comment) : _metadata
       return makeSuccess<[Annotation[], Parsimmon.Index, P & { metadata?: Annotation[] }, Parsimmon.Index]>(index, [metadata, start, payload, end])
@@ -203,7 +205,7 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: alt(Sentence.skip(__), comment('inner').skip(_), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
+  obj({ sentences: comment('inner').skip(_).or(alt(Sentence.skip(__), sentenceError)).many() }).wrap(key('{'), key('}')).map(recover)
 )
 
 export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
@@ -436,10 +438,10 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     receiver,
     seq(message, args, index).many(),
     endComment,
-  ).map(([start, initialReceiver, calls, comments]) =>
-    calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(start, end), metadata: Array.isArray(comments) ? comments : [comments] })
-      , initialReceiver)
+  ).chain(([start, initialReceiver, calls, comments]) => Parsimmon((input: string, i: number) =>
+    makeSuccess(i, calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)), metadata: Array.isArray(comments) ? comments : [comments] })
+      , initialReceiver)))
   )
 )
 
