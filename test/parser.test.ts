@@ -96,7 +96,7 @@ describe('Wollok parser', () => {
           .and.be.tracedTo(0, 45)
       })
 
-      it('comment on member', () => {
+      it('comment before member', () => {
         `class c { 
           //some comment
           method m()
@@ -115,7 +115,29 @@ describe('Wollok parser', () => {
           .and.be.tracedTo(0, 66)
       })
 
-      it('comments on many member', () => {
+      it('comment before and after member', () => {
+        `class c { 
+          //some comment
+          method m()
+          //other comment
+        }`.should.be.parsedBy(parser).into(new Class({
+          name: 'c',
+          metadata: [
+            new Annotation('comment', { text: '//other comment', position: 'inner' }),
+          ],
+          members: [
+            new Method({
+              name: 'm',
+              metadata: [
+                new Annotation('comment', { text: '//some comment', position: 'start' }),
+              ],
+            })
+          ]
+        }))
+          .and.be.tracedTo(0, 92)
+      })
+
+      it('comments before many members', () => {
         `class c { 
           //some comment
           method m1()
@@ -140,7 +162,7 @@ describe('Wollok parser', () => {
             })
           ]
         }))
-          .and.be.tracedTo(0, 66)
+          .and.be.tracedTo(0, 116)
       })
 
     })

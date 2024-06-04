@@ -86,16 +86,14 @@ const key = <T extends string>(str: T): Parser<T> => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
     : string(str)
-).trim(_)
+).trim(_).notFollowedBy(newline)
 
 
 const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(_))
 
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const lineBreak = optional(regexp(/[\r\n]/))
-const sameLineSpace = optional(regexp(/[\t ]/))
-const sameLineComment = sameLineSpace.then(comment('end'))
+const sameLineComment = comment('end').notFollowedBy(newline)
 
 const endComment = alt(
   sameLineComment,
@@ -147,9 +145,8 @@ const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser:
     lazy(parser),
     index,
     optional(sameLineComment),
-    alt(sameLineSpace),
   )
-    .chain(([_metadata, _start, payload, _end, comment, _]) => Parsimmon((input, index) => {
+    .chain(([_metadata, _start, payload, _end, comment]) => Parsimmon((input, index) => {
       const [start, end] = sanitizeWhitespaces(_start, _end, input)
       const metadata = comment ? _metadata.concat(comment) : _metadata
       return makeSuccess<[Annotation[], Parsimmon.Index, P & { metadata?: Annotation[] }, Parsimmon.Index]>(index, [metadata, start, payload, end])
@@ -357,8 +354,8 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
     body: alt(
       key('=').then(ExpressionBody),
       key(KEYWORDS.NATIVE),
-      optional(Body),
-    ),
+      Body
+    ).fallback(undefined),
   })
 )
 
