@@ -103,28 +103,27 @@ const endComment = alt(
 )
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
+  const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
   const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
-  const shouldBeSanitized = hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
+  const shouldBeSanitized = hasWhitespace(nodeInput) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
-  const to = { ...originalTo, offset: originalTo.offset - (hasWhitespaceAtTheEnd ? 1 : 0) }
+  const to = { ...originalTo, offset: originalTo.offset }
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     if (hasLineBreaks(input[from.offset])) {
       from.line++
-      from.column = 0
+      from.column = 1
     } else from.column++
     from.offset++
   }
   while (hasWhitespace(input[to.offset - 1]) && to.offset > originalFrom.offset) {
-    if (hasLineBreaks(input[to.offset - 1])) to.line--
+    if (hasLineBreaks(input[to.offset - 1])) {
+      to.line--
+      const lastLine = input.substring(from.offset, to.offset-1).split('\n').pop()!
+      to.column = lastLine.length + 1 // base 1
+    } else to.column--
     to.offset--
   }
-  // to.offset = to.offset + (hasWhitespace(input[to.offset]) ? 0 : 1)
-  if (hasLineBreaks(input.substring(from.offset, to.offset))) {
-    const lastLine = input.substring(from.offset, to.offset).split('\n').pop()!
-    to.column = lastLine.length + 1
-  }
-
   return [from, to]
 }
 
