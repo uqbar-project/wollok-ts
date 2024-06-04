@@ -169,7 +169,7 @@ export const Import: Parser<ImportNode> = node(ImportNode)(() =>
   key(KEYWORDS.IMPORT).then(obj({
     entity: FullyQualifiedReference,
     isGeneric: string('.*').result(true).fallback(false),
-  }))
+  })).skip(__)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -341,8 +341,8 @@ export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     isProperty: check(key(KEYWORDS.PROPERTY)),
-    name,
-    value: optional(key('=').then(Expression)),
+    name: name.skip(__),
+    value: optional(key('=').then(Expression).skip(__)),
   })
 )
 
