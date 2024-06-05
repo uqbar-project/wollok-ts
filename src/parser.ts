@@ -350,13 +350,13 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
   obj({
     isOverride: check(key(KEYWORDS.OVERRIDE)),
     name: key(KEYWORDS.METHOD).then(alt(name, operator(ALL_OPERATORS))),
-    parameters,
+    parameters: parameters.or(memberError.many()),
     body: alt(
       key('=').then(ExpressionBody),
       key(KEYWORDS.NATIVE),
       Body
     ).fallback(undefined),
-  })
+  }).map(recover)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────

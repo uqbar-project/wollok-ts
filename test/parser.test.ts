@@ -1001,6 +1001,7 @@ describe('Wollok parser', () => {
         )
       })
 
+
       it('should recover from member parse error', () => {
         'object o {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
           .recoveringFrom(parse.MALFORMED_MEMBER, 19, 26)
@@ -1653,6 +1654,7 @@ class c {}`
         )
       })
 
+
       it('should not parse incomplete methods', () => {
         'method m(p,q) ='.should.not.be.parsedBy(parser)
       })
@@ -1663,6 +1665,18 @@ class c {}`
 
       it('should not parse development with closures of native methods', () => {
         'method m(p,q) native { }'.should.not.be.parsedBy(parser)
+      })
+
+
+      it('should recover from methods without parenthesis', () => {
+        'method m = 2'.should.be.parsedBy(parser)
+        .recoveringFrom(parse.MALFORMED_MEMBER, 8, 12)
+        .into(
+          new Method({
+            name: 'm', 
+            body: undefined,
+          })
+        )
       })
     })
 
