@@ -1407,6 +1407,43 @@ class c {}`
             { line: 3, column: 1, offset: 2 },
             { line: 3, column: 11, offset: 12 })
       })
+
+      it('should sanitize whitespaces with many sentences', () => {
+        `program p {
+          const a = 0.a()
+          const b = 0
+
+          const c = b
+          const d = object {
+
+          }
+        }`.should.be.parsedBy(parse.Program).into(new Program({
+          name: 'p',
+          body: new Body({
+            sentences: [
+              new Variable({ name: 'a', isConstant: true, value: new Send({ message: 'a', receiver: new Literal({ value: 0 }) }) }),
+              new Variable({ name: 'b', isConstant: true, value: new Literal({ value: 0 }) }),
+              new Variable({ name: 'c', isConstant: true, value: new Reference({ name: 'b' }) }),
+              new Variable({ name: 'd', isConstant: true, value: new Singleton({}) }),
+            ]
+          })
+        }))
+          .and.have.sourceMap(
+            { line: 1, column: 1, offset: 0 },
+            { line: 9, column: 10, offset: 134 })
+          .and.have.nested.property('body.sentences.0').have.sourceMap(
+            { line: 2, column: 11, offset: 22 },
+            { line: 2, column: 26, offset: 37 })
+          .and.also.have.nested.property('body.sentences.1').have.sourceMap(
+            { line: 3, column: 11, offset: 48 },
+            { line: 3, column: 22, offset: 59 })
+          .and.also.have.nested.property('body.sentences.2').have.sourceMap(
+            { line: 5, column: 11, offset: 71 },
+            { line: 5, column: 22, offset: 82 })
+          .and.also.have.nested.property('body.sentences.3').have.sourceMap(
+            { line: 6, column: 11, offset: 93 },
+            { line: 8, column: 12, offset: 124 })
+      })
     })
 
   })
@@ -1674,13 +1711,13 @@ class c {}`
 
       it('should recover from methods without parenthesis', () => {
         'method m = 2'.should.be.parsedBy(parser)
-        .recoveringFrom(parse.MALFORMED_MEMBER, 8, 12)
-        .into(
-          new Method({
-            name: 'm', 
-            body: undefined,
-          })
-        )
+          .recoveringFrom(parse.MALFORMED_MEMBER, 8, 12)
+          .into(
+            new Method({
+              name: 'm',
+              body: undefined,
+            })
+          )
       })
     })
 

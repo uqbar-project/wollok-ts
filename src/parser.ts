@@ -106,7 +106,7 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   const shouldBeSanitized = hasWhitespace(nodeInput) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
-  const to = { ...originalTo, offset: originalTo.offset }
+  const to = { ...originalTo }
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     if (hasLineBreaks(input[from.offset])) {
       from.line++
@@ -117,8 +117,11 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   while (hasWhitespace(input[to.offset - 1]) && to.offset > originalFrom.offset) {
     if (hasLineBreaks(input[to.offset - 1])) {
       to.line--
-      const lastLine = input.substring(from.offset, to.offset-1).split('\n').pop()!
-      to.column = lastLine.length + 1 // base 1
+      const nodeLines = input.substring(from.offset, to.offset - 1).split('\n')
+      const lastLine = nodeLines.pop()!
+      to.column = lastLine.length + (nodeLines.length == 0
+        ? from.column // one-line
+        : 1) // base 1
     } else to.column--
     to.offset--
   }
@@ -342,7 +345,7 @@ export const Field: Parser<FieldNode> = node(FieldNode)(() =>
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     isProperty: check(key(KEYWORDS.PROPERTY)),
     name: name.skip(__),
-    value: optional(key('=').then(Expression).skip(__)),
+    value: optional(key('=').then(Expression).skip(__).notFollowedBy(newline)),
   })
 )
 
@@ -371,7 +374,7 @@ export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     name,
-    value: optional(key('=').then(Expression)),
+    value: optional(key('=').then(Expression).skip(__).notFollowedBy(newline)),
   })
 )
 
@@ -433,10 +436,10 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     index,
     receiver,
     seq(message, args, index).many(),
-    endComment,
-  ).chain(([start, initialReceiver, calls, comments]) => Parsimmon((input: string, i: number) =>
+    optional(sameLineComment),
+  ).chain(([start, initialReceiver, calls, comment]) => Parsimmon((input: string, i: number) =>
     makeSuccess(i, calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)), metadata: Array.isArray(comments) ? comments : [comments] })
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)), metadata: comment ? [comment] : [] })
       , initialReceiver)))
   )
 )

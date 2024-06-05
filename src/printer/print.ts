@@ -48,10 +48,10 @@ type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter
 const criticalProblems = [MALFORMED_MEMBER, MALFORMED_ENTITY, MALFORMED_SENTENCE]
 
 const format: FormatterWithContext<Node> = context => node => {
-  if(
+  if (
     node.hasProblems &&
-    node.problems?.some(problem =>  criticalProblems.includes(problem.code))
-  ){
+    node.problems?.some(problem => criticalProblems.includes(problem.code))
+  ) {
     throw new PrintingMalformedNodeError(node)
   }
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
@@ -435,10 +435,10 @@ const formatArguments = (context: PrintContext) => (args: List<Expression>): IDo
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
   const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
     previousSentence ?
-      sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line //difference
-      : -1 // first sentence
-    : 0 // defaults to 1 line diff
-  ) + 1
+      Math.max(sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line, 1) //difference
+      : 0 // first sentence
+    : 1 // defaults to 1 line diff
+  )
   return [Array(distanceFromLastSentence).fill(lineBreak), format(context)(sentence)]
 }
 
