@@ -229,6 +229,10 @@ describe('Wollok parser', () => {
       '=='.should.not.be.parsedBy(parser)
     })
 
+    it('should not parse strings as names', () => {
+      '"foo"'.should.not.be.parsedBy(parser)
+    })
+
   })
 
 
