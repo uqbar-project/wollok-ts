@@ -36,11 +36,16 @@ const game: Natives = {
       const x = position.get('x')?.innerNumber
       const y = position.get('y')?.innerNumber
 
+
       if(x != undefined && y != undefined) {
         const roundedX = round(x)
         const roundedY = round(y)
         for(const visual of visuals.innerCollection!) {
-          const otherPosition = yield* this.send('position', visual)
+          let otherPosition = visual.get('position')
+          if(otherPosition == undefined) {
+            otherPosition = yield* this.send('position', visual)
+          }
+
           const otherX = otherPosition?.get('x')?.innerNumber
           const otherY = otherPosition?.get('y')?.innerNumber
 
@@ -50,6 +55,7 @@ const game: Natives = {
             result.push(visual)
         }
       }
+
       return yield* this.list(...result)
     },
 
@@ -64,11 +70,15 @@ const game: Natives = {
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       visual.assertIsNotNull()
+      // const tsInicio = performance.now()
 
       const position = (yield* this.send('position', visual))!
+
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
 
       yield* this.send('remove', visualsAtPosition, visual)
+      // const tsFin = performance.now()
+      // this.console.log("colliders", tsFin- tsInicio)
 
       return visualsAtPosition
     },
