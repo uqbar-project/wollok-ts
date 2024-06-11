@@ -93,12 +93,7 @@ const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(_))
 
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const sameLineComment = comment('end').notFollowedBy(newline)
-
-const endComment = alt(
-  sameLineComment,
-  comment('end').sepBy(_) // after-line comments
-)
+const sameLineComment: Parser<Annotation> = comment('end').notFollowedBy(newline)
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
@@ -437,10 +432,14 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     receiver,
     seq(message, args, index).many(),
     optional(sameLineComment),
-  ).chain(([start, initialReceiver, calls, comment]) => Parsimmon((input: string, i: number) =>
-    makeSuccess(i, calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)), metadata: comment ? [comment] : [] })
-      , initialReceiver)))
+  ).chain(([start, initialReceiver, calls, comment]) => Parsimmon((input: string, i: number) => {
+    const result = calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)) })
+      , initialReceiver)
+    return makeSuccess(i, comment
+      ? result.copy({ metadata: result.metadata.concat(comment) })
+      : result)
+  })
   )
 )
 
