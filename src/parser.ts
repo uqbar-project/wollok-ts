@@ -102,6 +102,10 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
   const to = { ...originalTo }
+  
+  // Fix incorrect offset / column-line border case
+  if (!hasWhitespace(input[to.offset - 1]) && to.column == 0) { to.offset++ }
+
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     if (hasLineBreaks(input[from.offset])) {
       from.line++
