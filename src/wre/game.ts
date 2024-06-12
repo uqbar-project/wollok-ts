@@ -41,14 +41,9 @@ const game: Natives = {
         const roundedX = round(x)
         const roundedY = round(y)
         for(const visual of visuals.innerCollection!) {
-          // si el visual tiene el atributo 'position' intentamos usarlo
-          // esto ahorra mucho tiempo
-          let otherPosition = visual.get('position')
+          const metodo = visual.module.lookupMethod('position', 0)!
 
-          // de lo contrario llamamos al método position() del visual
-          if(otherPosition == undefined) {
-            otherPosition = yield* this.send('position', visual)
-          }
+          const otherPosition = metodo.isSynthetic ? visual.get('position') :yield* this.send('position', visual)
 
           const otherX = otherPosition?.get('x')?.innerNumber
           const otherY = otherPosition?.get('y')?.innerNumber
