@@ -146,7 +146,8 @@ describe('Wollok Printer', () => {
           // comentario
           const a = 1
           // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
-          const b = 2 // last comentario
+          const b = 2
+          // last comentario
         }`)
       })
 

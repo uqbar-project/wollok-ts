@@ -137,7 +137,12 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
   }
 }
 
-const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)(formatSentences(context)(node.sentences))
+const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)([
+  formatSentences(context)(node.sentences),
+  ...node.metadata
+    .filter(metadata => isComment(metadata) && metadata.args['position'] === 'inner')
+    .map(comment => [lineBreak, comment.args['text'] as IDoc])
+])
 
 const formatReturn: FormatterWithContext<Return> = context => node => node.value ?
   [KEYWORDS.RETURN, WS, format(context)(node.value)]
