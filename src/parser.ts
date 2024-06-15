@@ -1,7 +1,8 @@
-import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace, regexp, end } from 'parsimmon'
+import { log } from 'console'
+import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
-import { List, discriminate, is, hasWhitespace, mapObject, hasLineBreaks } from './extensions'
+import { discriminate, hasLineBreaks, hasWhitespace, is, List, mapObject } from './extensions'
 import { Annotation, Assignment as AssignmentNode, BaseProblem, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Closure as ClosureNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Level, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, ParameterizedType as ParameterizedTypeNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, SourceIndex, SourceMap, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 // TODO: Use description in lazy() for better errors
@@ -31,8 +32,9 @@ const buildSourceMap = (start: Index, end: Index) => new SourceMap({
   end: new SourceIndex(end),
 })
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const parserLog = <T>(data: T) => Parsimmon((input: string, i: number) => {
-  console.log({ input: input.substring(0, i), i, data })
+  log({ input: input.substring(0, i), i, data })
   return makeSuccess(i, data)
 })
 
@@ -212,8 +214,8 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
   obj({
     sentences: alt(
       Sentence.skip(__),
-      comment('inner').wrap(_,_),
-      sentenceError).many()
+      comment('inner').wrap(_, _),
+      sentenceError).many(),
   }).wrap(key('{'), lastKey('}')).map(recover)
 )
 
@@ -453,7 +455,7 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
   ).chain(([start, initialReceiver, calls, comment]) => Parsimmon((input: string, i: number) => {
     const result = calls.reduce((receiver, [message, args, end]) =>
       new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)) })
-      , initialReceiver)
+    , initialReceiver)
     return makeSuccess(i, comment
       ? result.copy({ metadata: result.metadata.concat(comment) })
       : result)

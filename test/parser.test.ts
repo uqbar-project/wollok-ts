@@ -1,8 +1,8 @@
 import { should, use } from 'chai'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, SourceMap, Super, Test, Throw, Try, Variable } from '../src/model'
+import { LIST_MODULE, SET_MODULE } from '../src'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
-import { LIST_MODULE, SET_MODULE } from '../src'
 
 const { raw } = String
 
@@ -18,13 +18,13 @@ describe('Wollok parser', () => {
     it('multiline comments should be ignored in between tokens', () => {
       `/*some comment*/import /* some
       comment */ p`.should.be.parsedBy(parser).into(new Import({
-        entity: new Reference({
-          name: 'p',
-          // the assertion is not validating metadata recursively
-          metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'start' })],
-        }),
-        metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
-      }))
+          entity: new Reference({
+            name: 'p',
+            // the assertion is not validating metadata recursively
+            metadata: [new Annotation('comment', { text: '/* some\n      comment */', position: 'start' })],
+          }),
+          metadata: [new Annotation('comment', { text: '/*some comment*/', position: 'start' })],
+        }))
         .and.be.tracedTo(16, 49)
         .and.have.nested.property('entity').tracedTo(48, 49)
     })
@@ -59,29 +59,29 @@ describe('Wollok parser', () => {
       `{
         const a = 1 //some comment
       }`.should.be.parsedBy(parse.Body).into(new Body({
-        sentences: [
-          new Variable({
-            name: 'a',
-            isConstant: true,
-            value: new Literal({ value: 1 }),
-            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
-          })
-        ]
-      }))
+          sentences: [
+            new Variable({
+              name: 'a',
+              isConstant: true,
+              value: new Literal({ value: 1 }),
+              metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+            }),
+          ],
+        }))
     })
 
     it('comments after send in body should be parsed', () => {
       `{
         1.even() //some comment
       }`.should.be.parsedBy(parse.Body).into(new Body({
-        sentences: [
-          new Send({
-            message: 'even',
-            receiver: new Literal({ value: 1 }),
-            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
-          })
-        ]
-      }))
+          sentences: [
+            new Send({
+              message: 'even',
+              receiver: new Literal({ value: 1 }),
+              metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+            }),
+          ],
+        }))
     })
 
     it('should not parse elements inside line comment', () => {
@@ -104,9 +104,9 @@ describe('Wollok parser', () => {
       it('comment on previous line', () => {
         `//some comment
         class c { }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [new Annotation('comment', { text: '//some comment', position: 'start' })],
-        }))
+            name: 'c',
+            metadata: [new Annotation('comment', { text: '//some comment', position: 'start' })],
+          }))
           .and.be.tracedTo(23, 34)
       })
 
@@ -114,12 +114,12 @@ describe('Wollok parser', () => {
         `//some comment
         //other comment
         class c { }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [
-            new Annotation('comment', { text: '//some comment', position: 'start' }),
-            new Annotation('comment', { text: '//other comment', position: 'start' })
-          ],
-        }))
+            name: 'c',
+            metadata: [
+              new Annotation('comment', { text: '//some comment', position: 'start' }),
+              new Annotation('comment', { text: '//other comment', position: 'start' }),
+            ],
+          }))
           .and.be.tracedTo(47, 58)
       })
 
@@ -127,11 +127,11 @@ describe('Wollok parser', () => {
         `class c { 
           //some comment
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [
-            new Annotation('comment', { text: '//some comment', position: 'inner' })
-          ],
-        }))
+            name: 'c',
+            metadata: [
+              new Annotation('comment', { text: '//some comment', position: 'inner' }),
+            ],
+          }))
           .and.be.tracedTo(0, 45)
       })
 
@@ -140,17 +140,17 @@ describe('Wollok parser', () => {
           //some comment
           method m()
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [],
-          members: [
-            new Method({
-              name: 'm',
-              metadata: [
-                new Annotation('comment', { text: '//some comment', position: 'start' })
-              ],
-            })
-          ]
-        }))
+            name: 'c',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'm',
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
           .and.be.tracedTo(0, 66)
       })
 
@@ -160,19 +160,19 @@ describe('Wollok parser', () => {
           method m()
           //other comment
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [
-            new Annotation('comment', { text: '//other comment', position: 'inner' }),
-          ],
-          members: [
-            new Method({
-              name: 'm',
-              metadata: [
-                new Annotation('comment', { text: '//some comment', position: 'start' }),
-              ],
-            })
-          ]
-        }))
+            name: 'c',
+            metadata: [
+              new Annotation('comment', { text: '//other comment', position: 'inner' }),
+            ],
+            members: [
+              new Method({
+                name: 'm',
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
           .and.be.tracedTo(0, 92)
       })
 
@@ -184,23 +184,23 @@ describe('Wollok parser', () => {
           //other comment
           method m2()
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [],
-          members: [
-            new Method({
-              name: 'm1',
-              metadata: [
-                new Annotation('comment', { text: '//some comment', position: 'start' })
-              ],
-            }),
-            new Method({
-              name: 'm2',
-              metadata: [
-                new Annotation('comment', { text: '//other comment', position: 'start' })
-              ],
-            })
-          ]
-        }))
+            name: 'c',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'm1',
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+              new Method({
+                name: 'm2',
+                metadata: [
+                  new Annotation('comment', { text: '//other comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
           .and.be.tracedTo(0, 116)
       })
 
@@ -212,25 +212,25 @@ describe('Wollok parser', () => {
           //other comment
           method m2() = 2
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          metadata: [],
-          members: [
-            new Method({
-              name: 'm1',
-              body: new Body({ sentences: [new Return({ value: new Literal({ value: 1 }) })] }),
-              metadata: [
-                new Annotation('comment', { text: '//some comment', position: 'start' })
-              ],
-            }),
-            new Method({
-              name: 'm2',
-              body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
-              metadata: [
-                new Annotation('comment', { text: '//other comment', position: 'start' })
-              ],
-            })
-          ]
-        }))
+            name: 'c',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'm1',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 1 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+              new Method({
+                name: 'm2',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '//other comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
           .and.be.tracedTo(0, 124)
       })
 
@@ -241,21 +241,21 @@ describe('Wollok parser', () => {
 
           //other comment
         }`.should.be.parsedBy(parser).into(new Class({
-          name: 'c',
-          members: [
-            new Field({
-              name: 'f',
-              value: Closure({code: '{ }'}),
-              isConstant: true,
-              metadata: [
-                new Annotation('comment', { text: '//some comment', position: 'start' })
-              ],
-            }),
-          ],
-          metadata: [
-            new Annotation('comment', { text: '//other comment', position: 'inner' })
-          ],
-        }))
+            name: 'c',
+            members: [
+              new Field({
+                name: 'f',
+                value: Closure({ code: '{ }' }),
+                isConstant: true,
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+            ],
+            metadata: [
+              new Annotation('comment', { text: '//other comment', position: 'inner' }),
+            ],
+          }))
           .and.be.tracedTo(0, 96)
       })
 
@@ -430,8 +430,8 @@ describe('Wollok parser', () => {
       `@A(x = 1)
        @B
        import p`.should.be.parsedBy(parser).into(
-        new Import({ entity: new Reference({ name: 'p' }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-      )
+          new Import({ entity: new Reference({ name: 'p' }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+        )
     })
 
     it('should not parse malformed import statements', () => {
@@ -493,8 +493,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          package p {}`.should.be.parsedBy(parser).into(
-          new Package({ name: 'p', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Package({ name: 'p', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -504,15 +504,15 @@ describe('Wollok parser', () => {
           class B {}
           class C {}
         }`.should.be.parsedBy(parser).into(
-          new Package({
-            name: 'p',
-            members: [
-              new Class({ name: 'A' }),
-              new Class({ name: 'B', metadata: [new Annotation('B', { x: 1 })] }),
-              new Class({ name: 'C' }),
-            ],
-          })
-        )
+            new Package({
+              name: 'p',
+              members: [
+                new Class({ name: 'A' }),
+                new Class({ name: 'B', metadata: [new Annotation('B', { x: 1 })] }),
+                new Class({ name: 'C' }),
+              ],
+            })
+          )
       })
 
       it('should recover from entity parse error', () => {
@@ -652,8 +652,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          class C {}`.should.be.parsedBy(parser).into(
-          new Class({ name: 'C', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Class({ name: 'C', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -665,16 +665,16 @@ describe('Wollok parser', () => {
           method m(){}
           method n(){}
         }`.should.be.parsedBy(parser).into(
-          new Class({
-            name: 'C',
-            members: [
-              new Field({ name: 'f', isConstant: false }),
-              new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-              new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
-              new Method({ name: 'n', body: new Body() }),
-            ],
-          })
-        )
+            new Class({
+              name: 'C',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
       })
 
       it('should recover from member parse error', () => {
@@ -849,8 +849,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          mixin M {}`.should.be.parsedBy(parser).into(
-          new Mixin({ name: 'M', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Mixin({ name: 'M', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -862,16 +862,16 @@ describe('Wollok parser', () => {
           method m(){}
           method n(){}
         }`.should.be.parsedBy(parser).into(
-          new Mixin({
-            name: 'M',
-            members: [
-              new Field({ name: 'f', isConstant: false }),
-              new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-              new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
-              new Method({ name: 'n', body: new Body() }),
-            ],
-          })
-        )
+            new Mixin({
+              name: 'M',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
       })
 
       it('should recover from member parse error', () => {
@@ -1074,8 +1074,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          object o {}`.should.be.parsedBy(parser).into(
-          new Singleton({ name: 'o', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Singleton({ name: 'o', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1087,16 +1087,16 @@ describe('Wollok parser', () => {
           method m(){}
           method n(){}
         }`.should.be.parsedBy(parser).into(
-          new Singleton({
-            name: 'o',
-            members: [
-              new Field({ name: 'f', isConstant: false }),
-              new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-              new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
-              new Method({ name: 'n', body: new Body() }),
-            ],
-          })
-        )
+            new Singleton({
+              name: 'o',
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            })
+          )
       })
 
 
@@ -1222,8 +1222,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          program p {}`.should.be.parsedBy(parser).into(
-          new Program({ name: 'p', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Program({ name: 'p', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1233,17 +1233,17 @@ describe('Wollok parser', () => {
           var g
           var h
         }`.should.be.parsedBy(parser).into(
-          new Program({
-            name: 'p',
-            body: new Body({
-              sentences: [
-                new Variable({ name: 'f', isConstant: false }),
-                new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-                new Variable({ name: 'h', isConstant: false }),
-              ],
-            }),
-          })
-        )
+            new Program({
+              name: 'p',
+              body: new Body({
+                sentences: [
+                  new Variable({ name: 'f', isConstant: false }),
+                  new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Variable({ name: 'h', isConstant: false }),
+                ],
+              }),
+            })
+          )
       })
 
       it('should not parse programs without name', () => {
@@ -1291,8 +1291,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          test "t" {}`.should.be.parsedBy(parser).into(
-          new Test({ name: '"t"', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Test({ name: '"t"', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1302,17 +1302,17 @@ describe('Wollok parser', () => {
           var g
           var h
         }`.should.be.parsedBy(parser).into(
-          new Test({
-            name: '"t"',
-            body: new Body({
-              sentences: [
-                new Variable({ name: 'f', isConstant: false }),
-                new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-                new Variable({ name: 'h', isConstant: false }),
-              ],
-            }),
-          })
-        )
+            new Test({
+              name: '"t"',
+              body: new Body({
+                sentences: [
+                  new Variable({ name: 'f', isConstant: false }),
+                  new Variable({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Variable({ name: 'h', isConstant: false }),
+                ],
+              }),
+            })
+          )
       })
 
       it('should not parse tests with names that aren\'t a string', () => {
@@ -1374,8 +1374,8 @@ describe('Wollok parser', () => {
         `@A(x = 1)
          @B
          describe "d" {}`.should.be.parsedBy(parser).into(
-          new Describe({ name: '"d"', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Describe({ name: '"d"', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1390,18 +1390,18 @@ describe('Wollok parser', () => {
           @C(x = 1)
           method n() {}
         }`.should.be.parsedBy(parser).into(
-          new Describe({
-            name: '"d"',
-            members: [
-              new Test({ name: '"t"', body: new Body() }),
-              new Test({ name: '"u"', body: new Body(), metadata: [new Annotation('A', { x: 1 })] }),
-              new Field({ name: 'f', isConstant: false }),
-              new Field({ name: 'g', isConstant: false, metadata: [new Annotation('B', { x: 1 })] }),
-              new Method({ name: 'm', body: new Body() }),
-              new Method({ name: 'n', body: new Body(), metadata: [new Annotation('C', { x: 1 })] }),
-            ],
-          })
-        )
+            new Describe({
+              name: '"d"',
+              members: [
+                new Test({ name: '"t"', body: new Body() }),
+                new Test({ name: '"u"', body: new Body(), metadata: [new Annotation('A', { x: 1 })] }),
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body() }),
+                new Method({ name: 'n', body: new Body(), metadata: [new Annotation('C', { x: 1 })] }),
+              ],
+            })
+          )
       })
 
       it('should recover from member parse error', () => {
@@ -1470,14 +1470,14 @@ describe('Wollok parser', () => {
       const parser = parse.Class
 
       it('should sanitize whitespaces at the end of line', () => {
-        `class c {}    `.should.be.parsedBy(parser).into(new Class({ name: 'c' }))
+        'class c {}    '.should.be.parsedBy(parser).into(new Class({ name: 'c' }))
           .and.have.sourceMap(
             { line: 1, column: 1, offset: 0 },
             { line: 1, column: 11, offset: 10 })
       })
 
       it('should sanitize whitespaces at the beginning of line', () => {
-        `    class c {}`.should.be.parsedBy(parser).into(new Class({ name: 'c' }))
+        '    class c {}'.should.be.parsedBy(parser).into(new Class({ name: 'c' }))
           .and.have.sourceMap(
             { line: 1, column: 5, offset: 4 },
             { line: 1, column: 15, offset: 14 })
@@ -1512,16 +1512,16 @@ class c {}`
 
           }
         }`.should.be.parsedBy(parse.Program).into(new Program({
-          name: 'p',
-          body: new Body({
-            sentences: [
-              new Variable({ name: 'a', isConstant: true, value: new Send({ message: 'a', receiver: new Literal({ value: 0 }) }) }),
-              new Variable({ name: 'b', isConstant: true, value: new Literal({ value: 0 }) }),
-              new Variable({ name: 'c', isConstant: true, value: new Reference({ name: 'b' }) }),
-              new Variable({ name: 'd', isConstant: true, value: new Singleton({}) }),
-            ]
-          })
-        }))
+            name: 'p',
+            body: new Body({
+              sentences: [
+                new Variable({ name: 'a', isConstant: true, value: new Send({ message: 'a', receiver: new Literal({ value: 0 }) }) }),
+                new Variable({ name: 'b', isConstant: true, value: new Literal({ value: 0 }) }),
+                new Variable({ name: 'c', isConstant: true, value: new Reference({ name: 'b' }) }),
+                new Variable({ name: 'd', isConstant: true, value: new Singleton({}) }),
+              ],
+            }),
+          }))
           .and.have.sourceMap(
             { line: 1, column: 1, offset: 0 },
             { line: 9, column: 10, offset: 134 })
@@ -1603,8 +1603,8 @@ class c {}`
         `@A(x = 1)
          @B
          var f`.should.be.parsedBy(parser).into(
-          new Field({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Field({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1738,8 +1738,8 @@ class c {}`
         `@A(x = 1)
          @B
          method m() {}`.should.be.parsedBy(parser).into(
-          new Method({ name: 'm', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Method({ name: 'm', body: new Body(), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes within expression bodies', () => {
@@ -1765,15 +1765,15 @@ class c {}`
           var x = 5
           5
          }`.should.be.parsedBy(parser).into(
-          new Method({
-            name: 'm', body: new Body({
-              sentences: [
-                new Variable({ name: 'x', isConstant: false, value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 })] }),
-                new Literal({ value: 5 }),
-              ],
-            }),
-          })
-        )
+            new Method({
+              name: 'm', body: new Body({
+                sentences: [
+                  new Variable({ name: 'x', isConstant: false, value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 })] }),
+                  new Literal({ value: 5 }),
+                ],
+              }),
+            })
+          )
       })
 
       it('should parse annotated bodies', () => {
@@ -1794,17 +1794,17 @@ class c {}`
           @A(x = 1)
           p
         ) {}`.should.be.parsedBy(parser).into(
-          new Method({
-            name: 'm',
-            parameters: [
-              new Parameter({
-                name: 'p',
-                metadata: [new Annotation('A', { x: 1 })],
-              })
-            ],
-            body: new Body(),
-          })
-        )
+            new Method({
+              name: 'm',
+              parameters: [
+                new Parameter({
+                  name: 'p',
+                  metadata: [new Annotation('A', { x: 1 })],
+                }),
+              ],
+              body: new Body(),
+            })
+          )
       })
 
 
@@ -1895,8 +1895,8 @@ class c {}`
         `@A(x = 1)
          @B
          var f`.should.be.parsedBy(parser).into(
-          new Variable({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Variable({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -1949,8 +1949,8 @@ class c {}`
         `@A(x = 1)
          @B
          return 5`.should.be.parsedBy(parser).into(
-          new Return({ value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-        )
+            new Return({ value: new Literal({ value: 5 }), metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -2105,12 +2105,12 @@ class c {}`
         `@A(x = 1)
          @B
          a = b`.should.be.parsedBy(parser).into(
-          new Assignment({
-            variable: new Reference({ name: 'a' }),
-            value: new Reference({ name: 'b' }),
-            metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
-          })
-        )
+            new Assignment({
+              variable: new Reference({ name: 'a' }),
+              value: new Reference({ name: 'b' }),
+              metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
+            })
+          )
       })
 
       it('should parse annotated subnodes', () => {
@@ -2177,8 +2177,8 @@ class c {}`
           `@A(x = 1)
            @B
            x`.should.be.parsedBy(parser).into(
-            new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-          )
+              new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+            )
         })
 
         it('should not parse references with spaces', () => {
@@ -3472,8 +3472,8 @@ class c {}`
           `@A(x = 1)
            @B
            object {}`.should.be.parsedBy(parser).into(
-            new Singleton({ metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-          )
+              new Singleton({ metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+            )
         })
 
         it('should parse annotated subnodes', () => {
@@ -3485,15 +3485,15 @@ class c {}`
             method m(){}
             method n(){}
           }`.should.be.parsedBy(parser).into(
-            new Singleton({
-              members: [
-                new Field({ name: 'f', isConstant: false }),
-                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
-                new Method({ name: 'n', body: new Body() }),
-              ],
-            }),
-          )
+              new Singleton({
+                members: [
+                  new Field({ name: 'f', isConstant: false }),
+                  new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                  new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                  new Method({ name: 'n', body: new Body() }),
+                ],
+              }),
+            )
         })
 
         it('should not parse the "object" keyword without a body', () => {
@@ -3636,13 +3636,13 @@ class c {}`
           `@A(x = 1)
            @B
            { a => a }`.should.be.parsedBy(parser).into(
-            Closure({
-              parameters: [new Parameter({ name: 'a' })],
-              sentences: [new Reference({ name: 'a' })],
-              code: '{ a => a }',
-              metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
-            })
-          )
+              Closure({
+                parameters: [new Parameter({ name: 'a' })],
+                sentences: [new Reference({ name: 'a' })],
+                code: '{ a => a }',
+                metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
+              })
+            )
         })
 
         it('should parse annotated subnodes', () => {

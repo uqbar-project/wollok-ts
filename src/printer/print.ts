@@ -141,7 +141,7 @@ const formatBody: (context: PrintContext) => Formatter<Body> = context => node =
   formatSentences(context)(node.sentences),
   ...node.metadata
     .filter(metadata => isComment(metadata) && metadata.args['position'] === 'inner')
-    .map(comment => [lineBreak, comment.args['text'] as IDoc])
+    .map(comment => [lineBreak, comment.args['text'] as IDoc]),
 ])
 
 const formatReturn: FormatterWithContext<Return> = context => node => node.value ?
@@ -438,12 +438,12 @@ const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, s
 const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedListOfNodes(context)(parens, args)
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
-  const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
+  const distanceFromLastSentence = sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
     previousSentence ?
       Math.max(sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line, 1) //difference
       : 0 // first sentence
     : 1 // defaults to 1 line diff
-  )
+
   return [Array(distanceFromLastSentence).fill(lineBreak), format(context)(sentence)]
 }
 
