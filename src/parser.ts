@@ -93,6 +93,7 @@ const key = <T extends string>(str: T): Parser<T> => (
     : string(str)
 ).trim(_)
 
+const lastKey = (str: string) => _.then(string(str))
 
 const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(Parsimmon.regex(/\s/)))
@@ -213,7 +214,7 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
       Sentence.skip(__),
       comment('inner').wrap(_,_),
       sentenceError).many()
-  }).wrap(key('{'), key('}')).map(recover)
+  }).wrap(key('{'), lastKey('}')).map(recover)
 )
 
 export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
@@ -238,13 +239,13 @@ const inlineableBody: Parser<BodyNode> = Body.or(
 )
 
 const parameters: Parser<List<ParameterNode>> = lazy(() =>
-  Parameter.sepBy(key(',')).wrap(key('('), _.then(string(')'))))
+  Parameter.sepBy(key(',')).wrap(key('('), lastKey(')')))
 
 const unamedArguments: Parser<List<ExpressionNode>> = lazy(() =>
   Expression.sepBy(key(',')).wrap(key('('), key(')')))
 
 const namedArguments: Parser<List<NamedArgumentNode>> = lazy(() =>
-  NamedArgument.sepBy(key(',')).wrap(key('('), key(')'))
+  NamedArgument.sepBy(key(',')).wrap(key('('), lastKey(')'))
 )
 
 const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.map(key))
@@ -270,7 +271,7 @@ export const Package: Parser<PackageNode> = node(PackageNode)(() =>
   key(KEYWORDS.PACKAGE).then(obj({
     name: name.skip(key('{')),
     imports: Import.skip(__).many(),
-    members: Entity.or(entityError).sepBy(_).skip(key('}')),
+    members: Entity.or(entityError).sepBy(_).skip(lastKey('}')),
   })).map(recover)
 )
 
@@ -302,13 +303,14 @@ export const ParameterizedType = node(ParameterizedTypeNode)(() => obj({
 
 const supertypes = lazy(() => key(KEYWORDS.INHERITS).then(ParameterizedType.sepBy1(key(KEYWORDS.MIXED_AND))).fallback([]))
 
+const members = lazy(() => alt(Field, Method, comment('inner'), memberError))
 
 //TODO: It looks like current typing detects missing fields but not inexistent ones
 export const Class: Parser<ClassNode> = node(ClassNode)(() =>
   key(KEYWORDS.CLASS).then(obj({
     name,
     supertypes,
-    members: alt(Field, Method, comment('inner'), classMemberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -318,7 +320,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
   key(KEYWORDS.WKO).then(obj({
     name: optional(notFollowedBy(key(KEYWORDS.INHERITS)).then(name)),
     supertypes,
-    members: alt(Field, Method, memberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -328,7 +330,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
   key(KEYWORDS.MIXIN).then(obj({
     name,
     supertypes,
-    members: alt(Field, Method, memberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -337,7 +339,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
 export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
   key(KEYWORDS.SUITE).then(obj({
     name: stringLiteral.map(name => `"${name}"`),
-    members: alt(Field, Method, Test, memberError)
+    members: alt(Test, members)
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -348,14 +350,15 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 const memberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST, KEYWORDS.TEST, KEYWORDS.SUITE)
-const classMemberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST)
+
+const valueParser = lazy(() => optional(key('=').then(Expression).skip(__)))
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     isProperty: check(key(KEYWORDS.PROPERTY)),
     name: name.skip(__),
-    value: optional(key('=').then(Expression).skip(__)),
+    value: valueParser,
   })
 )
 
@@ -384,7 +387,7 @@ export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     name,
-    value: optional(key('=').then(Expression).skip(__)),
+    value: valueParser,
   })
 )
 
@@ -476,7 +479,7 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => {
     NonAppliedFullyQualifiedReference,
     seq(
       annotation.sepBy(_).wrap(_, _),
-      Expression.wrap(key('('), key(')'))
+      Expression.wrap(key('('), lastKey(')'))
     ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
   )
 })
@@ -501,7 +504,7 @@ export const New: Parser<NewNode> = node(NewNode)(() =>
 
 export const If: Parser<IfNode> = node(IfNode)(() =>
   key('if').then(obj({
-    condition: Expression.wrap(key('('), key(')')),
+    condition: Expression.wrap(key('('), lastKey(')')),
     thenBody: inlineableBody,
     elseBody: optional(key(KEYWORDS.ELSE).then(inlineableBody)),
   }))
@@ -540,8 +543,8 @@ export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
       key('true').result(true),
       key('false').result(false),
       lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('['), lastKey(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('#{'), lastKey('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
       stringLiteral,
     ),
   })
@@ -561,7 +564,7 @@ const Closure: Parser<SingletonNode> = lazy(() => {
     seq(
       Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
       Sentence.skip(__).many(),
-    ).wrap(key('{'), _.then(string('}'))).mark()
+    ).wrap(key('{'), lastKey('}')).mark()
   ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
     Parsimmon((input: string, i: number) =>
       makeSuccess(i, ClosureNode({
