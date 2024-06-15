@@ -234,6 +234,31 @@ describe('Wollok parser', () => {
           .and.be.tracedTo(0, 124)
       })
 
+      it('comments with block closures', () => {
+        `class c { 
+          //some comment
+          const f = { }
+
+          //other comment
+        }`.should.be.parsedBy(parser).into(new Class({
+          name: 'c',
+          members: [
+            new Field({
+              name: 'f',
+              value: Closure({code: '{ }'}),
+              isConstant: true,
+              metadata: [
+                new Annotation('comment', { text: '//some comment', position: 'start' })
+              ],
+            }),
+          ],
+          metadata: [
+            new Annotation('comment', { text: '//other comment', position: 'inner' })
+          ],
+        }))
+          .and.be.tracedTo(0, 96)
+      })
+
     })
 
   })

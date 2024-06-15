@@ -561,7 +561,7 @@ const Closure: Parser<SingletonNode> = lazy(() => {
     seq(
       Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
       Sentence.skip(__).many(),
-    ).wrap(key('{'), key('}')).mark()
+    ).wrap(key('{'), _.then(string('}'))).mark()
   ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
     Parsimmon((input: string, i: number) =>
       makeSuccess(i, ClosureNode({
