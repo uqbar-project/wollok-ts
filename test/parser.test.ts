@@ -45,6 +45,45 @@ describe('Wollok parser', () => {
         }))
     })
 
+    it('comments after variable should be parsed', () => {
+      'const a = 1 //some comment'
+        .should.be.parsedBy(parse.Variable).into(new Variable({
+          name: 'a',
+          isConstant: true,
+          value: new Literal({ value: 1 }),
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+        }))
+    })
+
+    it('comments after variable in body should be parsed', () => {
+      `{
+        const a = 1 //some comment
+      }`.should.be.parsedBy(parse.Body).into(new Body({
+        sentences: [
+          new Variable({
+            name: 'a',
+            isConstant: true,
+            value: new Literal({ value: 1 }),
+            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          })
+        ]
+      }))
+    })
+
+    it('comments after send in body should be parsed', () => {
+      `{
+        1.even() //some comment
+      }`.should.be.parsedBy(parse.Body).into(new Body({
+        sentences: [
+          new Send({
+            message: 'even',
+            receiver: new Literal({ value: 1 }),
+            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          })
+        ]
+      }))
+    })
+
     it('should not parse elements inside line comment', () => {
       '// import p'.should.not.be.parsedBy(parser)
     })
@@ -163,6 +202,36 @@ describe('Wollok parser', () => {
           ]
         }))
           .and.be.tracedTo(0, 116)
+      })
+
+      it('comments before many members with body expressions', () => {
+        `class c { 
+          //some comment
+          method m1() = 1
+
+          //other comment
+          method m2() = 2
+        }`.should.be.parsedBy(parser).into(new Class({
+          name: 'c',
+          metadata: [],
+          members: [
+            new Method({
+              name: 'm1',
+              body: new Body({ sentences: [new Return({ value: new Literal({ value: 1 }) })] }),
+              metadata: [
+                new Annotation('comment', { text: '//some comment', position: 'start' })
+              ],
+            }),
+            new Method({
+              name: 'm2',
+              body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
+              metadata: [
+                new Annotation('comment', { text: '//other comment', position: 'start' })
+              ],
+            })
+          ]
+        }))
+          .and.be.tracedTo(0, 124)
       })
 
     })
@@ -1691,6 +1760,24 @@ class c {}`
               ],
               metadata: [new Annotation('A', { x: 1 })],
             }),
+          })
+        )
+      })
+
+      it('should parse annotated bodies', () => {
+        `method m(
+          @A(x = 1)
+          p
+        ) {}`.should.be.parsedBy(parser).into(
+          new Method({
+            name: 'm',
+            parameters: [
+              new Parameter({
+                name: 'p',
+                metadata: [new Annotation('A', { x: 1 })],
+              })
+            ],
+            body: new Body(),
           })
         )
       })

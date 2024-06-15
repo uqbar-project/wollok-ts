@@ -1,4 +1,4 @@
-import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace, regexp } from 'parsimmon'
+import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace, regexp, end } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
 import { List, discriminate, is, hasWhitespace, mapObject, hasLineBreaks } from './extensions'
@@ -29,6 +29,11 @@ export class ParseError implements BaseProblem {
 const buildSourceMap = (start: Index, end: Index) => new SourceMap({
   start: new SourceIndex(start),
   end: new SourceIndex(end),
+})
+
+const parserLog = <T>(data: T) => Parsimmon((input: string, i: number) => {
+  console.log({ input: input.substring(0, i), i, data })
+  return makeSuccess(i, data)
 })
 
 // TODO: Contribute this type so we don't have to do it here
@@ -86,14 +91,14 @@ const key = <T extends string>(str: T): Parser<T> => (
   str.match(/[\w ]+/)
     ? string(str).notFollowedBy(regex(/\w/))
     : string(str)
-).trim(_).notFollowedBy(newline)
+).trim(_)
 
 
 const _ = optional(whitespace.atLeast(1))
-const __ = optional(key(';').or(_))
+const __ = optional(key(';').or(Parsimmon.regex(/\s/)))
 
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const sameLineComment: Parser<Annotation> = comment('end').notFollowedBy(newline)
+const sameLineComment: Parser<Annotation> = comment('end')
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
@@ -102,9 +107,9 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
   const to = { ...originalTo }
-  
+
   // Fix incorrect offset / column-line border case
-  if (!hasWhitespace(input[to.offset - 1]) && to.column == 0) { to.offset++ }
+  if (hasWhitespace(input[to.offset]) && to.column == 0) { to.offset++ }
 
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     if (hasLineBreaks(input[from.offset])) {
@@ -203,17 +208,23 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: comment('inner').skip(_).or(alt(Sentence.skip(__), sentenceError)).many() }).wrap(key('{'), key('}')).map(recover)
+  obj({
+    sentences: alt(
+      Sentence.skip(__),
+      comment('inner').wrap(_,_),
+      sentenceError).many()
+  }).wrap(key('{'), key('}')).map(recover)
 )
 
 export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
   return obj(
     {
-      sentences: alt(Expression.skip(__).map(value => {
-        return new ReturnNode({ value })
-      }), sentenceError).times(1),
+      sentences: alt(
+        Expression.map(value => new ReturnNode({ value })),
+        sentenceError
+      ).times(1),
     }
-  ).wrap(_, _).map(recover)
+  ).wrap(_, __).map(recover)
 })
 
 
@@ -227,7 +238,7 @@ const inlineableBody: Parser<BodyNode> = Body.or(
 )
 
 const parameters: Parser<List<ParameterNode>> = lazy(() =>
-  Parameter.sepBy(key(',')).wrap(key('('), key(')')))
+  Parameter.sepBy(key(',')).wrap(key('('), _.then(string(')'))))
 
 const unamedArguments: Parser<List<ExpressionNode>> = lazy(() =>
   Expression.sepBy(key(',')).wrap(key('('), key(')')))
@@ -344,7 +355,7 @@ export const Field: Parser<FieldNode> = node(FieldNode)(() =>
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     isProperty: check(key(KEYWORDS.PROPERTY)),
     name: name.skip(__),
-    value: optional(key('=').then(Expression).skip(__).notFollowedBy(newline)),
+    value: optional(key('=').then(Expression).skip(__)),
   })
 )
 
@@ -373,7 +384,7 @@ export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     name,
-    value: optional(key('=').then(Expression).skip(__).notFollowedBy(newline)),
+    value: optional(key('=').then(Expression).skip(__)),
   })
 )
 
