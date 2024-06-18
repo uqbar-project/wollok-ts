@@ -43,10 +43,10 @@ const game: Natives = {
         for(const visual of visuals.innerCollection!) {
 
           // Every visual understand position(), it is checked in addVisual(visual).
-          // Avoid to invoke method position() for optimisation reasons. 
+          // Avoid to invoke method position() for optimisation reasons.
           //    -> If method isSynthetic then it is a getter, we can access to the field directly
           const method = visual.module.lookupMethod('position', 0)!
-          const otherPosition = metodo.isSynthetic ? visual.get('position') :yield* this.invoke(method, visual)
+          const otherPosition = method.isSynthetic ? visual.get('position') :yield* this.invoke(method, visual)
 
           const otherX = otherPosition?.get('x')?.innerNumber
           const otherY = otherPosition?.get('y')?.innerNumber
@@ -72,15 +72,11 @@ const game: Natives = {
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       visual.assertIsNotNull()
-      // const tsInicio = performance.now()
 
       const position = (yield* this.send('position', visual))!
-
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
 
       yield* this.send('remove', visualsAtPosition, visual)
-      // const tsFin = performance.now()
-      // this.console.log("colliders", tsFin- tsInicio)
 
       return visualsAtPosition
     },
