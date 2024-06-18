@@ -41,9 +41,12 @@ const game: Natives = {
         const roundedX = round(x)
         const roundedY = round(y)
         for(const visual of visuals.innerCollection!) {
-          const metodo = visual.module.lookupMethod('position', 0)!
 
-          const otherPosition = metodo.isSynthetic ? visual.get('position') :yield* this.send('position', visual)
+          // Every visual understand position(), it is checked in addVisual(visual).
+          // Avoid to invoke method position() for optimisation reasons. 
+          //    -> If method isSynthetic then it is a getter, we can access to the field directly
+          const method = visual.module.lookupMethod('position', 0)!
+          const otherPosition = metodo.isSynthetic ? visual.get('position') :yield* this.invoke(method, visual)
 
           const otherX = otherPosition?.get('x')?.innerNumber
           const otherY = otherPosition?.get('y')?.innerNumber
