@@ -1537,7 +1537,7 @@ describe('Wollok Printer', () => {
 
     it('testUsingPreviousExpressions', () => {
       `
-          test "La capacidad del Luna Park el 08 de agosot de 2017 es 9290" {
+          test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           
             var dia = new Date(              
             day = 08,                      month = 08, year = 2017)
@@ -1547,7 +1547,7 @@ describe('Wollok Printer', () => {
           
              
         `.should.be.formattedTo(`
-        test "La capacidad del Luna Park el 08 de agosot de 2017 es 9290" {
+        test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           var dia = new Date(day = 8, month = 8, year = 2017)
           
           assert.equals(9290, lunaPark.capacidad(dia))
