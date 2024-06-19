@@ -107,4 +107,6 @@ export const otherwise = <T, R>(handler: (m: T) => R) =>
 export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]): (x: Element) => boolean => x =>
   conditions.some(condition => condition(x))
 
-export const hasWhitespace = (value: string): boolean => !value || /\s/.test(value ?? '')
+export const regex = (regex: RegExp) => (value: string): boolean => !value || regex.test(value ?? '')
+export const hasWhitespace = regex(/\s/)
+export const hasLineBreaks = regex(/[\r\n]/)
