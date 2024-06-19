@@ -146,7 +146,8 @@ describe('Wollok Printer', () => {
           // comentario
           const a = 1
           // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
-          const b = 2 // last comentario
+          const b = 2
+          // last comentario
         }`)
       })
 
@@ -993,8 +994,10 @@ describe('Wollok Printer', () => {
       object foo {
         method bar() {
           self.bar().bar().bar()
+          
           console.println("")
           console.println("")
+          
           console.println("")
           console.println("")
         }
@@ -1030,8 +1033,10 @@ describe('Wollok Printer', () => {
       object foo {
         method bar() {
           self.bar().bar().bar()
+          
           console.println("")
           console.println("")
+          
           console.println("")
           console.println("")
         }
@@ -1048,6 +1053,7 @@ describe('Wollok Printer', () => {
     	}`.should.be.formattedTo(`
       program p {
         const a = null
+        
         a.doSomething(a, a, a, a, a)
         a.doSomething(a, a, a, a, a)
         a.doSomething({ a.doSomething() })
@@ -1331,6 +1337,7 @@ describe('Wollok Printer', () => {
         test "aSimpleTest" {
           assert.that(true)
           assert.notThat(false)
+          
           const a = 1
           assert.equals(1, a)
           assert.equals(a, a)
@@ -1425,6 +1432,8 @@ describe('Wollok Printer', () => {
           
           test "aSimpleTest" {
             assert.equals(1, a)
+            
+            
             assert.equals(b.length() - 1, c)
           }
         }
@@ -1528,7 +1537,7 @@ describe('Wollok Printer', () => {
 
     it('testUsingPreviousExpressions', () => {
       `
-          test "La capacidad del Luna Park el 08 de agosot de 2017 es 9290" {
+          test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           
             var dia = new Date(              
             day = 08,                      month = 08, year = 2017)
@@ -1538,8 +1547,9 @@ describe('Wollok Printer', () => {
           
              
         `.should.be.formattedTo(`
-        test "La capacidad del Luna Park el 08 de agosot de 2017 es 9290" {
+        test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           var dia = new Date(day = 8, month = 8, year = 2017)
+          
           assert.equals(9290, lunaPark.capacidad(dia))
         }`)
     })
@@ -1809,9 +1819,7 @@ describe('Wollok Printer', () => {
           var a = x
           
           
-          
           x = 1
-          
           
           
           y = 2
