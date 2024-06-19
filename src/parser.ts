@@ -74,8 +74,7 @@ const recover = <T>(recoverable: T & { metadata?: Annotation[] }): { [K in keyof
       return payload
     } else return value
   }, recoverable)
-  const a = { ...purged, problems, metadata }
-  return a
+  return { ...purged, problems, metadata }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
