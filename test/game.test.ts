@@ -1,13 +1,11 @@
 import { should } from 'chai'
 import { resolve } from 'path'
-import { buildEnvironment } from './assertions'
-import natives from '../src/wre/wre.natives'
-import { Environment, GAME_MODULE, PROGRAM_FILE_EXTENSION } from '../src'
+import { Environment, Execution, get, Natives, PROGRAM_FILE_EXTENSION, RuntimeObject } from '../src'
 import { interpret, Interpreter } from '../src/interpreter/interpreter'
+import natives from '../src/wre/wre.natives'
+import { buildEnvironment } from './assertions'
 
 should()
-
-// TODO: Move the wollok code to language -> We need to run programs!
 
 describe('Wollok Game', () => {
 
@@ -15,45 +13,45 @@ describe('Wollok Game', () => {
 
     let environment: Environment
     let interpreter: Interpreter
+    const logs: string[] = []
 
+    const mockNativeFunction = function* (_self: RuntimeObject, obj: RuntimeObject): Execution<void> {
+      logs.push(obj.innerString!)
+    }
 
     before(async () => {
       environment = await buildEnvironment(`**/*.${PROGRAM_FILE_EXTENSION}`, resolve('language', 'test', 'game'))
+      const wConsole = get<Natives>(natives, 'wollok.lib.console')!
+      wConsole.println = mockNativeFunction
     })
 
     beforeEach(() => {
       interpreter = interpret(environment, natives)
     })
 
-    it('addVisual', () => {
-      interpreter.run('actions.addVisual')
-      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
-      visuals.should.have.length(1)
-    })
-
-    it('removeVisual', () => {
-      interpreter.run('actions.removeVisual')
-      const visuals = interpreter.object(GAME_MODULE).get('visuals')!.innerValue!
-      visuals.should.have.length(0)
-    })
-
-    it('say', () => {
+    it('say set message and time to visual', () => {
       interpreter.run('actions.say')
       interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('Hi!')
       interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
-    it('clear', () => {
-      interpreter.run('actions.clear')
-      const visuals = interpreter.object(GAME_MODULE)!.get('visuals')!.innerValue!
-      visuals.should.have.length(0)
-
+    it('on DomainError, visual source says the message', () => {
+      interpreter.run('actions.domainError')
+      interpreter.object('actions.visual').get('message')!.innerValue!.should.equal('DOMAIN_ERROR')
+      interpreter.object('actions.visual').get('messageTime')!.innerValue!.should.equal(2000)
     })
 
-    it('flush event', () => {
-      const game = interpreter.object(GAME_MODULE)!
-      const time = interpreter.reify(1)
-      interpreter.send('flushEvents', game, time)
+    it('on DomainError with error reporter, it says the message', () => {
+      interpreter.run('actions.domainErrorWithReporter')
+      interpreter.object('actions.reporter').get('message')!.innerValue!.should.equal('DOMAIN_ERROR')
+      interpreter.object('actions.reporter').get('messageTime')!.innerValue!.should.equal(2000)
+    })
+
+    it('on Error, console should print stack trace', () => {
+      interpreter.run('actions.genericError')
+      logs.should.be.deep.eq([
+        'wollok.lang.Exception: ERROR',
+        '\tat actions.genericError [actions.wpgm:33]'])
     })
 
     it('with file name game (devil test)', () => {

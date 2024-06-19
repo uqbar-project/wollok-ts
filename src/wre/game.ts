@@ -108,10 +108,6 @@ const game: Natives = {
       visual.set('showAttributes', yield* this.reify(false))
     },
 
-    *errorReporter(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      self.set('errorReporter', visual)
-    },
-
   },
 
   Sound: {
