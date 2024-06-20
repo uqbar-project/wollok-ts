@@ -1,7 +1,8 @@
-import Parsimmon, { Index, Parser, alt as alt_parser, any, index, lazy, makeSuccess, newline, notFollowedBy, of, regex, seq, seqObj, string, whitespace } from 'parsimmon'
+import { log } from 'console'
+import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
-import { List, discriminate, is, hasWhitespace, mapObject } from './extensions'
+import { discriminate, hasLineBreaks, hasWhitespace, is, List, mapObject } from './extensions'
 import { Annotation, Assignment as AssignmentNode, BaseProblem, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Closure as ClosureNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Level, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, ParameterizedType as ParameterizedTypeNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, SourceIndex, SourceMap, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 // TODO: Use description in lazy() for better errors
@@ -20,7 +21,7 @@ export const MALFORMED_MEMBER = 'malformedMember'
 export const MALFORMED_SENTENCE = 'malformedSentence'
 
 export class ParseError implements BaseProblem {
-  constructor(public code: Name, public sourceMap: SourceMap){ }
+  constructor(public code: Name, public sourceMap: SourceMap) { }
 
   get level(): Level { return 'error' }
   get values(): List<string> { return [] }
@@ -29,6 +30,12 @@ export class ParseError implements BaseProblem {
 const buildSourceMap = (start: Index, end: Index) => new SourceMap({
   start: new SourceIndex(start),
   end: new SourceIndex(end),
+})
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const parserLog = <T>(data: T) => Parsimmon((input: string, i: number) => {
+  log({ input: input.substring(0, i), i, data })
+  return makeSuccess(i, data)
 })
 
 // TODO: Contribute this type so we don't have to do it here
@@ -55,16 +62,19 @@ const error = (code: string) => (...safewords: string[]) => {
     .map(({ start, end }) => new ParseError(code, buildSourceMap(start, end)))
 }
 
-const recover = <T>(recoverable: T): {[K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError>> : T[K] } & {problems: List<ParseError>} => {
+const recover = <T>(recoverable: T & { metadata?: Annotation[] }): { [K in keyof T]: T[K] extends List<infer E> ? List<Exclude<E, ParseError | Annotation>> : T[K] } & { problems: List<ParseError> } => {
   const problems: ParseError[] = []
+  const metadata: Annotation[] = []
   const purged = mapObject((value: any) => {
-    if(isArray(value)) {
-      const [newProblems, nonProblems] = discriminate<ParseError>(member => member instanceof ParseError)(value)
+    if (isArray(value)) {
+      const [newMetadata, otherValues] = discriminate<Annotation, any>((member): member is Annotation => member instanceof Annotation)(value)
+      const [newProblems, payload] = discriminate<ParseError, any>((member): member is ParseError => member instanceof ParseError)(otherValues)
       problems.push(...newProblems)
-      return nonProblems
+      metadata.push(...newMetadata)
+      return payload
     } else return value
   }, recoverable)
-  return { ...purged, problems }
+  return { ...purged, problems, metadata }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -75,7 +85,7 @@ const check = <T>(parser: Parser<T>) => parser.result(true).fallback(false)
 
 const optional = <T>(parser: Parser<T>) => parser.fallback(undefined)
 
-const obj = <T>(parsers: {[K in keyof T]: Parser<T[K]>}): Parser<T> =>
+const obj = <T>(parsers: { [K in keyof T]: Parser<T[K]> }): Parser<T> =>
   seqObj<T>(...keys(parsers).map(fieldName => [fieldName, parsers[fieldName as keyof T]] as any))
 
 const key = <T extends string>(str: T): Parser<T> => (
@@ -84,29 +94,43 @@ const key = <T extends string>(str: T): Parser<T> => (
     : string(str)
 ).trim(_)
 
+const lastKey = (str: string) => _.then(string(str))
 
 const _ = optional(whitespace.atLeast(1))
-const __ = optional(key(';').or(_))
+const __ = optional(key(';').or(Parsimmon.regex(/\s/)))
 
-const comment = (position: 'start' | 'end') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const endComment =  alt(
-  optional(_).then(comment('end')), // same-line comment
-  comment('end').sepBy(_) // after-line comments
-)
+const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
+const sameLineComment: Parser<Annotation> = comment('end')
 
-export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: any): SourceIndex[] => {
+export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
+  const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
   const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
-  const shouldBeSanitized = hasWhitespace(input.substring(originalFrom.offset, originalTo.offset)) && hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
+  const shouldBeSanitized = hasWhitespace(nodeInput) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
-  const to = { ...originalTo, offset: originalTo.offset - (hasWhitespaceAtTheEnd ? 1 : 0) }
-  while(hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
+  const to = { ...originalTo }
+
+  // Fix incorrect offset / column-line border case
+  if (hasWhitespace(input[to.offset]) && to.column == 0) { to.offset++ }
+
+  while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
+    if (hasLineBreaks(input[from.offset])) {
+      from.line++
+      from.column = 1
+    } else from.column++
     from.offset++
   }
-  while(hasWhitespace(input[to.offset]) && to.offset > originalFrom.offset) {
+  while (hasWhitespace(input[to.offset - 1]) && to.offset > originalFrom.offset) {
+    if (hasLineBreaks(input[to.offset - 1])) {
+      to.line--
+      const nodeLines = input.substring(from.offset, to.offset - 1).split('\n')
+      const lastLine = nodeLines.pop()!
+      to.column = lastLine.length + (nodeLines.length == 0
+        ? from.column // one-line
+        : 1) // base 1
+    } else to.column--
     to.offset--
   }
-  to.offset = to.offset + (hasWhitespace(input[to.offset]) ? 0 : 1)
   return [from, to]
 }
 
@@ -123,20 +147,21 @@ export const annotation: Parser<Annotation> = lazy(() =>
   ).map(({ name, args }) => new Annotation(name, fromEntries(args)))
 )
 
-const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P>): Parser<N> =>
+const node = <N extends Node, P>(constructor: new (payload: P) => N) => (parser: () => Parser<P & { metadata?: Annotation[] }>): Parser<N> =>
   seq(
     alt(annotation, comment('start')).sepBy(_).wrap(_, _),
     index,
     lazy(parser),
-    endComment,
     index,
+    optional(sameLineComment),
   )
-    .chain(([metadata, _start, payload, comment, _end]) => Parsimmon((input, index) => {
+    .chain(([_metadata, _start, payload, _end, comment]) => Parsimmon((input, index) => {
       const [start, end] = sanitizeWhitespaces(_start, _end, input)
-      return makeSuccess<[Annotation[], Parsimmon.Index, P, Annotation | Annotation[], Parsimmon.Index]>(index, [metadata, start, payload, comment, end])
+      const metadata = comment ? _metadata.concat(comment) : _metadata
+      return makeSuccess<[Annotation[], Parsimmon.Index, P & { metadata?: Annotation[] }, Parsimmon.Index]>(index, [metadata, start, payload, end])
     }))
-    .map(([metadata, start, payload, comment, end]) =>
-      new constructor({ metadata: metadata.concat(comment), sourceMap: buildSourceMap(start, end), ...payload })
+    .map(([metadata, start, payload, end]) =>
+      new constructor({ ...payload, metadata: metadata.concat(...payload.metadata || []), sourceMap: buildSourceMap(start, end) })
     )
 
 export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
@@ -144,19 +169,16 @@ export const File = (fileName: string): Parser<PackageNode> => lazy(() =>
     fileName: of(fileName),
     name: of(fileName.split('.')[0].replaceAll('/', '.')),
     imports: Import.sepBy(_).skip(_),
-    content: Entity.or(alt(annotation, comment('start'))).or(entityError).sepBy(_),
+    members: Entity.or(alt(annotation, comment('start'))).or(entityError).sepBy(_),
   }).skip(_)
-    .map(({ content, ...filePackage }) => {
-      const [metadata, members] = discriminate<Annotation, EntityNode | ParseError>((member): member is Annotation => member instanceof Annotation)(content)
-      return new PackageNode(recover({ ...filePackage, members, metadata }))
-    })
+    .map(payload => new PackageNode(recover(payload)))
 )
 
 export const Import: Parser<ImportNode> = node(ImportNode)(() =>
   key(KEYWORDS.IMPORT).then(obj({
     entity: FullyQualifiedReference,
     isGeneric: string('.*').result(true).fallback(false),
-  }))
+  })).skip(__)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -190,17 +212,23 @@ export const NamedArgument: Parser<NamedArgumentNode> = node(NamedArgumentNode)(
 )
 
 export const Body: Parser<BodyNode> = node(BodyNode)(() =>
-  obj({ sentences: alt(Sentence.skip(__), sentenceError).many() }).wrap(key('{'), key('}')).map(recover)
+  obj({
+    sentences: alt(
+      Sentence.skip(__),
+      comment('inner').wrap(_, _),
+      sentenceError).many(),
+  }).wrap(key('{'), lastKey('}')).map(recover)
 )
 
 export const ExpressionBody: Parser<BodyNode> = node(BodyNode)(() => {
   return obj(
     {
-      sentences: alt(Expression.skip(__).map(value => {
-        return new ReturnNode({ value })
-      }), sentenceError).times(1),
+      sentences: alt(
+        Expression.map(value => new ReturnNode({ value })),
+        sentenceError
+      ).times(1),
     }
-  ).wrap(_, _).map(recover)
+  ).wrap(_, __).map(recover)
 })
 
 
@@ -214,13 +242,13 @@ const inlineableBody: Parser<BodyNode> = Body.or(
 )
 
 const parameters: Parser<List<ParameterNode>> = lazy(() =>
-  Parameter.sepBy(key(',')).wrap(key('('), key(')')))
+  Parameter.sepBy(key(',')).wrap(key('('), lastKey(')')))
 
 const unamedArguments: Parser<List<ExpressionNode>> = lazy(() =>
   Expression.sepBy(key(',')).wrap(key('('), key(')')))
 
 const namedArguments: Parser<List<NamedArgumentNode>> = lazy(() =>
-  NamedArgument.sepBy(key(',')).wrap(key('('), key(')'))
+  NamedArgument.sepBy(key(',')).wrap(key('('), lastKey(')'))
 )
 
 const operator = (operatorNames: Name[]): Parser<Name> => alt(...operatorNames.map(key))
@@ -246,7 +274,7 @@ export const Package: Parser<PackageNode> = node(PackageNode)(() =>
   key(KEYWORDS.PACKAGE).then(obj({
     name: name.skip(key('{')),
     imports: Import.skip(__).many(),
-    members: Entity.or(entityError).sepBy(_).skip(key('}')),
+    members: Entity.or(entityError).sepBy(_).skip(lastKey('}')),
   })).map(recover)
 )
 
@@ -278,13 +306,14 @@ export const ParameterizedType = node(ParameterizedTypeNode)(() => obj({
 
 const supertypes = lazy(() => key(KEYWORDS.INHERITS).then(ParameterizedType.sepBy1(key(KEYWORDS.MIXED_AND))).fallback([]))
 
+const members = lazy(() => alt(Field, Method, comment('inner'), memberError))
 
 //TODO: It looks like current typing detects missing fields but not inexistent ones
 export const Class: Parser<ClassNode> = node(ClassNode)(() =>
   key(KEYWORDS.CLASS).then(obj({
     name,
     supertypes,
-    members: alt(Field, Method, classMemberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -294,7 +323,7 @@ export const Singleton: Parser<SingletonNode> = node(SingletonNode)(() =>
   key(KEYWORDS.WKO).then(obj({
     name: optional(notFollowedBy(key(KEYWORDS.INHERITS)).then(name)),
     supertypes,
-    members: alt(Field, Method, memberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -304,7 +333,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
   key(KEYWORDS.MIXIN).then(obj({
     name,
     supertypes,
-    members: alt(Field, Method, memberError)
+    members: members
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -313,7 +342,7 @@ export const Mixin: Parser<MixinNode> = node(MixinNode)(() =>
 export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
   key(KEYWORDS.SUITE).then(obj({
     name: stringLiteral.map(name => `"${name}"`),
-    members: alt(Field, Method, Test, memberError)
+    members: alt(Test, members)
       .sepBy(_)
       .wrap(key('{'), key('}')),
   })).map(recover)
@@ -324,14 +353,15 @@ export const Describe: Parser<DescribeNode> = node(DescribeNode)(() =>
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 const memberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST, KEYWORDS.TEST, KEYWORDS.SUITE)
-const classMemberError = error(MALFORMED_MEMBER)(KEYWORDS.METHOD, KEYWORDS.VAR, KEYWORDS.CONST)
+
+const valueParser = lazy(() => optional(key('=').then(Expression).skip(__)))
 
 export const Field: Parser<FieldNode> = node(FieldNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     isProperty: check(key(KEYWORDS.PROPERTY)),
-    name,
-    value: optional(key('=').then(Expression)),
+    name: name.skip(__),
+    value: valueParser,
   })
 )
 
@@ -339,15 +369,13 @@ export const Method: Parser<MethodNode> = node(MethodNode)(() =>
   obj({
     isOverride: check(key(KEYWORDS.OVERRIDE)),
     name: key(KEYWORDS.METHOD).then(alt(name, operator(ALL_OPERATORS))),
-    parameters,
+    parameters: parameters.or(memberError.many()),
     body: alt(
       key('=').then(ExpressionBody),
-
       key(KEYWORDS.NATIVE),
-
-      optional(Body),
-    ),
-  })
+      Body
+    ).fallback(undefined),
+  }).map(recover)
 )
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -362,7 +390,7 @@ export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
     name,
-    value: optional(key('=').then(Expression)),
+    value: valueParser,
   })
 )
 
@@ -424,11 +452,15 @@ const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, a
     index,
     receiver,
     seq(message, args, index).many(),
-    endComment,
-  ).map(([start, initialReceiver, calls, comments]) =>
-    calls.reduce((receiver, [message, args, end]) =>
-      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(start, end), metadata: Array.isArray(comments) ? comments : [comments] })
+    optional(sameLineComment),
+  ).chain(([start, initialReceiver, calls, comment]) => Parsimmon((input: string, i: number) => {
+    const result = calls.reduce((receiver, [message, args, end]) =>
+      new SendNode({ receiver, message, args, sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input)) })
     , initialReceiver)
+    return makeSuccess(i, comment
+      ? result.copy({ metadata: result.metadata.concat(comment) })
+      : result)
+  })
   )
 )
 
@@ -450,7 +482,7 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => {
     NonAppliedFullyQualifiedReference,
     seq(
       annotation.sepBy(_).wrap(_, _),
-      Expression.wrap(key('('), key(')'))
+      Expression.wrap(key('('), lastKey(')'))
     ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
   )
 })
@@ -475,7 +507,7 @@ export const New: Parser<NewNode> = node(NewNode)(() =>
 
 export const If: Parser<IfNode> = node(IfNode)(() =>
   key('if').then(obj({
-    condition: Expression.wrap(key('('), key(')')),
+    condition: Expression.wrap(key('('), lastKey(')')),
     thenBody: inlineableBody,
     elseBody: optional(key(KEYWORDS.ELSE).then(inlineableBody)),
   }))
@@ -514,8 +546,8 @@ export const Literal: Parser<LiteralNode> = lazy('literal', () => alt(
       key('true').result(true),
       key('false').result(false),
       lazy('number literal', () => regex(/-?\d+(\.\d+)?/).map(Number)),
-      Expression.sepBy(key(',')).wrap(key('['), key(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
-      Expression.sepBy(key(',')).wrap(key('#{'), key('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('['), lastKey(']')).map(args => [new ReferenceNode({ name: LIST_MODULE }), args]),
+      Expression.sepBy(key(',')).wrap(key('#{'), lastKey('}')).map(args => [new ReferenceNode({ name: SET_MODULE }), args]),
       stringLiteral,
     ),
   })
@@ -535,7 +567,7 @@ const Closure: Parser<SingletonNode> = lazy(() => {
     seq(
       Parameter.sepBy(key(',')).skip(key('=>')).fallback([]),
       Sentence.skip(__).many(),
-    ).wrap(key('{'), key('}')).mark()
+    ).wrap(key('{'), lastKey('}')).mark()
   ).chain(([metadata, { start, end, value: [parameters, sentences] }]) =>
     Parsimmon((input: string, i: number) =>
       makeSuccess(i, ClosureNode({

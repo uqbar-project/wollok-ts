@@ -6,7 +6,7 @@ import { join } from 'path'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
-import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference } from '../src/model'
+import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference, SourceIndex } from '../src/model'
 import { ParseError } from '../src/parser'
 import validate, { Validation } from '../src/validator'
 
@@ -19,6 +19,7 @@ declare global {
       parsedBy(parser: Parser<any>): Assertion
       into(expected: any): Assertion
       tracedTo(start: number, end: number): Assertion
+      sourceMap(start: SourceIndex, end: SourceIndex): Assertion
       recoveringFrom(code: Name, start: number, end: number): Assertion
 
       formattedTo(expected: string): Assertion
@@ -108,6 +109,11 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
       .to.have.nested.property('sourceMap.end.offset', end)
   })
 
+  Assertion.addMethod('sourceMap', function (start: SourceIndex, end: SourceIndex) {
+    new Assertion(this._obj)
+      .to.have.nested.property('sourceMap.start').deep.eq(start).and.also
+      .to.have.nested.property('sourceMap.end').deep.eq(end)
+  })
 
   Assertion.addMethod('recoveringFrom', function (this: Chai.AssertionStatic, code: Name, start: number, end: number) {
     flag(this, 'expectedProblems', [...flag(this, 'expectedProblems') ?? [], { code, start, end }])

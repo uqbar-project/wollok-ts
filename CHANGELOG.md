@@ -1,4 +1,10 @@
 # Changelog
+## v4.1.2
+**Wollok Version: `3.2.4`**
+- 👾 Refactors for wollok game
+  - Tests for errors on game events
+  - onCollide performance
+- 🚧 Parser fixes for comments and whitespaces
 
 ## v4.1.1
 **Wollok Version: `3.2.3`**

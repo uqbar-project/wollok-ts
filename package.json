@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "4.1.2",
+  "version": "4.1.3",
   "wollokVersion": ":master",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
@@ -30,7 +30,7 @@
     "test:parser": "mocha --parallel -r ts-node/register/transpile-only test/parser.test.ts",
     "lint:fix": "eslint . --fix",
     "validate:wollokVersion": "ts-node scripts/validateWollokVersion.ts",
-    "prepublishOnly": "validate:wollokVersion && npm run build && npm test",
+    "prepublishOnly": "npm run validate:wollokVersion && npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
     "prepack": "npm run build"
   },

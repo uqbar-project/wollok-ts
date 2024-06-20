@@ -48,10 +48,10 @@ type FormatterWithContext<T extends Node> = (context: PrintContext) => Formatter
 const criticalProblems = [MALFORMED_MEMBER, MALFORMED_ENTITY, MALFORMED_SENTENCE]
 
 const format: FormatterWithContext<Node> = context => node => {
-  if(
+  if (
     node.hasProblems &&
-    node.problems?.some(problem =>  criticalProblems.includes(problem.code))
-  ){
+    node.problems?.some(problem => criticalProblems.includes(problem.code))
+  ) {
     throw new PrintingMalformedNodeError(node)
   }
   const metadata: [IDoc, IDoc] = splitMetadata(context, node.metadata)
@@ -137,7 +137,12 @@ const formatMethod: FormatterWithContext<Method> = context => node => {
   }
 }
 
-const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)(formatSentences(context)(node.sentences))
+const formatBody: (context: PrintContext) => Formatter<Body> = context => node => body(context.nest)([
+  formatSentences(context)(node.sentences),
+  ...node.metadata
+    .filter(metadata => isComment(metadata) && metadata.args['position'] === 'inner')
+    .map(comment => [lineBreak, comment.args['text'] as IDoc]),
+])
 
 const formatReturn: FormatterWithContext<Return> = context => node => node.value ?
   [KEYWORDS.RETURN, WS, format(context)(node.value)]
@@ -433,12 +438,12 @@ const formatSentences = (context: PrintContext) => (sentences: List<Sentence>, s
 const formatArguments = (context: PrintContext) => (args: List<Expression>): IDoc => enclosedListOfNodes(context)(parens, args)
 
 const formatSentenceInBody = (context: PrintContext) => (sentence: Sentence, previousSentence: Sentence | undefined): IDoc => {
-  const distanceFromLastSentence = (sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
+  const distanceFromLastSentence = sentence.sourceMap && (!previousSentence || previousSentence.sourceMap) ?
     previousSentence ?
-      sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line //difference
-      : -1 // first sentence
-    : 0 // defaults to 1 line diff
-  ) + 1
+      Math.max(sentence.sourceMap!.start.line - previousSentence.sourceMap!.end.line, 1) //difference
+      : 0 // first sentence
+    : 1 // defaults to 1 line diff
+
   return [Array(distanceFromLastSentence).fill(lineBreak), format(context)(sentence)]
 }
 
