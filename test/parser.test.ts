@@ -2167,6 +2167,10 @@ class c {}`
           'p.o'.should.be.parsedBy(parser).into(new Reference({ name: 'p.o' })).and.be.tracedTo(0, 3)
         })
 
+        it ('should parse fully quelified references with -', () => {
+          'p-p.C'.should.be.parsedBy(parser)
+        })
+
         it('should parse annotated nodes', () => {
           '@A(x = 1) x'.should.be.parsedBy(parser).into(
             new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })
@@ -2208,7 +2212,6 @@ class c {}`
         it('should not parse fully qualified references with wrong characters', () => {
           'p.*'.should.not.be.parsedBy(parser)
         })
-
       })
 
 
