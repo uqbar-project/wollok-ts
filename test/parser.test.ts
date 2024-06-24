@@ -1492,6 +1492,15 @@ describe('Wollok parser', () => {
             { line: 1, column: 11, offset: 10 })
       })
 
+      it('should sanitize whitespaces on CRLF files', () => {
+        '\r\nclass c {}\r\n      \r\n     '.
+          should.be.parsedBy(parser).into(new Class({ name: 'c' }))
+          .and.have.sourceMap(
+            { line: 2, column: 1, offset: 2 },
+            { line: 2, column: 11, offset: 12 })
+      })
+
+
       it('should sanitize whitespaces at before lines', () => {
         `
 
