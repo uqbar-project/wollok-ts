@@ -1,3 +1,4 @@
+import {EOL} from 'os'
 export const keys = Object.keys as <T>(o: T) => (Extract<keyof T, string>)[]
 
 export const last = <T>(xs: ReadonlyArray<T>): T | undefined => xs[xs.length - 1]
@@ -109,4 +110,3 @@ export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]
 
 export const regex = (regex: RegExp) => (value: string): boolean => !value || regex.test(value ?? '')
 export const hasWhitespace = regex(/\s/)
-export const hasLineBreaks = regex(/[\r\n]/)
