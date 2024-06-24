@@ -130,14 +130,14 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
       to.line--
       const nodeLines = input.substring(from.offset, to.offset - EOL.length).split(EOL)
       const lastLine = nodeLines.pop()!
-      to.column = lastLine.length + ( nodeLines.length == 0 ? 
+      to.column = lastLine.length + ( nodeLines.length == 0 ?
         from.column // one-line
         : 1  // base 1
       )
       to.offset -= EOL.length
     } else {
       to.column--
-      to.offset--;
+      to.offset--
     }
   }
   return [from, to]
