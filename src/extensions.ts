@@ -109,4 +109,3 @@ export const anyPredicate = <Element>(...conditions: ((x: Element) => boolean)[]
 
 export const regex = (regex: RegExp) => (value: string): boolean => !value || regex.test(value ?? '')
 export const hasWhitespace = regex(/\s/)
-export const hasLineBreaks = regex(/[\r\n]/)
