@@ -1099,6 +1099,9 @@ describe('Wollok parser', () => {
           )
       })
 
+      it('should not parse dashed objects', () => {
+        'object my-object {}'.should.not.be.parsedBy(parser)
+      })
 
       it('should recover from member parse error', () => {
         'object o {var var1 vr var2 var var3}'.should.be.parsedBy(parser)
