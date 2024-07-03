@@ -196,8 +196,10 @@ export const Import: Parser<ImportNode> = node(ImportNode)(() =>
 
 export const name: Parser<Name> = lazy('identifier', () => regex(/[^\W\d]\w*/))
 
+export const packageName: Parser<Name> = lazy('package identifier', () => regex(/[^\W\d][\w-]*/))
+
 export const FullyQualifiedReference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
-  obj({ name: name.sepBy1(key('.')).tieWith('.') })
+  obj({ name: packageName.or(name).sepBy1(key('.')).tieWith('.') })
 )
 
 export const Reference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
