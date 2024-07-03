@@ -2,7 +2,7 @@ import { log } from 'console'
 import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
-import { discriminate, hasLineBreaks, hasWhitespace, is, List, mapObject } from './extensions'
+import { discriminate, hasWhitespace, is, List, mapObject } from './extensions'
 import { Annotation, Assignment as AssignmentNode, BaseProblem, Body as BodyNode, Catch as CatchNode, Class as ClassNode, Closure as ClosureNode, Describe as DescribeNode, Entity as EntityNode, Expression as ExpressionNode, Field as FieldNode, If as IfNode, Import as ImportNode, Level, Literal as LiteralNode, LiteralValue, Method as MethodNode, Mixin as MixinNode, Name, NamedArgument as NamedArgumentNode, New as NewNode, Node, Package as PackageNode, Parameter as ParameterNode, ParameterizedType as ParameterizedTypeNode, Program as ProgramNode, Reference as ReferenceNode, Return as ReturnNode, Self as SelfNode, Send as SendNode, Sentence as SentenceNode, Singleton as SingletonNode, SourceIndex, SourceMap, Super as SuperNode, Test as TestNode, Throw as ThrowNode, Try as TryNode, Variable as VariableNode } from './model'
 
 // TODO: Use description in lazy() for better errors
@@ -103,6 +103,8 @@ const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => r
 const sameLineComment: Parser<Annotation> = comment('end')
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
+  const EOL = input.includes('\r\n') ? '\r\n' : '\n'
+  const hasLineBreaks = (aString: string) => aString.includes(EOL)
   const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
   const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
   const shouldBeSanitized = hasWhitespace(nodeInput) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
@@ -114,22 +116,29 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
   if (hasWhitespace(input[to.offset]) && to.column == 0) { to.offset++ }
 
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
-    if (hasLineBreaks(input[from.offset])) {
+    if (hasLineBreaks(input.substring(from.offset, from.offset + EOL.length))) {
       from.line++
       from.column = 1
-    } else from.column++
-    from.offset++
+      from.offset += EOL.length
+    } else {
+      from.column++
+      from.offset++
+    }
   }
-  while (hasWhitespace(input[to.offset - 1]) && to.offset > originalFrom.offset) {
-    if (hasLineBreaks(input[to.offset - 1])) {
+  while (hasWhitespace(input[to.offset - 1])  && to.offset > originalFrom.offset) {
+    if (hasLineBreaks(input.substring(to.offset - EOL.length, to.offset))) {
       to.line--
-      const nodeLines = input.substring(from.offset, to.offset - 1).split('\n')
+      const nodeLines = input.substring(from.offset, to.offset - EOL.length).split(EOL)
       const lastLine = nodeLines.pop()!
-      to.column = lastLine.length + (nodeLines.length == 0
-        ? from.column // one-line
-        : 1) // base 1
-    } else to.column--
-    to.offset--
+      to.column = lastLine.length + ( nodeLines.length == 0 ?
+        from.column // one-line
+        : 1  // base 1
+      )
+      to.offset -= EOL.length
+    } else {
+      to.column--
+      to.offset--
+    }
   }
   return [from, to]
 }

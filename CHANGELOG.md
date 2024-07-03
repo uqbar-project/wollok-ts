@@ -1,4 +1,9 @@
 # Changelog
+
+## v4.1.3
+**Wollok Version: `3.2.4`**
+- 🪟 Fix new parsing on Windows
+
 ## v4.1.2
 **Wollok Version: `3.2.4`**
 - 👾 Refactors for wollok game
