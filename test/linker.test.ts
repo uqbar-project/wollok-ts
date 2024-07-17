@@ -1,10 +1,11 @@
 import { expect, should, use } from 'chai'
 import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
-import { Body, Class, Closure, Describe, Field, Import, Method, Mixin, NamedArgument, Package, Parameter, ParameterizedType, Reference, Return, Singleton, Test, Variable } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable } from '../src/model'
 import { linkerAssertions } from './assertions'
 import { Evaluation, GAME_MODULE, Interpreter, OBJECT_MODULE, WRENatives } from '../src'
 import * as parse from '../src/parser'
 import { WREEnvironment, environmentWithEntities } from './utils'
+import { getPotentiallyUninitializedLazy } from '../src/decorators'
 
 should()
 use(linkerAssertions)
@@ -837,15 +838,33 @@ describe('can be referenced', () => {
 
 describe('link sentence in node', () => {
   const replPackage = new Package({ name: 'repl' })
-  const environment = link([replPackage], WREEnvironment)
-  new Interpreter(Evaluation.build(environment, WRENatives))
+  let environment: Environment
+  let repl: Node
+  let newSentence: Sentence
 
-  it('should link a new sentence for an existing node', () => {
-    const replScope = environment.getNodeByFQN('repl').scope
-    replScope.localContributions().should.be.empty
-    const aAssignmentSentence = parse.Variable.tryParse('const a = 4')
-    linkSentenceInNode(aAssignmentSentence, environment.getNodeByFQN('repl'))
-    const [variableName] = replScope.localContributions()[0]
+  beforeEach(() => {
+    environment = link([replPackage], WREEnvironment)
+    repl = environment.getNodeByFQN('repl')
+    newSentence = parse.Variable.tryParse('const a = 4')
+  })
+
+  it('should link new nodes', () => {
+    newSentence.id?.should.be.undefined
+    getPotentiallyUninitializedLazy(newSentence, 'parent')?.should.be.undefined
+    getPotentiallyUninitializedLazy(newSentence, 'environment')?.should.be.undefined
+
+    linkSentenceInNode(newSentence, repl)
+    newSentence.id.should.be.ok
+    newSentence.environment.should.be.eq(environment)
+    newSentence.parent.should.be.eq(repl)
+    newSentence.children[0].parent.should.be.eq(newSentence)
+  })
+
+  it('should add new contributions to context scope', () => {
+    repl.scope.localContributions().should.be.empty
+
+    linkSentenceInNode(newSentence, repl)
+    const [variableName] = repl.scope.localContributions()[0]
     variableName.should.be.equal('a')
   })
 
