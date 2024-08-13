@@ -1,6 +1,10 @@
-import { Entity, Environment, Method, Module, Name, Node, Sentence } from '../model'
+import { TO_STRING_METHOD } from '../constants'
+import { linkSentenceInNode } from '../linker'
+import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
 import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
+import * as parse from '../parser'
+import { notEmpty } from '../extensions'
 
 export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
@@ -65,6 +69,22 @@ abstract class AbstractInterpreter {
 
 }
 
+export type ExecutionResult = {
+  result: string;
+  error?: Error;
+  errored: boolean;
+}
+
+const failureResult = (message: string, error?: Error): ExecutionResult => ({
+  result: message,
+  error,
+  errored: true,
+})
+
+const successResult = (result: string): ExecutionResult => ({
+  result,
+  errored: false,
+})
 
 export class Interpreter extends AbstractInterpreter {
   constructor(evaluation: Evaluation) { super(evaluation) }
@@ -78,6 +98,62 @@ export class Interpreter extends AbstractInterpreter {
     let next = execution.next()
     while(!next.done) next = execution.next()
     return next.value as InterpreterResult<this, T>
+  }
+
+}
+
+export function showInnerValue(interpreter: Interpreter, obj: RuntimeObject): string {
+  if (obj!.innerValue === null) return 'null'
+  return typeof obj.innerValue === 'string'
+    ? `"${obj.innerValue}"`
+    : interpreter.send(TO_STRING_METHOD, obj)!.innerString!
+}
+
+export function interprete(interpreter: Interpreter, line: string): ExecutionResult {
+  try {
+    const sentenceOrImport = parse.Import.or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
+    const error = [sentenceOrImport, ...sentenceOrImport.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
+    if (error) throw error
+
+    if (sentenceOrImport.is(Sentence)) {
+      const environment = interpreter.evaluation.environment
+      linkSentenceInNode(sentenceOrImport, environment.replNode())
+      const unlinkedNode = [sentenceOrImport, ...sentenceOrImport.descendants].find(_ => _.is(Reference) && !_.target)
+
+      if (unlinkedNode) {
+        if (unlinkedNode.is(Reference)) {
+          if (!interpreter.evaluation.currentFrame.get(unlinkedNode.name))
+            return failureResult(`Unknown reference ${unlinkedNode.name}`)
+        } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
+      }
+
+      const result = interpreter.exec(sentenceOrImport)
+      const stringResult = result
+        ? showInnerValue(interpreter, result)
+        : ''
+      return successResult(stringResult)
+    }
+
+    if (sentenceOrImport.is(Import)) {
+      const environment = interpreter.evaluation.environment
+      if (!environment.getNodeOrUndefinedByFQN(sentenceOrImport.entity.name)) {
+        throw new Error(
+          `Unknown reference ${sentenceOrImport.entity.name}`
+        )
+      }
+
+      environment.newImportFor(sentenceOrImport)
+      return successResult('')
+    }
+
+    return successResult('')
+  } catch (error: any) {
+    return (
+      error.type === 'ParsimmonError' ? failureResult(`Syntax error:\n${error.message.split('\n').filter(notEmpty).slice(1).join('\n')}`) :
+      error instanceof WollokException ? failureResult('Evaluation Error!', error) :
+      error instanceof parse.ParseError ? failureResult(`Syntax Error at offset ${error.sourceMap.start.offset}: ${line.slice(error.sourceMap.start.offset, error.sourceMap.end.offset)}`) :
+      failureResult('Uh-oh... Unexpected TypeScript Error!', error)
+    )
   }
 }
 

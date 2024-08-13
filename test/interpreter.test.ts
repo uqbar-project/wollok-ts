@@ -1,10 +1,11 @@
 import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { EXCEPTION_MODULE, Evaluation } from '../src'
-import { DirectedInterpreter, Interpreter } from '../src/interpreter/interpreter'
+import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives } from '../src'
+import { DirectedInterpreter, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
+import { WREEnvironment } from './utils'
 
 
 use(sinonChai)
@@ -129,6 +130,83 @@ describe('Wollok Interpreter', () => {
       Evaluation.build(environment, {})
     })
 
+  })
+
+  describe('interpret API function', () => {
+
+    describe('expressions', () => {
+      let interpreter: Interpreter
+
+      const checkSuccessfulResult = (expression: string, expectedResult: string) => {
+        const { result, errored, error } = interprete(interpreter, expression)
+        error?.message.should.be.equal('')
+        result.should.be.equal(expectedResult)
+        errored.should.be.false
+      }
+  
+      const checkFailedResult = (expression: string, errorMessageContains: string) => {
+        const { result, errored } = interprete(interpreter, expression)
+        result.should.contains(errorMessageContains)
+        errored.should.be.true
+      }
+
+      beforeEach(() => {
+        const replPackage = new Package({ name: REPL })
+        const environment = link([replPackage], WREEnvironment)
+        interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
+      })
+
+      it('value expressions', () => {
+        checkSuccessfulResult('1 + 2', '3')
+      })
+
+      it('void expressions', () => {
+        checkSuccessfulResult('[].add(1)', '')
+      })
+
+      it('import sentences', () => {
+        checkSuccessfulResult('import wollok.game.*', '')
+      })
+
+      it('const sentences', () => {
+        checkSuccessfulResult('const a = 1', '')
+        checkSuccessfulResult('a', '1')
+      })
+
+      it('var sentences', () => {
+        checkSuccessfulResult('var a = 1', '')
+        checkSuccessfulResult('a = 2', '')
+        checkSuccessfulResult('a', '2')
+      })
+
+      it('block without parameters', () => {
+        checkSuccessfulResult('{ 1 }.apply()', '1')
+      })
+
+      it('block with parameters', () => {
+        checkSuccessfulResult('{ x => x + 1 }.apply(1)', '2')
+      })
+
+      it('not parsing strings', () => {
+        checkFailedResult('3kd3id9', 'Syntax error')
+      })
+
+      it('failure expressions', () => {
+        checkFailedResult('fakeReference', `Unknown reference ${'fakeReference'}`)
+      })
+
+      it('const assignment', () => {
+        interprete(interpreter, 'const a = 1')
+        checkFailedResult('a = 2', 'Evaluation Error!')
+      })
+
+      // TODO: Change the Runtime model
+      xit('const const', () => {
+        interprete(interpreter, 'const a = 1')
+        checkFailedResult('const a = 2', 'Evaluation Error!')
+      })
+
+    })
   })
 
   describe('DirectedInterpreter', () => {

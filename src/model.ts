@@ -1,4 +1,4 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, STRING_MODULE, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, REPL, STRING_MODULE, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { GLOBAL_PACKAGES } from './linker'
@@ -941,10 +941,26 @@ export class Environment extends Node {
     if (!node) throw new Error(`Could not resolve reference to ${fullyQualifiedName}`)
     return node
   }
+
   get objectClass(): Class { return this.getNodeByFQN(OBJECT_MODULE) }
   get numberClass(): Class { return this.getNodeByFQN(NUMBER_MODULE) }
   get stringClass(): Class { return this.getNodeByFQN(STRING_MODULE) }
   get booleanClass(): Class { return this.getNodeByFQN(BOOLEAN_MODULE) }
+
+  newImportFor(importNode: Import): void {
+    const node = this.replNode()
+    const imported = node.scope.resolve<Package | Entity>(importNode.entity.name)!
+    if (imported.is(Package)) {
+      node.scope.include(imported.scope)
+      return
+    }
+    node.scope.register([imported.name!, imported])
+  }
+
+  replNode(): Package {
+    return this.getNodeByFQN<Package>(REPL)
+  }
+
 }
 
 export type CodeContainer = Method | Test
