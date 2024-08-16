@@ -7,7 +7,6 @@ import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { WREEnvironment } from './utils'
 
-
 use(sinonChai)
 should()
 
@@ -133,28 +132,28 @@ describe('Wollok Interpreter', () => {
   })
 
   describe('interpret API function', () => {
+    let interpreter: Interpreter
+
+    const checkSuccessfulResult = (expression: string, expectedResult: string) => {
+      const { result, errored, error } = interprete(interpreter, expression)
+      error?.message.should.be.equal('')
+      result.should.be.equal(expectedResult)
+      errored.should.be.false
+    }
+
+    const checkFailedResult = (expression: string, errorMessageContains: string) => {
+      const { result, errored } = interprete(interpreter, expression)
+      result.should.contains(errorMessageContains)
+      errored.should.be.true
+    }
+
+    beforeEach(() => {
+      const replPackage = new Package({ name: REPL })
+      const environment = link([replPackage], WREEnvironment)
+      interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
+    })
 
     describe('expressions', () => {
-      let interpreter: Interpreter
-
-      const checkSuccessfulResult = (expression: string, expectedResult: string) => {
-        const { result, errored, error } = interprete(interpreter, expression)
-        error?.message.should.be.equal('')
-        result.should.be.equal(expectedResult)
-        errored.should.be.false
-      }
-  
-      const checkFailedResult = (expression: string, errorMessageContains: string) => {
-        const { result, errored } = interprete(interpreter, expression)
-        result.should.contains(errorMessageContains)
-        errored.should.be.true
-      }
-
-      beforeEach(() => {
-        const replPackage = new Package({ name: REPL })
-        const environment = link([replPackage], WREEnvironment)
-        interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
-      })
 
       it('value expressions', () => {
         checkSuccessfulResult('1 + 2', '3')
@@ -207,6 +206,48 @@ describe('Wollok Interpreter', () => {
       })
 
     })
+
+    describe('should print result', () => {
+
+      it('for reference to wko', () => {
+        checkSuccessfulResult('assert', 'assert')
+      })
+
+      it('for reference to an instance', () => {
+        checkSuccessfulResult('new Object()', 'an Object')
+      })
+
+      it('for reference to a literal object', () => {
+        const { result, errored } = interprete(interpreter, 'object { } ')
+        result.should.include('an Object#')
+        errored.should.be.false
+      })
+
+      it('for number', () => {
+        checkSuccessfulResult('3', '3')
+      })
+
+      it('for string', () => {
+        checkSuccessfulResult('"hola"', '"hola"')
+      })
+
+      it('for boolean', () => {
+        checkSuccessfulResult('true', 'true')
+      })
+
+      it('for list', () => {
+        checkSuccessfulResult('[1, 2, 3]', '[1, 2, 3]')
+      })
+
+      it('for set', () => {
+        checkSuccessfulResult('#{1, 2, 3}', '#{1, 2, 3}')
+      })
+
+      it('for closure', () => {
+        checkSuccessfulResult('{1 + 2}', '{1 + 2}')
+      })
+    })
+
   })
 
   describe('DirectedInterpreter', () => {
