@@ -447,7 +447,7 @@ export const shouldInitializeConst = error<Variable>(node =>
 sourceMapForNodeName)
 
 export const shouldNotDuplicatePackageName = error<Package>(node =>
-  !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name)
+  !node.siblings().some(sibling => sibling.is(Package) && sibling.name == node.name && sibling.sourceFileName == node.sourceFileName)
 , valuesForNodeName,
 sourceMapForNodeName)
 
