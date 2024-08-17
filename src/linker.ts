@@ -150,12 +150,14 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   return environment
 }
 
-export function linkSentenceInNode<S extends Sentence>(newSentence: S, parentNode: Node): void {
-  const { scope } = parentNode
+export function linkSentenceInNode<S extends Sentence>(newSentence: S, context: Node): void {
+  const { scope, environment } = context
+  // Register top contributions into context's scope
   scope.register(...scopeContribution(newSentence))
-  newSentence.reduce((parentScope: Scope, node: Node) => {
+  // Create scopes for sub-nodes and link nodes (chain)
+  newSentence.reduce((parentScope: Scope, node: Node, parent?: Node) => {
     const localScope = new LocalScope(parentScope, ...scopeContribution(node))
-    Object.assign(node, { scope: localScope, environment: parentNode.environment })
+    Object.assign(node, { id: uuid(), scope: localScope, environment, parent: parent ?? context })
     return localScope
   }, scope)
 }
