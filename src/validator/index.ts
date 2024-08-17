@@ -145,6 +145,11 @@ export const shouldUseSelfAndNotSingletonReference = warning<Reference<Node>>(no
   return !target || !target.is(Singleton) || !node.ancestors.includes(target)
 })
 
+export const shouldReferenceToObjects = error<Reference<Node>>(node => {
+  const target = node.target
+  return !target || !target.is(Package) || node.parent.is(Import)
+})
+
 export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.every(parent => {
   const target = parent.reference.target
   return !target || target.is(Mixin)
@@ -531,7 +536,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
-  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference })),
+  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
