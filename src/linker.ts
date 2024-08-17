@@ -108,11 +108,13 @@ export const assignScopes = (environment: Environment): void => {
     if (node.is(Package)) {
       for (const importNode of node.imports) {
         const entity = importNode.scope.resolve<Entity>(importNode.entity.name)
+        if (!entity) break
 
-        if (entity) node.scope.include(importNode.isGeneric
-          ? new LocalScope(undefined, ...entity.scope.localContributions())
-          : new LocalScope(undefined, [entity.name!, entity])
-        )
+        const contributions: [string, Node][] = importNode.isGeneric
+          ? entity.is(Package) && entity.isImportable ? entity.scope.localContributions() : []
+          : [[entity.name!, entity]]
+
+        node.scope.include(new LocalScope(undefined, ...contributions))
       }
     }
 
