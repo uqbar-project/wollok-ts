@@ -1,11 +1,11 @@
 import { expect, should, use } from 'chai'
+import { GAME_MODULE, OBJECT_MODULE } from '../src'
+import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable } from '../src/model'
-import { linkerAssertions } from './assertions'
-import { Evaluation, GAME_MODULE, Interpreter, OBJECT_MODULE, WRENatives } from '../src'
 import * as parse from '../src/parser'
-import { WREEnvironment, environmentWithEntities } from './utils'
-import { getPotentiallyUninitializedLazy } from '../src/decorators'
+import { linkerAssertions } from './assertions'
+import { environmentWithEntities, WREEnvironment } from './utils'
 
 should()
 use(linkerAssertions)

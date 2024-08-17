@@ -60,7 +60,7 @@ export class LocalScope implements Scope {
       ? this.contributions.get(start)
       : this.includedScopes.reduce((found, included) =>
         found ?? included.resolve(start, false)
-        , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
+      , this.contributions.get(start)) ?? this.containerScope?.resolve(start, allowLookup)
 
     return rest.length ? step?.scope?.resolve<N>(rest, false) : step as N
   }
