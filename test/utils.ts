@@ -83,13 +83,11 @@ export const validateExpectationProblem = (expectedProblem: Annotation, nodeProb
   return effectiveProblem
 }
 
-export function environmentWithEntities(...fqns: string[]): Environment {
-  return fqns.reduce((env, fqn) => link([newPackageWith(WREEnvironment, fqn)], env), link([]))
-}
+export const environmentWithEntities = (...fqns: string[]): Environment =>
+  fqns.reduce((env, fqn) => link([newPackageWith(WREEnvironment, fqn)], env), link([]))
 
 
-function newPackageWith(env: Environment, fullFQN: string) {
-
+const newPackageWith = (env: Environment, fullFQN: string): Package => {
   const buildNewPackages = (_fqn: string): Package => {
     const [start, rest] = divideOn('.')(_fqn)
 
@@ -97,7 +95,6 @@ function newPackageWith(env: Environment, fullFQN: string) {
       ? new Package({ name: start, members: [buildNewPackages(rest)] })
       : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
   }
-
   return buildNewPackages(fullFQN)
 }
 
