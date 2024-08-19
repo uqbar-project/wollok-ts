@@ -271,6 +271,42 @@ describe('Dynamic diagram', () => {
 
     })
 
+    it('should include imported definitions', () => {
+      const replEnvironment = buildEnvironment([{
+        name: 'entrenador', content: `
+        class Entrenador {
+        }
+        `,
+      }, {
+        name: REPL, content: `
+        import entrenador.*
+
+        class Ave {
+          var property entrenador = new Entrenador()
+          override method tieneEnergia() = true
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      interprete(interpreter, 'const pepita = new Ave()')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'pepita',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Ave',
+        referenceLabel: 'entrenador',
+        targetLabel: 'Entrenador',
+        targetType: 'object',
+        targetModule: 'entrenador.Entrenador',
+      })
+
+    })
+
   })
 
 })
