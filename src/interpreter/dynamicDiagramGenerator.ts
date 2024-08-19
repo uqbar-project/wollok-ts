@@ -49,7 +49,7 @@ export const getDataDiagram = (interpreter: Interpreter, rootFQN?: Package): Dyn
 
 const getEntitiesImportedFromConsole = (interpreter: Interpreter, rootFQN?: Package): Entity[] => {
   const environment = interpreter.evaluation.environment
-  return (environment.replNode() ?? rootFQN!).allScopedEntities()
+  return (rootFQN ?? environment.replNode()).allScopedEntities()
 }
 
 const getCurrentObjects = (interpreter: Interpreter): Map<string, RuntimeValue> => {

@@ -1,25 +1,13 @@
 import { expect } from 'chai'
-import { Evaluation, getDataDiagram, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
+import { buildEnvironment, Evaluation, Field, getDataDiagram, Literal, NUMBER_MODULE, Package, REPL, Singleton, STRING_MODULE, WRENatives } from '../src'
+import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagramGenerator'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
 import { WREEnvironment } from './utils'
-import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagramGenerator'
-
-// const projectPath = join('examples', 'diagram-examples')
-// const simpleFile = join(projectPath, 'fish.wlk')
-// const fileWithImports = join(projectPath, 'using-imports', 'base.wlk')
 
 describe('Dynamic diagram', () => {
-  // const options = {
-  //   project: projectPath,
-  //   skipValidations: true,
-  //   port: '8080',
-  //   host: 'localhost',
-  //   darkMode: true,
-  //   skipDiagram: false,
-  // }
-  let interpreter: Interpreter
 
+  let interpreter: Interpreter
 
   describe('Basic repl expressions', () => {
 
@@ -53,8 +41,107 @@ describe('Dynamic diagram', () => {
       })
     })
 
+    it('should include unnamed singleton', () => {
+      interprete(interpreter, `
+        const a = object {
+          var energy = 100
+        }`)
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'a',
+        targetLabel: 'Object',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Object#unnamed',
+      })
+    })
+
+    it('should include several references', () => {
+      interprete(interpreter, `
+        const a = object {
+          var energy = 100
+          var anotherEnergy = 100
+        }`)
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: 'Object',
+        referenceLabel: 'energy, anotherEnergy',
+        targetLabel: '100',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Number',
+      })
+    })
+
+    it('should include lists', () => {
+      interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true]')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'a',
+        targetLabel: 'List',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.List',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'List',
+        referenceLabel: '0',
+        targetLabel: '1/1/2018',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Date',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'List',
+        referenceLabel: '1',
+        targetLabel: 'true',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Boolean',
+      })
+    })
+
+    it('should mark constants reference', () => {
+      interprete(interpreter, 'const a = true')
+      const elements = getDataDiagram(interpreter)
+      const reference = elements.find((element) => element.label === 'a') as DynamicDiagramReference
+      expect(reference.constant).to.be.true
+    })
+
+    it('should mark variable reference', () => {
+      interprete(interpreter, 'var a = true')
+      const elements = getDataDiagram(interpreter)
+      const reference = elements.find((element) => element.label === 'a') as DynamicDiagramReference
+      expect(reference.constant).to.be.false
+    })
+
   })
 
+  describe('Using file expressions', () => {
+
+    let replPackage: Package
+
+    beforeEach(async () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `object pepita {
+          var energia = 100
+          method capacidad() = energia * 20
+        }`,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+    })
+
+    it('should include wko', () => {
+      interprete(interpreter, 'pepita.energia()')
+      const elements = getDataDiagram(interpreter, replPackage)
+      checkConnection(elements, {
+        sourceLabel: 'pepita',
+        referenceLabel: 'energia',
+        targetLabel: '100',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Number',
+      })
+    })
+
+
+  })
 })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
