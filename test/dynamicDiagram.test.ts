@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { buildEnvironment, Evaluation, Field, getDataDiagram, Literal, NUMBER_MODULE, Package, REPL, Singleton, STRING_MODULE, WRENatives } from '../src'
+import { buildEnvironment, Evaluation, getDataDiagram, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagramGenerator'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
@@ -72,6 +72,32 @@ describe('Dynamic diagram', () => {
       })
     })
 
+    it('should include sets', () => {
+      interprete(interpreter, 'const a = #{ { 2.even() }, 2..3}')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'a',
+        targetLabel: 'Set',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Set',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Set',
+        referenceLabel: '',
+        targetLabel: '{ 2.even() }',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Closure#unnamed',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Set',
+        referenceLabel: '',
+        targetLabel: '2..3',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Range',
+      })
+    })
+
     it('should include lists', () => {
       interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true]')
       const elements = getDataDiagram(interpreter)
@@ -98,6 +124,19 @@ describe('Dynamic diagram', () => {
       })
     })
 
+    it('should include dictionaries', () => {
+      interprete(interpreter, 'const a = new Dictionary()')
+      interprete(interpreter, 'a.put("key", "pepita")')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'a',
+        targetLabel: 'a Dictionary ["key" -> "pepita"]',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Dictionary',
+      })
+    })
+
     it('should mark constants reference', () => {
       interprete(interpreter, 'const a = true')
       const elements = getDataDiagram(interpreter)
@@ -116,9 +155,7 @@ describe('Dynamic diagram', () => {
 
   describe('Using file expressions', () => {
 
-    let replPackage: Package
-
-    beforeEach(async () => {
+    it('should include wko', () => {
       const replEnvironment = buildEnvironment([{
         name: REPL, content: `object pepita {
           var energia = 100
@@ -126,11 +163,7 @@ describe('Dynamic diagram', () => {
         }`,
       }])
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-    })
-
-    it('should include wko', () => {
-      interprete(interpreter, 'pepita.energia()')
-      const elements = getDataDiagram(interpreter, replPackage)
+      const elements = getDataDiagram(interpreter)
       checkConnection(elements, {
         sourceLabel: 'pepita',
         referenceLabel: 'energia',
@@ -140,8 +173,106 @@ describe('Dynamic diagram', () => {
       })
     })
 
+    it('should include class', () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `class Ave {
+          var energia = 100
+          method tieneEnergia() = energia > 0
+        }`,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      interprete(interpreter, 'const pepita = new Ave()')
+      interprete(interpreter, 'pepita.energia()')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'pepita',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Ave',
+        referenceLabel: 'energia',
+        targetLabel: '100',
+        targetType: 'literal',
+        targetModule: 'wollok.lang.Number',
+      })
+    })
+
+    it('should include bidirectional relationships', () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `
+        class Ave {
+          var property amigue = null
+          method tieneEnergia() = energia > 0
+        }
+        
+        object pepita inherits Ave {
+          override method tieneEnergia() = true
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      interprete(interpreter, 'const pepona = new Ave(amigue = pepita)')
+      interprete(interpreter, 'pepita.amigue(pepona)')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'pepona',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Ave',
+        referenceLabel: 'amigue',
+        targetLabel: 'pepita',
+        targetType: 'object',
+        targetModule: 'REPL.pepita',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'pepita',
+        referenceLabel: 'amigue',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+
+    })
+
+    it('should include recursive relationships', () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `
+        class Ave {
+          var property amigue = null
+          override method tieneEnergia() = true
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      interprete(interpreter, 'const pepita = new Ave()')
+      interprete(interpreter, 'pepita.amigue(pepita)')
+      const elements = getDataDiagram(interpreter)
+      checkConnection(elements, {
+        sourceLabel: REPL,
+        referenceLabel: 'pepita',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+      checkConnection(elements, {
+        sourceLabel: 'Ave',
+        referenceLabel: 'amigue',
+        targetLabel: 'Ave',
+        targetType: 'object',
+        targetModule: 'REPL.Ave',
+      })
+
+    })
 
   })
+
 })
 
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
