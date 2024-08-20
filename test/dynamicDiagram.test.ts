@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { buildEnvironment, Evaluation, getDataDiagram, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
+import { buildEnvironment, Evaluation, getDynamicDiagramData, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagramGenerator'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
@@ -19,7 +19,7 @@ describe('Dynamic diagram', () => {
 
     it('should include numbers', () => {
       interprete(interpreter, 'const a = 2')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -31,7 +31,7 @@ describe('Dynamic diagram', () => {
 
     it('should include strings', () => {
       interprete(interpreter, 'const a = "pepita"')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -46,7 +46,7 @@ describe('Dynamic diagram', () => {
         const a = object {
           var energy = 100
         }`)
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -62,7 +62,7 @@ describe('Dynamic diagram', () => {
           var energy = 100
           var anotherEnergy = 100
         }`)
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: 'Object',
         referenceLabel: 'energy, anotherEnergy',
@@ -74,7 +74,7 @@ describe('Dynamic diagram', () => {
 
     it('should include sets', () => {
       interprete(interpreter, 'const a = #{ { 2.even() }, 2..3}')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -100,7 +100,7 @@ describe('Dynamic diagram', () => {
 
     it('should include lists', () => {
       interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true]')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -127,7 +127,7 @@ describe('Dynamic diagram', () => {
     it('should include dictionaries', () => {
       interprete(interpreter, 'const a = new Dictionary()')
       interprete(interpreter, 'a.put("key", "pepita")')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
@@ -139,14 +139,14 @@ describe('Dynamic diagram', () => {
 
     it('should mark constants reference', () => {
       interprete(interpreter, 'const a = true')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       const reference = elements.find((element) => element.label === 'a') as DynamicDiagramReference
       expect(reference.constant).to.be.true
     })
 
     it('should mark variable reference', () => {
       interprete(interpreter, 'var a = true')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       const reference = elements.find((element) => element.label === 'a') as DynamicDiagramReference
       expect(reference.constant).to.be.false
     })
@@ -163,7 +163,7 @@ describe('Dynamic diagram', () => {
         }`,
       }])
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: 'pepita',
         referenceLabel: 'energia',
@@ -183,7 +183,7 @@ describe('Dynamic diagram', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepita = new Ave()')
       interprete(interpreter, 'pepita.energia()')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'pepita',
@@ -216,7 +216,7 @@ describe('Dynamic diagram', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepona = new Ave(amigue = pepita)')
       interprete(interpreter, 'pepita.amigue(pepona)')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'pepona',
@@ -253,7 +253,7 @@ describe('Dynamic diagram', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepita = new Ave()')
       interprete(interpreter, 'pepita.amigue(pepita)')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'pepita',
@@ -289,7 +289,7 @@ describe('Dynamic diagram', () => {
       }])
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepita = new Ave()')
-      const elements = getDataDiagram(interpreter)
+      const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'pepita',

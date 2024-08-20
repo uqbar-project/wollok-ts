@@ -29,7 +29,7 @@ export interface DynamicDiagramReference extends DynamicDiagramElement {
   targetModule: string | undefined
 }
 
-export const getDataDiagram = (interpreter: Interpreter, rootFQN?: Package): DynamicDiagramElement[] => {
+export const getDynamicDiagramData = (interpreter: Interpreter, rootFQN?: Package): DynamicDiagramElement[] => {
   const entitiesImportedFromConsole = getEntitiesImportedFromConsole(interpreter, rootFQN)
   const objects = getCurrentObjects(interpreter)
 
