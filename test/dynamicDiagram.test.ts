@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { buildEnvironment, Evaluation, getDynamicDiagramData, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
+import { BOOLEAN_MODULE, buildEnvironment, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, Evaluation, getDynamicDiagramData, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, Package, RANGE_MODULE, REPL, SET_MODULE, STRING_MODULE, WRENatives } from '../src'
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagram'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
@@ -52,7 +52,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'a',
         targetLabel: 'Object',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Object#anonymous',
+        targetModule: `${OBJECT_MODULE}#anonymous`,
       })
     })
 
@@ -68,7 +68,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energy, anotherEnergy',
         targetLabel: '100',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Number',
+        targetModule: NUMBER_MODULE,
       })
     })
 
@@ -80,47 +80,54 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'a',
         targetLabel: 'Set',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Set',
+        targetModule: SET_MODULE,
       })
       checkConnection(elements, {
         sourceLabel: 'Set',
         referenceLabel: '',
         targetLabel: '{ 2.even() }',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Closure#anonymous',
+        targetModule: `${CLOSURE_MODULE}#anonymous`,
       })
       checkConnection(elements, {
         sourceLabel: 'Set',
         referenceLabel: '',
         targetLabel: '2..3',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Range',
+        targetModule: RANGE_MODULE,
       })
     })
 
     it('should include lists', () => {
-      interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true]')
+      interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true, null]')
       const elements = getDynamicDiagramData(interpreter)
       checkConnection(elements, {
         sourceLabel: REPL,
         referenceLabel: 'a',
         targetLabel: 'List',
         targetType: 'literal',
-        targetModule: 'wollok.lang.List',
+        targetModule: LIST_MODULE,
       })
       checkConnection(elements, {
         sourceLabel: 'List',
         referenceLabel: '0',
         targetLabel: '1/1/2018',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Date',
+        targetModule: DATE_MODULE,
       })
       checkConnection(elements, {
         sourceLabel: 'List',
         referenceLabel: '1',
         targetLabel: 'true',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Boolean',
+        targetModule: BOOLEAN_MODULE,
+      })
+      checkConnection(elements, {
+        sourceLabel: 'List',
+        referenceLabel: '2',
+        targetLabel: 'null',
+        targetType: 'null',
+        targetModule: OBJECT_MODULE,
       })
     })
 
@@ -133,7 +140,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'a',
         targetLabel: 'a Dictionary ["key" -> "pepita"]',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Dictionary',
+        targetModule: DICTIONARY_MODULE,
       })
     })
 
@@ -169,7 +176,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energia',
         targetLabel: '100',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Number',
+        targetModule: NUMBER_MODULE,
       })
     })
 
@@ -196,7 +203,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energia',
         targetLabel: '100',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Number',
+        targetModule: NUMBER_MODULE,
       })
     })
 
