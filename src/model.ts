@@ -292,7 +292,7 @@ export function Entity<S extends Mixable<Node>>(supertype: S) {
     get fullyQualifiedName(): Name {
       const parent = getPotentiallyUninitializedLazy(this, 'parent')
       const label = this.is(Singleton)
-        ? this.name ?? `${this.superclass!.fullyQualifiedName}#${this.id ?? 'unnamed'}`
+        ? this.name ?? `${this.superclass!.fullyQualifiedName}#${this.id ?? 'anonymous'}`
         : this.name!.replace(/\.#/g, '')
 
       return parent?.is(Package) || parent?.is(Describe)

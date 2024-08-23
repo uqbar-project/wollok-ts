@@ -1,4 +1,4 @@
-import { CLOSURE_EVALUATE_METHOD, KEYWORDS } from './../constants'
+import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, KEYWORDS, PAIR_MODULE, RANGE_MODULE, TO_STRING_METHOD } from '../constants'
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { getPotentiallyUninitializedLazy } from '../decorators'
@@ -239,6 +239,31 @@ export class RuntimeObject extends Context {
 
   isConstant(localName: string): boolean {
     return this.module.lookupField(localName)?.isConstant ?? false // TODO: instead of false we should throw an error
+  }
+
+  getLabel(interpreter: Interpreter): string {
+    if (this.innerValue === null) return 'null'
+    const moduleName = this.module.fullyQualifiedName
+    if (this.shouldShortenRepresentation()) {
+      return interpreter.send(TO_STRING_METHOD, this)?.showInnerValue() ?? ''
+    }
+    if (moduleName === STRING_MODULE) return `"${this.showInnerValue()}"`
+    if (this.shouldShowInnerValue()) return this.showInnerValue()
+    return this.module.name ?? 'Object'
+  }
+
+  shouldShortenRepresentation(): boolean {
+    const moduleName = this.module.fullyQualifiedName
+    return [DATE_MODULE, PAIR_MODULE, RANGE_MODULE, DICTIONARY_MODULE].includes(moduleName) || moduleName.startsWith(CLOSURE_MODULE)
+  }
+
+  shouldShowInnerValue(): boolean {
+    const moduleName = this.module.fullyQualifiedName
+    return [STRING_MODULE, NUMBER_MODULE, BOOLEAN_MODULE].includes(moduleName)
+  }
+
+  showInnerValue(): string {
+    return this.innerValue?.toString().trim() ?? ''
   }
 
 }

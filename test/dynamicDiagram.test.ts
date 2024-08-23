@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 import { buildEnvironment, Evaluation, getDynamicDiagramData, NUMBER_MODULE, Package, REPL, STRING_MODULE, WRENatives } from '../src'
-import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagramGenerator'
+import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagram'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
 import { WREEnvironment } from './utils'
@@ -41,7 +41,7 @@ describe('Dynamic diagram', () => {
       })
     })
 
-    it('should include unnamed singleton', () => {
+    it('should include anonymous singleton', () => {
       interprete(interpreter, `
         const a = object {
           var energy = 100
@@ -52,7 +52,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'a',
         targetLabel: 'Object',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Object#unnamed',
+        targetModule: 'wollok.lang.Object#anonymous',
       })
     })
 
@@ -87,7 +87,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '',
         targetLabel: '{ 2.even() }',
         targetType: 'literal',
-        targetModule: 'wollok.lang.Closure#unnamed',
+        targetModule: 'wollok.lang.Closure#anonymous',
       })
       checkConnection(elements, {
         sourceLabel: 'Set',

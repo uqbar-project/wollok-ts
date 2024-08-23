@@ -1,8 +1,8 @@
-import { BOOLEAN_MODULE, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, KEYWORDS, LIST_MODULE, NUMBER_MODULE, PAIR_MODULE, RANGE_MODULE, REPL, STRING_MODULE, TO_STRING_METHOD, WOLLOK_BASE_PACKAGE } from '../constants'
+import { KEYWORDS, LIST_MODULE, REPL, WOLLOK_BASE_PACKAGE } from '../constants'
 import { uniqueBy } from '../extensions'
 import { Entity, Package } from '../model'
 import { Interpreter } from './interpreter'
-import { InnerValue, RuntimeObject, RuntimeValue } from './runtimeModel'
+import { RuntimeObject, RuntimeValue } from './runtimeModel'
 
 export interface DynamicDiagramElement {
   id: string
@@ -97,7 +97,7 @@ function elementFromObject(object: RuntimeObject, interpreter: Interpreter, alre
   const { id, module } = object
   if (alreadyVisited.includes(id)) return []
   return concatOverlappedReferences([
-    buildNode(id, getLabel(object, interpreter), getType(object, module.fullyQualifiedName), module.fullyQualifiedName),
+    buildNode(id, object.getLabel(interpreter), getType(object, module.fullyQualifiedName), module.fullyQualifiedName),
     ...getInstanceVariables(object, interpreter, alreadyVisited),
     ...getCollections(object, interpreter, alreadyVisited),
   ])
@@ -137,32 +137,12 @@ const getType = (obj: RuntimeObject, moduleName: string): DynamicNodeType => {
   return moduleName.startsWith(WOLLOK_BASE_PACKAGE) ? DynamicNodeType.LITERAL : DynamicNodeType.OBJECT
 }
 
-const getLabel = (obj: RuntimeObject, interpreter: Interpreter): string => {
-  const { innerValue, module } = obj
-  if (innerValue === null) return 'null'
-  const moduleName = module.fullyQualifiedName
-  if (shouldShortenRepresentation(moduleName)) return showInnerValue(interpreter.send(TO_STRING_METHOD, obj)?.innerValue)
-  if (moduleName === STRING_MODULE) return `"${showInnerValue(innerValue)}"`
-  if (shouldShowInnerValue(moduleName)) return showInnerValue(innerValue)
-  return module.name ?? 'Object'
-}
+const shouldIterateChildren = (object: RuntimeObject): boolean =>
+  !object.shouldShortenRepresentation() && !object.shouldShowInnerValue()
 
-const shouldShortenRepresentation = (moduleName: string): boolean =>
-  [DATE_MODULE, PAIR_MODULE, RANGE_MODULE, DICTIONARY_MODULE].includes(moduleName) || moduleName.startsWith(CLOSURE_MODULE)
-
-const shouldShowInnerValue = (moduleName: string): boolean =>
-  [STRING_MODULE, NUMBER_MODULE, BOOLEAN_MODULE].includes(moduleName)
-
-const shouldIterateChildren = (moduleName: string): boolean =>
-  !shouldShortenRepresentation(moduleName) && !shouldShowInnerValue(moduleName)
-
-const showInnerValue = (innerValue: InnerValue | undefined): string => innerValue?.toString().trim() ?? ''
-
-const getLocalKeys = (obj: RuntimeObject): string[] => {
-  const { innerValue, module } = obj
-  if (innerValue === null) return []
-  const moduleName: string = module.fullyQualifiedName
-  return shouldIterateChildren(moduleName) ? [...obj.locals.keys()].filter(key => key !== KEYWORDS.SELF) : []
+const getLocalKeys = (object: RuntimeObject): string[] => {
+  if (object.innerValue === null) return []
+  return shouldIterateChildren(object) ? [...object.locals.keys()].filter(key => key !== KEYWORDS.SELF) : []
 }
 
 const getCollections = (object: RuntimeObject, interpreter: Interpreter, alreadyVisited: string[]) => {
