@@ -138,7 +138,7 @@ const getType = (obj: RuntimeObject, moduleName: string): DynamicNodeType => {
 }
 
 const shouldIterateChildren = (object: RuntimeObject): boolean =>
-  !object.shouldShortenRepresentation() && !object.shouldShowInnerValue()
+  !object.shouldShortenRepresentation() && !object.shouldShowShortValue()
 
 const getLocalKeys = (object: RuntimeObject): string[] => {
   if (object.innerValue === null) return []

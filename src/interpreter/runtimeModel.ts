@@ -243,13 +243,15 @@ export class RuntimeObject extends Context {
 
   getLabel(interpreter: Interpreter): string {
     if (this.innerValue === null) return 'null'
-    const moduleName = this.module.fullyQualifiedName
     if (this.shouldShortenRepresentation()) {
-      return interpreter.send(TO_STRING_METHOD, this)?.showInnerValue() ?? ''
+      return interpreter.send(TO_STRING_METHOD, this)?.getShortRepresentation() ?? ''
     }
-    if (moduleName === STRING_MODULE) return `"${this.showInnerValue()}"`
-    if (this.shouldShowInnerValue()) return this.showInnerValue()
+    if (this.shouldShowShortValue()) return this.showShortValue(interpreter)
     return this.module.name ?? 'Object'
+  }
+
+  getShortRepresentation(): string {
+    return this.innerValue?.toString().trim() ?? ''
   }
 
   shouldShortenRepresentation(): boolean {
@@ -257,13 +259,16 @@ export class RuntimeObject extends Context {
     return [DATE_MODULE, PAIR_MODULE, RANGE_MODULE, DICTIONARY_MODULE].includes(moduleName) || moduleName.startsWith(CLOSURE_MODULE)
   }
 
-  shouldShowInnerValue(): boolean {
+  shouldShowShortValue(): boolean {
     const moduleName = this.module.fullyQualifiedName
     return [STRING_MODULE, NUMBER_MODULE, BOOLEAN_MODULE].includes(moduleName)
   }
 
-  showInnerValue(): string {
-    return this.innerValue?.toString().trim() ?? ''
+  showShortValue(interpreter: Interpreter): string {
+    if (this.innerValue === null) return 'null'
+    return typeof this.innerValue === 'string'
+      ? `"${this.innerValue}"`
+      : interpreter.send(TO_STRING_METHOD, this)!.innerString!
   }
 
 }

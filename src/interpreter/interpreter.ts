@@ -1,4 +1,3 @@
-import { TO_STRING_METHOD } from '../constants'
 import { linkSentenceInNode } from '../linker'
 import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
 import WRENatives from '../wre/wre.natives'
@@ -102,14 +101,6 @@ export class Interpreter extends AbstractInterpreter {
 
 }
 
-// TODO: move to RuntimeObject
-export function showInnerValue(interpreter: Interpreter, obj: RuntimeObject): string {
-  if (obj!.innerValue === null) return 'null'
-  return typeof obj.innerValue === 'string'
-    ? `"${obj.innerValue}"`
-    : interpreter.send(TO_STRING_METHOD, obj)!.innerString!
-}
-
 export function interprete(interpreter: Interpreter, line: string): ExecutionResult {
   try {
     const sentenceOrImport = parse.Import.or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
@@ -130,7 +121,7 @@ export function interprete(interpreter: Interpreter, line: string): ExecutionRes
 
       const result = interpreter.exec(sentenceOrImport)
       const stringResult = result
-        ? showInnerValue(interpreter, result)
+        ? result.showShortValue(interpreter)
         : ''
       return successResult(stringResult)
     }
