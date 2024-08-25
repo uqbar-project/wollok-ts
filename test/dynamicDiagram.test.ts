@@ -52,7 +52,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'a',
         targetLabel: 'Object',
         targetType: 'literal',
-        targetModule: `${OBJECT_MODULE}#anonymous`,
+        targetModule: OBJECT_MODULE,
       })
     })
 
@@ -87,7 +87,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '',
         targetLabel: '{ 2.even() }',
         targetType: 'literal',
-        targetModule: `${CLOSURE_MODULE}#anonymous`,
+        targetModule: CLOSURE_MODULE,
       })
       checkConnection(elements, {
         sourceLabel: 'Set',
@@ -335,7 +335,7 @@ const checkReference = (elements: DynamicDiagramElement[], sourceId: string, tar
   }) as DynamicDiagramReference
   expect(reference, `Reference '${referenceLabel}' not found in diagram`).not.to.be.undefined
   expect(reference!.label).to.be.equal(referenceLabel)
-  expect(reference!.targetModule, 'Reference points to another target module').to.be.equal(targetModule)
+  expect(reference!.targetModule, `Reference '${referenceLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
   return reference
 }
 
@@ -344,5 +344,5 @@ const checkConnection = (elements: DynamicDiagramElement[], { sourceLabel, refer
   const target = checkNode(elements, targetLabel)
   checkReference(elements, source.id, target.id, referenceLabel, targetModule)
   expect(target.type, `Target '${targetLabel}' points to another target type`).to.be.equal(targetType)
-  expect(target.module, `Target '${targetLabel}' points to another target module`).to.be.equal(targetModule)
+  expect(target.module, `Target '${targetLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
 }

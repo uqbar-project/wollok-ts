@@ -102,6 +102,7 @@ export class Interpreter extends AbstractInterpreter {
 
 }
 
+// TODO: move to RuntimeObject
 export function showInnerValue(interpreter: Interpreter, obj: RuntimeObject): string {
   if (obj!.innerValue === null) return 'null'
   return typeof obj.innerValue === 'string'

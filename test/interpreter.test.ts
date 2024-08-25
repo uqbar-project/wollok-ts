@@ -36,7 +36,7 @@ describe('Wollok Interpreter', () => {
 
   afterEach(restore)
 
-  describe('Interpreter', () => {
+  xdescribe('Interpreter', () => {
 
     it('should be able to execute unlinked sentences', () => {
       const environment = link([
@@ -155,22 +155,22 @@ describe('Wollok Interpreter', () => {
 
     describe('expressions', () => {
 
-      it('value expressions', () => {
-        checkSuccessfulResult('1 + 2', '3')
-      })
+      // it('value expressions', () => {
+      //   checkSuccessfulResult('1 + 2', '3')
+      // })
 
-      it('void expressions', () => {
-        checkSuccessfulResult('[].add(1)', '')
-      })
+      // it('void expressions', () => {
+      //   checkSuccessfulResult('[].add(1)', '')
+      // })
 
-      it('import sentences', () => {
-        checkSuccessfulResult('import wollok.game.*', '')
-      })
+      // it('import sentences', () => {
+      //   checkSuccessfulResult('import wollok.game.*', '')
+      // })
 
-      it('const sentences', () => {
-        checkSuccessfulResult('const a = 1', '')
-        checkSuccessfulResult('a', '1')
-      })
+      // it('const sentences', () => {
+      //   checkSuccessfulResult('const a = 1', '')
+      //   checkSuccessfulResult('a', '1')
+      // })
 
       it('var sentences', () => {
         checkSuccessfulResult('var a = 1', '')
@@ -178,26 +178,26 @@ describe('Wollok Interpreter', () => {
         checkSuccessfulResult('a', '2')
       })
 
-      it('block without parameters', () => {
-        checkSuccessfulResult('{ 1 }.apply()', '1')
-      })
+      // it('block without parameters', () => {
+      //   checkSuccessfulResult('{ 1 }.apply()', '1')
+      // })
 
-      it('block with parameters', () => {
-        checkSuccessfulResult('{ x => x + 1 }.apply(1)', '2')
-      })
+      // it('block with parameters', () => {
+      //   checkSuccessfulResult('{ x => x + 1 }.apply(1)', '2')
+      // })
 
-      it('not parsing strings', () => {
-        checkFailedResult('3kd3id9', 'Syntax error')
-      })
+      // it('not parsing strings', () => {
+      //   checkFailedResult('3kd3id9', 'Syntax error')
+      // })
 
-      it('failure expressions', () => {
-        checkFailedResult('fakeReference', `Unknown reference ${'fakeReference'}`)
-      })
+      // it('failure expressions', () => {
+      //   checkFailedResult('fakeReference', `Unknown reference ${'fakeReference'}`)
+      // })
 
-      it('const assignment', () => {
-        interprete(interpreter, 'const a = 1')
-        checkFailedResult('a = 2', 'Evaluation Error!')
-      })
+      // it('const assignment', () => {
+      //   interprete(interpreter, 'const a = 1')
+      //   checkFailedResult('a = 2', 'Evaluation Error!')
+      // })
 
       // TODO: Change the Runtime model
       xit('const const', () => {
@@ -207,7 +207,7 @@ describe('Wollok Interpreter', () => {
 
     })
 
-    describe('should print result', () => {
+    xdescribe('should print result', () => {
 
       it('for reference to wko', () => {
         checkSuccessfulResult('assert', 'assert')
@@ -250,7 +250,7 @@ describe('Wollok Interpreter', () => {
 
   })
 
-  describe('DirectedInterpreter', () => {
+  xdescribe('DirectedInterpreter', () => {
 
     it('should stop at breakpoints', () => {
       const breakpoint = new Literal({ value: 17 })

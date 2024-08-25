@@ -157,7 +157,7 @@ export function linkSentenceInNode<S extends Sentence>(newSentence: S, context: 
   // Create scopes for sub-nodes and link nodes (chain)
   newSentence.reduce((parentScope: Scope, node: Node, parent?: Node) => {
     const localScope = new LocalScope(parentScope, ...scopeContribution(node))
-    Object.assign(node, { id: uuid(), scope: localScope, environment, parent: parent ?? context })
+    Object.assign(node, { id: uuid(), scope: localScope, environment, parent })
     return localScope
   }, scope)
 }
