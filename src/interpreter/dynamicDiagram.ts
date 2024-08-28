@@ -3,6 +3,7 @@ import { uniqueBy } from '../extensions'
 import { Entity, Package } from '../model'
 import { Interpreter } from './interpreter'
 import { RuntimeObject, RuntimeValue } from './runtimeModel'
+import { v4 as uuid } from 'uuid'
 
 export interface DynamicDiagramElement {
   id: string
@@ -89,7 +90,7 @@ const buildReplElement = (object: RuntimeObject, name: string) => {
   const replId = `source_${REPL}_${object.id}`
   return [
     buildNode(replId, REPL, DynamicNodeType.REPL),
-    buildReference(`${REPL}_${Math.random() * 100000000}`, name, object.module.environment.replNode().isConstant(name), replId, object),
+    buildReference(uuid(), name, object.module.environment.replNode().isConstant(name), replId, object),
   ]
 }
 
