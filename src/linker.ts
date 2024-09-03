@@ -108,7 +108,7 @@ export const assignScopes = (environment: Environment): void => {
     if (node.is(Package)) {
       for (const importNode of node.imports) {
         const entity = importNode.scope.resolve<Entity>(importNode.entity.name)
-        if (!entity) break
+        if (!entity) break // If there is no entity with the name the validator will create the problem
 
         const contributions: [string, Node][] = importNode.isGeneric
           ? entity.is(Package) && entity.isImportable ? entity.scope.localContributions() : []
