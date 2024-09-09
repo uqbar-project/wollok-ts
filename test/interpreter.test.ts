@@ -141,10 +141,11 @@ describe('Wollok Interpreter', () => {
       errored.should.be.false
     }
 
-    const checkFailedResult = (expression: string, errorMessageContains: string) => {
-      const { result, errored } = interprete(interpreter, expression)
-      result.should.contains(errorMessageContains)
+    const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string) => {
+      const { result, errored, error } = interprete(interpreter, expression)
       errored.should.be.true
+      result.should.contains(errorMessageContains)
+      stackContains && error?.message?.should.contains(stackContains)
     }
 
     beforeEach(() => {
@@ -173,9 +174,9 @@ describe('Wollok Interpreter', () => {
       })
 
       it('var sentences', () => {
-        checkSuccessfulResult('var a = 1', '')
-        checkSuccessfulResult('a = 2', '')
-        checkSuccessfulResult('a', '2')
+        checkSuccessfulResult('var numerete = 1', '')
+        checkSuccessfulResult('numerete = 2', '')
+        checkSuccessfulResult('numerete', '2')
       })
 
       it('block without parameters', () => {
@@ -195,8 +196,17 @@ describe('Wollok Interpreter', () => {
       })
 
       it('const assignment', () => {
-        interprete(interpreter, 'const a = 1')
-        checkFailedResult('a = 2', 'Evaluation Error!')
+        interprete(interpreter, 'const recontraconstante = 1')
+        checkFailedResult('recontraconstante = 2', 'Evaluation Error!')
+      })
+
+      it('sending an invalid message should fail normally', () => {
+        interprete(interpreter, 'const numeric = 1')
+        checkFailedResult('numeric.coso()', 'Evaluation Error!', '1 does not understand coso')
+      })
+
+      it('sending an invalid message inside a closure should fail normally', () => {
+        checkFailedResult('[1, 2, 3].map({ number => number.coso() })', 'Evaluation Error!', '1 does not understand coso')
       })
 
       // TODO: Change the Runtime model
