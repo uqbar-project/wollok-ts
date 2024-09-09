@@ -1,11 +1,9 @@
-import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, KEYWORDS, PAIR_MODULE, RANGE_MODULE, TO_STRING_METHOD } from '../constants'
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { getPotentiallyUninitializedLazy } from '../decorators'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
+import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
-import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment } from '../helpers'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -465,11 +463,7 @@ export class Evaluation {
 
     yield node
 
-    const name = getPotentiallyUninitializedLazy(node, 'parent')?.is(Package)
-      ? node.fullyQualifiedName
-      : node.name
-
-    this.currentFrame.set(name, value)
+    this.currentFrame.set(targetName(node, node.name), value)
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {
@@ -480,12 +474,8 @@ export class Evaluation {
     if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
 
     const target = node.variable.target
-    const name = target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
-      ? target.fullyQualifiedName
-      : node.variable.name
 
-
-    this.currentFrame.set(name, value, true)
+    this.currentFrame.set(targetName(target, node.variable.name), value, true)
   }
 
   protected *execReturn(node: Return): Execution<RuntimeValue> {
@@ -504,11 +494,7 @@ export class Evaluation {
       raise(new Error(`Error initializing field ${target.name}: stack overflow`))
     }
 
-    return this.currentFrame.get(
-      target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
-        ? target.fullyQualifiedName
-        : node.name
-    ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
+    return this.currentFrame.get(targetName(target, node.name)) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
   }
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
