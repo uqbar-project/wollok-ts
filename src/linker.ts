@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
-import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, SourceMap } from './model'
+import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, SourceMap, Variable } from './model'
 const { assign } = Object
 
 
@@ -84,23 +84,20 @@ export class LocalScope implements Scope {
 export const scopeContribution = (contributor: Node): List<[Name, Node]> =>
   canBeReferenced(contributor) && contributor.name ? [[contributor.name, contributor]] : []
 
-export const assignScopes = (environment: Environment): void => {
-  environment.forEach((node, parent) => {
-    assign(node, {
-      scope: new LocalScope(
-        node.is(Import) || node.is(Reference) && parent!.is(ParameterizedType)
-          ? parent?.parent.scope
-          : parent?.scope
-      ),
-    })
+export const assignScopes = (root: Node): void => {
+  root.forEach((node, parent) => {
+    const containerScope = node.is(Import) || node.is(Reference) && parent!.is(ParameterizedType)
+      ? parent?.parent.scope
+      : parent?.scope
+    assign(node, { scope: new LocalScope(containerScope) })
 
     parent?.scope?.register(...scopeContribution(node))
   })
 
-  environment.forEach((node, _parent) => {
+  root.forEach((node, _parent) => {
     if (node.is(Environment)) {
       for (const globalName of GLOBAL_PACKAGES) {
-        const globalPackage = environment.scope.resolve<Package>(globalName)
+        const globalPackage = root.scope.resolve<Package>(globalName)
         if (globalPackage) node.scope.register(...globalPackage.members.flatMap(scopeContribution))
       }
     }
@@ -124,7 +121,7 @@ export const assignScopes = (environment: Environment): void => {
   })
 }
 
-export const canBeReferenced = (node: Node): node is Entity | Field | Parameter => node.is(Entity) || node.is(Field) || node.is(Parameter)
+export const canBeReferenced = (node: Node): node is Entity | Field | Parameter => node.is(Entity) || node.is(Field) || node.is(Parameter) || node.is(Variable)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // LINKER
@@ -153,13 +150,16 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
 }
 
 export function linkSentenceInNode<S extends Sentence>(newSentence: S, context: Node): void {
-  const { scope, environment } = context
-  // Register top contributions into context's scope
-  scope.register(...scopeContribution(newSentence))
-  // Create scopes for sub-nodes and link nodes (chain)
-  newSentence.reduce((parentScope: Scope, node: Node, parent?: Node) => {
-    const localScope = new LocalScope(parentScope, ...scopeContribution(node))
-    Object.assign(node, { id: uuid(), scope: localScope, environment, parent })
-    return localScope
-  }, scope)
+  const { environment } = context
+  const _nodeCache = environment.nodeCache as Map<Id, Node>
+
+  newSentence.forEach((node, parent) => {
+    const id = uuid()
+    assign(node, { id })
+    _nodeCache.set(id, node)
+    node.environment = environment
+    node.parent = parent ?? context
+  })
+
+  assignScopes(newSentence)
 }

@@ -183,7 +183,7 @@ export abstract class Node {
         return applyReduce(seed, child, node)
       }, tx(acum, node, parent))
 
-    return applyReduce(initial, this)
+    return applyReduce(initial, this, getPotentiallyUninitializedLazy(this, 'parent'))
   }
 
 }
