@@ -856,7 +856,7 @@ describe('link sentence in node', () => {
     linkSentenceInNode(newSentence, repl)
     newSentence.id.should.be.ok
     newSentence.environment.should.be.eq(environment)
-    // newSentence.parent.should.be.eq(repl)
+    newSentence.parent.should.be.eq(repl)
     newSentence.children[0].parent.should.be.eq(newSentence)
   })
 
