@@ -63,7 +63,7 @@ const autoImportedFromConsole = (obj: RuntimeObject, importedFromConsole: Entity
 const fromLocal = (name: string, obj: RuntimeObject, interpreter: Interpreter): DynamicDiagramElement[] =>
   [
     ...isConsoleLocal(name)
-      ? buildReplElement(obj, name)
+      ? buildReplElement(obj, name.slice(REPL.length + 1))
       : [],
     ...elementFromObject(obj, interpreter),
   ]
@@ -129,9 +129,7 @@ const concatOverlappedReferences = (elementDefinitions: DynamicDiagramElement[])
   return cleanDefinitions
 }
 
-const isConsoleLocal = (name: string): boolean => !name.includes('.') && !isLanguageLocal(name)
-
-const isLanguageLocal = (name: string) => name.startsWith(WOLLOK_BASE_PACKAGE) || ['true', 'false', 'null'].includes(name)
+const isConsoleLocal = (name: string): boolean => name.startsWith(REPL)
 
 const getType = (obj: RuntimeObject, moduleName: string): DynamicNodeType => {
   if (obj.innerValue === null) return DynamicNodeType.NULL

@@ -20,8 +20,7 @@ describe('Dynamic diagram', () => {
     it('should include numbers', () => {
       interprete(interpreter, 'const a = 2')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: '2',
         targetType: 'literal',
@@ -32,8 +31,7 @@ describe('Dynamic diagram', () => {
     it('should include strings', () => {
       interprete(interpreter, 'const a = "pepita"')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: '"pepita"',
         targetType: 'literal',
@@ -47,8 +45,7 @@ describe('Dynamic diagram', () => {
           var energy = 100
         }`)
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: 'Object',
         targetType: 'literal',
@@ -75,8 +72,7 @@ describe('Dynamic diagram', () => {
     it('should include sets', () => {
       interprete(interpreter, 'const a = #{ { 2.even() }, 2..3}')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: 'Set',
         targetType: 'literal',
@@ -101,8 +97,7 @@ describe('Dynamic diagram', () => {
     it('should include lists', () => {
       interprete(interpreter, 'const a = [new Date(day = 1, month = 1, year = 2018), true, null]')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: 'List',
         targetType: 'literal',
@@ -135,8 +130,7 @@ describe('Dynamic diagram', () => {
       interprete(interpreter, 'const a = new Dictionary()')
       interprete(interpreter, 'a.put("key", "pepita")')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'a',
         targetLabel: 'a Dictionary ["key" -> "pepita"]',
         targetType: 'literal',
@@ -158,6 +152,41 @@ describe('Dynamic diagram', () => {
       expect(reference.constant).to.be.false
     })
 
+    it('should support many REPL references', () => {
+      interprete(interpreter, 'const a = 1')
+      interprete(interpreter, 'const b = 2')
+      const elements = getDynamicDiagramData(interpreter)
+      checkConnectionFromRepl(elements, {
+        referenceLabel: 'a',
+        targetLabel: '1',
+        targetType: 'literal',
+        targetModule: NUMBER_MODULE,
+      })
+      checkConnectionFromRepl(elements, {
+        referenceLabel: 'b',
+        targetLabel: '2',
+        targetType: 'literal',
+        targetModule: NUMBER_MODULE,
+      })
+    })
+
+    it('should support many REPL references to the same object', () => {
+      interprete(interpreter, 'const a = 2')
+      interprete(interpreter, 'const b = 2')
+      const elements = getDynamicDiagramData(interpreter)
+      checkConnectionFromRepl(elements, {
+        referenceLabel: 'a',
+        targetLabel: '2',
+        targetType: 'literal',
+        targetModule: NUMBER_MODULE,
+      })
+      checkConnectionFromRepl(elements, {
+        referenceLabel: 'b',
+        targetLabel: '2',
+        targetType: 'literal',
+        targetModule: NUMBER_MODULE,
+      })
+    })
   })
 
   describe('Using file expressions', () => {
@@ -191,8 +220,7 @@ describe('Dynamic diagram', () => {
       interprete(interpreter, 'const pepita = new Ave()')
       interprete(interpreter, 'pepita.energia()')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'pepita',
         targetLabel: 'Ave',
         targetType: 'object',
@@ -224,8 +252,7 @@ describe('Dynamic diagram', () => {
       interprete(interpreter, 'const pepona = new Ave(amigue = pepita)')
       interprete(interpreter, 'pepita.amigue(pepona)')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'pepona',
         targetLabel: 'Ave',
         targetType: 'object',
@@ -261,8 +288,7 @@ describe('Dynamic diagram', () => {
       interprete(interpreter, 'const pepita = new Ave()')
       interprete(interpreter, 'pepita.amigue(pepita)')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'pepita',
         targetLabel: 'Ave',
         targetType: 'object',
@@ -280,7 +306,7 @@ describe('Dynamic diagram', () => {
 
     it('should include imported definitions', () => {
       const replEnvironment = buildEnvironment([{
-        name: 'entrenador', content: `
+        name: 'entrenador.wlk', content: `
         class Entrenador {
         }
         `,
@@ -297,8 +323,7 @@ describe('Dynamic diagram', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepita = new Ave()')
       const elements = getDynamicDiagramData(interpreter)
-      checkConnection(elements, {
-        sourceLabel: REPL,
+      checkConnectionFromRepl(elements, {
         referenceLabel: 'pepita',
         targetLabel: 'Ave',
         targetType: 'object',
@@ -329,20 +354,29 @@ const checkNode = (elements: DynamicDiagramElement[], label: string): DynamicDia
 }
 
 const checkReference = (elements: DynamicDiagramElement[], sourceId: string, targetId: string, referenceLabel: string, targetModule: string): DynamicDiagramReference => {
-  const reference = elements.find((element) => {
+  const references = elements.filter((element) => {
     const elementReference = element as DynamicDiagramReference
-    return elementReference.elementType === 'reference' && elementReference.sourceId === sourceId && elementReference.targetId === targetId
-  }) as DynamicDiagramReference
-  expect(reference, `Reference '${referenceLabel}' not found in diagram`).not.to.be.undefined
-  expect(reference!.label).to.be.equal(referenceLabel)
+    return elementReference.elementType === 'reference' && (sourceId == REPL ? elementReference.sourceId.includes(REPL) : elementReference.sourceId === sourceId) && elementReference.targetId === targetId
+  }) as DynamicDiagramReference[]
+  expect(references, `Reference '${referenceLabel}' not found in diagram`).not.to.be.empty
+
+  const reference = references.length > 1 ? references.find(ref => ref.label == referenceLabel) : references[0]
+  expect(reference).not.to.be.undefined
   expect(reference!.targetModule, `Reference '${referenceLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
-  return reference
+  return reference!
 }
 
 const checkConnection = (elements: DynamicDiagramElement[], { sourceLabel, referenceLabel, targetLabel, targetType, targetModule }: { sourceLabel: string, referenceLabel: string, targetLabel: string, targetType: string, targetModule: string }) => {
   const source = checkNode(elements, sourceLabel)
   const target = checkNode(elements, targetLabel)
   checkReference(elements, source.id, target.id, referenceLabel, targetModule)
+  expect(target.type, `Target '${targetLabel}' points to another target type`).to.be.equal(targetType)
+  expect(target.module, `Target '${targetLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
+}
+
+const checkConnectionFromRepl = (elements: DynamicDiagramElement[], { referenceLabel, targetLabel, targetType, targetModule }: { referenceLabel: string, targetLabel: string, targetType: string, targetModule: string }) => {
+  const target = checkNode(elements, targetLabel)
+  checkReference(elements, REPL, target.id, referenceLabel, targetModule)
   expect(target.type, `Target '${targetLabel}' points to another target type`).to.be.equal(targetType)
   expect(target.module, `Target '${targetLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
 }
