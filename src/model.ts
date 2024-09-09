@@ -1,4 +1,4 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, REPL, STRING_MODULE, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, EXCEPTION_MODULE, INFIX_OPERATORS, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, PREFIX_OPERATORS, REPL, STRING_MODULE, TEST_FILE_EXTENSION, WOLLOK_BASE_PACKAGE, WOLLOK_FILE_EXTENSION } from './constants'
 import { cached, getPotentiallyUninitializedLazy, lazy } from './decorators'
 import { ConstructorFor, InstanceOf, is, last, List, mapObject, Mixable, MixinDefinition, MIXINS, isEmpty, notEmpty, TypeDefinition } from './extensions'
 import { GLOBAL_PACKAGES } from './linker'
@@ -335,6 +335,8 @@ export class Package extends Entity(Node) {
 
   get isGlobalPackage(): boolean { return GLOBAL_PACKAGES.includes(this.fullyQualifiedName) }
   get isTestFile(): boolean { return this.sourceFileName?.endsWith(TEST_FILE_EXTENSION) ?? false }
+  get isWLKFile(): boolean { return this.sourceFileName?.endsWith(WOLLOK_FILE_EXTENSION) ?? false }
+  get isImportable(): boolean { return this.isWLKFile || !this.sourceFileName }
 
   getNodeByQN<N extends Entity>(qualifiedName: Name): N {
     const node = this.getNodeOrUndefinedByQN<N>(qualifiedName)

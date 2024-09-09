@@ -69,7 +69,7 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
   // TODO: For Send, consider if expression returns a value
-  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Assignment) || sentence.is(If) || returnCondition
+  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Super) || sentence.is(Assignment) || sentence.is(If) || returnCondition
 }
 
 export const getVariableContainer = (node: Node): CodeContainer | undefined =>
