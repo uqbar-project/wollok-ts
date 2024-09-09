@@ -1,6 +1,6 @@
 {
   "name": "wollok-ts",
-  "version": "4.1.4",
+  "version": "4.1.5",
   "wollokVersion": ":master",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
@@ -19,7 +19,9 @@
     "test:coverage": "nyc --reporter=lcov npm run test",
     "test:unit": "mocha --parallel -r ts-node/register/transpile-only test/**/*.test.ts",
     "test:examples": "npm run test:wtest -- --root language/test/examples",
+    "test:dynamicDiagram": "mocha --parallel -r ts-node/register/transpile-only test/dynamicDiagram.test.ts",
     "test:helpers": "mocha --parallel -r ts-node/register/transpile-only test/helpers.test.ts",
+    "test:interpreter": "mocha --parallel -r ts-node/register/transpile-only test/interpreter.test.ts",
     "test:linker": "mocha --parallel -r ts-node/register/transpile-only test/linker.test.ts",
     "test:model": "mocha --parallel -r ts-node/register/transpile-only test/model.test.ts",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",

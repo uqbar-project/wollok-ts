@@ -1,6 +1,7 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
-import { List, count, is, isEmpty, last, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
-import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
+import { getPotentiallyUninitializedLazy } from './decorators'
+import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
+import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -287,21 +288,23 @@ export const methodsCallingToSuper = (node: Class | Singleton): Method[] => node
 export const methodIsImplementedInSuperclass = (node: Class | Singleton) => (method: Method): Method | undefined => node.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName })
 
 export const literalValueToClass = (environment: Environment, literal: LiteralValue): Class => {
-  const clazz = (() => { switch (typeof literal) {
-    case 'number':
-      return NUMBER_MODULE
-    case 'string':
-      return STRING_MODULE
-    case 'boolean':
-      return BOOLEAN_MODULE
-    case 'object':
-      try {
-        const referenceClasses = literal as unknown as Reference<Class>[]
-        return referenceClasses[0].name
-      } catch (e) {
-        return OBJECT_MODULE
-      }
-  }})()
+  const clazz = (() => {
+    switch (typeof literal) {
+      case 'number':
+        return NUMBER_MODULE
+      case 'string':
+        return STRING_MODULE
+      case 'boolean':
+        return BOOLEAN_MODULE
+      case 'object':
+        try {
+          const referenceClasses = literal as unknown as Reference<Class>[]
+          return referenceClasses[0].name
+        } catch (e) {
+          return OBJECT_MODULE
+        }
+    }
+  })()
   return environment.getNodeByFQN(clazz)
 }
 
@@ -339,7 +342,7 @@ export const fqnRelativeToPackage =
 
 export const workspacePackage = (environment: Environment): Package => environment.members[1]
 
-export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): anotherNode is Reference<T>  =>
+export const targettingAt = <T extends Node>(aNode: T) => (anotherNode: Node): anotherNode is Reference<T> =>
   anotherNode.is(Reference) && anotherNode.target === aNode
 
 export const projectPackages = (environment: Environment): Package[] =>
@@ -410,3 +413,8 @@ export const moduleFinderWithBackup = (environment: Environment, send: Send) => 
   const module = send.ancestors.find(is(Module))
   return module ? methodFinder(module) : allMethodDefinitions(environment, send)
 }
+
+export const targetName = (target: Node | undefined, defaultName: Name): string =>
+  target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
+    ? target.fullyQualifiedName
+    : defaultName

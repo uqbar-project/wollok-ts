@@ -90,4 +90,6 @@ export const KEYWORDS = {
   ONLY: 'only',
 } as const
 
+export const REPL = 'REPL'
+
 export const WOLLOK_EXTRA_STACK_TRACE_HEADER = 'Derived from TypeScript stack'

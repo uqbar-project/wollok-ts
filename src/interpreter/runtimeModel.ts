@@ -1,11 +1,9 @@
-import { CLOSURE_EVALUATE_METHOD, KEYWORDS } from './../constants'
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { getPotentiallyUninitializedLazy } from '../decorators'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
+import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
-import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment } from '../helpers'
 
 const { isArray } = Array
 const { keys, entries } = Object
@@ -57,7 +55,7 @@ export class WollokException extends Error {
   }
 
   // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
-  constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject){
+  constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject) {
     super()
 
     instance.assertIsException()
@@ -86,13 +84,13 @@ export abstract class Context {
     const found = this.locals.get(local) ?? this.parentContext?.get(local)
     if (!found || found instanceof RuntimeObject) return found
     let lazy = found.next()
-    while(!lazy.done) lazy = found.next()
+    while (!lazy.done) lazy = found.next()
     this.set(local, lazy.value)
     return lazy.value
   }
 
   set(local: Name, value: RuntimeValue | Execution<RuntimeObject>, lookup = false): void {
-    if(!lookup || this.locals.has(local)) this.locals.set(local, value)
+    if (!lookup || this.locals.has(local)) this.locals.set(local, value)
     else this.parentContext?.set(local, value, lookup)
   }
 
@@ -101,12 +99,12 @@ export abstract class Context {
   }
 
   copy(contextCache: Map<Id, Context>): this {
-    if(contextCache.has(this.id)) return contextCache.get(this.id) as this
+    if (contextCache.has(this.id)) return contextCache.get(this.id) as this
 
     const copy = this.baseCopy(contextCache) as this
     contextCache.set(this.id, copy)
 
-    for(const [name, value] of this.locals.entries())
+    for (const [name, value] of this.locals.entries())
       copy.set(name,
         value instanceof RuntimeObject ? value.copy(contextCache) :
         value ? this.get(name) :
@@ -149,7 +147,7 @@ export class Frame extends Context {
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): Frame {
-    return new Frame(this.node,  this.parentContext?.copy(contextCache))
+    return new Frame(this.node, this.parentContext?.copy(contextCache))
   }
 
   override toString(): string {
@@ -178,17 +176,17 @@ export class RuntimeObject extends Context {
   }
 
   get innerNumber(): this['innerValue'] & (number | undefined) {
-    if(typeof this.innerValue !== 'number') return undefined
+    if (typeof this.innerValue !== 'number') return undefined
     return this.innerValue
   }
 
   get innerString(): this['innerValue'] & (string | undefined) {
-    if(typeof this.innerValue !== 'string') return undefined
+    if (typeof this.innerValue !== 'string') return undefined
     return this.innerValue
   }
 
   get innerBoolean(): this['innerValue'] & (boolean | undefined) {
-    if(typeof this.innerValue !== 'boolean') return undefined
+    if (typeof this.innerValue !== 'boolean') return undefined
     return this.innerValue
   }
 
@@ -223,13 +221,13 @@ export class RuntimeObject extends Context {
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
     if (!this.module.inherits(this.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
-    if(this.innerValue && !(this.innerValue instanceof Error)) {
+    if (this.innerValue && !(this.innerValue instanceof Error)) {
       throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
     }
   }
 
   assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if(this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
+    if (this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
@@ -239,6 +237,36 @@ export class RuntimeObject extends Context {
 
   isConstant(localName: string): boolean {
     return this.module.lookupField(localName)?.isConstant ?? false // TODO: instead of false we should throw an error
+  }
+
+  getLabel(interpreter: Interpreter): string {
+    if (this.innerValue === null) return 'null'
+    if (this.shouldShortenRepresentation()) {
+      return interpreter.send(TO_STRING_METHOD, this)?.getShortRepresentation() ?? ''
+    }
+    if (this.shouldShowShortValue()) return this.showShortValue(interpreter)
+    return this.module.name ?? 'Object'
+  }
+
+  getShortRepresentation(): string {
+    return this.innerValue?.toString().trim() ?? ''
+  }
+
+  shouldShortenRepresentation(): boolean {
+    const moduleName = this.module.fullyQualifiedName
+    return [DATE_MODULE, PAIR_MODULE, RANGE_MODULE, DICTIONARY_MODULE].includes(moduleName) || moduleName.startsWith(CLOSURE_MODULE)
+  }
+
+  shouldShowShortValue(): boolean {
+    const moduleName = this.module.fullyQualifiedName
+    return [STRING_MODULE, NUMBER_MODULE, BOOLEAN_MODULE].includes(moduleName)
+  }
+
+  showShortValue(interpreter: Interpreter): string {
+    if (this.innerValue === null) return 'null'
+    return typeof this.innerValue === 'string'
+      ? `"${this.innerValue}"`
+      : interpreter.send(TO_STRING_METHOD, this)!.innerString!
   }
 
 }
@@ -264,7 +292,7 @@ export class Evaluation {
     const evaluation = new Evaluation(new Map(), [new Frame(environment)], new Map(), new Map())
 
     environment.forEach(node => {
-      if(node.is(Method) && node.isNative())
+      if (node.is(Method) && node.isNative())
         evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
     })
 
@@ -321,7 +349,7 @@ export class Evaluation {
     const visitedContexts: Id[] = []
 
     function contextInstances(context?: Context): List<RuntimeObject> {
-      if(!context || visitedContexts.includes(context.id)) return []
+      if (!context || visitedContexts.includes(context.id)) return []
       visitedContexts.push(context.id)
       const localInstances = [...context.locals.values()].filter((value): value is RuntimeObject => value instanceof RuntimeObject)
 
@@ -337,7 +365,7 @@ export class Evaluation {
 
   object(fullyQualifiedName: Name): RuntimeObject {
     const instance = this.rootFrame.get(fullyQualifiedName)
-    if(!instance) throw new Error(`WKO not found: ${fullyQualifiedName}`)
+    if (!instance) throw new Error(`WKO not found: ${fullyQualifiedName}`)
     return instance
   }
 
@@ -348,11 +376,11 @@ export class Evaluation {
   exec(node: Expression, frame?: Frame): Execution<RuntimeObject>
   exec(node: Node, frame?: Frame): Execution<undefined>
   *exec(node: Node, frame?: Frame): Execution<RuntimeValue> {
-    if(frame) this.frameStack.push(frame)
+    if (frame) this.frameStack.push(frame)
 
     try {
       // TODO avoid casting
-      switch(node.kind) {
+      switch (node.kind) {
         case 'Test': yield* this.execTest(node as Test); return
         case 'Program': yield* this.execProgram(node as Program); return
         case 'Method': return yield* this.execMethod(node as Method)
@@ -372,8 +400,8 @@ export class Evaluation {
         case 'Singleton': return yield* this.execSingleton(node as Singleton)
         default: throw new Error(`Can't execute ${node.kind} node`)
       }
-    } catch(error) {
-      if(error instanceof WollokException || error instanceof WollokReturn) throw error
+    } catch (error) {
+      if (error instanceof WollokException || error instanceof WollokReturn) throw error
 
       const moduleFQN = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
         ? 'wollok.lang.StackOverflowException'
@@ -381,7 +409,7 @@ export class Evaluation {
       const exceptionInstance = new WollokException(this, yield* this.error(moduleFQN, {}, error as Error))
       throw exceptionInstance
     }
-    finally { if(frame) this.frameStack.pop() }
+    finally { if (frame) this.frameStack.pop() }
   }
 
   protected *execTest(node: Test): Execution<void> {
@@ -402,19 +430,19 @@ export class Evaluation {
   protected *execMethod(node: Method): Execution<RuntimeValue> {
     yield node
 
-    if(node.isNative()) {
+    if (node.isNative()) {
       const native = this.natives.get(node)
-      if(!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName}.${node.name}`)
+      if (!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName}.${node.name}`)
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
       return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? undefined
-    } else if(node.isConcrete()) {
+    } else if (node.isConcrete()) {
       try {
         yield* this.exec(node.body!)
         return
-      } catch(error) {
-        if(error instanceof WollokReturn) return error.instance
+      } catch (error) {
+        if (error instanceof WollokReturn) return error.instance
         else throw error
       }
     } else throw new Error(`Can't invoke abstract method ${node.parent.fullyQualifiedName}.${node.name}/${node.parameters.length}`)
@@ -424,7 +452,7 @@ export class Evaluation {
     yield node
 
     let result: RuntimeValue
-    for(const sentence of node.sentences)
+    for (const sentence of node.sentences)
       result = yield* this.exec(sentence)
 
     return result
@@ -435,7 +463,7 @@ export class Evaluation {
 
     yield node
 
-    this.currentFrame.set(node.name, value)
+    this.currentFrame.set(targetName(node, node.name), value)
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {
@@ -443,9 +471,11 @@ export class Evaluation {
 
     yield node
 
-    if(node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
+    if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
 
-    this.currentFrame.set(node.variable.name, value, true)
+    const target = node.variable.target
+
+    this.currentFrame.set(targetName(target, node.variable.name), value, true)
   }
 
   protected *execReturn(node: Return): Execution<RuntimeValue> {
@@ -457,18 +487,14 @@ export class Evaluation {
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
-    if(!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
+    if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
 
     const target = node.target
     if (target?.is(Field) && loopInAssignment(target.value, target.name)) {
       raise(new Error(`Error initializing field ${target.name}: stack overflow`))
     }
 
-    return this.currentFrame.get(
-      target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
-        ? target.fullyQualifiedName
-        : node.name
-    ) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
+    return this.currentFrame.get(targetName(target, node.name)) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
   }
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
@@ -477,12 +503,12 @@ export class Evaluation {
   }
 
   protected *execLiteral(node: Literal<LiteralValue>): Execution<RuntimeValue> {
-    if(isArray(node.value)) {
+    if (isArray(node.value)) {
       const [reference, args] = node.value
       const module = reference.target!
 
       const values: RuntimeObject[] = []
-      for(const arg of args) values.push(yield * this.exec(arg))
+      for (const arg of args) values.push(yield* this.exec(arg))
 
       yield node
 
@@ -496,7 +522,7 @@ export class Evaluation {
 
   protected *execNew(node: New): Execution<RuntimeValue> {
     const args: Record<Name, RuntimeObject> = {}
-    for(const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
+    for (const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
 
     yield node
 
@@ -519,11 +545,11 @@ export class Evaluation {
   protected *execSend(node: Send): Execution<RuntimeValue> {
     const receiver = yield* this.exec(node.receiver)
 
-    if((node.message === '&&' || node.message === 'and') && receiver.innerBoolean === false) return receiver
-    if((node.message === '||' || node.message === 'or') && receiver.innerBoolean === true) return receiver
+    if ((node.message === '&&' || node.message === 'and') && receiver.innerBoolean === false) return receiver
+    if ((node.message === '||' || node.message === 'or') && receiver.innerBoolean === true) return receiver
 
     const values: RuntimeObject[] = []
-    for(const arg of node.args) values.push(yield * this.exec(arg))
+    for (const arg of node.args) values.push(yield* this.exec(arg))
 
     yield node
 
@@ -532,7 +558,7 @@ export class Evaluation {
 
   protected *execSuper(node: Super): Execution<RuntimeValue> {
     const args: RuntimeObject[] = []
-    for(const arg of node.args) args.push(yield * this.exec(arg))
+    for (const arg of node.args) args.push(yield* this.exec(arg))
 
     yield node
 
@@ -561,8 +587,8 @@ export class Evaluation {
     let result: RuntimeValue
     try {
       result = yield* this.exec(node.body, new Frame(node, this.currentFrame))
-    } catch(error) {
-      if(!(error instanceof WollokException)) throw error
+    } catch (error) {
+      if (!(error instanceof WollokException)) throw error
 
       const errorType = error.instance.module
       const handler = node.catches.find(catcher => {
@@ -570,7 +596,7 @@ export class Evaluation {
         return handledType && errorType.inherits(handledType)
       })
 
-      if(handler) {
+      if (handler) {
         result = yield* this.exec(handler.body, new Frame(handler, this.currentFrame, { [handler.parameter.name]: error.instance }))
       } else throw error
 
@@ -610,7 +636,7 @@ export class Evaluation {
 
   protected *localsFor(method: Method, args: RuntimeObject[]): Generator<Node, Record<string, RuntimeObject>> {
     const locals: Record<string, RuntimeObject> = {}
-    for(let index = 0; index < method.parameters.length; index++) {
+    for (let index = 0; index < method.parameters.length; index++) {
       const { name, isVarArg } = method.parameters[index]
       locals[name] = isVarArg ? yield* this.list(...args.slice(index)) : args[index]
     }
@@ -623,38 +649,38 @@ export class Evaluation {
   // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   *reify(value: boolean | number | string | null): Execution<RuntimeObject> {
-    if(typeof value === 'boolean'){
+    if (typeof value === 'boolean') {
       const existing = this.rootFrame.get(`${value}`)
-      if(existing) return existing
+      if (existing) return existing
       const instance = new RuntimeObject(this.environment.getNodeByFQN(BOOLEAN_MODULE), this.rootFrame, value)
       this.rootFrame.set(`${value}`, instance)
       return instance
     }
 
-    if(typeof value === 'number') {
+    if (typeof value === 'number') {
       const isRound = isInteger(value)
       const preciseValue = isRound ? value : Number(value.toFixed(DECIMAL_PRECISION))
 
-      if(isRound) {
+      if (isRound) {
         const existing = this.numberCache.get(preciseValue)?.deref()
-        if(existing) return existing
+        if (existing) return existing
       }
 
       const instance = new RuntimeObject(this.environment.getNodeByFQN(NUMBER_MODULE), this.rootFrame, preciseValue)
-      if(isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
+      if (isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
       return instance
     }
 
-    if(typeof value === 'string'){
+    if (typeof value === 'string') {
       const existing = this.stringCache.get(value)?.deref()
-      if(existing) return existing
+      if (existing) return existing
       const instance = new RuntimeObject(this.environment.getNodeByFQN(STRING_MODULE), this.rootFrame, value)
       this.stringCache.set(value, new WeakRef(instance))
       return instance
     }
 
     const existing = this.rootFrame.get(KEYWORDS.NULL)
-    if(existing) return existing
+    if (existing) return existing
     const instance = new RuntimeObject(this.environment.getNodeByFQN(OBJECT_MODULE), this.rootFrame, value)
     this.rootFrame.set(KEYWORDS.NULL, instance)
     return instance
@@ -666,7 +692,7 @@ export class Evaluation {
 
   *set(...value: RuntimeObject[]): Execution<RuntimeObject> {
     const result = new RuntimeObject(this.environment.getNodeByFQN(SET_MODULE), this.rootFrame, [])
-    for(const elem of value)
+    for (const elem of value)
       yield* this.send('add', result, elem)
     return result
   }
@@ -686,12 +712,12 @@ export class Evaluation {
   }
 
   protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
-    const allFieldNames =instance.module.allFields.map(({ name }) => name)
-    for(const local of keys(locals))
-      if(!allFieldNames.includes(local))
+    const allFieldNames = instance.module.allFields.map(({ name }) => name)
+    for (const local of keys(locals))
+      if (!allFieldNames.includes(local))
         throw new Error(`Can't initialize ${instance.module.fullyQualifiedName} with value for unexistent field ${local}`)
 
-    for(const field of instance.module.allFields) {
+    for (const field of instance.module.allFields) {
       const defaultValue = instance.module.defaultValueFor(field)
       const initialValue = field.name in locals
         ? locals[field.name]
@@ -700,9 +726,9 @@ export class Evaluation {
       instance.set(field.name, initialValue)
     }
 
-    yield * this.send(INITIALIZE_METHOD, instance)
+    yield* this.send(INITIALIZE_METHOD, instance)
 
-    if(!instance.module.name || instance.module.is(Describe))
+    if (!instance.module.name || instance.module.is(Describe))
       for (const field of instance.module.allFields)
         instance.get(field.name)
   }
