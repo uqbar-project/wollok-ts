@@ -661,13 +661,11 @@ export class Evaluation {
       const isRound = isInteger(value)
       const preciseValue = isRound ? value : Number(value.toFixed(DECIMAL_PRECISION))
 
-      if (isRound) {
-        const existing = this.numberCache.get(preciseValue)?.deref()
-        if (existing) return existing
-      }
+      const existing = this.numberCache.get(preciseValue)?.deref()
+      if (existing) return existing
 
       const instance = new RuntimeObject(this.environment.getNodeByFQN(NUMBER_MODULE), this.rootFrame, preciseValue)
-      if (isRound) this.numberCache.set(preciseValue, new WeakRef(instance))
+      this.numberCache.set(preciseValue, new WeakRef(instance))
       return instance
     }
 
