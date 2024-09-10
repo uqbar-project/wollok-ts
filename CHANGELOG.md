@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.1.4
+**Wollok Version: `3.2.5`**
+- 〰️ Support dashes `-` in file name
+- 🌐 Changes in `import` resolution
+- 👾 REPL support
+  - Interpret a line
+  - Dynamic diagram generator
+  - Fix REPL constants
+
 ## v4.1.3
 **Wollok Version: `3.2.4`**
 - 🪟 Fix new parsing on Windows
