@@ -368,7 +368,6 @@ const formatClosure: FormatterWithContext<Singleton> = context => node => {
 }
 
 const formatWKO: FormatterWithContext<Singleton> = context => node => {
-  const members = formatModuleMembers(context)(node.members)
   let formatted: IDoc = [KEYWORDS.WKO]
 
   if (node.name) {
@@ -379,6 +378,13 @@ const formatWKO: FormatterWithContext<Singleton> = context => node => {
     formatted = [...formatted, formatInheritance(context)(node)]
   }
 
+  if (node.members.length === 0) {
+    // Empty WKO body, so if there are inner comments, they should be placed inside the body
+    const formattedComments = formatInnerComments(context)(node.metadata)
+    return intersperse(WS, [...formatted, formattedComments])
+  }
+
+  const members = formatModuleMembers(context)(node.members)
   return intersperse(WS, [...formatted, members])
 }
 
@@ -471,6 +477,15 @@ const formatModuleMembers = (context: PrintContext) => (members: List<Field | Co
   return body(context.nest)([fields.length > 0 ? [intersperse(lineBreak, fields), others.length > 0 ? lineBreaks : []] : [], intersperse(lineBreaks, others)])
 }
 
+const formatComment = (comment: Annotation): IDoc => {
+  const comments = splitMultilineComment(comment).map(comm => comm.args['text'] as IDoc)
+  return intersperse(lineBreak, comments)
+}
+
+const formatInnerComments = (context: PrintContext) => (comments: List<Annotation>): IDoc => {
+  return body(context.nest)(intersperse(lineBreak, comments.filter(isInnerComment).map(formatComment)))
+}
+
 // assignment operations
 const canBeAbbreviated = (node: Assignment): node is Assignment & { value: Send & { message: keyof typeof assignmentOperationByMessage } } => node.value.is(Send) && node.value.receiver.is(Reference) && node.value.receiver.name === node.variable.name && node.value.message in assignmentOperationByMessage
 
@@ -487,10 +502,7 @@ const useSpacingForPrefixOperators: Record<keyof typeof PREFIX_OPERATORS, boolea
 
 // metadata
 const splitMetadata = (context: PrintContext, metadata: List<Annotation>): [IDoc, IDoc] => {
-  const withSplittedMultilineComments = metadata.map(annotation => annotation.name === 'comment' && (annotation.args['text']! as string).includes('\n') ?
-    (annotation.args['text']! as string).split('\n').map(commentSection => new Annotation('comment', { text: commentSection.trimStart(), position: annotation.args['position']! })) :
-    annotation
-  ).flat()
+  const withSplittedMultilineComments = metadata.flatMap(annotation => splitMultilineComment(annotation))
 
   const prevMetadata = withSplittedMultilineComments.filter(metadata => !isComment(metadata) || metadata.args['position'] === 'start')
   const afterMetadata = withSplittedMultilineComments.filter(metadata => metadata.args['position'] === 'end')
@@ -499,6 +511,11 @@ const splitMetadata = (context: PrintContext, metadata: List<Annotation>): [IDoc
 
   return [metadataBefore, metadataAfter]
 }
+
+const splitMultilineComment = (annotation: Annotation): Annotation[] =>
+  annotation.name === 'comment' && (annotation.args['text']! as string).includes('\n') ?
+    (annotation.args['text']! as string).split('\n').map(commentSection => new Annotation('comment', { text: commentSection.trimStart(), position: annotation.args['position']! })) :
+    [annotation]
 
 const formatAnnotation = (context: PrintContext) => (annotation: Annotation): IDoc => {
   if (annotation.name === 'comment') return annotation.args['text']! as string
@@ -509,6 +526,10 @@ const formatAnnotation = (context: PrintContext) => (annotation: Annotation): ID
 
 function isComment(annotation: Annotation): annotation is Annotation & { name: 'comment' } {
   return annotation.name === 'comment'
+}
+
+function isInnerComment(annotation: Annotation): annotation is Annotation & { name: 'comment', args: { position: 'inner' } } {
+  return isComment(annotation) && annotation.args['position'] === 'inner'
 }
 
 
