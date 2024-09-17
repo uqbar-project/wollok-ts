@@ -2499,4 +2499,67 @@ method esMinimalista() = albumes.all{
     }`)
     })
   })
+  describe('Comments', () => {
+    it('empty object should keep comments', () => {
+      const code = `
+      // outside comment
+      object pepita {
+        // inner comment
+      }`
+      code.should.be.formattedTo(code)
+    })
+    it('empty object should keep multiline comments', () => {
+      `// outside comment
+      object pepita {
+        /* multi
+                line
+        comment */
+      }`.should.be.formattedTo(`
+      // outside comment
+      object pepita {
+        /* multi
+        line
+        comment */
+      }`)
+    })
+    it('empty object should keep multiline comments without line breaks', () => {
+      const code = `
+      // outside comment
+      object pepita {
+        /* inner comment */
+      }`
+      code.should.be.formattedTo(code)
+    })
+    it('empty object should keep multiple comments', () => {
+      const code = `
+      // outside comment
+      object pepita {
+        // inner comment 1
+        // inner comment 2
+        // inner comment 3
+      }`
+      code.should.be.formattedTo(code)
+    })
+    it('object with method should keep comments', () => {
+      const code = `
+        // outside comment
+        object pepita {
+          // internal comment
+          method fly() = 1
+        }`
+      code.should.be.formattedTo(code)
+    })
+    it('object with method should keep multi line comments', () => {
+      const code = `
+        // outside comment
+        object pepita {
+          /* multi
+          line
+          comment */
+          method fly() = 1
+        }`
+      code.should.be.formattedTo(code)
+    })
+  })
+
 })
