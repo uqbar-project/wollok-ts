@@ -1,5 +1,5 @@
 import { expect, should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Parameter } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Parameter, Entity } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
@@ -276,7 +276,7 @@ describe('Wollok model', () => {
     describe('allScopedEntities', () => {
 
       it('should return all local and imported entities', () => {
-        wollokPackage.allScopedEntities().map(entity => entity.fullyQualifiedName).should.deep.equal([
+        wollokPackage.allScopedEntities().map(entity => (entity as Entity).fullyQualifiedName).should.deep.equal([
           'pajaros.Ave',
           'entrenador.tito',
           'animales.cabra',

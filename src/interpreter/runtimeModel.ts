@@ -115,15 +115,19 @@ export abstract class Context {
   }
 
   protected abstract baseCopy(contextCache: Map<Id, Context>): Context
+
+  abstract get description(): string
 }
 
 
 export class Frame extends Context {
   readonly node: Node
+  currentNode: Node
 
   constructor(node: Node, parentContext?: Context, locals: Record<Name, RuntimeObject> = {}) {
     super(parentContext, new Map(entries(locals)))
     this.node = node
+    this.currentNode = node
   }
 
   get description(): string {
@@ -193,6 +197,10 @@ export class RuntimeObject extends Context {
   get innerCollection(): this['innerValue'] & (RuntimeObject[] | undefined) {
     if (!isArray(this.innerValue)) return undefined
     return this.innerValue
+  }
+
+  get description(): string {
+    return this.module.label
   }
 
   protected baseCopy(contextCache: Map<Id, Context>): RuntimeObject {
@@ -376,8 +384,8 @@ export class Evaluation {
   exec(node: Expression, frame?: Frame): Execution<RuntimeObject>
   exec(node: Node, frame?: Frame): Execution<undefined>
   *exec(node: Node, frame?: Frame): Execution<RuntimeValue> {
-    if (frame) this.frameStack.push(frame)
-
+    if(frame) this.frameStack.push(frame)
+    this.currentFrame.currentNode = node
     try {
       // TODO avoid casting
       switch (node.kind) {

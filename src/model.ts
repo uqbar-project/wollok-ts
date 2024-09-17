@@ -16,6 +16,7 @@ export interface Scope {
   include(...others: Scope[]): void
   register(...contributions: [Name, Node][]): void
   localContributions(): [Name, Node][]
+  localEntities(): Node[]
 }
 
 
@@ -353,9 +354,9 @@ export class Package extends Entity(Node) {
     return this.scope.resolve<Variable | Field>(localName)?.isConstant ?? false
   }
 
-  allScopedEntities(): Entity[] {
+  allScopedEntities(): Node[] {
     return [
-      ...this.members,
+      ...this.scope.localEntities(),
       ...this.imports.flatMap(imp => imp.allImportedEntities()),
     ]
   }

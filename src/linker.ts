@@ -79,6 +79,8 @@ export class LocalScope implements Scope {
   include(...others: Scope[]): void { this.includedScopes.push(...others) }
 
   localContributions(): [Name, Node][] { return [...this.contributions.entries()] }
+
+  localEntities(): Node[] { return [...this.contributions.values()]}
 }
 
 export const scopeContribution = (contributor: Node): List<[Name, Node]> =>
