@@ -27,6 +27,7 @@ export interface DynamicDiagramReference extends DynamicDiagramElement {
   sourceId: string
   targetId: string
   constant: boolean
+  sourceModule: string | undefined
   targetModule: string | undefined
 }
 
@@ -74,13 +75,14 @@ const buildNode = (id: string, label: string, type: DynamicNodeType, module = ''
   module,
 })
 
-const buildReference = (id: string, label: string, constant: boolean, sourceId: string, targetObject?: RuntimeObject): DynamicDiagramReference => ({
+const buildReference = (id: string, label: string, constant: boolean, sourceId: string, sourceObject?: RuntimeObject, targetObject?: RuntimeObject): DynamicDiagramReference => ({
   id,
   label,
   elementType: 'reference',
   sourceId,
   targetId: targetObject?.id ?? '',
   constant,
+  sourceModule: sourceObject?.module.fullyQualifiedName,
   targetModule: targetObject?.module.fullyQualifiedName,
 })
 
@@ -88,7 +90,7 @@ const buildReplElement = (object: RuntimeObject, name: string) => {
   const replId = `source_${REPL}_${object.id}`
   return [
     buildNode(replId, REPL, DynamicNodeType.REPL),
-    buildReference(uuid(), name, object.module.environment.replNode().isConstant(name), replId, object),
+    buildReference(uuid(), name, object.module.environment.replNode().isConstant(name), replId, undefined, object),
   ]
 }
 
@@ -149,7 +151,7 @@ const getCollections = (object: RuntimeObject, interpreter: Interpreter, already
   return (object.innerCollection || [])
     .flatMap((item, i) => {
       const result = [
-        buildReference(`${id}_${item.id}`, object.module.fullyQualifiedName === LIST_MODULE ? i.toString() : '', false, id, item),
+        buildReference(`${id}_${item.id}`, object.module.fullyQualifiedName === LIST_MODULE ? i.toString() : '', false, id, object, item),
         ...elementFromObject(item, interpreter, [...alreadyVisited, id]),
       ]
       alreadyVisited.push(item.id)
@@ -169,5 +171,5 @@ const createReference = (object: RuntimeObject, label: string): DynamicDiagramRe
   const { id } = object
   // TODO: chequear si puede ser undefined (no tendría sentido)
   const runtimeValue = object.get(label)!
-  return buildReference(`${id}_${runtimeValue.id}`, label, object.isConstant(label), id, runtimeValue)
+  return buildReference(`${id}_${runtimeValue.id}`, label, object.isConstant(label), id, object, runtimeValue)
 }
