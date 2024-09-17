@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.1.5
+**Wollok Version: `3.2.5`**
+- 🖨️ Fix comments for empty bodies in formatter
+- 👾 Fix REPL constants for dynamic diagram
+- 1️⃣ Cache float numbers
+
 ## v4.1.4
 **Wollok Version: `3.2.5`**
 - 〰️ Support dashes `-` in file name
@@ -7,7 +13,7 @@
 - 👾 REPL support
   - Interpret a line
   - Dynamic diagram generator
-  - Fix REPL constants
+  - Stack overflow while sending bad message to object in closure
 
 ## v4.1.3
 **Wollok Version: `3.2.4`**
