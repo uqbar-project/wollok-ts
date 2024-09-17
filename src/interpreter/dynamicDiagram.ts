@@ -1,9 +1,9 @@
+import { v4 as uuid } from 'uuid'
 import { KEYWORDS, LIST_MODULE, REPL, WOLLOK_BASE_PACKAGE } from '../constants'
 import { uniqueBy } from '../extensions'
-import { Entity, Package } from '../model'
+import { Node, Package, Variable } from '../model'
 import { Interpreter } from './interpreter'
 import { RuntimeObject, RuntimeValue } from './runtimeModel'
-import { v4 as uuid } from 'uuid'
 
 export interface DynamicDiagramElement {
   id: string
@@ -30,16 +30,19 @@ export interface DynamicDiagramReference extends DynamicDiagramElement {
   targetModule: string | undefined
 }
 
-export const getDynamicDiagramData = (interpreter: Interpreter, rootFQN?: Package): DynamicDiagramElement[] => {
-  const entitiesImportedFromConsole = getEntitiesImportedFromConsole(interpreter, rootFQN)
+export const getDynamicDiagramData = (interpreter: Interpreter, rootPackage?: Package): DynamicDiagramElement[] => {
+  const environment = interpreter.evaluation.environment
+  const replPackage = rootPackage ?? environment.replNode()
+
+  const entitiesImportedFromConsole = replPackage.allScopedEntities()
   const objects = getCurrentObjects(interpreter)
 
   const dynamicDiagramObjects = Array.from(objects.keys())
     .filter((name) => {
       const object = objects.get(name)
-      return isConsoleLocal(name) || object && autoImportedFromConsole(object, entitiesImportedFromConsole)
+      return constFromRoot(name, replPackage) || object && autoImportedFromConsole(object, entitiesImportedFromConsole)
     })
-    .flatMap((name) => fromLocal(name, objects.get(name)!, interpreter))
+    .flatMap((name) => fromLocal(name, objects.get(name)!, interpreter, replPackage))
 
   return uniqueBy(dynamicDiagramObjects, 'id')
 }
@@ -48,22 +51,17 @@ export const getDynamicDiagramData = (interpreter: Interpreter, rootFQN?: Packag
 // INTERNAL FUNCTIONS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const getEntitiesImportedFromConsole = (interpreter: Interpreter, rootFQN?: Package): Entity[] => {
-  const environment = interpreter.evaluation.environment
-  return (rootFQN ?? environment.replNode()).allScopedEntities()
-}
-
 const getCurrentObjects = (interpreter: Interpreter): Map<string, RuntimeValue> => {
   const currentFrame = interpreter.evaluation.currentFrame
   return new Map(Array.from(currentFrame.locals.keys()).map((name) => [name, currentFrame.get(name)]))
 }
 
-const autoImportedFromConsole = (obj: RuntimeObject, importedFromConsole: Entity[]) => importedFromConsole.includes(obj.module)
+const autoImportedFromConsole = (obj: RuntimeObject, importedFromConsole: Node[]) => importedFromConsole.includes(obj.module)
 
-const fromLocal = (name: string, obj: RuntimeObject, interpreter: Interpreter): DynamicDiagramElement[] =>
+const fromLocal = (name: string, obj: RuntimeObject, interpreter: Interpreter, replPackage: Package): DynamicDiagramElement[] =>
   [
-    ...isConsoleLocal(name)
-      ? buildReplElement(obj, name.slice(REPL.length + 1))
+    ...isLocalVariable(name, interpreter)
+      ? buildReplElement(obj, name.slice(replPackage.name.length + 1))
       : [],
     ...elementFromObject(obj, interpreter),
   ]
@@ -129,7 +127,9 @@ const concatOverlappedReferences = (elementDefinitions: DynamicDiagramElement[])
   return cleanDefinitions
 }
 
-const isConsoleLocal = (name: string): boolean => name.startsWith(REPL)
+const constFromRoot = (name: string, replPackage: Package): boolean => name.startsWith(replPackage.name)
+
+const isLocalVariable = (name: string, interpreter: Interpreter) => interpreter.evaluation.environment.getNodeOrUndefinedByFQN(name)?.is(Variable)
 
 const getType = (obj: RuntimeObject, moduleName: string): DynamicNodeType => {
   if (obj.innerValue === null) return DynamicNodeType.NULL
