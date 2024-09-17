@@ -65,6 +65,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energy, anotherEnergy',
         targetLabel: '100',
         targetType: 'literal',
+        sourceModule: OBJECT_MODULE,
         targetModule: NUMBER_MODULE,
       })
     })
@@ -83,6 +84,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '',
         targetLabel: '{ 2.even() }',
         targetType: 'literal',
+        sourceModule: SET_MODULE,
         targetModule: CLOSURE_MODULE,
       })
       checkConnection(elements, {
@@ -90,6 +92,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '',
         targetLabel: '2..3',
         targetType: 'literal',
+        sourceModule: SET_MODULE,
         targetModule: RANGE_MODULE,
       })
     })
@@ -108,6 +111,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '0',
         targetLabel: '1/1/2018',
         targetType: 'literal',
+        sourceModule: LIST_MODULE,
         targetModule: DATE_MODULE,
       })
       checkConnection(elements, {
@@ -115,6 +119,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '1',
         targetLabel: 'true',
         targetType: 'literal',
+        sourceModule: LIST_MODULE,
         targetModule: BOOLEAN_MODULE,
       })
       checkConnection(elements, {
@@ -122,6 +127,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: '2',
         targetLabel: 'null',
         targetType: 'null',
+        sourceModule: LIST_MODULE,
         targetModule: OBJECT_MODULE,
       })
     })
@@ -205,8 +211,10 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energia',
         targetLabel: '100',
         targetType: 'literal',
+        sourceModule: 'REPL.pepita',
         targetModule: NUMBER_MODULE,
       })
+      checkNoConnectionToREPL(elements, 'pepita')
     })
 
     it('should include class', () => {
@@ -231,6 +239,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'energia',
         targetLabel: '100',
         targetType: 'literal',
+        sourceModule: 'REPL.Ave',
         targetModule: NUMBER_MODULE,
       })
     })
@@ -263,6 +272,7 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'amigue',
         targetLabel: 'pepita',
         targetType: 'object',
+        sourceModule: 'REPL.Ave',
         targetModule: 'REPL.pepita',
       })
       checkConnection(elements, {
@@ -270,9 +280,10 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
+        sourceModule: 'REPL.pepita',
         targetModule: 'REPL.Ave',
       })
-
+      checkNoConnectionToREPL(elements, 'pepita')
     })
 
     it('should include recursive relationships', () => {
@@ -299,12 +310,43 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
+        sourceModule: 'REPL.Ave',
         targetModule: 'REPL.Ave',
       })
 
     })
 
-    it('should include imported definitions', () => {
+    it('should include imported definitions from wko', () => {
+      const replEnvironment = buildEnvironment([{
+        name: 'entrenador.wlk', content: `
+        object gino {
+        }
+        `,
+      }, {
+        name: REPL, content: `
+        import entrenador.*
+
+        object pepita {
+          var property entrenador = gino
+          override method tieneEnergia() = true
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      const elements = getDynamicDiagramData(interpreter)
+      checkConnection(elements, {
+        sourceLabel: 'pepita',
+        referenceLabel: 'entrenador',
+        targetLabel: 'gino',
+        targetType: 'object',
+        sourceModule: 'REPL.pepita',
+        targetModule: 'entrenador.gino',
+      })
+      checkNoConnectionToREPL(elements, 'pepita')
+      checkNoConnectionToREPL(elements, 'gino')
+    })
+
+    it('should include imported definitions from class', () => {
       const replEnvironment = buildEnvironment([{
         name: 'entrenador.wlk', content: `
         class Entrenador {
@@ -334,9 +376,9 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'entrenador',
         targetLabel: 'Entrenador',
         targetType: 'object',
+        sourceModule: 'REPL.Ave',
         targetModule: 'entrenador.Entrenador',
       })
-
     })
 
   })
@@ -353,7 +395,7 @@ const checkNode = (elements: DynamicDiagramElement[], label: string): DynamicDia
   return node as DynamicDiagramNode
 }
 
-const checkReference = (elements: DynamicDiagramElement[], sourceId: string, targetId: string, referenceLabel: string, targetModule: string): DynamicDiagramReference => {
+const checkReference = (elements: DynamicDiagramElement[], sourceId: string, targetId: string, referenceLabel: string, sourceModule: string | undefined, targetModule: string): DynamicDiagramReference => {
   const references = elements.filter((element) => {
     const elementReference = element as DynamicDiagramReference
     return elementReference.elementType === 'reference' && (sourceId == REPL ? elementReference.sourceId.includes(REPL) : elementReference.sourceId === sourceId) && elementReference.targetId === targetId
@@ -362,21 +404,35 @@ const checkReference = (elements: DynamicDiagramElement[], sourceId: string, tar
 
   const reference = references.length > 1 ? references.find(ref => ref.label == referenceLabel) : references[0]
   expect(reference).not.to.be.undefined
+  if (sourceModule) {
+    expect(reference!.sourceModule, `Reference '${referenceLabel}' points to another source module`).to.match(new RegExp(`^${sourceModule}`))
+  }
   expect(reference!.targetModule, `Reference '${referenceLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
   return reference!
 }
 
-const checkConnection = (elements: DynamicDiagramElement[], { sourceLabel, referenceLabel, targetLabel, targetType, targetModule }: { sourceLabel: string, referenceLabel: string, targetLabel: string, targetType: string, targetModule: string }) => {
+const checkConnection = (elements: DynamicDiagramElement[], { sourceLabel, referenceLabel, targetLabel, targetType, sourceModule, targetModule }: { sourceLabel: string, referenceLabel: string, targetLabel: string, targetType: string, sourceModule: string | undefined, targetModule: string }) => {
   const source = checkNode(elements, sourceLabel)
   const target = checkNode(elements, targetLabel)
-  checkReference(elements, source.id, target.id, referenceLabel, targetModule)
+  checkReference(elements, source.id, target.id, referenceLabel, sourceModule, targetModule)
   expect(target.type, `Target '${targetLabel}' points to another target type`).to.be.equal(targetType)
+  if (source) {
+    expect(source!.module, `Reference '${sourceLabel}' points to another source module`).to.match(new RegExp(`^${sourceModule}`))
+  }
   expect(target.module, `Target '${targetLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
 }
 
 const checkConnectionFromRepl = (elements: DynamicDiagramElement[], { referenceLabel, targetLabel, targetType, targetModule }: { referenceLabel: string, targetLabel: string, targetType: string, targetModule: string }) => {
   const target = checkNode(elements, targetLabel)
-  checkReference(elements, REPL, target.id, referenceLabel, targetModule)
+  checkReference(elements, REPL, target.id, referenceLabel, undefined, targetModule)
   expect(target.type, `Target '${targetLabel}' points to another target type`).to.be.equal(targetType)
   expect(target.module, `Target '${targetLabel}' points to another target module`).to.match(new RegExp(`^${targetModule}`))
+}
+
+const checkNoConnectionToREPL = (elements: DynamicDiagramElement[], name: string) => {
+  const reference = elements.find((element) => {
+    const elementReference = element as DynamicDiagramReference
+    return elementReference.elementType === 'reference' && elementReference.sourceId.includes(REPL) && elementReference.targetModule === `REPL.${name}`
+  })
+  expect(reference).to.be.undefined
 }
