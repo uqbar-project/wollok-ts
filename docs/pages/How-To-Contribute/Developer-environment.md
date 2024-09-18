@@ -141,6 +141,10 @@ If you are developing a dependency of Wollok-TS (for instance Wollok-TS CLI or W
 npm run build
 ```
 
+### We, the People
+
+If you need some human interaction, you're always welcome at [our Discord channel](https://discord.gg/Nv72jnTR). We also have [a list of first good issues](https://github.com/uqbar-project/wollok-ts/labels/good%20first%20issue) you can take a look and ask for help to get more information.
+
 ### Deploying / Publishing
 
 If you need to deploy or publish a new version, please refer to [this page](../Publish-Instructions.md)
