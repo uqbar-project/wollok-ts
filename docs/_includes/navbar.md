@@ -7,6 +7,6 @@
     - [Validator](/wollok-ts/pages/Implementation-Details/Compilation-Pipeline/Validator)
   - [Interpreter](/wollok-ts/pages/Implementation-Details/Interpreter)
 - [How To Contribute](/wollok-ts/pages/How-To-Contribute)
-  - [General Design & Main Concerns](/wollok-ts/pages/How-To-Contribute/General-Design-and-Main-Concerns)
+  - [General Design](/wollok-ts/pages/How-To-Contribute/General-Design-and-Main-Concerns)
   - [Developer Environment](/wollok-ts/pages/How-To-Contribute/Developer-environment)
-  - [Deploy - Publish instructions](/wollok-ts/pages/Publish-Instructions)
+  - [Publish instructions](/wollok-ts/pages/Publish-Instructions)
