@@ -62,7 +62,7 @@ const autoImportedFromConsole = (obj: RuntimeObject, importedFromConsole: Node[]
 const fromLocal = (name: string, obj: RuntimeObject, interpreter: Interpreter, replPackage: Package): DynamicDiagramElement[] =>
   [
     ...isLocalVariable(name, interpreter)
-      ? buildReplElement(obj, name.slice(replPackage.name.length + 1))
+      ? buildReplElement(obj, name.slice(replPackage.fullyQualifiedName.length + 1))
       : [],
     ...elementFromObject(obj, interpreter),
   ]
@@ -129,7 +129,7 @@ const concatOverlappedReferences = (elementDefinitions: DynamicDiagramElement[])
   return cleanDefinitions
 }
 
-const constFromRoot = (name: string, replPackage: Package): boolean => name.startsWith(replPackage.name)
+const constFromRoot = (name: string, replPackage: Package): boolean => name.startsWith(replPackage.fullyQualifiedName)
 
 const isLocalVariable = (name: string, interpreter: Interpreter) => interpreter.evaluation.environment.getNodeOrUndefinedByFQN(name)?.is(Variable)
 

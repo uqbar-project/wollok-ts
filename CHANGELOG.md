@@ -1,5 +1,9 @@
 # Changelog
 
+## v4.1.6
+**Wollok Version: `3.2.5`**
+- 👾 Fix REPL constants in sub-folder files for dynamic diagram
+
 ## v4.1.5
 **Wollok Version: `3.2.5`**
 - 🖨️ Fix comments for empty bodies in formatter
