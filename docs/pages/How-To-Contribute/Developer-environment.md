@@ -1,21 +1,32 @@
 
 ## General environment
 
-Before anything else, you will need a *TypeScript* editor. We recomend [Visual Studio Code](https://code.visualstudio.com/) along with the following plugins:
+Before anything else, you will need a *TypeScript* editor. We recomend [Visual Studio Code](https://code.visualstudio.com/) with some extensions.
 
-- [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
+### Wollok-TS developer environment profile
+
+You can download and import [this profile](./Wollok-Dev%20Base.code-profile) in your Visual Studio Code. See [this tutorial](https://www.youtube.com/watch?v=QjvvqR9KyVo) if you have any question.
+
+### Alternative: manually install VSC extensions
+
+We need these extensions for developing Wollok-TS:
+
+- [:Emoji Sense: - Matt Bierner](https://marketplace.visualstudio.com/items?itemName=bierner.emojisense)
+- [Better Comments - Aaron Bond](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments)
+- [DotENV - mikestead](https://marketplace.visualstudio.com/items?itemName=mikestead.dotenv)
 - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
- 
+- [Git Lens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+- [Move TS and JS - tnrich](https://marketplace.visualstudio.com/items?itemName=tnrich.move-ts-js)
+- [Pretty Typescript Errors - yoavbls](https://marketplace.visualstudio.com/items?itemName=yoavbls.pretty-ts-errors)
+- [Typescript Importer - pmneo](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
+- [Typescript Toolbox - DSKWRK](https://marketplace.visualstudio.com/items?itemName=DSKWRK.vscode-generate-getter-setter)
+- [Wollok Highlight](https://marketplace.visualstudio.com/items?itemName=uqbar.wollok-highlight)
+
 There are also other plugins that some people on the team find interesting and you might like:
 
 - [TODO Highlight](https://marketplace.visualstudio.com/items?itemName=wayou.vscode-todo-highlight)
-- [TypeScript Importer](https://marketplace.visualstudio.com/items?itemName=pmneo.tsimporter)
-- [Move TS](https://marketplace.visualstudio.com/items?itemName=stringham.move-ts)
-- [Git Lens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 - [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer)
 - [Mocha Test Explorer](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-mocha-test-adapter)
-- [TypeScript Extension Pack](https://marketplace.visualstudio.com/items?itemName=loiane.ts-extension-pack)
-
 
 ### Node
 
@@ -30,8 +41,23 @@ nvm use
 Expected output is the node version that will be used, for example:
 
 ```bash
-Found '/home/wollok-ts/.nvmrc' with version <v11.15.0>
-Now using node v11.15.0 (npm v6.7.0)
+Found '/home/dodain/workspace/wollok-dev/wollok-ts/.nvmrc' with version <lts/hydrogen>
+Now using node v18.20.4 (npm v10.7.0)
+```
+
+If you get this result as output:
+
+```bash
+Found '/home/dodain/workspace/wollok-dev/wollok-ts/.nvmrc' with version <lts/hydrogen>
+N/A: version "lts/hydrogen -> N/A" is not yet installed.
+
+You need to run "nvm install lts/hydrogen" to install it before using it.
+```
+
+then you need to install it
+
+```bash
+nvm install lts/hydrogen # or the version you get on the previous input
 ```
 
 ### NPM
@@ -73,6 +99,16 @@ You can run all the project tests from the console by executing:
 npm test
 ```
 
+We also have specific tests for each component of Wollok-TS:
+
+```bash
+npm run test:dynamicDiagram
+npm run test:validations
+...
+```
+
+Please refer to the `package.json` file or just run `npm run` command to see a list of alternatives.
+
 ## Debugging
 
 The folder `.vscode` has a `launch.json` file which configures everything for running tests in an embedded VSCode environment. You can set a breakpoint and run the tests:
@@ -95,4 +131,12 @@ Or, if you prefer using the console:
 
 ```bash
 npm run test:unit -- -f <test>
+```
+
+### Building it locally
+
+If you are developing a dependency of Wollok-TS (for instance Wollok-TS CLI or Wollok Web Tools), you might need to run a local build. To do so, just run:
+
+```bash
+npm run build
 ```
