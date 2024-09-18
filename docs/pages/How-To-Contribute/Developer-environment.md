@@ -140,3 +140,7 @@ If you are developing a dependency of Wollok-TS (for instance Wollok-TS CLI or W
 ```bash
 npm run build
 ```
+
+### Deploying / Publishing
+
+If you need to deploy or publish a new version, please refer to [this page](../Publish-Instructions.md)
