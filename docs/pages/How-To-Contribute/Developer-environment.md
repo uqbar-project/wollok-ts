@@ -65,7 +65,7 @@ nvm install lts/hydrogen # or the version you get on the previous input
 
 #### For Windows
 
-You need to install the [NVM- for Windows](https://github.com/coreybutler/nvm-windows).
+You need to install the [NVM - for Windows](https://github.com/coreybutler/nvm-windows).
 
 Run the installer `nvm-setup.exe` as Administrator.
 
