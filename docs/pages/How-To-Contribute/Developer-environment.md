@@ -27,8 +27,11 @@ There are also other plugins that some people on the team find interesting and y
 - [TODO Highlight](https://marketplace.visualstudio.com/items?itemName=wayou.vscode-todo-highlight)
 - [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer)
 - [Mocha Test Explorer](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-mocha-test-adapter)
+- [Editor Config for VS Code - Editor Config](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig), only if you use the editor config settings
 
 ### Node
+
+#### For Linux and Mac
 
 You need to install [NodeJS](https://nodejs.org/es/), which provides VM environment, and [NVM - Node Version Manager](https://github.com/nvm-sh/nvm).
 
@@ -58,6 +61,20 @@ then you need to install it
 
 ```bash
 nvm install lts/hydrogen # or the version you get on the previous input
+```
+
+#### For Windows
+
+You need to install the [NVM- for Windows](https://github.com/coreybutler/nvm-windows).
+
+Run the installer `nvm-setup.exe` as Administrator.
+
+Open an elevated Command Prompt or Git Bash in the project folder (with Administrator privileges) and run:
+
+```bash
+nvm install <<version number>>
+nvm use <<version number>>
+# The version number is in the .nvmrc file (do not use codename version e.g. lts/gallium, in Windows you have to use the equivalent version number e.g. 16.15.0)
 ```
 
 ### NPM
