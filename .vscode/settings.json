@@ -7,4 +7,6 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.preferences.quoteStyle": "single",
   "typescript.format.semicolons": "remove",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true
 }
