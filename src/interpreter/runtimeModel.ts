@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
 import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
@@ -64,6 +64,10 @@ export class WollokException extends Error {
       ? `${instance.module.fullyQualifiedName} wrapping TypeScript ${instance.innerValue.name}`
       : instance.module.fullyQualifiedName
   }
+}
+
+export class VoidError extends TypeError {
+  constructor() { super('Malformed Runtime Object: Object was expected not to be void') }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -235,7 +239,11 @@ export class RuntimeObject extends Context {
   }
 
   assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
+    if (this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected not to be null')
+  }
+
+  assertIsNotVoid(): void {
+    if (this.module.fullyQualifiedName === VOID_WKO) throw new VoidError()
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {

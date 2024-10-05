@@ -210,11 +210,15 @@ describe('Wollok Interpreter', () => {
       })
 
       it('sending an non returning closure in a map should fail normally', () => {
+        checkFailedResult('[1, 2, 3].map({ number => void })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
+      })
+
+      it('sending an non returning closure in a map should fail normally', () => {
         checkFailedResult('[1, 2, 3].map({ number => [].add(number) })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
       })
 
       it('sending an non returning closure in a flatMap should fail normally', () => {
-        checkFailedResult('[[1, 2, 3], [4, 5, 6]].map({ list => [].addAll(list) })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
+        checkFailedResult('[[1, 2, 3], [4, 5, 6]].flatMap({ list => [].addAll(list) })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
       })
 
       // TODO: Change the Runtime model

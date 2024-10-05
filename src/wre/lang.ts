@@ -1,6 +1,6 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
-import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue, VoidError } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
@@ -69,15 +69,6 @@ const lang: Natives = {
 
       if (value.innerValue === null) yield* this.send('error', value, message)
     },
-
-    *checkNotVoid(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
-      message.assertIsString()
-
-      if (value?.innerValue === undefined) {
-        const voidValue = yield* this.reify(null)
-        yield* this.send('error', voidValue, message)
-      }
-    },
   },
 
 
@@ -129,8 +120,15 @@ const lang: Natives = {
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
-      if(!(yield* this.send('contains', self, element))!.innerBoolean!)
-        yield* this.send('unsafeAdd', self, element)
+      try {
+        element.assertIsNotVoid()
+        if(!(yield* this.send('contains', self, element))!.innerBoolean!)
+          yield* this.send('unsafeAdd', self, element)
+      } catch (error) {
+        if (error instanceof VoidError) {
+          yield* this.send('generateEvaluationError', self, yield* this.reify('Message send "closure.apply(element)" produces no value (missing return in method?)'))
+        }
+      }
     },
 
     *unsafeAdd(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -249,7 +247,14 @@ const lang: Natives = {
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
-      self.innerCollection!.push(element)
+      try {
+        element.assertIsNotVoid()
+        self.innerCollection!.push(element)
+      } catch (error) {
+        if (error instanceof VoidError) {
+          yield* this.send('generateEvaluationError', self, yield* this.reify('Message send "closure.apply(element)" produces no value (missing return in method?)'))
+        }
+      }
     },
 
     *remove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
