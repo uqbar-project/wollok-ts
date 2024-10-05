@@ -94,6 +94,7 @@ describe('Wollok helpers', () => {
         'generateDoesNotUnderstandMessage',
         'error',
         'checkNotNull',
+        'checkNotVoid',
       ])
     })
 
