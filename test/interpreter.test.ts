@@ -209,6 +209,14 @@ describe('Wollok Interpreter', () => {
         checkFailedResult('[1, 2, 3].map({ number => number.coso() })', 'Evaluation Error!', '1 does not understand coso')
       })
 
+      it.only('sending an non returning closure in a map should fail normally', () => {
+        checkFailedResult('[1, 2, 3].map({ number => [].add(number) })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
+      })
+
+      it.only('sending an non returning closure in a flatMap should fail normally', () => {
+        checkFailedResult('[[1, 2, 3], [4, 5, 6]].map({ list => [].addAll(list) })', 'Evaluation Error!', 'Message send "closure.apply(element)" produces no value (missing return in method?)')
+      })
+
       // TODO: Change the Runtime model
       xit('const const', () => {
         interprete(interpreter, 'const a = 1')

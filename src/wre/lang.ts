@@ -70,6 +70,14 @@ const lang: Natives = {
       if (value.innerValue === null) yield* this.send('error', value, message)
     },
 
+    *checkNotVoid(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
+      message.assertIsString()
+
+      if (value?.innerValue === undefined) { // void is the same as undefined???
+        const voidValue = yield* this.reify(null) // MMMMM como genero un runtimeObject void?
+        yield* this.send('error', voidValue, message)
+      }
+    },
   },
 
 
