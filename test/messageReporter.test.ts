@@ -5,15 +5,18 @@ should()
 
 const MISSING_WOLLOK_TS_CLI = 'missing_wollok_ts_cli'
 const EXAMPLE_WITH_VALUES = 'example'
+const BAD_INTERPOLATION_MESSAGE = 'bad_interpolation_message'
 
 const getCustomMessages = () => {
   const lspMessagesEn = {
     [MISSING_WOLLOK_TS_CLI]: 'Missing configuration WollokLSP/cli-path in order to run Wollok tasks',
     [EXAMPLE_WITH_VALUES]: '{0} needs a previous {1} installation',
+    [BAD_INTERPOLATION_MESSAGE]: '{a} is not well defined, like { }',
   }
   const lspMessagesEs = {
     [MISSING_WOLLOK_TS_CLI]: 'Falta la configuración WollokLSP/cli-path para poder ejecutar tareas de Wollok',
     [EXAMPLE_WITH_VALUES]: '{0} debe tener instalado {1} previamente',
+    [BAD_INTERPOLATION_MESSAGE]: '{a} está mal definido, como { }',
   }
 
   return {
@@ -63,6 +66,18 @@ describe('message reporter', () => {
 
     it('should convert a custom spanish message with values into a human readable message', () => {
       expect(getMessage({ message: EXAMPLE_WITH_VALUES, customMessages: getCustomMessages(), values: ['wollok-lsp-ide', 'wollok-ts-cli'], language: LANGUAGES.SPANISH })).to.equal('wollok-lsp-ide debe tener instalado wollok-ts-cli previamente')
+    })
+
+    it('edge case: should return empty string if message is empty', () => {
+      expect(getMessage({ message: '' })).to.equal('')
+    })
+
+    it('edge case: should leave a blank if values are not passed', () => {
+      expect(getMessage({ message: EXAMPLE_WITH_VALUES, customMessages: getCustomMessages(), values: ['wollok-lsp-ide'] })).to.equal('wollok-lsp-ide needs a previous  installation')
+    })
+
+    it('edge case: should leave a blank if message has a bad definition', () => {
+      expect(getMessage({ message: BAD_INTERPOLATION_MESSAGE, customMessages: getCustomMessages(), values: ['wollok-lsp-ide', 'wollok-ts-cli'] })).to.equal('{a} is not well defined, like { }')
     })
 
   })
