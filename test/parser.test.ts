@@ -2731,8 +2731,16 @@ class c {}`
           '.m'.should.not.be.parsedBy(parser)
         })
 
+        it('should recover from malformed message send without arguments', () => {
+          `m()`.should.be.parsedBy(parse.Expression) // TODO: No entiendo por qué acá funciona con Expression y no con Send.
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 3)
+            .into(new Send({ 
+              receiver: null,
+              message: 'm',
+              args: [],
+            }))
+        })
       })
-
 
       describe('New', () => {
 
