@@ -228,6 +228,7 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
     sentences: alt(
       Sentence.skip(__),
       comment('inner').wrap(_, _),
+      sentenceError
     ).many(),
   }).wrap(key('{'), lastKey('}')).map(recover)
 )
