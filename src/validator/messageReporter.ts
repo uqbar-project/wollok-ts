@@ -44,7 +44,7 @@ const convertToHumanReadable = (code: string, customMessages: Messages, language
 const interpolateValidationMessage = (message: string, ...values: string[]) =>
   message.replace(/{\d*}/g, (match: string) => {
     const index = match.replace('{', '').replace('}', '')
-    return isNaN(+index) ? '' : values[+index] ?? ''
+    return values[+index] ?? ''
   })
 
 const validationI18nized = (customMessages: Messages, lang: LANGUAGES) => customMessages[lang] as Message
