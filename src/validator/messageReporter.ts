@@ -26,7 +26,7 @@ const messages: Messages = {
 // INTERNAL FUNCTIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const convertToHumanReadable = (code: string) => {
+const convertToHumanReadable = (code: string, customMessages: Messages, language: LANGUAGES) => {
   if (!code) {
     return ''
   }
@@ -35,7 +35,7 @@ const convertToHumanReadable = (code: string) => {
     (match) => ' ' + match.toLowerCase()
   )
   return (
-    validationI18nized()[FAILURE] +
+    validationI18nized(customMessages, language)[FAILURE] +
     result.charAt(0).toUpperCase() +
     result.slice(1, result.length)
   )
@@ -47,7 +47,7 @@ const interpolateValidationMessage = (message: string, ...values: string[]) =>
     return values[index] || ''
   })
 
-const validationI18nized = (customMessages: Messages = messages, lang: LANGUAGES = LANGUAGES.ENGLISH) => customMessages[lang] as Message
+const validationI18nized = (customMessages: Messages, lang: LANGUAGES) => customMessages[lang] as Message
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PUBLIC INTERFACE
@@ -58,5 +58,12 @@ export enum LANGUAGES {
   ENGLISH = 'en',
 }
 
-export const getMessage = (message: string, values: string[], lang?: LANGUAGES, customMessages?: Messages): string =>
-  interpolateValidationMessage(validationI18nized(customMessages, lang)[message] || convertToHumanReadable(message), ...values)
+export type ReportMessage = {
+  message: string,
+  values?: string[],
+  language?: LANGUAGES,
+  customMessages?: Messages,
+}
+
+export const getMessage = ({ message, values, language = LANGUAGES.ENGLISH, customMessages = messages }: ReportMessage): string =>
+  interpolateValidationMessage(validationI18nized(customMessages, language)[message] || convertToHumanReadable(message, customMessages, language), ...values ?? [])

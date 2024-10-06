@@ -38,7 +38,7 @@ export * from './interpreter/runtimeModel'
 export * from './typeSystem/constraintBasedTypeSystem'
 export * from './printer/exceptions'
 export * from './printer/utils'
-export * from './validator/problemReporter'
+export * from './validator/messageReporter'
 
 export {
   buildEnvironment,
