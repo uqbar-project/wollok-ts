@@ -1,26 +1,3 @@
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// VALIDATION MESSAGES DEFINITION
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-import validationMessagesEn from '../../language/src/resources/validationMessagesEN.json'
-import validationMessagesEs from '../../language/src/resources/validationMessagesES.json'
-
-type Message = { [key: string]: string }
-
-type Messages = { [key: string]: Message }
-
-const FAILURE = 'failure'
-
-const messages: Messages = {
-  en: {
-    ...validationMessagesEn,
-    [FAILURE]: 'Rule failure: ',
-  },
-  es: {
-    ...validationMessagesEs,
-    [FAILURE]: 'La siguiente regla falló: ',
-  },
-}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // INTERNAL FUNCTIONS
@@ -47,7 +24,7 @@ const interpolateValidationMessage = (message: string, ...values: string[]) =>
     return values[+index] ?? ''
   })
 
-const validationI18nized = (customMessages: Messages, lang: LANGUAGES) => customMessages[lang] as Message
+const validationI18nized = (customMessages: Messages, language: LANGUAGES) => customMessages[language] as Message
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PUBLIC INTERFACE
@@ -67,3 +44,27 @@ export type ReportMessage = {
 
 export const getMessage = ({ message, values, language = LANGUAGES.ENGLISH, customMessages = messages }: ReportMessage): string =>
   interpolateValidationMessage(validationI18nized(customMessages, language)[message] || convertToHumanReadable(message, customMessages, language), ...values ?? [])
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// VALIDATION MESSAGES DEFINITION
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+import validationMessagesEn from '../../language/src/resources/validationMessages/en.json'
+import validationMessagesEs from '../../language/src/resources/validationMessages/es.json'
+
+type Message = { [key: string]: string }
+
+type Messages = { [key in LANGUAGES]: Message }
+
+const FAILURE = 'failure'
+
+const messages: Messages = {
+  [LANGUAGES.ENGLISH]: {
+    ...validationMessagesEn,
+    [FAILURE]: 'Rule failure: ',
+  },
+  [LANGUAGES.SPANISH]: {
+    ...validationMessagesEs,
+    [FAILURE]: 'La siguiente regla falló: ',
+  },
+}
