@@ -1,5 +1,9 @@
 # Changelog
 
+## v4.1.8
+**Wollok Version: `3.2.6`**
+- ❌ Hot fix for validation messages
+
 ## v4.1.7
 **Wollok Version: `3.2.6`**
 - 🌎 Migrate validation messages
