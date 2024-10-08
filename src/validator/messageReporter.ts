@@ -53,8 +53,8 @@ export const getMessage = ({ message, values, language = LANGUAGES.ENGLISH, cust
 // VALIDATION MESSAGES DEFINITION
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-import validationMessagesEn from '../../language/src/resources/validationMessages/en.json'
-import validationMessagesEs from '../../language/src/resources/validationMessages/es.json'
+import validationMessagesEn from './en.json'
+import validationMessagesEs from './es.json'
 
 const FAILURE = 'failure'
 

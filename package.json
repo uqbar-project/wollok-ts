@@ -10,6 +10,7 @@
     "dist"
   ],
   "scripts": {
+    "preinstall": "cp ./language/src/resources/validationMessages/*.json ./src/validator",
     "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && cp -r language/src/* dist/wre/",
     "buildWRE": "ts-node scripts/buildWRE.ts",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE",
