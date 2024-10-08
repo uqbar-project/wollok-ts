@@ -276,9 +276,11 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'size',
-                body: new Body({ sentences: [
-                  new Literal({ value: 10 }),
-                ] }),
+                body: new Body({
+                  sentences: [
+                    new Literal({ value: 10 }),
+                  ],
+                }),
                 isOverride: false,
               }),
             ],
@@ -288,13 +290,15 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'size',
-                body: new Body({ sentences: [
-                  new Send({
-                    receiver: new Super(),
-                    message: '+',
-                    args: [new Literal({ value: 5 })],
-                  }),
-                ] }),
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Super(),
+                      message: '+',
+                      args: [new Literal({ value: 5 })],
+                    }),
+                  ],
+                }),
                 isOverride: true,
               }),
             ],
