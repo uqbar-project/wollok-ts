@@ -424,7 +424,7 @@ export const getNodeDefinition = (environment: Environment) => (node: Node): Nod
     return match(node)(
       when(Reference)(node => valueAsListOrEmpty(node.target)),
       when(Send)(sendDefinitions(environment)),
-      when(Super)(node => valueAsListOrEmpty(superMethodDefinition(node))),
+      when(Super)(node => valueAsListOrEmpty(superMethodDefinition(node, getParentModule(node)))),
       when(Self)(node => valueAsListOrEmpty(getParentModule(node)))
     )
   } catch {
@@ -432,10 +432,9 @@ export const getNodeDefinition = (environment: Environment) => (node: Node): Nod
   }
 }
 
-const superMethodDefinition = (superNode: Super): Method | undefined => {
+export const superMethodDefinition = (superNode: Super, methodModule: Module): Method | undefined => {
   const currentMethod = superNode.ancestors.find(is(Method))!
-  const module = getParentModule(superNode)
-  return module ? module.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: module.fullyQualifiedName }) : undefined
+  return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
-const getParentModule = (node: Node) => node.ancestors.find(is(Module))
+const getParentModule = (node: Node) => node.ancestors.find(is(Module)) as Module

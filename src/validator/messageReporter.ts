@@ -35,6 +35,10 @@ export enum LANGUAGES {
   ENGLISH = 'en',
 }
 
+export type Message = { [key: string]: string }
+
+export type Messages = { [key in LANGUAGES]: Message }
+
 export type ReportMessage = {
   message: string,
   values?: string[],
@@ -51,10 +55,6 @@ export const getMessage = ({ message, values, language = LANGUAGES.ENGLISH, cust
 
 import validationMessagesEn from '../../language/src/resources/validationMessages/en.json'
 import validationMessagesEs from '../../language/src/resources/validationMessages/es.json'
-
-type Message = { [key: string]: string }
-
-type Messages = { [key in LANGUAGES]: Message }
 
 const FAILURE = 'failure'
 
