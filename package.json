@@ -23,6 +23,7 @@
     "test:helpers": "mocha --parallel -r ts-node/register/transpile-only test/helpers.test.ts",
     "test:interpreter": "mocha --parallel -r ts-node/register/transpile-only test/interpreter.test.ts",
     "test:linker": "mocha --parallel -r ts-node/register/transpile-only test/linker.test.ts",
+    "test:messageReporter": "mocha --parallel -r ts-node/register/transpile-only test/messageReporter.test.ts",
     "test:model": "mocha --parallel -r ts-node/register/transpile-only test/model.test.ts",
     "test:sanity": "npm run test:wtest -- --root language/test/sanity",
     "test:validations": "mocha --parallel -r ts-node/register/transpile-only test/validator.test.ts",

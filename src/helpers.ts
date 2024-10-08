@@ -418,3 +418,23 @@ export const targetName = (target: Node | undefined, defaultName: Name): string 
   target?.is(Module) || target?.is(Variable) && getPotentiallyUninitializedLazy(target, 'parent')?.is(Package)
     ? target.fullyQualifiedName
     : defaultName
+
+export const getNodeDefinition = (environment: Environment) => (node: Node): Node[] => {
+  try {
+    return match(node)(
+      when(Reference)(node => valueAsListOrEmpty(node.target)),
+      when(Send)(sendDefinitions(environment)),
+      when(Super)(node => valueAsListOrEmpty(superMethodDefinition(node, getParentModule(node)))),
+      when(Self)(node => valueAsListOrEmpty(getParentModule(node)))
+    )
+  } catch {
+    return [node]
+  }
+}
+
+export const superMethodDefinition = (superNode: Super, methodModule: Module): Method | undefined => {
+  const currentMethod = superNode.ancestors.find(is(Method))!
+  return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
+}
+
+const getParentModule = (node: Node) => node.ancestors.find(is(Module)) as Module

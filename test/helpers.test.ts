@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions, hasNullValue, hasBooleanValue, projectToJSON } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -243,7 +243,7 @@ describe('Wollok helpers', () => {
 
   })
 
-  describe('sendDefinitions', () => {
+  describe('getNodeDefinition', () => {
 
     const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
     const environment = getLinkedEnvironment(link([
@@ -270,6 +270,39 @@ describe('Wollok helpers', () => {
                 }),
               }),
             ],
+          }),
+          new Class({
+            name: 'Cage',
+            members: [
+              new Method({
+                name: 'size',
+                body: new Body({
+                  sentences: [
+                    new Literal({ value: 10 }),
+                  ],
+                }),
+                isOverride: false,
+              }),
+            ],
+          }),
+          new Class({
+            name: 'SpecialCage',
+            members: [
+              new Method({
+                name: 'size',
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Super(),
+                      message: '+',
+                      args: [new Literal({ value: 5 })],
+                    }),
+                  ],
+                }),
+                isOverride: true,
+              }),
+            ],
+            supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A.Cage' }) })],
           }),
           new Singleton({
             name: 'trainer',
@@ -338,13 +371,19 @@ describe('Wollok helpers', () => {
     const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
     const anotherTrainerWKO = environment.getNodeByFQN('A.anotherTrainer') as Singleton
     const birdClass = environment.getNodeByFQN('A.Bird') as Class
-    const pickTrainerMethod = trainerWKO.allMethods[1] as Method
+    const trainerPlayMethod = trainerWKO.allMethods[0] as Method
+    const trainerPickMethod = trainerWKO.allMethods[1] as Method
+    const anotherTrainerPlayMethod = anotherTrainerWKO.allMethods[0] as Method
     const anotherTrainerFlyMethod = anotherTrainerWKO.allMethods[1] as Method
     const birdFlyMethod = birdClass.allMethods[0] as Method
+    const cageClass = environment.getNodeByFQN('A.Cage') as Class
+    const cageSizeMethod = cageClass.allMethods[0] as Method
+    const specialCageClass = environment.getNodeByFQN('A.SpecialCage') as Class
+    const specialCageSizeMethod = specialCageClass.allMethods[0] as Method
 
     it('should return the methods of a class when using new', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
-      const definitions = sendDefinitions(environment)(sendToNewBird)
+      const definitions = getNodeDefinition(environment)(sendToNewBird)
       definitions.should.deep.equal([birdFlyMethod])
     })
 
@@ -360,7 +399,7 @@ describe('Wollok helpers', () => {
     it('should return the methods of a singleton when calling to the WKO', () => {
       const sendToTrainer = anotherTrainerWKO.allMethods[0].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToTrainer)
-      definitions.should.deep.equal([pickTrainerMethod])
+      definitions.should.deep.equal([trainerPickMethod])
     })
 
     it('should return all methods definitions matching message & arity when calling to a class', () => {
@@ -391,6 +430,31 @@ describe('Wollok helpers', () => {
       } as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
+    it('should match a reference to the corresponding field', () => {
+      const pepitaReference = (anotherTrainerPlayMethod.sentences[1] as Send).receiver
+      const pepitaField = anotherTrainerWKO.allFields[0]
+      const definitions = getNodeDefinition(environment)(pepitaReference)
+      definitions.should.deep.equal([pepitaField])
+    })
+
+    it('should match a reference to the corresponding class for a new instance', () => {
+      const newBirdReference = ((trainerPlayMethod.sentences[0] as Send).receiver as New).instantiated
+      const definitions = getNodeDefinition(environment)(newBirdReference)
+      definitions.should.deep.equal([birdClass])
+    })
+
+    it('should return the parent method when asking for a super definition', () => {
+      const callToSuperCageSize = (specialCageSizeMethod.sentences[0] as Send).receiver as Super
+      const definitions = getNodeDefinition(environment)(callToSuperCageSize)
+      definitions.should.deep.equal([cageSizeMethod])
+    })
+
+    it('should return self when asking for a self definition', () => {
+      const callToSelfTrainer = (trainerPickMethod.sentences[0] as Send).receiver as Self
+      const definitions = getNodeDefinition(environment)(callToSelfTrainer)
+      definitions.should.deep.equal([trainerWKO])
     })
 
   })
