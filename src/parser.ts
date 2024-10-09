@@ -1,5 +1,5 @@
 import { log } from 'console'
-import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, succeed, whitespace } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
 import { discriminate, hasWhitespace, is, List, mapObject } from './extensions'
@@ -453,13 +453,13 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
 )
 
 // TODO Esto por ahora sólo parsea no-mensajes, hay que incluir también las opciones correctas y sumar a la messageChain.
-const postfixMessageChain: Parser<ExpressionNode> = lazy(() => 
-  seq(name, unamedArguments).map(([message, args]) => new SendNode({ 
-    receiver: null, 
-    message, 
-    args
-  }))
-  .mark().map(({ value, start, end }) => ({
+const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
+  obj({
+    receiver: succeed(new LiteralNode({ value: null })),
+    message: name,
+    args: unamedArguments,
+  })
+  .mark().map(({ start, end, value }) => new SendNode({
     ...value, 
     // TODO sería mejor que el sourceMap le ponga el error sólo al message y no a toda la no-expresión.
     problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
