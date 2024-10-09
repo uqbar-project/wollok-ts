@@ -91,6 +91,7 @@ describe('Wollok helpers', () => {
         'shortDescription',
         'printString',
         'messageNotUnderstood',
+        'generateEvaluationError',
         'generateDoesNotUnderstandMessage',
         'error',
         'checkNotNull',
