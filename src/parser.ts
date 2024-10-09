@@ -456,12 +456,12 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
 const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
   obj({
     receiver: succeed(new LiteralNode({ value: null })),
-    message: name,
+    markedMessage: name.mark(),
     args: unamedArguments,
   })
-  .mark().map(({ start, end, value }) => new SendNode({
-    ...value, 
-    // TODO sería mejor que el sourceMap le ponga el error sólo al message y no a toda la no-expresión.
+  .map(({ markedMessage: { start, end, value: message }, ...send }) => new SendNode({
+    ...send,
+    message, 
     problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
   }))
 )
