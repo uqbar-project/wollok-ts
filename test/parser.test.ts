@@ -2728,7 +2728,7 @@ class c {}`
         })
 
         it('should recover from malformed message send without arguments', () => {
-          `m()`.should.be.parsedBy(parse.Expression) // TODO: No entiendo por qué acá funciona con Expression y no con Send.
+          `m()`.should.be.parsedBy(parser)
             .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
             .into(new Send({ 
               receiver: new Literal({ value: null }),
@@ -2737,8 +2737,18 @@ class c {}`
             }))
         })
 
+        it('should recover from malformed message send with one argument', () => {
+          `m(p)`.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [ new Reference({ name: 'p' }) ],
+            }))
+        })
+
         it('should recover from malformed message send with multiple arguments', () => {
-          'm(p,q)'.should.be.parsedBy(parse.Expression) // TODO: No entiendo por qué acá funciona con Expression y no con Send.
+          'm(p,q)'.should.be.parsedBy(parser)
             .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
             .into(new Send({ 
               receiver: new Literal({ value: null }),
