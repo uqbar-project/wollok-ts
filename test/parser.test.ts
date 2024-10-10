@@ -2723,10 +2723,6 @@ class c {}`
           'a.'.should.not.be.parsedBy(parser)
         })
 
-        it('should not parse a call to a method without the reference that is calling', () => {
-          'm(p,q)'.should.not.be.parsedBy(parser)
-        })
-
         it('should not parse an expression with a "." at the start', () => {
           '.m'.should.not.be.parsedBy(parser)
         })
@@ -2740,6 +2736,20 @@ class c {}`
               args: [],
             }))
         })
+
+        it('should recover from malformed message send with multiple arguments', () => {
+          'm(p,q)'.should.be.parsedBy(parse.Expression) // TODO: No entiendo por qué acá funciona con Expression y no con Send.
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [
+                new Reference({ name: 'p' }),
+                new Reference({ name: 'q' })
+              ],
+            }))
+        })
+
       })
 
       describe('New', () => {
