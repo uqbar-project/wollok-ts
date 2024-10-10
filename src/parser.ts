@@ -452,18 +452,26 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
   )
 )
 
-// TODO Esto por ahora sólo parsea no-mensajes, hay que incluir también las opciones correctas y sumar a la messageChain.
+// TODO sumar messageChain.
 const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
-  obj({
-    receiver: succeed(new LiteralNode({ value: null })),
-    markedMessage: name.mark(),
-    args: unamedArguments,
-  })
-  .map(({ markedMessage: { start, end, value: message }, ...send }) => new SendNode({
-    ...send,
-    message, 
-    problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
-  }))
+  alt(
+    primaryExpression,
+    obj({
+      receiver: primaryExpression,
+      message: name,
+      args: unamedArguments,
+    }).map(send => new SendNode(send)),
+    obj({
+      receiver: succeed(new LiteralNode({ value: null })),
+      markedMessage: name.mark(),
+      args: unamedArguments,
+    })
+    .map(({ markedMessage: { start, end, value: message }, ...send }) => new SendNode({
+      ...send,
+      message, 
+      problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
+    }))
+  )
 )
   
 const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
