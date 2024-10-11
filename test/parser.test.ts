@@ -45,6 +45,17 @@ describe('Wollok parser', () => {
         }))
     })
 
+    it('comments after malformed sends should be parsed', () => {
+      'vola() //some comment'
+      .should.be.parsedBy(parse.Send)
+      .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 4)
+        .into(new Send({
+          receiver: new Literal({ value: null }),
+          message: 'vola',
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+        }))
+    })
+
     it('comments after variable should be parsed', () => {
       'const a = 1 //some comment'
         .should.be.parsedBy(parse.Variable).into(new Variable({

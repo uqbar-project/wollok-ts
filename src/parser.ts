@@ -453,10 +453,9 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
 )
 
 // TODO sumar messageChain.
-// TODO comments
 // TODO cloures
 const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
-  alt(
+  withSameLineComment(alt(
     obj({
       receiver: primaryExpression,
       message: key('.').then(name),
@@ -478,8 +477,15 @@ const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem
       message, 
       problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
     }))
-  )
+  ))
 )
+
+const withSameLineComment = <T extends Node>(parser: Parser<T>): Parser<T> => 
+  seq(parser, optional(sameLineComment)).map(([result, comment]) => 
+    comment
+      ? result.copy({ metadata: result.metadata.concat(comment) })
+      : result
+  )
   
 const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
   seq(
