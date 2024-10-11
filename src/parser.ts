@@ -453,14 +453,21 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
 )
 
 // TODO sumar messageChain.
+// TODO comments
+// TODO cloures
 const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
   alt(
-    primaryExpression,
     obj({
       receiver: primaryExpression,
-      message: name,
+      message: key('.').then(name),
       args: unamedArguments,
-    }).map(send => new SendNode(send)),
+    }).mark().chain(({ start, end, value: send}) => Parsimmon((input: string, i: number) => makeSuccess(i, 
+      new SendNode({
+        ...send,
+        sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
+      })
+    ))),
+    primaryExpression,
     obj({
       receiver: succeed(new LiteralNode({ value: null })),
       markedMessage: name.mark(),
