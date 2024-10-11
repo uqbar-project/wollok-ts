@@ -457,31 +457,35 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
   )
 )
 
-// TODO sumar messageChain.
-// TODO cloures
-const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
+const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
+  messageChain(
+    postfixMessageChainInitialReceiver,
+    key('.').then(name),
+    alt(unamedArguments, Closure.times(1))
+  )
+)
+
+const postfixMessageChainInitialReceiver: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
   alt(
-    obj({
-      receiver: primaryExpression,
-      message: key('.').then(name),
-      args: unamedArguments,
-    }).mark().chain(({ start, end, value: send}) => Parsimmon((input: string, i: number) => makeSuccess(i, 
-      new SendNode({
-        ...send,
-        sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
-      })
-    ))),
     primaryExpression,
     obj({
-      receiver: succeed(new LiteralNode({ value: null })),
       markedMessage: name.mark(),
-      args: unamedArguments,
-    })
-    .map(({ markedMessage: { start, end, value: message }, ...send }) => new SendNode({
-      ...send,
-      message, 
-      problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
-    }))
+      args: alt(unamedArguments, Closure.times(1)),
+    }).mark().chain(({
+      start,
+      end,
+      value: { 
+        markedMessage: { value: message, start: errorStart, end: errorEnd }, 
+        ...send 
+      },
+    }) => Parsimmon((input: string, i: number) => makeSuccess(i, new SendNode({
+        ...send,
+        receiver: new LiteralNode({ value: null }),
+        message, 
+        problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(errorStart, errorEnd))],
+        sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
+      })
+    )))
   ).chain(withSameLineComment)
 )
   

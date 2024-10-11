@@ -2771,6 +2771,35 @@ class c {}`
             }))
         })
 
+        it('should parse malformed message sends with a closure as an argument', () => {
+          'm{p => p}'.should.be.parsedBy(parser)
+          .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+          .into(
+            new Send({
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [
+                Closure({
+                  parameters: [new Parameter({ name: 'p' })],
+                  sentences: [new Return({ value: new Reference({ name: 'p' }) })],
+                  code: '{p => p}',
+                }),
+              ],
+            })
+          )
+          .and.to.satisfy(x => { console.log(x); return true })
+          .and.be.tracedTo(0, 9)
+          //   .and.also.to.exist
+            // .and.also.have.nested.property('args.0').tracedTo(2, 9)
+            // .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
+            // .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(7, 8)
+
+            // expect(obj).to.exist; // Verifica que el objeto no sea null o undefined
+            // expect(obj).to.have.property('args'); // Verifica que 'args' existe
+            // expect(obj.args).to.have.lengthOf.at.least(1); // Verifica que 'args' no esté vacío
+            // expect(obj.args[0]).to.exist; // Verifica que 'args.0' existe
+        })
+
       })
 
       describe('New', () => {
