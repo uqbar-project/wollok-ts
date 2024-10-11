@@ -45,6 +45,17 @@ describe('Wollok parser', () => {
         }))
     })
 
+    it('comments after malformed sends should be parsed', () => {
+      'vola() //some comment'
+      .should.be.parsedBy(parse.Send)
+      .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 4)
+        .into(new Send({
+          receiver: new Literal({ value: null }),
+          message: 'vola',
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+        }))
+    })
+
     it('comments after variable should be parsed', () => {
       'const a = 1 //some comment'
         .should.be.parsedBy(parse.Variable).into(new Variable({
@@ -2657,16 +2668,44 @@ class c {}`
           'a.'.should.not.be.parsedBy(parser)
         })
 
-        it('should not parse a call to a method without the reference that is calling', () => {
-          'm(p,q)'.should.not.be.parsedBy(parser)
-        })
-
         it('should not parse an expression with a "." at the start', () => {
           '.m'.should.not.be.parsedBy(parser)
         })
 
-      })
+        it('should recover from malformed message send without arguments', () => {
+          `m()`.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [],
+            }))
+        })
 
+        it('should recover from malformed message send with one argument', () => {
+          `m(p)`.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [ new Reference({ name: 'p' }) ],
+            }))
+        })
+
+        it('should recover from malformed message send with multiple arguments', () => {
+          'm(p,q)'.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [
+                new Reference({ name: 'p' }),
+                new Reference({ name: 'q' })
+              ],
+            }))
+        })
+
+      })
 
       describe('New', () => {
 
