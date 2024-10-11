@@ -104,6 +104,11 @@ const spaces = optional(string(' ').many())
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
 const sameLineComment: Parser<Annotation> = spaces.then(comment('end'))
 
+const withSameLineComment = <T extends Node>(result: T): Parser<T> => 
+  optional(sameLineComment).map(comment => comment
+      ? result.copy({ metadata: result.metadata.concat(comment) })
+      : result)
+
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const EOL = input.includes('\r\n') ? '\r\n' : '\n'
   const hasLineBreaks = (aString: string) => aString.includes(EOL)
@@ -455,7 +460,7 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
 // TODO sumar messageChain.
 // TODO cloures
 const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
-  withSameLineComment(alt(
+  alt(
     obj({
       receiver: primaryExpression,
       message: key('.').then(name),
@@ -477,15 +482,8 @@ const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem
       message, 
       problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
     }))
-  ))
+  ).chain(withSameLineComment)
 )
-
-const withSameLineComment = <T extends Node>(parser: Parser<T>): Parser<T> => 
-  seq(parser, optional(sameLineComment)).map(([result, comment]) => 
-    comment
-      ? result.copy({ metadata: result.metadata.concat(comment) })
-      : result
-  )
   
 const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
   seq(
