@@ -4,6 +4,7 @@ import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 import * as parse from '../parser'
 import { notEmpty } from '../extensions'
+import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 
 export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
@@ -84,6 +85,18 @@ const successResult = (result: string): ExecutionResult => ({
   result,
   errored: false,
 })
+
+export const sanitizeStackTrace = (e?: Error): string[] => {
+  const indexOfTsStack = e?.stack?.indexOf(WOLLOK_EXTRA_STACK_TRACE_HEADER)
+  const fullStack = e?.stack?.slice(0, indexOfTsStack ?? -1) ?? ''
+
+  return fullStack
+    .replaceAll('\t', '  ')
+    .replaceAll('     ', '  ')
+    .replaceAll('    ', '  ')
+    .split('\n')
+    .filter(stackTraceElement => stackTraceElement.trim())
+}
 
 export class Interpreter extends AbstractInterpreter {
   constructor(evaluation: Evaluation) { super(evaluation) }

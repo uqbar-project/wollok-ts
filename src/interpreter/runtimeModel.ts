@@ -61,7 +61,7 @@ export class WollokException extends Error {
     instance.assertIsException()
 
     this.name = instance.innerValue
-      ? `${instance.module.fullyQualifiedName} wrapping TypeScript ${instance.innerValue.name}`
+      ? `${instance.module.fullyQualifiedName}: ${instance.innerValue.name}`
       : instance.module.fullyQualifiedName
   }
 }
@@ -236,8 +236,8 @@ export class RuntimeObject extends Context {
     }
   }
 
-  assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
+  assertIsNotNull(variableName?: string): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
+    if (this.innerValue === null) throw new RangeError(`${variableName ?? 'Object'} was not expected to be null`)
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {

@@ -1,8 +1,8 @@
 import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives } from '../src'
-import { DirectedInterpreter, interprete, Interpreter } from '../src/interpreter/interpreter'
+import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives, buildEnvironment } from '../src'
+import { DirectedInterpreter, interprete, Interpreter, sanitizeStackTrace } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { WREEnvironment } from './utils'
@@ -256,6 +256,94 @@ describe('Wollok Interpreter', () => {
       it('for closure', () => {
         checkSuccessfulResult('{1 + 2}', '{1 + 2}')
       })
+    })
+
+    describe('sanitize stack trace', () => {
+
+      it('should filter Typescript stack', () => {
+        const { error } = interprete(interpreter, '2.notFound()')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.execThrow')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.MessageNotUnderstoodException: 2 does not understand notFound()'])
+      })
+
+      it('should wrap RangeError errors', () => {
+        const { error } = interprete(interpreter, '1 / 0')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: other'])
+      })
+
+      it('should wrap TypeError errors', () => {
+        const { error } = interprete(interpreter, '1 < "hola"')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Expected an instance of wollok.lang.Number but got a wollok.lang.String instead'])
+      })
+
+      it('should wrap Typescript Error errors', () => {
+        const { error } = interprete(interpreter, 'new Date(day = 1, month = 2, year = 2001, nonsense = 2)')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Can\'t initialize wollok.lang.Date with value for unexistent field nonsense'])
+      })
+
+      it('should wrap RuntimeModel errors', () => {
+        const { error } = interprete(interpreter, 'new Sound()')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Sound cannot be instantiated, you must pass values to the following attributes: file'])
+      })
+
+      it('should wrap null validation errors', () => {
+        const { error } = interprete(interpreter, '5 + null')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: other was not expected to be null'])
+      })
+
+      it('should show Wollok stack', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+          object comun {
+            method volar() {
+              self.despegar()
+            }
+
+            method despegar() {
+              throw new DomainException(message = "failed")
+            }
+          }
+          
+          class Ave {
+            var energy = 100
+            const formaVolar = comun
+
+            method volar() {
+              formaVolar.volar()
+            }
+          }`,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { result, error } = interprete(interpreter, 'new Ave().volar()')
+        console.info(error, result)
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal([
+          'wollok.lang.DomainException: failed',
+          '  at REPL.comun.despegar() [REPL:7]',
+          '  at REPL.comun.volar() [REPL:3]',
+          '  at REPL.Ave.volar() [REPL:16]',
+        ])
+      })
+
     })
 
   })
