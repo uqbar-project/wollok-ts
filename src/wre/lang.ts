@@ -421,24 +421,28 @@ const lang: Natives = {
     },
 
     *['+'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! + other.innerNumber)
     },
 
     *['-'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! - other.innerNumber)
     },
 
     *['*'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! * other.innerNumber)
     },
 
     *['/'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       if (other.innerNumber === 0) throw new RangeError('other')
@@ -447,12 +451,14 @@ const lang: Natives = {
     },
 
     *['**'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! ** other.innerNumber)
     },
 
     *['%'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! % other.innerNumber)
@@ -463,12 +469,14 @@ const lang: Natives = {
     },
 
     *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! > other.innerNumber)
     },
 
     *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       return yield* this.reify(self.innerNumber! < other.innerNumber)
@@ -483,6 +491,7 @@ const lang: Natives = {
     },
 
     *roundUp(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
+      decimals.assertIsNotNull('decimals')
       decimals.assertIsNumber()
 
       if (decimals.innerNumber! < 0) throw new RangeError('decimals')
@@ -491,6 +500,7 @@ const lang: Natives = {
     },
 
     *truncate(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
+      decimals.assertIsNotNull('decimals')
       decimals.assertIsNumber()
 
       if (decimals.innerNumber < 0) throw new RangeError('decimals')
@@ -503,6 +513,7 @@ const lang: Natives = {
     },
 
     *randomUpTo(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
       return yield* this.reify(random() * (other.innerNumber! - self.innerNumber!) + self.innerNumber!)
     },
@@ -512,6 +523,7 @@ const lang: Natives = {
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       other.assertIsNumber()
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
@@ -533,6 +545,7 @@ const lang: Natives = {
     },
 
     *concat(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
+      other.assertIsNotNull('other')
       return yield* this.reify(self.innerString! + (yield * this.send(TO_STRING_METHOD, other))!.innerString!)
     },
 
