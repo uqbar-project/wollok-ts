@@ -284,6 +284,14 @@ describe('Wollok Interpreter', () => {
         expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Expected an instance of wollok.lang.Number but got a wollok.lang.String instead'])
       })
 
+      it('should wrap custom TypeError errors', () => {
+        const { error } = interprete(interpreter, 'new Date() - 2')
+        expect(error).not.to.be.undefined
+        expect(error!.message).to.contain('Derived from TypeScript stack')
+        expect(error!.stack).to.contain('at Evaluation.exec')
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: -: other is not a wollok.lang.Date'])
+      })
+
       it('should wrap Typescript Error errors', () => {
         const { error } = interprete(interpreter, 'new Date(day = 1, month = 2, year = 2001, nonsense = 2)')
         expect(error).not.to.be.undefined
@@ -331,8 +339,7 @@ describe('Wollok Interpreter', () => {
           }`,
         }])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-        const { result, error } = interprete(interpreter, 'new Ave().volar()')
-        console.info(error, result)
+        const { error } = interprete(interpreter, 'new Ave().volar()')
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')

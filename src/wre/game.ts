@@ -6,10 +6,11 @@ const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.assertIsNotNull('addVisual', 'visual')
-      if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
+      if (!visual.module.lookupMethod('position', 0)) throw new TypeError('addVisual: visual lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
 
+      // TODO: shouldn´t we say "visual is already included"
       if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName)
 
       visuals.push(visual)
@@ -168,7 +169,7 @@ const game: Natives = {
       const volume: RuntimeObject = newVolume
       volume.assertIsNumber()
 
-      if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('newVolume')
+      if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('volumen: newVolume should be between 0 and 1')
 
       self.set('volume', volume)
     },

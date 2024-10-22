@@ -912,7 +912,7 @@ const lang: Natives = {
 
     *['-'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('-', 'other')
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.module !== self.module) throw new TypeError('-: other is not a wollok.lang.Date')
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
@@ -931,7 +931,7 @@ const lang: Natives = {
 
     *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('<', 'other')
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.module !== self.module) throw new TypeError('<: other is not a wollok.lang.Date')
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
@@ -949,7 +949,7 @@ const lang: Natives = {
 
     *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('>', 'other')
-      if (other.module !== self.module) throw new TypeError('other')
+      if (other.module !== self.module) throw new TypeError('>: other is not a wollok.lang.Date')
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
