@@ -106,9 +106,11 @@ export abstract class Context {
 
     for (const [name, value] of this.locals.entries())
       copy.set(name,
-        value instanceof RuntimeObject ? value.copy(contextCache) :
-        value ? this.get(name) :
-        value
+        value instanceof RuntimeObject ?
+          value.copy(contextCache) :
+          value ?
+            this.get(name) :
+            value
       )
 
     return copy
@@ -299,35 +301,41 @@ export class Evaluation {
   static build(environment: Environment, natives: Natives): Evaluation {
     const evaluation = new Evaluation(new Map(), [new Frame(environment)], new Map(), new Map())
 
+    // Set natives
     environment.forEach(node => {
       if (node.is(Method) && node.isNative())
         evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
     })
 
+
+    // Instanciate globals
     const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => isNamedSingleton(node))
     for (const module of globalSingletons)
       evaluation.rootFrame.set(module.fullyQualifiedName, evaluation.instantiate(module))
 
-
-    const globalConstants = environment.descendants.filter((node: Node): node is Variable => node.is(Variable) && node.parent.is(Package))
+    const globalConstants = environment.descendants.filter((node: Node): node is Variable => node.is(Variable) && node.isAtPackageLevel)
     for (const constant of globalConstants)
       evaluation.rootFrame.set(constant.fullyQualifiedName, evaluation.exec(constant.value))
 
 
+    // Initialize lazy globals (for cyclic references)
     for (const module of globalSingletons) {
       const instance = evaluation.object(module.fullyQualifiedName)
       for (const field of module.allFields) {
-        const value = instance!.get(field.name)
+        const value = instance.get(field.name)
         if (value?.innerValue === null && field.value?.isSynthetic) {
           raise(new Error(`Error in ${module.name}: '${field.name}' attribute uninitialized`))
         }
       }
     }
 
-    for (const constant of globalConstants)
-      evaluation.object(constant.fullyQualifiedName)
+    for (const constant of globalConstants) {
+      const instance = evaluation.object(constant.fullyQualifiedName)
+      for (const local of instance.locals)
+        instance.get(local[0])
+    }
 
-
+    // Done
     return evaluation
   }
 
@@ -384,7 +392,7 @@ export class Evaluation {
   exec(node: Expression, frame?: Frame): Execution<RuntimeObject>
   exec(node: Node, frame?: Frame): Execution<undefined>
   *exec(node: Node, frame?: Frame): Execution<RuntimeValue> {
-    if(frame) this.frameStack.push(frame)
+    if (frame) this.frameStack.push(frame)
     this.currentFrame.currentNode = node
     try {
       // TODO avoid casting
@@ -529,8 +537,13 @@ export class Evaluation {
   }
 
   protected *execNew(node: New): Execution<RuntimeValue> {
-    const args: Record<Name, RuntimeObject> = {}
-    for (const arg of node.args) args[arg.name] = yield* this.exec(arg.value)
+    const args: Record<Name, RuntimeValue | Execution<RuntimeObject>> = {}
+    const isGlobal = Boolean(node.ancestors.find((node: Node): node is Variable => node.is(Variable) && node.isAtPackageLevel))
+
+    for (const arg of node.args) {
+      const valueExecution = this.exec(arg.value, new Frame(arg.value, this.currentFrame))
+      args[arg.name] = isGlobal ? valueExecution : yield* valueExecution
+    }
 
     yield node
 
@@ -709,14 +722,14 @@ export class Evaluation {
     return instance
   }
 
-  *instantiate(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>): Execution<RuntimeObject> {
+  *instantiate(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeValue | Execution<RuntimeObject>>): Execution<RuntimeObject> {
     const module = typeof moduleOrFQN === 'string' ? this.environment.getNodeByFQN<Module>(moduleOrFQN) : moduleOrFQN
     const instance = new RuntimeObject(module, module.is(Singleton) && !module.name ? this.currentFrame : this.rootFrame)
     yield* this.init(instance, locals)
     return instance
   }
 
-  protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeObject> = {}): Execution<void> {
+  protected *init(instance: RuntimeObject, locals: Record<Name, RuntimeValue | Execution<RuntimeObject>> = {}): Execution<void> {
     const allFieldNames = instance.module.allFields.map(({ name }) => name)
     for (const local of keys(locals))
       if (!allFieldNames.includes(local))
