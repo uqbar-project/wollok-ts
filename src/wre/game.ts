@@ -5,7 +5,7 @@ const { round } = Math
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      visual.assertIsNotNull()
+      visual.assertIsNotNull('addVisual', 'visual')
       if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
 
       const visuals = self.get('visuals')!.innerCollection!
@@ -71,7 +71,7 @@ const game: Natives = {
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      visual.assertIsNotNull()
+      visual.assertIsNotNull('colliders', 'visual')
 
       const position = (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!

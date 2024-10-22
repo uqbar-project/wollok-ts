@@ -236,8 +236,8 @@ export class RuntimeObject extends Context {
     }
   }
 
-  assertIsNotNull(variableName?: string): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new RangeError(`${variableName ?? 'Object'} was not expected to be null`)
+  assertIsNotNull(message: string, variableName: string): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
+    if (this.innerValue === null) throw new RangeError(`${message}: ${variableName ?? 'parameter'} was not expected to be null`)
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {

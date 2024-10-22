@@ -269,11 +269,11 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should wrap RangeError errors', () => {
-        const { error } = interprete(interpreter, '1 / 0')
+        const { error } = interprete(interpreter, '[1, 2, 3].get(3)')
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: other'])
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: get: index should be between 0 and 2'])
       })
 
       it('should wrap TypeError errors', () => {
@@ -305,7 +305,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: other was not expected to be null'])
+        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: +: other was not expected to be null'])
       })
 
       it('should show Wollok stack', () => {
