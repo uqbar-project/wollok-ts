@@ -5,12 +5,12 @@ const mirror: Natives = {
   ObjectMirror: {
 
     *resolve(self: RuntimeObject, attributeName: RuntimeObject): Execution<RuntimeValue> {
-      attributeName.assertIsString()
+      attributeName.assertIsString('resolve', 'attributeName')
       return self.get('target')?.get(attributeName.innerString)
     },
 
     *instanceVariableFor(self: RuntimeObject, name: RuntimeObject): Execution<RuntimeValue> {
-      name.assertIsString()
+      name.assertIsString('instanceVariableFor', 'name')
 
       return yield* this.instantiate('wollok.mirror.InstanceVariableMirror', {
         target: self,

@@ -54,8 +54,8 @@ const lang: Natives = {
     },
 
     *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject): Execution<RuntimeValue> {
-      target.assertIsString()
-      messageName.assertIsString()
+      target.assertIsString('generateDoesNotUnderstandMessage', 'target')
+      messageName.assertIsString('generateDoesNotUnderstandMessage', 'messageName')
       parametersSize.assertIsNumber()
 
       const argsText = new Array(parametersSize.innerNumber).fill(null).map((_, i) => `arg ${i}`)
@@ -65,9 +65,9 @@ const lang: Natives = {
     },
 
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
-      message.assertIsString()
+      message.assertIsString('checkNotNull', 'message')
 
-      if (value.innerValue === null) yield* this.send('error', value, yield* this.reify(`Message ${message.innerValue} does not allow null values`))
+      if (value.innerValue === null) yield* this.send('error', value, yield* this.reify(`Message ${message.innerValue} does not allow to receive null values`))
     },
 
   },
@@ -572,21 +572,21 @@ const lang: Natives = {
 
     *startsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('startsWith', 'other')
-      other.assertIsString()
+      other.assertIsString('startsWith', 'other')
 
       return yield* this.reify(self.innerString!.startsWith(other.innerString))
     },
 
     *endsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('endsWith', 'other')
-      other.assertIsString()
+      other.assertIsString('startsWith', 'other')
 
       return yield* this.reify(self.innerString!.endsWith(other.innerString))
     },
 
     *indexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('indexOf', 'other')
-      other.assertIsString()
+      other.assertIsString('indexOf', 'other')
 
       const index = self.innerString!.indexOf(other.innerString)
 
@@ -596,7 +596,7 @@ const lang: Natives = {
 
     *lastIndexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('lastIndexOf', 'other')
-      other.assertIsString()
+      other.assertIsString('lastIndexOf', 'other')
 
       const index = self.innerString!.lastIndexOf(other.innerString)
 
@@ -622,21 +622,21 @@ const lang: Natives = {
 
     *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('<', 'other')
-      other.assertIsString()
+      other.assertIsString('<', 'other')
 
       return yield* this.reify(self.innerString! < other.innerString)
     },
 
     *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('>', 'other')
-      other.assertIsString()
+      other.assertIsString('>', 'other')
 
       return yield* this.reify(self.innerString! > other.innerString)
     },
 
     *contains(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       other.assertIsNotNull('contains', 'other')
-      other.assertIsString()
+      other.assertIsString('contains', 'other')
 
       return yield* this.reify(self.innerString!.indexOf(other.innerString) >= 0)
     },
@@ -656,9 +656,9 @@ const lang: Natives = {
 
     *replace(self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject): Execution<RuntimeValue> {
       expression.assertIsNotNull('replace', 'expression')
-      expression.assertIsString()
+      expression.assertIsString('replace', 'expression')
       replacement.assertIsNotNull('replace', 'replacement')
-      replacement.assertIsString()
+      replacement.assertIsString('replace', 'replacement')
       return yield* this.reify(self.innerString!.replace(new RegExp(expression.innerString, 'g'), replacement.innerString))
     },
 

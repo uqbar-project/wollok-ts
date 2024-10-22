@@ -217,12 +217,12 @@ export class RuntimeObject extends Context {
     this.assertIs(NUMBER_MODULE, this.innerNumber)
   }
 
-  assertIsBoolean(): asserts this is BasicRuntimeObject<boolean> {
-    this.assertIs(BOOLEAN_MODULE, this.innerBoolean)
+  assertIsBoolean(message: string, variableName: string): asserts this is BasicRuntimeObject<boolean> {
+    if (this.innerBoolean === undefined) throw new RangeError(`${message}: ${variableName} should be an instance of ${BOOLEAN_MODULE}`)
   }
 
-  assertIsString(): asserts this is BasicRuntimeObject<string> {
-    this.assertIs(STRING_MODULE, this.innerString)
+  assertIsString(message: string, variableName: string): asserts this is BasicRuntimeObject<string> {
+    if (this.innerString === undefined) throw new RangeError(`${message}: ${variableName} should be an instance of ${STRING_MODULE}`)
   }
 
   assertIsCollection(): asserts this is BasicRuntimeObject<RuntimeObject[]> {
@@ -237,7 +237,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsNotNull(message: string, variableName: string): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new RangeError(`${message}: ${variableName ?? 'parameter'} was not expected to be null`)
+    if (this.innerValue === null) throw new RangeError(`${message}: ${variableName} was not expected to be null`)
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
@@ -594,7 +594,7 @@ export class Evaluation {
 
   protected *execIf(node: If): Execution<RuntimeValue> {
     const condition: RuntimeObject = yield* this.exec(node.condition)
-    condition.assertIsBoolean()
+    condition.assertIsBoolean('if', 'condition')
 
     yield node
 
