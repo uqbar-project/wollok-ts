@@ -54,9 +54,9 @@ const lang: Natives = {
     },
 
     *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject): Execution<RuntimeValue> {
-      target.assertIsString('generateDoesNotUnderstandMessage', 'target')
-      messageName.assertIsString('generateDoesNotUnderstandMessage', 'messageName')
-      parametersSize.assertIsNumber()
+      target.assertIsString('generateDoesNotUnderstandMessage', 'target', false)
+      messageName.assertIsString('generateDoesNotUnderstandMessage', 'messageName', false)
+      parametersSize.assertIsNumber('generateDoesNotUnderstandMessage', 'parametersSize', false)
 
       const argsText = new Array(parametersSize.innerNumber).fill(null).map((_, i) => `arg ${i}`)
       const text = `${target.innerString} does not understand ${messageName.innerString}(${argsText})`
@@ -65,7 +65,7 @@ const lang: Natives = {
     },
 
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
-      message.assertIsString('checkNotNull', 'message')
+      message.assertIsString('checkNotNull', 'message', false)
 
       if (value.innerValue === null) yield* this.send('error', value, yield* this.reify(`Message ${message.innerValue} does not allow to receive null values`))
     },
@@ -177,8 +177,7 @@ const lang: Natives = {
   List: {
 
     *get(self: RuntimeObject, index: RuntimeObject): Execution<RuntimeValue> {
-      index.assertIsNotNull('get', 'index')
-      index.assertIsNumber()
+      index.assertIsNumber('get', 'index')
 
       const values = self.innerCollection!
       const indexValue = index.innerNumber
@@ -319,8 +318,8 @@ const lang: Natives = {
     },
 
     *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<void> {
-      key.assertIsNotNull('put', 'key')
-      value.assertIsNotNull('put', 'value')
+      key.assertIsNotNull('put', '_key')
+      value.assertIsNotNull('put', '_value')
 
       const buckets = self.get('<buckets>')!.innerCollection!
       const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
@@ -338,7 +337,7 @@ const lang: Natives = {
     },
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
-      key.assertIsNotNull('basicGet', 'key')
+      key.assertIsNotNull('basicGet', '_key')
 
       const buckets = self.get('<buckets>')!.innerCollection!
       const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
@@ -442,29 +441,25 @@ const lang: Natives = {
     },
 
     *['+'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('+', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(+)', 'other')
 
       return yield* this.reify(self.innerNumber! + other.innerNumber)
     },
 
     *['-'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('-', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(-)', 'other')
 
       return yield* this.reify(self.innerNumber! - other.innerNumber)
     },
 
     *['*'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('*', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(*)', 'other')
 
       return yield* this.reify(self.innerNumber! * other.innerNumber)
     },
 
     *['/'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('/', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(/)', 'other')
 
       if (other.innerNumber === 0) throw new RangeError('/: quotient should not be zero')
 
@@ -472,15 +467,13 @@ const lang: Natives = {
     },
 
     *['**'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('**', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(**)', 'other')
 
       return yield* this.reify(self.innerNumber! ** other.innerNumber)
     },
 
     *['%'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('%', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(%)', 'other')
 
       return yield* this.reify(self.innerNumber! % other.innerNumber)
     },
@@ -490,15 +483,13 @@ const lang: Natives = {
     },
 
     *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('>', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(>)', 'other')
 
       return yield* this.reify(self.innerNumber! > other.innerNumber)
     },
 
     *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('<', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('(<)', 'other')
 
       return yield* this.reify(self.innerNumber! < other.innerNumber)
     },
@@ -512,8 +503,7 @@ const lang: Natives = {
     },
 
     *roundUp(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
-      decimals.assertIsNotNull('roundUp', 'decimals')
-      decimals.assertIsNumber()
+      decimals.assertIsNumber('roundUp', '_decimals')
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundUp: decimals should be zero or positive number')
 
@@ -521,8 +511,7 @@ const lang: Natives = {
     },
 
     *truncate(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
-      decimals.assertIsNotNull('truncate', 'decimals')
-      decimals.assertIsNumber()
+      decimals.assertIsNumber('truncate', '_decimals')
 
       if (decimals.innerNumber < 0) throw new RangeError('truncate: decimals should be zero or positive number')
 
@@ -533,10 +522,9 @@ const lang: Natives = {
         : self
     },
 
-    *randomUpTo(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('randomUpTo', 'other')
-      other.assertIsNumber()
-      return yield* this.reify(random() * (other.innerNumber! - self.innerNumber!) + self.innerNumber!)
+    *randomUpTo(self: RuntimeObject, max: RuntimeObject): Execution<RuntimeValue> {
+      max.assertIsNumber('randomUpTo', 'max')
+      return yield* this.reify(random() * (max.innerNumber! - self.innerNumber!) + self.innerNumber!)
     },
 
     *round(self: RuntimeObject): Execution<RuntimeValue> {
@@ -544,8 +532,7 @@ const lang: Natives = {
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('gcd', 'other')
-      other.assertIsNumber()
+      other.assertIsNumber('gcd', 'other')
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
 
@@ -570,22 +557,19 @@ const lang: Natives = {
       return yield* this.reify(self.innerString! + (yield * this.send(TO_STRING_METHOD, other))!.innerString!)
     },
 
-    *startsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('startsWith', 'other')
-      other.assertIsString('startsWith', 'other')
+    *startsWith(self: RuntimeObject, prefix: RuntimeObject): Execution<RuntimeValue> {
+      prefix.assertIsString('startsWith', 'prefix')
 
-      return yield* this.reify(self.innerString!.startsWith(other.innerString))
+      return yield* this.reify(self.innerString!.startsWith(prefix.innerString))
     },
 
-    *endsWith(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('endsWith', 'other')
-      other.assertIsString('startsWith', 'other')
+    *endsWith(self: RuntimeObject, suffix: RuntimeObject): Execution<RuntimeValue> {
+      suffix.assertIsString('startsWith', 'suffix')
 
-      return yield* this.reify(self.innerString!.endsWith(other.innerString))
+      return yield* this.reify(self.innerString!.endsWith(suffix.innerString))
     },
 
     *indexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('indexOf', 'other')
       other.assertIsString('indexOf', 'other')
 
       const index = self.innerString!.indexOf(other.innerString)
@@ -595,7 +579,6 @@ const lang: Natives = {
     },
 
     *lastIndexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('lastIndexOf', 'other')
       other.assertIsString('lastIndexOf', 'other')
 
       const index = self.innerString!.lastIndexOf(other.innerString)
@@ -620,30 +603,26 @@ const lang: Natives = {
       return yield* this.reify(self.innerString!.split('').reverse().join(''))
     },
 
-    *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('<', 'other')
-      other.assertIsString('<', 'other')
+    *['<'](self: RuntimeObject, aString: RuntimeObject): Execution<RuntimeValue> {
+      aString.assertIsString('(<)', 'aString')
 
-      return yield* this.reify(self.innerString! < other.innerString)
+      return yield* this.reify(self.innerString! < aString.innerString)
     },
 
-    *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('>', 'other')
-      other.assertIsString('>', 'other')
+    *['>'](self: RuntimeObject, aString: RuntimeObject): Execution<RuntimeValue> {
+      aString.assertIsString('(>)', 'aString')
 
-      return yield* this.reify(self.innerString! > other.innerString)
+      return yield* this.reify(self.innerString! > aString.innerString)
     },
 
-    *contains(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('contains', 'other')
-      other.assertIsString('contains', 'other')
+    *contains(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
+      element.assertIsString('contains', 'element')
 
-      return yield* this.reify(self.innerString!.indexOf(other.innerString) >= 0)
+      return yield* this.reify(self.innerString!.indexOf(element.innerString) >= 0)
     },
 
     *substring(self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject): Execution<RuntimeValue> {
-      startIndex.assertIsNotNull('substring', 'startIndex')
-      startIndex.assertIsNumber()
+      startIndex.assertIsNumber('substring', 'startIndex')
 
       const start = startIndex.innerNumber
       const end = endIndex?.innerNumber
@@ -655,9 +634,7 @@ const lang: Natives = {
     },
 
     *replace(self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject): Execution<RuntimeValue> {
-      expression.assertIsNotNull('replace', 'expression')
       expression.assertIsString('replace', 'expression')
-      replacement.assertIsNotNull('replace', 'replacement')
       replacement.assertIsString('replace', 'replacement')
       return yield* this.reify(self.innerString!.replace(new RegExp(expression.innerString, 'g'), replacement.innerString))
     },
@@ -792,8 +769,7 @@ const lang: Natives = {
     },
 
     *plusDays(self: RuntimeObject, days: RuntimeObject): Execution<RuntimeValue> {
-      days.assertIsNotNull('plusDays', 'days')
-      days.assertIsNumber()
+      days.assertIsNumber('plusDays', '_days')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -809,8 +785,7 @@ const lang: Natives = {
     },
 
     *minusDays(self: RuntimeObject, days: RuntimeObject): Execution<RuntimeValue> {
-      days.assertIsNotNull('minusDays', 'days')
-      days.assertIsNumber()
+      days.assertIsNumber('minusDays', '_days')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -826,8 +801,7 @@ const lang: Natives = {
     },
 
     *plusMonths(self: RuntimeObject, months: RuntimeObject): Execution<RuntimeValue> {
-      months.assertIsNotNull('plusMonths', 'months')
-      months.assertIsNumber()
+      months.assertIsNumber('plusMonths', '_months')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -845,8 +819,7 @@ const lang: Natives = {
     },
 
     *minusMonths(self: RuntimeObject, months: RuntimeObject): Execution<RuntimeValue> {
-      months.assertIsNotNull('minusMonths', 'months')
-      months.assertIsNumber()
+      months.assertIsNumber('minusMonths', '_months')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -862,8 +835,7 @@ const lang: Natives = {
     },
 
     *plusYears(self: RuntimeObject, years: RuntimeObject): Execution<RuntimeValue> {
-      years.assertIsNotNull('plusYears', 'years')
-      years.assertIsNumber()
+      years.assertIsNumber('plusYears', '_years')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -882,8 +854,7 @@ const lang: Natives = {
     },
 
     *minusYears(self: RuntimeObject, years: RuntimeObject): Execution<RuntimeValue> {
-      years.assertIsNotNull('minusYears', 'years')
-      years.assertIsNumber()
+      years.assertIsNumber('minusYears', '_years')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -910,17 +881,17 @@ const lang: Natives = {
       )
     },
 
-    *['-'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('-', 'other')
-      if (other.module !== self.module) throw new TypeError('-: other is not a wollok.lang.Date')
+    *['-'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
+      aDate.assertIsNotNull('(-)', '_aDate')
+      if (aDate.module !== self.module) throw new TypeError(`Message (-): _aDate (${aDate.getShortLabel()}) should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
       const ownYear = self.get('year')!.innerNumber!
 
-      const otherDay = other.get('day')!.innerNumber!
-      const otherMonth = other.get('month')!.innerNumber! - 1
-      const otherYear = other.get('year')!.innerNumber!
+      const otherDay = aDate.get('day')!.innerNumber!
+      const otherMonth = aDate.get('month')!.innerNumber! - 1
+      const otherYear = aDate.get('year')!.innerNumber!
 
       const msPerDay = 1000 * 60 * 60 * 24
       const ownUTC = UTC(ownYear, ownMonth, ownDay)
@@ -929,17 +900,17 @@ const lang: Natives = {
       return yield* this.reify(floor((ownUTC - otherUTC) / msPerDay))
     },
 
-    *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('<', 'other')
-      if (other.module !== self.module) throw new TypeError('<: other is not a wollok.lang.Date')
+    *['<'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
+      aDate.assertIsNotNull('(<)', '_aDate')
+      if (aDate.module !== self.module) throw new TypeError(`Message (<): _aDate ("${aDate.getShortLabel()}") should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
       const ownYear = self.get('year')!.innerNumber!
 
-      const otherDay = other.get('day')!.innerNumber!
-      const otherMonth = other.get('month')!.innerNumber! - 1
-      const otherYear = other.get('year')!.innerNumber!
+      const otherDay = aDate.get('day')!.innerNumber!
+      const otherMonth = aDate.get('month')!.innerNumber! - 1
+      const otherYear = aDate.get('year')!.innerNumber!
 
       const value = new Date(ownYear, ownMonth, ownDay)
       const otherValue = new Date(otherYear, otherMonth, otherDay)
@@ -947,17 +918,17 @@ const lang: Natives = {
       return yield* this.reify(value < otherValue)
     },
 
-    *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('>', 'other')
-      if (other.module !== self.module) throw new TypeError('>: other is not a wollok.lang.Date')
+    *['>'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
+      aDate.assertIsNotNull('(>)', '_aDate')
+      if (aDate.module !== self.module) throw new TypeError(`Message (>): _aDate ("${aDate.getShortLabel()}") should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!
       const ownMonth = self.get('month')!.innerNumber! - 1
       const ownYear = self.get('year')!.innerNumber!
 
-      const otherDay = other.get('day')!.innerNumber!
-      const otherMonth = other.get('month')!.innerNumber! - 1
-      const otherYear = other.get('year')!.innerNumber!
+      const otherDay = aDate.get('day')!.innerNumber!
+      const otherMonth = aDate.get('month')!.innerNumber! - 1
+      const otherYear = aDate.get('year')!.innerNumber!
 
       const value = new Date(ownYear, ownMonth, ownDay)
       const otherValue = new Date(otherYear, otherMonth, otherDay)

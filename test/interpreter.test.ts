@@ -2,7 +2,7 @@ import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
 import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives, buildEnvironment } from '../src'
-import { DirectedInterpreter, interprete, Interpreter, sanitizeStackTrace } from '../src/interpreter/interpreter'
+import { DirectedInterpreter, interprete, Interpreter, sanitizeStackTrace as getStackTraceSanitized } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { WREEnvironment } from './utils'
@@ -265,7 +265,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.execThrow')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.MessageNotUnderstoodException: 2 does not understand notFound()'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.MessageNotUnderstoodException: 2 does not understand notFound()'])
       })
 
       it('should wrap RangeError errors', () => {
@@ -273,7 +273,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: get: index should be between 0 and 2'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: get: index should be between 0 and 2'])
       })
 
       it('should wrap TypeError errors', () => {
@@ -281,7 +281,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Expected an instance of wollok.lang.Number but got a wollok.lang.String instead'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Message (<): other ("hola") should be an instance of wollok.lang.Number'])
       })
 
       it('should wrap custom TypeError errors', () => {
@@ -289,7 +289,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: -: other is not a wollok.lang.Date'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Message (-): _aDate (2) should be an instance of wollok.lang.Date'])
       })
 
       it('should wrap Typescript Error errors', () => {
@@ -297,7 +297,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Can\'t initialize wollok.lang.Date with value for unexistent field nonsense'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Can\'t initialize wollok.lang.Date with value for unexistent field nonsense'])
       })
 
       it('should wrap RuntimeModel errors', () => {
@@ -305,7 +305,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Sound cannot be instantiated, you must pass values to the following attributes: file'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Sound cannot be instantiated, you must pass values to the following attributes: file'])
       })
 
       it('should wrap null validation errors', () => {
@@ -313,7 +313,7 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: +: other was not expected to be null'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: Message (+) does not support parameter \'other\' to be null'])
       })
 
       it('should show Wollok stack', () => {
@@ -325,7 +325,7 @@ describe('Wollok Interpreter', () => {
             }
 
             method despegar() {
-              throw new DomainException(message = "failed")
+              return new Date().plusDays(new Date())
             }
           }
           
@@ -343,8 +343,8 @@ describe('Wollok Interpreter', () => {
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.exec')
-        expect(sanitizeStackTrace(error)).to.deep.equal([
-          'wollok.lang.DomainException: failed',
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.EvaluationError: TypeError: Message plusDays: _days (an instance of wollok.lang.Date) should be an instance of wollok.lang.Number',
           '  at REPL.comun.despegar() [REPL:7]',
           '  at REPL.comun.volar() [REPL:3]',
           '  at REPL.Ave.volar() [REPL:16]',

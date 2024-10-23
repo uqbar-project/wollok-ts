@@ -4,16 +4,16 @@ const { round } = Math
 
 const game: Natives = {
   game: {
-    *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      visual.assertIsNotNull('addVisual', 'visual')
-      if (!visual.module.lookupMethod('position', 0)) throw new TypeError('addVisual: visual lacks a position message')
+    *addVisual(self: RuntimeObject, positionable: RuntimeObject): Execution<void> {
+      positionable.assertIsNotNull('addVisual', 'positionable')
+      if (!positionable.module.lookupMethod('position', 0)) throw new TypeError('Message addVisual: positionable lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
 
       // TODO: shouldn´t we say "visual is already included"
-      if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName)
+      if(visuals.includes(positionable)) throw new TypeError(positionable.module.fullyQualifiedName)
 
-      visuals.push(visual)
+      visuals.push(positionable)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -126,6 +126,7 @@ const game: Natives = {
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
       else {
+        // TODO: shouldn´t we say 'sound was already included in the game'?
         if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName)
         else sounds.push(self)
       }
@@ -167,7 +168,7 @@ const game: Natives = {
       if(!newVolume) return self.get('volume')
 
       const volume: RuntimeObject = newVolume
-      volume.assertIsNumber()
+      volume.assertIsNumber('volume', 'newVolume', false)
 
       if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('volumen: newVolume should be between 0 and 1')
 

@@ -213,20 +213,22 @@ export class RuntimeObject extends Context {
     )
   }
 
-  assertIsNumber(): asserts this is BasicRuntimeObject<number> {
-    this.assertIs(NUMBER_MODULE, this.innerNumber)
+  assertIsNumber(message: string, variableName: string, validateNotNull = true): asserts this is BasicRuntimeObject<number> {
+    if (validateNotNull) this.assertIsNotNull(message, variableName)
+    if (this.innerNumber === undefined) throw new TypeError(`Message ${message}: ${variableName} (${this.getShortLabel()}) should be an instance of ${NUMBER_MODULE}`)
   }
 
   assertIsBoolean(message: string, variableName: string): asserts this is BasicRuntimeObject<boolean> {
-    if (this.innerBoolean === undefined) throw new RangeError(`${message}: ${variableName} should be an instance of ${BOOLEAN_MODULE}`)
+    if (this.innerBoolean === undefined) throw new TypeError(`Message ${message}: ${variableName} (${this.getShortLabel()}) should be an instance of ${BOOLEAN_MODULE}`)
   }
 
-  assertIsString(message: string, variableName: string): asserts this is BasicRuntimeObject<string> {
-    if (this.innerString === undefined) throw new RangeError(`${message}: ${variableName} should be an instance of ${STRING_MODULE}`)
+  assertIsString(message: string, variableName: string, validateNotNull = true): asserts this is BasicRuntimeObject<string> {
+    if (validateNotNull) this.assertIsNotNull(message, variableName)
+    if (this.innerString === undefined) throw new TypeError(`Message ${message}: ${variableName} (${this.getShortLabel()}) should be an instance of ${STRING_MODULE}`)
   }
 
   assertIsCollection(): asserts this is BasicRuntimeObject<RuntimeObject[]> {
-    if (!this.innerCollection) throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
+    if (!this.innerCollection) throw new TypeError(`Malformed Runtime Object: expected a List of values but was ${this.innerValue}`)
   }
 
   assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
@@ -237,7 +239,7 @@ export class RuntimeObject extends Context {
   }
 
   assertIsNotNull(message: string, variableName: string): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new RangeError(`${message}: ${variableName} was not expected to be null`)
+    if (this.innerValue === null) throw new RangeError(`Message ${message} does not support parameter '${variableName}' to be null`)
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
@@ -256,6 +258,11 @@ export class RuntimeObject extends Context {
     }
     if (this.shouldShowShortValue()) return this.showShortValue(interpreter)
     return this.module.name ?? 'Object'
+  }
+
+  getShortLabel(): string {
+    if (!this.innerValue) return `an instance of ${this.module.fullyQualifiedName}`
+    return this.innerString !== undefined ? `"${this.getShortRepresentation()}"`: this.getShortRepresentation()
   }
 
   getShortRepresentation(): string {
