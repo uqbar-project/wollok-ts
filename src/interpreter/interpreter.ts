@@ -86,7 +86,7 @@ const successResult = (result: string): ExecutionResult => ({
   errored: false,
 })
 
-export const sanitizeStackTrace = (e?: Error): string[] => {
+export const getStackTraceSanitized = (e?: Error): string[] => {
   const indexOfTsStack = e?.stack?.indexOf(WOLLOK_EXTRA_STACK_TRACE_HEADER)
   const fullStack = e?.stack?.slice(0, indexOfTsStack ?? -1) ?? ''
 
