@@ -261,11 +261,11 @@ describe('Wollok Interpreter', () => {
     describe('sanitize stack trace', () => {
 
       it('should filter Typescript stack', () => {
-        const { error } = interprete(interpreter, '2.notFound()')
+        const { error } = interprete(interpreter, '2.coso()')
         expect(error).not.to.be.undefined
         expect(error!.message).to.contain('Derived from TypeScript stack')
         expect(error!.stack).to.contain('at Evaluation.execThrow')
-        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.MessageNotUnderstoodException: 2 does not understand notFound()'])
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.MessageNotUnderstoodException: 2 does not understand coso()'])
       })
 
       it('should wrap RangeError errors', () => {
