@@ -9,10 +9,7 @@ const game: Natives = {
       if (!positionable.module.lookupMethod('position', 0)) throw new TypeError('Message addVisual: positionable lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
-
-      // TODO: shouldn´t we say "visual is already included"
-      if(visuals.includes(positionable)) throw new TypeError(positionable.module.fullyQualifiedName)
-
+      if (visuals.includes(positionable)) throw new RangeError('Visual is already in the game! You cannot add duplicate elements')
       visuals.push(positionable)
     },
 
@@ -97,8 +94,8 @@ const game: Natives = {
       self.set('height', height)
     },
 
-    *ground(self: RuntimeObject, ground: RuntimeObject): Execution<void> {
-      self.set('ground', ground)
+    *ground(self: RuntimeObject, image: RuntimeObject): Execution<void> {
+      self.set('ground', image)
     },
 
     *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<void> {
@@ -126,8 +123,7 @@ const game: Natives = {
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
       else {
-        // TODO: shouldn´t we say 'sound was already included in the game'?
-        if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName)
+        if (sounds.includes(self)) throw new RangeError('Sound is already in the game! You cannot add duplicate elements')
         else sounds.push(self)
       }
 
