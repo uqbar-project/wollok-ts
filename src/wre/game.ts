@@ -1,11 +1,11 @@
 import { GAME_MODULE } from '../constants'
-import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNumber, assertValidValue, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 const { round } = Math
 
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, positionable: RuntimeObject): Execution<void> {
-      positionable.assertIsNotNull('addVisual', 'positionable')
+      assertValidValue(positionable, 'addVisual', 'positionable')
       if (!positionable.module.lookupMethod('position', 0)) throw new TypeError('Message addVisual: positionable lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
@@ -69,7 +69,7 @@ const game: Natives = {
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      visual.assertIsNotNull('colliders', 'visual')
+      assertValidValue(visual, 'colliders', 'visual')
 
       const position = (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
@@ -164,7 +164,7 @@ const game: Natives = {
       if(!newVolume) return self.get('volume')
 
       const volume: RuntimeObject = newVolume
-      volume.assertIsNumber('volume', 'newVolume', false)
+      assertIsNumber(volume, 'volume', 'newVolume', false)
 
       if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('volumen: newVolume should be between 0 and 1')
 

@@ -10,6 +10,12 @@ import { WREEnvironment } from './utils'
 use(sinonChai)
 should()
 
+const assertBasicError = (error?: Error) => {
+  expect(error).not.to.be.undefined
+  expect(error!.message).to.contain('Derived from TypeScript stack')
+  expect(error!.stack).to.contain('at Evaluation.exec')
+}
+
 const WRE = link([
   new Package({
     name: 'wollok',
@@ -270,50 +276,60 @@ describe('Wollok Interpreter', () => {
 
       it('should wrap RangeError errors', () => {
         const { error } = interprete(interpreter, '[1, 2, 3].get(3)')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: get: index should be between 0 and 2'])
       })
 
       it('should wrap TypeError errors', () => {
         const { error } = interprete(interpreter, '1 < "hola"')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Message (<): other ("hola") should be an instance of wollok.lang.Number'])
       })
 
       it('should wrap custom TypeError errors', () => {
         const { error } = interprete(interpreter, 'new Date() - 2')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: TypeError: Message (-): _aDate (2) should be an instance of wollok.lang.Date'])
       })
 
       it('should wrap Typescript Error errors', () => {
         const { error } = interprete(interpreter, 'new Date(day = 1, month = 2, year = 2001, nonsense = 2)')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Can\'t initialize wollok.lang.Date with value for unexistent field nonsense'])
       })
 
       it('should wrap RuntimeModel errors', () => {
         const { error } = interprete(interpreter, 'new Sound()')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: Error: Sound cannot be instantiated, you must pass values to the following attributes: file'])
       })
 
       it('should wrap null validation errors', () => {
         const { error } = interprete(interpreter, '5 + null')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: Message (+) does not support parameter \'other\' to be null'])
+      })
+
+      it('should wrap void validation errors for void object', () => {
+        const { error } = interprete(interpreter, '5 + [1,2,3].add(4)')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(['wollok.lang.EvaluationError: RangeError: Message Number.+/1: parameter \'other\' is void, cannot use it as a value'])
+      })
+
+      it('should wrap void validation errors for void method', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+          object pepita {
+            method volar() {
+            }
+          }`,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, '5 + pepita.volar()')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.EvaluationError: RangeError: Message Number.+/1: parameter \'other\' is void, cannot use it as a value',
+        ])
       })
 
       it('should show Wollok stack', () => {
@@ -340,9 +356,7 @@ describe('Wollok Interpreter', () => {
         }])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'new Ave().volar()')
-        expect(error).not.to.be.undefined
-        expect(error!.message).to.contain('Derived from TypeScript stack')
-        expect(error!.stack).to.contain('at Evaluation.exec')
+        assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: TypeError: Message plusDays: _days (an instance of wollok.lang.Date) should be an instance of wollok.lang.Number',
           '  at REPL.comun.despegar() [REPL:7]',
@@ -351,6 +365,72 @@ describe('Wollok Interpreter', () => {
         ])
       })
 
+      it('should handle errors when using void return values for wko', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            object pepita {
+                method unMetodo() {
+                    return [1,2,3].add(4) + 5
+                }
+            }
+        `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'pepita.unMetodo()')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.EvaluationError: RangeError: void does not understand message +',
+          '  at REPL.pepita.unMetodo() [REPL:3]',
+        ])
+      })
+
+      it('should handle errors when using void return values for anonymous objects', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            const pepita = object { method energia(total) { } }
+        `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, '[1, 2].map { n => pepita.energia(n) }')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.DomainException: Message map does not allow to receive void closures. Use forEach or check the return type of the closure.',
+        ])
+      })
+
+      it('should handle errors when using void parameters', () => {
+        const { error } = interprete(interpreter, '[].add(void)')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.EvaluationError: RangeError: Message List.add/1: parameter \'element\' is void, cannot use it as a value',
+        ])
+      })
+
+      it('should handle errors when using void parameters', () => {
+        const { error } = interprete(interpreter, '[].add(void)')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal([
+          'wollok.lang.EvaluationError: RangeError: Message List.add/1: parameter \'element\' is void, cannot use it as a value',
+        ])
+      })
+
+    })
+
+    it('should handle void values for assert', () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `
+        object pajarito {
+          method volar() {
+          }
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      const { error } = interprete(interpreter, 'assert.that(pajarito.volar())')
+      assertBasicError(error)
+      expect(getStackTraceSanitized(error)).to.deep.equal([
+        'wollok.lang.EvaluationError: RangeError: Message assert.that/1: parameter \'value\' is void, cannot use it as a value',
+      ])
     })
 
   })

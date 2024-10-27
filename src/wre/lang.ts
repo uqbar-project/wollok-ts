@@ -1,6 +1,6 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
-import { Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsCollection, assertIsNumber, assertIsString, assertValidValue, Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
 
 const { abs, ceil, random, floor, round } = Math
@@ -54,9 +54,9 @@ const lang: Natives = {
     },
 
     *generateDoesNotUnderstandMessage(_self: RuntimeObject, target: RuntimeObject, messageName: RuntimeObject, parametersSize: RuntimeObject): Execution<RuntimeValue> {
-      target.assertIsString('generateDoesNotUnderstandMessage', 'target', false)
-      messageName.assertIsString('generateDoesNotUnderstandMessage', 'messageName', false)
-      parametersSize.assertIsNumber('generateDoesNotUnderstandMessage', 'parametersSize', false)
+      assertIsString(target, 'generateDoesNotUnderstandMessage', 'target', false)
+      assertIsString(messageName, 'generateDoesNotUnderstandMessage', 'messageName', false)
+      assertIsNumber(parametersSize, 'generateDoesNotUnderstandMessage', 'parametersSize', false)
 
       const argsText = new Array(parametersSize.innerNumber).fill(null).map((_, i) => `arg ${i}`)
       const text = `${target.innerString} does not understand ${messageName.innerString}(${argsText})`
@@ -65,7 +65,7 @@ const lang: Natives = {
     },
 
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
-      message.assertIsString('checkNotNull', 'message', false)
+      assertIsString(message, 'checkNotNull', 'message', false)
 
       if (value.innerValue === null) yield* this.send('error', value, yield* this.reify(`Message ${message.innerValue} does not allow to receive null values`))
     },
@@ -74,16 +74,30 @@ const lang: Natives = {
 
 
   Collection: {
+
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
+      assertValidValue(predicate, 'findOrElse', 'predicate')
+      assertValidValue(continuation, 'findOrElse', 'continuation')
+
+      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
+
       for(const elem of [...self.innerCollection!])
         if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
 
       return yield* this.send(APPLY_METHOD, continuation)
     },
+
   },
 
 
   Set: {
+    *checkValidClosure(self: RuntimeObject, closure: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
+      if (!isEmpty(self.innerCollection)) {
+        const value = yield* this.send(APPLY_METHOD, closure, self.innerCollection![0])
+        if (!value) yield* this.send('error', closure, yield* this.reify(`Message ${message.innerValue} does not allow to receive void closures. Use forEach or check the return type of the closure.`))
+      }
+      return undefined
+    },
 
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
       const values = self.innerCollection!
@@ -92,17 +106,19 @@ const lang: Natives = {
     },
 
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      closure.assertIsNotNull('fold', 'closure')
+      assertValidValue(closure, 'fold', 'closure')
 
       let acum = initialValue
-      for(const elem of [...self.innerCollection!])
+      for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
+        if (acum === undefined) throw new RangeError('fold: closure produces no value. Check the return type of the closure.')
+      }
 
       return acum
     },
 
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      closure.assertIsNotNull('filter', 'closure')
+      assertValidValue(closure, 'filter', 'closure')
 
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
@@ -118,8 +134,10 @@ const lang: Natives = {
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
-      predicate.assertIsNotNull('findOrElse', 'predicate')
-      continuation.assertIsNotNull('findOrElse', 'continuation')
+      assertValidValue(predicate, 'findOrElse', 'predicate')
+      assertValidValue(continuation, 'findOrElse', 'continuation')
+
+      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
 
       for(const elem of [...self.innerCollection!])
         if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean!) return elem
@@ -176,8 +194,16 @@ const lang: Natives = {
 
   List: {
 
+    *checkValidClosure(self: RuntimeObject, closure: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
+      if (!isEmpty(self.innerCollection)) {
+        const value = yield* this.send(APPLY_METHOD, closure, self.innerCollection![0])
+        if (!value) yield* this.send('error', closure, yield* this.reify(`Message ${message.innerValue} does not allow to receive void closures. Use forEach or check the return type of the closure.`))
+      }
+      return yield* this.reify(null)
+    },
+
     *get(self: RuntimeObject, index: RuntimeObject): Execution<RuntimeValue> {
-      index.assertIsNumber('get', 'index')
+      assertIsNumber(index, 'get', 'index')
 
       const values = self.innerCollection!
       const indexValue = index.innerNumber
@@ -188,7 +214,7 @@ const lang: Natives = {
     },
 
     *sortBy(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
-      closure.assertIsNotNull('sortBy', 'closure')
+      assertValidValue(closure, 'sortBy', 'closure')
 
       function*quickSort(this: Evaluation, list: List<RuntimeObject>): Generator<Node, List<RuntimeObject>> {
         if(list.length < 2) return [...list]
@@ -197,11 +223,14 @@ const lang: Natives = {
         const before: RuntimeObject[] = []
         const after: RuntimeObject[] = []
 
-        for(const elem of tail)
-          if((yield* this.send(APPLY_METHOD, closure, elem, head))!.innerBoolean)
+        for(const elem of tail) {
+          const comparison = yield* this.send(APPLY_METHOD, closure, elem, head)
+          if (comparison === undefined) throw new RangeError('Message sortBy: parameter \'closure\' is void, cannot use it as a value')
+          if (comparison.innerBoolean)
             before.push(elem)
           else
             after.push(elem)
+        }
 
         const sortedBefore = yield* quickSort.call(this, before)
         const sortedAfter = yield* quickSort.call(this, after)
@@ -216,7 +245,7 @@ const lang: Natives = {
     },
 
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      closure.assertIsNotNull('filter', 'closure')
+      assertValidValue(closure, 'filter', 'closure')
 
       const result: RuntimeObject[] = []
       for(const elem of [...self.innerCollection!])
@@ -237,18 +266,22 @@ const lang: Natives = {
     },
 
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      closure.assertIsNotNull('fold', 'closure')
+      assertValidValue(closure, 'fold', 'closure')
 
       let acum = initialValue
-      for(const elem of [...self.innerCollection!])
+      for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
+        if (acum === undefined) throw new RangeError('fold: closure produces no value. Check the return type of the closure.')
+      }
 
       return acum
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
-      predicate.assertIsNotNull('findOrElse', 'predicate')
-      continuation.assertIsNotNull('findOrElse', 'continuation')
+      assertValidValue(predicate, 'findOrElse', 'predicate')
+      assertValidValue(continuation, 'findOrElse', 'continuation')
+
+      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
 
       for(const elem of [...self.innerCollection!])
         if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
@@ -318,8 +351,8 @@ const lang: Natives = {
     },
 
     *put(self: RuntimeObject, key: RuntimeObject, value: RuntimeObject): Execution<void> {
-      key.assertIsNotNull('put', '_key')
-      value.assertIsNotNull('put', '_value')
+      assertValidValue(key, 'put', '_key')
+      assertValidValue(value, 'put', '_value')
 
       const buckets = self.get('<buckets>')!.innerCollection!
       const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
@@ -337,7 +370,7 @@ const lang: Natives = {
     },
 
     *basicGet(self: RuntimeObject, key: RuntimeObject): Execution<RuntimeValue> {
-      key.assertIsNotNull('basicGet', '_key')
+      assertValidValue(key, 'basicGet', '_key')
 
       const buckets = self.get('<buckets>')!.innerCollection!
       const index = hash(`${key.innerNumber ?? key.innerString ?? key.module.fullyQualifiedName}`) % buckets.length
@@ -394,7 +427,7 @@ const lang: Natives = {
     },
 
     *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
-      closure.assertIsNotNull('forEach', 'closure')
+      assertValidValue(closure, 'forEach', 'closure')
 
       const buckets = self.get('<buckets>')!.innerCollection!
 
@@ -441,25 +474,25 @@ const lang: Natives = {
     },
 
     *['+'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(+)', 'other')
+      assertIsNumber(other, '(+)', 'other')
 
       return yield* this.reify(self.innerNumber! + other.innerNumber)
     },
 
     *['-'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(-)', 'other')
+      assertIsNumber(other, '(-)', 'other')
 
       return yield* this.reify(self.innerNumber! - other.innerNumber)
     },
 
     *['*'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(*)', 'other')
+      assertIsNumber(other, '(*)', 'other')
 
       return yield* this.reify(self.innerNumber! * other.innerNumber)
     },
 
     *['/'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(/)', 'other')
+      assertIsNumber(other, '(/)', 'other')
 
       if (other.innerNumber === 0) throw new RangeError('/: quotient should not be zero')
 
@@ -467,13 +500,13 @@ const lang: Natives = {
     },
 
     *['**'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(**)', 'other')
+      assertIsNumber(other, '(**)', 'other')
 
       return yield* this.reify(self.innerNumber! ** other.innerNumber)
     },
 
     *['%'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(%)', 'other')
+      assertIsNumber(other, '(%)', 'other')
 
       return yield* this.reify(self.innerNumber! % other.innerNumber)
     },
@@ -483,13 +516,13 @@ const lang: Natives = {
     },
 
     *['>'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(>)', 'other')
+      assertIsNumber(other, '(>)', 'other')
 
       return yield* this.reify(self.innerNumber! > other.innerNumber)
     },
 
     *['<'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('(<)', 'other')
+      assertIsNumber(other, '(<)', 'other')
 
       return yield* this.reify(self.innerNumber! < other.innerNumber)
     },
@@ -503,7 +536,7 @@ const lang: Natives = {
     },
 
     *roundUp(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
-      decimals.assertIsNumber('roundUp', '_decimals')
+      assertIsNumber(decimals, 'roundUp', '_decimals')
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundUp: decimals should be zero or positive number')
 
@@ -511,7 +544,7 @@ const lang: Natives = {
     },
 
     *truncate(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
-      decimals.assertIsNumber('truncate', '_decimals')
+      assertIsNumber(decimals, 'truncate', '_decimals')
 
       if (decimals.innerNumber < 0) throw new RangeError('truncate: decimals should be zero or positive number')
 
@@ -523,7 +556,7 @@ const lang: Natives = {
     },
 
     *randomUpTo(self: RuntimeObject, max: RuntimeObject): Execution<RuntimeValue> {
-      max.assertIsNumber('randomUpTo', 'max')
+      assertIsNumber(max, 'randomUpTo', 'max')
       return yield* this.reify(random() * (max.innerNumber! - self.innerNumber!) + self.innerNumber!)
     },
 
@@ -532,7 +565,7 @@ const lang: Natives = {
     },
 
     *gcd(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNumber('gcd', 'other')
+      assertIsNumber(other, 'gcd', 'other')
 
       const gcd = (a: number, b: number): number => b === 0 ? a : gcd(b, a % b)
 
@@ -553,24 +586,24 @@ const lang: Natives = {
     },
 
     *concat(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsNotNull('concat', 'other')
+      assertValidValue(other, 'concat', 'other')
       return yield* this.reify(self.innerString! + (yield * this.send(TO_STRING_METHOD, other))!.innerString!)
     },
 
     *startsWith(self: RuntimeObject, prefix: RuntimeObject): Execution<RuntimeValue> {
-      prefix.assertIsString('startsWith', 'prefix')
+      assertIsString(prefix, 'startsWith', 'prefix')
 
       return yield* this.reify(self.innerString!.startsWith(prefix.innerString))
     },
 
     *endsWith(self: RuntimeObject, suffix: RuntimeObject): Execution<RuntimeValue> {
-      suffix.assertIsString('startsWith', 'suffix')
+      assertIsString(suffix, 'startsWith', 'suffix')
 
       return yield* this.reify(self.innerString!.endsWith(suffix.innerString))
     },
 
     *indexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsString('indexOf', 'other')
+      assertIsString(other, 'indexOf', 'other')
 
       const index = self.innerString!.indexOf(other.innerString)
 
@@ -579,7 +612,7 @@ const lang: Natives = {
     },
 
     *lastIndexOf(self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
-      other.assertIsString('lastIndexOf', 'other')
+      assertIsString(other, 'lastIndexOf', 'other')
 
       const index = self.innerString!.lastIndexOf(other.innerString)
 
@@ -604,25 +637,25 @@ const lang: Natives = {
     },
 
     *['<'](self: RuntimeObject, aString: RuntimeObject): Execution<RuntimeValue> {
-      aString.assertIsString('(<)', 'aString')
+      assertIsString(aString, '(<)', 'aString')
 
       return yield* this.reify(self.innerString! < aString.innerString)
     },
 
     *['>'](self: RuntimeObject, aString: RuntimeObject): Execution<RuntimeValue> {
-      aString.assertIsString('(>)', 'aString')
+      assertIsString(aString, '(>)', 'aString')
 
       return yield* this.reify(self.innerString! > aString.innerString)
     },
 
     *contains(self: RuntimeObject, element: RuntimeObject): Execution<RuntimeValue> {
-      element.assertIsString('contains', 'element')
+      assertIsString(element, 'contains', 'element')
 
       return yield* this.reify(self.innerString!.indexOf(element.innerString) >= 0)
     },
 
     *substring(self: RuntimeObject, startIndex: RuntimeObject, endIndex?: RuntimeObject): Execution<RuntimeValue> {
-      startIndex.assertIsNumber('substring', 'startIndex')
+      assertIsNumber(startIndex, 'substring', 'startIndex')
 
       const start = startIndex.innerNumber
       const end = endIndex?.innerNumber
@@ -634,8 +667,8 @@ const lang: Natives = {
     },
 
     *replace(self: RuntimeObject, expression: RuntimeObject, replacement: RuntimeObject): Execution<RuntimeValue> {
-      expression.assertIsString('replace', 'expression')
-      replacement.assertIsString('replace', 'replacement')
+      assertIsString(expression, 'replace', 'expression')
+      assertIsString(replacement, 'replace', 'replacement')
       return yield* this.reify(self.innerString!.replace(new RegExp(expression.innerString, 'g'), replacement.innerString))
     },
 
@@ -681,7 +714,7 @@ const lang: Natives = {
   Range: {
 
     *forEach(self: RuntimeObject, closure: RuntimeObject): Execution<void> {
-      closure.assertIsNotNull('forEach', 'closure')
+      assertValidValue(closure, 'forEach', 'closure')
 
       const start = self.get('start')!.innerNumber!
       const end = self.get('end')!.innerNumber!
@@ -718,7 +751,7 @@ const lang: Natives = {
   Closure: {
 
     *apply(this: Evaluation, self: RuntimeObject, args: RuntimeObject): Execution<RuntimeValue> {
-      args.assertIsCollection()
+      assertIsCollection(args)
 
       const method = self.module.lookupMethod(CLOSURE_EVALUATE_METHOD, args.innerCollection.length)
       if (!method) return yield* this.send('messageNotUnderstood', self, yield* this.reify(APPLY_METHOD), args)
@@ -769,7 +802,7 @@ const lang: Natives = {
     },
 
     *plusDays(self: RuntimeObject, days: RuntimeObject): Execution<RuntimeValue> {
-      days.assertIsNumber('plusDays', '_days')
+      assertIsNumber(days, 'plusDays', '_days')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -785,7 +818,7 @@ const lang: Natives = {
     },
 
     *minusDays(self: RuntimeObject, days: RuntimeObject): Execution<RuntimeValue> {
-      days.assertIsNumber('minusDays', '_days')
+      assertIsNumber(days, 'minusDays', '_days')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -801,7 +834,7 @@ const lang: Natives = {
     },
 
     *plusMonths(self: RuntimeObject, months: RuntimeObject): Execution<RuntimeValue> {
-      months.assertIsNumber('plusMonths', '_months')
+      assertIsNumber(months, 'plusMonths', '_months')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -819,7 +852,7 @@ const lang: Natives = {
     },
 
     *minusMonths(self: RuntimeObject, months: RuntimeObject): Execution<RuntimeValue> {
-      months.assertIsNumber('minusMonths', '_months')
+      assertIsNumber(months, 'minusMonths', '_months')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -835,7 +868,7 @@ const lang: Natives = {
     },
 
     *plusYears(self: RuntimeObject, years: RuntimeObject): Execution<RuntimeValue> {
-      years.assertIsNumber('plusYears', '_years')
+      assertIsNumber(years, 'plusYears', '_years')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -854,7 +887,7 @@ const lang: Natives = {
     },
 
     *minusYears(self: RuntimeObject, years: RuntimeObject): Execution<RuntimeValue> {
-      years.assertIsNumber('minusYears', '_years')
+      assertIsNumber(years, 'minusYears', '_years')
 
       const day = self.get('day')!.innerNumber!
       const month = self.get('month')!.innerNumber! - 1
@@ -882,7 +915,7 @@ const lang: Natives = {
     },
 
     *['-'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
-      aDate.assertIsNotNull('(-)', '_aDate')
+      assertValidValue(aDate, '(-)', '_aDate')
       if (aDate.module !== self.module) throw new TypeError(`Message (-): _aDate (${aDate.getShortLabel()}) should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!
@@ -901,7 +934,7 @@ const lang: Natives = {
     },
 
     *['<'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
-      aDate.assertIsNotNull('(<)', '_aDate')
+      assertValidValue(aDate, '(<)', '_aDate')
       if (aDate.module !== self.module) throw new TypeError(`Message (<): _aDate ("${aDate.getShortLabel()}") should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!
@@ -919,7 +952,7 @@ const lang: Natives = {
     },
 
     *['>'](self: RuntimeObject, aDate: RuntimeObject): Execution<RuntimeValue> {
-      aDate.assertIsNotNull('(>)', '_aDate')
+      assertValidValue(aDate, '(>)', '_aDate')
       if (aDate.module !== self.module) throw new TypeError(`Message (>): _aDate ("${aDate.getShortLabel()}") should be an instance of ${DATE_MODULE}`)
 
       const ownDay = self.get('day')!.innerNumber!

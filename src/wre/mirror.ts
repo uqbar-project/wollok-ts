@@ -1,16 +1,16 @@
-import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsString, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 
 const mirror: Natives = {
 
   ObjectMirror: {
 
     *resolve(self: RuntimeObject, attributeName: RuntimeObject): Execution<RuntimeValue> {
-      attributeName.assertIsString('resolve', 'attributeName')
+      assertIsString(attributeName, 'resolve', 'attributeName')
       return self.get('target')?.get(attributeName.innerString)
     },
 
     *instanceVariableFor(self: RuntimeObject, name: RuntimeObject): Execution<RuntimeValue> {
-      name.assertIsString('instanceVariableFor', 'name')
+      assertIsString(name, 'instanceVariableFor', 'name')
 
       return yield* this.instantiate('wollok.mirror.InstanceVariableMirror', {
         target: self,
