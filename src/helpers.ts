@@ -403,7 +403,7 @@ export const sendDefinitions = (environment: Environment) => (send: Send): (Meth
     return method.parent.allFields.find((field) => field.name === method.name && field.isProperty)
   }
 
-  return excludeNullish(originalDefinitions().map((method: Method) => method.isSynthetic ? getDefinitionFromSyntheticMethod(method) : method))
+  return excludeNullish<Method | Field>(originalDefinitions().map((method: Method) => method.isSynthetic ? getDefinitionFromSyntheticMethod(method) : method))
 }
 
 export const allMethodDefinitions = (environment: Environment, send: Send): Method[] => {

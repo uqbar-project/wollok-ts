@@ -75,7 +75,7 @@ export const uniqueBy = <T>(collection: T[], property: keyof T): T[] =>
     return uniques
   }, [])
 
-export const excludeNullish = <T>(list: (T | undefined)[]): T[] => list.filter((element) => element !== undefined)
+export const excludeNullish = <T>(list: (T | undefined)[]): T[] => list.filter((item): item is T => item !== undefined)
 
 export const count = <T>(list: List<T>, condition: (element: T) => boolean): number => list.filter(condition).length
 
