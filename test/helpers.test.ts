@@ -248,7 +248,6 @@ describe('Wollok helpers', () => {
     // Necessary for the methods not to be synthetic
     const sourceMap = new SourceMap({ start: { offset: 1, line: 1, column: 1 }, end: { offset: 9, line: 2, column: 3 } })
 
-    const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
     const environment = getLinkedEnvironment(link([
       new Package({
         name: 'A',
@@ -256,6 +255,12 @@ describe('Wollok helpers', () => {
           new Class({
             name: 'Bird',
             members: [
+              new Field({
+                name: 'energy',
+                isConstant: false,
+                isProperty: true,
+                value: new Literal({ value: 100 }),
+              }),
               new Method({
                 name: 'fly',
                 sourceMap,
@@ -314,12 +319,12 @@ describe('Wollok helpers', () => {
           new Singleton({
             name: 'trainer',
             members: [
-              // new Field({
-              //   name: 'name',
-              //   isConstant: true,
-              //   isProperty: true,
-              //   value: new Literal({ value: 'John ' }),
-              // }),
+              new Field({
+                name: 'displayName',
+                isConstant: false,
+                isProperty: true,
+                value: new Literal({ value: 'John ' }),
+              }),
               new Method({
                 name: 'play',
                 sourceMap,
@@ -383,7 +388,7 @@ describe('Wollok helpers', () => {
           }),
         ],
       }),
-    ], MINIMAL_LANG))
+    ], WREEnvironment))
 
     const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
     const anotherTrainerWKO = environment.getNodeByFQN('A.anotherTrainer') as Singleton
@@ -431,14 +436,23 @@ describe('Wollok helpers', () => {
       definitions.should.deep.equal([birdFlyMethod])
     })
 
-    // it('should return the properties of an entity when calling to wko', () => {
-    //   const sendToName = new Send({
-    //     receiver: trainerWKO,
-    //     message: 'name',
-    //   })
-    //   const definitions = sendDefinitions(environment)(sendToName)
-    //   definitions.should.deep.equal([trainerWKO.allFields[0]])
-    // })
+    it('should return the properties of an entity when calling to wko', () => {
+      const sendToName = new Send({
+        receiver: trainerWKO,
+        message: 'displayName',
+      })
+      const definitions = sendDefinitions(environment)(sendToName)
+      definitions.should.deep.equal([trainerWKO.allFields[0]])
+    })
+
+    it('should return the properties of an entity when calling to class methods', () => {
+      const sendToName = new Send({
+        receiver: new Reference({ name: 'A.bird' }),
+        message: 'energy',
+      })
+      const definitions = sendDefinitions(environment)(sendToName)
+      definitions.should.deep.equal([birdClass.allFields[0]])
+    })
 
     it('should return all methods with the same interface when calling to self is not linked to a module', () => {
       const sendToSelf = new Send({
