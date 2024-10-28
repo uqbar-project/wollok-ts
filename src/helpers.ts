@@ -1,6 +1,6 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
-import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
+import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
@@ -380,23 +380,30 @@ export const methodByFQN = (environment: Environment, fqn: string): Method | und
   return entity.lookupMethod(methodName, Number.parseInt(methodArity, 10))
 }
 
-export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
-  try {
-    return match(send.receiver)(
-      when(Reference)(node => {
-        const target = node.target
-        return target && is(Singleton)(target) ?
-          valueAsListOrEmpty(target.lookupMethod(send.message, send.args.length))
-          : allMethodDefinitions(environment, send)
-      }),
-      when(New)(node => valueAsListOrEmpty(node.instantiated.target?.lookupMethod(send.message, send.args.length))),
-      when(Self)(_ => moduleFinderWithBackup(environment, send)(
-        (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
-      )),
-    )
-  } catch (error) {
-    return allMethodDefinitions(environment, send)
+export const sendDefinitions = (environment: Environment) => (send: Send): (Method | Field)[] => {
+  const originalDefinitions = (): Method[] => {
+    try {
+      return match(send.receiver)(
+        when(Reference)(node => {
+          const target = node.target
+          return target && is(Singleton)(target) ?
+            valueAsListOrEmpty(target.lookupMethod(send.message, send.args.length))
+            : allMethodDefinitions(environment, send)
+        }),
+        when(New)(node => valueAsListOrEmpty(node.instantiated.target?.lookupMethod(send.message, send.args.length))),
+        when(Self)(_ => moduleFinderWithBackup(environment, send)(
+          (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
+        )),
+      )
+    } catch (error) {
+      return allMethodDefinitions(environment, send)
+    }
   }
+  const getDefinitionFromSyntheticMethod = (method: Method) => {
+    return method.parent.allFields.find((field) => field.name === method.name && field.isProperty)
+  }
+
+  return excludeNullish(originalDefinitions().map((method: Method) => method.isSynthetic ? getDefinitionFromSyntheticMethod(method) : method))
 }
 
 export const allMethodDefinitions = (environment: Environment, send: Send): Method[] => {

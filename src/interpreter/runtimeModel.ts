@@ -592,7 +592,7 @@ export class Evaluation {
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
       if (value === undefined || value.module.fullyQualifiedName === VOID_WKO) {
-        throw new RangeError(`Message ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter '${method?.parameters.at(i)?.name}' is void, cannot use it as a value`)
+        throw new RangeError(`Message ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter '${method?.parameters.at(i)?.name ?? '#' + (i + 1)}' is void, cannot use it as a value`)
       }
       values.push(value)
     }

@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
 
 use(sinonChai)
@@ -245,6 +245,9 @@ describe('Wollok helpers', () => {
 
   describe('getNodeDefinition', () => {
 
+    // Necessary for the methods not to be synthetic
+    const sourceMap = new SourceMap({ start: { offset: 1, line: 1, column: 1 }, end: { offset: 9, line: 2, column: 3 } })
+
     const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
     const environment = getLinkedEnvironment(link([
       new Package({
@@ -255,10 +258,12 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'fly',
+                sourceMap,
                 body: new Body({ sentences: [] }),
               }),
               new Method({
                 name: 'sing',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -276,6 +281,7 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'size',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Literal({ value: 10 }),
@@ -290,6 +296,7 @@ describe('Wollok helpers', () => {
             members: [
               new Method({
                 name: 'size',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -307,8 +314,15 @@ describe('Wollok helpers', () => {
           new Singleton({
             name: 'trainer',
             members: [
+              // new Field({
+              //   name: 'name',
+              //   isConstant: true,
+              //   isProperty: true,
+              //   value: new Literal({ value: 'John ' }),
+              // }),
               new Method({
                 name: 'play',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -321,6 +335,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'pick',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -343,6 +358,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'play',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -360,6 +376,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'fly',
+                sourceMap,
                 body: new Body({ sentences: [] }),
               }),
             ],
@@ -413,6 +430,15 @@ describe('Wollok helpers', () => {
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod])
     })
+
+    // it('should return the properties of an entity when calling to wko', () => {
+    //   const sendToName = new Send({
+    //     receiver: trainerWKO,
+    //     message: 'name',
+    //   })
+    //   const definitions = sendDefinitions(environment)(sendToName)
+    //   definitions.should.deep.equal([trainerWKO.allFields[0]])
+    // })
 
     it('should return all methods with the same interface when calling to self is not linked to a module', () => {
       const sendToSelf = new Send({
