@@ -18,7 +18,7 @@
 // - Level could be different for the same Expectation on different nodes
 // - Problem could know how to convert to string, receiving the interpolation function (so it can be translated). This could let us avoid having parameters.
 // - Good default for simple problems, but with a config object for more complex, so we know what is each parameter
-import { EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION } from '../constants'
+import { EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, PROGRAM_FILE_EXTENSION, TEST_FILE_EXTENSION, VOID_WKO } from '../constants'
 import { List, TypeDefinition, count, duplicates, is, isEmpty, last, match, notEmpty, otherwise, when } from '../extensions'
 // - Unified problem type
 import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Field, If, Import,
@@ -295,8 +295,9 @@ valuesForNodeName,
 sourceMapForNodeName)
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
+  const referencesUnwantedSingleton = (element: any) => referencesSingleton(element) && element.target?.fullyQualifiedName !== VOID_WKO
   const arg: Expression = node.args[0]
-  return !isEqualMessage(node) || !arg || !(referencesSingleton(arg) || referencesSingleton(node.receiver))
+  return !isEqualMessage(node) || !arg || !(referencesUnwantedSingleton(arg) || referencesUnwantedSingleton(node.receiver))
 })
 
 export const shouldUseBooleanValueInIfCondition = error<If>(node =>

@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment, superMethodDefinition, targetName } from '../helpers'
+import { getUninitializedAttributesForInstantiation, isEqualMessage, isNamedSingleton, isVoid, loopInAssignment, superMethodDefinition, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
@@ -591,7 +591,8 @@ export class Evaluation {
     const values: RuntimeObject[] = []
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
-      if (value === undefined || value.module.fullyQualifiedName === VOID_WKO) {
+
+      if (!isEqualMessage(node) && isVoid(value)) {
         throw new RangeError(`Message ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter '${method?.parameters.at(i)?.name ?? '#' + (i + 1)}' is void, cannot use it as a value`)
       }
       values.push(value)
@@ -726,6 +727,14 @@ export class Evaluation {
     const existing = this.rootFrame.get(KEYWORDS.NULL)
     if (existing) return existing
     const instance = new RuntimeObject(this.environment.getNodeByFQN(OBJECT_MODULE), this.rootFrame, value)
+    this.rootFrame.set(KEYWORDS.NULL, instance)
+    return instance
+  }
+
+  *reifyVoid(): Execution<RuntimeObject> {
+    const existing = this.rootFrame.get(VOID_WKO)
+    if (existing) return existing
+    const instance = new RuntimeObject(this.environment.getNodeByFQN(VOID_WKO), this.rootFrame, undefined)
     this.rootFrame.set(KEYWORDS.NULL, instance)
     return instance
   }

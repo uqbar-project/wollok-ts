@@ -1,5 +1,6 @@
-import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD } from '../constants'
+import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD, VOID_WKO } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
+import { isVoid } from '../helpers'
 import { assertIsCollection, assertIsNumber, assertIsString, assertValidValue, Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
 
@@ -79,10 +80,13 @@ const lang: Natives = {
       assertValidValue(predicate, 'findOrElse', 'predicate')
       assertValidValue(continuation, 'findOrElse', 'continuation')
 
-      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
-
-      for(const elem of [...self.innerCollection!])
-        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
+      for(const elem of [...self.innerCollection!]) {
+        const value = yield* this.send(APPLY_METHOD, predicate, elem)
+        if (value?.module?.fullyQualifiedName === VOID_WKO) {
+          this.send('error', self, yield* this.reify('Message findOrElse: predicate produces no value. Check the return type of the closure.'))
+        }
+        if (value!.innerBoolean) return elem
+      }
 
       return yield* this.send(APPLY_METHOD, continuation)
     },
@@ -91,14 +95,6 @@ const lang: Natives = {
 
 
   Set: {
-    *checkValidClosure(self: RuntimeObject, closure: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
-      if (!isEmpty(self.innerCollection)) {
-        const value = yield* this.send(APPLY_METHOD, closure, self.innerCollection![0])
-        if (!value) yield* this.send('error', closure, yield* this.reify(`Message ${message.innerValue} does not allow to receive void closures. Use forEach or check the return type of the closure.`))
-      }
-      return undefined
-    },
-
     *anyOne(self: RuntimeObject): Execution<RuntimeValue> {
       const values = self.innerCollection!
       if(isEmpty(values)) throw new RangeError('anyOne: list should not be empty')
@@ -111,7 +107,7 @@ const lang: Natives = {
       let acum = initialValue
       for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        if (acum === undefined) throw new RangeError('fold: closure produces no value. Check the return type of the closure.')
+        if (isVoid(acum)) throw new RangeError('Message fold: closure produces no value. Check the return type of the closure.')
       }
 
       return acum
@@ -137,10 +133,13 @@ const lang: Natives = {
       assertValidValue(predicate, 'findOrElse', 'predicate')
       assertValidValue(continuation, 'findOrElse', 'continuation')
 
-      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
-
-      for(const elem of [...self.innerCollection!])
-        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean!) return elem
+      for(const elem of [...self.innerCollection!]) {
+        const value = yield* this.send(APPLY_METHOD, predicate, elem)
+        if (value?.module?.fullyQualifiedName === VOID_WKO) {
+          throw new RangeError('Message findOrElse: predicate produces no value. Check the return type of the closure.')
+        }
+        if (value!.innerBoolean!) return elem
+      }
 
       return yield* this.send(APPLY_METHOD, continuation)
     },
@@ -193,15 +192,6 @@ const lang: Natives = {
 
 
   List: {
-
-    *checkValidClosure(self: RuntimeObject, closure: RuntimeObject, message: RuntimeObject): Execution<RuntimeValue> {
-      if (!isEmpty(self.innerCollection)) {
-        const value = yield* this.send(APPLY_METHOD, closure, self.innerCollection![0])
-        if (!value) yield* this.send('error', closure, yield* this.reify(`Message ${message.innerValue} does not allow to receive void closures. Use forEach or check the return type of the closure.`))
-      }
-      return yield* this.reify(null)
-    },
-
     *get(self: RuntimeObject, index: RuntimeObject): Execution<RuntimeValue> {
       assertIsNumber(index, 'get', 'index')
 
@@ -225,8 +215,8 @@ const lang: Natives = {
 
         for(const elem of tail) {
           const comparison = yield* this.send(APPLY_METHOD, closure, elem, head)
-          if (comparison === undefined) throw new RangeError('Message sortBy: parameter \'closure\' is void, cannot use it as a value')
-          if (comparison.innerBoolean)
+          if (isVoid(comparison)) throw new RangeError('Message sortBy: closure produces no value. Check the return type of the closure.')
+          if (comparison!.innerBoolean)
             before.push(elem)
           else
             after.push(elem)
@@ -271,7 +261,7 @@ const lang: Natives = {
       let acum = initialValue
       for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        if (acum === undefined) throw new RangeError('fold: closure produces no value. Check the return type of the closure.')
+        if (acum?.module?.fullyQualifiedName === VOID_WKO) throw new RangeError('Message fold: closure produces no value. Check the return type of the closure.')
       }
 
       return acum
@@ -281,10 +271,13 @@ const lang: Natives = {
       assertValidValue(predicate, 'findOrElse', 'predicate')
       assertValidValue(continuation, 'findOrElse', 'continuation')
 
-      yield* this.send('checkValidClosure', self, predicate, yield* this.reify('findOrElse'))
-
-      for(const elem of [...self.innerCollection!])
-        if((yield* this.send(APPLY_METHOD, predicate, elem))!.innerBoolean) return elem
+      for(const elem of [...self.innerCollection!]) {
+        const value = yield* this.send(APPLY_METHOD, predicate, elem)
+        if (value?.module?.fullyQualifiedName === VOID_WKO) {
+          throw new RangeError('Message findOrElse: predicate produces no value. Check the return type of the closure.')
+        }
+        if (value!.innerBoolean!) return elem
+      }
 
       return yield* this.send(APPLY_METHOD, continuation)
     },
@@ -761,7 +754,8 @@ const lang: Natives = {
 
       frame.set(KEYWORDS.SELF, self.parentContext?.get(KEYWORDS.SELF))
 
-      return yield* this.exec(method, frame)
+      const result = yield* this.exec(method, frame)
+      return result === undefined ? yield* this.reifyVoid() : result
     },
 
     *toString(this: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {

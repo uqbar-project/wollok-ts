@@ -394,7 +394,7 @@ describe('Wollok Interpreter', () => {
         const { error } = interprete(interpreter, '[1, 2].map { n => pepita.energia(n) }')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
-          'wollok.lang.DomainException: Message map does not allow to receive void closures. Use forEach or check the return type of the closure.',
+          'wollok.lang.Exception: Message map: closure produces no value. Check the return type of the closure.',
         ])
       })
 
@@ -432,6 +432,12 @@ describe('Wollok Interpreter', () => {
         'wollok.lang.EvaluationError: RangeError: Message assert.that/1: parameter \'value\' is void, cannot use it as a value',
       ])
     })
+
+    it('should let a void closure to work with forEach', () => {
+      const { errored } = interprete(interpreter, '[1, 2, 3].forEach({ element => [].add(4) })')
+      expect(errored).to.be.false
+    })
+
 
   })
 
