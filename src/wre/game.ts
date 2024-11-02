@@ -1,11 +1,11 @@
 import { GAME_MODULE } from '../constants'
-import { assertIsNumber, assertValidValue, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNumber, assertIsNotNull, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 const { round } = Math
 
 const game: Natives = {
   game: {
     *addVisual(self: RuntimeObject, positionable: RuntimeObject): Execution<void> {
-      assertValidValue(positionable, 'addVisual', 'positionable')
+      assertIsNotNull(positionable, 'addVisual', 'positionable')
       if (!positionable.module.lookupMethod('position', 0)) throw new TypeError('Message addVisual: positionable lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
@@ -69,7 +69,7 @@ const game: Natives = {
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      assertValidValue(visual, 'colliders', 'visual')
+      assertIsNotNull(visual, 'colliders', 'visual')
 
       const position = (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!

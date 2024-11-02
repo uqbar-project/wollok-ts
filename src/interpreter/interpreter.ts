@@ -5,6 +5,7 @@ import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, Run
 import * as parse from '../parser'
 import { notEmpty } from '../extensions'
 import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { isVoid } from '../helpers'
 
 export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
@@ -133,9 +134,9 @@ export function interprete(interpreter: Interpreter, line: string): ExecutionRes
       }
 
       const result = interpreter.exec(sentenceOrImport)
-      const stringResult = result
-        ? result.showShortValue(interpreter)
-        : ''
+      const stringResult = !result || isVoid(result)
+        ? ''
+        : result.showShortValue(interpreter)
       return successResult(stringResult)
     }
 

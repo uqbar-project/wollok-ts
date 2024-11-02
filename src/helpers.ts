@@ -9,7 +9,7 @@ export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wo
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS FOR VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO || obj === undefined
+export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO
 
 export const allParents = (module: Module): Module[] =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
@@ -448,3 +448,15 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
 }
 
 const getParentModule = (node: Node) => node.ancestors.find(is(Module)) as Module
+
+export const getExpressionFor = (node: Expression): string =>
+  match(node)(
+    when(Send)(nodeSend =>
+      `message ${nodeSend.message}/${nodeSend.args.length}`),
+    when(If)(_ => 'if expression'),
+    when(Reference)(nodeRef => `reference '${nodeRef.name}'`),
+    when(Expression)(_ => 'expression'),
+  )
+
+export const showParameter = (obj: RuntimeObject): string =>
+  `"${obj.getShortRepresentation().trim() || obj.module.fullyQualifiedName}"`
