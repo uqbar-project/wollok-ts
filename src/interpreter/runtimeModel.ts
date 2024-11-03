@@ -743,7 +743,7 @@ export class Evaluation {
     const existing = this.rootFrame.get(VOID_WKO)
     if (existing) return existing
     const instance = new RuntimeObject(this.environment.getNodeByFQN(VOID_WKO), this.rootFrame, undefined)
-    this.rootFrame.set(KEYWORDS.NULL, instance)
+    this.rootFrame.set(VOID_WKO, instance)
     return instance
   }
 
