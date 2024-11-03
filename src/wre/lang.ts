@@ -1,6 +1,6 @@
-import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD, VOID_WKO } from '../constants'
+import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, COLLECTION_MODULE, DATE_MODULE, KEYWORDS, TO_STRING_METHOD } from '../constants'
 import { hash, isEmpty, List } from '../extensions'
-import { isVoid, showParameter } from '../helpers'
+import { assertNotVoid, showParameter } from '../helpers'
 import { assertIsCollection, assertIsNumber, assertIsString, assertIsNotNull, Evaluation, Execution, Frame, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 import { Class, Node, Singleton } from '../model'
 
@@ -68,7 +68,7 @@ const lang: Natives = {
     *checkNotNull(_self: RuntimeObject, value: RuntimeObject, message: RuntimeObject): Execution<void> {
       assertIsString(message, 'checkNotNull', 'message', false)
 
-      if (value.innerValue === null) yield* this.send('error', value, yield* this.reify(`Message ${message.innerValue} does not allow to receive null values`))
+      if (value.innerValue === null) throw new RangeError(`Message ${message.innerValue} does not allow to receive null values`)
     },
 
   },
@@ -82,9 +82,6 @@ const lang: Natives = {
 
       for(const elem of [...self.innerCollection!]) {
         const value = yield* this.send(APPLY_METHOD, predicate, elem)
-        if (value?.module?.fullyQualifiedName === VOID_WKO) {
-          throw new RangeError(`Message findOrElse: ${value.getShortLabel()} produces no value. Check the return type of the closure.`)
-        }
         if (value!.innerBoolean) return elem
       }
 
@@ -107,7 +104,7 @@ const lang: Natives = {
       let acum = initialValue
       for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        if (isVoid(acum)) throw new RangeError('Message fold: closure produces no value. Check the return type of the closure.')
+        assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
       }
 
       return acum
@@ -117,9 +114,14 @@ const lang: Natives = {
       assertIsNotNull(closure, 'filter', 'closure')
 
       const result: RuntimeObject[] = []
-      for(const elem of [...self.innerCollection!])
-        if((yield* this.send(APPLY_METHOD, closure, elem))!.innerBoolean)
+      for(const elem of [...self.innerCollection!]) {
+        // TODO: need to change send return type
+        const satisfies = (yield* this.send(APPLY_METHOD, closure, elem)) as RuntimeObject
+        assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
+        if (satisfies!.innerBoolean) {
           result.push(elem)
+        }
+      }
 
       return yield* this.set(...result)
     },
@@ -134,10 +136,8 @@ const lang: Natives = {
       assertIsNotNull(continuation, 'findOrElse', 'continuation')
 
       for(const elem of [...self.innerCollection!]) {
-        const value = yield* this.send(APPLY_METHOD, predicate, elem)
-        if (value?.module?.fullyQualifiedName === VOID_WKO) {
-          throw new RangeError('Message findOrElse: predicate produces no value. Check the return type of the closure.')
-        }
+        const value = (yield* this.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
+        assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
         if (value!.innerBoolean!) return elem
       }
 
@@ -214,8 +214,8 @@ const lang: Natives = {
         const after: RuntimeObject[] = []
 
         for(const elem of tail) {
-          const comparison = yield* this.send(APPLY_METHOD, closure, elem, head)
-          if (isVoid(comparison)) throw new RangeError('Message sortBy: closure produces no value. Check the return type of the closure.')
+          const comparison = (yield* this.send(APPLY_METHOD, closure, elem, head)) as RuntimeObject
+          assertNotVoid(comparison, 'Message sortBy: closure produces no value. Check the return type of the closure.')
           if (comparison!.innerBoolean)
             before.push(elem)
           else
@@ -238,9 +238,13 @@ const lang: Natives = {
       assertIsNotNull(closure, 'filter', 'closure')
 
       const result: RuntimeObject[] = []
-      for(const elem of [...self.innerCollection!])
-        if((yield* this.send(APPLY_METHOD, closure, elem))!.innerBoolean)
+      for(const elem of [...self.innerCollection!]) {
+        const satisfies = (yield* this.send(APPLY_METHOD, closure, elem)) as RuntimeObject
+        assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
+        if (satisfies!.innerBoolean) {
           result.push(elem)
+        }
+      }
 
       return yield* this.list(...result)
     },
@@ -261,7 +265,7 @@ const lang: Natives = {
       let acum = initialValue
       for(const elem of [...self.innerCollection!]) {
         acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        if (acum?.module?.fullyQualifiedName === VOID_WKO) throw new RangeError('Message fold: closure produces no value. Check the return type of the closure.')
+        assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
       }
 
       return acum
@@ -272,10 +276,8 @@ const lang: Natives = {
       assertIsNotNull(continuation, 'findOrElse', 'continuation')
 
       for(const elem of [...self.innerCollection!]) {
-        const value = yield* this.send(APPLY_METHOD, predicate, elem)
-        if (value?.module?.fullyQualifiedName === VOID_WKO) {
-          throw new RangeError('Message findOrElse: predicate produces no value. Check the return type of the closure.')
-        }
+        const value = (yield* this.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
+        assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
         if (value!.innerBoolean!) return elem
       }
 

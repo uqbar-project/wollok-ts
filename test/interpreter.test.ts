@@ -413,11 +413,8 @@ describe('Wollok Interpreter', () => {
         `,
         }])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-        const { error } = interprete(interpreter, '[1, 2].map { n => pepita.energia(n) }')
-        assertBasicError(error)
-        expect(getStackTraceSanitized(error)).to.deep.equal([
-          'wollok.lang.Exception: Message map: closure produces no value. Check the return type of the closure.',
-        ])
+        expectError('[1, 2].filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure.')
+        expectError('[1, 2].map { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message List.add/1: parameter #1 produces no value, cannot use it')
       })
 
       it('should handle errors when using void parameters', () => {

@@ -11,6 +11,12 @@ export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wo
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO
 
+export const assertNotVoid = (value: RuntimeObject, errorMessage: string): void => {
+  if (isVoid(value)) {
+    throw new RangeError(errorMessage)
+  }
+}
+
 export const allParents = (module: Module): Module[] =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
