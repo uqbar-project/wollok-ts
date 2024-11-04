@@ -8,6 +8,85 @@ const { abs, ceil, random, floor, round } = Math
 const { isInteger } = Number
 const { UTC } = Date
 
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// COMMON FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function *internalFilter(evaluation: Evaluation, self: RuntimeObject, closure: RuntimeObject, newCollection: (evaluation: Evaluation, result: RuntimeObject[]) => Execution<RuntimeValue>): Execution<RuntimeValue> {
+  assertIsNotNull(closure, 'filter', 'closure')
+
+  const result: RuntimeObject[] = []
+  for(const elem of [...self.innerCollection!]) {
+    const satisfies = (yield* evaluation.send(APPLY_METHOD, closure, elem)) as RuntimeObject
+    assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
+    if (satisfies!.innerBoolean) {
+      result.push(elem)
+    }
+  }
+
+  return yield* newCollection(evaluation, result)
+}
+
+function *internalFindOrElse(evaluation: Evaluation, self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
+  assertIsNotNull(predicate, 'findOrElse', 'predicate')
+  assertIsNotNull(continuation, 'findOrElse', 'continuation')
+
+  for(const elem of [...self.innerCollection!]) {
+    const value = (yield* evaluation.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
+    assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
+    if (value!.innerBoolean!) return elem
+  }
+
+  return yield* evaluation.send(APPLY_METHOD, continuation)
+}
+
+function *internalFold(evaluation: Evaluation, self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
+  assertIsNotNull(closure, 'fold', 'closure')
+
+  let acum = initialValue
+  for(const elem of [...self.innerCollection!]) {
+    acum = (yield* evaluation.send(APPLY_METHOD, closure, acum, elem))!
+    assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
+  }
+
+  return acum
+}
+
+function *internalMax(evaluation: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
+  const method = evaluation.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('max', 0)!
+  return yield* evaluation.invoke(method, self)
+}
+
+function *internalRemove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
+  const values = self.innerCollection!
+  const index = values.indexOf(element)
+  if (index >= 0) values.splice(index, 1)
+}
+
+function *internalSize(evaluation: Evaluation, self: RuntimeObject): Execution<RuntimeValue> {
+  return yield* evaluation.reify(self.innerCollection!.length)
+}
+
+function *internalClear(self: RuntimeObject): Execution<void> {
+  const values = self.innerCollection!
+  values.splice(0, values.length)
+}
+
+function *internalJoin(evaluation: Evaluation, self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
+  const method = evaluation.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('join', separator ? 1 : 0)!
+  return yield* evaluation.invoke(method, self, ...separator ? [separator]: [])
+}
+
+function *internalContains(evaluation: Evaluation, self: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
+  const method = evaluation.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('contains', 1)!
+  return yield* evaluation.invoke(method, self, value)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// NATIVE DEFINITIONS
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 const lang: Natives = {
 
   Exception: {
@@ -77,15 +156,7 @@ const lang: Natives = {
   Collection: {
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(predicate, 'findOrElse', 'predicate')
-      assertIsNotNull(continuation, 'findOrElse', 'continuation')
-
-      for(const elem of [...self.innerCollection!]) {
-        const value = yield* this.send(APPLY_METHOD, predicate, elem)
-        if (value!.innerBoolean) return elem
-      }
-
-      return yield* this.send(APPLY_METHOD, continuation)
+      return yield* internalFindOrElse(this, self, predicate, continuation)
     },
 
   },
@@ -99,49 +170,19 @@ const lang: Natives = {
     },
 
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(closure, 'fold', 'closure')
-
-      let acum = initialValue
-      for(const elem of [...self.innerCollection!]) {
-        acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
-      }
-
-      return acum
+      return yield* internalFold(this, self, initialValue, closure)
     },
 
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(closure, 'filter', 'closure')
-
-      const result: RuntimeObject[] = []
-      for(const elem of [...self.innerCollection!]) {
-        // TODO: need to change send return type
-        const satisfies = (yield* this.send(APPLY_METHOD, closure, elem)) as RuntimeObject
-        assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
-        if (satisfies!.innerBoolean) {
-          result.push(elem)
-        }
-      }
-
-      return yield* this.set(...result)
+      return yield* internalFilter(this, self, closure, (evaluation: Evaluation, result: RuntimeObject[]) => evaluation.set(...result))
     },
 
     *max(self: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('max', 0)!
-      return yield* this.invoke(method, self)
+      return yield* internalMax(this, self)
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(predicate, 'findOrElse', 'predicate')
-      assertIsNotNull(continuation, 'findOrElse', 'continuation')
-
-      for(const elem of [...self.innerCollection!]) {
-        const value = (yield* this.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
-        assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
-        if (value!.innerBoolean!) return elem
-      }
-
-      return yield* this.send(APPLY_METHOD, continuation)
+      return yield* internalFindOrElse(this, self, predicate, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -154,28 +195,23 @@ const lang: Natives = {
     },
 
     *remove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
-      const values = self.innerCollection!
-      const index = values.indexOf(element)
-      if (index >= 0) values.splice(index, 1)
+      return yield* internalRemove(self, element)
     },
 
     *size(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.innerCollection!.length)
+      return yield* internalSize(this, self)
     },
 
     *clear(self: RuntimeObject): Execution<void> {
-      const values = self.innerCollection!
-      values.splice(0, values.length)
+      return yield* internalClear(self)
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('join', separator ? 1 : 0)!
-      return yield* this.invoke(method, self, ...separator ? [separator]: [])
+      return yield* internalJoin(this, self, separator)
     },
 
     *contains(self: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('contains', 1)!
-      return yield* this.invoke(method, self, value)
+      return yield* internalContains(this, self, value)
     },
 
     *['=='](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
@@ -235,53 +271,23 @@ const lang: Natives = {
     },
 
     *filter(self: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(closure, 'filter', 'closure')
-
-      const result: RuntimeObject[] = []
-      for(const elem of [...self.innerCollection!]) {
-        const satisfies = (yield* this.send(APPLY_METHOD, closure, elem)) as RuntimeObject
-        assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
-        if (satisfies!.innerBoolean) {
-          result.push(elem)
-        }
-      }
-
-      return yield* this.list(...result)
+      return yield* internalFilter(this, self, closure, (evaluation: Evaluation, result: RuntimeObject[]) => evaluation.list(...result))
     },
 
     *contains(self: RuntimeObject, value: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('contains', 1)!
-      return yield* this.invoke(method, self, value)
+      return yield* internalContains(this, self, value)
     },
 
     *max(self: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('max', 0)!
-      return yield* this.invoke(method, self)
+      return yield* internalMax(this, self)
     },
 
     *fold(self: RuntimeObject, initialValue: RuntimeObject, closure: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(closure, 'fold', 'closure')
-
-      let acum = initialValue
-      for(const elem of [...self.innerCollection!]) {
-        acum = (yield* this.send(APPLY_METHOD, closure, acum, elem))!
-        assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
-      }
-
-      return acum
+      return yield* internalFold(this, self, initialValue, closure)
     },
 
     *findOrElse(self: RuntimeObject, predicate: RuntimeObject, continuation: RuntimeObject): Execution<RuntimeValue> {
-      assertIsNotNull(predicate, 'findOrElse', 'predicate')
-      assertIsNotNull(continuation, 'findOrElse', 'continuation')
-
-      for(const elem of [...self.innerCollection!]) {
-        const value = (yield* this.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
-        assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
-        if (value!.innerBoolean!) return elem
-      }
-
-      return yield* this.send(APPLY_METHOD, continuation)
+      return yield* internalFindOrElse(this, self, predicate, continuation)
     },
 
     *add(self: RuntimeObject, element: RuntimeObject): Execution<void> {
@@ -289,23 +295,19 @@ const lang: Natives = {
     },
 
     *remove(self: RuntimeObject, element: RuntimeObject): Execution<void> {
-      const values = self.innerCollection!
-      const index = values.indexOf(element)
-      if (index >= 0) values.splice(index, 1)
+      return yield* internalRemove(self, element)
     },
 
     *size(self: RuntimeObject): Execution<RuntimeValue> {
-      return yield* this.reify(self.innerCollection!.length)
+      return yield* internalSize(this, self)
     },
 
     *clear(self: RuntimeObject): Execution<void> {
-      const values = self.innerCollection!
-      values.splice(0, values.length)
+      return yield* internalClear(self)
     },
 
     *join(self: RuntimeObject, separator?: RuntimeObject): Execution<RuntimeValue> {
-      const method = this.environment.getNodeByFQN<Class>(COLLECTION_MODULE).lookupMethod('join', separator ? 1 : 0)!
-      return yield* this.invoke(method, self, ...separator ? [separator]: [])
+      return yield* internalJoin(this, self, separator)
     },
 
     *['=='](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {

@@ -499,14 +499,12 @@ export class Evaluation {
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {
+    const variableName = node.variable.target?.name
+
     const value = yield* this.exec(node.value)
-
-    assertNotVoid(value, `${value.getShortLabel()} produces no value, cannot assign it to a reference`)
-
+    assertNotVoid(value, `${value.getShortLabel()} produces no value, cannot assign it to reference ${variableName}`)
     yield node
-
-    if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
-
+    if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${variableName}`)
     const target = node.variable.target
 
     this.currentFrame.set(targetName(target, node.variable.name), value, true)
