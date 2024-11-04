@@ -215,7 +215,7 @@ export class RuntimeObject extends Context {
   }
 
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
-    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
+    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected a ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 
@@ -285,7 +285,7 @@ export function assertIsCollection(obj: RuntimeObject): asserts obj is BasicRunt
 }
 
 export function assertIsException(obj: RuntimeObject): asserts obj is BasicRuntimeObject<Error | undefined> {
-  if (!obj.module.inherits(obj.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an instance of Exception but got a ${obj.module.fullyQualifiedName} instead`)
+  if (!obj.module.inherits(obj.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an exception but got a ${obj.module.fullyQualifiedName} instead`)
   if (obj.innerValue && !(obj.innerValue instanceof Error)) {
     throw obj.innerValue //new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
   }
@@ -519,7 +519,7 @@ export class Evaluation {
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
-    if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
+    if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name}`))
 
     const target = node.target
     if (target?.is(Field) && loopInAssignment(target.value, target.name)) {
