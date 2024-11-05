@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { assertNotVoid, getContainer, getExpressionFor, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
+import { assertNotVoid, getExpressionFor, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
@@ -593,8 +593,8 @@ export class Evaluation {
     const values: RuntimeObject[] = []
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
-      const container = last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test)))
-      assertNotVoid(value, `${container && container.name ? container.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
+      const methodContainer = last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test)))
+      assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
       values.push(value)
     }
 

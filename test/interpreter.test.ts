@@ -406,14 +406,28 @@ describe('Wollok Interpreter', () => {
         ])
       })
 
-      it('should handle errors when using void return values for anonymous objects', () => {
+      it('should handle errors when using void closures inside collection methods', () => {
         const replEnvironment = buildEnvironment([{
           name: REPL, content: `
             const pepita = object { method energia(total) { } }
         `,
         }])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-        expectError('[1, 2].filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure.')
+        expectError('[1, 2].filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure (missing return?)')
+        expectError('[1, 2].findOrElse({ n => pepita.energia(n) }, {})', 'wollok.lang.EvaluationError: RangeError: Message findOrElse: predicate produces no value. Check the return type of the closure (missing return?)')
+        expectError('[1, 2].fold(0, { acum, total => pepita.energia(1) })', 'wollok.lang.EvaluationError: RangeError: Message fold: closure produces no value. Check the return type of the closure (missing return?)')
+        expectError('#{1, 2}.filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure (missing return?)')
+        expectError('#{1, 2}.findOrElse({ n => pepita.energia(n) }, {})', 'wollok.lang.EvaluationError: RangeError: Message findOrElse: predicate produces no value. Check the return type of the closure (missing return?)')
+        expectError('#{1, 2}.fold(0, { acum, total => pepita.energia(1) })', 'wollok.lang.EvaluationError: RangeError: Message fold: closure produces no value. Check the return type of the closure (missing return?)')
+      })
+
+      it('should handle errors when assigning void to variables inside collection methods', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            const pepita = object { method energia(total) { } }
+        `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expectError('[1, 2].map { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: map - while sending message List.add/1: parameter #1 produces no value, cannot use it')
       })
 

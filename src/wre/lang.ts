@@ -19,7 +19,7 @@ function *internalFilter(evaluation: Evaluation, self: RuntimeObject, closure: R
   const result: RuntimeObject[] = []
   for(const elem of [...self.innerCollection!]) {
     const satisfies = (yield* evaluation.send(APPLY_METHOD, closure, elem)) as RuntimeObject
-    assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure.')
+    assertNotVoid(satisfies, 'Message filter: closure produces no value. Check the return type of the closure (missing return?)')
     if (satisfies!.innerBoolean) {
       result.push(elem)
     }
@@ -34,7 +34,7 @@ function *internalFindOrElse(evaluation: Evaluation, self: RuntimeObject, predic
 
   for(const elem of [...self.innerCollection!]) {
     const value = (yield* evaluation.send(APPLY_METHOD, predicate, elem)) as RuntimeObject
-    assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure.')
+    assertNotVoid(value, 'Message findOrElse: predicate produces no value. Check the return type of the closure (missing return?)')
     if (value!.innerBoolean!) return elem
   }
 
@@ -47,7 +47,7 @@ function *internalFold(evaluation: Evaluation, self: RuntimeObject, initialValue
   let acum = initialValue
   for(const elem of [...self.innerCollection!]) {
     acum = (yield* evaluation.send(APPLY_METHOD, closure, acum, elem))!
-    assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure.')
+    assertNotVoid(acum, 'Message fold: closure produces no value. Check the return type of the closure (missing return?)')
   }
 
   return acum
@@ -491,7 +491,7 @@ const lang: Natives = {
     *['/'](self: RuntimeObject, other: RuntimeObject): Execution<RuntimeValue> {
       assertIsNumber(other, '(/)', 'other')
 
-      if (other.innerNumber === 0) throw new RangeError('/: quotient should not be zero')
+      if (other.innerNumber === 0) throw new RangeError('Message (/): quotient should not be zero')
 
       return yield* this.reify(self.innerNumber! / other.innerNumber)
     },

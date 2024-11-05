@@ -4,7 +4,7 @@
 
 import { KEYWORDS } from '../constants'
 import { List, isEmpty, last, match, when } from '../extensions'
-import { CodeContainer, Entity, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
+import { CodeContainer, Entity, Expression, Field, If, Method, NamedArgument, Node, Parameter, Reference, Return, Send, Sentence, Singleton, SourceIndex, SourceMap, Test, Variable } from '../model'
 import { hasBooleanValue } from '../helpers'
 
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
@@ -43,12 +43,12 @@ export const sourceMapForSentences = (sentences: List<Sentence>): SourceMap => n
   end: sourceMapForSentence(last(sentences)!)!.end,
 })
 
-// const sourceMapForReturnValue = (node: Method) => {
-//   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
-//   const lastSentence = last(node.body.sentences)!
-//   if (!lastSentence.is(Return)) return lastSentence.sourceMap
-//   return lastSentence.value!.sourceMap
-// }
+export const sourceMapForReturnValue = (node: Method): SourceMap | undefined => {
+  if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
+  const lastSentence = last(node.body.sentences)!
+  if (!lastSentence.is(Return)) return lastSentence.sourceMap
+  return lastSentence.value!.sourceMap
+}
 
 export const sourceMapForBody = (node: CodeContainer): SourceMap | undefined => {
   if (!node.body || node.body === KEYWORDS.NATIVE || isEmpty(node.body.sentences)) return node.sourceMap
@@ -66,6 +66,11 @@ export const sourceMapForUnreachableCode = (node: If | Send): SourceMap =>
       end: node.sourceMap!.end,
     })),
   )
+
+export const sourceMapForValue = (node: Node & { value?: Expression }): SourceMap | undefined => {
+  if (!node.sourceMap) return undefined
+  return node.value ? node.value.sourceMap : node.sourceMap
+}
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPERS
