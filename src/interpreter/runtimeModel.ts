@@ -1,8 +1,8 @@
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { assertNotVoid, getExpressionFor, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
-import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { assertNotVoid, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
+import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
 const { isArray } = Array
@@ -559,7 +559,7 @@ export class Evaluation {
       const valueExecution = this.exec(arg.value, new Frame(arg.value, this.currentFrame))
       const value = isGlobal ? valueExecution : yield* valueExecution
       if (value instanceof RuntimeObject && isVoid(value)) {
-        assertNotVoid(value, `new: parameter ${value.showShortValue(new Interpreter(this))} produces no value, cannot use it`)
+        assertNotVoid(value, `new ${node.instantiated.target?.fullyQualifiedName}: value of parameter '${arg.name}' produces no value, cannot use it`)
       }
       args[arg.name] = value
     }
@@ -593,7 +593,7 @@ export class Evaluation {
     const values: RuntimeObject[] = []
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
-      const methodContainer = last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test)))
+      const methodContainer = getMethodContainer(node)
       assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
       values.push(value)
     }
@@ -605,17 +605,17 @@ export class Evaluation {
   }
 
   protected *execSuper(node: Super): Execution<RuntimeValue> {
+    const currentMethod = node.ancestors.find(is(Method))!
     const args: RuntimeObject[] = []
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
-      assertNotVoid(value, `super: parameter ${i + 1} produces no value, cannot use it`)
+      assertNotVoid(value, `super call for message ${currentMethod.name}/${currentMethod.parameters.length}: parameter #${i + 1} produces no value, cannot use it`)
       args.push(value)
     }
 
     yield node
 
     const receiver = this.currentFrame.get(KEYWORDS.SELF)!
-    const currentMethod = node.ancestors.find(is(Method))!
     const method = superMethodDefinition(node, receiver.module)
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
@@ -626,7 +626,8 @@ export class Evaluation {
   protected *execIf(node: If): Execution<RuntimeValue> {
     const condition: RuntimeObject = yield* this.exec(node.condition)
 
-    assertNotVoid(condition, 'if: condition produces no value, cannot use it')
+    const methodContainer = getMethodContainer(node)
+    assertNotVoid(condition, `${methodContainer ? 'Message ' + methodContainer.name + ' - ': ''}if condition produces no value, cannot use it`)
     assertIsBoolean(condition, 'if', 'condition')
 
     yield node
@@ -675,7 +676,7 @@ export class Evaluation {
   }
 
   *send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
-    if (!receiver) throw new RangeError(`Receiver produces no value. Cannot send message ${message}`)
+    if (!receiver) throw new RangeError(`Message: ${message}: receiver produces no value. Cannot send message ${message}`)
     const method = receiver.module.lookupMethod(message, args.length)
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(message as string), yield* this.list(...args))
 

@@ -467,3 +467,6 @@ export const getExpressionFor = (node: Expression): string =>
 
 export const showParameter = (obj: RuntimeObject): string =>
   `"${obj.getShortRepresentation().trim() || obj.module.fullyQualifiedName}"`
+
+export const getMethodContainer = (node: Node): Method | Program | Test | undefined =>
+  last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test)))

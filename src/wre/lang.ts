@@ -251,7 +251,7 @@ const lang: Natives = {
 
         for(const elem of tail) {
           const comparison = (yield* this.send(APPLY_METHOD, closure, elem, head)) as RuntimeObject
-          assertNotVoid(comparison, 'Message sortBy: closure produces no value. Check the return type of the closure.')
+          assertNotVoid(comparison, 'Message sortBy: closure produces no value. Check the return type of the closure (missing return?)')
           if (comparison!.innerBoolean)
             before.push(elem)
           else
