@@ -331,7 +331,7 @@ export const firstNodeWithProblems = (node: Node): Node | undefined => {
 
 export const isError = (problem: Problem): boolean => problem.level === 'error'
 
-export const parentModule = (node: Node): Module => (node.ancestors.find(ancestor => ancestor.is(Module))) as Module ?? node.environment.objectClass
+export const parentModule = (node: Node): Module => getParentModule(node) ?? node.environment.objectClass
 
 export const parentImport = (node: Node): Import | undefined => node.ancestors.find(ancestor => ancestor.is(Import)) as Import
 
@@ -446,7 +446,7 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
-const getParentModule = (node: Node) => node.ancestors.find(is(Module)) as Module
+const getParentModule = (node: Node): Module => node.ancestors.find(is(Module)) as Module
 
 export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO
 
@@ -462,6 +462,8 @@ export const getExpressionFor = (node: Expression): string =>
       `message ${nodeSend.message}/${nodeSend.args.length}`),
     when(If)(_ => 'if expression'),
     when(Reference)(nodeRef => `reference '${nodeRef.name}'`),
+    when(Literal)(nodeLiteral => `literal ${nodeLiteral.value}`),
+    when(Self)(_ => 'self'),
     when(Expression)(_ => 'expression'),
   )
 
