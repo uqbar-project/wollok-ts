@@ -2,7 +2,7 @@ import { expect, should, use } from 'chai'
 import { GAME_MODULE, OBJECT_MODULE } from '../src'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
-import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable } from '../src/model'
+import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable, Literal } from '../src/model'
 import * as parse from '../src/parser'
 import { linkerAssertions } from './assertions'
 import { environmentWithEntities, WREEnvironment } from './utils'
@@ -462,6 +462,65 @@ describe('Wollok linker', () => {
       const C = environment.getNodeByFQN<Class>('p.C')
 
       C.methods[0].sentences[0].should.target(C.fields[0])
+    })
+
+    it('should target references to members inherited from superclass in different packages', () => {
+      const environment = link([
+        new Package({
+          name: 'aaa',
+          imports: [
+            new Import({ isGeneric: true, entity: new Reference({ name: 'bbb' }) }),
+          ],
+          members: [
+            new Class({
+              name: 'C',
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'bbb.B' }) })],
+              members: [
+                new Method({
+                  name: 'm2',
+                  body: new Body({ sentences: [new Literal({ value: '2' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+        new Package({
+          name: 'bbb',
+          imports: [
+            new Import({ isGeneric: true, entity: new Reference({ name: 'zzz' }) }),
+          ],
+          members: [
+            new Class({
+              name: 'B',
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'zzz.A' }) })],
+              members: [
+                new Method({
+                  name: 'm',
+                  body: new Body({ sentences: [new Reference({ name: 'x' })] }),
+                }),
+              ],
+            }),
+          ],
+        }),
+        new Package({
+          name: 'zzz',
+          members: [
+            new Class({
+              name: 'A', members: [
+                new Field({ name: 'x', isConstant: false }),
+              ],
+            }),
+          ],
+        }),
+      ], WREEnvironment)
+
+      const C = environment.getNodeByFQN<Class>('aaa.C')
+      const B = environment.getNodeByFQN<Class>('bbb.B')
+      const A = environment.getNodeByFQN<Class>('zzz.A')
+
+      C.supertypes[0].reference.should.target(B)
+      B.supertypes[0].reference.should.target(A)
+      B.methods[0].sentences[0].should.target(A.fields[0])
     })
 
     it('should target references overriden on mixins to members inherited from superclass', () => {
