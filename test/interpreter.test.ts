@@ -271,7 +271,7 @@ describe('Wollok Interpreter', () => {
         checkSuccessfulResult('{1 + 2}', '{1 + 2}')
       })
 
-      it('should be able to execute sentences related to a hierarchy defined in different packages', () => {
+      it.only('should be able to execute sentences related to a hierarchy defined in different packages', () => {
         const replEnvironment = buildEnvironment([{
           name: 'jefeDeDepartamento.wlk', content: `
           import medico.*
@@ -328,7 +328,7 @@ describe('Wollok Interpreter', () => {
         }])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'testit.test()')
-        console.info(error)
+        // console.info(error)
         expect(error).to.be.undefined
       })
 

@@ -93,6 +93,10 @@ export const assignScopes = (root: Node): void => {
       : parent?.scope
     assign(node, { scope: new LocalScope(containerScope) })
 
+    if (node.name === 'Medico') {
+      console.info(canBeReferenced(node), node.name, node.scope)
+    }
+
     parent?.scope?.register(...scopeContribution(node))
   })
 
