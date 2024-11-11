@@ -26,7 +26,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
 import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule } from '../helpers'
-import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
+import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForReturnValue, sourceMapForUnreachableCode, sourceMapForValue } from './sourceMaps'
 import { valuesForFileName, valuesForNodeName } from './values'
 
 const { entries } = Object
@@ -295,8 +295,9 @@ valuesForNodeName,
 sourceMapForNodeName)
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
+  const referencesUnwantedSingleton = (element: any) => referencesSingleton(element)
   const arg: Expression = node.args[0]
-  return !isEqualMessage(node) || !arg || !(referencesSingleton(arg) || referencesSingleton(node.receiver))
+  return !isEqualMessage(node) || !arg || !(referencesUnwantedSingleton(arg) || referencesUnwantedSingleton(node.receiver))
 })
 
 export const shouldUseBooleanValueInIfCondition = error<If>(node =>
@@ -481,10 +482,19 @@ export const catchShouldBeReachable = error<Catch>(node => {
 export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
   !node.name || !node.parent.is(Package) || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target, node.name!))
 , valuesForNodeName,
-sourceMapForNodeName)
+sourceMapForNodeName
+)
 
 export const shouldNotImportSameFile = error<Import>(node =>
   [TEST_FILE_EXTENSION, PROGRAM_FILE_EXTENSION].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
+)
+
+export const shouldNotUseVoidSingleton = error<Reference<Node>>(node => {
+  const isVoid = (value: Expression) => !!value && value.is(Reference) && value.name === 'void'
+  return !isVoid(node)
+},
+valuesForNodeName,
+(node) => node.is(Method) ? sourceMapForReturnValue(node) : sourceMapForValue(node),
 )
 
 export const shouldNotImportMoreThanOnce = warning<Import>(node =>
@@ -535,7 +545,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
-  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects })),
+  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects, shouldNotUseVoidSingleton })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),

@@ -1,6 +1,7 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
-import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
+import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
+import { RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
@@ -8,6 +9,7 @@ export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wo
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS FOR VALIDATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
 export const allParents = (module: Module): Module[] =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
 
@@ -329,7 +331,7 @@ export const firstNodeWithProblems = (node: Node): Node | undefined => {
 
 export const isError = (problem: Problem): boolean => problem.level === 'error'
 
-export const parentModule = (node: Node): Module => (node.ancestors.find(ancestor => ancestor.is(Module))) as Module ?? node.environment.objectClass
+export const parentModule = (node: Node): Module => getParentModule(node) ?? node.environment.objectClass
 
 export const parentImport = (node: Node): Import | undefined => node.ancestors.find(ancestor => ancestor.is(Import)) as Import
 
@@ -380,23 +382,30 @@ export const methodByFQN = (environment: Environment, fqn: string): Method | und
   return entity.lookupMethod(methodName, Number.parseInt(methodArity, 10))
 }
 
-export const sendDefinitions = (environment: Environment) => (send: Send): Method[] => {
-  try {
-    return match(send.receiver)(
-      when(Reference)(node => {
-        const target = node.target
-        return target && is(Singleton)(target) ?
-          valueAsListOrEmpty(target.lookupMethod(send.message, send.args.length))
-          : allMethodDefinitions(environment, send)
-      }),
-      when(New)(node => valueAsListOrEmpty(node.instantiated.target?.lookupMethod(send.message, send.args.length))),
-      when(Self)(_ => moduleFinderWithBackup(environment, send)(
-        (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
-      )),
-    )
-  } catch (error) {
-    return allMethodDefinitions(environment, send)
+export const sendDefinitions = (environment: Environment) => (send: Send): (Method | Field)[] => {
+  const originalDefinitions = (): Method[] => {
+    try {
+      return match(send.receiver)(
+        when(Reference)(node => {
+          const target = node.target
+          return target && is(Singleton)(target) ?
+            valueAsListOrEmpty(target.lookupMethod(send.message, send.args.length))
+            : allMethodDefinitions(environment, send)
+        }),
+        when(New)(node => valueAsListOrEmpty(node.instantiated.target?.lookupMethod(send.message, send.args.length))),
+        when(Self)(_ => moduleFinderWithBackup(environment, send)(
+          (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
+        )),
+      )
+    } catch (error) {
+      return allMethodDefinitions(environment, send)
+    }
   }
+  const getDefinitionFromSyntheticMethod = (method: Method) => {
+    return method.parent.allFields.find((field) => field.name === method.name && field.isProperty)
+  }
+
+  return excludeNullish<Method | Field>(originalDefinitions().map((method: Method) => method.isSynthetic ? getDefinitionFromSyntheticMethod(method) : method))
 }
 
 export const allMethodDefinitions = (environment: Environment, send: Send): Method[] => {
@@ -437,4 +446,29 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
-const getParentModule = (node: Node) => node.ancestors.find(is(Module)) as Module
+const getParentModule = (node: Node): Module => node.ancestors.find(is(Module)) as Module
+
+export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO
+
+export const assertNotVoid = (value: RuntimeObject, errorMessage: string): void => {
+  if (isVoid(value)) {
+    throw new RangeError(errorMessage)
+  }
+}
+
+export const getExpressionFor = (node: Expression): string =>
+  match(node)(
+    when(Send)(nodeSend =>
+      `message ${nodeSend.message}/${nodeSend.args.length}`),
+    when(If)(_ => 'if expression'),
+    when(Reference)(nodeRef => `reference '${nodeRef.name}'`),
+    when(Literal)(nodeLiteral => `literal ${nodeLiteral.value}`),
+    when(Self)(_ => 'self'),
+    when(Expression)(_ => 'expression'),
+  )
+
+export const showParameter = (obj: RuntimeObject): string =>
+  `"${obj.getShortRepresentation().trim() || obj.module.fullyQualifiedName}"`
+
+export const getMethodContainer = (node: Node): Method | Program | Test | undefined =>
+  last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test))) as unknown as Method | Program | Test

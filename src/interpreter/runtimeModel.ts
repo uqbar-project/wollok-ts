@@ -1,8 +1,8 @@
 import { v4 as uuid } from 'uuid'
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { getUninitializedAttributesForInstantiation, isNamedSingleton, loopInAssignment, superMethodDefinition, targetName } from '../helpers'
-import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Package, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { assertNotVoid, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
+import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
 const { isArray } = Array
@@ -50,18 +50,19 @@ export class WollokException extends Error {
 
   get message(): string {
     const error: RuntimeObject = this.instance
-    error.assertIsException()
-    return `${error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''}\n${this.wollokStack}\n     ${WOLLOK_EXTRA_STACK_TRACE_HEADER}`
+    assertIsException(error)
+    const errorMessage = error.innerValue ? error.innerValue.message : error.get('message')?.innerString ?? ''
+    return `${errorMessage}\n${this.wollokStack}\n     ${WOLLOK_EXTRA_STACK_TRACE_HEADER}`
   }
 
   // TODO: Do we need to take this into consideration for Evaluation.copy()? This might be inside Exception objects
   constructor(readonly evaluation: Evaluation, readonly instance: RuntimeObject) {
     super()
 
-    instance.assertIsException()
+    assertIsException(instance)
 
     this.name = instance.innerValue
-      ? `${instance.module.fullyQualifiedName} wrapping TypeScript ${instance.innerValue.name}`
+      ? `${instance.module.fullyQualifiedName}: ${instance.innerValue.name}`
       : instance.module.fullyQualifiedName
   }
 }
@@ -213,35 +214,8 @@ export class RuntimeObject extends Context {
     )
   }
 
-  assertIsNumber(): asserts this is BasicRuntimeObject<number> {
-    this.assertIs(NUMBER_MODULE, this.innerNumber)
-  }
-
-  assertIsBoolean(): asserts this is BasicRuntimeObject<boolean> {
-    this.assertIs(BOOLEAN_MODULE, this.innerBoolean)
-  }
-
-  assertIsString(): asserts this is BasicRuntimeObject<string> {
-    this.assertIs(STRING_MODULE, this.innerString)
-  }
-
-  assertIsCollection(): asserts this is BasicRuntimeObject<RuntimeObject[]> {
-    if (!this.innerCollection) throw new TypeError(`Malformed Runtime Object: Collection inner value should be a List<RuntimeObject> but was ${this.innerValue}`)
-  }
-
-  assertIsException(): asserts this is BasicRuntimeObject<Error | undefined> {
-    if (!this.module.inherits(this.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an instance of Exception but got a ${this.module.fullyQualifiedName} instead`)
-    if (this.innerValue && !(this.innerValue instanceof Error)) {
-      throw this.innerValue//new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
-    }
-  }
-
-  assertIsNotNull(): asserts this is BasicRuntimeObject<Exclude<InnerValue, null>> {
-    if (this.innerValue === null) throw new TypeError('Malformed Runtime Object: Object was expected to not be null')
-  }
-
   protected assertIs(moduleFQN: Name, innerValue?: InnerValue): void {
-    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected an instance of ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
+    if (this.module.fullyQualifiedName !== moduleFQN) throw new TypeError(`Expected a ${moduleFQN} but got a ${this.module.fullyQualifiedName} instead`)
     if (innerValue === undefined) throw new TypeError(`Malformed Runtime Object: invalid inner value ${this.innerValue} for ${moduleFQN} instance`)
   }
 
@@ -256,6 +230,11 @@ export class RuntimeObject extends Context {
     }
     if (this.shouldShowShortValue()) return this.showShortValue(interpreter)
     return this.module.name ?? 'Object'
+  }
+
+  getShortLabel(): string {
+    if (!this.innerValue) return `a ${this.module.fullyQualifiedName}`
+    return this.innerString !== undefined ? `"${this.getShortRepresentation()}"`: this.getShortRepresentation()
   }
 
   getShortRepresentation(): string {
@@ -280,6 +259,42 @@ export class RuntimeObject extends Context {
   }
 
 }
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// ASSERTION
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+export function assertIsNumber(obj: RuntimeObject, message: string, variableName: string, validateValue = true): asserts obj is BasicRuntimeObject<number> {
+  if (validateValue) assertIsNotNull(obj, message, variableName)
+  if (obj.innerNumber === undefined) throw new TypeError(`Message ${message}: parameter ${showParameter(obj)} should be a number`)
+}
+
+export function assertIsBoolean(obj: RuntimeObject, message: string, variableName: string): asserts obj is BasicRuntimeObject<boolean> {
+  if (!obj) throw new TypeError(`Message ${message}: ${variableName} should be a boolean`)
+  if (obj.innerBoolean === undefined) throw new TypeError(`Message ${message}: parameter ${showParameter(obj)} should be a boolean`)
+}
+
+export function assertIsString(obj: RuntimeObject | undefined, message: string, variableName: string, validateValue = true): asserts obj is BasicRuntimeObject<string> {
+  if (!obj) throw new TypeError(`Message ${message}: ${variableName} should be a string`)
+  if (validateValue) assertIsNotNull(obj, message, variableName)
+  if (obj.innerString === undefined) throw new TypeError(`Message ${message}: parameter ${showParameter(obj)} should be a string`)
+}
+
+export function assertIsCollection(obj: RuntimeObject): asserts obj is BasicRuntimeObject<RuntimeObject[]> {
+  if (!obj.innerCollection) throw new TypeError(`Expected a List of values but was ${obj.innerValue}`)
+}
+
+export function assertIsException(obj: RuntimeObject): asserts obj is BasicRuntimeObject<Error | undefined> {
+  if (!obj.module.inherits(obj.module.environment.getNodeByFQN(EXCEPTION_MODULE))) throw new TypeError(`Expected an exception but got a ${obj.module.fullyQualifiedName} instead`)
+  if (obj.innerValue && !(obj.innerValue instanceof Error)) {
+    throw obj.innerValue //new TypeError('Malformed Runtime Object: Exception inner value, if defined, should be an Error')
+  }
+}
+
+export function assertIsNotNull(obj: RuntimeObject, message: string, variableName: string): asserts obj is BasicRuntimeObject<Exclude<InnerValue, null>> {
+  if (!obj || obj.innerValue === null) throw new RangeError(`Message ${message} does not support parameter '${variableName}' to be null`)
+}
+
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // EVALUATION
@@ -418,7 +433,6 @@ export class Evaluation {
       }
     } catch (error) {
       if (error instanceof WollokException || error instanceof WollokReturn) throw error
-
       const moduleFQN = error instanceof RangeError && error.message === 'Maximum call stack size exceeded'
         ? 'wollok.lang.StackOverflowException'
         : 'wollok.lang.EvaluationError'
@@ -452,7 +466,7 @@ export class Evaluation {
 
       const args = node.parameters.map(parameter => this.currentFrame.get(parameter.name)!)
 
-      return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? undefined
+      return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? (yield* this.reifyVoid())
     } else if (node.isConcrete()) {
       try {
         yield* this.exec(node.body!)
@@ -471,11 +485,13 @@ export class Evaluation {
     for (const sentence of node.sentences)
       result = yield* this.exec(sentence)
 
-    return result
+    return isVoid(result) ? yield* this.reifyVoid() : result
   }
 
   protected *execVariable(node: Variable): Execution<void> {
     const value = yield* this.exec(node.value)
+
+    assertNotVoid(value, `Cannot assign to variable '${node.name}': ${getExpressionFor(node.value)} produces no value, cannot assign it to a variable`)
 
     yield node
 
@@ -483,12 +499,12 @@ export class Evaluation {
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {
+    const variableName = node.variable.target?.name
+
     const value = yield* this.exec(node.value)
-
+    assertNotVoid(value, `${value.getShortLabel()} produces no value, cannot assign it to reference ${variableName}`)
     yield node
-
-    if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${node.variable.target?.name}`)
-
+    if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${variableName}`)
     const target = node.variable.target
 
     this.currentFrame.set(targetName(target, node.variable.name), value, true)
@@ -503,14 +519,14 @@ export class Evaluation {
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
     yield node
 
-    if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name} or its a reference to void`))
+    if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name}`))
 
     const target = node.target
     if (target?.is(Field) && loopInAssignment(target.value, target.name)) {
       raise(new Error(`Error initializing field ${target.name}: stack overflow`))
     }
 
-    return this.currentFrame.get(targetName(target, node.name)) ?? raise(new Error(`Could not resolve reference to ${node.name} or its a reference to void`))
+    return this.currentFrame.get(targetName(target, node.name)) ?? raise(new Error(`Could not resolve reference to ${node.name}`))
   }
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
@@ -539,10 +555,13 @@ export class Evaluation {
   protected *execNew(node: New): Execution<RuntimeValue> {
     const args: Record<Name, RuntimeValue | Execution<RuntimeObject>> = {}
     const isGlobal = Boolean(node.ancestors.find((node: Node): node is Variable => node.is(Variable) && node.isAtPackageLevel))
-
     for (const arg of node.args) {
       const valueExecution = this.exec(arg.value, new Frame(arg.value, this.currentFrame))
-      args[arg.name] = isGlobal ? valueExecution : yield* valueExecution
+      const value = isGlobal ? valueExecution : yield* valueExecution
+      if (value instanceof RuntimeObject && isVoid(value)) {
+        assertNotVoid(value, `new ${node.instantiated.target?.fullyQualifiedName}: value of parameter '${arg.name}' produces no value, cannot use it`)
+      }
+      args[arg.name] = value
     }
 
     yield node
@@ -569,22 +588,34 @@ export class Evaluation {
     if ((node.message === '&&' || node.message === 'and') && receiver.innerBoolean === false) return receiver
     if ((node.message === '||' || node.message === 'or') && receiver.innerBoolean === true) return receiver
 
+    assertNotVoid(receiver, `Cannot send message ${node.message}, receiver is an expression that produces no value.`)
+
     const values: RuntimeObject[] = []
-    for (const arg of node.args) values.push(yield* this.exec(arg))
+    for (const [i, arg] of node.args.entries()) {
+      const value = yield* this.exec(arg)
+      const methodContainer = getMethodContainer(node)
+      assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
+      values.push(value)
+    }
 
     yield node
 
-    return yield* this.send(node.message, receiver, ...values)
+    const result = yield* this.send(node.message, receiver, ...values)
+    return result === undefined ? yield* this.reifyVoid() : result
   }
 
   protected *execSuper(node: Super): Execution<RuntimeValue> {
+    const currentMethod = node.ancestors.find(is(Method))!
     const args: RuntimeObject[] = []
-    for (const arg of node.args) args.push(yield* this.exec(arg))
+    for (const [i, arg] of node.args.entries()) {
+      const value = yield* this.exec(arg)
+      assertNotVoid(value, `super call for message ${currentMethod.name}/${currentMethod.parameters.length}: parameter #${i + 1} produces no value, cannot use it`)
+      args.push(value)
+    }
 
     yield node
 
     const receiver = this.currentFrame.get(KEYWORDS.SELF)!
-    const currentMethod = node.ancestors.find(is(Method))!
     const method = superMethodDefinition(node, receiver.module)
 
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(currentMethod.name), yield* this.list(...args))
@@ -594,7 +625,10 @@ export class Evaluation {
 
   protected *execIf(node: If): Execution<RuntimeValue> {
     const condition: RuntimeObject = yield* this.exec(node.condition)
-    condition.assertIsBoolean()
+
+    const methodContainer = getMethodContainer(node)
+    assertNotVoid(condition, `${methodContainer ? 'Message ' + methodContainer.name + ' - ': ''}if condition produces no value, cannot use it`)
+    assertIsBoolean(condition, 'if', 'condition')
 
     yield node
 
@@ -642,6 +676,7 @@ export class Evaluation {
   }
 
   *send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): Execution<RuntimeValue> {
+    if (!receiver) throw new RangeError(`Message: ${message}: receiver produces no value. Cannot send message ${message}`)
     const method = receiver.module.lookupMethod(message, args.length)
     if (!method) return yield* this.send('messageNotUnderstood', receiver, yield* this.reify(message as string), yield* this.list(...args))
 
@@ -701,6 +736,14 @@ export class Evaluation {
     if (existing) return existing
     const instance = new RuntimeObject(this.environment.getNodeByFQN(OBJECT_MODULE), this.rootFrame, value)
     this.rootFrame.set(KEYWORDS.NULL, instance)
+    return instance
+  }
+
+  *reifyVoid(): Execution<RuntimeObject> {
+    const existing = this.rootFrame.get(VOID_WKO)
+    if (existing) return existing
+    const instance = new RuntimeObject(this.environment.getNodeByFQN(VOID_WKO), this.rootFrame, undefined)
+    this.rootFrame.set(VOID_WKO, instance)
     return instance
   }
 

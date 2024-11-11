@@ -22,6 +22,7 @@ export const DICTIONARY_MODULE = 'wollok.lang.Dictionary'
 export const OBJECT_MODULE = 'wollok.lang.Object'
 export const EXCEPTION_MODULE = 'wollok.lang.Exception'
 export const CLOSURE_MODULE = 'wollok.lang.Closure'
+export const VOID_WKO = 'wollok.lang.void'
 
 export const GAME_MODULE = 'wollok.game.game'
 
