@@ -92,11 +92,6 @@ export const assignScopes = (root: Node): void => {
       ? parent?.parent.scope
       : parent?.scope
     assign(node, { scope: new LocalScope(containerScope) })
-
-    if (node.name === 'Medico') {
-      console.info(canBeReferenced(node), node.name, node.scope)
-    }
-
     parent?.scope?.register(...scopeContribution(node))
   })
 
@@ -120,7 +115,9 @@ export const assignScopes = (root: Node): void => {
         node.scope.include(new LocalScope(undefined, ...contributions))
       }
     }
+  })
 
+  root.forEach((node, _parent) => {
     if (node.is(Module)) {
       node.scope.include(...node.hierarchy.slice(1).map(supertype => supertype.scope))
     }
