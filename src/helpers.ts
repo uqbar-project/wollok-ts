@@ -442,7 +442,10 @@ export const getNodeDefinition = (environment: Environment) => (node: Node): Nod
 }
 
 export const superMethodDefinition = (superNode: Super, methodModule: Module): Method | undefined => {
-  const currentMethod = superNode.ancestors.find(is(Method))!
+  function isValidMethod(node: Node): node is Method {
+    return node.is(Method) && node.name !== CLOSURE_EVALUATE_METHOD
+  }
+  const currentMethod = superNode.ancestors.find(isValidMethod)!
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
