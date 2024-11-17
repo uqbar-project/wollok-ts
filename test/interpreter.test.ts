@@ -523,6 +523,32 @@ describe('Wollok Interpreter', () => {
 
     })
 
+    it.only('should handle void values for assert', () => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `
+        object pajarito {
+          var property energy = 100
+        }
+
+        test "mmm energy" {
+          assert.equals(110, pajarito.energy())
+        }
+
+        object otro {
+          method prueba() {
+
+
+            assert.equals(110, pajarito.energy())
+          }
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+      const runtimeValue = interpreter.exec(replEnvironment.getNodeByFQN('REPL."mmm energy"'))
+      expect(runtimeValue).to.equal('')
+      // expectError('otro.prueba()', '')
+    })
+
     it('should handle void values for assert', () => {
       const replEnvironment = buildEnvironment([{
         name: REPL, content: `

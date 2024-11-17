@@ -138,6 +138,7 @@ export class Frame extends Context {
       [Entity, (node: Entity) => `${node.fullyQualifiedName}`],
       // TODO: Add fqn to method
       when(Method)(node => `${node.parent.fullyQualifiedName}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`),
+      when(Send)(node => `${node.message}/${node.args.length}`),
       when(Catch)(node => `catch(${node.parameter.name}: ${node.parameterType.name})`),
       when(Environment)(() => 'root'),
       otherwise((node: Node) => `${node.kind}`),
@@ -482,8 +483,11 @@ export class Evaluation {
     yield node
 
     let result: RuntimeValue
-    for (const sentence of node.sentences)
-      result = yield* this.exec(sentence)
+    for (const sentence of node.sentences) {
+      const frame = node.parent.is(Test) || node.parent.is(Method) ? new Frame(sentence) : undefined
+      result = yield* this.exec(sentence, frame)
+      if (frame) this.frameStack.pop()
+    }
 
     return isVoid(result) ? yield* this.reifyVoid() : result
   }
