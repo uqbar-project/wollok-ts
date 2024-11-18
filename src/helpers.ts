@@ -1,4 +1,4 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
 import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
 import { RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
@@ -443,7 +443,7 @@ export const getNodeDefinition = (environment: Environment) => (node: Node): Nod
 
 export const superMethodDefinition = (superNode: Super, methodModule: Module): Method | undefined => {
   function isValidMethod(node: Node): node is Method {
-    return node.is(Method) && node.name !== CLOSURE_EVALUATE_METHOD
+    return node.is(Method) && node.name !== CLOSURE_EVALUATE_METHOD && node.parent.fullyQualifiedName !== CLOSURE_MODULE
   }
   const currentMethod = superNode.ancestors.find(isValidMethod)!
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
