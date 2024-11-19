@@ -17,4 +17,3 @@ All contributions are welcome! Feel free to report issues on [the project's issu
 If you plan to contribute with code, please refer to [this page](https://uqbar-project.github.io/wollok-ts/pages/How-To-Contribute/). There is a list of [good first issues](https://github.com/uqbar-project/wollok-ts/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22), if you have any question please reach out us [in our Discord channel](https://discord.gg/ZstgCPKEaa).
 
 **Powered by [Uqbar](https://uqbar.org/)**
-
