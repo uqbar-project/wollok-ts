@@ -669,7 +669,6 @@ describe('Wollok Interpreter', () => {
       expect(errored).to.be.false
     })
 
-
   })
 
   describe('DirectedInterpreter', () => {
