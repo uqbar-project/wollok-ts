@@ -145,12 +145,10 @@ export class Frame extends Context {
     )
   }
 
-  // TODO: On error report, this tells the node line, but not the actual error line.
-  //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
     const target = this.node.is(Method) && this.node.name === CLOSURE_EVALUATE_METHOD
-      ? this.node.parent
-      : this.node
+      ? this.currentNode.parent
+      : this.currentNode
     return target.sourceInfo
   }
 
@@ -483,11 +481,8 @@ export class Evaluation {
     yield node
 
     let result: RuntimeValue
-    for (const sentence of node.sentences) {
-      const frame = node.parent.is(Test) || node.parent.is(Method) ? new Frame(sentence) : undefined
-      result = yield* this.exec(sentence, frame)
-      if (frame) this.frameStack.pop()
-    }
+    for (const sentence of node.sentences)
+      result = yield* this.exec(sentence)
 
     return isVoid(result) ? yield* this.reifyVoid() : result
   }

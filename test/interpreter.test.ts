@@ -47,7 +47,7 @@ describe('Wollok Interpreter', () => {
     it('should be able to execute unlinked sentences', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -81,7 +81,7 @@ describe('Wollok Interpreter', () => {
     it('should fail if there is an uninitialized field in a singleton', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -102,7 +102,7 @@ describe('Wollok Interpreter', () => {
     it('should not fail if there is an explicit null initialization for a field in a singleton', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -140,12 +140,10 @@ describe('Wollok Interpreter', () => {
   describe('interpret API function', () => {
     let interpreter: Interpreter
 
-    const expectError = (command: string, errorMessage: string) => {
+    const expectError = (command: string, ...errorMessage: string[]) => {
       const { error } = interprete(interpreter, command)
       assertBasicError(error)
-      expect(getStackTraceSanitized(error)).to.deep.equal([
-        errorMessage,
-      ])
+      expect(getStackTraceSanitized(error)).to.deep.equal(errorMessage)
     }
 
     const checkSuccessfulResult = (expression: string, expectedResult: string) => {
@@ -351,7 +349,7 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: super call for message fly/1: parameter #1 produces no value, cannot use it',
-            '  at REPL.MockingBird.fly(minutes) [REPL:10]',
+            '  at REPL.MockingBird.fly(minutes) [REPL:11]',
           ]
         )
       })
@@ -375,7 +373,7 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: Message fly - if condition produces no value, cannot use it',
-            '  at REPL.Bird.fly(minutes) [REPL:4]',
+            '  at REPL.Bird.fly(minutes) [REPL:5]',
           ]
         )
       })
@@ -451,9 +449,9 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: TypeError: Message plusDays: parameter "wollok.lang.Date" should be a number',
-          '  at REPL.comun.despegar() [REPL:7]',
-          '  at REPL.comun.volar() [REPL:3]',
-          '  at REPL.Ave.volar() [REPL:16]',
+          '  at REPL.comun.despegar() [REPL:8]',
+          '  at REPL.comun.volar() [REPL:4]',
+          '  at REPL.Ave.volar() [REPL:17]',
         ])
       })
 
@@ -472,7 +470,7 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: RangeError: Cannot send message +, receiver is an expression that produces no value.',
-          '  at REPL.pepita.unMetodo() [REPL:3]',
+          '  at REPL.pepita.unMetodo() [REPL:4]',
         ])
       })
 
@@ -521,32 +519,6 @@ describe('Wollok Interpreter', () => {
         expect('[].add(pepita.energia())', 'wollok.lang.EvaluationError: RangeError: Message List.add/1: parameter #1 produces no value, cannot use it')
       })
 
-    })
-
-    it.only('should handle void values for assert', () => {
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `
-        object pajarito {
-          var property energy = 100
-        }
-
-        test "mmm energy" {
-          assert.equals(110, pajarito.energy())
-        }
-
-        object otro {
-          method prueba() {
-
-
-            assert.equals(110, pajarito.energy())
-          }
-        }
-        `,
-      }])
-      interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-      const runtimeValue = interpreter.exec(replEnvironment.getNodeByFQN('REPL."mmm energy"'))
-      expect(runtimeValue).to.equal('')
-      // expectError('otro.prueba()', '')
     })
 
     it('should handle void values for assert', () => {
