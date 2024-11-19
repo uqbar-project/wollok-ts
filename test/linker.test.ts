@@ -474,7 +474,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'C',
-              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'bbb.B' }) })],
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'B' }) })],
               members: [
                 new Method({
                   name: 'm2',
@@ -492,7 +492,7 @@ describe('Wollok linker', () => {
           members: [
             new Class({
               name: 'B',
-              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'zzz.A' }) })],
+              supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A' }) })],
               members: [
                 new Method({
                   name: 'm',

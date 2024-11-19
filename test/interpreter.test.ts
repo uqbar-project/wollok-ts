@@ -276,7 +276,6 @@ describe('Wollok Interpreter', () => {
           name: 'jefeDeDepartamento.wlk', content: `
           import medico.*
 
-          // con ésto falla
           class Jefe inherits Medico {
             const subordinados = #{}
 
