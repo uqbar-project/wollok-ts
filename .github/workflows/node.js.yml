@@ -12,9 +12,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - uses: webfactory/ssh-agent@v0.8.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    # - uses: webfactory/ssh-agent@v0.8.0
+    #   with:
+    #     ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
     - name: Read .nvmrc
       run: echo "##[set-output name=NVMRC;]$(cat .nvmrc)"
       id: nvm

@@ -2,7 +2,7 @@ import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
 import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives, buildEnvironment } from '../src'
-import { DirectedInterpreter, interprete, Interpreter, getStackTraceSanitized } from '../src/interpreter/interpreter'
+import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { WREEnvironment } from './utils'
@@ -268,6 +268,134 @@ describe('Wollok Interpreter', () => {
       it('for closure', () => {
         checkSuccessfulResult('{1 + 2}', '{1 + 2}')
       })
+
+      it('should be able to execute sentences related to a hierarchy defined in different packages', () => {
+        const replEnvironment = buildEnvironment([{
+          name: 'jefeDeDepartamento.wlk', content: `
+          import medico.*
+
+          class Jefe inherits Medico {
+            const subordinados = #{}
+
+            override method atenderA(unaPersona) {
+              subordinados.anyOne().atenderA(unaPersona)
+            }
+          }
+          `,
+        }, {
+          name: 'medico.wlk', content: `
+          import persona.*
+
+          class Medico inherits Persona {
+            const dosis
+
+            override method contraerEnfermedad(unaEnfermedad) {
+              super(unaEnfermedad)
+              self.atenderA(self)
+            }
+            method atenderA(unaPersona) {
+              unaPersona.recibirMedicamento(dosis)
+            }
+
+          }
+          `,
+        }, {
+          name: 'persona.wlk', content: `
+          class Persona {
+            const enfermedades = []
+            
+            method contraerEnfermedad(unaEnfermedad) {
+
+              enfermedades.add(unaEnfermedad)
+            }
+
+            method saludar() = "hola"
+          }
+          `,
+        }, {
+          name: REPL, content: `
+          import medico.*
+
+          object testit {
+            method test() = new Medico(dosis = 200).saludar()
+          }
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error, result } = interprete(interpreter, 'testit.test()')
+        expect(error).to.be.undefined
+        expect(result).to.equal('"hola"')
+      })
+
+      it('should be able to execute sentences related to a hierarchy defined in different packages - 2', () => {
+        const replEnvironment = buildEnvironment([{
+          name: 'medico.wlk', content: `
+          import persona.*
+
+          class Medico inherits Persona {
+            const dosis
+
+            override method contraerEnfermedad(unaEnfermedad) {
+              super(unaEnfermedad)
+              self.atenderA(self)
+            }
+
+            method atenderA(unaPersona) {
+              unaPersona.recibirMedicamento(dosis)
+            }
+
+          }
+          `,
+        }, {
+          name: 'pediatra.wlk', content: `
+          import jefeDeDepartamento.*
+
+          class Pediatra inherits Jefe {
+            const property fechaIngreso = new Date()
+
+            method esNuevo() = fechaIngreso.year() < 2022
+          }
+          `,
+        }, {
+          name: 'jefeDeDepartamento.wlk', content: `
+          import medico.*
+
+          class Jefe inherits Medico {
+            const subordinados = #{}
+
+            override method atenderA(unaPersona) {
+              subordinados.anyOne().atenderA(unaPersona)
+            }
+          }
+          `,
+        }, {
+          name: 'persona.wlk', content: `
+          class Persona {
+            const enfermedades = []
+            
+            method contraerEnfermedad(unaEnfermedad) {
+
+              enfermedades.add(unaEnfermedad)
+            }
+
+            method saludar() = "hola"
+          }
+          `,
+        }, {
+          name: REPL, content: `
+          import pediatra.*
+
+          object testit {
+            method test() = new Pediatra(dosis = 200).saludar()
+          }
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error, result } = interprete(interpreter, 'testit.test()')
+        expect(error).to.be.undefined
+        expect(result).to.equal('"hola"')
+      })
+
     })
 
     describe('sanitize stack trace', () => {
@@ -538,7 +666,6 @@ describe('Wollok Interpreter', () => {
       const { errored } = interprete(interpreter, '[1, 2, 3].forEach({ element => [].add(4) })')
       expect(errored).to.be.false
     })
-
 
   })
 
