@@ -217,7 +217,7 @@ export const usesField = (node: Node, field: Field): boolean =>
   match(node)(
     when(Singleton)(node => {
       if (!node.isClosure()) return false
-      const applyMethod = node.methods.find(method => method.name === CLOSURE_EVALUATE_METHOD)
+      const applyMethod = node.methods.find(isApplyMethodForClosures)
       return !!applyMethod && usesField(applyMethod, field)
     }),
     when(Variable)(node => usesField(node.value, field)),
@@ -441,9 +441,12 @@ export const getNodeDefinition = (environment: Environment) => (node: Node): Nod
   }
 }
 
+export const isApplyMethodForClosures = (method: Method): boolean =>
+  method.name === CLOSURE_EVALUATE_METHOD && method.parent.fullyQualifiedName.startsWith(`${CLOSURE_MODULE}#`) // TODO: Maybe re-define isClosure() ?
+
 export const superMethodDefinition = (superNode: Super, methodModule: Module): Method | undefined => {
   function isValidMethod(node: Node): node is Method {
-    return node.is(Method) && node.name !== CLOSURE_EVALUATE_METHOD && node.parent.fullyQualifiedName !== CLOSURE_MODULE
+    return node.is(Method) && !isApplyMethodForClosures(node)
   }
   const currentMethod = superNode.ancestors.find(isValidMethod)!
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
