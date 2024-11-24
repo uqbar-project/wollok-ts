@@ -311,6 +311,10 @@ describe('Wollok parser', () => {
       '_foo123'.should.be.be.parsedBy(parser).into('_foo123')
     })
 
+    it('should parse names that contains unicode chars', () => {
+      '_foö123_and_bár'.should.be.be.parsedBy(parser).into('_foö123_and_bár')
+    })
+
     it('should not parse names with spaces', () => {
       'foo bar'.should.not.be.parsedBy(parser)
     })
@@ -327,6 +331,9 @@ describe('Wollok parser', () => {
       '"foo"'.should.not.be.parsedBy(parser)
     })
 
+    it('should not parse strings containing unicode as names', () => {
+      '"foö"'.should.not.be.parsedBy(parser)
+    })
   })
 
 
@@ -1871,6 +1878,10 @@ class c {}`
         'var v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isConstant: false })).and.be.tracedTo(0, 5)
       })
 
+      it('should parse var declaration with non-ascii caracter in identifier', () => {
+        'var ñ'.should.be.parsedBy(parser).into(new Variable({ name: 'ñ', isConstant: false })).and.be.tracedTo(0, 5)
+      })
+
       it('should parse var asignation', () => {
         'var v = 5'.should.be.parsedBy(parser).into(
           new Variable({
@@ -2195,6 +2206,18 @@ class c {}`
            x`.should.be.parsedBy(parser).into(
               new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
             )
+        })
+
+        it('should parse references starting with unicode letter', () => {
+          'ñ'.should.be.parsedBy(parser).into(new Reference({ name: 'ñ' })).and.be.tracedTo(0, 1)
+        })
+
+        it('should parse references containing unicode letter', () => {
+          'some_ñandu'.should.be.parsedBy(parser).into(new Reference({ name: 'some_ñandu' })).and.be.tracedTo(0, 10)
+        })
+
+        it('should not parse references starting with numbers that contain unicode letters', () => {
+          '4ñandu'.should.not.be.parsedBy(parser)
         })
 
         it('should not parse references with spaces', () => {
