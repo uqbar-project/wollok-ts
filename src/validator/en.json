@@ -48,6 +48,7 @@
   "shouldNotUseOverride": "Method does not override anything",
   "shouldNotUseReservedWords": "{0} is a reserved name for a core element",
   "shouldNotUseVoidMethodAsValue": "Message send \"{0}\" produces no value (missing return in method?)",
+  "shouldNotUseVoidSingleton": "Named object 'void' produces no value, use 'null' instead",
   "shouldOnlyInheritFromMixin": "Mixin can only inherit from another mixin",
   "shouldPassValuesToAllAttributes": "{0} cannot be instantiated, you must pass values to the following attributes: {1}",
   "shouldUseBooleanValueInIfCondition": "Expecting a boolean",
