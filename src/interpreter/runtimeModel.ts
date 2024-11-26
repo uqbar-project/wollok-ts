@@ -138,18 +138,17 @@ export class Frame extends Context {
       [Entity, (node: Entity) => `${node.fullyQualifiedName}`],
       // TODO: Add fqn to method
       when(Method)(node => `${node.parent.fullyQualifiedName}.${node.name}(${node.parameters.map(parameter => parameter.name).join(', ')})`),
+      when(Send)(node => `${node.message}/${node.args.length}`),
       when(Catch)(node => `catch(${node.parameter.name}: ${node.parameterType.name})`),
       when(Environment)(() => 'root'),
       otherwise((node: Node) => `${node.kind}`),
     )
   }
 
-  // TODO: On error report, this tells the node line, but not the actual error line.
-  //        For example, an error on a test would say the test start line, not the line where the error occurred.
   get sourceInfo(): string {
     const target = this.node.is(Method) && this.node.name === CLOSURE_EVALUATE_METHOD
-      ? this.node.parent
-      : this.node
+      ? this.currentNode.parent
+      : this.currentNode
     return target.sourceInfo
   }
 

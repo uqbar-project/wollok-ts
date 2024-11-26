@@ -33,7 +33,7 @@ abstract class AbstractInterpreter {
   exec(node: Sentence): InterpreterResult<this, RuntimeValue>
   exec(node: Node): InterpreterResult<this, void>
   exec(node: Node): InterpreterResult<this, RuntimeValue | void> {
-    return this.do(function*() { return yield* this.exec(node) })
+    return this.do(function* () { return yield* this.exec(node) })
   }
 
   run(programOrTestFQN: Name): InterpreterResult<this, void> {
@@ -41,39 +41,39 @@ abstract class AbstractInterpreter {
   }
 
   send(message: Name, receiver: RuntimeObject, ...args: RuntimeObject[]): InterpreterResult<this, RuntimeValue> {
-    return this.do(function*() { return yield* this.send(message, receiver, ...args) })
+    return this.do(function* () { return yield* this.send(message, receiver, ...args) })
   }
 
   invoke(method: Method, receiver: RuntimeObject, ...args: RuntimeObject[]): InterpreterResult<this, RuntimeValue> {
-    return this.do(function*() { return yield* this.invoke(method, receiver, ...args) })
+    return this.do(function* () { return yield* this.invoke(method, receiver, ...args) })
   }
 
   reify(value: boolean | number | string | null): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.reify(value) })
+    return this.do(function* () { return yield* this.reify(value) })
   }
 
   list(...value: RuntimeObject[]): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.list(...value) })
+    return this.do(function* () { return yield* this.list(...value) })
   }
 
   set(...value: RuntimeObject[]): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.set(...value) })
+    return this.do(function* () { return yield* this.set(...value) })
   }
 
   error(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeObject>, error?: Error): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.error(moduleOrFQN, locals, error) })
+    return this.do(function* () { return yield* this.error(moduleOrFQN, locals, error) })
   }
 
   instantiate(moduleOrFQN: Module | Name, locals: Record<Name, RuntimeObject> = {}): InterpreterResult<this, RuntimeObject> {
-    return this.do(function*() { return yield* this.instantiate(moduleOrFQN, locals) })
+    return this.do(function* () { return yield* this.instantiate(moduleOrFQN, locals) })
   }
 
 }
 
 export type ExecutionResult = {
-  result: string;
-  error?: Error;
-  errored: boolean;
+  result: string
+  error?: Error
+  errored: boolean
 }
 
 const failureResult = (message: string, error?: Error): ExecutionResult => ({
@@ -92,6 +92,7 @@ export const getStackTraceSanitized = (e?: Error): string[] => {
   const fullStack = e?.stack?.slice(0, indexOfTsStack ?? -1) ?? ''
 
   return fullStack
+    .replaceAll('\r', '')
     .replaceAll('\t', '  ')
     .replaceAll('     ', '  ')
     .replaceAll('    ', '  ')
@@ -109,7 +110,7 @@ export class Interpreter extends AbstractInterpreter {
   override do<T>(executionDefinition: ExecutionDefinition<T>): T {
     const execution = executionDefinition.call(this.evaluation)
     let next = execution.next()
-    while(!next.done) next = execution.next()
+    while (!next.done) next = execution.next()
     return next.value as InterpreterResult<this, T>
   }
 
@@ -204,17 +205,17 @@ export class ExecutionDirector<T> {
     this.breakpoints.push(...nextBreakpoints)
   }
 
-  finish(): ExecutionState<T> & {done: true} {
+  finish(): ExecutionState<T> & { done: true } {
     let result = this.resume()
-    while(!result.done) result = this.resume()
+    while (!result.done) result = this.resume()
     return result
   }
 
   resume(shouldHalt: (next: Node, evaluation: Evaluation) => boolean = () => false): ExecutionState<T> {
     try {
       let next = this.execution.next()
-      while(!next.done) {
-        if(this.breakpoints.includes(next.value) || shouldHalt(next.value, this.evaluation))
+      while (!next.done) {
+        if (this.breakpoints.includes(next.value) || shouldHalt(next.value, this.evaluation))
           return { done: false, next: next.value }
 
         next = this.execution.next()
