@@ -1,5 +1,5 @@
 import { log } from 'console'
-import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, whitespace } from 'parsimmon'
+import Parsimmon, { alt as alt_parser, any, Index, index, lazy, makeSuccess, newline, notFollowedBy, of, Parser, regex, seq, seqObj, string, succeed, whitespace } from 'parsimmon'
 import unraw from 'unraw'
 import { ASSIGNATION_OPERATORS, INFIX_OPERATORS, KEYWORDS, LIST_MODULE, PREFIX_OPERATORS, SET_MODULE } from './constants'
 import { discriminate, hasWhitespace, is, List, mapObject } from './extensions'
@@ -19,6 +19,7 @@ const ALL_OPERATORS = [
 export const MALFORMED_ENTITY = 'malformedEntity'
 export const MALFORMED_MEMBER = 'malformedMember'
 export const MALFORMED_SENTENCE = 'malformedSentence'
+export const MALFORMED_MESSAGE_SEND = 'malformedMessageSend'
 
 export class ParseError implements BaseProblem {
   constructor(public code: Name, public sourceMap: SourceMap) { }
@@ -101,6 +102,10 @@ const __ = optional(key(';').or(Parsimmon.regex(/\s/)))
 
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
 const sameLineComment: Parser<Annotation> = comment('end')
+const withSameLineComment = <T extends Node>(result: T): Parser<T> => 
+  optional(sameLineComment).map(comment => comment
+      ? result.copy({ metadata: result.metadata.concat(comment) })
+      : result)
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const EOL = input.includes('\r\n') ? '\r\n' : '\n'
@@ -225,7 +230,8 @@ export const Body: Parser<BodyNode> = node(BodyNode)(() =>
     sentences: alt(
       Sentence.skip(__),
       comment('inner').wrap(_, _),
-      sentenceError).many(),
+      sentenceError
+    ).many(),
   }).wrap(key('{'), lastKey('}')).map(recover)
 )
 
@@ -448,14 +454,34 @@ const prefixMessageChain: Parser<ExpressionNode> = lazy(() =>
   )
 )
 
-const postfixMessageChain: Parser<ExpressionNode> = lazy(() =>
-  messageChain(
+// TODO sumar messageChain.
+// TODO cloures
+const postfixMessageChain: Parser<ExpressionNode & { problems?: List<BaseProblem> }> = lazy(() => 
+  alt(
+    obj({
+      receiver: primaryExpression,
+      message: key('.').then(name),
+      args: unamedArguments,
+    }).mark().chain(({ start, end, value: send}) => Parsimmon((input: string, i: number) => makeSuccess(i, 
+      new SendNode({
+        ...send,
+        sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
+      })
+    ))),
     primaryExpression,
-    key('.').then(name),
-    alt(unamedArguments, Closure.times(1))
-  )
+    obj({
+      receiver: succeed(new LiteralNode({ value: null })),
+      markedMessage: name.mark(),
+      args: unamedArguments,
+    })
+    .map(({ markedMessage: { start, end, value: message }, ...send }) => new SendNode({
+      ...send,
+      message, 
+      problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(start, end))] 
+    }))
+  ).chain(withSameLineComment)
 )
-
+  
 const messageChain = (receiver: Parser<ExpressionNode>, message: Parser<Name>, args: Parser<List<ExpressionNode>>): Parser<ExpressionNode> => lazy(() =>
   seq(
     index,
@@ -495,7 +521,6 @@ const primaryExpression: Parser<ExpressionNode> = lazy(() => {
     ).map(([metadata, expression]) => expression.copy({ metadata: [...expression.metadata, ...metadata] }))
   )
 })
-
 
 export const Self: Parser<SelfNode> = node(SelfNode)(() =>
   key(KEYWORDS.SELF).result({})
