@@ -488,13 +488,21 @@ export class Evaluation {
   }
 
   protected *execVariable(node: Variable): Execution<void> {
+    const variableFullName = targetName(node, node.name)
+
+    if(this.currentFrame.locals.get(variableFullName)){
+      throw new Error('Can\'t redefine a variable')
+    }
+
     const value = yield* this.exec(node.value)
 
     assertNotVoid(value, `Cannot assign to variable '${node.name}': ${getExpressionFor(node.value)} produces no value, cannot assign it to a variable`)
 
     yield node
 
-    this.currentFrame.set(targetName(node, node.name), value)
+    this.currentFrame.set(variableFullName, value)
+
+
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {

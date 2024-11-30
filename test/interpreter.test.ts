@@ -506,6 +506,24 @@ describe('Wollok Interpreter', () => {
         )
       })
 
+      it('Can\'t redefine a variable', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            const variableName = 1
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'var variableName = 2')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(
+          [
+            'wollok.lang.EvaluationError: Error: Can\'t redefine a variable',
+
+          ]
+        )
+      })
+
+
       it('should wrap void validation errors for assignment to void value', () => {
         const replEnvironment = buildEnvironment([{
           name: REPL, content: `
