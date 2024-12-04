@@ -501,8 +501,6 @@ export class Evaluation {
     yield node
 
     this.currentFrame.set(variableFullName, value)
-
-
   }
 
   protected *execAssignment(node: Assignment): Execution<void> {
