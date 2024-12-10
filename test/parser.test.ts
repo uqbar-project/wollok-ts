@@ -234,6 +234,43 @@ describe('Wollok parser', () => {
           .and.be.tracedTo(0, 124)
       })
 
+      it.only('ESTE ES EL QUE ROMPE multiline comments before many members with body expressions', () => {
+        `
+        class String {
+          /**
+           * comment
+           */
+          method words() = 2
+
+          /**
+           * another comment
+           */
+          method capitalize() {
+            return 1
+          }
+        }`.should.be.parsedBy(parser).into(new Class({
+            name: 'String',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'words',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '/**\n           * comment\n           */', position: 'start' }),
+                ],
+              }),
+              new Method({
+                name: 'capitalize',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 1 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '/**\n           * another comment\n           */', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
+          //.and.be.tracedTo(0, 233)
+      })
+
       it('comments with block closures', () => {
         `class c { 
           //some comment
