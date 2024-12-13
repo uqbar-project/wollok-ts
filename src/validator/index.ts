@@ -526,7 +526,7 @@ export const shouldHaveDifferentName = error<Test>(node => {
 
 
 export const shouldNotRedefineIdentity = error<Method>(node => {
-  return !(node.name === '===' && node.parameters.length === 1 && node.isOverride && !node.isNative()) 
+  return !(node.name === '===' && node.parameters.length === 1 && node.isOverride && !node.isNative())
 }, undefined, sourceMapForNodeName)
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
