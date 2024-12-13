@@ -1,5 +1,25 @@
 # Changelog
 
+## v4.1.9
+**Wollok Version: `3.2.7`**
+- 👉 Fix report current line on the frame for stack traces
+- ⤴️ Fix using `super` inside a closure
+- 📁 Fix imports for chained files
+- 🔄 Fix #cyclic const instance initialization
+- ⛵ Moving function utils for navigation
+- ❌ Error handling enhancements
+  - Better error messages from `lang` (and `native` methods)
+  - Add return of `void` value
+  - Sanitize stack trace
+
+## v4.1.8
+**Wollok Version: `3.2.6`**
+- ❌ Hot fix for validation messages
+
+## v4.1.7
+**Wollok Version: `3.2.6`**
+- 🌎 Migrate validation messages
+
 ## v4.1.6
 **Wollok Version: `3.2.5`**
 - 👾 Fix REPL constants in sub-folder files for dynamic diagram

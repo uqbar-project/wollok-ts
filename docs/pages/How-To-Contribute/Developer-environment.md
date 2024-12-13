@@ -27,8 +27,11 @@ There are also other plugins that some people on the team find interesting and y
 - [TODO Highlight](https://marketplace.visualstudio.com/items?itemName=wayou.vscode-todo-highlight)
 - [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer)
 - [Mocha Test Explorer](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-mocha-test-adapter)
+- [Editor Config for VS Code - Editor Config](https://marketplace.visualstudio.com/items?itemName=EditorConfig.EditorConfig), only if you use the editor config settings
 
 ### Node
+
+#### For Linux and Mac
 
 You need to install [NodeJS](https://nodejs.org/es/), which provides VM environment, and [NVM - Node Version Manager](https://github.com/nvm-sh/nvm).
 
@@ -60,6 +63,20 @@ then you need to install it
 nvm install lts/hydrogen # or the version you get on the previous input
 ```
 
+#### For Windows
+
+You need to install the [NVM - for Windows](https://github.com/coreybutler/nvm-windows).
+
+Run the installer `nvm-setup.exe` as Administrator.
+
+Open an elevated Command Prompt or Git Bash in the project folder (with Administrator privileges) and run:
+
+```bash
+nvm install <<version number>>
+nvm use <<version number>>
+# The version number is in the .nvmrc file (do not use codename version e.g. lts/gallium, in Windows you have to use the equivalent version number e.g. 16.15.0)
+```
+
 ### NPM
 
 You will also need to install [NPM](https://www.npmjs.com/). If you are not familiar with *dependency manager tools*, you can think of this program as the entry point for all the important tasks development-related tasks, like installing dependencies and running tests. After installing the client, go to the project root folder and run:
@@ -84,63 +101,6 @@ We use [ESLint](https://eslint.org/) to make sure our code complies with our cod
 
 ![settingTSversion](https://user-images.githubusercontent.com/4549002/71355632-68957400-255e-11ea-808b-39ec97abff5c.gif)
 
-## Testing
+## Moving on
 
-We use [BDD chai unit testing style](https://www.chaijs.com/api/bdd/), in particular
-
-- [should](http://shouldjs.github.io/)
-- expect
-
-They are located in `test` folder.
-
-You can run all the project tests from the console by executing:
-
-```bash
-npm test
-```
-
-We also have specific tests for each component of Wollok-TS:
-
-```bash
-npm run test:dynamicDiagram
-npm run test:validations
-...
-```
-
-Please refer to the `package.json` file or just run `npm run` command to see a list of alternatives.
-
-## Debugging
-
-The folder `.vscode` has a `launch.json` file which configures everything for running tests in an embedded VSCode environment. You can set a breakpoint and run the tests:
-
-![ezgif com-video-to-gif](https://user-images.githubusercontent.com/4549002/71355164-00925e00-255d-11ea-9a83-c37f420d4e61.gif)
-
-More on debugging:
-
-- [Debugging in Visual Studio Code](https://code.visualstudio.com/docs/editor/debugging)
-- [Debugging Typescript in VS Code](https://code.visualstudio.com/docs/typescript/typescript-debugging)
-- [How to debug Typescript in VS Code](https://medium.com/@PhilippKief/how-to-debug-typescript-with-vs-code-9cec93b4ae56)
-
-### Debugging a single test
-
-You can use **Test Explorer with Mocha**, if you follow current instructions and install plugins Test Explorer and Mocha Test Explorer. Then, you can go to the Test Explorer tab and run/debug a single test from the left sidebar:
-
-![debuggingWollokTs2](https://user-images.githubusercontent.com/4549002/71355441-cd040380-255d-11ea-82b6-1cb7c19c1c7a.gif)
-
-Or, if you prefer using the console:
-
-```bash
-npm run test:unit -- -f <test>
-```
-
-### Building it locally
-
-If you are developing a dependency of Wollok-TS (for instance Wollok-TS CLI or Wollok Web Tools), you might need to run a local build. To do so, just run:
-
-```bash
-npm run build
-```
-
-### Deploying / Publishing
-
-If you need to deploy or publish a new version, please refer to [this page](../Publish-Instructions.md)
+You can check Wollok-TS tools in [the specific tools page](./Developer-tools.md)

@@ -9,4 +9,5 @@
 - [How To Contribute](/wollok-ts/pages/How-To-Contribute)
   - [General Design](/wollok-ts/pages/How-To-Contribute/General-Design-and-Main-Concerns)
   - [Developer Environment](/wollok-ts/pages/How-To-Contribute/Developer-environment)
+  - [Developer Tools](/wollok-ts/pages/How-To-Contribute/Developer-tools)
   - [Publish instructions](/wollok-ts/pages/Publish-Instructions)

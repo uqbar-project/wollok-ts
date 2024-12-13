@@ -51,7 +51,7 @@ describe('Wollok Game', () => {
       interpreter.run('actions.genericError')
       logs.should.be.deep.eq([
         'wollok.lang.Exception: ERROR',
-        '\tat actions.genericError [actions.wpgm:33]'])
+        '\tat actions.genericError [actions.wpgm:37]'])
     })
 
     it('with file name game (devil test)', () => {

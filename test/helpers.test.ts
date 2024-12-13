@@ -1,7 +1,8 @@
-import { should, use } from 'chai'
+import { expect, should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, sendDefinitions, hasNullValue, hasBooleanValue, projectToJSON } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return } from '../src'
 import { WREEnvironment, environmentWithEntities } from './utils'
+import { RuntimeObject } from '../src/interpreter/runtimeModel'
 
 use(sinonChai)
 should()
@@ -243,9 +244,11 @@ describe('Wollok helpers', () => {
 
   })
 
-  describe('sendDefinitions', () => {
+  describe('getNodeDefinition', () => {
 
-    const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE)
+    // Necessary for the methods not to be synthetic
+    const sourceMap = new SourceMap({ start: { offset: 1, line: 1, column: 1 }, end: { offset: 9, line: 2, column: 3 } })
+
     const environment = getLinkedEnvironment(link([
       new Package({
         name: 'A',
@@ -253,12 +256,20 @@ describe('Wollok helpers', () => {
           new Class({
             name: 'Bird',
             members: [
+              new Field({
+                name: 'energy',
+                isConstant: false,
+                isProperty: true,
+                value: new Literal({ value: 100 }),
+              }),
               new Method({
                 name: 'fly',
+                sourceMap,
                 body: new Body({ sentences: [] }),
               }),
               new Method({
                 name: 'sing',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -271,11 +282,53 @@ describe('Wollok helpers', () => {
               }),
             ],
           }),
+          new Class({
+            name: 'Cage',
+            members: [
+              new Method({
+                name: 'size',
+                sourceMap,
+                body: new Body({
+                  sentences: [
+                    new Literal({ value: 10 }),
+                  ],
+                }),
+                isOverride: false,
+              }),
+            ],
+          }),
+          new Class({
+            name: 'SpecialCage',
+            members: [
+              new Method({
+                name: 'size',
+                sourceMap,
+                body: new Body({
+                  sentences: [
+                    new Send({
+                      receiver: new Super(),
+                      message: '+',
+                      args: [new Literal({ value: 5 })],
+                    }),
+                  ],
+                }),
+                isOverride: true,
+              }),
+            ],
+            supertypes: [new ParameterizedType({ reference: new Reference({ name: 'A.Cage' }) })],
+          }),
           new Singleton({
             name: 'trainer',
             members: [
+              new Field({
+                name: 'displayName',
+                isConstant: false,
+                isProperty: true,
+                value: new Literal({ value: 'John ' }),
+              }),
               new Method({
                 name: 'play',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -288,6 +341,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'pick',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -310,6 +364,7 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'play',
+                sourceMap,
                 body: new Body({
                   sentences: [
                     new Send({
@@ -327,24 +382,31 @@ describe('Wollok helpers', () => {
               }),
               new Method({
                 name: 'fly',
+                sourceMap,
                 body: new Body({ sentences: [] }),
               }),
             ],
           }),
         ],
       }),
-    ], MINIMAL_LANG))
+    ], WREEnvironment))
 
     const trainerWKO = environment.getNodeByFQN('A.trainer') as Singleton
     const anotherTrainerWKO = environment.getNodeByFQN('A.anotherTrainer') as Singleton
     const birdClass = environment.getNodeByFQN('A.Bird') as Class
-    const pickTrainerMethod = trainerWKO.allMethods[1] as Method
+    const trainerPlayMethod = trainerWKO.allMethods[0] as Method
+    const trainerPickMethod = trainerWKO.allMethods[1] as Method
+    const anotherTrainerPlayMethod = anotherTrainerWKO.allMethods[0] as Method
     const anotherTrainerFlyMethod = anotherTrainerWKO.allMethods[1] as Method
     const birdFlyMethod = birdClass.allMethods[0] as Method
+    const cageClass = environment.getNodeByFQN('A.Cage') as Class
+    const cageSizeMethod = cageClass.allMethods[0] as Method
+    const specialCageClass = environment.getNodeByFQN('A.SpecialCage') as Class
+    const specialCageSizeMethod = specialCageClass.allMethods[0] as Method
 
     it('should return the methods of a class when using new', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
-      const definitions = sendDefinitions(environment)(sendToNewBird)
+      const definitions = getNodeDefinition(environment)(sendToNewBird)
       definitions.should.deep.equal([birdFlyMethod])
     })
 
@@ -360,7 +422,7 @@ describe('Wollok helpers', () => {
     it('should return the methods of a singleton when calling to the WKO', () => {
       const sendToTrainer = anotherTrainerWKO.allMethods[0].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToTrainer)
-      definitions.should.deep.equal([pickTrainerMethod])
+      definitions.should.deep.equal([trainerPickMethod])
     })
 
     it('should return all methods definitions matching message & arity when calling to a class', () => {
@@ -373,6 +435,24 @@ describe('Wollok helpers', () => {
       const sendToSelf = birdClass.allMethods[1].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod])
+    })
+
+    it('should return the properties of an entity when calling to wko', () => {
+      const sendToName = new Send({
+        receiver: trainerWKO,
+        message: 'displayName',
+      })
+      const definitions = sendDefinitions(environment)(sendToName)
+      definitions.should.deep.equal([trainerWKO.allFields[0]])
+    })
+
+    it('should return the properties of an entity when calling to class methods', () => {
+      const sendToName = new Send({
+        receiver: new Reference({ name: 'A.bird' }),
+        message: 'energy',
+      })
+      const definitions = sendDefinitions(environment)(sendToName)
+      definitions.should.deep.equal([birdClass.allFields[0]])
     })
 
     it('should return all methods with the same interface when calling to self is not linked to a module', () => {
@@ -391,6 +471,31 @@ describe('Wollok helpers', () => {
       } as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
       definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+    })
+
+    it('should match a reference to the corresponding field', () => {
+      const pepitaReference = (anotherTrainerPlayMethod.sentences[1] as Send).receiver
+      const pepitaField = anotherTrainerWKO.allFields[0]
+      const definitions = getNodeDefinition(environment)(pepitaReference)
+      definitions.should.deep.equal([pepitaField])
+    })
+
+    it('should match a reference to the corresponding class for a new instance', () => {
+      const newBirdReference = ((trainerPlayMethod.sentences[0] as Send).receiver as New).instantiated
+      const definitions = getNodeDefinition(environment)(newBirdReference)
+      definitions.should.deep.equal([birdClass])
+    })
+
+    it('should return the parent method when asking for a super definition', () => {
+      const callToSuperCageSize = (specialCageSizeMethod.sentences[0] as Send).receiver as Super
+      const definitions = getNodeDefinition(environment)(callToSuperCageSize)
+      definitions.should.deep.equal([cageSizeMethod])
+    })
+
+    it('should return self when asking for a self definition', () => {
+      const callToSelfTrainer = (trainerPickMethod.sentences[0] as Send).receiver as Self
+      const definitions = getNodeDefinition(environment)(callToSelfTrainer)
+      definitions.should.deep.equal([trainerWKO])
     })
 
   })
@@ -660,6 +765,201 @@ describe('Wollok helpers', () => {
       projectAsJSON.should.contain('AwesomeClass')
       projectAsJSON.should.contain('awesomeMethod')
       projectAsJSON.should.contain('awesomeParameter')
+    })
+
+  })
+
+  describe('isVoid', () => {
+    const replEnvironment = buildEnvironment([{
+      name: REPL, content: `
+      object pajarito {
+        method volar() {
+        }
+      }
+      `,
+    }])
+    const evaluation = Evaluation.build(replEnvironment, WRENatives)
+
+    it('should return true for void singleton', () => {
+      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(VOID_WKO), evaluation.currentFrame, undefined)).should.be.true
+    })
+
+    it('should return false for Wollok elements', () => {
+      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 42)).should.be.false
+    })
+
+    it('should return false for custom definitions', () => {
+      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined)).should.be.false
+    })
+
+  })
+
+  describe('assertNotVoid', () => {
+    const replEnvironment = buildEnvironment([{
+      name: REPL, content: `
+      object pajarito {
+        method volar() {
+        }
+      }
+      `,
+    }])
+    const evaluation = Evaluation.build(replEnvironment, WRENatives)
+
+    it('should throw error if value is void', () => {
+      expect(() => assertNotVoid(new RuntimeObject(replEnvironment.getNodeByFQN(VOID_WKO), evaluation.currentFrame, undefined), 'Something failed')).to.throw('Something failed')
+    })
+
+    it('should not throw error if value is not void', () => {
+      assertNotVoid(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 2), 'Something failed')
+    })
+
+  })
+
+  describe('showParameter', () => {
+    const replEnvironment = buildEnvironment([{
+      name: REPL, content: `
+      object pajarito {
+        method volar() {
+        }
+      }
+      `,
+    }])
+    const evaluation = Evaluation.build(replEnvironment, WRENatives)
+
+    it('should show a number', () => {
+      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 2)).should.equal('"2"')
+    })
+
+    it('should show a string', () => {
+      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(STRING_MODULE), evaluation.currentFrame, 'pepita')).should.equal('"pepita"')
+    })
+
+    it('should show fqn for custom modules', () => {
+      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined)).should.equal(`"${REPL}.pajarito"`)
+    })
+
+  })
+
+  describe('getMethodContainer', () => {
+    const replEnvironment = buildEnvironment([{
+      name: REPL, content: `
+      object pajarito {
+        energia = 100
+        method volar() {
+          energia = energia + 10
+        }
+      }`,
+    }, {
+      name: 'test',
+      content: `
+      describe "some describe" {
+        test "some test" {
+          assert.equals(1, 1)
+        }
+      }
+      `,
+    }, {
+      name: 'program',
+      content: `
+      program Prueba {
+        const a = 1
+        const b = a + 1
+        console.println(a)
+        console.println(b)
+      }
+      `,
+    },
+    ])
+
+    it('should find method container for a method', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const volarMethod = birdSingleton.allMethods[0] as Method
+      const volarSentence = volarMethod.sentences[0]
+      getMethodContainer(volarSentence)!.should.equal(volarMethod)
+    })
+
+    it('should find method container for a test', () => {
+      const firstDescribe = replEnvironment.getNodeByFQN('test."some describe"') as Describe
+      const firstTest = firstDescribe.allMembers[0] as Test
+      const assertSentence = firstTest.sentences[0]
+      getMethodContainer(assertSentence)!.should.equal(firstTest)
+    })
+
+    it('should find method container for a program', () => {
+      const program = replEnvironment.getNodeByFQN('program.Prueba') as Program
+      const anySentence = program.sentences()[3]
+      getMethodContainer(anySentence)!.should.equal(program)
+    })
+
+  })
+
+  describe('getExpression', () => {
+    const replEnvironment = buildEnvironment([{
+      name: REPL, content: `
+      object pajarito {
+        energia = 100
+        contenta = false
+
+        method jugar() {
+          contenta = true
+        }
+
+        method volar() {
+          if (energia > 100) {
+            self.jugar()
+          }
+          return energia
+        }
+
+        method valorBase() = 2
+
+        method bad() {
+          throw new Exception(message = "Do not call me!")
+        }
+      }`,
+    },
+    ])
+
+    it('should show if expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const volarMethod = birdSingleton.allMethods[1] as Method
+      const ifExpression = volarMethod.sentences[0] as Expression
+      getExpressionFor(ifExpression)!.should.equal('if expression')
+    })
+
+    it('should show send expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const volarMethod = birdSingleton.allMethods[1] as Method
+      const sendExpression = (volarMethod.sentences[0] as If).thenBody.sentences[0] as Expression
+      getExpressionFor(sendExpression)!.should.equal('message jugar/0')
+    })
+
+    it('should show reference expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const volarMethod = birdSingleton.allMethods[1] as Method
+      const referenceExpression = (volarMethod.sentences[1] as Return).value as Expression
+      getExpressionFor(referenceExpression)!.should.equal('reference \'energia\'')
+    })
+
+    it('should show literal expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const valorBaseMethod = birdSingleton.allMethods[2] as Method
+      const literalExpression = (valorBaseMethod.sentences[0] as Return).value as Expression
+      getExpressionFor(literalExpression)!.should.equal('literal 2')
+    })
+
+    it('should show self expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const volarMethod = birdSingleton.allMethods[1] as Method
+      const selfExpression = ((volarMethod.sentences[0] as If).thenBody.sentences[0] as Send).receiver as Expression
+      getExpressionFor(selfExpression)!.should.equal('self')
+    })
+
+    it('should show default expression', () => {
+      const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
+      const badMethod = birdSingleton.allMethods[3] as Method
+      const throwException = badMethod.sentences[0] as Expression
+      getExpressionFor(throwException)!.should.equal('expression')
     })
 
   })

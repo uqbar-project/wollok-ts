@@ -1,18 +1,16 @@
 import { GAME_MODULE } from '../constants'
-import { Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNumber, assertIsNotNull, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 const { round } = Math
 
 const game: Natives = {
   game: {
-    *addVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      visual.assertIsNotNull()
-      if (!visual.module.lookupMethod('position', 0)) throw new TypeError('position')
+    *addVisual(self: RuntimeObject, positionable: RuntimeObject): Execution<void> {
+      assertIsNotNull(positionable, 'addVisual', 'positionable')
+      if (!positionable.module.lookupMethod('position', 0)) throw new TypeError('Message addVisual: positionable lacks a position message')
 
       const visuals = self.get('visuals')!.innerCollection!
-
-      if(visuals.includes(visual)) throw new TypeError(visual.module.fullyQualifiedName)
-
-      visuals.push(visual)
+      if (visuals.includes(positionable)) throw new RangeError('Visual is already in the game! You cannot add duplicate elements')
+      visuals.push(positionable)
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -71,7 +69,7 @@ const game: Natives = {
     },
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
-      visual.assertIsNotNull()
+      assertIsNotNull(visual, 'colliders', 'visual')
 
       const position = (yield* this.send('position', visual))!
       const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
@@ -96,8 +94,8 @@ const game: Natives = {
       self.set('height', height)
     },
 
-    *ground(self: RuntimeObject, ground: RuntimeObject): Execution<void> {
-      self.set('ground', ground)
+    *ground(self: RuntimeObject, image: RuntimeObject): Execution<void> {
+      self.set('ground', image)
     },
 
     *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<void> {
@@ -125,7 +123,7 @@ const game: Natives = {
       const sounds = game.get('sounds')?.innerCollection
       if (!sounds) game.set('sounds', yield* this.list(self))
       else {
-        if (sounds.includes(self)) throw new TypeError(self.module.fullyQualifiedName)
+        if (sounds.includes(self)) throw new RangeError('Sound is already in the game! You cannot add duplicate elements')
         else sounds.push(self)
       }
 
@@ -166,9 +164,9 @@ const game: Natives = {
       if(!newVolume) return self.get('volume')
 
       const volume: RuntimeObject = newVolume
-      volume.assertIsNumber()
+      assertIsNumber(volume, 'volume', 'newVolume', false)
 
-      if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('newVolume')
+      if (volume.innerNumber < 0 || volume.innerNumber > 1) throw new RangeError('volumen: newVolume should be between 0 and 1')
 
       self.set('volume', volume)
     },

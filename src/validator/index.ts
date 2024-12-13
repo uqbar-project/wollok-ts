@@ -25,8 +25,8 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor } from '../helpers'
-import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForUnreachableCode } from './sourceMaps'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule } from '../helpers'
+import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForReturnValue, sourceMapForUnreachableCode, sourceMapForValue } from './sourceMaps'
 import { valuesForFileName, valuesForNodeName } from './values'
 
 const { entries } = Object
@@ -111,7 +111,7 @@ export const methodShouldHaveDifferentSignature = error<Method>(node =>
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is(Super) && sentence.args.every((arg, index) => arg.is(Reference) && arg.target === node.parameters[index])
   return isEmpty(node.sentences) || !node.sentences.every(sentence =>
-    callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
+    callsSuperWithSameArgs(sentence) && node.sentences.length == 1  || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
 }, undefined, sourceMapForBody)
 
@@ -156,7 +156,7 @@ export const shouldOnlyInheritFromMixin = error<Mixin>(node => node.supertypes.e
 }))
 
 export const shouldUseOverrideKeyword = warning<Method>(node =>
-  node.isOverride || !superclassMethod(node) || node.name == INITIALIZE_METHOD
+  node.isOverride || node.isSynthetic || !superclassMethod(node) || node.name == INITIALIZE_METHOD
 )
 
 export const possiblyReturningBlock = warning<Method>(node => {
@@ -225,7 +225,7 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   const lastSentence = last(node.sentences)
   const superclassSentence = last(overridenMethod.sentences)
   return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
-}, undefined, sourceMapForBody)
+}, valuesForNodeName, sourceMapForBody)
 
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
   const lastThenSentence = last(node.thenBody.sentences)
@@ -295,8 +295,9 @@ valuesForNodeName,
 sourceMapForNodeName)
 
 export const shouldNotCompareEqualityOfSingleton = warning<Send>(node => {
+  const referencesUnwantedSingleton = (element: any) => referencesSingleton(element)
   const arg: Expression = node.args[0]
-  return !isEqualMessage(node) || !arg || !(referencesSingleton(arg) || referencesSingleton(node.receiver))
+  return !isEqualMessage(node) || !arg || !(referencesUnwantedSingleton(arg) || referencesUnwantedSingleton(node.receiver))
 })
 
 export const shouldUseBooleanValueInIfCondition = error<If>(node =>
@@ -357,8 +358,7 @@ export const methodShouldExist = error<Send>(node => methodExists(node))
 
 export const shouldUseSuperOnlyOnOverridingMethod = error<Super>(node => {
   const method = node.ancestors.find(is(Method))
-  const parentModule = node.ancestors.find(is(Module))
-  if (parentModule?.is(Mixin)) return true
+  if (parentModule(node)?.is(Mixin)) return true
   if (!method) return false
   return !!superclassMethod(method) && method.matchesSignature(method.name, node.args.length)
 })
@@ -482,10 +482,19 @@ export const catchShouldBeReachable = error<Catch>(node => {
 export const shouldNotDuplicateEntities = error<Entity | Variable>(node =>
   !node.name || !node.parent.is(Package) || node.parent.imports.every(importFile => !entityIsAlreadyUsedInImport(importFile.entity.target, node.name!))
 , valuesForNodeName,
-sourceMapForNodeName)
+sourceMapForNodeName
+)
 
 export const shouldNotImportSameFile = error<Import>(node =>
   [TEST_FILE_EXTENSION, PROGRAM_FILE_EXTENSION].some(allowedExtension => node.parent.fileName?.endsWith(allowedExtension)) || node.entity.target !== node.parent
+)
+
+export const shouldNotUseVoidSingleton = error<Reference<Node>>(node => {
+  const isVoid = (value: Expression) => !!value && value.is(Reference) && value.name === 'void'
+  return !isVoid(node)
+},
+valuesForNodeName,
+(node) => node.is(Method) ? sourceMapForReturnValue(node) : sourceMapForValue(node),
 )
 
 export const shouldNotImportMoreThanOnce = warning<Import>(node =>
@@ -516,6 +525,10 @@ export const shouldHaveDifferentName = error<Test>(node => {
 }, valuesForNodeName, sourceMapForNodeName)
 
 
+export const shouldNotRedefineIdentity = error<Method>(node => {
+  return !(node.name === '===' && node.parameters.length === 1 && node.isOverride && !node.isNative())
+}, undefined, sourceMapForNodeName)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -533,10 +546,10 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeInheritedAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementInheritedAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
   when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute, shouldNotAssignValueInLoop })),
-  when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
+  when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody, shouldNotRedefineIdentity })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
-  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects })),
+  when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects, shouldNotUseVoidSingleton })),
   when(Self)(() => ({ shouldNotUseSelf })),
   when(New)(() => ({ shouldNotInstantiateAbstractClass, shouldPassValuesToAllAttributes })),
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
