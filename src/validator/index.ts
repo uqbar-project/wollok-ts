@@ -111,7 +111,7 @@ export const methodShouldHaveDifferentSignature = error<Method>(node =>
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is(Super) && sentence.args.every((arg, index) => arg.is(Reference) && arg.target === node.parameters[index])
   return isEmpty(node.sentences) || !node.sentences.every(sentence =>
-    callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
+    callsSuperWithSameArgs(sentence) && node.sentences.length == 1  || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
 }, undefined, sourceMapForBody)
 
