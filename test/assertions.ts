@@ -30,6 +30,8 @@ declare global {
       pass<N extends Node>(validation: Validation<N>): Assertion
 
       anyType(): Assertion
+
+      deepEquals(excepted: any): Assertion
     }
 
     interface ArrayAssertion {
@@ -184,18 +186,18 @@ export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 export const compareAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
 
-  const comparePrimitives = (obj1: unknown, obj2: unknown): boolean => obj1 === obj2;
+  const comparePrimitives = (obj1: unknown, obj2: unknown): boolean => obj1 === obj2
 
   const compareObjects = (obj1: unknown, obj2: unknown): boolean =>
     obj1 !== null && obj2 !== null &&
     typeof obj1 === 'object' && typeof obj2 === 'object' &&
     Object.keys(obj1).length === Object.keys(obj2).length &&
-    Object.keys(obj1).every(key => deepCompare((obj1 as Record<string, unknown>)[key], (obj2 as Record<string, unknown>)[key]));
+    Object.keys(obj1).every(key => deepCompare((obj1 as Record<string, unknown>)[key], (obj2 as Record<string, unknown>)[key]))
 
   const compareArrays = (arr1: unknown, arr2: unknown): boolean =>
     Array.isArray(arr1) && Array.isArray(arr2) &&
     arr1.length === arr2.length &&
-    arr1.every((elem, index) => deepCompare(elem, arr2[index]));
+    arr1.every((elem, index) => deepCompare(elem, arr2[index]))
 
   const compareMaps = (map1: unknown, map2: unknown): boolean =>
     map1 instanceof Map && map2 instanceof Map &&
@@ -207,7 +209,7 @@ export const compareAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   const compareSets = (set1: unknown, set2: unknown): boolean =>
     set1 instanceof Set && set2 instanceof Set &&
     set1.size === set2.size &&
-    [...set1].every(elem => set2.has(elem));
+    [...set1].every(elem => set2.has(elem))
 
   const deepCompare = (obj1: unknown, obj2: unknown): boolean =>
     comparePrimitives(obj1, obj2) ||

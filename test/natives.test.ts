@@ -2,14 +2,9 @@ import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
 import {  REPL, Evaluation, WRENatives, buildEnvironment } from '../src'
-import { interprete, Interpreter } from '../src/interpreter/interpreter';
+import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/natives'
 import { compareAssertions } from './assertions'
-import link from '../src/linker'
-import { Package } from '../src/model'
-
-
-
 
 use(sinonChai)
 use(compareAssertions)
@@ -18,8 +13,8 @@ should()
 const myModelNative = {
   model: {
     myModel: {
-      *nativeOne(self: any) : any {
-        return yield* this.reify(1)
+      *nativeOne(_self: any): any {
+        return yield* (this as any).reify(1)
       },
     },
   },
@@ -50,7 +45,7 @@ describe('Native functions', () => {
             method listSize() {
               return [1,2].size()
             }
-        }`
+        }`,
       },
       {
         name: REPL, content: `
@@ -61,7 +56,7 @@ describe('Native functions', () => {
         }
         `,
       }])
-      interpreter = new Interpreter(Evaluation.build(replEnvironment, natives())) //No me gusta tener que pasar WRENatives acá, me gustaría que quede dentro del modelo 
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, natives()))
     })
 
     it('Using wre native method return ok', () => {
@@ -95,7 +90,7 @@ describe('Native functions', () => {
         }
         `,
       }])
-      interpreter = new Interpreter(Evaluation.build(replEnvironment, natives([myModelNative]))) //No me gusta tener que pasar WRENatives acá, me gustaría que quede dentro del modelo 
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, natives([myModelNative])))
     })
 
     it('Using wre native method return ok', () => {
