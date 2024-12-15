@@ -13,8 +13,8 @@ should()
 const myModelNative = {
   model: {
     myModel: {
-      *nativeOne(_self: any): any {
-        return yield* (this as any).reify(1)
+      *nativeOne(this: any, _self: any): any {
+        return yield* this.reify(1)
       },
     },
   },
