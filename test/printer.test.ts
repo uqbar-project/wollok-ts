@@ -146,8 +146,7 @@ describe('Wollok Printer', () => {
           // comentario
           const a = 1
           // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
-          const b = 2
-          // last comentario
+          const b = 2 // last comentario
         }`)
       })
 
@@ -989,6 +988,7 @@ describe('Wollok Printer', () => {
           
           console.println("") 
           console.println("")
+
         }
       }`.should.be.formattedTo( `
       object foo {
@@ -1275,6 +1275,25 @@ describe('Wollok Printer', () => {
         const a = 10
         const b = 20
         self.println(a + b)
+      }`)
+    })
+
+    it('testSimpleProgramWithSpacesBetweenSends', () => {
+      `program p {
+        self.println(1)
+        self.println(2)
+
+        self.println(3)
+
+        self.println(4)
+      }`.should.be.formattedTo(`
+      program p {
+        self.println(1)
+        self.println(2)
+        
+        self.println(3)
+        
+        self.println(4)
       }`)
     })
   })

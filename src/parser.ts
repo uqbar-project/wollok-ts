@@ -98,15 +98,16 @@ const lastKey = (str: string) => _.then(string(str))
 
 const _ = optional(whitespace.atLeast(1))
 const __ = optional(key(';').or(Parsimmon.regex(/\s/)))
+const spaces = optional(string(' ').many())
 
 const comment = (position: 'start' | 'end' | 'inner') => lazy('comment', () => regex(/\/\*(.|[\r\n])*?\*\/|\/\/.*/)).map(text => new Annotation('comment', { text, position }))
-const sameLineComment: Parser<Annotation> = comment('end')
+const sameLineComment: Parser<Annotation> = spaces.then(comment('end'))
 
 export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: SourceIndex, input: string): [SourceIndex, SourceIndex] => {
   const EOL = input.includes('\r\n') ? '\r\n' : '\n'
   const hasLineBreaks = (aString: string) => aString.includes(EOL)
   const nodeInput = input.substring(originalFrom.offset, originalTo.offset)
-  const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset - 1])
+  const hasWhitespaceAtTheEnd = hasWhitespace(input[originalTo.offset])
   const shouldBeSanitized = hasWhitespace(nodeInput) || hasWhitespaceAtTheEnd || hasWhitespace(input[originalFrom.offset])
   if (!shouldBeSanitized) return [originalFrom, originalTo]
   const from = { ...originalFrom }
@@ -114,6 +115,7 @@ export const sanitizeWhitespaces = (originalFrom: SourceIndex, originalTo: Sourc
 
   // Fix incorrect offset / column-line border case
   if (hasWhitespace(input[to.offset]) && to.column == 0) { to.offset++ }
+  if (hasWhitespace(input[from.offset]) && from.column == 0) { from.offset++ }
 
   while (hasWhitespace(input[from.offset]) && from.offset < originalTo.offset) {
     if (hasLineBreaks(input.substring(from.offset, from.offset + EOL.length))) {
@@ -254,7 +256,7 @@ const parameters: Parser<List<ParameterNode>> = lazy(() =>
   Parameter.sepBy(key(',')).wrap(key('('), lastKey(')')))
 
 const unamedArguments: Parser<List<ExpressionNode>> = lazy(() =>
-  Expression.sepBy(key(',')).wrap(key('('), key(')')))
+  Expression.sepBy(key(',')).wrap(key('('), lastKey(')')))
 
 const namedArguments: Parser<List<NamedArgumentNode>> = lazy(() =>
   NamedArgument.sepBy(key(',')).wrap(key('('), lastKey(')'))

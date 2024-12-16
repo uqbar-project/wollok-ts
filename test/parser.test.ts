@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { LIST_MODULE, SET_MODULE } from '../src'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -50,8 +50,10 @@ describe('Wollok parser', () => {
         .should.be.parsedBy(parse.Variable).into(new Variable({
           name: 'a',
           isConstant: true,
-          value: new Literal({ value: 1 }),
-          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          value: new Literal({
+            value: 1,
+            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          }),
         }))
     })
 
@@ -63,8 +65,10 @@ describe('Wollok parser', () => {
             new Variable({
               name: 'a',
               isConstant: true,
-              value: new Literal({ value: 1 }),
-              metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+              value: new Literal({
+                value: 1,
+                metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+              }),
             }),
           ],
         }))
@@ -232,6 +236,45 @@ describe('Wollok parser', () => {
             ],
           }))
           .and.be.tracedTo(0, 124)
+      })
+
+      it('comments before many members with body expressions with send', () => {
+        `class c { 
+          //some comment
+          method m1() = self.m2()
+
+          //other comment
+          method m2() = 2
+        }`.should.be.parsedBy(parser).into(new Class({
+            name: 'c',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'm1',
+                body: new Body({
+                  sentences: [
+                    new Return({
+                      value: new Send({
+                        receiver: new Self(),
+                        message: 'm2',
+                      }),
+                    }),
+                  ],
+                }),
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+              new Method({
+                name: 'm2',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '//other comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
+          .and.be.tracedTo(0, 132)
       })
 
       it('comments with block closures', () => {
