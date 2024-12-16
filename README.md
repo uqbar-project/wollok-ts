@@ -7,7 +7,7 @@ TypeScript based Wollok language implementation
 
 ## 📖 Usage
 
-For an in-dept explanation of the API and how to use it please refer to [the documentation page](https://uqbar-project.github.io/wollok-ts/).
+For an in-depth explanation of the API and how to use it please refer to [the documentation page](https://uqbar-project.github.io/wollok-ts/).
 
 
 ## 👩‍💻 Contributing
