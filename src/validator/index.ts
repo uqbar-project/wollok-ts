@@ -75,9 +75,9 @@ export const nameMatches = (regex: RegExp): (node: Node & { name: string }, code
     sourceMapForNodeName,
   )
 
-export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
+export const nameShouldBeginWithUppercase = nameMatches(/^[A-ZÑÁÉÍÓÚ]/)
 
-export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
+export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<ñáéíóú]/)
 
 export const nameShouldNotBeKeyword = error<Parameter | Variable | Field | Method>(node =>
   !RESERVED_WORDS.includes(node.name || ''),
