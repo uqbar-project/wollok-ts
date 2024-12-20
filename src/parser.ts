@@ -196,9 +196,9 @@ export const Import: Parser<ImportNode> = node(ImportNode)(() =>
 // COMMON
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export const name: Parser<Name> = lazy('identifier', () => regex(/[^\W\d]\w*/))
+export const name: Parser<Name> = lazy('identifier', () => regex(/^[\p{L}_][\p{L}\p{N}_]*/u))
 
-export const packageName: Parser<Name> = lazy('package identifier', () => regex(/[^\W\d][\w-]*/))
+export const packageName: Parser<Name> = lazy('package identifier', () => regex(/[^\W\d][\w\p{L}-]*/u))
 
 export const FullyQualifiedReference: Parser<ReferenceNode<any>> = node(ReferenceNode)(() =>
   obj({ name: packageName.or(name).sepBy1(key('.')).tieWith('.') })
