@@ -224,7 +224,23 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
   const lastSentence = last(node.sentences)
   const superclassSentence = last(overridenMethod.sentences)
-  return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
+
+  const isCompatibleWithSuperclass = (sentence: Sentence | undefined) => 
+    !sentence || !superclassSentence || sentence.is(Return) === superclassSentence.is(Return) || sentence.is(Throw) || superclassSentence.is(Throw)
+  
+  if (node.sentences.length === 1 && node.sentences[0].is(If)) {
+    const [ifSentence] = node.sentences
+
+    const lastThenSentence = last(ifSentence.thenBody.sentences)
+    const lastElseSentence = last(ifSentence.elseBody.sentences)
+
+    const thenOK = isCompatibleWithSuperclass(lastThenSentence)
+    const elseOK = isCompatibleWithSuperclass(lastElseSentence)
+
+    return thenOK && elseOK
+  }
+
+  return isCompatibleWithSuperclass(lastSentence)
 }, valuesForNodeName, sourceMapForBody)
 
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
