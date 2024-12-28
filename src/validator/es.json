@@ -48,6 +48,7 @@
   "shouldNotUseOverride": "Este método no sobrescribe ningún otro método",
   "shouldNotUseReservedWords": "{0} es una palabra reservada por la biblioteca de Wollok",
   "shouldNotUseVoidMethodAsValue": "El mensaje \"{0}\" no retorna ningún valor (quizás te falte un return en el método)",
+  "shouldNotUseVoidSingleton": "El objeto nombrado 'void' no retorna ningún valor (puede usar 'null' en su lugar)",
   "shouldOnlyInheritFromMixin": "Los mixines solo pueden heredar de otros mixines",
   "shouldPassValuesToAllAttributes": "No se puede instanciar {0}. Falta pasar valores a los siguientes atributos: {1}",
   "shouldUseBooleanValueInIfCondition": "Se espera un booleano",
