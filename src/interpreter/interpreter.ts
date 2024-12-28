@@ -1,7 +1,7 @@
 import { linkSentenceInNode } from '../linker'
 import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
 import WRENatives from '../wre/wre.natives'
-import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
+import { Evaluation, Execution, ExecutionDefinition, Frame, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 import * as parse from '../parser'
 import { notEmpty } from '../extensions'
 import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
@@ -92,6 +92,7 @@ export const getStackTraceSanitized = (e?: Error): string[] => {
   const fullStack = e?.stack?.slice(0, indexOfTsStack ?? -1) ?? ''
 
   return fullStack
+    .replaceAll('\r', '')
     .replaceAll('\t', '  ')
     .replaceAll('     ', '  ')
     .replaceAll('    ', '  ')
@@ -115,25 +116,27 @@ export class Interpreter extends AbstractInterpreter {
 
 }
 
-export function interprete(interpreter: Interpreter, line: string): ExecutionResult {
+export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
     const sentenceOrImport = parse.Import.or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
     const error = [sentenceOrImport, ...sentenceOrImport.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
     if (error) throw error
 
     if (sentenceOrImport.is(Sentence)) {
-      const environment = interpreter.evaluation.environment
-      linkSentenceInNode(sentenceOrImport, environment.replNode())
+      linkSentenceInNode(sentenceOrImport, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
       const unlinkedNode = [sentenceOrImport, ...sentenceOrImport.descendants].find(_ => _.is(Reference) && !_.target)
 
       if (unlinkedNode) {
         if (unlinkedNode.is(Reference)) {
-          if (!interpreter.evaluation.currentFrame.get(unlinkedNode.name))
+          if (!(frame ?? interpreter.evaluation.currentFrame).get(unlinkedNode.name))
             return failureResult(`Unknown reference ${unlinkedNode.name}`)
         } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
       }
 
-      const result = interpreter.exec(sentenceOrImport)
+      const result = frame ?
+        interpreter.do(function () { return interpreter.evaluation.exec(sentenceOrImport, frame) }) :
+        interpreter.exec(sentenceOrImport)
+
       const stringResult = !result || isVoid(result)
         ? ''
         : result.showShortValue(interpreter)
