@@ -476,16 +476,15 @@ const postfixMessageChainInitialReceiver: Parser<ExpressionNode & { problems?: L
       end,
       value: { 
         markedMessage: { value: message, start: errorStart, end: errorEnd }, 
-        ...send 
+        args 
       },
     }) => Parsimmon((input: string, i: number) => makeSuccess(i, new SendNode({
-        ...send,
-        receiver: new LiteralNode({ value: null }),
-        message, 
-        problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(errorStart, errorEnd))],
-        sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
-      })
-    )))
+      receiver: new LiteralNode({ value: null }),
+      message, 
+      args,
+      problems: [new ParseError(MALFORMED_MESSAGE_SEND, buildSourceMap(errorStart, errorEnd))],
+      sourceMap: buildSourceMap(...sanitizeWhitespaces(start, end, input))
+    }))))
   ).chain(withSameLineComment)
 )
   

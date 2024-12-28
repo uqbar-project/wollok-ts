@@ -78,6 +78,8 @@ export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
 
   Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
     const result = parser.parse(this._obj)
+    
+    console.log(result)
 
     this.assert(
       result.status,
