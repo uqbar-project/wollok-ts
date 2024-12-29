@@ -1,6 +1,6 @@
 import { should, use } from 'chai'
 import { LIST_MODULE, SET_MODULE } from '../src'
-import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, Method, Mixin, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 import { parserAssertions } from './assertions'
 
@@ -50,8 +50,10 @@ describe('Wollok parser', () => {
         .should.be.parsedBy(parse.Variable).into(new Variable({
           name: 'a',
           isConstant: true,
-          value: new Literal({ value: 1 }),
-          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          value: new Literal({
+            value: 1,
+            metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+          }),
         }))
     })
 
@@ -63,8 +65,10 @@ describe('Wollok parser', () => {
             new Variable({
               name: 'a',
               isConstant: true,
-              value: new Literal({ value: 1 }),
-              metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+              value: new Literal({
+                value: 1,
+                metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+              }),
             }),
           ],
         }))
@@ -234,6 +238,45 @@ describe('Wollok parser', () => {
           .and.be.tracedTo(0, 124)
       })
 
+      it('comments before many members with body expressions with send', () => {
+        `class c { 
+          //some comment
+          method m1() = self.m2()
+
+          //other comment
+          method m2() = 2
+        }`.should.be.parsedBy(parser).into(new Class({
+            name: 'c',
+            metadata: [],
+            members: [
+              new Method({
+                name: 'm1',
+                body: new Body({
+                  sentences: [
+                    new Return({
+                      value: new Send({
+                        receiver: new Self(),
+                        message: 'm2',
+                      }),
+                    }),
+                  ],
+                }),
+                metadata: [
+                  new Annotation('comment', { text: '//some comment', position: 'start' }),
+                ],
+              }),
+              new Method({
+                name: 'm2',
+                body: new Body({ sentences: [new Return({ value: new Literal({ value: 2 }) })] }),
+                metadata: [
+                  new Annotation('comment', { text: '//other comment', position: 'start' }),
+                ],
+              }),
+            ],
+          }))
+          .and.be.tracedTo(0, 132)
+      })
+
       it('comments with block closures', () => {
         `class c { 
           //some comment
@@ -311,6 +354,10 @@ describe('Wollok parser', () => {
       '_foo123'.should.be.be.parsedBy(parser).into('_foo123')
     })
 
+    it('should parse names that contains unicode chars', () => {
+      '_foö123_and_bár'.should.be.be.parsedBy(parser).into('_foö123_and_bár')
+    })
+
     it('should not parse names with spaces', () => {
       'foo bar'.should.not.be.parsedBy(parser)
     })
@@ -327,6 +374,9 @@ describe('Wollok parser', () => {
       '"foo"'.should.not.be.parsedBy(parser)
     })
 
+    it('should not parse strings containing unicode as names', () => {
+      '"foö"'.should.not.be.parsedBy(parser)
+    })
   })
 
 
@@ -1871,6 +1921,10 @@ class c {}`
         'var v'.should.be.parsedBy(parser).into(new Variable({ name: 'v', isConstant: false })).and.be.tracedTo(0, 5)
       })
 
+      it('should parse var declaration with non-ascii caracter in identifier', () => {
+        'var ñ'.should.be.parsedBy(parser).into(new Variable({ name: 'ñ', isConstant: false })).and.be.tracedTo(0, 5)
+      })
+
       it('should parse var asignation', () => {
         'var v = 5'.should.be.parsedBy(parser).into(
           new Variable({
@@ -2195,6 +2249,18 @@ class c {}`
            x`.should.be.parsedBy(parser).into(
               new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
             )
+        })
+
+        it('should parse references starting with unicode letter', () => {
+          'ñ'.should.be.parsedBy(parser).into(new Reference({ name: 'ñ' })).and.be.tracedTo(0, 1)
+        })
+
+        it('should parse references containing unicode letter', () => {
+          'some_ñandu'.should.be.parsedBy(parser).into(new Reference({ name: 'some_ñandu' })).and.be.tracedTo(0, 10)
+        })
+
+        it('should not parse references starting with numbers that contain unicode letters', () => {
+          '4ñandu'.should.not.be.parsedBy(parser)
         })
 
         it('should not parse references with spaces', () => {

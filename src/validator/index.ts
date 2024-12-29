@@ -75,9 +75,9 @@ export const nameMatches = (regex: RegExp): (node: Node & { name: string }, code
     sourceMapForNodeName,
   )
 
-export const nameShouldBeginWithUppercase = nameMatches(/^[A-Z]/)
+export const nameShouldBeginWithUppercase = nameMatches(/^[A-ZÑÁÉÍÓÚ]/)
 
-export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<]/)
+export const nameShouldBeginWithLowercase = nameMatches(/^[a-z_<ñáéíóú]/)
 
 export const nameShouldNotBeKeyword = error<Parameter | Variable | Field | Method>(node =>
   !RESERVED_WORDS.includes(node.name || ''),
@@ -111,7 +111,7 @@ export const methodShouldHaveDifferentSignature = error<Method>(node =>
 export const shouldNotOnlyCallToSuper = warning<Method>(node => {
   const callsSuperWithSameArgs = (sentence?: Sentence) => sentence?.is(Super) && sentence.args.every((arg, index) => arg.is(Reference) && arg.target === node.parameters[index])
   return isEmpty(node.sentences) || !node.sentences.every(sentence =>
-    callsSuperWithSameArgs(sentence) || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
+    callsSuperWithSameArgs(sentence) && node.sentences.length == 1  || sentence.is(Return) && callsSuperWithSameArgs(sentence.value)
   )
 }, undefined, sourceMapForBody)
 
@@ -525,6 +525,10 @@ export const shouldHaveDifferentName = error<Test>(node => {
 }, valuesForNodeName, sourceMapForNodeName)
 
 
+export const shouldNotRedefineIdentity = error<Method>(node => {
+  return !(node.name === '===' && node.parameters.length === 1 && node.isOverride && !node.isNative())
+}, undefined, sourceMapForNodeName)
+
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // PROBLEMS BY KIND
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -542,7 +546,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Singleton)(() => ({ nameShouldBeginWithLowercase, inlineSingletonShouldBeAnonymous, topLevelSingletonShouldHaveAName, nameShouldNotBeKeyword, shouldInitializeInheritedAttributes, linearizationShouldNotRepeatNamedArguments, shouldNotDefineMoreThanOneSuperclass, superclassShouldBeLastInLinearization, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldImplementInheritedAbstractMethods, shouldImplementAllMethodsInHierarchy, shouldNotUseReservedWords, shouldNotDuplicateEntities })),
   when(Mixin)(() => ({ nameShouldBeginWithUppercase, shouldNotHaveLoopInHierarchy, shouldOnlyInheritFromMixin, shouldNotDuplicateGlobalDefinitions, shouldNotDuplicateVariablesInLinearization, shouldNotDuplicateEntities })),
   when(Field)(() => ({ nameShouldBeginWithLowercase, shouldNotAssignToItselfInDeclaration, nameShouldNotBeKeyword, shouldNotDuplicateFields, shouldNotUseReservedWords, shouldNotDefineUnusedVariables, shouldDefineConstInsteadOfVar, shouldInitializeSingletonAttribute, shouldNotAssignValueInLoop })),
-  when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody })),
+  when(Method)(() => ({ onlyLastParameterCanBeVarArg, nameShouldNotBeKeyword, methodShouldHaveDifferentSignature, shouldNotOnlyCallToSuper, shouldUseOverrideKeyword, possiblyReturningBlock, shouldNotUseOverride, shouldMatchSuperclassReturnValue, shouldNotDefineNativeMethodsOnUnnamedSingleton, overridingMethodShouldHaveABody, getterMethodShouldReturnAValue, shouldHaveBody, shouldNotRedefineIdentity })),
   when(Variable)(() => ({ nameShouldBeginWithLowercase, nameShouldNotBeKeyword, shouldNotAssignToItselfInDeclaration, shouldNotDuplicateLocalVariables, shouldNotDuplicateGlobalDefinitions, shouldNotDefineGlobalMutableVariables, shouldNotUseReservedWords, shouldInitializeGlobalReference, shouldDefineConstInsteadOfVar, shouldNotDuplicateEntities, shouldInitializeConst })),
   when(Assignment)(() => ({ shouldNotAssignToItself, shouldNotReassignConst })),
   when(Reference)(() => ({ missingReference, shouldUseSelfAndNotSingletonReference, shouldReferenceToObjects, shouldNotUseVoidSingleton })),

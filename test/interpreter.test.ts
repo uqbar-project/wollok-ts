@@ -47,7 +47,7 @@ describe('Wollok Interpreter', () => {
     it('should be able to execute unlinked sentences', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -81,7 +81,7 @@ describe('Wollok Interpreter', () => {
     it('should fail if there is an uninitialized field in a singleton', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -102,7 +102,7 @@ describe('Wollok Interpreter', () => {
     it('should not fail if there is an explicit null initialization for a field in a singleton', () => {
       const environment = link([
         new Package({
-          name:'p',
+          name: 'p',
           members: [
             new Singleton({
               name: 'o',
@@ -140,12 +140,10 @@ describe('Wollok Interpreter', () => {
   describe('interpret API function', () => {
     let interpreter: Interpreter
 
-    const expectError = (command: string, errorMessage: string) => {
+    const expectError = (command: string, ...errorMessage: string[]) => {
       const { error } = interprete(interpreter, command)
       assertBasicError(error)
-      expect(getStackTraceSanitized(error)).to.deep.equal([
-        errorMessage,
-      ])
+      expect(getStackTraceSanitized(error)).to.deep.equal(errorMessage)
     }
 
     const checkSuccessfulResult = (expression: string, expectedResult: string) => {
@@ -507,7 +505,7 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: super call for message fly/1: parameter #1 produces no value, cannot use it',
-            '  at definitions.MockingBird.fly(minutes) [definitions.wlk:10]',
+            '  at definitions.MockingBird.fly(minutes) [definitions.wlk:11]',
           ]
         )
       })
@@ -529,9 +527,85 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: Message fly - if condition produces no value, cannot use it',
-            '  at definitions.Bird.fly(minutes) [definitions.wlk:4]',
+            '  at definitions.Bird.fly(minutes) [definitions.wlk:5]',
           ]
         )
+      })
+
+      it('Can\'t redefine a const with a var', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            const variableName = 1
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'var variableName = 2')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(
+          [
+            'wollok.lang.EvaluationError: Error: Can\'t redefine a variable',
+
+          ]
+        )
+        const { result } = interprete(interpreter, 'variableName')
+        expect(+result).to.equal(1)
+      })
+
+      it('Can\'t redefine a const with a const', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            const variableName = 1
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'const variableName = 2')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(
+          [
+            'wollok.lang.EvaluationError: Error: Can\'t redefine a variable',
+
+          ]
+        )
+        const { result } = interprete(interpreter, 'variableName')
+        expect(+result).to.equal(1)
+      })
+
+      it('Can\'t redefine a var with a const', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            var variableName = 1
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'const variableName = 2')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(
+          [
+            'wollok.lang.EvaluationError: Error: Can\'t redefine a variable',
+
+          ]
+        )
+        const { result } = interprete(interpreter, 'variableName')
+        expect(+result).to.equal(1)
+      })
+
+      it('Can\'t redefine a var with a var', () => {
+        const replEnvironment = buildEnvironment([{
+          name: REPL, content: `
+            var variableName = 1
+          `,
+        }])
+        interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+        const { error } = interprete(interpreter, 'var variableName = 2')
+        assertBasicError(error)
+        expect(getStackTraceSanitized(error)).to.deep.equal(
+          [
+            'wollok.lang.EvaluationError: Error: Can\'t redefine a variable',
+
+          ]
+        )
+        const { result } = interprete(interpreter, 'variableName')
+        expect(+result).to.equal(1)
       })
 
       it('should wrap void validation errors for assignment to void value', () => {
@@ -598,9 +672,9 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: TypeError: Message plusDays: parameter "wollok.lang.Date" should be a number',
-          '  at definitions.comun.despegar() [definitions.wlk:7]',
-          '  at definitions.comun.volar() [definitions.wlk:3]',
-          '  at definitions.Ave.volar() [definitions.wlk:16]',
+          '  at definitions.comun.despegar() [definitions.wlk:8]',
+          '  at definitions.comun.volar() [definitions.wlk:4]',
+          '  at definitions.Ave.volar() [definitions.wlk:17]',
         ])
       })
 
@@ -617,7 +691,7 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: RangeError: Cannot send message +, receiver is an expression that produces no value.',
-          '  at definitions.pepita.unMetodo() [definitions.wlk:3]',
+          '  at definitions.pepita.unMetodo() [definitions.wlk:4]',
         ])
       })
 
