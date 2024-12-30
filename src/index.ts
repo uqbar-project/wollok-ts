@@ -8,6 +8,7 @@ import validate from './validator'
 import print from './printer/print'
 import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
+import natives from './wre/natives'
 
 export type FileContent = {
   name: string,
@@ -49,4 +50,5 @@ export {
   print,
   WRE,
   WRENatives,
+  natives,
 }

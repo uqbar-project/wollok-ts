@@ -1,6 +1,6 @@
 import { linkSentenceInNode } from '../linker'
 import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
-import WRENatives from '../wre/wre.natives'
+import natives from '../wre/natives'
 import { Evaluation, Execution, ExecutionDefinition, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
 import * as parse from '../parser'
 import { notEmpty } from '../extensions'
@@ -178,7 +178,7 @@ export class DirectedInterpreter extends AbstractInterpreter {
 }
 
 export const executionFor = (environment: Environment): DirectedInterpreter =>
-  new DirectedInterpreter(Evaluation.build(environment, WRENatives))
+  new DirectedInterpreter(Evaluation.build(environment, natives()))
 
 // TODO:
 // - track history
