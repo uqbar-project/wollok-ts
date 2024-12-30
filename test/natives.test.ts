@@ -93,7 +93,7 @@ describe('Native functions', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, natives([myModelNative])))
     })
 
-    it('Using wre native method return ok', () => {
+    it('Works using wre native method', () => {
       const { error, result } = interprete(interpreter, 'testit.nativeOne()')
       expect(result).to.equal('1')
       expect(error).to.be.undefined
