@@ -59,7 +59,7 @@ describe('Native functions', () => {
       interpreter = new Interpreter(Evaluation.build(replEnvironment, natives()))
     })
 
-    it('Using wre native method return ok', () => {
+    it('Works using wre native method', () => {
 
       const { error, result } = interprete(interpreter, 'testit.listSize()')
       expect(result).to.equal('2')
