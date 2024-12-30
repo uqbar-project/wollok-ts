@@ -3,7 +3,7 @@ import { BOOLEAN_MODULE, buildEnvironment, CLOSURE_MODULE, DATE_MODULE, DICTIONA
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagram'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
-import { environmentWithREPLInitializedFile, INIT_FILE, WREEnvironment } from './utils'
+import { environmentWithREPLInitializedFile, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
 
 describe('Dynamic diagram', () => {
 
@@ -263,23 +263,23 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'pepona',
         targetLabel: 'Ave',
         targetType: 'object',
-        targetModule: INIT_FILE + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkConnection(elements, {
         sourceLabel: 'Ave',
         referenceLabel: 'amigue',
         targetLabel: 'pepita',
         targetType: 'object',
-        sourceModule: INIT_FILE + '.Ave',
-        targetModule: INIT_FILE + '.pepita',
+        sourceModule: INIT_PACKAGE_NAME + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.pepita',
       })
       checkConnection(elements, {
         sourceLabel: 'pepita',
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
-        sourceModule: INIT_FILE + '.pepita',
-        targetModule: INIT_FILE + '.Ave',
+        sourceModule: INIT_PACKAGE_NAME + '.pepita',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkNoConnectionToREPL(elements, 'pepita')
     })
@@ -299,15 +299,15 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'pepita',
         targetLabel: 'Ave',
         targetType: 'object',
-        targetModule: INIT_FILE + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkConnection(elements, {
         sourceLabel: 'Ave',
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
-        sourceModule: INIT_FILE + '.Ave',
-        targetModule: INIT_FILE + '.Ave',
+        sourceModule: INIT_PACKAGE_NAME + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
 
     })

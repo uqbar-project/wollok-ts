@@ -6,7 +6,8 @@ import { Annotation, buildEnvironment, Class, Environment, FileContent, fromJSON
 import { divideOn, List, notEmpty } from '../src/extensions'
 import wre from '../src/wre/wre.json'
 
-export const INIT_FILE = 'definitions'
+export const INIT_PACKAGE_NAME = 'definitions'
+export const INIT_FILE = INIT_PACKAGE_NAME + '.wlk'
 
 export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
   const files = globby.sync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map(name => ({
@@ -85,7 +86,7 @@ export const validateExpectationProblem = (expectedProblem: Annotation, nodeProb
   return effectiveProblem
 }
 
-export const environmentWithREPLInitializedFile = (content: string, name = INIT_FILE): Environment => {
+export const environmentWithREPLInitializedFile = (content: string, name = INIT_PACKAGE_NAME): Environment => {
   const environment = buildEnvironment([{ name: name + '.wlk', content }])
   const initPackage = environment.getNodeByFQN<Package>(name)
   environment.scope.register([REPL, initPackage])

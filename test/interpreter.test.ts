@@ -5,7 +5,7 @@ import { buildEnvironment, Evaluation, EXCEPTION_MODULE, REPL, WRENatives } from
 import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
-import { environmentWithREPLInitializedFile, WREEnvironment } from './utils'
+import { environmentWithREPLInitializedFile, INIT_FILE, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
 
 use(sinonChai)
 should()
@@ -312,7 +312,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }, {
-          name: 'definitions.wlk', content: `
+          name: INIT_FILE, content: `
           import medico.*
 
           object testit {
@@ -320,7 +320,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }])
-        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN('definitions')!])
+        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN(INIT_PACKAGE_NAME)!])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error, result } = interprete(interpreter, 'testit.test()')
         expect(error).to.be.undefined
@@ -382,7 +382,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }, {
-          name: 'definitions.wlk', content: `
+          name: INIT_PACKAGE_NAME, content: `
           import pediatra.*
 
           object testit {
@@ -391,7 +391,7 @@ describe('Wollok Interpreter', () => {
           `,
         }])
 
-        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN('definitions')!])
+        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN(INIT_PACKAGE_NAME)!])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error, result } = interprete(interpreter, 'testit.test()')
         expect(error).to.be.undefined
@@ -505,7 +505,7 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: super call for message fly/1: parameter #1 produces no value, cannot use it',
-            '  at definitions.MockingBird.fly(minutes) [definitions.wlk:11]',
+            `  at ${INIT_PACKAGE_NAME}.MockingBird.fly(minutes) [${INIT_PACKAGE_NAME}.wlk:11]`,
           ]
         )
       })
@@ -527,7 +527,7 @@ describe('Wollok Interpreter', () => {
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: Message fly - if condition produces no value, cannot use it',
-            '  at definitions.Bird.fly(minutes) [definitions.wlk:5]',
+            `  at ${INIT_PACKAGE_NAME}.Bird.fly(minutes) [${INIT_PACKAGE_NAME}.wlk:5]`,
           ]
         )
       })
@@ -643,8 +643,8 @@ describe('Wollok Interpreter', () => {
             }
         `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-        expectError('new Bird(energy = void)', 'wollok.lang.EvaluationError: RangeError: new definitions.Bird: value of parameter \'energy\' produces no value, cannot use it')
-        expectError('new Bird(energy = 150, name = [1].add(2))', 'wollok.lang.EvaluationError: RangeError: new definitions.Bird: value of parameter \'name\' produces no value, cannot use it')
+        expectError('new Bird(energy = void)', `wollok.lang.EvaluationError: RangeError: new ${INIT_PACKAGE_NAME}.Bird: value of parameter 'energy' produces no value, cannot use it`)
+        expectError('new Bird(energy = 150, name = [1].add(2))', `wollok.lang.EvaluationError: RangeError: new ${INIT_PACKAGE_NAME}.Bird: value of parameter 'name' produces no value, cannot use it`)
       })
 
       it('should show Wollok stack', () => {
@@ -672,9 +672,9 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: TypeError: Message plusDays: parameter "wollok.lang.Date" should be a number',
-          '  at definitions.comun.despegar() [definitions.wlk:8]',
-          '  at definitions.comun.volar() [definitions.wlk:4]',
-          '  at definitions.Ave.volar() [definitions.wlk:17]',
+          `  at ${INIT_PACKAGE_NAME}.comun.despegar() [${INIT_PACKAGE_NAME}.wlk:8]`,
+          `  at ${INIT_PACKAGE_NAME}.comun.volar() [${INIT_PACKAGE_NAME}.wlk:4]`,
+          `  at ${INIT_PACKAGE_NAME}.Ave.volar() [${INIT_PACKAGE_NAME}.wlk:17]`,
         ])
       })
 
@@ -691,7 +691,7 @@ describe('Wollok Interpreter', () => {
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: RangeError: Cannot send message +, receiver is an expression that produces no value.',
-          '  at definitions.pepita.unMetodo() [definitions.wlk:4]',
+          `  at ${INIT_PACKAGE_NAME}.pepita.unMetodo() [${INIT_PACKAGE_NAME}.wlk:4]`,
         ])
       })
 
