@@ -56,6 +56,5 @@
   "shouldUseConditionalExpression": "Bad usage of if! You must return the condition itself without using if.",
   "shouldUseOverrideKeyword": "Method should be marked as override, since it overrides a superclass method",
   "shouldUseSelfAndNotSingletonReference": "Don't use the name within the object. Use 'self' instead.",
-  "superclassShouldBeLastInLinearization": "Bad Linearization: superclass should be last in linearization",
-  "shouldNotRedefineIdentity": "Identity '===' operator should not be overriden."
+  "superclassShouldBeLastInLinearization": "Bad Linearization: superclass should be last in linearization"
 }
