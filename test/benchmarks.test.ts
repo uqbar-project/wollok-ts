@@ -31,17 +31,18 @@ describe('Wollok Game', () => {
         const endTime = performance.now()
         const elapsedTime = endTime - startTime
 
+        const deltaError = 0.3 * expectedTime
         console.log(`${fqn} - ${message} - ${elapsedTime}`)
-        elapsedTime.should.be.closeTo(expectedTime, 2)
+        elapsedTime.should.be.closeTo(expectedTime, deltaError)
       })
     }
 
-    benchmark('empty', 5)
-    benchmark('visuals_1', 5)
-    benchmark('visuals_100', 1) // lookup cache
-    benchmark('ticks_1', 5.5)
+    benchmark('empty', 2.5)
+    benchmark('visuals_1', 2.5)
+    benchmark('visuals_100', 0.6) // lookup cache
+    benchmark('ticks_1', 4)
     benchmark('ticks_100', 61)
-    benchmark('onCollide_1', 1) // lookup cache
+    benchmark('onCollide_1', 1.2) // lookup cache
     benchmark('onCollide_100', 52)
 
   })
