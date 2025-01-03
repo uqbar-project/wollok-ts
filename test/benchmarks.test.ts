@@ -1,7 +1,8 @@
 import { should } from 'chai'
 import { resolve } from 'path'
-import { Environment, PROGRAM_FILE_EXTENSION } from '../src'
-import { interpret, Interpreter } from '../src/interpreter/interpreter'
+import { restore, stub } from 'sinon'
+import { PROGRAM_FILE_EXTENSION } from '../src'
+import { interpret } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
 import { buildEnvironment } from './assertions'
 
@@ -11,39 +12,51 @@ describe('Wollok Game', () => {
 
   describe('flushEvents', () => {
 
-    let environment: Environment
-    let interpreter: Interpreter
-    
-    beforeEach(async() => {
-      environment = await buildEnvironment(`**/*.${PROGRAM_FILE_EXTENSION}`, resolve('language', 'benchmarks'))
-      interpreter = interpret(environment, natives)
-    })
-
     function benchmark(fqn: string, expectedTime = 0) {
-      it(fqn, () => {
-        interpreter.run(`games.${fqn}`)
-        const game = interpreter.object('wollok.game.game')
-        const message = 'flushEvents'
-        const ms = interpreter.reify(1)
-        
-        const startTime = performance.now()
-        interpreter.send(message, game, ms)
-        const endTime = performance.now()
-        const elapsedTime = endTime - startTime
+      it(fqn, async () => {
+        stub(console)
+        const iterations = 30
 
-        const deltaError = 0.3 * expectedTime
-        console.log(`${fqn} - ${message} - ${elapsedTime}`)
-        elapsedTime.should.be.closeTo(expectedTime, deltaError)
+        const program = `games.${fqn}`
+        const message = 'flushEvents'
+
+        let totalTime = 0
+        for (let index = 0; index < iterations; index++)
+          totalTime += await measure(program, message)
+
+
+        const averageTime = totalTime / iterations
+        const deltaError = expectedTime * 0.1 // 10 %
+        restore()
+
+        console.log(`${fqn} - ${message} - ${averageTime} ms (${iterations} iterations)`)
+        averageTime.should.be.closeTo(expectedTime, deltaError)
       })
     }
 
-    benchmark('empty', 2.5)
-    benchmark('visuals_1', 2.5)
-    benchmark('visuals_100', 0.6) // lookup cache
-    benchmark('ticks_1', 4)
-    benchmark('ticks_100', 61)
-    benchmark('onCollide_1', 1.2) // lookup cache
-    benchmark('onCollide_100', 52)
+    benchmark('empty', 0.58)
+    benchmark('visuals_1', 0.4)
+    benchmark('visuals_100', 0.3)
+    benchmark('ticks_1', 0.8)
+    benchmark('ticks_100', 44)
+    benchmark('onCollide_1', 0.8)
+    benchmark('onCollide_100', 44)
 
   })
 })
+
+async function measure(programFQN: string, message: string): Promise<number> {
+  const environment = await buildEnvironment(`**/*.${PROGRAM_FILE_EXTENSION}`, resolve('language', 'benchmarks'))
+  const interpreter = interpret(environment, natives)
+
+  interpreter.run(programFQN)
+  const game = interpreter.object('wollok.game.game')
+  
+  interpreter.send(message, game, interpreter.reify(0)) // Fill caches
+  const startTime = performance.now()
+  interpreter.send(message, game, interpreter.reify(1))
+  const endTime = performance.now()
+
+  const elapsedTime = endTime - startTime
+  return elapsedTime
+}
