@@ -659,6 +659,8 @@ export class Method extends Node {
 
   override parent!: Module
 
+  compiled: boolean = false
+
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })
   }
@@ -672,8 +674,10 @@ export class Method extends Node {
   }
 
   isAbstract(): this is { body: undefined } { return !this.body }
-  isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
   isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
+  isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
+
+  get hasNativeImplementation(): boolean { return this.isNative() || this.compiled }
 
   @cached
   get hasVarArgs(): boolean { return !!last(this.parameters)?.isVarArg }
