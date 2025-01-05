@@ -29,7 +29,7 @@ describe('Wollok Game', () => {
         const deltaError = expectedTime * 0.1 // 10 %
         restore()
 
-        console.log(`${fqn} - ${message} - ${averageTime} ms (${iterations} iterations)`)
+        console.info(`${fqn} - ${message} - ${averageTime} ms (${iterations} iterations)`)
         averageTime.should.be.closeTo(expectedTime, deltaError)
       })
     }
@@ -51,7 +51,7 @@ async function measure(programFQN: string, message: string): Promise<number> {
 
   interpreter.run(programFQN)
   const game = interpreter.object('wollok.game.game')
-  
+
   interpreter.send(message, game, interpreter.reify(0)) // Fill caches
   const startTime = performance.now()
   interpreter.send(message, game, interpreter.reify(1))
