@@ -320,10 +320,10 @@ export class Evaluation {
       if (node.is(Method))
         if (node.isNative())
           evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
-        else if (node.isSynthetic && node.name !== CLOSURE_EVALUATE_METHOD) {
+        else if (node.isSynthetic && node.parent.lookupField(node.name)) {
           evaluation.natives.set(node, compilePropertyMethod(node))
           node.compiled = true
-        } 
+        }
     })
 
     // Instanciate globals

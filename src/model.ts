@@ -659,7 +659,7 @@ export class Method extends Node {
 
   override parent!: Module
 
-  compiled: boolean = false
+  compiled = false
 
   constructor({ isOverride = false, parameters = [], ...payload }: Payload<Method, 'name'>) {
     super({ isOverride, parameters, ...payload })

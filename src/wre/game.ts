@@ -3,7 +3,6 @@ import { assertIsNotNull, assertIsNumber, Execution, NativeFunction, Natives, Ru
 const { round } = Math
 
 
-
 /**
  * Avoid to invoke getters method from properties by accessing directly to the variable
  */
@@ -82,11 +81,11 @@ const game: Natives = {
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       assertIsNotNull(visual, 'colliders', 'visual')
-      
+
       const visuals = self.get('visuals')!
       const otherVisuals = visuals.innerCollection!.filter(obj => obj != visual)
       const position = (yield* getPosition.call(this, visual))!
-      
+
       return (yield* getObjectsIn.call(this, position, ...otherVisuals))!
     },
 
