@@ -320,7 +320,7 @@ export class Evaluation {
       if (node.is(Method))
         if (node.isNative())
           evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
-        else if (node.isSynthetic && node.parent.lookupField(node.name)) {
+        else if (node.fromProperty()) {
           evaluation.natives.set(node, compilePropertyMethod(node))
           node.compiled = true
         }
