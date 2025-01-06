@@ -1,0 +1,41 @@
+name: Run Benchmarks
+
+on:
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  run-benchmarks:
+    if: ${{ contains(github.event.comment.body, '[Run benchmarks]') && github.event.issue.pull_request }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read .nvmrc
+        run: echo "##[set-output name=NVMRC;]$(cat .nvmrc)"
+        id: nvm
+      - name: Use Node.js (.nvmrc)
+        uses: actions/setup-node@v3
+        with:
+          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run benchmarks
+        id: benchmarks
+        run: npm run test:benchmarks
+
+      - name: Post results to comment
+        uses: peter-evans/commit-comment@v3
+        with:
+          repository: ${{ github.repository }}
+          comment-id: ${{ github.event.comment.id }}
+          body: |
+            ## Benchmark Results
+            ```
+            ${{ steps.benchmarks.outputs.stdout }}
+            ```
