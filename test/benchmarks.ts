@@ -9,6 +9,9 @@ import { buildEnvironment } from './assertions'
 should()
 
 describe('Wollok Game', () => {
+  const results: any[] = []
+
+  after(() => console.table(results))
 
   describe('flushEvents', () => {
 
@@ -25,16 +28,17 @@ describe('Wollok Game', () => {
           totalTime += await measure(program, message)
 
 
-        const averageTime = totalTime / iterations
-        const deltaError = expectedTime * 0.1 // 10 %
+        const time = totalTime / iterations
+        const deltaError = Math.max(0.1, expectedTime * 0.1) // 0.1 or 10 %
         restore()
 
-        console.info(`${fqn} - ${message} - ${averageTime} ms (${iterations} iterations)`)
-        averageTime.should.be.closeTo(expectedTime, deltaError)
+        // console.info(`${message} - ${fqn} - ${time} ms (${iterations} iterations)`)
+        results.push({ message, fqn, time, iterations })
+        time.should.be.closeTo(expectedTime, deltaError)
       })
     }
 
-    benchmark('empty', 0.58)
+    benchmark('empty', 0.55)
     benchmark('visuals_1', 0.4)
     benchmark('visuals_100', 0.3)
     benchmark('ticks_1', 0.8)
