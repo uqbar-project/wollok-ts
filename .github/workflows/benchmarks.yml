@@ -11,23 +11,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      # - name: Checkout repository
+      #   uses: actions/checkout@v3
 
-      - name: Read .nvmrc
-        run: echo "##[set-output name=NVMRC;]$(cat .nvmrc)"
-        id: nvm
-      - name: Use Node.js (.nvmrc)
-        uses: actions/setup-node@v3
-        with:
-          node-version: "${{ steps.nvm.outputs.NVMRC }}"
+      # - name: Read .nvmrc
+      #   run: echo "##[set-output name=NVMRC;]$(cat .nvmrc)"
+      #   id: nvm
+      # - name: Use Node.js (.nvmrc)
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: "${{ steps.nvm.outputs.NVMRC }}"
 
-      - name: Install dependencies
-        run: npm install
+      # - name: Install dependencies
+      #   run: npm install
 
-      - name: Run benchmarks
-        id: benchmarks
-        run: npm run test:benchmarks
+      # - name: Run benchmarks
+      #   id: benchmarks
+      #   run: npm run test:benchmarks
 
       - name: Post results to comment
         uses: peter-evans/commit-comment@v3
@@ -37,5 +37,15 @@ jobs:
           body: |
             ## Benchmark Results
             ```
-            ${{ steps.benchmarks.outputs.stdout }}
+            ┌─────────┬───────────────┬─────────────────┬─────────────────────┬────────────┐
+            │ (index) │    message    │       fqn       │        time         │ iterations │
+            ├─────────┼───────────────┼─────────────────┼─────────────────────┼────────────┤
+            │    0    │ 'flushEvents' │     'empty'     │ 1.0739654541015624  │     30     │
+            │    1    │ 'flushEvents' │   'visuals_1'   │ 0.48952223459879557 │     30     │
+            │    2    │ 'flushEvents' │  'visuals_100'  │ 0.2899084726969401  │     30     │
+            │    3    │ 'flushEvents' │    'ticks_1'    │ 0.8966011683146159  │     30     │
+            │    4    │ 'flushEvents' │   'ticks_100'   │  49.76229190826416  │     30     │
+            │    5    │ 'flushEvents' │  'onCollide_1'  │  1.091204325358073  │     30     │
+            │    6    │ 'flushEvents' │ 'onCollide_100' │  48.2887056350708   │     30     │
+            └─────────┴───────────────┴─────────────────┴─────────────────────┴────────────┘
             ```
