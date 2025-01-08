@@ -8,7 +8,7 @@ import { buildEnvironment } from './assertions'
 
 should()
 
-describe('Wollok Game', () => {
+describe('Benchmarks', () => {
   const results: any[] = []
 
   after(() => console.table(results))
