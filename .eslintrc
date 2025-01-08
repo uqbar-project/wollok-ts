@@ -113,7 +113,8 @@
           "time",
           "timeEnd",
           "group",
-          "groupEnd"
+          "groupEnd",
+          "table"
         ]
       }
     ],

@@ -1,7 +1,7 @@
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
 import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
-import { RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
+import { Execution, NativeFunction, RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
@@ -478,3 +478,20 @@ export const showParameter = (obj: RuntimeObject): string =>
 
 export const getMethodContainer = (node: Node): Method | Program | Test | undefined =>
   last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test))) as unknown as Method | Program | Test
+
+/**
+ * NATIVES
+ */
+export const compilePropertyMethod = (method: Method): NativeFunction => {
+  const message = method.name
+  return method.parameters.length == 0
+    ? compileGetter(message)
+    : compileSetter(message)
+}
+
+export const compileGetter = (message: string): NativeFunction => function* (self: RuntimeObject): Execution<RuntimeValue> {
+  return self.get(message)
+}
+export const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
+  self.set(message, value)
+}

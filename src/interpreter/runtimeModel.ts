@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { assertNotVoid, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
+import { assertNotVoid, compilePropertyMethod, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, isNamedSingleton, isVoid, loopInAssignment, showParameter, superMethodDefinition, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
@@ -317,10 +317,14 @@ export class Evaluation {
 
     // Set natives
     environment.forEach(node => {
-      if (node.is(Method) && node.isNative())
-        evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
+      if (node.is(Method))
+        if (node.isNative())
+          evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
+        else if (node.fromProperty) {
+          evaluation.natives.set(node, compilePropertyMethod(node))
+          node.compiled = true
+        }
     })
-
 
     // Instanciate globals
     const globalSingletons = environment.descendants.filter((node: Node): node is Singleton => isNamedSingleton(node))
@@ -459,7 +463,7 @@ export class Evaluation {
   protected *execMethod(node: Method): Execution<RuntimeValue> {
     yield node
 
-    if (node.isNative()) {
+    if (node.hasNativeImplementation) {
       const native = this.natives.get(node)
       if (!native) throw new Error(`Missing native for ${node.parent.fullyQualifiedName}.${node.name}`)
 
