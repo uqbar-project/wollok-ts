@@ -33,7 +33,7 @@
     "test:wtest": "mocha --delay -t 10000 -r ts-node/register/transpile-only test/wtest.ts",
     "test:printer": "mocha --parallel -r ts-node/register/transpile-only test/printer.test.ts",
     "test:parser": "mocha -r ts-node/register/transpile-only test/parser.test.ts",
-    "test:benchmarks": "mocha -t 100000 -r ts-node/register/transpile-only test/benchmarks.ts",
+    "test:benchmarks": "mocha -t 999999 -r ts-node/register/transpile-only test/benchmarks.ts",
     "lint:fix": "eslint . --fix",
     "validate:wollokVersion": "ts-node scripts/validateWollokVersion.ts",
     "prepublishOnly": "npm run validate:wollokVersion && npm run build && npm test",

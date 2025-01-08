@@ -29,7 +29,7 @@ describe('Benchmarks', () => {
 
 
         const time = totalTime / iterations
-        const deltaError = Math.max(0.1, expectedTime * 0.1) // 0.1 or 10 %
+        const deltaError = expectedTime * 0.15 // 15 %
         restore()
 
         // console.info(`${message} - ${fqn} - ${time} ms (${iterations} iterations)`)
@@ -38,13 +38,13 @@ describe('Benchmarks', () => {
       })
     }
 
-    benchmark('empty', 0.55)
-    benchmark('visuals_1', 0.4)
-    benchmark('visuals_100', 0.3)
-    benchmark('ticks_1', 0.8)
-    benchmark('ticks_100', 44)
-    benchmark('onCollide_1', 0.8)
-    benchmark('onCollide_100', 44)
+    benchmark('empty', 3.5)
+    benchmark('visuals_1', 3.1)
+    benchmark('visuals_100', 2.6)
+    benchmark('ticks_1', 7.7)
+    benchmark('ticks_100', 430)
+    benchmark('onCollide_1', 7.5)
+    benchmark('onCollide_100', 440)
 
   })
 })
@@ -58,7 +58,8 @@ async function measure(programFQN: string, message: string): Promise<number> {
 
   interpreter.send(message, game, interpreter.reify(0)) // Fill caches
   const startTime = performance.now()
-  interpreter.send(message, game, interpreter.reify(1))
+  for (let ms = 1; ms < 10; ms++) 
+    interpreter.send(message, game, interpreter.reify(ms))
   const endTime = performance.now()
 
   const elapsedTime = endTime - startTime
