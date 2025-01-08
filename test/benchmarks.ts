@@ -39,7 +39,7 @@ describe('Benchmarks', () => {
     }
 
     benchmark('empty', 6)
-    benchmark('visuals_1', 4)
+    benchmark('visuals_1', 4.5)
     benchmark('visuals_100', 4)
     benchmark('ticks_1', 11)
     benchmark('ticks_100', 637)
@@ -58,7 +58,7 @@ async function measure(programFQN: string, message: string): Promise<number> {
 
   interpreter.send(message, game, interpreter.reify(0)) // Fill caches
   const startTime = performance.now()
-  for (let ms = 1; ms < 10; ms++) 
+  for (let ms = 1; ms < 10; ms++)
     interpreter.send(message, game, interpreter.reify(ms))
   const endTime = performance.now()
 

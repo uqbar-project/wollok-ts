@@ -1,5 +1,5 @@
 import { GAME_MODULE } from '../constants'
-import { assertIsNotNull, assertIsNumber, Execution, NativeFunction, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNotNull, assertIsNumber, Evaluation, Execution, NativeFunction, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 const { round } = Math
 
 
@@ -15,7 +15,7 @@ const getPosition = getter('position')
 const getX = getter('x')
 const getY = getter('y')
 
-const getObjectsIn: NativeFunction = function* (position: RuntimeObject, ...visuals: RuntimeObject[]): Execution<RuntimeValue> {
+const getObjectsIn = function* (this: Evaluation, position: RuntimeObject, ...visuals: RuntimeObject[]): Execution<RuntimeObject> {
   const result: RuntimeObject[] = []
 
   const x = (yield* getX.call(this, position))?.innerNumber
@@ -67,7 +67,7 @@ const game: Natives = {
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
       const visuals = self.get('visuals')!
-      return (yield* getObjectsIn.call(this, position, ...visuals.innerCollection!))!
+      return yield* getObjectsIn.call(this, position, ...visuals.innerCollection!)
     },
 
     *say(self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
@@ -86,7 +86,7 @@ const game: Natives = {
       const otherVisuals = visuals.innerCollection!.filter(obj => obj != visual)
       const position = (yield* getPosition.call(this, visual))!
 
-      return (yield* getObjectsIn.call(this, position, ...otherVisuals))!
+      return yield* getObjectsIn.call(this, position, ...otherVisuals)
     },
 
     *title(self: RuntimeObject, title?: RuntimeObject): Execution<RuntimeValue> {

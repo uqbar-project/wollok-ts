@@ -677,9 +677,10 @@ export class Method extends Node {
   isConcrete(): this is { body: Body } { return !this.isAbstract() && !this.isNative() }
   isNative(): this is { body?: Body } { return this.body === KEYWORDS.NATIVE }
 
-  fromProperty(): boolean { return this.isSynthetic && !!this.parent.lookupField(this.name) }
-
   get hasNativeImplementation(): boolean { return this.isNative() || this.compiled }
+
+  @cached
+  get fromProperty(): boolean { return this.isSynthetic && this.parameters.length < 2 && !!this.parent.lookupField(this.name) }
 
   @cached
   get hasVarArgs(): boolean { return !!last(this.parameters)?.isVarArg }
