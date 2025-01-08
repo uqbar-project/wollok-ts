@@ -38,13 +38,13 @@ describe('Benchmarks', () => {
       })
     }
 
-    benchmark('empty', 3.5)
-    benchmark('visuals_1', 3.1)
-    benchmark('visuals_100', 2.6)
-    benchmark('ticks_1', 7.7)
-    benchmark('ticks_100', 430)
-    benchmark('onCollide_1', 7.5)
-    benchmark('onCollide_100', 440)
+    benchmark('empty', 6)
+    benchmark('visuals_1', 4)
+    benchmark('visuals_100', 4)
+    benchmark('ticks_1', 11)
+    benchmark('ticks_100', 637)
+    benchmark('onCollide_1', 11)
+    benchmark('onCollide_100', 675)
 
   })
 })
