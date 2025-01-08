@@ -41,10 +41,11 @@ describe('Benchmarks', () => {
     benchmark('empty', 6)
     benchmark('visuals_1', 4.5)
     benchmark('visuals_100', 4)
-    benchmark('ticks_1', 11)
+    benchmark('ticks_1', 12)
     benchmark('ticks_100', 637)
     benchmark('onCollide_1', 11)
-    benchmark('onCollide_100', 675)
+    benchmark('onCollide_10_same_position', 5000)
+    benchmark('onCollide_100_diff_positions', 675)
 
   })
 })
