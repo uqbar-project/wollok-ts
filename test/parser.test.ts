@@ -2618,7 +2618,7 @@ class c {}`
             .and.have.nested.property('receiver').tracedTo(0, 3)
         })
 
-        it('should parse compound sending messages', () => {
+        it('should parse chained sending messages', () => {
           'a.m().n().o()'.should.be.parsedBy(parser).into(
             new Send({
               receiver: new Send({
@@ -2791,6 +2791,19 @@ class c {}`
             .and.have.nested.property('args.0').tracedTo(3, 11)
             .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
             .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(9, 10)
+        })
+
+        it('should parse chained send with malformed receiver', () => {
+          `m1().m2()`.should.be.parsedBy(parser)
+            .into(new Send({ 
+              receiver: new Send({ 
+                  receiver: new Literal({ value: null }),
+                  message: 'm1',
+                  args: [],
+                }),
+              message: 'm2',
+              args: [],
+            }))
         })
 
       })
