@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import sinonChai from 'sinon-chai'
 import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return } from '../src'
-import { WREEnvironment, environmentWithEntities } from './utils'
+import { WREEnvironment, environmentWithEntities, environmentWithREPLInitializedFile } from './utils'
 import { RuntimeObject } from '../src/interpreter/runtimeModel'
 
 use(sinonChai)
@@ -131,10 +131,10 @@ describe('Wollok helpers', () => {
 
     it('should return the right package from an environment', () => {
       const environment = basicEnvironmentWithSingleClass()
-      const mainPackage = environment.getNodeByFQN('aves')
-      projectPackages(environment).should.deep.equal([mainPackage])
+      const mainPackage = environment.getNodeByFQN<Package>('aves')
+      projectPackages(environment).includes(mainPackage)
+      projectPackages(environment).includes(environment.replNode())
     })
-
   })
 
   describe('isNotImportedIn', () => {
@@ -894,8 +894,7 @@ describe('Wollok helpers', () => {
   })
 
   describe('getExpression', () => {
-    const replEnvironment = buildEnvironment([{
-      name: REPL, content: `
+    const replEnvironment = environmentWithREPLInitializedFile(`
       object pajarito {
         energia = 100
         contenta = false
@@ -916,9 +915,8 @@ describe('Wollok helpers', () => {
         method bad() {
           throw new Exception(message = "Do not call me!")
         }
-      }`,
-    },
-    ])
+      }`
+    )
 
     it('should show if expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton

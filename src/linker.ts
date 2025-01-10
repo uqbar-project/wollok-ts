@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
 import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, SourceMap, Variable } from './model'
+import { REPL } from './constants'
 const { assign } = Object
 
 
@@ -67,7 +68,7 @@ export class LocalScope implements Scope {
 
   register(...contributions: [Name, Node][]): void {
     const shouldBeOverrided = (older: Node, newer: Node) => // Override wtest files with same name than wlk
-      older.is(Package) && newer.is(Package) && older.isTestFile && !newer.isTestFile
+      older.is(Package) && newer.is(Package) && !newer.isTestFile
     for (const [name, node] of contributions) {
       const alreadyRegistered = this.contributions.get(name)
       if (!alreadyRegistered || shouldBeOverrided(alreadyRegistered, node)) {
@@ -134,7 +135,7 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   const environment = new Environment({
     id: uuid(),
     scope: undefined,
-    members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? []) as List<Package>,
+    members: newPackages.reduce(mergePackage, baseEnvironment?.members ?? [new Package({ name: REPL })]) as List<Package>,
   }).transform(node => node.copy({ id: uuid() }))
 
   const nodeCache = new Map<Id, Node>()

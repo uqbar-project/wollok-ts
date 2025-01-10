@@ -51,7 +51,7 @@ describe('Wollok model', () => {
         ],
       })], fromJSON<Environment>(wre))
 
-      const pepita: Singleton = (env.members[1].members[0] as Package).members[0] as Singleton
+      const pepita = env.getNodeByFQN('src.pepitaFile.pepita')
       pepita.parentPackage?.name.should.equal('pepitaFile')
     })
 
