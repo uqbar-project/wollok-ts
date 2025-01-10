@@ -44,7 +44,7 @@ const game: Natives = {
           // Avoid to invoke method position() for optimisation reasons.
           //    -> If method isSynthetic then it is a getter, we can access to the field directly
           const method = visual.module.lookupMethod('position', 0)!
-          const otherPosition = method.isSynthetic ? visual.get('position') :yield* this.invoke(method, visual)
+          const otherPosition = method.isSynthetic ? visual.get('position') : yield* this.invoke(method, visual)
 
           const otherX = otherPosition?.get('x')?.innerNumber
           const otherY = otherPosition?.get('y')?.innerNumber

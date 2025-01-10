@@ -1,11 +1,11 @@
 import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
-import { EXCEPTION_MODULE, Evaluation, REPL, WRENatives, buildEnvironment } from '../src'
+import { buildEnvironment, Evaluation, EXCEPTION_MODULE, REPL, WRENatives } from '../src'
 import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
-import { WREEnvironment } from './utils'
+import { environmentWithREPLInitializedFile, INIT_FILE, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
 
 use(sinonChai)
 should()
@@ -161,8 +161,7 @@ describe('Wollok Interpreter', () => {
     }
 
     beforeEach(() => {
-      const replPackage = new Package({ name: REPL })
-      const environment = link([replPackage], WREEnvironment)
+      const environment = link([], WREEnvironment)
       interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
     })
 
@@ -313,7 +312,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }, {
-          name: REPL, content: `
+          name: INIT_FILE, content: `
           import medico.*
 
           object testit {
@@ -321,6 +320,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }])
+        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN(INIT_PACKAGE_NAME)!])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error, result } = interprete(interpreter, 'testit.test()')
         expect(error).to.be.undefined
@@ -382,7 +382,7 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }, {
-          name: REPL, content: `
+          name: INIT_PACKAGE_NAME, content: `
           import pediatra.*
 
           object testit {
@@ -390,12 +390,42 @@ describe('Wollok Interpreter', () => {
           }
           `,
         }])
+
+        replEnvironment.scope.register([REPL, replEnvironment.getNodeByFQN(INIT_PACKAGE_NAME)!])
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error, result } = interprete(interpreter, 'testit.test()')
         expect(error).to.be.undefined
         expect(result).to.equal('"hola"')
       })
 
+      it('should be able to interprete sentences within a certain context', () => {
+        const environment = buildEnvironment([{
+          name: 'pepita-file.wlk',
+          content: `
+          object pepita {
+            var energia = 100
+            method volar() {
+              energia = energia - 10
+            }
+          }`,
+        },
+        {
+          name: 'pepita-tests.wtest',
+          content: `
+          import pepita-file.*
+
+          test "testPepita" {
+              pepita.volar()
+          }`,
+        }])
+        const directedInterpreter: DirectedInterpreter = new DirectedInterpreter(Evaluation.build(environment, WRENatives))
+        const executionDirector = directedInterpreter.exec(directedInterpreter.evaluation.environment.getNodeByFQN('pepita-tests."testPepita"'))
+        executionDirector.addBreakpoint(directedInterpreter.evaluation.environment.getNodeByFQN<Singleton>('pepita-file.pepita').methods[0])
+        executionDirector.resume()
+        const { error, result } = interprete(new Interpreter(directedInterpreter.evaluation), 'energia', directedInterpreter.evaluation.currentFrame)
+        expect(error).to.be.undefined
+        expect(result).to.equal('100')
+      })
     })
 
     describe('sanitize stack trace', () => {
@@ -455,8 +485,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should wrap void validation errors for void parameter in super call', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
           class Bird {
             var energy = 100
             method fly(minutes) {
@@ -469,22 +498,20 @@ describe('Wollok Interpreter', () => {
               super([1, 2].add(4))
             }
           }
-          `,
-        }])
+          `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'new MockingBird().fly(2)')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: super call for message fly/1: parameter #1 produces no value, cannot use it',
-            '  at REPL.MockingBird.fly(minutes) [REPL:11]',
+            `  at ${INIT_PACKAGE_NAME}.MockingBird.fly(minutes) [${INIT_PACKAGE_NAME}.wlk:11]`,
           ]
         )
       })
 
       it('should wrap void validation errors for void condition in if', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
           class Bird {
             var energy = 100
             method fly(minutes) {
@@ -493,15 +520,14 @@ describe('Wollok Interpreter', () => {
               }
             }
           }
-          `,
-        }])
+          `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'new Bird().fly(2)')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal(
           [
             'wollok.lang.EvaluationError: RangeError: Message fly - if condition produces no value, cannot use it',
-            '  at REPL.Bird.fly(minutes) [REPL:5]',
+            `  at ${INIT_PACKAGE_NAME}.Bird.fly(minutes) [${INIT_PACKAGE_NAME}.wlk:5]`,
           ]
         )
       })
@@ -583,13 +609,11 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should wrap void validation errors for assignment to void value', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
           object pepita {
             method volar() {
             }
-          }`,
-        }])
+          }`)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expectError('const a = pepita.volar()', 'wollok.lang.EvaluationError: RangeError: Cannot assign to variable \'a\': message volar/0 produces no value, cannot assign it to a variable')
         expectError('const a = if (4 > 5) true else pepita.volar()', 'wollok.lang.EvaluationError: RangeError: Cannot assign to variable \'a\': if expression produces no value, cannot assign it to a variable')
@@ -597,14 +621,13 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should wrap void validation errors for void method used in expression', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
           object pepita {
             method volar() {
             }
-          }`,
-        }])
+          }`)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
+
         const { error } = interprete(interpreter, '5 + pepita.volar()')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
@@ -613,22 +636,19 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should handle errors when using void values in new named parameters', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             class Bird {
               var energy = 100
               var name = "Pepita"
             }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-        expectError('new Bird(energy = void)', 'wollok.lang.EvaluationError: RangeError: new REPL.Bird: value of parameter \'energy\' produces no value, cannot use it')
-        expectError('new Bird(energy = 150, name = [1].add(2))', 'wollok.lang.EvaluationError: RangeError: new REPL.Bird: value of parameter \'name\' produces no value, cannot use it')
+        expectError('new Bird(energy = void)', `wollok.lang.EvaluationError: RangeError: new ${INIT_PACKAGE_NAME}.Bird: value of parameter 'energy' produces no value, cannot use it`)
+        expectError('new Bird(energy = 150, name = [1].add(2))', `wollok.lang.EvaluationError: RangeError: new ${INIT_PACKAGE_NAME}.Bird: value of parameter 'name' produces no value, cannot use it`)
       })
 
       it('should show Wollok stack', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
           object comun {
             method volar() {
               self.despegar()
@@ -646,44 +666,39 @@ describe('Wollok Interpreter', () => {
             method volar() {
               formaVolar.volar()
             }
-          }`,
-        }])
+          }`)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'new Ave().volar()')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: TypeError: Message plusDays: parameter "wollok.lang.Date" should be a number',
-          '  at REPL.comun.despegar() [REPL:8]',
-          '  at REPL.comun.volar() [REPL:4]',
-          '  at REPL.Ave.volar() [REPL:17]',
+          `  at ${INIT_PACKAGE_NAME}.comun.despegar() [${INIT_PACKAGE_NAME}.wlk:8]`,
+          `  at ${INIT_PACKAGE_NAME}.comun.volar() [${INIT_PACKAGE_NAME}.wlk:4]`,
+          `  at ${INIT_PACKAGE_NAME}.Ave.volar() [${INIT_PACKAGE_NAME}.wlk:17]`,
         ])
       })
 
       it('should handle errors when using void return values for wko', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             object pepita {
                 method unMetodo() {
                     return [1,2,3].add(4) + 5
                 }
             }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         const { error } = interprete(interpreter, 'pepita.unMetodo()')
         assertBasicError(error)
         expect(getStackTraceSanitized(error)).to.deep.equal([
           'wollok.lang.EvaluationError: RangeError: Cannot send message +, receiver is an expression that produces no value.',
-          '  at REPL.pepita.unMetodo() [REPL:4]',
+          `  at ${INIT_PACKAGE_NAME}.pepita.unMetodo() [${INIT_PACKAGE_NAME}.wlk:4]`,
         ])
       })
 
       it('should handle errors when using void closures inside native list methods', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             const pepita = object { method energia(total) { } }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expectError('[1, 2].filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure (missing return?)')
         expectError('[1, 2].findOrElse({ n => pepita.energia(n) }, {})', 'wollok.lang.EvaluationError: RangeError: Message findOrElse: predicate produces no value. Check the return type of the closure (missing return?)')
@@ -692,11 +707,9 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should handle errors when using void closures inside native set methods', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             const pepita = object { method energia(total) { } }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expectError('#{1, 2}.filter { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: Message filter: closure produces no value. Check the return type of the closure (missing return?)')
         expectError('#{1, 2}.findOrElse({ n => pepita.energia(n) }, {})', 'wollok.lang.EvaluationError: RangeError: Message findOrElse: predicate produces no value. Check the return type of the closure (missing return?)')
@@ -704,21 +717,17 @@ describe('Wollok Interpreter', () => {
       })
 
       it('should handle errors when using void closures inside Wollok list methods', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             const pepita = object { method energia(total) { } }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expectError('[1, 2].map { n => pepita.energia(n) }', 'wollok.lang.EvaluationError: RangeError: map - while sending message List.add/1: parameter #1 produces no value, cannot use it')
       })
 
       it('should handle errors when using void parameters', () => {
-        const replEnvironment = buildEnvironment([{
-          name: REPL, content: `
+        const replEnvironment = environmentWithREPLInitializedFile(`
             const pepita = object { method energia() { } }
-        `,
-        }])
+        `)
         interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
         expect('[].add(pepita.energia())', 'wollok.lang.EvaluationError: RangeError: Message List.add/1: parameter #1 produces no value, cannot use it')
       })
@@ -726,14 +735,11 @@ describe('Wollok Interpreter', () => {
     })
 
     it('should handle void values for assert', () => {
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `
+      const replEnvironment = environmentWithREPLInitializedFile(`
         object pajarito {
           method volar() {
           }
-        }
-        `,
-      }])
+        }`)
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       expectError('assert.that(pajarito.volar())', 'wollok.lang.EvaluationError: RangeError: Message assert.that/1: parameter #1 produces no value, cannot use it')
     })
