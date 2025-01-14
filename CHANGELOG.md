@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.2.0
+**Wollok Version: `3.3.0`**
+- 🟰 Avoid redefine identity
+- ⤴️ Fix REPL variable redefinition
+- 🔡 Support unicode in identifiers
+- 🐛 Many debugger improvements
+- 💬 Fix parser for multiline comment
+- ❌ Error handling enhancements
+  - Better feedback on message sends without receiver
+  - Fix validation on unnecesary redefinition with `super`
+
 ## v4.1.9
 **Wollok Version: `3.2.7`**
 - 👉 Fix report current line on the frame for stack traces
@@ -52,7 +63,6 @@
 
 ## v4.1.1
 **Wollok Version: `3.2.3`**
-
 - 🚧 Fix `import` on collisions between `.wlk` and `.wtest` files
 - 🔤 Add validation for _special characters_ in file names
 - 🧰 Add a lot of util functions (see [`extensions`](./src/extensions.ts) [`helpers`](./src/helpers.ts))
