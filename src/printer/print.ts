@@ -27,7 +27,7 @@ type PrintContext = {
 export default print
 
 
-function print(node: Node, { maxWidth, useSpaces, abbreviateAssignments }: PrintSettings): string {
+function print(node: Node, { maxWidth, useSpaces, abbreviateAssignments }: PrintSettings = { maxWidth: 80, useSpaces: true, abbreviateAssignments: true }): string {
   const indentationCharacters = useSpaces ? '  ' : '\t'
   return render(
     maxWidth,
@@ -100,7 +100,7 @@ const formatPackage: FormatterWithContext<Package> = context => node => {
 }
 
 const formatImport: Formatter<Import> = node => {
-  const wildcard = node.entity.target?.is(Package) ? '.*' : ''
+  const wildcard = node.isGeneric ? '.*' : ''
 
   return [KEYWORDS.IMPORT, WS, node.entity.name, wildcard]
 }
