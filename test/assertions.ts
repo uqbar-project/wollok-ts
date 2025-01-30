@@ -6,7 +6,7 @@ import { join } from 'path'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
-import { Environment, Environment as EnvironmentType, Name, Node, Package, Reference, SourceIndex } from '../src/model'
+import { Environment as EnvironmentType, Name, Node, Package, Reference, SourceIndex } from '../src/model'
 import { ParseError } from '../src/parser'
 import validate, { Validation } from '../src/validator'
 
@@ -147,7 +147,7 @@ export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
   Assertion.addMethod('linkedInto', function (expected: List<Package>) {
     const dropLinkedFields = dropKeys('id', 'scope')
     const actualEnvironment = link(this._obj)
-    const expectedEnvironment = new Environment({ members: expected })
+    const expectedEnvironment = link(expected)
 
     new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
   })
