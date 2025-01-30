@@ -1,16 +1,11 @@
 import dedent from 'dedent'
-import { promises } from 'fs'
-import globby from 'globby'
 import { formatError, Parser } from 'parsimmon'
-import { join } from 'path'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
-import { Environment as EnvironmentType, Name, Node, Package, Reference, SourceIndex } from '../src/model'
+import { Name, Node, Package, Reference, SourceIndex } from '../src/model'
 import { ParseError } from '../src/parser'
-import validate, { Validation } from '../src/validator'
-
-const { readFile } = promises
+import { Validation } from '../src/validator'
 
 declare global {
   export namespace Chai {
@@ -230,27 +225,4 @@ export const compareAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
       actual
     )
   })
-}
-
-// TODO: check if needed
-export const buildEnvironment = async (pattern: string, cwd: string, skipValidations = false): Promise<EnvironmentType> => {
-  const { time, timeEnd, log } = console
-
-  time('Parsing files')
-  const files = await Promise.all(globby.sync(pattern, { cwd }).map(async name =>
-    ({ name, content: await readFile(join(cwd, name), 'utf8') })
-  ))
-  timeEnd('Parsing files')
-
-  time('Building environment')
-  const environment = buildEnv(files)
-  timeEnd('Building environment')
-
-  if(!skipValidations) {
-    const problems = validate(environment)
-    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node?.sourceInfo ?? 'unknown'}`).join('\n')}`)
-    else log('No problems found building the environment!')
-  }
-
-  return environment
 }
