@@ -1,6 +1,6 @@
 import { expect, should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return, possiblyReferenced } from '../src'
 import { WREEnvironment, environmentWithEntities, environmentWithREPLInitializedFile } from './utils'
 import { RuntimeObject } from '../src/interpreter/runtimeModel'
 
@@ -183,14 +183,44 @@ describe('Wollok helpers', () => {
       isNotImportedIn(packageB, packageA).should.be.false
     })
 
-    it('should return false if a definition is imported, use generic import', () => {
+    it('should return false if a definition is imported, using generic import', () => {
       isNotImportedIn(packageD, packageA).should.be.false
     })
 
     it('should return true if a definition is not imported', () => {
       isNotImportedIn(packageC, packageA).should.be.true
     })
+  })
 
+  describe('possiblyReferenced', () => {
+    let environment: Environment
+
+    beforeEach(() => {
+      environment = buildEnvironment([{
+        name: 'def1',
+        content: `
+          object pepita {
+            method energia() = 100
+          }
+          `,
+      },
+      {
+        name: 'def2',
+        content: `
+          object pepita {
+            method energia() = 200
+          }
+          `,
+      }])
+    })
+
+    it('should return all possible imports that match a references name', () => {
+      const pepitaReferences = possiblyReferenced(new Reference({ name: 'pepita' }), environment)
+
+      pepitaReferences.should.be.of.length(2)
+      pepitaReferences.should.include(environment.getNodeByFQN('def1.pepita'))
+      pepitaReferences.should.include(environment.getNodeByFQN('def2.pepita'))
+    })
   })
 
   describe('mayExecute', () => {
@@ -963,3 +993,4 @@ describe('Wollok helpers', () => {
   })
 
 })
+

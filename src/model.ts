@@ -13,6 +13,7 @@ export type Id = string
 
 export interface Scope {
   resolve<N extends Node>(qualifiedName: Name, allowLookup?: boolean): N | undefined
+  resolveAll<N extends Node>(qualifiedName: Name): List<N>
   include(...others: Scope[]): void
   register(...contributions: [Name, Node][]): void
   localContributions(): [Name, Node][]

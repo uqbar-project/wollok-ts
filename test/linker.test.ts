@@ -935,3 +935,56 @@ describe('link sentence in node', () => {
   })
 
 })
+
+describe.only('resolve all', () => {
+  let environment: Environment
+  beforeEach(() => {
+    environment = link([
+      new Package({
+        name: 'src',
+        members: [
+          new Package({
+            name: 'a',
+            members: [
+              new Class({ name: 'Foo' }),
+            ],
+          }),
+          new Package({
+            name: 'b',
+            members: [
+              new Class({ name: 'Foo' }),
+            ],
+          }),
+          new Package({
+            name: 'c',
+            members: [
+              new Package({ name: 'd', members: [new Class({ name: 'Foo' })] }),
+            ],
+          }),
+        ],
+      }),
+    ], WREEnvironment)
+  })
+  it('should resolve all possible entities to a qualified name', () => {
+    const hits = environment.scope.resolveAll('Foo')
+    hits.should.have.length(3)
+    hits.should.contain(environment.getNodeByFQN('src.a.Foo'))
+    hits.should.contain(environment.getNodeByFQN('src.b.Foo'))
+    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+  })
+
+  it('should resolve a qualified name that partially matches the node fqn', () => {
+    const hits = environment.scope.resolveAll('d.Foo')
+    hits.should.have.length(1)
+    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+  })
+
+  it('shouldnt repeat nodes when it is imported from another package', () => {
+    environment = link([new Package({ name: 'e', imports: [new Import({ isGeneric: true, entity: new Reference({ name: 'src.a' }) })] })], environment)
+    const hits = environment.scope.resolveAll('Foo')
+    hits.should.have.length(3)
+    hits.should.contain(environment.getNodeByFQN('src.a.Foo'))
+    hits.should.contain(environment.getNodeByFQN('src.b.Foo'))
+    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+  })
+})

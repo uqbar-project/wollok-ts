@@ -66,6 +66,18 @@ export class LocalScope implements Scope {
     return rest.length ? step?.scope?.resolve<N>(rest, false) : step as N
   }
 
+  resolveAll<N extends Node>(qualifiedName: Name): List<N> {
+
+    const step = this.resolve<N>(qualifiedName, false)
+
+    const rest = Array.from(this.contributions.values())
+      .filter(is(Package))
+      .flatMap(pkg => pkg.scope.resolveAll<N>(qualifiedName))
+      .filter(node => step !== node)
+
+    return rest.concat(step ? [step] : [])
+  }
+
   register(...contributions: [Name, Node][]): void {
     const shouldBeOverrided = (older: Node, newer: Node) => // Override wtest files with same name than wlk
       older.is(Package) && newer.is(Package) && !newer.isTestFile
