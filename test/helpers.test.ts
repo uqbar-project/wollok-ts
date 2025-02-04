@@ -993,4 +993,3 @@ describe('Wollok helpers', () => {
   })
 
 })
-
