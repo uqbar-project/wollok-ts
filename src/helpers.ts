@@ -479,6 +479,9 @@ export const showParameter = (obj: RuntimeObject): string =>
 export const getMethodContainer = (node: Node): Method | Program | Test | undefined =>
   last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test))) as unknown as Method | Program | Test
 
+
+export const possiblyReferenced = (reference: Reference<Node>, environment: Environment): List<Node> => environment.scope.resolveAll(reference.name)
+
 /**
  * NATIVES
  */
