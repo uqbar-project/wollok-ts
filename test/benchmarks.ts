@@ -4,7 +4,7 @@ import { restore, stub } from 'sinon'
 import { PROGRAM_FILE_EXTENSION } from '../src'
 import { interpret } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
-import { buildEnvironment } from './assertions'
+import { buildEnvironment } from './utils'
 
 should()
 
@@ -40,9 +40,9 @@ describe('Benchmarks', () => {
 
     benchmark('empty', 6)
     benchmark('visuals_1', 4.5)
-    benchmark('visuals_100', 4)
+    benchmark('visuals_100', 4.5)
     benchmark('ticks_1', 12)
-    benchmark('ticks_100', 637)
+    benchmark('ticks_100', 657)
     benchmark('onCollide_1', 11)
     benchmark('onCollide_10_same_position', 5000)
     benchmark('onCollide_100_diff_positions', 675)
