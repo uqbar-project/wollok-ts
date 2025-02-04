@@ -3,6 +3,7 @@
     "target": "es2017",
     "module": "commonjs",
     "outDir": "dist/temp",
+    "sourceMap": true,
     "lib": [
       "es2021"
     ],
@@ -18,10 +19,13 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "scripts/**/*.ts",
+    "src/**/*.json",
+    "scripts/**/*.json",
+    "package.json"
   ],
   "exclude": [
     "**/*.js",
     "build",
-    "node_modules",
+    "node_modules"
   ]
 }
