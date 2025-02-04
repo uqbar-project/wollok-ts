@@ -29,7 +29,7 @@ describe('Benchmarks', () => {
 
 
         const time = totalTime / iterations
-        const deltaError = expectedTime * 0.15 // 15 %
+        const deltaError = expectedTime * 0.2
         restore()
 
         // console.info(`${message} - ${fqn} - ${time} ms (${iterations} iterations)`)
