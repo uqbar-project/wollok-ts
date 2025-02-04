@@ -936,7 +936,7 @@ describe('link sentence in node', () => {
 
 })
 
-describe.only('resolve all', () => {
+describe('resolve all', () => {
   let environment: Environment
   beforeEach(() => {
     environment = link([
