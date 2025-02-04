@@ -1,6 +1,43 @@
 import { GAME_MODULE } from '../constants'
-import { assertIsNumber, assertIsNotNull, Execution, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNotNull, assertIsNumber, Evaluation, Execution, NativeFunction, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
 const { round } = Math
+
+
+/**
+ * Avoid to invoke getters method from properties by accessing directly to the variable
+ */
+const getter = (message: string): NativeFunction => function* (obj: RuntimeObject): Execution<RuntimeValue> {
+  const method = obj.module.lookupMethod(message, 0)!
+  return method.isSynthetic ? obj.get(message)! : yield* this.invoke(method, obj)
+}
+
+const getPosition = getter('position')
+const getX = getter('x')
+const getY = getter('y')
+
+const getObjectsIn = function* (this: Evaluation, position: RuntimeObject, ...visuals: RuntimeObject[]): Execution<RuntimeObject> {
+  const result: RuntimeObject[] = []
+
+  const x = (yield* getX.call(this, position))?.innerNumber
+  const y = (yield* getY.call(this, position))?.innerNumber
+
+  if (x == undefined || y == undefined) throw new RangeError('Position without coordinates')
+
+  const roundedX = round(x)
+  const roundedY = round(y)
+  for (const visual of visuals) {
+    const otherPosition = (yield* getPosition.call(this, visual))!
+    const otherX = (yield* getX.call(this, otherPosition))?.innerNumber
+    const otherY = (yield* getY.call(this, otherPosition))?.innerNumber
+
+    if (otherX == undefined || otherY == undefined) continue // Do NOT throw exception
+
+    if (roundedX == round(otherX) && roundedY == round(otherY))
+      result.push(visual)
+  }
+
+  return yield* this.list(...result)
+}
 
 const game: Natives = {
   game: {
@@ -30,33 +67,7 @@ const game: Natives = {
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
       const visuals = self.get('visuals')!
-      const result: RuntimeObject[] = []
-      const x = position.get('x')?.innerNumber
-      const y = position.get('y')?.innerNumber
-
-
-      if(x != undefined && y != undefined) {
-        const roundedX = round(x)
-        const roundedY = round(y)
-        for(const visual of visuals.innerCollection!) {
-
-          // Every visual understand position(), it is checked in addVisual(visual).
-          // Avoid to invoke method position() for optimisation reasons.
-          //    -> If method isSynthetic then it is a getter, we can access to the field directly
-          const method = visual.module.lookupMethod('position', 0)!
-          const otherPosition = method.isSynthetic ? visual.get('position') : yield* this.invoke(method, visual)
-
-          const otherX = otherPosition?.get('x')?.innerNumber
-          const otherY = otherPosition?.get('y')?.innerNumber
-
-          if(otherX == undefined || otherY == undefined) continue
-
-          if(roundedX == round(otherX) && roundedY == round(otherY))
-            result.push(visual)
-        }
-      }
-
-      return yield* this.list(...result)
+      return yield* getObjectsIn.call(this, position, ...visuals.innerCollection!)
     },
 
     *say(self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
@@ -71,26 +82,25 @@ const game: Natives = {
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       assertIsNotNull(visual, 'colliders', 'visual')
 
-      const position = (yield* this.send('position', visual))!
-      const visualsAtPosition: RuntimeObject = (yield* this.send('getObjectsIn', self, position))!
+      const visuals = self.get('visuals')!
+      const otherVisuals = visuals.innerCollection!.filter(obj => obj != visual)
+      const position = (yield* getPosition.call(this, visual))!
 
-      yield* this.send('remove', visualsAtPosition, visual)
-
-      return visualsAtPosition
+      return yield* getObjectsIn.call(this, position, ...otherVisuals)
     },
 
     *title(self: RuntimeObject, title?: RuntimeObject): Execution<RuntimeValue> {
-      if(!title) return self.get('title')
+      if (!title) return self.get('title')
       self.set('title', title)
     },
 
     *width(self: RuntimeObject, width?: RuntimeObject): Execution<RuntimeValue> {
-      if(!width) return self.get('width')
+      if (!width) return self.get('width')
       self.set('width', width)
     },
 
     *height(self: RuntimeObject, height?: RuntimeObject): Execution<RuntimeValue> {
-      if(!height) return self.get('height')
+      if (!height) return self.get('height')
       self.set('height', height)
     },
 
@@ -135,9 +145,9 @@ const game: Natives = {
 
       const game = this.object(GAME_MODULE)!
       const sounds = game.get('sounds')
-      if(sounds) yield* this.send('remove', sounds, self)
+      if (sounds) yield* this.send('remove', sounds, self)
 
-      self.set('status', yield * this.reify('stopped'))
+      self.set('status', yield* this.reify('stopped'))
     },
 
     *pause(self: RuntimeObject): Execution<void> {
@@ -161,7 +171,7 @@ const game: Natives = {
     },
 
     *volume(self: RuntimeObject, newVolume?: RuntimeObject): Execution<RuntimeValue> {
-      if(!newVolume) return self.get('volume')
+      if (!newVolume) return self.get('volume')
 
       const volume: RuntimeObject = newVolume
       assertIsNumber(volume, 'volume', 'newVolume', false)
@@ -172,7 +182,7 @@ const game: Natives = {
     },
 
     *shouldLoop(self: RuntimeObject, looping?: RuntimeObject): Execution<RuntimeValue> {
-      if(!looping) return self.get('loop')
+      if (!looping) return self.get('loop')
       self.set('loop', looping)
     },
 
