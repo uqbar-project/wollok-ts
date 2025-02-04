@@ -220,8 +220,7 @@ describe('Wollok Interpreter', () => {
         checkFailedResult('[1, 2, 3].map({ number => number.coso() })', 'Evaluation Error!', '1 does not understand coso')
       })
 
-      // TODO: Change the Runtime model
-      xit('const const', () => {
+      it('const const', () => {
         interprete(interpreter, 'const a = 1')
         checkFailedResult('const a = 2', 'Evaluation Error!')
       })

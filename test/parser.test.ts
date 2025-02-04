@@ -47,8 +47,8 @@ describe('Wollok parser', () => {
 
     it('comments after malformed sends should be parsed', () => {
       'vola() //some comment'
-      .should.be.parsedBy(parse.Send)
-      .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 4)
+        .should.be.parsedBy(parse.Send)
+        .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 4)
         .into(new Send({
           receiver: new Literal({ value: null }),
           message: 'vola',
@@ -2244,7 +2244,7 @@ class c {}`
           'p.o'.should.be.parsedBy(parser).into(new Reference({ name: 'p.o' })).and.be.tracedTo(0, 3)
         })
 
-        it ('should parse fully quelified references with -', () => {
+        it('should parse fully quelified references with -', () => {
           'p-p.C'.should.be.parsedBy(parser)
         })
 
@@ -2739,9 +2739,9 @@ class c {}`
         })
 
         it('should recover from malformed message send without arguments', () => {
-          `m()`.should.be.parsedBy(parser)
+          'm()'.should.be.parsedBy(parser)
             .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({ 
+            .into(new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
               args: [],
@@ -2749,24 +2749,24 @@ class c {}`
         })
 
         it('should recover from malformed message send with one argument', () => {
-          `m(p)`.should.be.parsedBy(parser)
+          'm(p)'.should.be.parsedBy(parser)
             .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({ 
+            .into(new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
-              args: [ new Reference({ name: 'p' }) ],
+              args: [new Reference({ name: 'p' })],
             }))
         })
 
         it('should recover from malformed message send with multiple arguments', () => {
           'm(p,q)'.should.be.parsedBy(parser)
             .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({ 
+            .into(new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
               args: [
                 new Reference({ name: 'p' }),
-                new Reference({ name: 'q' })
+                new Reference({ name: 'q' }),
               ],
             }))
         })
@@ -2787,20 +2787,20 @@ class c {}`
                 ],
               })
             )
-            .and.exist.tracedTo(0,11)
+            .and.exist.tracedTo(0, 11)
             .and.have.nested.property('args.0').tracedTo(3, 11)
             .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
             .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(9, 10)
         })
 
         it('should parse chained send with malformed receiver', () => {
-          `m1().m2()`.should.be.parsedBy(parser)
-            .into(new Send({ 
-              receiver: new Send({ 
-                  receiver: new Literal({ value: null }),
-                  message: 'm1',
-                  args: [],
-                }),
+          'm1().m2()'.should.be.parsedBy(parser)
+            .into(new Send({
+              receiver: new Send({
+                receiver: new Literal({ value: null }),
+                message: 'm1',
+                args: [],
+              }),
               message: 'm2',
               args: [],
             }))

@@ -1,10 +1,12 @@
 import { fail } from 'assert'
-import { readFileSync } from 'fs'
+import { promises, readFileSync } from 'fs'
 import globby from 'globby'
-import { join } from 'path'
-import { Annotation, buildEnvironment, Class, Environment, FileContent, fromJSON, link, Literal, Node, Package, Problem, PROGRAM_FILE_EXTENSION, Reference, REPL, SourceMap, TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
+import path, { join, resolve } from 'path'
+import { Annotation, buildEnvironment as buildEnv, Class, Environment, FileContent, fromJSON, link, Literal, Natives, natives, Node, Package, Problem, PROGRAM_FILE_EXTENSION, Reference, REPL, SourceMap, TEST_FILE_EXTENSION, validate, WOLLOK_FILE_EXTENSION } from '../src'
 import { divideOn, List, notEmpty } from '../src/extensions'
 import wre from '../src/wre/wre.json'
+
+const { readFile } = promises
 
 export const INIT_PACKAGE_NAME = 'definitions'
 export const INIT_FILE = INIT_PACKAGE_NAME + '.wlk'
@@ -14,7 +16,7 @@ export function buildEnvironmentForEachFile(folderPath: string, iterator: (fileP
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
   }))
-  const environment = buildEnvironment(files)
+  const environment = buildEnv(files)
 
   for (const file of files) {
     const packageName = file.name.split('.')[0]
@@ -87,7 +89,7 @@ export const validateExpectationProblem = (expectedProblem: Annotation, nodeProb
 }
 
 export const environmentWithREPLInitializedFile = (content: string, name = INIT_PACKAGE_NAME): Environment => {
-  const environment = buildEnvironment([{ name: name + '.wlk', content }])
+  const environment = buildEnv([{ name: name + '.wlk', content }])
   const initPackage = environment.getNodeByFQN<Package>(name)
   environment.scope.register([REPL, initPackage])
   return environment
@@ -106,6 +108,49 @@ const newPackageWith = (env: Environment, fullFQN: string): Package => {
       : link([], env).getNodeByFQN(fullFQN) // Finish with the real node
   }
   return buildNewPackages(fullFQN)
+}
+
+
+export async function readNatives(cwd: string): Promise<Natives> {
+  const { time, timeEnd } = console
+  const paths = await globby('**/*.@(ts|cjs|js)', { cwd })
+
+  time('Loading natives files')
+
+  const nativesObjects: List<Natives> = await Promise.all(
+    paths.map(async (filePath) => {
+      const fullPath = resolve(cwd, filePath)
+      const importedModule = await import(fullPath)
+      const segments = filePath.replace(/\.(ts|js)$/, '').split(path.sep)
+
+      return segments.reduceRight((acc, segment) => { return { [segment]: acc } }, importedModule.default || importedModule)
+    })
+  )
+  timeEnd('Loading natives files')
+
+  return natives(nativesObjects)
+}
+
+export const buildEnvironment = async (pattern: string, cwd: string, skipValidations = false): Promise<Environment> => {
+  const { time, timeEnd, log } = console
+
+  time('Parsing files')
+  const files = await Promise.all(globby.sync(pattern, { cwd }).map(async name =>
+    ({ name, content: await readFile(join(cwd, name), 'utf8') })
+  ))
+  timeEnd('Parsing files')
+
+  time('Building environment')
+  const environment = buildEnv(files)
+  timeEnd('Building environment')
+
+  if (!skipValidations) {
+    const problems = validate(environment)
+    if (problems.length) throw new Error(`Found ${problems.length} problems building the environment!: ${problems.map(({ code, node }) => `${code} at ${node?.sourceInfo ?? 'unknown'}`).join('\n')}`)
+    else log('No problems found building the environment!')
+  }
+
+  return environment
 }
 
 // TODO: Split uber-tests into smaller tests with clearer descriptions (??)

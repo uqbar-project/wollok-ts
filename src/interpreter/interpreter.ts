@@ -1,11 +1,11 @@
+import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { notEmpty } from '../extensions'
+import { isVoid } from '../helpers'
 import { linkSentenceInNode } from '../linker'
 import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
+import * as parse from '../parser'
 import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Frame, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
-import * as parse from '../parser'
-import { notEmpty } from '../extensions'
-import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { isVoid } from '../helpers'
 
 export const interpret = (environment: Environment, natives: Natives): Interpreter => new Interpreter(Evaluation.build(environment, natives))
 
@@ -179,8 +179,8 @@ export class DirectedInterpreter extends AbstractInterpreter {
   }
 }
 
-export const executionFor = (environment: Environment): DirectedInterpreter =>
-  new DirectedInterpreter(Evaluation.build(environment, WRENatives))
+export const executionFor = (environment: Environment, natives: Natives = WRENatives): DirectedInterpreter =>
+  new DirectedInterpreter(Evaluation.build(environment, natives))
 
 // TODO:
 // - track history
