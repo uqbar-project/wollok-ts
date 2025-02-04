@@ -10,11 +10,11 @@ import { hasBooleanValue } from '../helpers'
 export const buildSourceMap = (node: Node, initialOffset: number, finalOffset: number): SourceMap | undefined =>
   node.sourceMap && new SourceMap({
     start: new SourceIndex({
-      ...node.sourceMap.start,
+      ...node.sourceMap.start.line === node.sourceMap.end.line ? { line: node.sourceMap.start.line, column:node.sourceMap.start.column + initialOffset } : node.sourceMap.start,
       offset: node.sourceMap.start.offset + initialOffset,
     }),
     end: new SourceIndex({
-      ...node.sourceMap.end,
+      ...node.sourceMap.start.line === node.sourceMap.end.line ? { line: node.sourceMap.start.line, column:node.sourceMap.start.column + initialOffset + finalOffset } : node.sourceMap.end,
       offset: node.sourceMap.start.offset + finalOffset + initialOffset,
     }),
   })
