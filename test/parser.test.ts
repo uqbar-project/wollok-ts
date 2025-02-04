@@ -45,6 +45,17 @@ describe('Wollok parser', () => {
         }))
     })
 
+    it('comments after malformed sends should be parsed', () => {
+      'vola() //some comment'
+      .should.be.parsedBy(parse.Send)
+      .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 4)
+        .into(new Send({
+          receiver: new Literal({ value: null }),
+          message: 'vola',
+          metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
+        }))
+    })
+
     it('comments after variable should be parsed', () => {
       'const a = 1 //some comment'
         .should.be.parsedBy(parse.Variable).into(new Variable({
@@ -2607,7 +2618,7 @@ class c {}`
             .and.have.nested.property('receiver').tracedTo(0, 3)
         })
 
-        it('should parse compound sending messages', () => {
+        it('should parse chained sending messages', () => {
           'a.m().n().o()'.should.be.parsedBy(parser).into(
             new Send({
               receiver: new Send({
@@ -2723,16 +2734,79 @@ class c {}`
           'a.'.should.not.be.parsedBy(parser)
         })
 
-        it('should not parse a call to a method without the reference that is calling', () => {
-          'm(p,q)'.should.not.be.parsedBy(parser)
-        })
-
         it('should not parse an expression with a "." at the start', () => {
           '.m'.should.not.be.parsedBy(parser)
         })
 
-      })
+        it('should recover from malformed message send without arguments', () => {
+          `m()`.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [],
+            }))
+        })
 
+        it('should recover from malformed message send with one argument', () => {
+          `m(p)`.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [ new Reference({ name: 'p' }) ],
+            }))
+        })
+
+        it('should recover from malformed message send with multiple arguments', () => {
+          'm(p,q)'.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
+            .into(new Send({ 
+              receiver: new Literal({ value: null }),
+              message: 'm',
+              args: [
+                new Reference({ name: 'p' }),
+                new Reference({ name: 'q' })
+              ],
+            }))
+        })
+
+        it('should parse malformed message sends with a closure as an argument', () => {
+          'm1 {p => p}'.should.be.parsedBy(parser)
+            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 2)
+            .into(
+              new Send({
+                receiver: new Literal({ value: null }),
+                message: 'm1',
+                args: [
+                  Closure({
+                    parameters: [new Parameter({ name: 'p' })],
+                    sentences: [new Return({ value: new Reference({ name: 'p' }) })],
+                    code: '{p => p}',
+                  }),
+                ],
+              })
+            )
+            .and.exist.tracedTo(0,11)
+            .and.have.nested.property('args.0').tracedTo(3, 11)
+            .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
+            .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(9, 10)
+        })
+
+        it('should parse chained send with malformed receiver', () => {
+          `m1().m2()`.should.be.parsedBy(parser)
+            .into(new Send({ 
+              receiver: new Send({ 
+                  receiver: new Literal({ value: null }),
+                  message: 'm1',
+                  args: [],
+                }),
+              message: 'm2',
+              args: [],
+            }))
+        })
+
+      })
 
       describe('New', () => {
 

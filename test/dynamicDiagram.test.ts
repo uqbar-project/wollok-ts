@@ -3,7 +3,7 @@ import { BOOLEAN_MODULE, buildEnvironment, CLOSURE_MODULE, DATE_MODULE, DICTIONA
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagram'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
-import { WREEnvironment } from './utils'
+import { environmentWithREPLInitializedFile, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
 
 describe('Dynamic diagram', () => {
 
@@ -245,8 +245,7 @@ describe('Dynamic diagram', () => {
     })
 
     it('should include bidirectional relationships', () => {
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `
+      const replEnvironment = environmentWithREPLInitializedFile(`
         class Ave {
           var property amigue = null
           method tieneEnergia() = energia > 0
@@ -255,8 +254,7 @@ describe('Dynamic diagram', () => {
         object pepita inherits Ave {
           override method tieneEnergia() = true
         }
-        `,
-      }])
+        `)
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepona = new Ave(amigue = pepita)')
       interprete(interpreter, 'pepita.amigue(pepona)')
@@ -265,36 +263,34 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'pepona',
         targetLabel: 'Ave',
         targetType: 'object',
-        targetModule: 'REPL.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkConnection(elements, {
         sourceLabel: 'Ave',
         referenceLabel: 'amigue',
         targetLabel: 'pepita',
         targetType: 'object',
-        sourceModule: 'REPL.Ave',
-        targetModule: 'REPL.pepita',
+        sourceModule: INIT_PACKAGE_NAME + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.pepita',
       })
       checkConnection(elements, {
         sourceLabel: 'pepita',
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
-        sourceModule: 'REPL.pepita',
-        targetModule: 'REPL.Ave',
+        sourceModule: INIT_PACKAGE_NAME + '.pepita',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkNoConnectionToREPL(elements, 'pepita')
     })
 
     it('should include recursive relationships', () => {
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `
+      const replEnvironment = environmentWithREPLInitializedFile(`
         class Ave {
           var property amigue = null
           override method tieneEnergia() = true
         }
-        `,
-      }])
+        `)
       interpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
       interprete(interpreter, 'const pepita = new Ave()')
       interprete(interpreter, 'pepita.amigue(pepita)')
@@ -303,15 +299,15 @@ describe('Dynamic diagram', () => {
         referenceLabel: 'pepita',
         targetLabel: 'Ave',
         targetType: 'object',
-        targetModule: 'REPL.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
       checkConnection(elements, {
         sourceLabel: 'Ave',
         referenceLabel: 'amigue',
         targetLabel: 'Ave',
         targetType: 'object',
-        sourceModule: 'REPL.Ave',
-        targetModule: 'REPL.Ave',
+        sourceModule: INIT_PACKAGE_NAME + '.Ave',
+        targetModule: INIT_PACKAGE_NAME + '.Ave',
       })
 
     })

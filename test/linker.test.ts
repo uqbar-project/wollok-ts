@@ -1,5 +1,5 @@
 import { expect, should, use } from 'chai'
-import { GAME_MODULE, OBJECT_MODULE } from '../src'
+import { GAME_MODULE, OBJECT_MODULE, REPL } from '../src'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable, Literal } from '../src/model'
@@ -13,6 +13,13 @@ use(linkerAssertions)
 const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE, GAME_MODULE)
 
 describe('Wollok linker', () => {
+  it('should always link the repl package', () => {
+    it('an environment should always include the REPL package', () => {
+      [].should.be.linkedInto([
+        new Package({ name: REPL }),
+      ])
+    })
+  })
 
   describe('merge', () => {
 
@@ -172,7 +179,7 @@ describe('Wollok linker', () => {
         }),
       ], baseEnvironment)
 
-      const p = nextEnvironment.members[1]
+      const p = nextEnvironment.getNodeByFQN<Package>('p')
       const Y = p.members[0]
 
       p.members.should.have.lengthOf(1)

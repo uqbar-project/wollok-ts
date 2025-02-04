@@ -56,5 +56,6 @@
   "shouldUseConditionalExpression": "Estás usando incorrectamente el if. Devolvé simplemente la expresión booleana.",
   "shouldUseOverrideKeyword": "Debería marcarse el método con 'override', ya que sobrescribe el de sus superclases",
   "shouldUseSelfAndNotSingletonReference": "No debe usar el nombre del objeto dentro del mismo. Use 'self'.",
-  "superclassShouldBeLastInLinearization": "Linearización: la superclase debería estar última en linearización"
+  "superclassShouldBeLastInLinearization": "Linearización: la superclase debería estar última en linearización",
+  "shouldNotRedefineIdentity": "No se debe redefinir el operador de identidad '==='."
 }
