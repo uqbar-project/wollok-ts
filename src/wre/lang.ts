@@ -969,6 +969,11 @@ const lang: Natives = {
 
   },
 
+  io: {
+    *serve(): Execution<RuntimeValue> {
+      return yield* this.reify(false)
+    },
+  },
 }
 
 export default lang
