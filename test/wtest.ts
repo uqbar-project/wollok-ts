@@ -1,11 +1,10 @@
 import { basename } from 'path'
 import yargs from 'yargs'
-import { Describe, Node, Package, Test } from '../src/model'
-import { List } from '../src/extensions'
-import { buildEnvironment } from './assertions'
-import { interpret, Interpreter } from '../src/interpreter/interpreter'
-import natives from '../src/wre/wre.natives'
 import { TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
+import { List } from '../src/extensions'
+import { interpret, Interpreter } from '../src/interpreter/interpreter'
+import { Describe, Node, Package, Test } from '../src/model'
+import { buildEnvironment, readNatives } from './utils'
 
 const { error } = console
 
@@ -33,14 +32,16 @@ function registerTests(nodes: List<Node>, interpreter: Interpreter) {
     })
 
     else if (node.is(Test) && !node.parent.children.some(sibling => node !== sibling && sibling.is(Test) && sibling.isOnly))
-      it(node.name, () => interpreter.fork().exec(node) )
+      it(node.name, () => interpreter.fork().exec(node))
 
   })
 }
 
 (async function () {
-  const environment = await buildEnvironment(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION})`, (await ARGUMENTS).root, true)
-  describe(basename((await ARGUMENTS).root), () => registerTests(environment.members, interpret(environment, natives)))
+  const root = (await ARGUMENTS).root
+  const environment = await buildEnvironment(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION})`, root, true)
+  const natives = await readNatives(root)
+  describe(basename(root), () => registerTests(environment.members, interpret(environment, natives)))
 })()
   .then(run)
   .catch(e => {

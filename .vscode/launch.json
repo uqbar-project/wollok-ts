@@ -11,24 +11,10 @@
       "type": "node-terminal"
     },
     {
-      "type": "node",
+      "command": "npm run test:file ${file}",
+      "name": "Run a single test file",
       "request": "launch",
-      "name": "Mocha Tests",
-      "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-      "args": [
-        "-r",
-        "ts-node/register",
-        "-u",
-        "bdd",
-        "--timeout",
-        "999999",
-        "--colors",
-        "${workspaceFolder}/test/**/*.test.ts"
-      ],
-      "internalConsoleOptions": "openOnSessionStart",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "type": "node-terminal"
     },
   ]
 }
