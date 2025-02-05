@@ -807,6 +807,10 @@ export class Send extends Expression(Node) {
     return `${this.message}/${this.args.length}`
   }
 
+  get numArgs(): number {
+    return this.args.length
+  }
+
   isPrefixOperator(): boolean {
     return this.originalOperator != undefined
       && Object.keys(PREFIX_OPERATORS).includes(this.originalOperator)

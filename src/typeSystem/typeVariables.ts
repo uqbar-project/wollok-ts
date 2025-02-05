@@ -93,9 +93,6 @@ const inferEnvironment = (env: Environment) => {
 }
 
 const inferPackage = (p: Package) => {
-  // Wollok code should be typed by annotations, avoid inference.
-  // eslint-disable-next-line @typescript-eslint/semi
-  if (p.isBaseWollokCode) return;
   p.children.forEach(inferTypeVariables)
 }
 
@@ -112,10 +109,13 @@ const inferBody = (body: Body) => {
 }
 
 const inferModule = (m: Module | Describe) => {
-  m.members.forEach(inferTypeVariables)
   const tVar = typeVariableFor(m)
-  if (!(m.is(Singleton) && m.isClosure())) // Avoid closures
-    tVar.setType(typeForModule(m)) // Set module type
+  m.members.forEach(inferTypeVariables)
+
+  // Avoid closures
+  if (!(m.is(Singleton) && m.isClosure())) 
+    tVar.setType(typeForModule(m))
+
   return tVar
 }
 
@@ -143,6 +143,14 @@ const inferNamedArgument = (n: NamedArgument) => {
 
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
+  
+  // Base methods should be typed by annotations, avoid complex inference.
+  // eslint-disable-next-line @typescript-eslint/semi
+  if(m.parentPackage?.isBaseWollokCode) return;
+
+  // Abstract methods are infered from overrides
+  if(!m.isConcrete()) return;
+  
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
@@ -208,7 +216,7 @@ const inferIf = (_if: If) => {
 const inferReference = (r: Reference<Node>) => {
   const referenceTVar = typeVariableFor(r)
   if (r.target) {
-    const varTVar = typeVariableFor(r.target)! // Variable already visited
+    const varTVar = typeVariableFor(r.target)! // Variable already visited?
     referenceTVar.unify(varTVar)
   }
   return referenceTVar
@@ -314,6 +322,10 @@ export class TypeVariable {
     this.messages.push(send)
   }
 
+  hasSend(send: Send): boolean {
+    return this.messages.includes(send)
+  }
+
   allMinTypes(): WollokType[] {
     return this.typeInfo.minTypes
   }
@@ -356,7 +368,7 @@ export class TypeVariable {
 
   get closed(): boolean { return this.typeInfo.closed }
 
-  toString(): string { return `TVar(${this.synthetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
+  toString(): string { return `TVar(${this.synthetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})${this.typeInfo.closed ? ' [CLOSED]' : ''}` }
 }
 
 class TypeInfo {
