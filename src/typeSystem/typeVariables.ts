@@ -1,6 +1,8 @@
 import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
+import { existMethodFor } from '../helpers'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { reportProblem } from './constraintBasedTypeSystem'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
@@ -164,11 +166,16 @@ const inferMethod = (m: Method) => {
 }
 
 const inferSend = (send: Send) => {
+  const tVar = typeVariableFor(send)
   const receiver = inferTypeVariables(send.receiver)!
-  /*const args =*/ send.args.map(inferTypeVariables)
-  receiver.addSend(send)
   // TODO: Save args info for max type inference
-  return typeVariableFor(send)
+  /*const args =*/ send.args.map(inferTypeVariables)
+  
+  if (existMethodFor(send))
+    receiver.addSend(send)
+  else
+    reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, ANY]))
+  return tVar
 }
 
 const inferAssignment = (a: Assignment) => {
@@ -383,7 +390,7 @@ class TypeInfo {
 
     if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
     if (this.maxTypes.length > 1) return new WollokUnionType(this.maxTypes)
-    throw new Error('Halt')
+    throw new Error('Unracheable')
   }
 
   setType(type: WollokType, closed = true) {
