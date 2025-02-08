@@ -155,6 +155,7 @@ describe('Wollok Type System', () => {
 
     beforeEach(() => {
       tVar.addSend(testSend)
+      tVar.node = testSend.receiver
     })
 
     function assertReturnSendBinding(method: Method, send: Send) {
