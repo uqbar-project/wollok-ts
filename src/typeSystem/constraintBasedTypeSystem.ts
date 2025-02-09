@@ -2,7 +2,7 @@ import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
+import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokAtomicType, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -126,19 +126,27 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
 
 
   let changed = false
-  const possibleTypes = allModulesThatUnderstand(tVar.node.environment, tVar.messages)
-    .map(_ => new WollokModuleType(_)) // Or bind to the module?
+  let possibleTypes = allModulesThatUnderstand(tVar.node.environment, tVar.messages).map(_ => new WollokModuleType(_)) // Or bind to the module?
+  const messages = tVar.messages
+  const mnuMessages = []
+  while (!possibleTypes.length) {
+    mnuMessages.push(messages.pop()!)
+    if (!messages.length) return false
+    possibleTypes = allModulesThatUnderstand(tVar.node.environment, messages).map(_ => new WollokModuleType(_)) // Or bind to the module?
+  }
 
-  if (!possibleTypes.length) throw new Error('HALT') //TODO: Implement algorithm to reduce the messages
+  for(const type of possibleTypes) {
+    if (!tVar.hasType(type)) {
+      tVar.addMaxType(type)
+      logger.log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
+      changed = true
+    }
+  }
 
-  possibleTypes
-    .forEach(type => {
-      if (!tVar.hasType(type)) {
-        tVar.addMaxType(type)
-        logger.log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
-        changed = true
-      }
-    })
+  for(const send of mnuMessages) {
+    reportProblem(typeVariableFor(send.receiver), new TypeSystemProblem('methodNotFound', [send.signature, tVar.type().name]))
+  }
+
   return changed
 }
 

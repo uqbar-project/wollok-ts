@@ -1,8 +1,6 @@
 import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
-import { existMethodFor } from '../helpers'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { reportProblem } from './constraintBasedTypeSystem'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
@@ -169,12 +167,8 @@ const inferSend = (send: Send) => {
   const tVar = typeVariableFor(send)
   const receiver = inferTypeVariables(send.receiver)!
   // TODO: Save args info for max type inference
-  /*const args =*/ send.args.map(inferTypeVariables)
-  
-  if (existMethodFor(send))
-    receiver.addSend(send)
-  else
-    reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, ANY]))
+  /*const args =*/ send.args.map(inferTypeVariables)  
+  receiver.addSend(send)
   return tVar
 }
 
@@ -224,7 +218,7 @@ const inferReference = (r: Reference<Node>) => {
   const referenceTVar = typeVariableFor(r)
   if (r.target) {
     const varTVar = typeVariableFor(r.target)! // Variable already visited?
-    referenceTVar.unify(varTVar)
+    referenceTVar.beSupertypeOf(varTVar)
   }
   return referenceTVar
 }
