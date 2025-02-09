@@ -1,6 +1,6 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
-import { Environment, Module, Node, Reference, Send } from '../model'
+import { Environment, Method, Module, Node, Reference, Send } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
 import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
 
@@ -88,37 +88,42 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
-      if (send.receiver !== tVar.node) continue;
+      if (send.receiver !== tVar.node) continue // should only bind the methods from the receiver types
+
       const message = send.message == APPLY_METHOD ? CLOSURE_EVALUATE_METHOD : send.message // 'apply' is a special case for closures
       const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
         return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 
-      const methodInstance = typeVariableFor(method).instanceFor(tVar, typeVariableFor(send))
-      const returnParam = methodInstance.atParam(RETURN)
-      if (!returnParam.hasSupertype(typeVariableFor(send))) {
-        logger.log(`\nBIND MESSAGE |${send}| WITH METHOD |${method}|`)
-        returnParam.addSupertype(typeVariableFor(send))
-        logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| FOR |${returnParam}|`)
-        method.parameters.forEach((_param, i) => {
-          const argTVAR = typeVariableFor(send.args[i])
-          const currentParam = methodInstance.atParam(`${PARAM}${i}`)
-          currentParam.addSubtype(argTVAR)
-          logger.log(`NEW SUBTYPE |${argTVAR}| FOR |${currentParam}|`)
-        })
-
+      if (bindMethod(tVar, method, send))
         changed = true
-      }
     }
   }
   return changed
+}
+
+function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean {
+  const methodInstance = typeVariableFor(method).instanceFor(receiver, typeVariableFor(send))
+  const returnParam = methodInstance.atParam(RETURN)
+  if (returnParam.hasSupertype(typeVariableFor(send))) return false
+
+  logger.log(`\nBIND MESSAGE |${send}| WITH METHOD |${method}|`)
+  returnParam.addSupertype(typeVariableFor(send))
+  logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| FOR |${returnParam}|`)
+  method.parameters.forEach((_param, i) => {
+    const argTVAR = typeVariableFor(send.args[i])
+    const currentParam = methodInstance.atParam(`${PARAM}${i}`)
+    currentParam.addSubtype(argTVAR)
+    logger.log(`NEW SUBTYPE |${argTVAR}| FOR |${currentParam}|`)
+  })
+  return true
 }
 
 export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
   if (tVar.messages.every(allObjectsUnderstand)) return false
-  
+
 
   let changed = false
   const possibleTypes = allModulesThatUnderstand(tVar.node.environment, tVar.messages)
