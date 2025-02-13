@@ -113,7 +113,7 @@ const inferModule = (m: Module | Describe) => {
   m.members.forEach(inferTypeVariables)
 
   // Avoid closures
-  if (!(m.is(Singleton) && m.isClosure())) 
+  if (!(m.is(Singleton) && m.isClosure()))
     tVar.setType(typeForModule(m))
 
   return tVar
@@ -143,14 +143,15 @@ const inferNamedArgument = (n: NamedArgument) => {
 
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
-  
+
   // Base methods should be typed by annotations, avoid complex inference.
   // eslint-disable-next-line @typescript-eslint/semi
   if(m.parentPackage?.isBaseWollokCode) return;
 
   // Abstract methods are infered from overrides
+  // eslint-disable-next-line @typescript-eslint/semi
   if(!m.isConcrete()) return;
-  
+
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
@@ -167,7 +168,7 @@ const inferSend = (send: Send) => {
   const tVar = typeVariableFor(send)
   const receiver = inferTypeVariables(send.receiver)!
   // TODO: Save args info for max type inference
-  /*const args =*/ send.args.map(inferTypeVariables)  
+  /*const args =*/ send.args.map(inferTypeVariables)
   receiver.addSend(send)
   return tVar
 }
@@ -500,7 +501,7 @@ function annotatedVariableMap(n: Node) {
   return {}
 }
 
-function typeForModule(m: Module) {
+export function typeForModule(m: Module): WollokParametricType {
   const map = annotatedVariableMap(m)
   return new WollokParametricType(m, map)
 }

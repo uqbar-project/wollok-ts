@@ -417,4 +417,4 @@ const otherTestMethod = newMethod('TEST_MESSAGE')
 
 const stubType = new TestWollokType('TEST_TYPE', testMethod)
 const otherStubType = new TestWollokType('OTHER_TEST_TYPE', otherTestMethod)
-const mnuStubType = new TestWollokType('MNU_TEST_TYPE', newMethod('<NONE>')) 
+const mnuStubType = new TestWollokType('MNU_TEST_TYPE', newMethod('<NONE>'))

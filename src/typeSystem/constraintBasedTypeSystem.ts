@@ -1,8 +1,8 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
-import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokAtomicType, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
+import { newTypeVariables, typeForModule, TypeVariable, typeVariableFor } from './typeVariables'
+import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -120,46 +120,62 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
 }
 
 export function maxTypeFromMessages(tVar: TypeVariable): boolean {
+  if (tVar.closed) return false
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
-  if (tVar.messages.every(allObjectsUnderstand)) return false
-
-
+  if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
   let changed = false
-  let possibleTypes = allModulesThatUnderstand(tVar.node.environment, tVar.messages).map(_ => new WollokModuleType(_)) // Or bind to the module?
-  const messages = tVar.messages
-  const mnuMessages = []
-  while (!possibleTypes.length) {
-    mnuMessages.push(messages.pop()!)
-    if (!messages.length) return false
-    possibleTypes = allModulesThatUnderstand(tVar.node.environment, messages).map(_ => new WollokModuleType(_)) // Or bind to the module?
-  }
 
-  for(const type of possibleTypes) {
+  const [possibleTypes, mnuMessages] = inferMaxTypesFromMessages([...tVar.messages]) // Maybe we should remove from original collection for performance reason?
+
+  for (const type of possibleTypes)
     if (!tVar.hasType(type)) {
       tVar.addMaxType(type)
-      logger.log(`NEW MAX TYPE |${type}| FOR |${tVar.node}|`)
+      logger.log(`NEW MAX TYPE |${type}| FOR |${tVar}|`)
       changed = true
     }
-  }
 
-  for(const send of mnuMessages) {
-    reportProblem(typeVariableFor(send.receiver), new TypeSystemProblem('methodNotFound', [send.signature, tVar.type().name]))
-  }
+
+  for (const send of mnuMessages)
+    if (send.receiver === tVar.node) {
+      reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, tVar.type().name]))
+      changed = true
+    }
 
   return changed
+}
+
+function inferMaxTypesFromMessages(messages: Send[]): [WollokModuleType[], Send[]] {
+  if (messages.every(allObjectsUnderstand)) return [[objectType(messages[0])], []]
+  let possibleTypes = allTypesThatUndestand(messages)
+  const mnuMessages = [] // Maybe we should check this when max types are propagated?
+  while (!possibleTypes.length) { // Here we have a problem
+    mnuMessages.push(messages.pop()!) // Search in a subset
+    if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
+    possibleTypes = allTypesThatUndestand(messages)
+  }
+  return [possibleTypes, mnuMessages]
+}
+
+function allTypesThatUndestand(messages: Send[]): WollokModuleType[] {
+  const { environment } = messages[0]
+  return allModulesThatUnderstand(environment, messages).map(typeForModule)
 }
 
 function allObjectsUnderstand(send: Send) {
   return send.environment.objectClass.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
 }
 
+function objectType(node: Node) {
+  return typeForModule(node.environment.objectClass)
+}
+
 function allModulesThatUnderstand(environment: Environment, sends: Send[]) {
   return environment.descendants
     .filter(is(Module))
     .filter(module => sends.every(send =>
-      module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
       // TODO: check params and return types
+      module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
     ))
 
 }
@@ -171,7 +187,6 @@ function allModulesThatUnderstand(environment: Environment, sends: Send[]) {
 const guessTypes = [reverseInference, closeTypes]
 
 export function reverseInference(tVar: TypeVariable): boolean {
-  // TODO: isClosed?
   if (tVar.closed) return false
   if (!(tVar.validSubtypes().length + tVar.validSupertypes().length)) return false
   if (tVar.hasTypeInfered()) return false
@@ -195,28 +210,6 @@ export function reverseInference(tVar: TypeVariable): boolean {
   return changed
 }
 
-export function mergeSuperAndSubTypes(tVar: TypeVariable): boolean {
-  // TODO: isClosed?
-  if (tVar.hasTypeInfered())
-    return false
-  let changed = false
-  for (const superTVar of tVar.validSupertypes()) {
-    if (!tVar.subtypes.includes(superTVar)) {
-      tVar.beSupertypeOf(superTVar)
-      logger.log(`GUESS TYPE OF |${tVar}| FROM SUPERTYPE |${superTVar}|`)
-      changed = true
-    }
-  }
-  for (const subTVar of tVar.validSubtypes()) {
-    if (!tVar.supertypes.includes(subTVar)) {
-      tVar.beSubtypeOf(subTVar)
-      logger.log(`GUESS TYPE OF |${tVar}| FROM SUBTYPE |${subTVar}|`)
-      changed = true
-    }
-  }
-  return changed
-}
-
 export function closeTypes(tVar: TypeVariable): boolean {
   let changed = false
   if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes)) {
@@ -236,7 +229,7 @@ export function closeTypes(tVar: TypeVariable): boolean {
 // REPORTING PROBLEMS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-export function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem) {
+function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem) {
   tVar.addProblem(problem)
   return true // Something changed
 }
