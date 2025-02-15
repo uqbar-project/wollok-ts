@@ -174,9 +174,13 @@ const inferSend = (send: Send) => {
 }
 
 const inferAssignment = (a: Assignment) => {
-  const variable = inferTypeVariables(a.variable)!
+  const reference = inferTypeVariables(a.variable)!
   const value = inferTypeVariables(a.value)!
-  variable.beSupertypeOf(value)
+  reference.beSupertypeOf(value)
+  if (a.variable.target) {
+    const variable = typeVariableFor(a.variable.target)!
+    reference.beSubtypeOf(variable) // Unify
+  }
   return typeVariableFor(a).setType(new WollokAtomicType(VOID))
 }
 
@@ -279,6 +283,8 @@ export class TypeVariable {
   }
   instanceFor(instance: TypeVariable, send?: TypeVariable, name?: string): TypeVariable { return this.type().instanceFor(instance, send, name) || this }
 
+  hasMinType(type: WollokType): boolean { return this.allMinTypes().some(_type => _type.contains(type)) }
+  hasMaxType(type: WollokType): boolean { return this.allMaxTypes().some(_type => _type.contains(type)) }
   hasType(type: WollokType): boolean { return this.allPossibleTypes().some(_type => _type.contains(type)) }
 
   setType(type: WollokType, closed?: boolean): this {
@@ -395,7 +401,6 @@ class TypeInfo {
   }
 
   addMinType(type: WollokType) {
-    if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return
     if (this.closed)
       throw new Error('Variable inference finalized')

@@ -34,14 +34,14 @@ const runStage = (tVars: Map<Node, TypeVariable>) => (stages: Stage[]) =>
 const propagateTypes = [propagateMinTypes, propagateMaxTypes, propagateMessages]
 
 export function propagateMinTypes(tVar: TypeVariable): boolean {
-  return propagateTypesUsing(tVar, tVar.allMinTypes(), tVar.validSupertypes())((targetTVar, type) => {
+  return propagateMinTypesUsing(tVar, tVar.allMinTypes(), tVar.validSupertypes())((targetTVar, type) => {
     targetTVar.addMinType(type)
     logger.log(`PROPAGATE MIN TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
   })
 }
 export function propagateMaxTypes(tVar: TypeVariable): boolean {
   if (tVar.messages.length) return false
-  return propagateTypesUsing(tVar, tVar.allMaxTypes(), tVar.validSubtypes())((targetTVar, type) => {
+  return propagateMaxTypesUsing(tVar, tVar.allMaxTypes(), tVar.validSubtypes())((targetTVar, type) => {
     targetTVar.addMaxType(type)
     logger.log(`PROPAGATE MAX TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
   })
@@ -73,7 +73,8 @@ const propagate = <Element>(checker: (target: TypeVariable, e: Element) => boole
   return changed
 }
 
-const propagateTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasType(type), reportTypeMismatch)
+const propagateMinTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasMinType(type), reportTypeMismatch)
+const propagateMaxTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasType(type), reportTypeMismatch)
 const propagateSendsUsing = propagate<Send>((targetTVar, send) => targetTVar.hasSend(send), reportMessageNotUnderstood)
 
 
@@ -214,14 +215,14 @@ export function reverseInference(tVar: TypeVariable): boolean {
   let changed = false
 
   for (const subTVar of tVar.validSubtypes()) {
-    changed = changed || propagateTypesUsing(subTVar, subTVar.allMaxTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
+    changed = changed || propagateMaxTypesUsing(subTVar, subTVar.allMaxTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
       targetTVar.addMinType(type)
       logger.log(`GUESS MIN TYPE (${type.name}) FROM |${subTVar}| TO |${targetTVar}|`)
     })
   }
 
   for (const superTVar of tVar.validSupertypes()) {
-    changed = changed || propagateTypesUsing(superTVar, superTVar.allMinTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
+    changed = changed || propagateMinTypesUsing(superTVar, superTVar.allMinTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
       targetTVar.addMaxType(type)
       logger.log(`GUESS MAX TYPE (${type.name}) FROM |${superTVar}| TO |${targetTVar}|`)
     })
