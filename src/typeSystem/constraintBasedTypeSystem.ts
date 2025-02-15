@@ -17,7 +17,7 @@ export function inferTypes(env: Environment, someLogger?: Logger): void {
   const tVars = newTypeVariables(env)
   let globalChange = true
   while (globalChange) {
-    globalChange = [propagateTypes, inferFromMessages, guessTypes].some(runStage(tVars))
+    globalChange = [propagateTypes, inferFromMessages, reversePropagation, guessTypes].some(runStage(tVars))
   }
   assign(env, { typeRegistry: new TypeRegistry(tVars) })
 }
@@ -184,11 +184,31 @@ function allModulesThatUnderstand(environment: Environment, sends: Send[]) {
 // GUESS TYPES
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const guessTypes = [reverseInference, closeTypes]
+const reversePropagation = [reversePropagateMessages, reverseInference]
+
+export function reversePropagateMessages(tVar: TypeVariable): boolean {
+  if (tVar.closed) return false
+  if (tVar.messages.length) return false
+  if (tVar.allMaxTypes().length) return false
+  let changed = false
+
+  for (const subTVar of tVar.validSubtypes()) {
+    changed = changed || propagateSendsUsing(subTVar, subTVar.messages, [tVar])((targetTVar, send) => {
+      for (const type of targetTVar.allPossibleTypes()) {
+        if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
+          return reportProblem(targetTVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
+      }
+      targetTVar.addSend(send)
+      logger.log(`REVERSE PROPAGATE SEND (${send}) FROM |${tVar}| TO |${targetTVar}|`)
+    })
+  }
+
+  return changed
+}
+
 
 export function reverseInference(tVar: TypeVariable): boolean {
   if (tVar.closed) return false
-  if (!(tVar.validSubtypes().length + tVar.validSupertypes().length)) return false
   if (tVar.hasTypeInfered()) return false
   if (!tVar.synthetic && tVar.node.parentPackage?.isBaseWollokCode) return false
   let changed = false
@@ -209,6 +229,8 @@ export function reverseInference(tVar: TypeVariable): boolean {
 
   return changed
 }
+
+const guessTypes = [closeTypes]
 
 export function closeTypes(tVar: TypeVariable): boolean {
   let changed = false
