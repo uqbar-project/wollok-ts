@@ -17,7 +17,7 @@ export function inferTypes(env: Environment, someLogger?: Logger): void {
   const tVars = newTypeVariables(env)
   let globalChange = true
   while (globalChange) {
-    globalChange = [propagateTypes, inferFromMessages, reversePropagation, guessTypes].some(runStage(tVars))
+    globalChange = [basicPropagation, inferFromMessages, reversePropagation, guessTypes].some(runStage(tVars))
   }
   assign(env, { typeRegistry: new TypeRegistry(tVars) })
 }
@@ -31,41 +31,41 @@ const runStage = (tVars: Map<Node, TypeVariable>) => (stages: Stage[]) =>
 // PROPAGATIONS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-const propagateTypes = [propagateMinTypes, propagateMaxTypes, propagateMessages]
+const basicPropagation = [propagateMinTypes, propagateMaxTypes, propagateMessages]
 
 export function propagateMinTypes(tVar: TypeVariable): boolean {
-  return propagateMinTypesUsing(tVar, tVar.allMinTypes(), tVar.validSupertypes())((targetTVar, type) => {
+  return propagateMinTypesUsing(tVar.allMinTypes(), tVar.validSupertypes())((targetTVar, type) => {
+    if (targetTVar.closed) return reportTypeMismatchUnknownVictim(tVar, type, targetTVar)
     targetTVar.addMinType(type)
     logger.log(`PROPAGATE MIN TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
   })
 }
 export function propagateMaxTypes(tVar: TypeVariable): boolean {
-  if (tVar.messages.length) return false
-  return propagateMaxTypesUsing(tVar, tVar.allMaxTypes(), tVar.validSubtypes())((targetTVar, type) => {
+  if (tVar.messages.length) return false // If I have send then just propagate them
+
+  return propagateMaxTypesUsing(tVar.allMaxTypes(), tVar.validSubtypes())((targetTVar, type) => {
+    if (targetTVar.closed) return reportTypeMismatchUnknownVictim(tVar, type, targetTVar)
     targetTVar.addMaxType(type)
     logger.log(`PROPAGATE MAX TYPE (${type.name}) FROM |${tVar}| TO |${targetTVar}|`)
   })
 }
 export function propagateMessages(tVar: TypeVariable): boolean {
-  return propagateSendsUsing(tVar, tVar.messages, tVar.validSubtypes())((targetTVar, send) => {
-    for (const type of targetTVar.allPossibleTypes()) {
-      if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
-        return reportProblem(targetTVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
-    }
+  return propagateSendsUsing(tVar.messages, tVar.validSubtypes())((targetTVar, send) => {
+    if (validateUnderstandMessage(targetTVar, send, tVar)) return true // Avoid propagation
     targetTVar.addSend(send)
     logger.log(`PROPAGATE SEND (${send}) FROM |${tVar}| TO |${targetTVar}|`)
   })
 }
 
-type Propagator<Element> = (targetTVar: TypeVariable, something: Element) => void
+type Propagator<Element> = (targetTVar: TypeVariable, something: Element) => void | true
+type Checker<Element> = (target: TypeVariable, e: Element) => boolean
 
-const propagate = <Element>(checker: (target: TypeVariable, e: Element) => boolean, reporter: (source: TypeVariable, e: Element, target: TypeVariable) => boolean) => (tVar: TypeVariable, elements: Element[], targetTVars: TypeVariable[]) => (propagator: Propagator<Element>) => {
+const propagate = <Element>(checker: Checker<Element>) => (elements: Element[], targetTVars: TypeVariable[]) => (propagator: Propagator<Element>) => {
   let changed = false
   for (const type of elements) {
     for (const targetTVar of targetTVars) {
       if (!checker(targetTVar, type)) {
-        if (targetTVar.closed) return reporter(tVar, type, targetTVar)
-        propagator(targetTVar, type)
+        if (propagator(targetTVar, type)) return true // Stop on error
         changed = true
       }
     }
@@ -73,9 +73,9 @@ const propagate = <Element>(checker: (target: TypeVariable, e: Element) => boole
   return changed
 }
 
-const propagateMinTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasMinType(type), reportTypeMismatch)
-const propagateMaxTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasType(type), reportTypeMismatch)
-const propagateSendsUsing = propagate<Send>((targetTVar, send) => targetTVar.hasSend(send), reportMessageNotUnderstood)
+const propagateMinTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasMinType(type))
+const propagateMaxTypesUsing = propagate<WollokType>((targetTVar, type) => targetTVar.hasType(type))
+const propagateSendsUsing = propagate<Send>((targetTVar, send) => targetTVar.hasSend(send))
 
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -94,7 +94,7 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
       const message = send.message == APPLY_METHOD ? CLOSURE_EVALUATE_METHOD : send.message // 'apply' is a special case for closures
       const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
-        return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
+        return reportMethodNotFound(tVar, send, type)
 
       if (bindMethod(tVar, method, send))
         changed = true
@@ -139,7 +139,7 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
 
   for (const send of mnuMessages)
     if (send.receiver === tVar.node) {
-      reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, tVar.type().name]))
+      reportMethodNotFound(tVar, send, tVar.type())
       changed = true
     }
 
@@ -194,13 +194,10 @@ export function reversePropagateMessages(tVar: TypeVariable): boolean {
   let changed = false
 
   for (const subTVar of tVar.validSubtypes()) {
-    changed = changed || propagateSendsUsing(subTVar, subTVar.messages, [tVar])((targetTVar, send) => {
-      for (const type of targetTVar.allPossibleTypes()) {
-        if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
-          return reportProblem(targetTVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
-      }
+    changed = changed || propagateSendsUsing(subTVar.messages, [tVar])((targetTVar, send) => {
+      if (validateUnderstandMessage(targetTVar, send, subTVar)) return true // Avoid propagation
       targetTVar.addSend(send)
-      logger.log(`REVERSE PROPAGATE SEND (${send}) FROM |${tVar}| TO |${targetTVar}|`)
+      logger.log(`REVERSE PROPAGATE SEND (${send}) FROM |${subTVar}| TO |${targetTVar}|`)
     })
   }
 
@@ -215,14 +212,14 @@ export function reverseInference(tVar: TypeVariable): boolean {
   let changed = false
 
   for (const subTVar of tVar.validSubtypes()) {
-    changed = changed || propagateMaxTypesUsing(subTVar, subTVar.allMaxTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
+    changed = changed || propagateMaxTypesUsing(subTVar.allMaxTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
       targetTVar.addMinType(type)
       logger.log(`GUESS MIN TYPE (${type.name}) FROM |${subTVar}| TO |${targetTVar}|`)
     })
   }
 
   for (const superTVar of tVar.validSupertypes()) {
-    changed = changed || propagateMinTypesUsing(superTVar, superTVar.allMinTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
+    changed = changed || propagateMinTypesUsing(superTVar.allMinTypes().filter(t => t.isComplete), [tVar])((targetTVar, type) => {
       targetTVar.addMaxType(type)
       logger.log(`GUESS MAX TYPE (${type.name}) FROM |${superTVar}| TO |${targetTVar}|`)
     })
@@ -252,22 +249,23 @@ export function closeTypes(tVar: TypeVariable): boolean {
 // REPORTING PROBLEMS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem) {
+function reportProblem(tVar: TypeVariable, problem: TypeSystemProblem): true {
   tVar.addProblem(problem)
   return true // Something changed
 }
 
-function reportTypeMismatch(source: TypeVariable, type: WollokType, target: TypeVariable) {
-  const [reported, expected, actual] = selectVictim(source, type, target, target.type())
-  logger.log(`TYPE ERROR REPORTED ON |${reported}| - Expected: ${expected.name} Actual: ${actual.name}`)
-  return reportProblem(reported, new TypeSystemProblem('typeMismatch', [expected.name, actual.name]))
+function reportTypeMismatchUnknownVictim(source: TypeVariable, type: WollokType, target: TypeVariable) {
+  return reportTypeMismatch(...selectVictim(source, type, target, target.type()))
 }
 
-function reportMessageNotUnderstood(source: TypeVariable, send: Send, target: TypeVariable) {
-  if (target.type().lookupMethod(send.message, send.numArgs)) return false
+function reportTypeMismatch(tVar: TypeVariable, expected: WollokType, actual: WollokType) {
+  logger.log(`\nERROR: TYPE Expected: ${expected.name} Actual: ${actual.name} FOR |${tVar}|`)
+  return reportProblem(tVar, new TypeSystemProblem('typeMismatch', [expected.name, actual.name]))
+}
 
-  logger.log(`TYPE ERROR REPORTED ON |${target}| SEDING: ${send} FROM ${source}`)
-  return reportProblem(target, new TypeSystemProblem('typeMismatch', [source.type().name, target.type().name]))
+function reportMethodNotFound(tVar: TypeVariable, send: Send, type: WollokType) {
+  logger.log(`\nERROR: METHOD |${send.signature}| NOT FOUND ON TYPE |${type.name}| FOR |${tVar}|`)
+  return reportProblem(tVar, new TypeSystemProblem('methodNotFound', [send.signature, type.name]))
 }
 
 function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariable, targetType: WollokType): [TypeVariable, WollokType, WollokType] {
@@ -277,12 +275,19 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
   if (source.node.is(Reference)) return [source, type, targetType]
   if (target.node.is(Reference)) return [target, targetType, type]
   return [target, targetType, type]
-  // throw new Error('No victim found')
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // OTHERS
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function validateUnderstandMessage(tVar: TypeVariable, send: Send, source?: TypeVariable) {
+  for (const type of tVar.allPossibleTypes()) {
+    if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
+      return source?.hasTypeInfered() ? reportTypeMismatch(tVar, source.type(), type) : reportMethodNotFound(tVar, send, type)
+  }
+  return false
+}
 
 function allValidTypeVariables(tVars: Map<Node, TypeVariable>) {
   return [...tVars.values()].filter(tVar => !tVar.hasProblems)
