@@ -187,9 +187,9 @@ describe('Wollok Type System', () => {
     it('propagate to a closed type variables with types that understand the message should not report a problem', () => {
       subtype.setType(otherStubType)
 
-      propagateMessages(tVar).should.be.false
+      propagateMessages(tVar).should.be.true
 
-      subtype.messages.should.be.empty; // Not propagated
+      subtype.messages.should.be.deep.equal([testSend]);
       (tVar.hasProblems || subtype.hasProblems).should.be.false
     })
   })
