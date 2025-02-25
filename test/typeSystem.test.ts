@@ -1,6 +1,6 @@
 import { should } from 'chai'
-import { Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
-import { bindReceivedMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
+import { buildEnvironment, Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
+import { bindReceivedMessages, maxTypeFromMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSyntheticTVar, newTypeVariables, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
 
@@ -263,6 +263,101 @@ describe('Wollok Type System', () => {
     })
   })
 
+  describe('Max types from methods', () => {
+
+    function assertMaxTypes(_tVar: TypeVariable, ...types: string[]) {
+      _tVar.allMaxTypes().map(type => type.name).should.be.deep.eq(types)
+    }
+
+    it('should do nothing when there is no messages', () => {
+      tVar.messages.should.be.empty
+
+      maxTypeFromMessages(tVar).should.be.false
+
+      tVar.allMaxTypes().should.be.empty
+    })
+
+    it('should infer maximal types', () => {
+      tVar.addSend(newSend('even'))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
+    })
+
+    it('should infer all maximal types', () => {
+      tVar.addSend(newSend('+', 1))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, "Collection<Any>", "Set<Any>", "List<Any>", "Number", "String") // TODO: check params and return types
+    })
+
+    it('should infer maximal types that implements all messages', () => {
+      tVar.addSend(newSend('+', 1))
+      tVar.addSend(newSend('even'))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
+    })
+
+    it('should not infer maximal types if there is no method implementation', () => {
+      tVar.addSend(testSend)
+      maxTypeFromMessages(tVar).should.be.false
+
+      assertMaxTypes(tVar, ...[])
+    })
+
+    describe("should infer maximal types from a subset of messages", () => {
+
+      it('between two different types', () => {
+        const problemSend = newSend('toLowerCase')
+        tVar.addSend(newSend('even'))
+        tVar.addSend(problemSend)
+        tVar.node = problemSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+  
+        assertMaxTypes(tVar, 'Number')
+        problemSend.receiver.problems!.should.have.length(1)
+      })
+  
+      it('between two different types (reverse)', () => {
+        const problemSend = newSend('even')
+        tVar.addSend(newSend('toLowerCase'))
+        tVar.addSend(problemSend)
+        tVar.node = problemSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+  
+        assertMaxTypes(tVar, 'String')
+        problemSend.receiver.problems!.should.have.length(1)
+      })
+  
+      // TODO: Improve inferMaxTypesFromMessages algorithm
+      xit('between a type and not implemented method', () => {
+        tVar.addSend(testSend)
+        tVar.node = testSend.receiver
+        tVar.addSend(newSend('toLowerCase'))
+
+        maxTypeFromMessages(tVar).should.be.true
+  
+        assertMaxTypes(tVar, 'String')
+        testSend.receiver.problems!.should.have.length(1)
+      })
+  
+      it('between a type and not implemented method (reverse)', () => {
+        tVar.addSend(newSend('toLowerCase'))
+        tVar.addSend(testSend)
+        tVar.node = testSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+  
+        assertMaxTypes(tVar, 'String')
+        testSend.receiver.problems!.should.have.length(1)
+      })
+    })
+
+  })
+
   describe('Wollok types', () => {
     const module = new Singleton({ name: 'MODULE_TEST' })
 
@@ -298,7 +393,7 @@ describe('Wollok Type System', () => {
         })
 
         it('To partial params inside an equivalent type', () => {
-          parametricType =new WollokParametricType(module, {
+          parametricType = new WollokParametricType(module, {
             'param1': newSyntheticTVar(),
             'param2': newSyntheticTVar().setType(otherStubType),
             'param3': newSyntheticTVar(),
@@ -382,15 +477,8 @@ describe('Wollok Type System', () => {
 })
 
 
-const env = new Environment({ members: [] })
+const env = buildEnvironment([])
 
-
-const testSend = new Send({
-  receiver: new Self(),
-  message: 'TEST_MESSAGE',
-  args: [new Literal({ value: 1 })],
-})
-testSend.parent = env
 
 class TestWollokType extends WollokAtomicType {
   method: Method
@@ -407,13 +495,23 @@ class TestWollokType extends WollokAtomicType {
 }
 
 function newMethod(name: string) {
-  const method = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
-  method.parent = env as any
-  return method
+  const node = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
+  node.parent = env as any
+  node.environment = env
+  return node
+}
+
+function newSend(message: string, nArgs = 0, receiver = new Self()) {
+  const node = new Send({ receiver, message, args: [...new Array(nArgs)].map((_, i) => new Literal({ value: i })) })
+  node.parent = env as any
+  node.environment = env
+  return node
 }
 
 const testMethod = newMethod('TEST_MESSAGE')
 const otherTestMethod = newMethod('TEST_MESSAGE')
+
+const testSend = newSend('TEST_MESSAGE', 1)
 
 const stubType = new TestWollokType('TEST_TYPE', testMethod)
 const otherStubType = new TestWollokType('OTHER_TEST_TYPE', otherTestMethod)
