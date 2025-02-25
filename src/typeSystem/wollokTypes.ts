@@ -244,7 +244,7 @@ export class WollokUnionType {
 
   get simplifiedTypes(): WollokType[] {
     return this.types
-      .reduce((acc, type) => [...acc, type].filter(t => !t.isSubtypeOf(type)) // Remove subtypes (are redundants)
+      .reduce((acc, type) => [...acc.filter(t => !t.isSubtypeOf(type)), type] // Remove subtypes (are redundants)
         , [] as WollokType[])
   }
 

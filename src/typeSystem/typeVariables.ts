@@ -93,9 +93,6 @@ const inferEnvironment = (env: Environment) => {
 }
 
 const inferPackage = (p: Package) => {
-  // Wollok code should be typed by annotations, avoid inference.
-  // eslint-disable-next-line @typescript-eslint/semi
-  if (p.isBaseWollokCode) return;
   p.children.forEach(inferTypeVariables)
 }
 
@@ -112,10 +109,13 @@ const inferBody = (body: Body) => {
 }
 
 const inferModule = (m: Module | Describe) => {
-  m.members.forEach(inferTypeVariables)
   const tVar = typeVariableFor(m)
-  if (!(m.is(Singleton) && m.isClosure())) // Avoid closures
-    tVar.setType(typeForModule(m)) // Set module type
+  m.members.forEach(inferTypeVariables)
+
+  // Avoid closures
+  if (!(m.is(Singleton) && m.isClosure()))
+    tVar.setType(typeForModule(m))
+
   return tVar
 }
 
@@ -143,6 +143,15 @@ const inferNamedArgument = (n: NamedArgument) => {
 
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
+
+  // Base methods should be typed by annotations, avoid complex inference.
+  // eslint-disable-next-line @typescript-eslint/semi
+  if(m.parentPackage?.isBaseWollokCode) return;
+
+  // Abstract methods are infered from overrides
+  // eslint-disable-next-line @typescript-eslint/semi
+  if(!m.isConcrete()) return;
+
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
@@ -156,17 +165,22 @@ const inferMethod = (m: Method) => {
 }
 
 const inferSend = (send: Send) => {
+  const tVar = typeVariableFor(send)
   const receiver = inferTypeVariables(send.receiver)!
+  // TODO: Save args info for max type inference
   /*const args =*/ send.args.map(inferTypeVariables)
   receiver.addSend(send)
-  // TODO: Save args info for max type inference
-  return typeVariableFor(send)
+  return tVar
 }
 
 const inferAssignment = (a: Assignment) => {
-  const variable = inferTypeVariables(a.variable)!
+  const reference = inferTypeVariables(a.variable)!
   const value = inferTypeVariables(a.value)!
-  variable.beSupertypeOf(value)
+  reference.beSupertypeOf(value)
+  if (a.variable.target) {
+    const variable = typeVariableFor(a.variable.target)!
+    reference.beSubtypeOf(variable) // Unify
+  }
   return typeVariableFor(a).setType(new WollokAtomicType(VOID))
 }
 
@@ -208,8 +222,8 @@ const inferIf = (_if: If) => {
 const inferReference = (r: Reference<Node>) => {
   const referenceTVar = typeVariableFor(r)
   if (r.target) {
-    const varTVar = typeVariableFor(r.target)! // Variable already visited
-    referenceTVar.unify(varTVar)
+    const varTVar = typeVariableFor(r.target)! // Variable already visited?
+    referenceTVar.beSupertypeOf(varTVar)
   }
   return referenceTVar
 }
@@ -269,6 +283,8 @@ export class TypeVariable {
   }
   instanceFor(instance: TypeVariable, send?: TypeVariable, name?: string): TypeVariable { return this.type().instanceFor(instance, send, name) || this }
 
+  hasMinType(type: WollokType): boolean { return this.allMinTypes().some(_type => _type.contains(type)) }
+  hasMaxType(type: WollokType): boolean { return this.allMaxTypes().some(_type => _type.contains(type)) }
   hasType(type: WollokType): boolean { return this.allPossibleTypes().some(_type => _type.contains(type)) }
 
   setType(type: WollokType, closed?: boolean): this {
@@ -314,6 +330,10 @@ export class TypeVariable {
     this.messages.push(send)
   }
 
+  hasSend(send: Send): boolean {
+    return this.messages.includes(send)
+  }
+
   allMinTypes(): WollokType[] {
     return this.typeInfo.minTypes
   }
@@ -356,7 +376,7 @@ export class TypeVariable {
 
   get closed(): boolean { return this.typeInfo.closed }
 
-  toString(): string { return `TVar(${this.synthetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})` }
+  toString(): string { return `TVar(${this.synthetic ? 'SYNTEC' + this.node?.sourceInfo : this.node})${this.typeInfo.closed ? ' [CLOSED]' : ''}` }
 }
 
 class TypeInfo {
@@ -371,7 +391,7 @@ class TypeInfo {
 
     if (this.minTypes.length > 1) return new WollokUnionType(this.minTypes)
     if (this.maxTypes.length > 1) return new WollokUnionType(this.maxTypes)
-    throw new Error('Halt')
+    throw new Error('Unracheable')
   }
 
   setType(type: WollokType, closed = true) {
@@ -381,7 +401,6 @@ class TypeInfo {
   }
 
   addMinType(type: WollokType) {
-    if (this.maxTypes.some(maxType => maxType.contains(type))) return
     if (this.minTypes.some(minType => minType.contains(type))) return
     if (this.closed)
       throw new Error('Variable inference finalized')
@@ -487,7 +506,7 @@ function annotatedVariableMap(n: Node) {
   return {}
 }
 
-function typeForModule(m: Module) {
+export function typeForModule(m: Module): WollokParametricType {
   const map = annotatedVariableMap(m)
   return new WollokParametricType(m, map)
 }

@@ -310,8 +310,11 @@ export const literalValueToClass = (environment: Environment, literal: LiteralVa
   return environment.getNodeByFQN(clazz)
 }
 
+export const existMethodFor = (send: Send): boolean =>
+  allAvailableMethods(send.environment).some(method => method.matchesSignature(send.message, send.numArgs))
+
 export const allAvailableMethods = (environment: Environment): Method[] =>
-  environment.descendants.filter(is(Method)) as Method[]
+  environment.descendants.filter(is(Method))
 
 export const allMethods = (environment: Environment, referenceClass: Reference<Module>): Method[] =>
   (referenceClass.target ?? environment.objectClass).allMethods as Method[]

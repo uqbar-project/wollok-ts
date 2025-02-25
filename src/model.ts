@@ -761,6 +761,10 @@ export class Reference<N extends Node> extends Expression(Node) {
 
   constructor(payload: Payload<Reference<N>, 'name'>) { super(payload) }
 
+  override get label(): string {
+    return `${this.name} ${super.label}`
+  }
+
   @cached
   get target(): N | undefined { return this.scope.resolve(this.name) }
 }
@@ -805,6 +809,10 @@ export class Send extends Expression(Node) {
 
   get signature(): string {
     return `${this.message}/${this.args.length}`
+  }
+
+  get numArgs(): number {
+    return this.args.length
   }
 
   isPrefixOperator(): boolean {

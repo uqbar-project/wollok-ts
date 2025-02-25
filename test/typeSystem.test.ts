@@ -1,7 +1,7 @@
 import { should } from 'chai'
-import { Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
-import { bindReceivedMessages, propagateMaxTypes, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
-import { newSyntheticTVar, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
+import { buildEnvironment, Closure, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
+import { bindReceivedMessages, maxTypeFromMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
+import { newSyntheticTVar, newTypeVariables, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
 
 should()
@@ -10,6 +10,7 @@ describe('Wollok Type System', () => {
   let tVar: TypeVariable
 
   beforeEach(() => {
+    newTypeVariables(env) // Reset caches
     tVar = newSyntheticTVar()
   })
 
@@ -83,94 +84,138 @@ describe('Wollok Type System', () => {
   })
 
   describe('Maximal types propagation', () => {
+    let subtype: TypeVariable
 
-    it('should propagate max types from type variable to subtypes without max types', () => {
-      const subtype = newSyntheticTVar()
+    beforeEach(() => {
+      subtype = newSyntheticTVar()
       tVar.addSubtype(subtype)
       tVar.addMaxType(stubType)
+    })
 
-      propagateMaxTypes(tVar)
+    it('should propagate max types from type variable to subtypes without max types', () => {
+      propagateMaxTypes(tVar).should.be.true
 
       subtype.allMaxTypes()[0].should.be.equal(stubType)
     })
 
     it('should propagate max types from type variable to subtypes with other max types', () => {
-      const subtype = newSyntheticTVar()
       subtype.addMaxType(otherStubType)
-      tVar.addSubtype(subtype)
-      tVar.addMaxType(stubType)
 
-      propagateMaxTypes(tVar)
+      propagateMaxTypes(tVar).should.be.true
 
       subtype.allMaxTypes().should.be.have.length(2)
     })
 
     it('should not propagate max types if already exist in subtypes', () => {
-      const subtype = newSyntheticTVar()
       subtype.addMaxType(stubType)
-      tVar.addSubtype(subtype)
-      tVar.addMaxType(stubType)
 
-      propagateMaxTypes(tVar)
+      propagateMaxTypes(tVar).should.be.false
 
       subtype.allMaxTypes().should.have.length(1)
     })
 
     it('should not propagate min types', () => {
-      const subtype = newSyntheticTVar()
-      tVar.addSubtype(subtype)
-      tVar.addMinType(stubType)
+      tVar.addMinType(otherStubType)
 
-      propagateMaxTypes(tVar)
+      propagateMaxTypes(tVar).should.be.true // There is a max type
 
-      subtype.allMinTypes().should.be.empty
+      subtype.allPossibleTypes().should.not.include(otherStubType)
     })
 
     it('propagate to a closed type variables should report a problem', () => {
-      const subtype = newSyntheticTVar().setType(otherStubType)
-      tVar.addSubtype(subtype)
-      tVar.addMaxType(stubType)
-
+      subtype.setType(otherStubType)
       subtype.closed.should.be.true
-      propagateMaxTypes(tVar)
+
+      propagateMaxTypes(tVar).should.be.true
 
       subtype.allMaxTypes().should.have.length(1); // Not propagated
       (tVar.hasProblems || subtype.hasProblems).should.be.true
     })
 
     it('propagate to a closed type variables with same type should not report a problem', () => {
-      const subtype = newSyntheticTVar().setType(stubType)
-      tVar.addSubtype(subtype)
-      tVar.addMaxType(stubType)
-
+      subtype.setType(stubType)
       subtype.closed.should.be.true
-      propagateMaxTypes(tVar);
+
+      propagateMaxTypes(tVar).should.be.false;
 
       (tVar.hasProblems || subtype.hasProblems).should.be.false
     })
+  })
 
+  describe('Messages propagation', () => {
+    let subtype: TypeVariable
+
+    beforeEach(() => {
+      subtype = newSyntheticTVar()
+      tVar.addSubtype(subtype)
+      tVar.addSend(testSend)
+      tVar.node = testSend.receiver
+    })
+
+    it('should propagate messages from type variable to subtypes without messages', () => {
+      propagateMessages(tVar).should.be.true
+
+      subtype.messages.should.be.deep.equal([testSend])
+    })
+
+    it('should propagate messages from type variable to subtypes with other messages', () => {
+      const otherSend = testSend.copy()
+      subtype.addSend(otherSend)
+
+      propagateMessages(tVar).should.be.true
+
+      subtype.messages.should.be.deep.equal([otherSend, testSend])
+    })
+
+    it('should not propagate messages if already exist in subtypes', () => {
+      subtype.addSend(testSend)
+
+      propagateMessages(tVar).should.be.false
+
+      subtype.messages.should.have.length(1)
+    })
+
+    it('propagate to a closed type variables with MNU types should report a problem', () => {
+      subtype.setType(mnuStubType)
+
+      propagateMessages(tVar).should.be.true
+
+      subtype.messages.should.be.empty // Not propagated
+      subtype.hasProblems.should.be.true
+    })
+
+    it('propagate to a closed type variables with types that understand the message should not report a problem', () => {
+      subtype.setType(otherStubType)
+
+      propagateMessages(tVar).should.be.true
+
+      subtype.messages.should.be.deep.equal([testSend]);
+      (tVar.hasProblems || subtype.hasProblems).should.be.false
+    })
   })
 
   describe('Bind sends to methods', () => {
 
     beforeEach(() => {
+      newSyntheticTVar(testMethod)
       tVar.addSend(testSend)
+      tVar.node = testSend.receiver
     })
 
-    function assertReturnSendBinding(method: Method, send: Send) {
-      typeVariableFor(method).atParam(RETURN).supertypes.should.deep.equal([typeVariableFor(send)])
+    function assertReturnSendBinding(method: Method, send?: Send) {
+      typeVariableFor(method).atParam(RETURN).supertypes.should.deep.equal([...send ? [typeVariableFor(send)] : []])
     }
-    function assertArgsSendBinding(method: Method, send: Send) {
+    function assertArgsSendBinding(method: Method, send?: Send) {
       method.parameters.should.not.be.empty
       method.parameters.forEach((param, index) => {
-        typeVariableFor(param).subtypes.should.deep.equal([typeVariableFor(send.args[index])])
+        typeVariableFor(param).subtypes.should.deep.equal([...send ? [typeVariableFor(send.args[index])] : []])
       })
     }
 
     it('should add send as return supertype (for next propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar)
+      bindReceivedMessages(tVar).should.be.true
 
       assertReturnSendBinding(testMethod, testSend)
     })
@@ -178,7 +223,7 @@ describe('Wollok Type System', () => {
     it('should add send arguments as parameters subtypes (for next propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar)
+      bindReceivedMessages(tVar).should.be.true
 
       assertArgsSendBinding(testMethod, testSend)
     })
@@ -186,7 +231,7 @@ describe('Wollok Type System', () => {
     it('send should not have references to the method (for avoiding errors propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar)
+      bindReceivedMessages(tVar).should.be.true
 
       typeVariableFor(testSend).subtypes.should.be.empty
       testSend.args.should.not.be.empty
@@ -199,11 +244,115 @@ describe('Wollok Type System', () => {
       tVar.addMinType(stubType)
       tVar.addMaxType(otherStubType)
 
-      bindReceivedMessages(tVar);
+      bindReceivedMessages(tVar).should.be.true;
 
       [testMethod, otherTestMethod].forEach(method => {
         assertReturnSendBinding(method, testSend)
         assertArgsSendBinding(method, testSend)
+      })
+    })
+
+    it('should not bind message if type variable is not the receiver', () => {
+      tVar.setType(stubType)
+      tVar.node = new Self()
+
+      bindReceivedMessages(tVar).should.be.false
+
+      assertReturnSendBinding(testMethod)
+      assertArgsSendBinding(testMethod)
+    })
+  })
+
+  describe('Max types from methods', () => {
+
+    function assertMaxTypes(_tVar: TypeVariable, ...types: string[]) {
+      _tVar.allMaxTypes().map(type => type.name).should.be.deep.eq(types)
+    }
+
+    it('should do nothing when there is no messages', () => {
+      tVar.messages.should.be.empty
+
+      maxTypeFromMessages(tVar).should.be.false
+
+      tVar.allMaxTypes().should.be.empty
+    })
+
+    it('should infer maximal types', () => {
+      tVar.addSend(newSend('even'))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
+    })
+
+    it('should infer all maximal types', () => {
+      tVar.addSend(newSend('+', 1))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Collection<Any>', 'Set<Any>', 'List<Any>', 'Number', 'String') // TODO: check params and return types
+    })
+
+    it('should infer maximal types that implements all messages', () => {
+      tVar.addSend(newSend('+', 1))
+      tVar.addSend(newSend('even'))
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
+    })
+
+    it('should not infer maximal types if there is no method implementation', () => {
+      tVar.addSend(testSend)
+      maxTypeFromMessages(tVar).should.be.false
+
+      assertMaxTypes(tVar, ...[])
+    })
+
+    describe('should infer maximal types from a subset of messages', () => {
+
+      it('between two different types', () => {
+        const problemSend = newSend('toLowerCase')
+        tVar.addSend(newSend('even'))
+        tVar.addSend(problemSend)
+        tVar.node = problemSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+
+        assertMaxTypes(tVar, 'Number')
+        problemSend.receiver.problems!.should.have.length(1)
+      })
+
+      it('between two different types (reverse)', () => {
+        const problemSend = newSend('even')
+        tVar.addSend(newSend('toLowerCase'))
+        tVar.addSend(problemSend)
+        tVar.node = problemSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+
+        assertMaxTypes(tVar, 'String')
+        problemSend.receiver.problems!.should.have.length(1)
+      })
+
+      // TODO: Improve inferMaxTypesFromMessages algorithm
+      xit('between a type and not implemented method', () => {
+        tVar.addSend(testSend)
+        tVar.node = testSend.receiver
+        tVar.addSend(newSend('toLowerCase'))
+
+        maxTypeFromMessages(tVar).should.be.true
+
+        assertMaxTypes(tVar, 'String')
+        testSend.receiver.problems!.should.have.length(1)
+      })
+
+      it('between a type and not implemented method (reverse)', () => {
+        tVar.addSend(newSend('toLowerCase'))
+        tVar.addSend(testSend)
+        tVar.node = testSend.receiver
+
+        maxTypeFromMessages(tVar).should.be.true
+
+        assertMaxTypes(tVar, 'String')
+        testSend.receiver.problems!.should.have.length(1)
       })
     })
 
@@ -244,7 +393,7 @@ describe('Wollok Type System', () => {
         })
 
         it('To partial params inside an equivalent type', () => {
-          parametricType =new WollokParametricType(module, {
+          parametricType = new WollokParametricType(module, {
             'param1': newSyntheticTVar(),
             'param2': newSyntheticTVar().setType(otherStubType),
             'param3': newSyntheticTVar(),
@@ -328,15 +477,8 @@ describe('Wollok Type System', () => {
 })
 
 
-const env = new Environment({ members: [] })
+const env = buildEnvironment([])
 
-
-const testSend = new Send({
-  receiver: new Self(),
-  message: 'someMessage',
-  args: [new Literal({ value: 1 })],
-})
-testSend.parent = env
 
 class TestWollokType extends WollokAtomicType {
   method: Method
@@ -347,19 +489,30 @@ class TestWollokType extends WollokAtomicType {
   }
 
   override lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }) {
-    return this.method
+    return _name == this.method.name ? this.method : undefined as any
   }
 
 }
 
 function newMethod(name: string) {
-  const method = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
-  method.parent = env as any
-  return method
+  const node = new Method({ name, parameters: [new Parameter({ name: 'param' })] })
+  node.parent = env as any
+  node.environment = env
+  return node
 }
 
-const testMethod = newMethod('TEST_METHOD')
-const otherTestMethod = newMethod('OTHER_TEST_METHOD')
+function newSend(message: string, nArgs = 0, receiver = new Self()) {
+  const node = new Send({ receiver, message, args: [...new Array(nArgs)].map((_, i) => new Literal({ value: i })) })
+  node.parent = env as any
+  node.environment = env
+  return node
+}
+
+const testMethod = newMethod('TEST_MESSAGE')
+const otherTestMethod = newMethod('TEST_MESSAGE')
+
+const testSend = newSend('TEST_MESSAGE', 1)
 
 const stubType = new TestWollokType('TEST_TYPE', testMethod)
 const otherStubType = new TestWollokType('OTHER_TEST_TYPE', otherTestMethod)
+const mnuStubType = new TestWollokType('MNU_TEST_TYPE', newMethod('<NONE>'))
