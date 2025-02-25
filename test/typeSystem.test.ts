@@ -1,5 +1,5 @@
 import { should } from 'chai'
-import { buildEnvironment, Closure, Environment, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
+import { buildEnvironment, Closure, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
 import { bindReceivedMessages, maxTypeFromMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSyntheticTVar, newTypeVariables, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
@@ -288,7 +288,7 @@ describe('Wollok Type System', () => {
       tVar.addSend(newSend('+', 1))
       maxTypeFromMessages(tVar).should.be.true
 
-      assertMaxTypes(tVar, "Collection<Any>", "Set<Any>", "List<Any>", "Number", "String") // TODO: check params and return types
+      assertMaxTypes(tVar, 'Collection<Any>', 'Set<Any>', 'List<Any>', 'Number', 'String') // TODO: check params and return types
     })
 
     it('should infer maximal types that implements all messages', () => {
@@ -306,7 +306,7 @@ describe('Wollok Type System', () => {
       assertMaxTypes(tVar, ...[])
     })
 
-    describe("should infer maximal types from a subset of messages", () => {
+    describe('should infer maximal types from a subset of messages', () => {
 
       it('between two different types', () => {
         const problemSend = newSend('toLowerCase')
@@ -315,11 +315,11 @@ describe('Wollok Type System', () => {
         tVar.node = problemSend.receiver
 
         maxTypeFromMessages(tVar).should.be.true
-  
+
         assertMaxTypes(tVar, 'Number')
         problemSend.receiver.problems!.should.have.length(1)
       })
-  
+
       it('between two different types (reverse)', () => {
         const problemSend = newSend('even')
         tVar.addSend(newSend('toLowerCase'))
@@ -327,11 +327,11 @@ describe('Wollok Type System', () => {
         tVar.node = problemSend.receiver
 
         maxTypeFromMessages(tVar).should.be.true
-  
+
         assertMaxTypes(tVar, 'String')
         problemSend.receiver.problems!.should.have.length(1)
       })
-  
+
       // TODO: Improve inferMaxTypesFromMessages algorithm
       xit('between a type and not implemented method', () => {
         tVar.addSend(testSend)
@@ -339,18 +339,18 @@ describe('Wollok Type System', () => {
         tVar.addSend(newSend('toLowerCase'))
 
         maxTypeFromMessages(tVar).should.be.true
-  
+
         assertMaxTypes(tVar, 'String')
         testSend.receiver.problems!.should.have.length(1)
       })
-  
+
       it('between a type and not implemented method (reverse)', () => {
         tVar.addSend(newSend('toLowerCase'))
         tVar.addSend(testSend)
         tVar.node = testSend.receiver
 
         maxTypeFromMessages(tVar).should.be.true
-  
+
         assertMaxTypes(tVar, 'String')
         testSend.receiver.problems!.should.have.length(1)
       })
