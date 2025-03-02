@@ -444,8 +444,12 @@ function typeAnnotation(node: Node) {
 function annotatedTypeName(node: Node): string | undefined {
   return typeAnnotation(node)?.args['name'] as string
 }
-function annotatedVariableName(node: Node): string | undefined {
-  return typeAnnotation(node)?.args['variable'] as string
+function annotatedVariableNames(node: Node): string[] {
+  const oneVariable = typeAnnotation(node)?.args['variable'] as string
+  if (oneVariable) return [oneVariable]
+  const manyVariables = typeAnnotation(node)?.args['variables'] as string
+  if (!manyVariables) return []
+  return manyVariables.split(',')
 }
 
 
@@ -496,14 +500,14 @@ function parseAnnotatedGeneric(annotatedType: string, node: Node) {
 }
 
 function isParameterName(name: string, node: Node) {
-  return [node, ...node.ancestors].find(n => annotatedVariableName(n) === name)
+  return [node, ...node.ancestors].find(n => annotatedVariableNames(n).includes(name))
 }
 
-// TODO: Support many variables
 function annotatedVariableMap(n: Node) {
-  const varName = annotatedVariableName(n)
-  if (varName) return { [varName]: newSyntheticTVar(n) }
-  return {}
+  const varNames = annotatedVariableNames(n)
+  const map = {} as Record<string, TypeVariable>
+  for (const varName of varNames) map[varName] = newSyntheticTVar(n)
+  return map
 }
 
 export function typeForModule(m: Module): WollokParametricType {
