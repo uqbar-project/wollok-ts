@@ -122,6 +122,7 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
 
 export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.closed) return false
+  if (tVar.node?.is(Send)) return false // Bind messages from receiver types in message chain 
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
@@ -149,7 +150,7 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
 function inferMaxTypesFromMessages(messages: Send[]): [WollokModuleType[], Send[]] {
   if (messages.every(allObjectsUnderstand)) return [[objectType(messages[0])], []]
   let possibleTypes = allTypesThatUndestand(messages)
-  const mnuMessages = [] // Maybe we should check this when max types are propagated?
+  const mnuMessages: Send[] = [] // Maybe we should check this when max types are propagated?
   while (!possibleTypes.length) { // Here we have a problem
     mnuMessages.push(messages.pop()!) // Search in a subset
     if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
@@ -232,12 +233,12 @@ const guessTypes = [closeTypes]
 
 export function closeTypes(tVar: TypeVariable): boolean {
   let changed = false
-  if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes)) {
+  if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes.filter(_super => _super.hasSubtype(tVar)))) {
     tVar.typeInfo.maxTypes = tVar.allMinTypes()
     logger.log(`MAX TYPES |${new WollokUnionType(tVar.typeInfo.maxTypes).name}| FROM MIN FOR |${tVar}|`)
     changed = true
   }
-  if (isEmpty(tVar.allMinTypes()) && notEmpty(tVar.allMaxTypes()) && isEmpty(tVar.subtypes)) {
+  if (isEmpty(tVar.allMinTypes()) && notEmpty(tVar.allMaxTypes()) && isEmpty(tVar.subtypes.filter(_super => _super.hasSupertype(tVar)))) {
     tVar.typeInfo.minTypes = tVar.allMaxTypes()
     logger.log(`MIN TYPES |${new WollokUnionType(tVar.typeInfo.minTypes).name}| FROM MAX FOR |${tVar}|`)
     changed = true

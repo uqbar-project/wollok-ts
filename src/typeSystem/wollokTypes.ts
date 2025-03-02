@@ -115,7 +115,7 @@ export class WollokParametricType extends WollokModuleType {
     // TODO: Creating a new syntetic TVar *each time* is not the best solution.
     //      We should attach this syntetic TVar to the instance, so we can reuse it.
     //      We also need to take care of MethodType (subclasses of ParametricType)
-    return instance.newInstance(name).setType(new WollokParametricType(this.module, resolvedParamTypes), false)
+    return instance.newInstance(name).setType(this.newFrom(resolvedParamTypes), false)
   }
 
   addMinType(minType: WollokParametricType): void {
@@ -149,7 +149,11 @@ export class WollokParametricType extends WollokModuleType {
 
   sameParams(type: WollokParametricType): boolean {
     return [...this.params.entries()].every(([name, tVar]) =>
-      type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type()))
+      type.atParam(name) && (type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type())))
+  }
+
+  newFrom(newParams: Record<string, TypeVariable>) {
+    return new WollokParametricType(this.module, newParams)
   }
 }
 
@@ -171,6 +175,10 @@ export class WollokMethodType extends WollokParametricType {
     const returnType = this.atParam(RETURN).type().name
     return `(${params}) => ${returnType}`
   }
+
+  override newFrom(newParams: Record<string, TypeVariable>) {
+    return new WollokMethodType(newParams[RETURN], [], newParams, this.module)
+  }
 }
 
 export class WollokClosureType extends WollokMethodType {
@@ -181,6 +189,9 @@ export class WollokClosureType extends WollokMethodType {
 
   get name(): string { return `{ ${super.name} }` }
 
+  override newFrom(newParams: Record<string, TypeVariable>) {
+    return new WollokClosureType(newParams[RETURN], Object.values(newParams).filter(tVar => tVar != newParams[RETURN]), this.module)
+  }
 }
 
 
@@ -204,7 +215,7 @@ export class WollokParameterType {
   }
 
   contains(type: WollokType): boolean {
-    if (this === type) return true
+    if (type instanceof WollokParameterType && this.id === type.id) return true
     throw new Error('Parameters types don\'t contain other types')
   }
 
