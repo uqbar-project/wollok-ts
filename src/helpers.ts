@@ -455,6 +455,10 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
+export const overridenMethod = (method: Method): Method | undefined =>
+  method.parent.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName, allowAbstractMethods: true })
+
+
 const getParentModule = (node: Node): Module => node.ancestors.find(is(Module)) as Module
 
 export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO

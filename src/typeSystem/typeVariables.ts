@@ -2,6 +2,7 @@ import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
+import { overridenMethod } from '../helpers'
 
 const { assign } = Object
 
@@ -47,6 +48,7 @@ function newTVarFor(node: Node) {
 
 function doNewTVarFor(node: Node) {
   const newTVar = new TypeVariable(node)
+  if (tVars.get(node)) throw new Error('Overriding type variable!')
   tVars.set(node, newTVar)
   return newTVar
 }
@@ -144,13 +146,16 @@ const inferNamedArgument = (n: NamedArgument) => {
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
 
+  if (m.isOverride && overridenMethod(m)) 
+    typeVariableFor(overridenMethod(m)!).beSupertypeOf(method)
+
   // Base methods should be typed by annotations, avoid complex inference.
   // eslint-disable-next-line @typescript-eslint/semi
-  if(m.parentPackage?.isBaseWollokCode && !m.isSynthetic) return;
+  if (m.parentPackage?.isBaseWollokCode && !m.isSynthetic) return
 
   // Abstract methods are infered from overrides
   // eslint-disable-next-line @typescript-eslint/semi
-  if(!m.isConcrete()) return;
+  if (!m.isConcrete()) return
 
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
@@ -476,7 +481,7 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
   if (annotatedType.includes('|')) {
     return parseAnnotatedUnion(annotatedType, node)
   }
-  
+
 
   // Then try defined modules
   let module = node.environment.getNodeOrUndefinedByFQN<Module>(annotatedType)
