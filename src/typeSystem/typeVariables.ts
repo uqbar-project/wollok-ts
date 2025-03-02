@@ -146,7 +146,7 @@ const inferMethod = (m: Method) => {
 
   // Base methods should be typed by annotations, avoid complex inference.
   // eslint-disable-next-line @typescript-eslint/semi
-  if(m.parentPackage?.isBaseWollokCode) return;
+  if(m.parentPackage?.isBaseWollokCode && !m.isSynthetic) return;
 
   // Abstract methods are infered from overrides
   // eslint-disable-next-line @typescript-eslint/semi
