@@ -472,6 +472,12 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
     return parseAnnotatedGeneric(annotatedType, node)
   }
 
+  // Second try union
+  if (annotatedType.includes('|')) {
+    return parseAnnotatedUnion(annotatedType, node)
+  }
+  
+
   // Then try defined modules
   let module = node.environment.getNodeOrUndefinedByFQN<Module>(annotatedType)
   if (!module) {
@@ -497,6 +503,11 @@ function parseAnnotatedGeneric(annotatedType: string, node: Node) {
   const paramTypes = paramTypeNames.map(t => annotatedWollokType(t, node));
   [...baseType.params.values()].forEach((param, i) => param.setType(paramTypes[i]))
   return baseType
+}
+
+function parseAnnotatedUnion(annotatedType: string, node: Node) {
+  const innerTypes = annotatedType.split('|').map(_ => _.trim())
+  return new WollokUnionType(innerTypes.map(annotatedInnerType => annotatedWollokType(annotatedInnerType, node)))
 }
 
 function isParameterName(name: string, node: Node) {
