@@ -62,9 +62,9 @@ export class WollokModuleType {
   }
 
   contains(type: WollokType): boolean {
-    return type instanceof WollokModuleType && (this.module === type.module ||
-      this.module instanceof Singleton && type.module instanceof Singleton
-      && this.module.isClosure() && type.module.isClosure())
+    return type instanceof WollokModuleType && (this.module === type.module
+      || (this.module instanceof Singleton && type.module instanceof Singleton && this.module.isClosure() && type.module.isClosure())
+      || type.module.inherits(this.module))
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }

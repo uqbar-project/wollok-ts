@@ -288,7 +288,7 @@ describe('Wollok Type System', () => {
       tVar.addSend(newSend('+', 1))
       maxTypeFromMessages(tVar).should.be.true
 
-      assertMaxTypes(tVar, 'Collection<Any>', 'Set<Any>', 'List<Any>', 'Number', 'String') // TODO: check params and return types
+      assertMaxTypes(tVar, 'Collection<Any>', 'Number', 'String') // TODO: check params and return types
     })
 
     it('should infer maximal types that implements all messages', () => {
