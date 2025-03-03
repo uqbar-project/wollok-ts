@@ -789,6 +789,10 @@ export class Literal<T extends LiteralValue = LiteralValue> extends Expression(N
   isBoolean(): this is { value: boolean } { return typeof this.value === 'boolean' }
   isNull(): this is { value: null } { return this.value === null }
   isCollection(): this is { value: readonly [Reference<Class>, List<Expression>] } { return isArray(this.value) }
+
+  override get label(): string {
+    return `${this.value} ${super.label}`
+  }
 }
 
 

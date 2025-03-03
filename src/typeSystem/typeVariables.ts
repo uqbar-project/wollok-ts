@@ -511,7 +511,7 @@ function parseAnnotatedGeneric(annotatedType: string, node: Node) {
 }
 
 function parseAnnotatedUnion(annotatedType: string, node: Node) {
-  const innerTypes = annotatedType.split('|').map(_ => _.trim())
+  const innerTypes = annotatedType.slice(1, -1).split('|').map(_ => _.trim())
   return new WollokUnionType(innerTypes.map(annotatedInnerType => annotatedWollokType(annotatedInnerType, node)))
 }
 
