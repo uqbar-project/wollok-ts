@@ -11,18 +11,22 @@ const { readFile } = promises
 export const INIT_PACKAGE_NAME = 'definitions'
 export const INIT_FILE = INIT_PACKAGE_NAME + '.wlk'
 
-export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
+const buildEnvironmentFromPath = (sameEnvironment: boolean) => (folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void => {
   const files = globby.sync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map(name => ({
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
   }))
-  const environment = buildEnv(files)
+  const baseEnvironment = buildEnv(sameEnvironment ? files : [])
 
   for (const file of files) {
+    const environment = sameEnvironment ? baseEnvironment : buildEnv([file], baseEnvironment)
     const packageName = file.name.split('.')[0]
     iterator(environment.getNodeByFQN(packageName), file)
   }
 }
+export const buildEnvironmentForEachPackage = buildEnvironmentFromPath(true)
+export const forEachFileBuildEnvironment = buildEnvironmentFromPath(false)
+
 
 export function allExpectations(parentNode: Node): Map<Node, Annotation[]> {
   const allExpectations = new Map<Node, Annotation[]>()

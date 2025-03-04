@@ -4,7 +4,7 @@ import { join } from 'path'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
-import { allExpectations, buildEnvironmentForEachFile, validateExpectationProblem } from './utils'
+import { allExpectations, forEachFileBuildEnvironment, validateExpectationProblem } from './utils'
 
 const TESTS_PATH = join('language', 'test', 'typesystem')
 
@@ -12,17 +12,16 @@ should()
 
 describe('Wollok Type System Inference', () => {
 
-
-  buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
+  forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
-    if (!getPotentiallyUninitializedLazy(environment, 'typeRegistry')) { // Just run type inference once
-      const logger = undefined
-      // You can use the logger to debug the type system inference in customized way, for example:
-      // { log: (message: string) => { if (message.includes('[Reference]')) console.log(message) } }
-      inferTypes(environment, logger)
-    }
-
+    const logger = // undefined
+    // You can use the logger to debug the type system inference in customized way, for example:
+    { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
+    
+    // if (!filePackage.name.includes('numbers')) return;
+    
     it(filePackage.name, () => {
+      inferTypes(environment, logger)
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
 
