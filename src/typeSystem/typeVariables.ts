@@ -2,7 +2,7 @@ import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
-import { overridenMethod } from '../helpers'
+import { overridenMethod, superMethodDefinition } from '../helpers'
 
 const { assign } = Object
 
@@ -84,7 +84,7 @@ function inferTypeVariables(node: Node): TypeVariable | void {
 
     when(Literal)(inferLiteral),
     when(Self)(inferSelf),
-    when(Super)(inferSelf),
+    when(Super)(inferSuper),
 
     otherwise(skip) //TODO: Not implemented?
   )
@@ -233,11 +233,23 @@ const inferReference = (r: Reference<Node>) => {
   return referenceTVar
 }
 
-const inferSelf = (self: Self | Super) => {
-  const module = self.ancestors.find<Module>((node: Node): node is Module =>
-    node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
+const inferSelf = (self: Self) => {
+  const module = moduleDefinition(self)
   if (!module) throw new Error('Module for Self not found')
   return typeVariableFor(self).setType(new WollokModuleType(module))
+}
+
+// TODO: Use helpers
+const moduleDefinition = (node: Node) => node.ancestors.find<Module>((node: Node): node is Module =>
+  node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
+
+const inferSuper = (_super: Super) => {
+  const module = moduleDefinition(_super)
+  if (!module) throw new Error('Module for Self not found')
+  const method = superMethodDefinition(_super, module)
+  if (!method) throw new Error('Super method not found') // TODO: report error
+  const returnVar = typeVariableFor(method).atParam(RETURN)
+  return typeVariableFor(_super).beSupertypeOf(returnVar)
 }
 
 const inferLiteral = (l: Literal) => {
