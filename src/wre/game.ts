@@ -94,16 +94,6 @@ const game: Natives = {
       self.set('title', title)
     },
 
-    *width(self: RuntimeObject, width?: RuntimeObject): Execution<RuntimeValue> {
-      if (!width) return self.get('width')
-      self.set('width', width)
-    },
-
-    *height(self: RuntimeObject, height?: RuntimeObject): Execution<RuntimeValue> {
-      if (!height) return self.get('height')
-      self.set('height', height)
-    },
-
     *ground(self: RuntimeObject, image: RuntimeObject): Execution<void> {
       self.set('ground', image)
     },
