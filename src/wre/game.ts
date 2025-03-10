@@ -78,7 +78,7 @@ const game: Natives = {
       visual.set('message', message)
       visual.set('messageTime', messageTime)
     },
-
+ 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       assertIsNotNull(visual, 'colliders', 'visual')
 
