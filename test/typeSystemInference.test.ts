@@ -18,7 +18,7 @@ describe('Wollok Type System Inference', () => {
     // You can use the logger to debug the type system inference in customized way, for example:
     { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
     
-    // if (!filePackage.name.includes('numbers')) return;
+    // if (!filePackage.name.includes('instantiation')) return;
     
     it(filePackage.name, () => {
       inferTypes(environment, logger)

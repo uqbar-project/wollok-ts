@@ -105,7 +105,7 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
 
 function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean {
   const methodInstance = typeVariableFor(method).instanceFor(receiver, typeVariableFor(send))
-  const returnParam = methodInstance.atParam(RETURN)
+  const returnParam = methodInstance.atParam(RETURN)!
   if (returnParam.hasSupertype(typeVariableFor(send))) return false
 
   logger.log(`\nBIND MESSAGE |${send}| WITH METHOD |${method}|`)
@@ -113,7 +113,7 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
   logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| FOR |${returnParam}|`)
   method.parameters.forEach((_param, i) => {
     const argTVAR = typeVariableFor(send.args[i])
-    const currentParam = methodInstance.atParam(`${PARAM}${i}`)
+    const currentParam = methodInstance.atParam(`${PARAM}${i}`)!
     currentParam.addSubtype(argTVAR)
     logger.log(`NEW SUBTYPE |${argTVAR}| FOR |${currentParam}|`)
   })
@@ -128,7 +128,7 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
   let changed = false
 
-  const [possibleTypes, mnuMessages] = inferMaxTypesFromMessages([...tVar.messages]) // Maybe we should remove from original collection for performance reason?
+  const [possibleTypes, mnuMessages] = inferMaxTypesFromMessagesFor(tVar) // Maybe we should remove from original collection for performance reason?
 
   for (const type of possibleTypes)
     if (!tVar.hasType(type)) {
@@ -147,21 +147,22 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   return changed
 }
 
-function inferMaxTypesFromMessages(messages: Send[]): [WollokModuleType[], Send[]] {
+function inferMaxTypesFromMessagesFor(tVar: TypeVariable): [WollokType[], Send[]] {
+  const messages = [...tVar.messages]
   if (messages.every(allObjectsUnderstand)) return [[objectType(messages[0])], []]
-  let possibleTypes = allTypesThatUndestand(messages)
+  let possibleTypes = allTypesThatUndestand(tVar, messages)
   const mnuMessages: Send[] = [] // Maybe we should check this when max types are propagated?
   while (!possibleTypes.length) { // Here we have a problem
     mnuMessages.push(messages.pop()!) // Search in a subset
     if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
-    possibleTypes = allTypesThatUndestand(messages)
+    possibleTypes = allTypesThatUndestand(tVar, messages)
   }
   return [possibleTypes, mnuMessages]
 }
 
-function allTypesThatUndestand(messages: Send[]): WollokModuleType[] {
+function allTypesThatUndestand(tVar: TypeVariable, messages: Send[]): WollokType[] {
   const { environment } = messages[0]
-  return allModulesThatUnderstand(environment, messages).map(typeForModule)
+  return allModulesThatUnderstand(environment, messages).map(module => typeVariableFor(module).instanceFor(tVar).type())
 }
 
 function allObjectsUnderstand(send: Send) {

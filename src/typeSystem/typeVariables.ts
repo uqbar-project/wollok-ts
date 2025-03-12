@@ -36,7 +36,7 @@ function newTVarFor(node: Node) {
     const methodApply = node.methods.find(_ => _.name === CLOSURE_EVALUATE_METHOD)!
     const parameters = methodApply.parameters.map(typeVariableFor)
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
-    const returnType = typeVariableFor(methodApply).atParam(RETURN)
+    const returnType = typeVariableFor(methodApply).atParam(RETURN)!
     newTVar.setType(new WollokClosureType(returnType, parameters, node), false)
   }
 
@@ -161,10 +161,10 @@ const inferMethod = (m: Method) => {
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
     if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
-      method.atParam(RETURN).beSupertypeOf(typeVariableFor(lastSentence))
+      method.atParam(RETURN)!.beSupertypeOf(typeVariableFor(lastSentence))
     }
   } else { // Empty body
-    method.atParam(RETURN).setType(new WollokAtomicType(VOID))
+    method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   }
   return method
 }
@@ -204,9 +204,9 @@ const inferReturn = (r: Return) => {
   const method = r.ancestors.find(is(Method))
   if (!method) throw new Error('Method for Return not found')
   if (r.value)
-    typeVariableFor(method).atParam(RETURN).beSupertypeOf(inferTypeVariables(r.value)!)
+    typeVariableFor(method).atParam(RETURN)!.beSupertypeOf(inferTypeVariables(r.value)!)
   else
-    typeVariableFor(method).atParam(RETURN).setType(new WollokAtomicType(VOID))
+    typeVariableFor(method).atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   return typeVariableFor(r).setType(new WollokAtomicType(VOID))
 }
 
@@ -248,7 +248,7 @@ const inferSuper = (_super: Super) => {
   if (!module) throw new Error('Module for Self not found')
   const method = superMethodDefinition(_super, module)
   if (!method) throw new Error('Super method not found') // TODO: report error
-  const returnVar = typeVariableFor(method).atParam(RETURN)
+  const returnVar = typeVariableFor(method).atParam(RETURN)!
   return typeVariableFor(_super).beSupertypeOf(returnVar)
 }
 
@@ -293,7 +293,7 @@ export class TypeVariable {
 
 
   type(): WollokType { return this.typeInfo.type() }
-  atParam(name: string): TypeVariable { return this.type().atParam(name) }
+  atParam(name: string): TypeVariable | null { return this.type().atParam(name) }
   newInstance(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
       this.cachedParams.set(name, newSyntheticTVar(this.node)).get(name)!
@@ -412,6 +412,8 @@ class TypeInfo {
   }
 
   setType(type: WollokType, closed = true) {
+    if (this.minTypes.length) throw "ASD"
+    if (this.maxTypes.length) throw "ASDa"
     this.minTypes = [type]
     this.maxTypes = [type]
     this.closed = closed

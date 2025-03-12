@@ -64,7 +64,7 @@ export class WollokModuleType {
   contains(type: WollokType): boolean {
     return type instanceof WollokModuleType && (this.module === type.module
       || (this.module instanceof Singleton && type.module instanceof Singleton && this.module.isClosure() && type.module.isClosure())
-      || type.module.inherits(this.module))
+      || (!(type.module instanceof Singleton && type.module.isClosure()) && type.module.inherits(this.module)))
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
@@ -101,7 +101,7 @@ export class WollokParametricType extends WollokModuleType {
     let changed = false
     const resolvedParamTypes = fromEntries([...this.params])
     this.params.forEach((tVar, paramName) => {
-      // Possible name callision
+      // Possible name collision
       const newInstance = tVar.instanceFor(instance, send, `${name}.${paramName}`)
       if (newInstance !== tVar) {
         resolvedParamTypes[paramName] = newInstance
@@ -203,7 +203,7 @@ export class WollokParameterType {
   }
 
   instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
-    return instance.atParam(this.name) || send?.newInstance(this.name)
+    return instance.atParam(this.name) || send?.newInstance(this.name) || null
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
@@ -215,14 +215,15 @@ export class WollokParameterType {
   }
 
   contains(type: WollokType): boolean {
-    if (type instanceof WollokParameterType && this.id === type.id) return true
-    throw new Error('Parameters types don\'t contain other types')
+    return type instanceof WollokParameterType && this.id === type.id
+    // throw new Error('Parameters types don\'t contain other types')
   }
 
   asList(): WollokType[] { return [this] }
 
   isSubtypeOf(_type: WollokType): boolean {
-    throw new Error('Parameters types cannot be subtype of other types (invariant)')
+    return false
+    // throw new Error('Parameters types cannot be subtype of other types (invariant)')
   }
 
   get name(): string { return this.id }
@@ -242,7 +243,7 @@ export class WollokUnionType {
     throw new Error('Halt')
   }
 
-  atParam(_name: string): TypeVariable { throw new Error('Union types has no params') }
+  atParam(_name: string): TypeVariable | null { return null }
   instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
