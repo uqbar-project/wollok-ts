@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.2.1
+**Wollok Version: `3.3.1`**
+- 🎥 New `io.serve()` native
+- 🤖 Support for `native` on user programs
+- 👾 Wollok Game `property` optimization
+- 🛠 Util functions for dependencies
+- 🛸 Improve Type System inference
+
 ## v4.2.0
 **Wollok Version: `3.3.0`**
 - 🟰 Avoid redefine identity
