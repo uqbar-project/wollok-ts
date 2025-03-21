@@ -89,10 +89,6 @@ const game: Natives = {
       return yield* getObjectsIn.call(this, position, ...otherVisuals)
     },
 
-    *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<void> {
-      self.set('boardGround', boardGround)
-    },
-
     *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.set('showAttributes', yield* this.reify(true))
     },
