@@ -224,7 +224,7 @@ export const usesField = (node: Node, field: Field): boolean =>
     when(Return)(node => !!node.value && usesField(node.value, field)),
     when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
     when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
-    when(Field)(node => node.value && (node.value.is(Literal) || node.value.is(Send)) && usesField(node.value, field)),
+    when(Field)(node => node.value && usesField(node.value, field)),
     when(Literal)(node =>
       // See type LiteralValue for collection values
       Array.isArray(node.value) && node.value[1].some((expression: any) => usesField(expression, field))),
