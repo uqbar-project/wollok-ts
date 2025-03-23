@@ -225,9 +225,9 @@ export const shouldMatchSuperclassReturnValue = error<Method>(node => {
   const lastSentence = last(node.sentences)
   const superclassSentence = last(overridenMethod.sentences)
 
-  const isCompatibleWithSuperclass = (sentence: Sentence | undefined) => 
+  const isCompatibleWithSuperclass = (sentence: Sentence | undefined) =>
     !sentence || !superclassSentence || sentence.is(Return) === superclassSentence.is(Return) || sentence.is(Throw) || superclassSentence.is(Throw)
-  
+
   if (node.sentences.length === 1 && node.sentences[0].is(If)) {
     const [ifSentence] = node.sentences
 
