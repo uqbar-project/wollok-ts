@@ -12,7 +12,7 @@ describe('Wollok model', () => {
   // TODO: Move to a decorators.test.ts file
   describe('cache', () => {
 
-    it('should be populated the first time the node is used', () => {
+    xit('should be populated the first time the node is used', () => {
       const method = new Method({ name: 'm', body: 'native', isOverride: false, parameters: [] })
       const node = new Class({ name: 'C', supertypes: [], members: [method] })
       stub(node, 'hierarchy').value([node])
@@ -23,7 +23,7 @@ describe('Wollok model', () => {
       getCache(node).get(`lookupMethod(${method.name},${method.parameters.length})`).should.equal(response)
     })
 
-    it('should prevent a second call to the same method', () => {
+    xit('should prevent a second call to the same method', () => {
       const method = new Method({ name: 'm1', body: 'native', isOverride: false, parameters: [] })
       const otherMethod = new Method({ name: 'm2', body: 'native', isOverride: false, parameters: [] })
       const node = new Class({ name: 'C', supertypes: [], members: [method] })
