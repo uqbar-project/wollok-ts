@@ -218,27 +218,17 @@ export const superclassShouldBeLastInLinearization = error<Class | Singleton>(no
   return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is(Class)
 })
 
-export const shouldMatchSuperclassReturnValue = error<Method>(node => {
-  if (!node.isOverride) return true
-  const overridenMethod = superclassMethod(node)
+export const shouldMatchSuperclassReturnValue = error<Method>(method => {
+  if (!method.isOverride || !method.body || method.isNative()) return true
+  const overridenMethod = superclassMethod(method)
   if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
-  const lastSentence = last(node.sentences)
+
+  const lastSentence = last(method.sentences)
   const superclassSentence = last(overridenMethod.sentences)
 
-  const isCompatibleWithSuperclass = (sentence: Sentence | undefined) =>
-    !sentence || !superclassSentence || sentence.is(Return) === superclassSentence.is(Return) || sentence.is(Throw) || superclassSentence.is(Throw)
-
-  if (node.sentences.length === 1 && node.sentences[0].is(If)) {
-    const [ifSentence] = node.sentences
-
-    const lastThenSentence = last(ifSentence.thenBody.sentences)
-    const lastElseSentence = last(ifSentence.elseBody.sentences)
-
-    const thenOK = isCompatibleWithSuperclass(lastThenSentence)
-    const elseOK = isCompatibleWithSuperclass(lastElseSentence)
-
-    return thenOK && elseOK
-  }
+  const isCompatibleWithSuperclass = (sentence: Sentence | undefined): boolean =>
+    !sentence || !superclassSentence || sentence.is(Return) === returnsAValue(overridenMethod) || sentence.is(Throw) || superclassSentence.is(Throw)
+    || sentence.is(If) && isCompatibleWithSuperclass(last(sentence.thenBody.sentences)) && isCompatibleWithSuperclass(last(sentence.elseBody.sentences))
 
   return isCompatibleWithSuperclass(lastSentence)
 }, valuesForNodeName, sourceMapForBody)
