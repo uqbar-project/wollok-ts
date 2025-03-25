@@ -8,5 +8,11 @@
   "typescript.preferences.quoteStyle": "single",
   "typescript.format.semicolons": "remove",
   "editor.tabSize": 2,
-  "editor.insertSpaces": true
+  "editor.insertSpaces": true,
+  "eslint.validate": [
+    "typescript"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always"
+  }
 }

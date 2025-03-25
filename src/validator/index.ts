@@ -218,13 +218,17 @@ export const superclassShouldBeLastInLinearization = error<Class | Singleton>(no
   return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is(Class)
 })
 
-export const shouldMatchSuperclassReturnValue = error<Method>(node => {
-  if (!node.isOverride) return true
-  const overridenMethod = superclassMethod(node)
+export const shouldMatchSuperclassReturnValue = error<Method>(method => {
+  if (!method.isOverride || method.isAbstract() || method.isNative()) return true
+  const overridenMethod = superclassMethod(method)
   if (!overridenMethod || overridenMethod.isAbstract() || overridenMethod.isNative()) return true
-  const lastSentence = last(node.sentences)
+
+  const lastSentence = last(method.sentences)
   const superclassSentence = last(overridenMethod.sentences)
-  return !lastSentence || !superclassSentence || lastSentence.is(Return) === superclassSentence.is(Return) || lastSentence.is(Throw) || superclassSentence.is(Throw)
+
+  return !lastSentence || !superclassSentence
+    || returnsAValue(method) === returnsAValue(overridenMethod)
+    || lastSentence.is(Throw) || superclassSentence.is(Throw)
 }, valuesForNodeName, sourceMapForBody)
 
 export const shouldReturnAValueOnAllFlows = error<If>(node => {
