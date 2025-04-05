@@ -242,7 +242,7 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
 
   // Try expression is still pending
   const rightCombinations: Record<string, string[]> = {
-    'Assignment': ['Assignment', 'Send', 'Throw', 'Variable'],
+    'Assignment': ['Assignment', 'Send', 'Super', 'Throw', 'Variable'],
     'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
     'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
