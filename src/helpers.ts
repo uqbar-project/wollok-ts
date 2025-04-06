@@ -77,9 +77,12 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
 
 export const lastSentence = (body: Body): Sentence | undefined => last(body.sentences)
 
-export const allFlows = (node: Node): Sentence[] => match(node)(
+export const allLastSentences = (node: Node): Sentence[] => match(node)(
   when(If)(condition =>
     valueAsListOrEmpty(lastSentence(condition.thenBody)).concat(valueAsListOrEmpty(lastSentence(condition.elseBody)))),
+  when(Try)(tryBlock =>
+    valueAsListOrEmpty(lastSentence(isEmpty(tryBlock.always.sentences) ? tryBlock.body : tryBlock.always))
+      .concat(excludeNullish(tryBlock.catches.map(catchBlock => lastSentence(catchBlock.body))))),
   when(Node)(_ => []),
 )
 

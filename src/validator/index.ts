@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule, allFlows } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule, allLastSentences } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForReturnValue, sourceMapForUnreachableCode, sourceMapForValue } from './sourceMaps'
 import { valuesForFileName, valuesForNodeName } from './values'
 
@@ -244,8 +244,12 @@ const rightCombinations: Record<string, string[]> = {
   'Variable': ['Assignment', 'Send', 'Throw', 'Variable'],
 }
 
-export const shouldReturnAValueOnAllFlows = error<If>(node => {
-  const lastSentences = allFlows(node)
+export const shouldReturnAValueOnAllFlows = error<If | Try>(node => {
+  // try should have a catch or always blocks
+  // otherwise it will be caught by another validation
+  if (node.is(Try) && isEmpty(node.always.sentences) && isEmpty(node.catches)) return true
+
+  const lastSentences = allLastSentences(node)
   const noFlow = isEmpty(lastSentences)
   if (noFlow) return true
   const singleFlow = lastSentences.length === 1 && finishesFlow(lastSentences[0], node)
@@ -254,7 +258,6 @@ export const shouldReturnAValueOnAllFlows = error<If>(node => {
     && lastSentences.slice(1).every(sentence => rightCombinations[sentence.kind]?.includes(lastSentences[0].kind)
                                     || rightCombinations[lastSentences[0].kind]?.includes(sentence.kind))
   const ifFlows = lastSentences.some(sentence => sentence.is(If))
-
   return twoFlows || ifFlows
 })
 
@@ -559,7 +562,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
   when(Super)(() => ({ shouldUseSuperOnlyOnOverridingMethod })),
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
-  when(Try)(() => ({ shouldHaveCatchOrAlways })),
+  when(Try)(() => ({ shouldHaveCatchOrAlways, shouldReturnAValueOnAllFlows })),
   when(Describe)(() => ({ shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe, shouldHaveNonEmptyName })),
   otherwise(() => ({})),
 )
