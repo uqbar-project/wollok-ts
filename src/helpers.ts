@@ -75,6 +75,14 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Super) || sentence.is(Assignment) || sentence.is(If) || sentence.is(Try) || returnCondition
 }
 
+export const lastSentence = (body: Body): Sentence | undefined => last(body.sentences)
+
+export const allFlows = (node: Node): Sentence[] => match(node)(
+  when(If)(condition =>
+    valueAsListOrEmpty(lastSentence(condition.thenBody)).concat(valueAsListOrEmpty(lastSentence(condition.elseBody)))),
+  when(Node)(_ => []),
+)
+
 export const getVariableContainer = (node: Node): CodeContainer | undefined =>
   node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as CodeContainer | undefined
 
