@@ -537,7 +537,7 @@ const lang: Natives = {
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundUp: decimals should be zero or positive number')
       if (isInteger(decimals.innerNumber!)) throw new RangeError('roundUp: decimals should be an integer number')
-      else return yield* this.reify(ceil(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
+      return yield* this.reify(ceil(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
     },
 
     *roundDown(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
@@ -545,14 +545,14 @@ const lang: Natives = {
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundDown: decimals should be zero or positive number')
       if (isInteger(decimals.innerNumber!)) throw new RangeError('roundDown: decimals should be an integer number')
-      else return yield* this.reify(floor(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
+      return yield* this.reify(floor(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
     },
 
     *truncate(self: RuntimeObject, decimals: RuntimeObject): Execution<RuntimeValue> {
       assertIsNumber(decimals, 'truncate', '_decimals')
 
       if (decimals.innerNumber < 0) throw new RangeError('truncate: decimals should be zero or positive number')
-
+      if (isInteger(decimals.innerNumber!)) throw new RangeError('truncate: decimals should be an integer number')
       const num = self.innerNumber!.toString()
       const decimalPosition = num.indexOf('.')
       return decimalPosition >= 0
