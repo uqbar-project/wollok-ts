@@ -536,6 +536,7 @@ const lang: Natives = {
       assertIsNumber(decimals, 'roundUp', '_decimals')
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundUp: decimals should be zero or positive number')
+      if (isInteger(decimals.innerNumber!)) throw new RangeError('roundUp: decimals should be an integer number')
       else return yield* this.reify(ceil(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
     },
 
@@ -543,6 +544,7 @@ const lang: Natives = {
       assertIsNumber(decimals, 'roundDown', '_decimals')
 
       if (decimals.innerNumber! < 0) throw new RangeError('roundDown: decimals should be zero or positive number')
+      if (isInteger(decimals.innerNumber!)) throw new RangeError('roundDown: decimals should be an integer number')
       else return yield* this.reify(floor(self.innerNumber! * 10 ** decimals.innerNumber!) / 10 ** decimals.innerNumber!)
     },
 
