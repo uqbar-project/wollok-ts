@@ -10,3 +10,4 @@ src/wre/wre.json
 .nyc_output
 coverage
 wollok.log
+log/*.log
