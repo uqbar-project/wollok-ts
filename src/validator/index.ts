@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule, allLastSentences } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForReturnValue, sourceMapForUnreachableCode, sourceMapForValue } from './sourceMaps'
 import { valuesForFileName, valuesForNodeName } from './values'
 
@@ -231,31 +231,34 @@ export const shouldMatchSuperclassReturnValue = error<Method>(method => {
     || lastSentence.is(Throw) || superclassSentence.is(Throw)
 }, valuesForNodeName, sourceMapForBody)
 
-export const shouldReturnAValueOnAllFlows = error<If>(node => {
-  const lastThenSentence = last(node.thenBody.sentences)
-  const lastElseSentence = last(node.elseBody.sentences)
+// Try expression is still pending
+const rightCombinations: Record<string, string[]> = {
+  'Assignment': ['Assignment', 'Send', 'Super', 'Throw', 'Variable'],
+  'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'Return': ['Return', 'Throw'],
+  'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'Throw': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
+  'Variable': ['Assignment', 'Send', 'Throw', 'Variable'],
+}
 
-  const noFlow = !lastThenSentence && !lastElseSentence
-  const thenSingleFlow = !lastElseSentence && lastThenSentence && finishesFlow(lastThenSentence, node)
-  const elseSingleFlow = !lastThenSentence && lastElseSentence && finishesFlow(lastElseSentence, node)
-  const singleFlow = thenSingleFlow || elseSingleFlow
+export const shouldReturnAValueOnAllFlows = error<If | Try>(node => {
+  // try should have a catch or always blocks
+  // otherwise it will be caught by another validation
+  if (node.is(Try) && isEmpty(node.always.sentences) && isEmpty(node.catches)) return true
 
-  // Try expression is still pending
-  const rightCombinations: Record<string, string[]> = {
-    'Assignment': ['Assignment', 'Send', 'Throw', 'Variable'],
-    'Literal': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'New': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Reference': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Return': ['Return', 'Throw'],
-    'Self': ['Literal', 'New', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Send': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Throw': ['Literal', 'New', 'Return', 'Self', 'Send', 'Reference', 'Super', 'Throw'],
-    'Variable': ['Assignment', 'Send', 'Throw', 'Variable'],
-  }
-
-  const twoFlows = !!lastThenSentence && !!lastElseSentence && (rightCombinations[lastThenSentence.kind]?.includes(lastElseSentence.kind) || rightCombinations[lastElseSentence.kind]?.includes(lastThenSentence.kind))
-  const ifFlows = !!lastThenSentence && !!lastElseSentence && (lastThenSentence.is(If) || lastElseSentence.is(If))
-  return noFlow || singleFlow || twoFlows || ifFlows
+  const lastSentences = allLastSentences(node)
+  const noFlow = isEmpty(lastSentences)
+  if (noFlow) return true
+  const singleFlow = lastSentences.length === 1 && finishesFlow(lastSentences[0], node)
+  if (singleFlow) return true
+  const twoFlows = lastSentences.length > 1
+    && lastSentences.slice(1).every(sentence => rightCombinations[sentence.kind]?.includes(lastSentences[0].kind)
+                                    || rightCombinations[lastSentences[0].kind]?.includes(sentence.kind))
+  const ifFlows = lastSentences.some(sentence => sentence.is(If))
+  return twoFlows || ifFlows
 })
 
 export const shouldNotDuplicateFields = error<Field>(node =>
@@ -559,7 +562,7 @@ const validationsByKind = (node: Node): Record<string, Validation<any>> => match
   when(Send)(() => ({ shouldNotCompareAgainstBooleanLiterals, shouldNotCompareEqualityOfSingleton, shouldUseBooleanValueInLogicOperation, methodShouldExist, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldNotUseVoidMethodAsValue })),
   when(Super)(() => ({ shouldUseSuperOnlyOnOverridingMethod })),
   when(If)(() => ({ shouldReturnAValueOnAllFlows, shouldUseBooleanValueInIfCondition, shouldNotDefineUnnecesaryIf, codeShouldBeReachable, shouldNotDefineUnnecessaryCondition, shouldUseConditionalExpression })),
-  when(Try)(() => ({ shouldHaveCatchOrAlways })),
+  when(Try)(() => ({ shouldHaveCatchOrAlways, shouldReturnAValueOnAllFlows })),
   when(Describe)(() => ({ shouldNotDuplicateGlobalDefinitions, shouldNotDefineEmptyDescribe, shouldHaveNonEmptyName })),
   otherwise(() => ({})),
 )
