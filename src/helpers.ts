@@ -71,9 +71,20 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent
   const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
-  // TODO: For Send, consider if expression returns a value
-  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Super) || sentence.is(Assignment) || sentence.is(If) || returnCondition
+  // TODO: For Send, check if expression returns a value (we need a Type System)
+  return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Super) || sentence.is(Assignment) || sentence.is(If) || sentence.is(Try) || returnCondition
 }
+
+export const lastSentence = (body: Body): Sentence | undefined => last(body.sentences)
+
+export const allLastSentences = (node: Node): Sentence[] => match(node)(
+  when(If)(condition =>
+    valueAsListOrEmpty(lastSentence(condition.thenBody)).concat(valueAsListOrEmpty(lastSentence(condition.elseBody)))),
+  when(Try)(tryBlock =>
+    valueAsListOrEmpty(lastSentence(isEmpty(tryBlock.always.sentences) ? tryBlock.body : tryBlock.always))
+      .concat(excludeNullish(tryBlock.catches.map(catchBlock => lastSentence(catchBlock.body))))),
+  when(Node)(_ => []),
+)
 
 export const getVariableContainer = (node: Node): CodeContainer | undefined =>
   node.ancestors.find(parent => parent.is(Method) || parent.is(Test)) as CodeContainer | undefined
@@ -224,7 +235,7 @@ export const usesField = (node: Node, field: Field): boolean =>
     when(Return)(node => !!node.value && usesField(node.value, field)),
     when(Assignment)(node => node.variable.target === field || usesField(node.value, field)),
     when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
-    when(Field)(node => node.value && (node.value.is(Literal) || node.value.is(Send)) && usesField(node.value, field)),
+    when(Field)(node => node.value && usesField(node.value, field)),
     when(Literal)(node =>
       // See type LiteralValue for collection values
       Array.isArray(node.value) && node.value[1].some((expression: any) => usesField(expression, field))),
