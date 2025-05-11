@@ -1,8 +1,8 @@
-import { WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
+import { REPL, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { notEmpty } from '../extensions'
 import { isVoid } from '../helpers'
-import { linkSentenceInNode } from '../linker'
-import { Entity, Environment, Import, Method, Module, Name, Node, Reference, Sentence } from '../model'
+import { linkInNode } from '../linker'
+import { Class, Entity, Environment, Import, Method, Mixin, Module, Name, Node, Package, Reference, Sentence, Singleton } from '../model'
 import * as parse from '../parser'
 import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Frame, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
@@ -116,14 +116,19 @@ export class Interpreter extends AbstractInterpreter {
 
 }
 
+const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter) => {
+  const environment = interpreter.evaluation.environment
+  environment.scope.register([REPL, newDefinition])
+}
+
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
-    const sentenceOrImport = parse.Import.or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
+    const sentenceOrImport = parse.Import.or(parse.Class).or(parse.Singleton).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
     const error = [sentenceOrImport, ...sentenceOrImport.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
     if (error) throw error
 
-    if (sentenceOrImport.is(Sentence)) {
-      linkSentenceInNode(sentenceOrImport, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
+    if (sentenceOrImport.is(Sentence) || sentenceOrImport.is(Singleton) || sentenceOrImport.is(Class) || sentenceOrImport.is(Mixin)) {
+      linkInNode(sentenceOrImport, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
       const unlinkedNode = [sentenceOrImport, ...sentenceOrImport.descendants].find(_ => _.is(Reference) && !_.target)
 
       if (unlinkedNode) {
@@ -135,7 +140,8 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
 
       const result = frame ?
         interpreter.do(function () { return interpreter.evaluation.exec(sentenceOrImport, frame) }) :
-        interpreter.exec(sentenceOrImport)
+        sentenceOrImport.is(Sentence) ? interpreter.exec(sentenceOrImport) : addDefinitionToREPL(sentenceOrImport, interpreter)
+
 
       const stringResult = !result || isVoid(result)
         ? ''

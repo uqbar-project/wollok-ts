@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { GAME_MODULE, OBJECT_MODULE, REPL } from '../src'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
-import link, { canBeReferenced, linkSentenceInNode } from '../src/linker'
+import link, { canBeReferenced, linkInNode } from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable, Literal } from '../src/model'
 import * as parse from '../src/parser'
 import { linkerAssertions } from './assertions'
@@ -919,7 +919,7 @@ describe('link sentence in node', () => {
     getPotentiallyUninitializedLazy(newSentence, 'parent')?.should.be.undefined
     getPotentiallyUninitializedLazy(newSentence, 'environment')?.should.be.undefined
 
-    linkSentenceInNode(newSentence, repl)
+    linkInNode(newSentence, repl)
     newSentence.id.should.be.ok
     newSentence.environment.should.be.eq(environment)
     newSentence.parent.should.be.eq(repl)
@@ -929,7 +929,7 @@ describe('link sentence in node', () => {
   it('should add new contributions to context scope', () => {
     repl.scope.localContributions().should.be.empty
 
-    linkSentenceInNode(newSentence, repl)
+    linkInNode(newSentence, repl)
     const [variableName] = repl.scope.localContributions()[0]
     variableName.should.be.equal('a')
   })

@@ -1,6 +1,6 @@
 import { expect, should, use } from 'chai'
 import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkSentenceInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return, possiblyReferenced } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return, possiblyReferenced } from '../src'
 import { WREEnvironment, environmentWithEntities, environmentWithREPLInitializedFile } from './utils'
 import { RuntimeObject } from '../src/interpreter/runtimeModel'
 
@@ -253,21 +253,21 @@ describe('Wollok helpers', () => {
 
     it('should not execute if second parameter is not a Send object', () => {
       const assignmentForConst = parse.Variable.tryParse('const a = 1')
-      linkSentenceInNode(assignmentForConst, baseEnvironment.getNodeByFQN('repl'))
+      linkInNode(assignmentForConst, baseEnvironment.getNodeByFQN('repl'))
 
       mayExecute(testMethod)(assignmentForConst).should.be.false
     })
 
     it('should not execute if method is different', () => {
       const sendDifferentMethod = parse.Send.tryParse('aves.pepita.comer()')
-      linkSentenceInNode(sendDifferentMethod, baseEnvironment.getNodeByFQN('repl'))
+      linkInNode(sendDifferentMethod, baseEnvironment.getNodeByFQN('repl'))
 
       mayExecute(testMethod)(sendDifferentMethod).should.be.false
     })
 
     it('should execute if node receiver is a singleton and is the same method', () => {
       const sendOkSentence = parse.Send.tryParse('aves.pepita.volar()')
-      linkSentenceInNode(sendOkSentence, baseEnvironment.getNodeByFQN('repl'))
+      linkInNode(sendOkSentence, baseEnvironment.getNodeByFQN('repl'))
 
       mayExecute(testMethod)(sendOkSentence).should.be.true
     })

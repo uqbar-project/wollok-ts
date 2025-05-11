@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
-import { BaseProblem, Entity, Environment, Field, Id, Import, Level, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, SourceMap, Variable } from './model'
+import { BaseProblem, Class, Entity, Environment, Field, Id, Import, Level, Mixin, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, Singleton, SourceMap, Variable } from './model'
 import { REPL } from './constants'
 const { assign } = Object
 
@@ -165,11 +165,11 @@ export default (newPackages: List<Package>, baseEnvironment?: Environment): Envi
   return environment
 }
 
-export function linkSentenceInNode<S extends Sentence>(newSentence: S, context: Node): void {
+export function linkInNode<S extends Sentence | Class | Mixin | Singleton>(newSentenceOrDefinition: S, context: Node): void {
   const { environment } = context
   const _nodeCache = environment.nodeCache as Map<Id, Node>
 
-  newSentence.forEach((node, parent) => {
+  newSentenceOrDefinition.forEach((node, parent) => {
     const id = uuid()
     assign(node, { id })
     _nodeCache.set(id, node)
@@ -177,5 +177,5 @@ export function linkSentenceInNode<S extends Sentence>(newSentence: S, context: 
     node.parent = parent ?? context
   })
 
-  assignScopes(newSentence)
+  assignScopes(newSentenceOrDefinition)
 }
