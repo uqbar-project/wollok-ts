@@ -117,19 +117,21 @@ export class Interpreter extends AbstractInterpreter {
 }
 
 const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter) => {
+  console.info(`Adding ${newDefinition.fullyQualifiedName} to REPL`)
   const environment = interpreter.evaluation.environment
   environment.scope.register([REPL, newDefinition])
 }
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
-    const sentenceOrImport = parse.Import.or(parse.Class).or(parse.Singleton).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
-    const error = [sentenceOrImport, ...sentenceOrImport.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
+    const expression = parse.Import.or(parse.Singleton).or(parse.Class).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
+    console.info(`Interpreting ${expression.kind} ${expression.is(Sentence)}`)
+    const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
     if (error) throw error
 
-    if (sentenceOrImport.is(Sentence) || sentenceOrImport.is(Singleton) || sentenceOrImport.is(Class) || sentenceOrImport.is(Mixin)) {
-      linkInNode(sentenceOrImport, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
-      const unlinkedNode = [sentenceOrImport, ...sentenceOrImport.descendants].find(_ => _.is(Reference) && !_.target)
+    if (expression.is(Sentence) || expression.is(Singleton) || expression.is(Class) || expression.is(Mixin)) {
+      linkInNode(expression, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
+      const unlinkedNode = [expression, ...expression.descendants].find(_ => _.is(Reference) && !_.target)
 
       if (unlinkedNode) {
         if (unlinkedNode.is(Reference)) {
@@ -138,10 +140,11 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
         } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
       }
 
-      const result = frame ?
-        interpreter.do(function () { return interpreter.evaluation.exec(sentenceOrImport, frame) }) :
-        sentenceOrImport.is(Sentence) ? interpreter.exec(sentenceOrImport) : addDefinitionToREPL(sentenceOrImport, interpreter)
-
+      const result = expression.is(Singleton) || expression.is(Class) || expression.is(Mixin) ?
+        addDefinitionToREPL(expression, interpreter) :
+        frame ?
+          interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
+          interpreter.exec(expression)
 
       const stringResult = !result || isVoid(result)
         ? ''
@@ -149,15 +152,15 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
       return successResult(stringResult)
     }
 
-    if (sentenceOrImport.is(Import)) {
+    if (expression.is(Import)) {
       const environment = interpreter.evaluation.environment
-      if (!environment.getNodeOrUndefinedByFQN(sentenceOrImport.entity.name)) {
+      if (!environment.getNodeOrUndefinedByFQN(expression.entity.name)) {
         throw new Error(
-          `Unknown reference ${sentenceOrImport.entity.name}`
+          `Unknown reference ${expression.entity.name}`
         )
       }
 
-      environment.newImportFor(sentenceOrImport)
+      environment.newImportFor(expression)
       return successResult('')
     }
 
