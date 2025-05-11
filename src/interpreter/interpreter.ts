@@ -146,6 +146,7 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
           interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
           interpreter.exec(expression)
 
+      console.info(`Environment ${interpreter.evaluation.environment.replNode().allScopedEntities().map(_ => (_ as Entity).name).join(', ')}`)
       const stringResult = !result || isVoid(result)
         ? ''
         : result.showShortValue(interpreter)
