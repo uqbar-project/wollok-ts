@@ -171,9 +171,8 @@ export function linkInNode<S extends Sentence | Class | Mixin | Singleton>(newSe
 
   newSentenceOrDefinition.forEach((node, parent) => {
     const id = uuid()
-    assign(node, { id })
+    assign(node, { id, environment })
     _nodeCache.set(id, node)
-    node.environment = environment
     node.parent = parent ?? context
   })
 

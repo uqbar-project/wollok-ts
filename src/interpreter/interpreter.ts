@@ -1,8 +1,8 @@
 import { REPL, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { notEmpty } from '../extensions'
+import { isEmpty, last, notEmpty } from '../extensions'
 import { isVoid } from '../helpers'
 import { linkInNode } from '../linker'
-import { Class, Entity, Environment, Import, Method, Mixin, Module, Name, Node, Package, Reference, Sentence, Singleton } from '../model'
+import { Assignment, Class, Entity, Environment, Import, Method, Mixin, Module, Name, Node, Reference, Sentence, Singleton, Variable } from '../model'
 import * as parse from '../parser'
 import WRENatives from '../wre/wre.natives'
 import { Evaluation, Execution, ExecutionDefinition, Frame, Natives, RuntimeObject, RuntimeValue, WollokException } from './runtimeModel'
@@ -13,6 +13,8 @@ export const interpret = (environment: Environment, natives: Natives): Interpret
 // TODO: Replace this with Higher Kinded Types if TS ever implements it...
 type InterpreterResult<This, T> = This extends Interpreter ? T : ExecutionDirector<T>
 
+
+type REPLExpression = Import | Sentence | Singleton | Class | Mixin | Variable | Assignment
 
 abstract class AbstractInterpreter {
   readonly evaluation: Evaluation
@@ -117,55 +119,20 @@ export class Interpreter extends AbstractInterpreter {
 }
 
 const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter) => {
-  console.info(`Adding ${newDefinition.fullyQualifiedName} to REPL`)
   const environment = interpreter.evaluation.environment
   environment.scope.register([REPL, newDefinition])
+  if (newDefinition.is(Singleton)) {
+    interpreter.evaluation.rootFrame.set(newDefinition.fullyQualifiedName, interpreter.evaluation.instantiate(newDefinition))
+  }
 }
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
-    const expression = parse.Import.or(parse.Singleton).or(parse.Class).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).or(parse.Expression).tryParse(line)
-    console.info(`Interpreting ${expression.kind} ${expression.is(Sentence)}`)
-    const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
-    if (error) throw error
-
-    if (expression.is(Sentence) || expression.is(Singleton) || expression.is(Class) || expression.is(Mixin)) {
-      linkInNode(expression, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
-      const unlinkedNode = [expression, ...expression.descendants].find(_ => _.is(Reference) && !_.target)
-
-      if (unlinkedNode) {
-        if (unlinkedNode.is(Reference)) {
-          if (!(frame ?? interpreter.evaluation.currentFrame).get(unlinkedNode.name))
-            return failureResult(`Unknown reference ${unlinkedNode.name}`)
-        } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
-      }
-
-      const result = expression.is(Singleton) || expression.is(Class) || expression.is(Mixin) ?
-        addDefinitionToREPL(expression, interpreter) :
-        frame ?
-          interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
-          interpreter.exec(expression)
-
-      console.info(`Environment ${interpreter.evaluation.environment.replNode().allScopedEntities().map(_ => (_ as Entity).name).join(', ')}`)
-      const stringResult = !result || isVoid(result)
-        ? ''
-        : result.showShortValue(interpreter)
-      return successResult(stringResult)
+    const parsedLine = parse.MultilineSentence.or(parse.Import).or(parse.Singleton).or(parse.Class).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).tryParse(line)
+    if (Array.isArray(parsedLine)) {
+      return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame)))!
     }
-
-    if (expression.is(Import)) {
-      const environment = interpreter.evaluation.environment
-      if (!environment.getNodeOrUndefinedByFQN(expression.entity.name)) {
-        throw new Error(
-          `Unknown reference ${expression.entity.name}`
-        )
-      }
-
-      environment.newImportFor(expression)
-      return successResult('')
-    }
-
-    return successResult('')
+    return interpreteExpression(parsedLine, interpreter, frame)
   } catch (error: any) {
     return (
       error.type === 'ParsimmonError' ? failureResult(`Syntax error:\n${error.message.split('\n').filter(notEmpty).slice(1).join('\n')}`) :
@@ -176,6 +143,47 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
   }
 }
 
+function interpreteExpression(expression: REPLExpression, interpreter: AbstractInterpreter, frame: Frame | undefined): ExecutionResult {
+  const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
+  if (error) throw error
+
+  if (expression.is(Sentence) || expression.is(Singleton) || expression.is(Class) || expression.is(Mixin)) {
+    linkInNode(expression, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
+    const unlinkedNode = [expression, ...expression.descendants].find(_ => _.is(Reference) && !_.target)
+
+    if (unlinkedNode) {
+      if (unlinkedNode.is(Reference)) {
+        if (!(frame ?? interpreter.evaluation.currentFrame).get(unlinkedNode.name))
+          return failureResult(`Unknown reference ${unlinkedNode.name}`)
+      } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
+    }
+
+    const result = expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
+      addDefinitionToREPL(expression, interpreter) :
+      frame ?
+        interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
+        interpreter.exec(expression)
+
+    const stringResult = !result || isVoid(result)
+      ? ''
+      : result.showShortValue(interpreter)
+    return successResult(stringResult)
+  }
+
+  if (expression.is(Import)) {
+    const environment = interpreter.evaluation.environment
+    if (!environment.getNodeOrUndefinedByFQN(expression.entity.name)) {
+      throw new Error(
+        `Unknown reference ${expression.entity.name}`
+      )
+    }
+
+    environment.newImportFor(expression)
+    return successResult('')
+  }
+
+  return successResult('')
+}
 
 export class DirectedInterpreter extends AbstractInterpreter {
   constructor(evaluation: Evaluation) { super(evaluation) }

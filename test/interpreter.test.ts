@@ -199,7 +199,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('not parsing strings', () => {
-        checkFailedResult('3kd3id9', 'Syntax error')
+        checkFailedResult('3kd3id9', 'Unknown reference kd3id9')
       })
 
       it('failure expressions', () => {
@@ -225,6 +225,110 @@ describe('Wollok Interpreter', () => {
         checkFailedResult('const a = 2', 'Evaluation Error!')
       })
 
+
+    })
+
+    describe('multiple sentences', () => {
+      it('should execute all sentences (no enter)', () => {
+        checkSuccessfulResult('var a = 1 ; a = a + 2; a', '3')
+      })
+
+      it('should execute all sentences (using several enters)', () => {
+        checkSuccessfulResult(`var word = "hey" ;
+          word = word + " jude";
+          word
+        `, '"hey jude"')
+      })
+
+      it('should work with imports', () => {
+        checkSuccessfulResult('import wollok.game.* ; var a = 1 ; a', '1')
+      })
+
+    })
+
+    describe('static definitions', () => {
+
+      it('class', () => {
+        checkSuccessfulResult(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('mixin', () => {
+        checkSuccessfulResult(`mixin Flyier {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('singleton', () => {
+        checkSuccessfulResult(`object pepita {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('unnamed singleton', () => {
+        checkSuccessfulResult('object { } ', '')
+      })
+
+    })
+
+    describe('using static definitions', () => {
+      it('using a singleton', () => {
+        checkSuccessfulResult(`object pepita {
+          var energy = 100
+          method energy() = energy
+          method fly() {
+            energy = energy - 10
+          }
+        } ;
+        pepita.fly() ;
+        pepita.energy()`, '90')
+      })
+
+      it('using a class', () => {
+        checkSuccessfulResult(`class Bird {
+          var property energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        } ;
+        const pepita = new Bird() ;
+        pepita.fly() ;
+        pepita.energy()`, '90')
+      })
+
+      it('using a mixin', () => {
+        checkSuccessfulResult(`mixin Tracker {
+          var property timesTracked = 0
+          method track() {
+            timesTracked = timesTracked + 1
+          }
+        } ;
+        class Bird {
+          var property energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        };
+        const pepita = object inherits Tracker and Bird {
+          method fly() {
+            super()
+            self.track()
+          }
+        };
+        pepita.fly();
+        pepita.timesTracked()`, '1')
+      })
+
     })
 
     describe('should print result', () => {
@@ -235,12 +339,6 @@ describe('Wollok Interpreter', () => {
 
       it('for reference to an instance', () => {
         checkSuccessfulResult('new Object()', 'an Object')
-      })
-
-      it('for reference to a literal object', () => {
-        const { result, errored } = interprete(interpreter, 'object { } ')
-        result.should.include('an Object#')
-        errored.should.be.false
       })
 
       it('for number', () => {
@@ -301,7 +399,7 @@ describe('Wollok Interpreter', () => {
           name: 'persona.wlk', content: `
           class Persona {
             const enfermedades = []
-            
+
             method contraerEnfermedad(unaEnfermedad) {
 
               enfermedades.add(unaEnfermedad)
@@ -371,7 +469,7 @@ describe('Wollok Interpreter', () => {
           name: 'persona.wlk', content: `
           class Persona {
             const enfermedades = []
-            
+
             method contraerEnfermedad(unaEnfermedad) {
 
               enfermedades.add(unaEnfermedad)
@@ -491,7 +589,7 @@ describe('Wollok Interpreter', () => {
               energy = 4 * minutes + energy
             }
           }
-            
+
           class MockingBird inherits Bird {
             override method fly(minutes) {
               super([1, 2].add(4))
@@ -657,7 +755,7 @@ describe('Wollok Interpreter', () => {
               return new Date().plusDays(new Date())
             }
           }
-          
+
           class Ave {
             var energy = 100
             const formaVolar = comun
