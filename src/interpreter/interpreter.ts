@@ -128,11 +128,8 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
-    const parsedLine = parse.MultilineSentence.or(parse.Import).or(parse.Singleton).or(parse.Class).or(parse.Mixin).or(parse.Variable).or(parse.Assignment).tryParse(line)
-    if (Array.isArray(parsedLine)) {
-      return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame)))!
-    }
-    return interpreteExpression(parsedLine, interpreter, frame)
+    const parsedLine = parse.MultilineSentence.tryParse(line)
+    return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame)))!
   } catch (error: any) {
     return (
       error.type === 'ParsimmonError' ? failureResult(`Syntax error:\n${error.message.split('\n').filter(notEmpty).slice(1).join('\n')}`) :
