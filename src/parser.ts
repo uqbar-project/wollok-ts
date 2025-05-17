@@ -404,6 +404,24 @@ const sentenceError = error(MALFORMED_SENTENCE)()
 
 export const Sentence: Parser<SentenceNode> = lazy('sentence', () => alt(Variable, Return, Assignment, Expression))
 
+const sentenceSeparator = Parsimmon.alt(
+  key(';'),
+  Parsimmon.regex(/\s*/)
+)
+
+export const SentenceOrTopLevelDefinition = alt(
+  Mixin,
+  Class,
+  Singleton,
+  Sentence,
+)
+
+export const MultilineSentence = alt(
+  alt(Import, SentenceOrTopLevelDefinition).skip(sentenceSeparator),
+  comment('inner').wrap(_, _),
+  sentenceError
+).many()
+
 export const Variable: Parser<VariableNode> = node(VariableNode)(() =>
   obj({
     isConstant: alt(key(KEYWORDS.VAR).result(false), key(KEYWORDS.CONST).result(true)),
