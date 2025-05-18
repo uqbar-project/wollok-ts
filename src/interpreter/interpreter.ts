@@ -170,9 +170,7 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
   if (expression.is(Import)) {
     const environment = interpreter.evaluation.environment
     if (!environment.getNodeOrUndefinedByFQN(expression.entity.name)) {
-      throw new Error(
-        `Unknown reference ${expression.entity.name}`
-      )
+      return failureResult(`Unknown reference ${expression.entity.name}`)
     }
 
     environment.newImportFor(expression)

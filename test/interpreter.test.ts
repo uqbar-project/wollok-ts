@@ -167,6 +167,10 @@ describe('Wollok Interpreter', () => {
 
     describe('expressions', () => {
 
+      it('empty expression', () => {
+        checkSuccessfulResult('', '')
+      })
+
       it('value expressions', () => {
         checkSuccessfulResult('1 + 2', '3')
       })
@@ -225,6 +229,21 @@ describe('Wollok Interpreter', () => {
         checkFailedResult('const a = 2', 'Evaluation Error!')
       })
 
+      it('unlinked class should show error', () => {
+        checkFailedResult('const pepita = new Bird()', 'Unknown reference Bird')
+      })
+
+      it('missing generic import should show error', () => {
+        checkFailedResult('import some.*', 'Unknown reference some')
+      })
+
+      it('missing specific import should show error', () => {
+        checkFailedResult('import some.Bird', 'Unknown reference some.Bird')
+      })
+
+      it('parse error', () => {
+        checkFailedResult('class {}', 'Syntax Error at offset 0: class')
+      })
 
     })
 
