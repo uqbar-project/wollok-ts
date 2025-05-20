@@ -445,6 +445,10 @@ export class Evaluation {
     finally { if (frame) this.frameStack.pop() }
   }
 
+  instantiateSingleton(newDefinition: Singleton): void {
+    this.rootFrame.set(newDefinition.fullyQualifiedName, this.instantiate(newDefinition))
+  }
+
   protected *execTest(node: Test): Execution<void> {
     yield node
 

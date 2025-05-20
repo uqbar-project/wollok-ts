@@ -121,10 +121,9 @@ export class Interpreter extends AbstractInterpreter {
 const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter) => {
   const environment = interpreter.evaluation.environment
   environment.scope.register([REPL, newDefinition])
-  if (newDefinition.is(Singleton)) {
-    interpreter.evaluation.rootFrame.set(newDefinition.fullyQualifiedName, interpreter.evaluation.instantiate(newDefinition))
-  }
+  if (newDefinition.is(Singleton)) interpreter.evaluation.instantiateSingleton(newDefinition)
 }
+
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
   try {
@@ -144,29 +143,6 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
   const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
   if (error) throw error
 
-  if (expression.is(Sentence) || expression.is(Singleton) || expression.is(Class) || expression.is(Mixin)) {
-    linkInNode(expression, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
-    const unlinkedNode = [expression, ...expression.descendants].find(_ => _.is(Reference) && !_.target)
-
-    if (unlinkedNode) {
-      if (unlinkedNode.is(Reference)) {
-        if (!(frame ?? interpreter.evaluation.currentFrame).get(unlinkedNode.name))
-          return failureResult(`Unknown reference ${unlinkedNode.name}`)
-      } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
-    }
-
-    const result = expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
-      addDefinitionToREPL(expression, interpreter) :
-      frame ?
-        interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
-        interpreter.exec(expression)
-
-    const stringResult = !result || isVoid(result)
-      ? ''
-      : result.showShortValue(interpreter)
-    return successResult(stringResult)
-  }
-
   if (expression.is(Import)) {
     const environment = interpreter.evaluation.environment
     if (!environment.getNodeOrUndefinedByFQN(expression.entity.name)) {
@@ -177,7 +153,26 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
     return successResult('')
   }
 
-  return successResult('')
+  linkInNode(expression, frame ? frame.node.parentPackage! : interpreter.evaluation.environment.replNode())
+  const unlinkedNode = [expression, ...expression.descendants].find(_ => _.is(Reference) && !_.target)
+
+  if (unlinkedNode) {
+    if (unlinkedNode.is(Reference)) {
+      if (!(frame ?? interpreter.evaluation.currentFrame).get(unlinkedNode.name))
+        return failureResult(`Unknown reference ${unlinkedNode.name}`)
+    } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
+  }
+
+  const result = expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
+    addDefinitionToREPL(expression, interpreter) :
+    frame ?
+      interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
+      interpreter.exec(expression)
+
+  const stringResult = !result || isVoid(result)
+    ? ''
+    : result.showShortValue(interpreter)
+  return successResult(stringResult)
 }
 
 export class DirectedInterpreter extends AbstractInterpreter {

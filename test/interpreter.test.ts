@@ -250,11 +250,19 @@ describe('Wollok Interpreter', () => {
     describe('multiple sentences', () => {
       it('should execute all sentences (no enter)', () => {
         checkSuccessfulResult('var a = 1 ; a = a + 2; a', '3')
+        checkSuccessfulResult('var b = 1;b = b + 2;b', '3')
       })
 
-      it('should execute all sentences (using several enters)', () => {
+      it('should execute all sentences (using several enters and semicolon)', () => {
         checkSuccessfulResult(`var word = "hey" ;
           word = word + " jude";
+          word
+        `, '"hey jude"')
+      })
+
+      it('should execute all sentences (using several enters, no semicolon)', () => {
+        checkSuccessfulResult(`var word = "hey"
+          word = word + " jude"
           word
         `, '"hey jude"')
       })
