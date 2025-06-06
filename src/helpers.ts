@@ -496,6 +496,15 @@ export const getMethodContainer = (node: Node): Method | Program | Test | undefi
 
 export const possiblyReferenced = (reference: Reference<Node>, environment: Environment): List<Node> => environment.scope.resolveAll(reference.name)
 
+export const hasMoreThanOneSuperclass = (node: Class | Singleton): boolean => count(targetSupertypes(node), _ => !!_ && _.is(Class)) > 1
+
+export const superclassIsLastInLinearization = (node: Class | Singleton): boolean => {
+  const parents = targetSupertypes(node)
+  const hasSuperclass = notEmpty(parents.filter(_ => !!_ && _.is(Class)))
+  const lastParentInHierarchy = last(parents)
+  return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is(Class)
+}
+
 /**
  * NATIVES
  */

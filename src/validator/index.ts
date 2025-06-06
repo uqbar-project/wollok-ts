@@ -25,7 +25,7 @@ import { Assignment, Body, Catch, Class, Code, Describe, Entity, Expression, Fie
   Level, Literal, Method, Mixin, Module, NamedArgument, New, Node, Package, Parameter,
   Problem,
   Program, Reference, Return, Self, Send, Sentence, Singleton, SourceMap, Super, Test, Throw, Try, Variable } from '../model'
-import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, targetSupertypes, unusedVariable, usesReservedWords, valueFor, parentModule, allLastSentences } from '../helpers'
+import { allParents, assignsVariable, duplicatesLocalVariable, entityIsAlreadyUsedInImport, findMethod, finishesFlow, getContainer, getInheritedUninitializedAttributes, getReferencedModule, getUninitializedAttributesForInstantiation, getVariableContainer, hasDuplicatedVariable, inheritsCustomDefinition, isAlreadyUsedInImport, hasBooleanValue, isBooleanMessage, isBooleanOrUnknownType, isEqualMessage, isGetter, isImplemented, isUninitialized, loopInAssignment, methodExists, methodIsImplementedInSuperclass, methodsCallingToSuper, referencesSingleton, returnsAValue, sendsMessageToAssert, superclassMethod, supposedToReturnValue, unusedVariable, usesReservedWords, valueFor, parentModule, allLastSentences, hasMoreThanOneSuperclass, superclassIsLastInLinearization } from '../helpers'
 import { sourceMapForBody, sourceMapForConditionInIf, sourceMapForNodeName, sourceMapForNodeNameOrFullNode, sourceMapForOnlyTest, sourceMapForOverrideMethod, sourceMapForReturnValue, sourceMapForUnreachableCode, sourceMapForValue } from './sourceMaps'
 import { valuesForFileName, valuesForNodeName } from './values'
 
@@ -207,16 +207,9 @@ export const shouldNotUseSelf = error<Self>(node => {
   return node.isSynthetic || !ancestors.some(is(Program)) || ancestors.some(is(Singleton))
 })
 
-export const shouldNotDefineMoreThanOneSuperclass = error<Class | Singleton>(node =>
-  count(targetSupertypes(node), _ => !!_ && _.is(Class)) <= 1
-)
+export const shouldNotDefineMoreThanOneSuperclass = error<Class | Singleton>(node => !hasMoreThanOneSuperclass(node))
 
-export const superclassShouldBeLastInLinearization = error<Class | Singleton>(node => {
-  const parents = targetSupertypes(node)
-  const hasSuperclass = notEmpty(parents.filter(_ => !!_ && _.is(Class)))
-  const lastParentInHierarchy = last(parents)
-  return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is(Class)
-})
+export const superclassShouldBeLastInLinearization = error<Class | Singleton>(node => superclassIsLastInLinearization(node))
 
 export const shouldMatchSuperclassReturnValue = error<Method>(method => {
   if (!method.isOverride || method.isAbstract() || method.isNative()) return true

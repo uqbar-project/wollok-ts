@@ -271,6 +271,32 @@ describe('Wollok Interpreter', () => {
         checkSuccessfulResult('import wollok.game.* ; var a = 1 ; a', '1')
       })
 
+      it('invalid inheritance - two superclasses', () => {
+        checkFailedResult(`
+          class Class1 {}
+          class Class2 {}
+          var incorrect1 = object inherits Class1 and Class2 {}
+          `, 'Evaluation Error!', 'object has more than one superclass')
+      })
+
+      it('invalid inheritance - superclass is not last in linearization', () => {
+        checkFailedResult(`
+          class Class1 {}
+          class Class2 {}
+          mixin SafeShop {}
+          const incorrect2 = object inherits Class1 and SafeShop {}
+          `, 'Evaluation Error!', 'object superclass should be last in linearization')
+      })
+
+      it('invalid inheritance - class inherits 2 classes', () => {
+        checkFailedResult(`
+          class Class1 {}
+          class Class2 {}
+          class Class3 inherits Class1 and Class2 {}
+          new Class3()
+          `, 'Evaluation Error!', 'Class3 has more than one superclass')
+      })
+
     })
 
     describe('static definitions', () => {
@@ -373,7 +399,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('for string', () => {
-        checkSuccessfulResult('"hola"', '"hola"')
+        checkSuccessfulResult('"hello"', '"hello"')
       })
 
       it('for boolean', () => {
