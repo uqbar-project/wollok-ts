@@ -781,11 +781,12 @@ export class Evaluation {
   *instantiate(moduleOrFQN: Module | Name, locals?: Record<Name, RuntimeValue | Execution<RuntimeObject>>): Execution<RuntimeObject> {
     const module = typeof moduleOrFQN === 'string' ? this.environment.getNodeByFQN<Module>(moduleOrFQN) : moduleOrFQN
     if (module.is(Singleton) || module.is(Class)) {
+      const entityName = module.name ?? 'object'
       if (hasMoreThanOneSuperclass(module)) {
-        throw new Error(`${module.name ?? 'Object'} has more than one superclass`)
+        throw new Error(`${entityName} has more than one superclass`)
       }
       if (!superclassIsLastInLinearization(module)) {
-        throw new Error(`${module.name ?? 'Object'} superclass should be last in linearization`)
+        throw new Error(`${entityName} superclass should be last in linearization`)
       }
     }
     const instance = new RuntimeObject(module, module.is(Singleton) && !module.name ? this.currentFrame : this.rootFrame)
