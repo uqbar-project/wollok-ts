@@ -275,8 +275,8 @@ describe('Wollok Interpreter', () => {
         checkFailedResult(`
           class Class1 {}
           class Class2 {}
-          var incorrecto1 = object inherits Class1 and Class2 {}
-          `, 'Evaluation Error!', 'Object has more than one superclass')
+          var incorrect1 = object inherits Class1 and Class2 {}
+          `, 'Evaluation Error!', 'object has more than one superclass')
       })
 
       it('invalid inheritance - superclass is not last in linearization', () => {
@@ -284,8 +284,8 @@ describe('Wollok Interpreter', () => {
           class Class1 {}
           class Class2 {}
           mixin SafeShop {}
-          const incorrecto2 = object inherits Class1 and SafeShop {}
-          `, 'Evaluation Error!', 'Object superclass should be last in linearization')
+          const incorrect2 = object inherits Class1 and SafeShop {}
+          `, 'Evaluation Error!', 'object superclass should be last in linearization')
       })
 
       it('invalid inheritance - class inherits 2 classes', () => {
@@ -399,7 +399,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('for string', () => {
-        checkSuccessfulResult('"hola"', '"hola"')
+        checkSuccessfulResult('"hello"', '"hello"')
       })
 
       it('for boolean', () => {
