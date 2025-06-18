@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.2.2
+**Wollok Version: `3.3.1`**
+- 📦 REPL accepts class, wkos and mixins definitions
+- 📟 Multisentence REPL support
+- 🔦 Validation fixes for should return a value on all flows
+- 🎮 Fix game board height & width
+
 ## v4.2.1
 **Wollok Version: `3.3.1`**
 - 🎥 New `io.serve()` native
