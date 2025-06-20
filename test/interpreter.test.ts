@@ -146,15 +146,23 @@ describe('Wollok Interpreter', () => {
       expect(getStackTraceSanitized(error)).to.deep.equal(errorMessage)
     }
 
-    const checkSuccessfulResult = (expression: string, expectedResult: string) => {
-      const { result, errored, error } = interprete(interpreter, expression)
+    const checkSuccessfulResultForDefinition = (expression: string, expectedResult: string) => {
+      checkSuccessfulResult(expression, expectedResult, true)
+    }
+
+    const checkSuccessfulResult = (expression: string, expectedResult: string, allowDefinitions = false) => {
+      const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
       error?.message.should.be.equal('')
       result.should.be.equal(expectedResult)
       errored.should.be.false
     }
 
-    const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string) => {
-      const { result, errored, error } = interprete(interpreter, expression)
+    const checkFailedResultForDefinition = (expression: string, errorMessageContains: string, stackContains?: string) => {
+      checkFailedResult(expression, errorMessageContains, stackContains, true)
+    }
+
+    const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string, allowDefinitions = false) => {
+      const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
       errored.should.be.true
       result.should.contains(errorMessageContains)
       stackContains && error?.message?.should.contains(stackContains)
@@ -272,7 +280,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('invalid inheritance - two superclasses', () => {
-        checkFailedResult(`
+        checkFailedResultForDefinition(`
           class Class1 {}
           class Class2 {}
           var incorrect1 = object inherits Class1 and Class2 {}
@@ -280,7 +288,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('invalid inheritance - superclass is not last in linearization', () => {
-        checkFailedResult(`
+        checkFailedResultForDefinition(`
           class Class1 {}
           class Class2 {}
           mixin SafeShop {}
@@ -289,7 +297,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('invalid inheritance - class inherits 2 classes', () => {
-        checkFailedResult(`
+        checkFailedResultForDefinition(`
           class Class1 {}
           class Class2 {}
           class Class3 inherits Class1 and Class2 {}
@@ -302,7 +310,7 @@ describe('Wollok Interpreter', () => {
     describe('static definitions', () => {
 
       it('class', () => {
-        checkSuccessfulResult(`class Bird {
+        checkSuccessfulResultForDefinition(`class Bird {
           var energy = 100
           method fly() {
             energy = energy - 10
@@ -311,7 +319,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('mixin', () => {
-        checkSuccessfulResult(`mixin Flyier {
+        checkSuccessfulResultForDefinition(`mixin Flyier {
           var energy = 100
           method fly() {
             energy = energy - 10
@@ -320,7 +328,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('singleton', () => {
-        checkSuccessfulResult(`object pepita {
+        checkSuccessfulResultForDefinition(`object pepita {
           var energy = 100
           method fly() {
             energy = energy - 10
@@ -329,14 +337,14 @@ describe('Wollok Interpreter', () => {
       })
 
       it('unnamed singleton', () => {
-        checkSuccessfulResult('object { } ', '')
+        checkSuccessfulResultForDefinition('object { } ', '')
       })
 
     })
 
     describe('using static definitions', () => {
       it('using a singleton', () => {
-        checkSuccessfulResult(`object pepita {
+        checkSuccessfulResultForDefinition(`object pepita {
           var energy = 100
           method energy() = energy
           method fly() {
@@ -348,7 +356,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('using a class', () => {
-        checkSuccessfulResult(`class Bird {
+        checkSuccessfulResultForDefinition(`class Bird {
           var property energy = 100
           method fly() {
             energy = energy - 10
@@ -360,7 +368,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('using a mixin', () => {
-        checkSuccessfulResult(`mixin Tracker {
+        checkSuccessfulResultForDefinition(`mixin Tracker {
           var property timesTracked = 0
           method track() {
             timesTracked = timesTracked + 1

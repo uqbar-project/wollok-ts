@@ -416,8 +416,10 @@ export const SentenceOrTopLevelDefinition = alt(
   Sentence,
 )
 
-export const MultilineSentence = alt(
-  alt(Import, SentenceOrTopLevelDefinition).skip(sentenceSeparator),
+export type MultilineNode = ImportNode | Annotation | ParseError | SentenceNode | MixinNode | ClassNode | SingletonNode
+
+export const MultilineSentence = (allowDefinitions: boolean): Parser<MultilineNode[]> => alt(
+  alt(Import, allowDefinitions ? SentenceOrTopLevelDefinition : Sentence).skip(sentenceSeparator),
   comment('inner').wrap(_, _),
   sentenceError
 ).many()

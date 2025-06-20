@@ -125,10 +125,10 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
 }
 
 
-export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
+export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
-    const parsedLine = parse.MultilineSentence.tryParse(line)
-    return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame)))!
+    const parsedLine = parse.MultilineSentence(allowDefinitions).tryParse(line)
+    return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame, allowDefinitions)))!
   } catch (error: any) {
     return (
       error.type === 'ParsimmonError' ? failureResult(`Syntax error:\n${error.message.split('\n').filter(notEmpty).slice(1).join('\n')}`) :
@@ -139,7 +139,7 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
   }
 }
 
-function interpreteExpression(expression: REPLExpression, interpreter: AbstractInterpreter, frame: Frame | undefined): ExecutionResult {
+function interpreteExpression(expression: REPLExpression, interpreter: AbstractInterpreter, frame: Frame | undefined, allowDefinitions = false): ExecutionResult {
   const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
   if (error) throw error
 
@@ -163,7 +163,7 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
     } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
   }
 
-  const result = expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
+  const result = allowDefinitions && expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
     addDefinitionToREPL(expression, interpreter) :
     frame ?
       interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
