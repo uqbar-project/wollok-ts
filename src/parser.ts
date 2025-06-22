@@ -416,8 +416,6 @@ export const SentenceOrTopLevelDefinition = alt(
   Sentence,
 )
 
-export type MultilineNode = ImportNode | Annotation | ParseError | SentenceNode | MixinNode | ClassNode | SingletonNode
-
 export const MultilineSentence = alt(
   alt(Import, SentenceOrTopLevelDefinition).skip(sentenceSeparator),
   comment('inner').wrap(_, _),
