@@ -111,11 +111,14 @@ export class WollokParametricType extends WollokModuleType {
 
     // If nothing changes, we can use the original TVar
     if (!changed) return super.instanceFor(instance, send)
-
-    // TODO: Creating a new syntetic TVar *each time* is not the best solution.
-    //      We should attach this syntetic TVar to the instance, so we can reuse it.
-    //      We also need to take care of MethodType (subclasses of ParametricType)
-    return instance.newInstance(name).setType(this.newFrom(resolvedParamTypes), false)
+    
+    // Here inside there is a cache system
+    const maybeNewInstance = instance.newInstance(name)
+    const newType = this.newFrom(resolvedParamTypes)
+    if (!maybeNewInstance.type().contains(newType)) {
+      maybeNewInstance.setType(newType, false)
+    }
+    return maybeNewInstance
   }
 
   addMinType(minType: WollokParametricType): void {
@@ -149,7 +152,8 @@ export class WollokParametricType extends WollokModuleType {
 
   sameParams(type: WollokParametricType): boolean {
     return [...this.params.entries()].every(([name, tVar]) =>
-      type.atParam(name) && (type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type())))
+      type.atParam(name) && (type.atParam(name).type().name == ANY || 
+        new WollokUnionType(tVar.allPossibleTypes()).contains(type.atParam(name).type())))
   }
 
   newFrom(newParams: Record<string, TypeVariable>) {
@@ -216,14 +220,13 @@ export class WollokParameterType {
 
   contains(type: WollokType): boolean {
     return type instanceof WollokParameterType && this.id === type.id
-    // throw new Error('Parameters types don\'t contain other types')
   }
 
   asList(): WollokType[] { return [this] }
-
+  
+  // Parameters types cannot be subtype of other types (invariant)
   isSubtypeOf(_type: WollokType): boolean {
     return false
-    // throw new Error('Parameters types cannot be subtype of other types (invariant)')
   }
 
   get name(): string { return this.id }
@@ -250,13 +253,13 @@ export class WollokUnionType {
     return type.asList().every(t => this.types.some(_ => _.contains(t)))
   }
 
-  asList(): WollokType[] { return this.types }
+  asList(): WollokType[] { return this.simplifiedTypes }
 
   isSubtypeOf(type: WollokType): boolean { return this.types.every(t => t.isSubtypeOf(type)) }
 
   get simplifiedTypes(): WollokType[] {
     return this.types
-      .reduce((acc, type) => [...acc.filter(t => !t.isSubtypeOf(type)), type] // Remove subtypes (are redundants)
+      .reduce((acc, type) => [...acc.filter(t => !type.asList().some(innerType => t.isSubtypeOf(innerType))), ...type.asList()] // Remove subtypes (are redundants)
         , [] as WollokType[])
   }
 

@@ -393,16 +393,15 @@ describe('Wollok Type System', () => {
         })
 
         it('To partial params inside an equivalent type', () => {
-          parametricType = new WollokParametricType(module, {
+          tVar = newSyntheticTVar().setType(new WollokParametricType(module, {
             'param1': newSyntheticTVar(),
             'param2': newSyntheticTVar().setType(otherStubType),
             'param3': newSyntheticTVar(),
-          })
+          }))
           const param1 = newSyntheticTVar().setType(stubType)
           const param2 = newSyntheticTVar()
           const param3 = newSyntheticTVar()
           const supertype = newSyntheticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false)
-          tVar.setType(parametricType)
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
@@ -438,7 +437,7 @@ describe('Wollok Type System', () => {
         const parameter = new WollokParameterType('MAP_TEST')
         const innerType = newSyntheticTVar().setType(parameter)
         const otherInnerType = newSyntheticTVar().setType(parameter)
-        tVar.setType(new WollokParametricType(module, { innerType, otherInnerType }))
+        tVar = newSyntheticTVar().setType(new WollokParametricType(module, { innerType, otherInnerType }))
 
         const instance = newSyntheticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
         const send = newSyntheticTVar() // Without send there is no instance
