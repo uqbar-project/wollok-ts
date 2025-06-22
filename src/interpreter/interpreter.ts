@@ -1,5 +1,5 @@
 import { REPL, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { isEmpty, last, notEmpty } from '../extensions'
+import { is, isEmpty, last, notEmpty } from '../extensions'
 import { isVoid } from '../helpers'
 import { linkInNode } from '../linker'
 import { Assignment, Class, Entity, Environment, Import, Method, Mixin, Module, Name, Node, Reference, Sentence, Singleton, Variable } from '../model'
@@ -127,7 +127,13 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
-    const parsedLine = parse.MultilineSentence(allowDefinitions).tryParse(line)
+    const parsedLine = parse.MultilineSentence.tryParse(line)
+    if (!allowDefinitions) {
+      const definitions = parsedLine.filter(_ => is(Class)(_) || is(Singleton)(_) && !_.isClosure() || is(Mixin)(_)) as (Class | Singleton | Mixin)[]
+      if (notEmpty(definitions)) {
+        return failureResult(`Definitions are not allowed here: ${definitions.map(_ => _.name ?? '').join(', ')}`)
+      }
+    }
     return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame, allowDefinitions)))!
   } catch (error: any) {
     return (

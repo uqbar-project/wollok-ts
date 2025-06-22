@@ -342,6 +342,44 @@ describe('Wollok Interpreter', () => {
 
     })
 
+    describe('trying to create definitions without allowDefinitions flag', () => {
+      it('should fail for class', () => {
+        checkFailedResult(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: Bird')
+      })
+
+      it('should fail for mixin', () => {
+        checkFailedResult(`mixin Flyier {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: Flyier')
+      })
+
+      it('should fail for singleton', () => {
+        checkFailedResult(`object pepita {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: pepita')
+      })
+
+      it('should pass for anonymous singleton', () => {
+        checkSuccessfulResult(`const pepita = object {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+    })
+
     describe('using static definitions', () => {
       it('using a singleton', () => {
         checkSuccessfulResultForDefinition(`object pepita {
