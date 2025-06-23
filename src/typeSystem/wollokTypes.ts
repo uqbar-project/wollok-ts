@@ -267,6 +267,7 @@ export class WollokUnionType {
   get kind(): string { return this.printBy(_ => _.kind) }
 
   printBy(property: (type: WollokType) => string): string {
+    if (this.simplifiedTypes.length === 1) return this.simplifiedTypes[0].name
     return `(${this.simplifiedTypes.map(property).join(' | ')})`
   }
 

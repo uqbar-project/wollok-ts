@@ -161,7 +161,10 @@ const inferMethod = (m: Method) => {
   if (m.sentences.length) {
     const lastSentence = last(m.sentences)!
     if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
-      method.atParam(RETURN)!.beSupertypeOf(typeVariableFor(lastSentence))
+      if(lastSentence.is(Variable))
+        method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
+      else
+        method.atParam(RETURN)!.beSupertypeOf(typeVariableFor(lastSentence))
     }
   } else { // Empty body
     method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
@@ -293,7 +296,7 @@ export class TypeVariable {
 
 
   type(): WollokType { return this.typeInfo.type() }
-  atParam(name: string): TypeVariable | null { return this.type().atParam(name) }
+  atParam(name: string): TypeVariable /** | null */ { return this.type().atParam(name)! }
   newInstance(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
       this.cachedParams.set(name, newSyntheticTVar(this.node)).get(name)!
@@ -412,8 +415,8 @@ class TypeInfo {
   }
 
   setType(type: WollokType, closed = true) {
-    if (this.minTypes.length) throw "ASD"
-    if (this.maxTypes.length) throw "ASDa"
+    if (this.minTypes.length + this.maxTypes.length > 0)
+      console.warn(`Overriding type for ${this.minTypes} and ${this.maxTypes} with ${type}`)
     this.minTypes = [type]
     this.maxTypes = [type]
     this.closed = closed
@@ -421,8 +424,7 @@ class TypeInfo {
 
   addMinType(type: WollokType) {
     if (this.minTypes.some(minType => minType.contains(type))) return
-    if (this.closed)
-      throw new Error('Variable inference finalized')
+    if (this.closed) throw new Error('Variable inference finalized')
 
     // Try to fill inner types!
     // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
@@ -436,9 +438,7 @@ class TypeInfo {
 
   addMaxType(type: WollokType) {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
-    if (this.minTypes.some(minType => minType.contains(type))) return // TODO: Check min/max types compatibility
-    if (this.closed)
-      throw new Error('Variable inference finalized')
+    if (this.closed) throw new Error('Variable inference finalized')
 
     // Try to fill inner types!
     // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
