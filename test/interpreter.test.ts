@@ -352,6 +352,18 @@ describe('Wollok Interpreter', () => {
         }`, 'Definitions are not allowed here: Bird')
       })
 
+      it('should fail for several classes', () => {
+        checkFailedResult(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }
+          
+        class OtherClass {
+        }`, 'Definitions are not allowed here: Bird, OtherClass')
+      })
+
       it('should fail for mixin', () => {
         checkFailedResult(`mixin Flyier {
           var energy = 100
