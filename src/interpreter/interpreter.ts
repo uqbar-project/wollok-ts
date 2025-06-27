@@ -1,5 +1,5 @@
 import { REPL, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
-import { isEmpty, last, notEmpty } from '../extensions'
+import { is, isEmpty, last, notEmpty } from '../extensions'
 import { isVoid } from '../helpers'
 import { linkInNode } from '../linker'
 import { Assignment, Class, Entity, Environment, Import, Method, Mixin, Module, Name, Node, Reference, Sentence, Singleton, Variable } from '../model'
@@ -125,10 +125,16 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
 }
 
 
-export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame): ExecutionResult {
+export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
     const parsedLine = parse.MultilineSentence.tryParse(line)
-    return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame)))!
+    if (!allowDefinitions) {
+      const definitions = parsedLine.filter(_ => is(Class)(_) || is(Singleton)(_) && !_.isClosure() || is(Mixin)(_)) as (Class | Singleton | Mixin)[]
+      if (notEmpty(definitions)) {
+        return failureResult(`Definitions are not allowed here: ${definitions.map(_ => _.name ?? '').join(', ')}`)
+      }
+    }
+    return isEmpty(parsedLine) ? successResult('') : last(parsedLine.map(expression => interpreteExpression(expression as unknown as REPLExpression, interpreter, frame, allowDefinitions)))!
   } catch (error: any) {
     return (
       error.type === 'ParsimmonError' ? failureResult(`Syntax error:\n${error.message.split('\n').filter(notEmpty).slice(1).join('\n')}`) :
@@ -139,7 +145,7 @@ export function interprete(interpreter: AbstractInterpreter, line: string, frame
   }
 }
 
-function interpreteExpression(expression: REPLExpression, interpreter: AbstractInterpreter, frame: Frame | undefined): ExecutionResult {
+function interpreteExpression(expression: REPLExpression, interpreter: AbstractInterpreter, frame: Frame | undefined, allowDefinitions = false): ExecutionResult {
   const error = [expression, ...expression.descendants].flatMap(_ => _.problems ?? []).find(_ => _.level === 'error')
   if (error) throw error
 
@@ -163,7 +169,7 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
     } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
   }
 
-  const result = expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
+  const result = allowDefinitions && expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
     addDefinitionToREPL(expression, interpreter) :
     frame ?
       interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
