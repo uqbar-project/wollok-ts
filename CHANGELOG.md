@@ -1,5 +1,8 @@
 # Changelog
 
+## v4.2.3
+**Wollok Version: `3.4.0`**
+
 ## v4.2.2
 **Wollok Version: `3.3.1`**
 - 📦 REPL accepts class, wkos and mixins definitions
