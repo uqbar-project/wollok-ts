@@ -294,7 +294,7 @@ describe('Wollok Type System', () => {
     xit('should match argument types', () => {
       const numberComparison = newSend('>', 1)
       // TODO: Type argument as Number
-      tVar.addSend(numberComparison) 
+      tVar.addSend(numberComparison)
       maxTypeFromMessages(tVar).should.be.true
 
       assertMaxTypes(tVar, 'Number')

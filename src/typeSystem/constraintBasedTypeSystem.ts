@@ -126,7 +126,7 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
 
 export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.closed) return false
-  if (tVar.node?.is(Send)) return false // Bind messages from receiver types in message chain 
+  if (tVar.node?.is(Send)) return false // Bind messages from receiver types in message chain
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure

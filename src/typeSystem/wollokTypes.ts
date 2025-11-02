@@ -64,8 +64,8 @@ export class WollokModuleType {
 
   contains(type: WollokType): boolean {
     return type instanceof WollokModuleType && (this.module === type.module
-      || (this.module instanceof Singleton && type.module instanceof Singleton && this.module.isClosure() && type.module.isClosure())
-      || (!(type.module instanceof Singleton && type.module.isClosure()) && type.module.inherits(this.module)))
+      || this.module instanceof Singleton && type.module instanceof Singleton && this.module.isClosure() && type.module.isClosure()
+      || !(type.module instanceof Singleton && type.module.isClosure()) && type.module.inherits(this.module))
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
@@ -157,7 +157,7 @@ export class WollokParametricType extends WollokModuleType {
         new WollokUnionType(tVar.allPossibleTypes()).contains(type.atParam(name).type())))
   }
 
-  newFrom(newParams: Record<string, TypeVariable>) {
+  newFrom(newParams: Record<string, TypeVariable>): WollokParametricType {
     return new WollokParametricType(this.module, newParams)
   }
 }
@@ -181,7 +181,7 @@ export class WollokMethodType extends WollokParametricType {
     return `(${params}) => ${returnType}`
   }
 
-  override newFrom(newParams: Record<string, TypeVariable>) {
+  override newFrom(newParams: Record<string, TypeVariable>): WollokMethodType {
     return new WollokMethodType(newParams[RETURN], [], newParams, this.module)
   }
 }
@@ -194,7 +194,7 @@ export class WollokClosureType extends WollokMethodType {
 
   get name(): string { return `{ ${super.name} }` }
 
-  override newFrom(newParams: Record<string, TypeVariable>) {
+  override newFrom(newParams: Record<string, TypeVariable>): WollokClosureType {
     return new WollokClosureType(newParams[RETURN], Object.values(newParams).filter(tVar => tVar != newParams[RETURN]), this.module)
   }
 }

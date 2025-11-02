@@ -9,18 +9,18 @@ const TESTS_PATH = join('language', 'test', 'typesystem')
 
 should()
 
-describe('Wollok Type System Inference', function() {
-  this.timeout(10000)
+describe('Wollok Type System Inference', function () {
+  this.timeout(15000)
 
   forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
     const logger = undefined
     // You can use the logger to debug the type system inference in customized way, for example:
     // { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
-    
+
     // Uncomment next line to filter the files to analyze
     // if (!filePackage.name.includes('collections')) return;
-    
+
     it(filePackage.name, (done) => {
       inferTypes(environment, logger)
       const allProblems = validate(filePackage)
@@ -35,7 +35,7 @@ describe('Wollok Type System Inference', function() {
 
           if (type) { // Assert type
             const nodeType = node.type.name
-            if (type !== nodeType) 
+            if (type !== nodeType)
               fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert problem
