@@ -146,15 +146,23 @@ describe('Wollok Interpreter', () => {
       expect(getStackTraceSanitized(error)).to.deep.equal(errorMessage)
     }
 
-    const checkSuccessfulResult = (expression: string, expectedResult: string) => {
-      const { result, errored, error } = interprete(interpreter, expression)
+    const checkSuccessfulResultForDefinition = (expression: string, expectedResult: string) => {
+      checkSuccessfulResult(expression, expectedResult, true)
+    }
+
+    const checkSuccessfulResult = (expression: string, expectedResult: string, allowDefinitions = false) => {
+      const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
       error?.message.should.be.equal('')
       result.should.be.equal(expectedResult)
       errored.should.be.false
     }
 
-    const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string) => {
-      const { result, errored, error } = interprete(interpreter, expression)
+    const checkFailedResultForDefinition = (expression: string, errorMessageContains: string, stackContains?: string) => {
+      checkFailedResult(expression, errorMessageContains, stackContains, true)
+    }
+
+    const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string, allowDefinitions = false) => {
+      const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
       errored.should.be.true
       result.should.contains(errorMessageContains)
       stackContains && error?.message?.should.contains(stackContains)
@@ -166,6 +174,10 @@ describe('Wollok Interpreter', () => {
     })
 
     describe('expressions', () => {
+
+      it('empty expression', () => {
+        checkSuccessfulResult('', '')
+      })
 
       it('value expressions', () => {
         checkSuccessfulResult('1 + 2', '3')
@@ -199,7 +211,7 @@ describe('Wollok Interpreter', () => {
       })
 
       it('not parsing strings', () => {
-        checkFailedResult('3kd3id9', 'Syntax error')
+        checkFailedResult('3kd3id9', 'Unknown reference kd3id9')
       })
 
       it('failure expressions', () => {
@@ -225,6 +237,209 @@ describe('Wollok Interpreter', () => {
         checkFailedResult('const a = 2', 'Evaluation Error!')
       })
 
+      it('unlinked class should show error', () => {
+        checkFailedResult('const pepita = new Bird()', 'Unknown reference Bird')
+      })
+
+      it('missing generic import should show error', () => {
+        checkFailedResult('import some.*', 'Unknown reference some')
+      })
+
+      it('missing specific import should show error', () => {
+        checkFailedResult('import some.Bird', 'Unknown reference some.Bird')
+      })
+
+      it('parse error', () => {
+        checkFailedResult('class {}', 'Syntax Error at offset 0: class')
+      })
+
+    })
+
+    describe('multiple sentences', () => {
+      it('should execute all sentences (no enter)', () => {
+        checkSuccessfulResult('var a = 1 ; a = a + 2; a', '3')
+        checkSuccessfulResult('var b = 1;b = b + 2;b', '3')
+      })
+
+      it('should execute all sentences (using several enters and semicolon)', () => {
+        checkSuccessfulResult(`var word = "hey" ;
+          word = word + " jude";
+          word
+        `, '"hey jude"')
+      })
+
+      it('should execute all sentences (using several enters, no semicolon)', () => {
+        checkSuccessfulResult(`var word = "hey"
+          word = word + " jude"
+          word
+        `, '"hey jude"')
+      })
+
+      it('should work with imports', () => {
+        checkSuccessfulResult('import wollok.game.* ; var a = 1 ; a', '1')
+      })
+
+      it('invalid inheritance - two superclasses', () => {
+        checkFailedResultForDefinition(`
+          class Class1 {}
+          class Class2 {}
+          var incorrect1 = object inherits Class1 and Class2 {}
+          `, 'Evaluation Error!', 'object has more than one superclass')
+      })
+
+      it('invalid inheritance - superclass is not last in linearization', () => {
+        checkFailedResultForDefinition(`
+          class Class1 {}
+          class Class2 {}
+          mixin SafeShop {}
+          const incorrect2 = object inherits Class1 and SafeShop {}
+          `, 'Evaluation Error!', 'object superclass should be last in linearization')
+      })
+
+      it('invalid inheritance - class inherits 2 classes', () => {
+        checkFailedResultForDefinition(`
+          class Class1 {}
+          class Class2 {}
+          class Class3 inherits Class1 and Class2 {}
+          new Class3()
+          `, 'Evaluation Error!', 'Class3 has more than one superclass')
+      })
+
+    })
+
+    describe('static definitions', () => {
+
+      it('class', () => {
+        checkSuccessfulResultForDefinition(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('mixin', () => {
+        checkSuccessfulResultForDefinition(`mixin Flyier {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('singleton', () => {
+        checkSuccessfulResultForDefinition(`object pepita {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+
+      it('unnamed singleton', () => {
+        checkSuccessfulResultForDefinition('object { } ', '')
+      })
+
+    })
+
+    describe('trying to create definitions without allowDefinitions flag', () => {
+      it('should fail for class', () => {
+        checkFailedResult(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: Bird')
+      })
+
+      it('should fail for several classes', () => {
+        checkFailedResult(`class Bird {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }
+          
+        class OtherClass {
+        }`, 'Definitions are not allowed here: Bird, OtherClass')
+      })
+
+      it('should fail for mixin', () => {
+        checkFailedResult(`mixin Flyier {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: Flyier')
+      })
+
+      it('should fail for singleton', () => {
+        checkFailedResult(`object pepita {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, 'Definitions are not allowed here: pepita')
+      })
+
+      it('should pass for anonymous singleton', () => {
+        checkSuccessfulResult(`const pepita = object {
+          var energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        }`, '')
+      })
+    })
+
+    describe('using static definitions', () => {
+      it('using a singleton', () => {
+        checkSuccessfulResultForDefinition(`object pepita {
+          var energy = 100
+          method energy() = energy
+          method fly() {
+            energy = energy - 10
+          }
+        } ;
+        pepita.fly() ;
+        pepita.energy()`, '90')
+      })
+
+      it('using a class', () => {
+        checkSuccessfulResultForDefinition(`class Bird {
+          var property energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        } ;
+        const pepita = new Bird() ;
+        pepita.fly() ;
+        pepita.energy()`, '90')
+      })
+
+      it('using a mixin', () => {
+        checkSuccessfulResultForDefinition(`mixin Tracker {
+          var property timesTracked = 0
+          method track() {
+            timesTracked = timesTracked + 1
+          }
+        } ;
+        class Bird {
+          var property energy = 100
+          method fly() {
+            energy = energy - 10
+          }
+        };
+        const pepita = object inherits Tracker and Bird {
+          method fly() {
+            super()
+            self.track()
+          }
+        };
+        pepita.fly();
+        pepita.timesTracked()`, '1')
+      })
+
     })
 
     describe('should print result', () => {
@@ -237,18 +452,12 @@ describe('Wollok Interpreter', () => {
         checkSuccessfulResult('new Object()', 'an Object')
       })
 
-      it('for reference to a literal object', () => {
-        const { result, errored } = interprete(interpreter, 'object { } ')
-        result.should.include('an Object#')
-        errored.should.be.false
-      })
-
       it('for number', () => {
         checkSuccessfulResult('3', '3')
       })
 
       it('for string', () => {
-        checkSuccessfulResult('"hola"', '"hola"')
+        checkSuccessfulResult('"hello"', '"hello"')
       })
 
       it('for boolean', () => {
@@ -301,7 +510,7 @@ describe('Wollok Interpreter', () => {
           name: 'persona.wlk', content: `
           class Persona {
             const enfermedades = []
-            
+
             method contraerEnfermedad(unaEnfermedad) {
 
               enfermedades.add(unaEnfermedad)
@@ -371,7 +580,7 @@ describe('Wollok Interpreter', () => {
           name: 'persona.wlk', content: `
           class Persona {
             const enfermedades = []
-            
+
             method contraerEnfermedad(unaEnfermedad) {
 
               enfermedades.add(unaEnfermedad)
@@ -491,7 +700,7 @@ describe('Wollok Interpreter', () => {
               energy = 4 * minutes + energy
             }
           }
-            
+
           class MockingBird inherits Bird {
             override method fly(minutes) {
               super([1, 2].add(4))
@@ -657,7 +866,7 @@ describe('Wollok Interpreter', () => {
               return new Date().plusDays(new Date())
             }
           }
-          
+
           class Ave {
             var energy = 100
             const formaVolar = comun
