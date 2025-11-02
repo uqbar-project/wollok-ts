@@ -14,11 +14,12 @@ describe('Wollok Type System Inference', function() {
 
   forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
-    const logger = // undefined
+    const logger = undefined
     // You can use the logger to debug the type system inference in customized way, for example:
-    { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
+    // { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
     
-    // if (!filePackage.name.includes('instantiation')) return;
+    // Uncomment next line to filter the files to analyze
+    // if (!filePackage.name.includes('collections')) return;
     
     it(filePackage.name, (done) => {
       inferTypes(environment, logger)

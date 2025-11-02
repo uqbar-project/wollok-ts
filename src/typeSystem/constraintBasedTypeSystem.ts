@@ -89,8 +89,12 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
-      if (send.receiver !== tVar.node) continue // should only bind the methods from the receiver types
-
+      /**
+       * Only bind the sends from the receiver node!
+       * The Tvar could have other sends because of the propagation
+       *  -> The send propagation is important for maxTypeFromMessages pass
+       */
+      if (send.receiver !== tVar.node) continue
       const message = send.message == APPLY_METHOD ? CLOSURE_EVALUATE_METHOD : send.message // 'apply' is a special case for closures
       const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
@@ -300,6 +304,7 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
 function validateUnderstandMessage(tVar: TypeVariable, send: Send, source?: TypeVariable) {
   for (const type of tVar.allPossibleTypes()) {
     if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
+      // TODO: check tVar and Source have different types
       return source?.hasTypeInfered() ? reportTypeMismatch(tVar, source.type(), type) : reportMethodNotFound(tVar, send, type)
   }
   return false
