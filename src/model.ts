@@ -329,7 +329,7 @@ export class Package extends Entity(Node) {
 
     return ancestorNames.reduce<Package>((member, name) =>
       new Package({ name, members: [member] })
-    , this)
+      , this)
   }
 
   @cached
@@ -533,7 +533,7 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
 
       return this.hierarchy.reduceRight((defaultValue, module) =>
         module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-      , field.value)
+        , field.value)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
@@ -864,7 +864,8 @@ export class If extends Expression(Node) {
   }
 
   isIfExpression(): boolean {
-    return !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression)
+    return  !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression) &&
+            !last(this.thenBody.sentences)!.is(Return) && !last(this.elseBody.sentences)!.is(Return)
   }
 }
 
@@ -917,7 +918,7 @@ type ClosurePayload = {
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
   const initialSentences = sentences?.slice(0, -1) ?? []
-  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && !value.is(Return) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: CLOSURE_MODULE }) })],

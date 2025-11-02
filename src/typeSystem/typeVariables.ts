@@ -1,8 +1,8 @@
 import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
+import { overridenMethod, superMethodDefinition } from '../helpers'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, SELF, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
-import { overridenMethod, superMethodDefinition } from '../helpers'
 
 const { assign } = Object
 
@@ -146,7 +146,7 @@ const inferNamedArgument = (n: NamedArgument) => {
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
 
-  if (m.isOverride && overridenMethod(m)) 
+  if (m.isOverride && overridenMethod(m))
     typeVariableFor(overridenMethod(m)!).beSupertypeOf(method)
 
   // Base methods should be typed by annotations, avoid complex inference.
@@ -159,13 +159,8 @@ const inferMethod = (m: Method) => {
 
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
-    const lastSentence = last(m.sentences)!
-    if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
-      if(lastSentence.is(Variable))
-        method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
-      else
-        method.atParam(RETURN)!.beSupertypeOf(typeVariableFor(lastSentence))
-    }
+    const returns = m.descendants.filter(is(Return)).filter(ret => ret.ancestors.find(is(Method)) == m)
+    if (!returns.length) method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   } else { // Empty body
     method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   }
@@ -206,11 +201,15 @@ const inferParameter = (p: Parameter) => {
 const inferReturn = (r: Return) => {
   const method = r.ancestors.find(is(Method))
   if (!method) throw new Error('Method for Return not found')
-  if (r.value)
-    typeVariableFor(method).atParam(RETURN)!.beSupertypeOf(inferTypeVariables(r.value)!)
-  else
+  if (r.value) {
+    const tVar = inferTypeVariables(r.value)!
+    typeVariableFor(method).atParam(RETURN)!.beSupertypeOf(tVar)
+    return typeVariableFor(r).beSupertypeOf(tVar)
+  }
+  else {
     typeVariableFor(method).atParam(RETURN)!.setType(new WollokAtomicType(VOID))
-  return typeVariableFor(r).setType(new WollokAtomicType(VOID))
+    return typeVariableFor(r).setType(new WollokAtomicType(VOID))
+  }
 }
 
 const inferIf = (_if: If) => {
@@ -424,7 +423,7 @@ class TypeInfo {
 
   addMinType(type: WollokType) {
     if (this.minTypes.some(minType => minType.contains(type))) return
-    if (this.closed) 
+    if (this.closed)
       throw new Error('Variable inference finalized')
 
     // Try to fill inner types!
