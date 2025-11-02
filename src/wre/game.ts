@@ -89,33 +89,6 @@ const game: Natives = {
       return yield* getObjectsIn.call(this, position, ...otherVisuals)
     },
 
-    *title(self: RuntimeObject, title?: RuntimeObject): Execution<RuntimeValue> {
-      if (!title) return self.get('title')
-      self.set('title', title)
-    },
-
-    *width(self: RuntimeObject, width?: RuntimeObject): Execution<RuntimeValue> {
-      if (!width) return self.get('width')
-      self.set('width', width)
-    },
-
-    *height(self: RuntimeObject, height?: RuntimeObject): Execution<RuntimeValue> {
-      if (!height) return self.get('height')
-      self.set('height', height)
-    },
-
-    *ground(self: RuntimeObject, image: RuntimeObject): Execution<void> {
-      self.set('ground', image)
-    },
-
-    *boardGround(self: RuntimeObject, boardGround: RuntimeObject): Execution<void> {
-      self.set('boardGround', boardGround)
-    },
-
-    *doCellSize(self: RuntimeObject, size: RuntimeObject): Execution<void> {
-      self.set('cellSize', size)
-    },
-
     *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       visual.set('showAttributes', yield* this.reify(true))
     },

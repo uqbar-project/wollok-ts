@@ -1,5 +1,23 @@
 # Changelog
 
+## v4.2.3
+**Wollok Version: `3.4.0`**
+
+## v4.2.2
+**Wollok Version: `3.3.1`**
+- 📦 REPL accepts class, wkos and mixins definitions
+- 📟 Multisentence REPL support
+- 🔦 Validation fixes for should return a value on all flows
+- 🎮 Fix game board height & width
+
+## v4.2.1
+**Wollok Version: `3.3.1`**
+- 🎥 New `io.serve()` native
+- 🤖 Support for `native` on user programs
+- 👾 Wollok Game `property` optimization
+- 🛠 Util functions for dependencies
+- 🛸 Improve Type System inference
+
 ## v4.2.0
 **Wollok Version: `3.3.0`**
 - 🟰 Avoid redefine identity
