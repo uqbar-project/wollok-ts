@@ -1,8 +1,8 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, WOLLOK_BASE_PACKAGE } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
-import { newTypeVariables, typeForModule, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
+import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
+import { ANY, PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokParameterType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -180,11 +180,21 @@ function allObjectsUnderstand(send: Send) {
 function allModulesThatUnderstand(environment: Environment, sends: Send[]): Module[] {
   return environment.descendants
     .filter(is(Module))
-    .filter(module => sends.every(send =>
-      // TODO: check params and return types
-      module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-    ))
+    .filter(module => sends.every(send => {
+      const method = module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+      if (!method || method.hasProblems) return false
+      return matchArgumentTypes(method, send)
+    }))
+}
 
+function matchArgumentTypes(method: Method, send: Send) {
+  return method.parameters.every((p, index) => {
+    const param = typeVariableFor(p)
+    const arg = typeVariableFor(send.args[index])
+    return param.type().name == ANY || arg.type().name == ANY ||
+      param.type() instanceof WollokParameterType || arg.type() instanceof WollokParameterType ||
+      param.type().contains(arg.type())
+  })
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════

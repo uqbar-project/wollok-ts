@@ -259,9 +259,9 @@ const inferLiteral = (l: Literal) => {
   const tVar = typeVariableFor(l)
   const { numberClass, stringClass, booleanClass } = l.environment
   switch (typeof l.value) {
-    case 'number': return tVar.setType(new WollokModuleType(numberClass))
-    case 'string': return tVar.setType(new WollokModuleType(stringClass))
-    case 'boolean': return tVar.setType(new WollokModuleType(booleanClass))
+    case 'number': return tVar.setType(new WollokParametricType(numberClass))
+    case 'string': return tVar.setType(new WollokParametricType(stringClass))
+    case 'boolean': return tVar.setType(new WollokParametricType(booleanClass))
     case 'object':
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
       if (l.isNull()) return tVar //tVar.setType('Nullable?')

@@ -291,6 +291,15 @@ describe('Wollok Type System', () => {
       assertMaxTypes(tVar, stubType.name, otherStubType.name)
     })
 
+    xit('should match argument types', () => {
+      const numberComparison = newSend('>', 1)
+      // TODO: Type argument as Number
+      tVar.addSend(numberComparison) 
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
+    })
+
     it('should infer maximal types that implements all messages', () => {
       tVar.addSend(newSend('+', 1))
       tVar.addSend(newSend('even'))
