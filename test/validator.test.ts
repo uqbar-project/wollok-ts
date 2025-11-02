@@ -26,7 +26,7 @@ describe('Wollok Validations', () => {
 
         for (const problem of problems) {
           if (!expectedProblems.some(expectedProblem => matchesExpectationProblem(problem, node, expectedProblem)))
-            fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
+            fail(`Unexpected ${problem.code} ${problem.level} at ${node}`)
         }
       })
     })

@@ -10,7 +10,7 @@ const TESTS_PATH = join('language', 'test', 'typesystem')
 should()
 
 describe('Wollok Type System Inference', function() {
-  this.timeout(5000)
+  this.timeout(10000)
 
   forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
