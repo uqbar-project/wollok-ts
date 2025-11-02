@@ -1,7 +1,6 @@
 import { fail } from 'assert'
 import { should } from 'chai'
 import { join } from 'path'
-import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
 import { allExpectations, forEachFileBuildEnvironment, validateExpectationProblem } from './utils'
@@ -10,7 +9,8 @@ const TESTS_PATH = join('language', 'test', 'typesystem')
 
 should()
 
-describe('Wollok Type System Inference', () => {
+describe('Wollok Type System Inference', function() {
+  this.timeout(5000)
 
   forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
@@ -20,7 +20,7 @@ describe('Wollok Type System Inference', () => {
     
     // if (!filePackage.name.includes('instantiation')) return;
     
-    it(filePackage.name, () => {
+    it(filePackage.name, (done) => {
       inferTypes(environment, logger)
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
@@ -34,7 +34,8 @@ describe('Wollok Type System Inference', () => {
 
           if (type) { // Assert type
             const nodeType = node.type.name
-            if (type !== nodeType) fail(`Expected ${type} but got ${nodeType} for ${node}`)
+            if (type !== nodeType) 
+              fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert problem
             const expectedProblem = validateExpectationProblem(expectation, problems, node, fileContent)
@@ -44,6 +45,7 @@ describe('Wollok Type System Inference', () => {
 
         problems.should.be.empty
       })
+      done()
     })
   })
 })

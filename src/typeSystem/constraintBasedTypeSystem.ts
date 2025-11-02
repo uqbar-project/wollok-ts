@@ -1,4 +1,4 @@
-import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
+import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, WOLLOK_BASE_PACKAGE } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
 import { newTypeVariables, typeForModule, TypeVariable, typeVariableFor } from './typeVariables'
@@ -128,9 +128,11 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
   let changed = false
 
-  const [possibleTypes, mnuMessages] = inferMaxTypesFromMessagesFor(tVar) // Maybe we should remove from original collection for performance reason?
+  const [allPossibleModules, mnuMessages] = inferModulesFromMessages(tVar.messages) // Maybe we should remove from original collection for performance reason?
+  const compatibleModules = compatiblesModulesForInference(allPossibleModules)
+  const maxTypes = compatibleModules.map(module => typeVariableFor(module).instanceFor(tVar).type())
 
-  for (const type of possibleTypes)
+  for (const type of maxTypes)
     if (!tVar.hasType(type)) {
       tVar.addMaxType(type)
       logger.log(`NEW MAX TYPE |${type}| FOR |${tVar}|`)
@@ -147,33 +149,35 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   return changed
 }
 
-function inferMaxTypesFromMessagesFor(tVar: TypeVariable): [WollokType[], Send[]] {
-  const messages = [...tVar.messages]
-  if (messages.every(allObjectsUnderstand)) return [[objectType(messages[0])], []]
-  let possibleTypes = allTypesThatUndestand(tVar, messages)
-  const mnuMessages: Send[] = [] // Maybe we should check this when max types are propagated?
-  while (!possibleTypes.length) { // Here we have a problem
-    mnuMessages.push(messages.pop()!) // Search in a subset
-    if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
-    possibleTypes = allTypesThatUndestand(tVar, messages)
-  }
-  return [possibleTypes, mnuMessages]
+function compatiblesModulesForInference(modules: Module[]): Module[] {
+  modules = modules.reduce((acc, module) => [
+    ...acc.filter(m => !m.inherits(module)),
+    ...acc.some(m => module.inherits(m)) ? [] : [module]],
+    [] as Module[])
+  const languageModules = modules.filter(m => m.fullyQualifiedName.startsWith(WOLLOK_BASE_PACKAGE))
+  if (languageModules.length > 1) return []
+  return modules
 }
 
-function allTypesThatUndestand(tVar: TypeVariable, messages: Send[]): WollokType[] {
-  const { environment } = messages[0]
-  return allModulesThatUnderstand(environment, messages).map(module => typeVariableFor(module).instanceFor(tVar).type())
+function inferModulesFromMessages(messages: Send[]): [Module[], Send[]] {
+  const { environment } = messages[0] // TODO: More global access
+  if (messages.every(allObjectsUnderstand)) return [[], []] // Do NOT infer Object
+  let possibleTypes = allModulesThatUnderstand(environment, messages)
+  messages = [...messages] // Copy for pop
+  const mnuMessages: Send[] = [] // Maybe we should check this when max types are propagated?
+  while (!possibleTypes.length) { // Here we have a problem
+    mnuMessages.push(messages.pop()!) // Search in a subset (TODO: check all combinations)
+    if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
+    possibleTypes = allModulesThatUnderstand(environment, messages)
+  }
+  return [possibleTypes, mnuMessages]
 }
 
 function allObjectsUnderstand(send: Send) {
   return send.environment.objectClass.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
 }
 
-function objectType(node: Node) {
-  return typeForModule(node.environment.objectClass)
-}
-
-function allModulesThatUnderstand(environment: Environment, sends: Send[]) {
+function allModulesThatUnderstand(environment: Environment, sends: Send[]): Module[] {
   return environment.descendants
     .filter(is(Module))
     .filter(module => sends.every(send =>
