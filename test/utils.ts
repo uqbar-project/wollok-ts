@@ -20,7 +20,7 @@ const buildEnvironmentFromPath = (sameEnvironment: boolean) => (folderPath: stri
 
   for (const file of files) {
     const environment = sameEnvironment ? baseEnvironment : buildEnv([file], baseEnvironment)
-    const packageName = file.name.split('.')[0]
+    const packageName = file.name.split('.')[0].replace(/\//g, '.')
     iterator(environment.getNodeByFQN(packageName), file)
   }
 }
