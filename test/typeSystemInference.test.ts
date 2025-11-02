@@ -10,7 +10,6 @@ const TESTS_PATH = join('language', 'test', 'typesystem')
 should()
 
 describe('Wollok Type System Inference', function () {
-  this.timeout(15000)
 
   forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
@@ -21,7 +20,9 @@ describe('Wollok Type System Inference', function () {
     // Uncomment next line to filter the files to analyze
     // if (!filePackage.name.includes('collections')) return;
 
-    it(filePackage.name, (done) => {
+    it(filePackage.name, function (done) {
+      this.timeout(5000)
+
       inferTypes(environment, logger)
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
