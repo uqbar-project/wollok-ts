@@ -1,7 +1,7 @@
 import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
+import { ANY, AtomicType, ELEMENT, RETURN, SELF, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 import { overridenMethod, superMethodDefinition } from '../helpers'
 
 const { assign } = Object
@@ -424,7 +424,8 @@ class TypeInfo {
 
   addMinType(type: WollokType) {
     if (this.minTypes.some(minType => minType.contains(type))) return
-    if (this.closed) throw new Error('Variable inference finalized')
+    if (this.closed) 
+      throw new Error('Variable inference finalized')
 
     // Try to fill inner types!
     // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
@@ -530,7 +531,7 @@ function parseAnnotatedUnion(annotatedType: string, node: Node) {
 }
 
 function isParameterName(name: string, node: Node) {
-  return [node, ...node.ancestors].find(n => annotatedVariableNames(n).includes(name))
+  return name == SELF || [node, ...node.ancestors].find(n => annotatedVariableNames(n).includes(name))
 }
 
 function annotatedVariableMap(n: Node) {

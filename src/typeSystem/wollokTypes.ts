@@ -7,6 +7,7 @@ const { entries, fromEntries } = Object
 
 export const ANY = 'Any'
 export const VOID = 'Void'
+export const SELF = 'Self'
 export const ELEMENT = 'Element'
 export const RETURN = 'RETURN'
 export const PARAM = 'PARAM'
@@ -111,7 +112,7 @@ export class WollokParametricType extends WollokModuleType {
 
     // If nothing changes, we can use the original TVar
     if (!changed) return super.instanceFor(instance, send)
-    
+
     // Here inside there is a cache system
     const maybeNewInstance = instance.newInstance(name)
     const newType = this.newFrom(resolvedParamTypes)
@@ -152,7 +153,7 @@ export class WollokParametricType extends WollokModuleType {
 
   sameParams(type: WollokParametricType): boolean {
     return [...this.params.entries()].every(([name, tVar]) =>
-      type.atParam(name) && (type.atParam(name).type().name == ANY || 
+      type.atParam(name) && (type.atParam(name).type().name == ANY ||
         new WollokUnionType(tVar.allPossibleTypes()).contains(type.atParam(name).type())))
   }
 
@@ -207,6 +208,8 @@ export class WollokParameterType {
   }
 
   instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
+    if (this.id === SELF)
+      return instance
     return instance.atParam(this.name) || send?.newInstance(this.name) || null
   }
 
@@ -223,7 +226,7 @@ export class WollokParameterType {
   }
 
   asList(): WollokType[] { return [this] }
-  
+
   // Parameters types cannot be subtype of other types (invariant)
   isSubtypeOf(_type: WollokType): boolean {
     return false
@@ -280,9 +283,14 @@ export class WollokUnionType {
 export class TypeRegistry {
   constructor(private tVars: Map<Node, TypeVariable>) { }
 
+  typeVariableFor(node: Node): TypeVariable {
+    const tVar = this.tVars.get(node)
+    if (!tVar) throw new Error(`No tVar variable for node: ${node}`)
+    return tVar
+
+  }
+
   getType(node: Node): WollokType {
-    const type = this.tVars.get(node)?.type()
-    if (!type) throw new Error(`No type variable for node ${node}`)
-    return type
+    return this.typeVariableFor(node).type()
   }
 }
