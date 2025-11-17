@@ -1,5 +1,5 @@
 import { promises } from 'fs'
-import { sync as listFiles } from 'globby'
+import globby from 'globby'
 import { join } from 'path'
 import { mapObject } from '../src/extensions'
 import link from '../src/linker'
@@ -21,7 +21,7 @@ async function buildWRE() {
   console.info('Parsing...')
   console.time('Parsed')
 
-  const sourceFiles = listFiles('**/*.wlk', { cwd: WRE_SRC_PATH })
+  const sourceFiles = await globby.globby('**/*.wlk', { cwd: WRE_SRC_PATH })
   const rawWRE = await Promise.all(sourceFiles.map(async sourceFile => {
     const fileContent = await readFile(join(process.cwd(), WRE_SRC_PATH, sourceFile), 'utf8')
     return File(sourceFile).tryParse(fileContent)

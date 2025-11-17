@@ -46,7 +46,7 @@
     "parsimmon": "^1.18.1",
     "prettier-printer": "^1.1.4",
     "unraw": "^3.0.0",
-    "uuid": "^9.0.1"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/chai": "^4.3.9",
@@ -61,7 +61,7 @@
     "chai": "^4.3.7",
     "dedent": "^1.5.1",
     "eslint": "^8.35.0",
-    "globby": "^11.1.0",
+    "globby": "^16.0.0",
     "mocha": "^10.2.0",
     "nyc": "^15.1.0",
     "simple-git": "^3.20.0",
