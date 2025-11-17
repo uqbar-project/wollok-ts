@@ -1,6 +1,6 @@
 import { fail } from 'assert'
 import { promises, readFileSync } from 'fs'
-import globby from 'globby'
+import fastGlob from 'fast-glob'
 import path, { join, resolve } from 'path'
 import { Annotation, buildEnvironment as buildEnv, Class, Environment, FileContent, fromJSON, link, Literal, Natives, natives, Node, Package, Problem, PROGRAM_FILE_EXTENSION, Reference, REPL, SourceMap, TEST_FILE_EXTENSION, validate, WOLLOK_FILE_EXTENSION } from '../src'
 import { divideOn, List, notEmpty } from '../src/extensions'
@@ -12,7 +12,7 @@ export const INIT_PACKAGE_NAME = 'definitions'
 export const INIT_FILE = INIT_PACKAGE_NAME + '.wlk'
 
 export function buildEnvironmentForEachFile(folderPath: string, iterator: (filePackage: Package, fileContent: FileContent) => void): void {
-  const files = globby.globbySync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map(name => ({
+  const files = fastGlob.sync(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION}|${PROGRAM_FILE_EXTENSION})`, { cwd: folderPath }).map((name: string) => ({
     name,
     content: readFileSync(join(folderPath, name), 'utf8'),
   }))
@@ -113,7 +113,7 @@ const newPackageWith = (env: Environment, fullFQN: string): Package => {
 
 export async function readNatives(cwd: string): Promise<Natives> {
   const { time, timeEnd } = console
-  const paths = await globby.globby('**/*.@(ts|cjs|js)', { cwd })
+  const paths = fastGlob.sync('**/*.@(ts|cjs|js)', { cwd })
 
   time('Loading natives files')
 
@@ -135,7 +135,7 @@ export const buildEnvironment = async (pattern: string, cwd: string, skipValidat
   const { time, timeEnd, log } = console
 
   time('Parsing files')
-  const files = await Promise.all(globby.globbySync(pattern, { cwd }).map(async name =>
+  const files = await Promise.all(fastGlob.sync(pattern, { cwd }).map(async name =>
     ({ name, content: await readFile(join(cwd, name), 'utf8') })
   ))
   timeEnd('Parsing files')
