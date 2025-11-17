@@ -42,6 +42,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@stylistic/eslint-plugin": "^5.5.0",
     "@types/parsimmon": "^1.10.8",
     "parsimmon": "^1.18.1",
     "prettier-printer": "^1.1.4",
@@ -56,12 +57,13 @@
     "@types/sinon-chai": "^3.2.11",
     "@types/uuid": "^9.0.6",
     "@types/yargs": "^17.0.22",
-    "@typescript-eslint/eslint-plugin": "^5.53.0",
-    "@typescript-eslint/parser": "^5.53.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.4",
+    "@typescript-eslint/parser": "^8.46.4",
     "chai": "^4.3.7",
-    "dedent": "^1.5.1",
-    "eslint": "^8.35.0",
+    "dedent": "^1.7.0",
+    "eslint": "^9.39.1",
     "globby": "^16.0.0",
+    "jiti": "^2.6.1",
     "mocha": "^10.2.0",
     "nyc": "^17.1.0",
     "simple-git": "^3.20.0",
@@ -69,6 +71,7 @@
     "sinon-chai": "^3.7.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "8.46.4",
     "yargs": "^17.7.2"
   }
 }

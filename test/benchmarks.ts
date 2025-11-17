@@ -11,6 +11,7 @@ should()
 describe('Benchmarks', () => {
   const results: any[] = []
 
+  // eslint-disable-next-line no-console
   after(() => console.table(results))
 
   describe('flushEvents', () => {

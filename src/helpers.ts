@@ -313,7 +313,7 @@ export const literalValueToClass = (environment: Environment, literal: LiteralVa
         try {
           const referenceClasses = literal as unknown as Reference<Class>[]
           return referenceClasses[0].name
-        } catch (e) {
+        } catch {
           return OBJECT_MODULE
         }
     }
@@ -411,7 +411,7 @@ export const sendDefinitions = (environment: Environment) => (send: Send): (Meth
           (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
         )),
       )
-    } catch (error) {
+    } catch {
       return allMethodDefinitions(environment, send)
     }
   }
