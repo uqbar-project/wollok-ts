@@ -1,4 +1,4 @@
-import { should } from 'chai'
+import { expect, should } from 'chai'
 import { buildEnvironment, Closure, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
 import { bindReceivedMessages, maxTypeFromMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSyntheticTVar, newTypeVariables, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
@@ -119,7 +119,7 @@ describe('Wollok Type System', () => {
 
       propagateMaxTypes(tVar).should.be.true // There is a max type
 
-      subtype.allPossibleTypes().should.not.include(otherStubType)
+      expect(subtype.allPossibleTypes().includes(otherStubType)).to.be.false
     })
 
     it('propagate to a closed type variables should report a problem', () => {
