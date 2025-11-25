@@ -1,9 +1,9 @@
-import { expect } from 'chai'
 import { BOOLEAN_MODULE, buildEnvironment, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, Evaluation, getDynamicDiagramData, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, Package, RANGE_MODULE, REPL, SET_MODULE, STRING_MODULE, WRENatives } from '../src'
 import { DynamicDiagramElement, DynamicDiagramNode, DynamicDiagramReference } from '../src/interpreter/dynamicDiagram'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import linker from '../src/linker'
 import { environmentWithREPLInitializedFile, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
+import { describe, expect, it, beforeEach } from 'vitest'
 
 describe('Dynamic diagram', () => {
 

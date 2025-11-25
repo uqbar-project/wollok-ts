@@ -1,9 +1,9 @@
-import { v4 as uuid } from 'uuid'
 import { KEYWORDS, LIST_MODULE, REPL, WOLLOK_BASE_PACKAGE } from '../constants'
 import { uniqueBy } from '../extensions'
 import { Node, Package, Variable } from '../model'
 import { Interpreter } from './interpreter'
 import { RuntimeObject, RuntimeValue } from './runtimeModel'
+import { uuid } from '../helpers'
 
 export interface DynamicDiagramElement {
   id: string

@@ -1,22 +1,33 @@
 {
   "compilerOptions": {
-    "target": "es2017",
-    "module": "commonjs",
+    "target": "es2021",
+    "module": "es2020",
+    "moduleResolution": "node",
     "outDir": "dist/temp",
     "sourceMap": true,
-    "lib": [
-      "es2021"
+    "types": [
+      "vitest",
+      "./test/assertions",
+      "node"
     ],
+    "lib": [
+      "es2021", "DOM"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "./language/*": ["language/*"]
+    },
     "declaration": true,
     "strict": true,
     "removeComments": true,
-    "moduleResolution": "node",
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*.ts",
+    "test/**/*.d.ts",
     "test/**/*.ts",
     "scripts/**/*.ts",
     "src/**/*.json",

@@ -1,21 +1,17 @@
-import { expect, should, use } from 'chai'
 import { GAME_MODULE, OBJECT_MODULE, REPL } from '../src'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import link, { canBeReferenced, linkInNode } from '../src/linker'
 import { Body, Class, Closure, Describe, Environment, Field, Import, Method, Mixin, NamedArgument, Node, Package, Parameter, ParameterizedType, Reference, Return, Sentence, Singleton, Test, Variable, Literal } from '../src/model'
 import * as parse from '../src/parser'
-import { linkerAssertions } from './assertions'
 import { environmentWithEntities, WREEnvironment } from './utils'
-
-should()
-use(linkerAssertions)
+import { beforeEach, describe, expect, it } from 'vitest'
 
 const MINIMAL_LANG = environmentWithEntities(OBJECT_MODULE, GAME_MODULE)
 
 describe('Wollok linker', () => {
-  it('should always link the repl package', () => {
+  describe('initial repl package', () => {
     it('an environment should always include the REPL package', () => {
-      [].should.be.linkedInto([
+      expect([]).linkedInto([
         new Package({ name: REPL }),
       ])
     })
@@ -24,7 +20,7 @@ describe('Wollok linker', () => {
   describe('merge', () => {
 
     it('should merge independent packages into a single environment', () => {
-      [
+      expect([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
@@ -39,7 +35,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'B' }),
           ],
         }),
-      ].should.be.linkedInto([
+      ]).linkedInto([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
@@ -58,7 +54,7 @@ describe('Wollok linker', () => {
     })
 
     it('should merge same name packages into a single package', () => {
-      [
+      expect([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
@@ -78,7 +74,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'X' }),
           ],
         }),
-      ].should.be.linkedInto([
+      ]).linkedInto([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'A',
@@ -96,7 +92,7 @@ describe('Wollok linker', () => {
     })
 
     it('should recursively override same name packages with new package', () => {
-      [
+      expect([
         new Package({
           name: 'A',
           members: [
@@ -121,7 +117,7 @@ describe('Wollok linker', () => {
           ],
         }),
         ...MINIMAL_LANG.members,
-      ].should.be.linkedInto([
+      ]).linkedInto([
         new Package({
           name: 'A',
           members: [
@@ -139,7 +135,7 @@ describe('Wollok linker', () => {
     })
 
     it('should replace old entities prioritizing right to left', () => {
-      [
+      expect([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
@@ -153,7 +149,7 @@ describe('Wollok linker', () => {
             new Class({ name: 'X', members: [new Field({ name: 'y', isConstant: true })] }),
           ],
         }),
-      ].should.be.linkedInto([
+      ]).linkedInto([
         ...MINIMAL_LANG.members,
         new Package({
           name: 'p',
@@ -182,13 +178,13 @@ describe('Wollok linker', () => {
       const p = nextEnvironment.getNodeByFQN<Package>('p')
       const Y = p.members[0]
 
-      p.members.should.have.lengthOf(1)
-      nextEnvironment.getNodeByFQN('p').should.equal(p)
-      nextEnvironment.getNodeByFQN('p.Y').should.equal(Y)
+      expect(p.members).toHaveLength(1)
+      expect(nextEnvironment.getNodeByFQN('p')).toEqual(p)
+      expect(nextEnvironment.getNodeByFQN('p.Y')).toEqual(Y)
     })
 
     it('should replace merged packages imports', () => {
-      [
+      expect([
         new Package({
           name: 'A',
           imports: [
@@ -206,7 +202,7 @@ describe('Wollok linker', () => {
         new Package({ name: 'B' }),
         new Package({ name: 'C' }),
         new Package({ name: 'D' }),
-      ].should.be.linkedInto([
+      ]).linkedInto([
         new Package({
           name: 'A',
           imports: [
@@ -221,13 +217,13 @@ describe('Wollok linker', () => {
     })
 
     it('should replace merged packages problems', () => {
-      [
+      expect([
         new Package({
           name: 'A',
           problems: [{ code: 'ERROR', level: 'error', values: [] }],
         }),
         new Package({ name: 'A' }),
-      ].should.be.linkedInto([
+      ]).linkedInto([
         new Package({ name: 'A' }),
       ])
     })
@@ -249,8 +245,8 @@ describe('Wollok linker', () => {
       }),
     ], WREEnvironment)
 
-    environment.should.have.property('id')
-    environment.descendants.forEach(node => node.should.have.property('id'))
+    expect(environment).toHaveProperty('id')
+    environment.descendants.forEach(node => expect(node).toHaveProperty('id'))
   })
 
   describe('scopes', () => {
@@ -280,10 +276,10 @@ describe('Wollok linker', () => {
       const g = C.fields[1]
       const h = C.fields[2]
 
-      C.supertypes[0].reference.should.target(Object)
-      f.value!.should.target(C)
-      g.value!.should.target(p)
-      h.value!.should.target(f)
+      expect(C.supertypes[0].reference).target(Object)
+      expect(f.value!).target(C)
+      expect(g.value!).target(p)
+      expect(h.value!).target(f)
     })
 
     it('should override targets according to scope level', () => {
@@ -353,15 +349,15 @@ describe('Wollok linker', () => {
       const m3 = S.methods[2]
       const m4 = D.methods[0]
 
-      S.supertypes[0].args[0].value!.should.target(f)
-      f.value!.should.target(f)
-      m1.sentences[0].should.target(m1.parameters[0])
-      closureReturn.value!.should.target(closure.methods[0].parameters[0])
-      m2var.value!.should.target(m2var)
-      m2.sentences[1].should.target(m2var)
-      m3.sentences[0].should.target(f)
-      C.supertypes[0].reference.should.target(S)
-      m4.sentences[0].should.target(S)
+      expect(S.supertypes[0].args[0].value!).target(f)
+      expect(f.value!).target(f)
+      expect(m1.sentences[0]).target(m1.parameters[0])
+      expect(closureReturn.value!).target(closure.methods[0].parameters[0])
+      expect(m2var.value!).target(m2var)
+      expect(m2.sentences[1]).target(m2var)
+      expect(m3.sentences[0]).target(f)
+      expect(C.supertypes[0].reference).target(S)
+      expect(m4.sentences[0]).target(S)
     })
 
     it('should target inherited members', () => {
@@ -406,8 +402,8 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(A.fields[0])
-      C.methods[0].sentences[1].should.target(M.fields[0])
+      expect(C.methods[0].sentences[0]).target(A.fields[0])
+      expect(C.methods[0].sentences[1]).target(M.fields[0])
     })
 
     it('should target local overriden references to members inherited from mixins', () => {
@@ -437,7 +433,7 @@ describe('Wollok linker', () => {
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(C.fields[0])
+      expect(C.methods[0].sentences[0]).target(C.fields[0])
     })
 
     it('should target local overriden references to members inherited from superclass', () => {
@@ -468,7 +464,7 @@ describe('Wollok linker', () => {
 
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(C.fields[0])
+      expect(C.methods[0].sentences[0]).target(C.fields[0])
     })
 
     it('should target references to members inherited from superclass in different packages', () => {
@@ -525,9 +521,9 @@ describe('Wollok linker', () => {
       const B = environment.getNodeByFQN<Class>('bbb.B')
       const A = environment.getNodeByFQN<Class>('zzz.A')
 
-      C.supertypes[0].reference.should.target(B)
-      B.supertypes[0].reference.should.target(A)
-      B.methods[0].sentences[0].should.target(A.fields[0])
+      expect(C.supertypes[0].reference).target(B)
+      expect(B.supertypes[0].reference).target(A)
+      expect(B.methods[0].sentences[0]).target(A.fields[0])
     })
 
     it('should target references overriden on mixins to members inherited from superclass', () => {
@@ -565,7 +561,7 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(M.fields[0])
+      expect(C.methods[0].sentences[0]).target(M.fields[0])
     })
 
     it('should target references overriden on mixins to members inherited from other mixins', () => {
@@ -603,7 +599,7 @@ describe('Wollok linker', () => {
       const M = environment.getNodeByFQN<Class>('p.M')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(M.fields[0])
+      expect(C.methods[0].sentences[0]).target(M.fields[0])
     })
 
     it('should target references overriden on superclass to members inherited from further superclass', () => {
@@ -637,7 +633,7 @@ describe('Wollok linker', () => {
       const B = environment.getNodeByFQN<Class>('p.B')
       const C = environment.getNodeByFQN<Class>('p.C')
 
-      C.methods[0].sentences[0].should.target(B.fields[0])
+      expect(C.methods[0].sentences[0]).target(B.fields[0])
     })
 
     it('should target imported references', () => {
@@ -672,8 +668,8 @@ describe('Wollok linker', () => {
       const S = environment.getNodeByFQN<Class>('q.S')
       const T = environment.getNodeByFQN<Class>('r.T')
 
-      C.supertypes[0].reference.should.target(S)
-      D.supertypes[0].reference.should.target(T)
+      expect(C.supertypes[0].reference).target(S)
+      expect(D.supertypes[0].reference).target(T)
     })
 
     it('should not mix imported references with same name at different level', () => {
@@ -700,8 +696,8 @@ describe('Wollok linker', () => {
       const packageQ = environment.getNodeByFQN<Package>('q')
       const objQ = environment.getNodeByFQN<Singleton>('q.q')
 
-      p.imports[0].entity.should.target(packageQ)
-      o.supertypes[0].reference.should.target(objQ)
+      expect(p.imports[0].entity).target(packageQ)
+      expect(o.supertypes[0].reference).target(objQ)
     })
 
     it('qualified references should not consider parent scopes for non-root steps', () => {
@@ -764,7 +760,7 @@ describe('Wollok linker', () => {
       const env = link([
         new Package({ name: 'game', members: [new Package({ name: 'p' })] }),
       ], MINIMAL_LANG)
-      env.getNodeByFQN<Package>('game.p').should.be.ok
+      expect(env.getNodeByFQN<Package>('game.p')).to.be.ok
     })
 
   })
@@ -775,8 +771,8 @@ describe('Wollok linker', () => {
       const env = link([
         new Package({ name: 'lang', members: [new Package({ name: 'p' })] }),
       ], MINIMAL_LANG)
-      env.getNodeByFQN<Package>('lang.p').should.be.ok
-      env.getNodeByFQN<Package>(OBJECT_MODULE).should.be.ok
+      expect(env.getNodeByFQN<Package>('lang.p')).to.be.ok
+      expect(env.getNodeByFQN<Package>(OBJECT_MODULE)).to.be.ok
     })
 
     it('should not merge package with different file name', () => {
@@ -788,7 +784,7 @@ describe('Wollok linker', () => {
           ],
         }),
       ], WREEnvironment)
-      env.getNodeByFQN<Package>('g').members.should.have.length(2)
+      expect(env.getNodeByFQN<Package>('g').members).to.have.length(2)
     })
 
     it('should import wlk files on fqn collisions', () => {
@@ -801,8 +797,8 @@ describe('Wollok linker', () => {
         }),
       ], MINIMAL_LANG)
       const entity = env.getNodeByFQN<Package>('p')
-      entity.fileName!.should.be.eql('p.wlk')
-      env.getNodeByFQN<Package>('g').imports[0].entity.should.target(entity)
+      expect(entity.fileName).to.be.eql('p.wlk')
+      expect(env.getNodeByFQN<Package>('g').imports[0].entity).target(entity)
     })
 
     it('should not crash with missing reference in imports', () =>
@@ -891,13 +887,13 @@ describe('Wollok linker', () => {
 describe('can be referenced', () => {
 
   it('things that can be referenced', () => {
-    canBeReferenced(new Class({ name: 'A' })).should.be.true
-    canBeReferenced(new Field({ name: 'A', isConstant: true })).should.be.true
-    canBeReferenced(new Parameter({ name: 'A' })).should.be.true
+    expect(canBeReferenced(new Class({ name: 'A' }))).to.be.true
+    expect(canBeReferenced(new Field({ name: 'A', isConstant: true }))).to.be.true
+    expect(canBeReferenced(new Parameter({ name: 'A' }))).to.be.true
   })
 
   it('things that cannot be referenced', () => {
-    canBeReferenced(new Body())?.should.be.undefined
+    expect(canBeReferenced(new Body())).to.be.undefined
   })
 
 })
@@ -915,23 +911,23 @@ describe('link sentence in node', () => {
   })
 
   it('should link new nodes', () => {
-    newSentence.id?.should.be.undefined
-    getPotentiallyUninitializedLazy(newSentence, 'parent')?.should.be.undefined
-    getPotentiallyUninitializedLazy(newSentence, 'environment')?.should.be.undefined
+    expect(newSentence.id).to.be.undefined
+    expect(getPotentiallyUninitializedLazy(newSentence, 'parent')).to.be.undefined
+    expect(getPotentiallyUninitializedLazy(newSentence, 'environment')).to.be.undefined
 
     linkInNode(newSentence, repl)
-    newSentence.id.should.be.ok
-    newSentence.environment.should.be.eq(environment)
-    newSentence.parent.should.be.eq(repl)
-    newSentence.children[0].parent.should.be.eq(newSentence)
+    expect(newSentence.id).to.be.ok
+    expect(newSentence.environment).to.be.eq(environment)
+    expect(newSentence.parent).to.be.eq(repl)
+    expect(newSentence.children[0].parent).to.be.eq(newSentence)
   })
 
   it('should add new contributions to context scope', () => {
-    repl.scope.localContributions().should.be.empty
+    expect(repl.scope.localContributions()).to.be.empty
 
     linkInNode(newSentence, repl)
     const [variableName] = repl.scope.localContributions()[0]
-    variableName.should.be.equal('a')
+    expect(variableName).to.be.equal('a')
   })
 
 })
@@ -967,24 +963,24 @@ describe('resolve all', () => {
   })
   it('should resolve all possible entities to a qualified name', () => {
     const hits = environment.scope.resolveAll('Foo')
-    hits.should.have.length(3)
-    hits.should.contain(environment.getNodeByFQN('src.a.Foo'))
-    hits.should.contain(environment.getNodeByFQN('src.b.Foo'))
-    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+    expect(hits).toHaveLength(3)
+    expect(hits).toContain(environment.getNodeByFQN('src.a.Foo'))
+    expect(hits).toContain(environment.getNodeByFQN('src.b.Foo'))
+    expect(hits).toContain(environment.getNodeByFQN('src.c.d.Foo'))
   })
 
   it('should resolve a qualified name that partially matches the node fqn', () => {
     const hits = environment.scope.resolveAll('d.Foo')
-    hits.should.have.length(1)
-    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+    expect(hits).toHaveLength(1)
+    expect(hits).toContain(environment.getNodeByFQN('src.c.d.Foo'))
   })
 
   it('shouldnt repeat nodes when it is imported from another package', () => {
     environment = link([new Package({ name: 'e', imports: [new Import({ isGeneric: true, entity: new Reference({ name: 'src.a' }) })] })], environment)
     const hits = environment.scope.resolveAll('Foo')
-    hits.should.have.length(3)
-    hits.should.contain(environment.getNodeByFQN('src.a.Foo'))
-    hits.should.contain(environment.getNodeByFQN('src.b.Foo'))
-    hits.should.contain(environment.getNodeByFQN('src.c.d.Foo'))
+    expect(hits).toHaveLength(3)
+    expect(hits).toContain(environment.getNodeByFQN('src.a.Foo'))
+    expect(hits).toContain(environment.getNodeByFQN('src.b.Foo'))
+    expect(hits).toContain(environment.getNodeByFQN('src.c.d.Foo'))
   })
 })

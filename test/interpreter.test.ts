@@ -1,19 +1,15 @@
-import { expect, should, use } from 'chai'
-import { restore } from 'sinon'
-import sinonChai from 'sinon-chai'
+
 import { buildEnvironment, Evaluation, EXCEPTION_MODULE, REPL, WRENatives } from '../src'
 import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
 import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { environmentWithREPLInitializedFile, INIT_FILE, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
-
-use(sinonChai)
-should()
+import { beforeEach, describe, expect, it } from 'vitest'
 
 const assertBasicError = (error?: Error) => {
   expect(error).not.to.be.undefined
-  expect(error!.message).to.contain('Derived from TypeScript stack')
-  expect(error!.stack).to.contain('at Evaluation.exec')
+  expect(error!.message).toContain('Derived from TypeScript stack')
+  expect(error!.stack).toContain('at Evaluation.exec')
 }
 
 const WRE = link([
@@ -37,10 +33,7 @@ const WRE = link([
   }),
 ])
 
-
 describe('Wollok Interpreter', () => {
-
-  afterEach(restore)
 
   describe('Interpreter', () => {
 
@@ -69,7 +62,7 @@ describe('Wollok Interpreter', () => {
       const sentence = new Send({ receiver: new Reference({ name: 'p.o' }), message: 'm' })
       const interpreter = new Interpreter(Evaluation.build(environment, {}))
 
-      interpreter.exec(sentence)!.innerNumber!.should.equal(5)
+      expect(interpreter.exec(sentence)!.innerNumber).toEqual(5)
     })
 
     it('should fail when executing a missing unlinked reference', () => {
@@ -152,9 +145,9 @@ describe('Wollok Interpreter', () => {
 
     const checkSuccessfulResult = (expression: string, expectedResult: string, allowDefinitions = false) => {
       const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
-      error?.message.should.be.equal('')
-      result.should.be.equal(expectedResult)
-      errored.should.be.false
+      expect(error).toBeUndefined()
+      expect(result).toBe(expectedResult)
+      expect(errored).toBe(false)
     }
 
     const checkFailedResultForDefinition = (expression: string, errorMessageContains: string, stackContains?: string) => {
@@ -163,9 +156,9 @@ describe('Wollok Interpreter', () => {
 
     const checkFailedResult = (expression: string, errorMessageContains: string, stackContains?: string, allowDefinitions = false) => {
       const { result, errored, error } = interprete(interpreter, expression, undefined, allowDefinitions)
-      errored.should.be.true
-      result.should.contains(errorMessageContains)
-      stackContains && error?.message?.should.contains(stackContains)
+      expect(errored).toBe(true)
+      expect(result).toContain(errorMessageContains)
+      stackContains && expect(error?.message).toContain(stackContains)
     }
 
     beforeEach(() => {
@@ -979,9 +972,8 @@ describe('Wollok Interpreter', () => {
 
       const state = director.resume()
 
-
-      state.done.should.be.false
-      state.should.have.property('next').equal(breakpoint)
+      expect(state.done).toBe(false)
+      expect(state).toHaveProperty('next', breakpoint)
     })
 
   })

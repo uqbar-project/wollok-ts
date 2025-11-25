@@ -978,7 +978,7 @@ export class Environment extends Node {
   }
 
   replNode(): Package {
-    return this.getNodeByFQN<Package>(REPL)
+    return this.getNodeByFQN(REPL)
   }
 
 }

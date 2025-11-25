@@ -1,9 +1,8 @@
-import { v4 as uuid } from 'uuid'
 import { divideOn, is, List } from './extensions'
 import { BaseProblem, Class, Entity, Environment, Field, Id, Import, Level, Mixin, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, Singleton, SourceMap, Variable } from './model'
 import { REPL } from './constants'
+import { uuid } from './helpers'
 const { assign } = Object
-
 
 export const GLOBAL_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game']
 

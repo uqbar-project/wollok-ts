@@ -1,50 +1,79 @@
-import { basename } from 'path'
-import yargs from 'yargs'
+#!/usr/bin/env tsx
+
+import yargs from 'yargs/yargs'
+import { hideBin } from 'yargs/helpers'
 import { TEST_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
-import { List } from '../src/extensions'
-import { interpret, Interpreter } from '../src/interpreter/interpreter'
-import { Describe, Node, Package, Test } from '../src/model'
+import { interpret } from '../src/interpreter/interpreter'
 import { buildEnvironment, readNatives } from './utils'
+import { Describe, Node, Package, Test } from '../src/model'
+import { List } from '../src/extensions'
 
-const { error } = console
-
-const ARGUMENTS = yargs
-  .option('verbose', {
-    alias: 'v',
-    type: 'boolean',
-    description: 'Run with verbose logging',
-  })
+const args = yargs(hideBin(process.argv))
+  .option('verbose', { type: 'boolean' })
   .option('root', {
-    demandOption: true,
     type: 'string',
-    description: 'Path to the root test folder',
+    demandOption: true,
+    describe: 'Path to test root (folder containing .wtest files)',
   })
-  .argv
+  .hide('version')
+  .parseSync()
 
+const root = args.root
 
-function registerTests(nodes: List<Node>, interpreter: Interpreter) {
-  nodes.forEach(node => {
-    if (node.is(Package)) describe(node.name, () => registerTests(node.members, interpreter))
+async function main() {
+  const pattern = `**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION})`
 
-    else if (node.is(Describe)) describe(node.name, () => {
-      const onlyTest = node.tests.find(test => test.isOnly)
-      registerTests(onlyTest ? [onlyTest] : node.tests, interpreter)
+  const environment = await buildEnvironment(pattern, root, true)
+  const natives = await readNatives(root)
+
+  const interpreter = interpret(environment, natives)
+
+  let failures = 0
+
+  function runNodes(nodes: List<Node>) {
+    nodes.forEach(node => {
+      if (node.is(Package)) {
+        runNodes(node.members)
+      }
+
+      else if (node.is(Describe)) {
+        const onlyTest = node.tests.find(t => t.isOnly)
+        runNodes(onlyTest ? [onlyTest] : node.tests)
+      }
+
+      else if (node.is(Test)) {
+        const skip =
+          node.parent.children.some(
+            sibling => node !== sibling && sibling.is(Test) && sibling.isOnly
+          )
+
+        if (!skip) {
+          try {
+            interpreter.fork().exec(node)
+            console.info(`✔  ${node.name}`)
+          } catch (e: any) {
+            failures++
+            console.error(`✘  ${node.name}`)
+            console.error('    ', e?.message ?? e)
+          }
+        }
+      }
     })
+  }
 
-    else if (node.is(Test) && !node.parent.children.some(sibling => node !== sibling && sibling.is(Test) && sibling.isOnly))
-      it(node.name, () => interpreter.fork().exec(node))
+  console.info(`Running Wollok tests in ${root}...\n`)
+  runNodes(environment.members)
 
-  })
+  if (failures > 0) {
+    console.error(`\n${failures} tests failed.`)
+    process.exit(1)
+  }
+
+  console.info('\nAll Wollok tests passed.')
+  process.exit(0)
 }
 
-(async function () {
-  const root = (await ARGUMENTS).root
-  const environment = await buildEnvironment(`**/*.@(${WOLLOK_FILE_EXTENSION}|${TEST_FILE_EXTENSION})`, root, true)
-  const natives = await readNatives(root)
-  describe(basename(root), () => registerTests(environment.members, interpret(environment, natives)))
-})()
-  .then(run)
-  .catch(e => {
-    error(e)
-    process.exit(1)
-  })
+main().catch(e => {
+  console.error(e)
+  process.exit(1)
+})
