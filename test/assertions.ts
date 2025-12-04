@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 // test/assertions.ts
 import { expect } from 'vitest'
 import dedent from 'dedent'
@@ -68,53 +68,70 @@ expect.extend({
 
     return {
       pass: result.status,
-      message: () =>
-        result.status
-          ? ''
-          : formatError(actual, result),
+      message: () => {
+        if (result.status) return ''
+
+        const errorDetails = formatError(actual, result)
+        const expectedMsg = 'A valid parse result'
+        const actualMsg = `Parse error: ${errorDetails}`
+
+        return `Expected: ${expectedMsg}\nReceived: ${actualMsg}`
+      },
     }
   },
 
-  into(actual: any, expected: any) {
+  parsedInto(actual: any, expected: any) {
     const plucked = dropKeys('sourceMap', 'problems')
-
-    const actualProblems = actual.problems?.map(({ code, sourceMap: { start, end } }: ParseError) =>
-      ({ code, start: start.offset, end: end.offset })
-    ) ?? []
-
-    const expectedProblems = expected.problems?.() ?? []
 
     const actualClean = plucked(actual)
     const expectedClean = plucked(expected)
 
     const ok =
       deepCompare(actual.metadata ?? [], expected.metadata ?? []) &&
-    deepCompare(actualProblems, expectedProblems) &&
     deepCompare(actualClean, expectedClean)
-
-    if (!ok) {
-      console.log('ACTUAL CLEANED:', JSON.stringify(actualClean, null, 2))
-      console.log('EXPECTED CLEANED:', JSON.stringify(expectedClean, null, 2))
-      console.log('METADATA ACTUAL:', JSON.stringify(actual.metadata, null, 2))
-      console.log('METADATA EXPECTED:', JSON.stringify(expected.metadata, null, 2))
-      console.log('PROBLEMS A:', JSON.stringify(actualProblems, null, 2))
-      console.log('PROBLEMS E:', JSON.stringify(expectedProblems, null, 2))
-    }
 
     return {
       pass: ok,
-      message: () => 'Expected structure to match',
+      message: () => {
+        const formatValue = (value: any) => JSON.stringify(value, null, 2)
+        const sections: string[] = []
+
+        if (!deepCompare(actual.metadata ?? [], expected.metadata ?? [])) {
+          sections.push(`Metadata mismatch!
+
+Actual metadata:
+${formatValue(actual.metadata)}
+
+Expected metadata:
+${formatValue(expected.metadata)}`)
+        }
+
+        if (!deepCompare(actualClean, expectedClean)) {
+          sections.push(`Structure mismatch!
+
+Actual structure (cleaned):
+${formatValue(actualClean)}
+
+Expected structure (cleaned):
+${formatValue(expectedClean)}`)
+        }
+
+        return `Expected structures to match
+
+${sections.join('\n\n')}`
+      },
     }
   },
 
   tracedTo(actual: any, [start, end]: [number, number]) {
-    const ok =
-      actual?.sourceMap?.start?.offset === start &&
-      actual?.sourceMap?.end?.offset === end
+    const actualStart = actual?.sourceMap?.start?.offset
+    const actualEnd = actual?.sourceMap?.end?.offset
+    const ok = actualStart === start && actualEnd === end
 
     return {
       pass: ok,
-      message: () => `Expected node to be traced to (${start}, ${end})`,
+      message: () =>
+        `Expected node to be traced to (${start}, ${end}) but got (${actualStart}, ${actualEnd})`,
     }
   },
 
@@ -145,7 +162,7 @@ expect.extend({
 
     return {
       pass: found,
-      message: () => `Expected to be recovering from: ${JSON.stringify(problem)}`,
+      message: () => `Expected to be recovering from: ${JSON.stringify(problem)}. Problems: ${JSON.stringify(actual.problems, null, 2)}`,
     }
   },
 
