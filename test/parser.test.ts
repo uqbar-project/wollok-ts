@@ -99,7 +99,6 @@ describe('Wollok parser', () => {
         message: 'vola',
         metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
       }))
-      console.info(JSON.stringify(result, null, 2))
       expect(result.value).recoveringFrom({ code: parse.MALFORMED_MESSAGE_SEND, start: 0, end: 4 })
     })
 
@@ -1317,7 +1316,7 @@ describe('Wollok parser', () => {
         expect(result.value).parsedInto(
           new Singleton({ name: 'o', metadata: [new Annotation('A', { x: 1 })] })
         )
-        expect(result.value).tracedTo([0, 28])
+        expect(result.value).tracedTo([10, 21])
       })
 
       it('should parse multiply annotated nodes', () => {
@@ -1561,7 +1560,7 @@ describe('Wollok parser', () => {
         expect(result.value).parsedInto(
           new Test({ name: '"t"', body: new Body(), metadata: [new Annotation('A', { x: 1 })] })
         )
-        expect(result.value).tracedTo([0, 22])
+        expect(result.value).tracedTo([10, 21])
       })
 
       it('should parse multiply annotated nodes', () => {
@@ -2303,7 +2302,7 @@ class c {}`)
         expect(result.value).parsedInto(
           new Variable({ name: 'f', isConstant: false, metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
         )
-        expect(result.value).tracedTo([0, 11])
+        expect(result.value).tracedTo([31, 36])
       })
 
       it('should parse annotated subnodes', () => {
@@ -3007,7 +3006,7 @@ class c {}`)
           )
           expect(result.value).tracedTo([0, 11])
           expect((result.value as Send).receiver).tracedTo([0, 1])
-          expect(((result.value as Send).args[0])).tracedTo([3, 11])
+          expect((result.value as Send).args[0]).tracedTo([3, 11])
           expect((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).parameters![0]).tracedTo([4, 5])
           expect((((((result.value as Send).args[0] as ClosurePayload).members![0] as Method).body! as Body).sentences[0] as Return).value).tracedTo([9, 10])
         })
@@ -3062,24 +3061,29 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 12])
-            .and.have.nested.property('receiver').tracedTo(1, 6)
-            .and.also.have.nested.property('receiver.receiver').tracedTo(1, 2)
-            .and.also.have.nested.property('receiver.args.0').tracedTo(5, 6)
-            .and.also.have.nested.property('args.0').tracedTo(10, 11)
+          expect(result.value.receiver).tracedTo([1, 6])
+          expect(((result.value as Send).receiver as Send).receiver).tracedTo([1, 2])
+          expect(((result.value as Send).receiver as Send).args[0]).tracedTo([5, 6])
+          expect((result.value as Send).args[0]).tracedTo([10, 11])
         })
 
         it('should parse sending messages to numeric objects', () => {
-          '1.5.m()'.should.be.parsedBy(parser).into(
+          const result = parse.Send.parse('1.5.m()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Send({
               receiver: new Literal({ value: 1.5 }),
               message: 'm',
             })
-          ).and.be.tracedTo(0, 7)
-            .and.have.nested.property('receiver').tracedTo(0, 3)
+          )
+          expect(result.value).tracedTo([0, 7])
+          expect(result.value.receiver).tracedTo([0, 3])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x = 1)a.m(5).n()'.should.be.parsedBy(parser).into(
+          let result = parse.Send.parse('@A(x = 1)a.m(5).n()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Send({
               receiver: new Send({
                 receiver: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
@@ -3091,7 +3095,9 @@ class c {}`)
             })
           )
 
-          '@A(x = 1)(a.m(5).n())'.should.be.parsedBy(parser).into(
+          result = parse.Send.parse('@A(x = 1)(a.m(5).n())')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Send({
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
@@ -3106,7 +3112,9 @@ class c {}`)
         })
 
         it('should parse inner annotated nodes', () => {
-          '@A(x = 1)(a.m(5)).n()'.should.be.parsedBy(parser).into(
+          let result = parse.Send.parse('@A(x = 1)(a.m(5)).n()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Send({
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
@@ -3119,7 +3127,9 @@ class c {}`)
             })
           )
 
-          'a.m(@A(x = 1) 5).n()'.should.be.parsedBy(parser).into(
+          result = parse.Send.parse('a.m(@A(x = 1) 5).n()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Send({
               receiver: new Send({
                 receiver: new Reference({ name: 'a' }),
@@ -3133,39 +3143,42 @@ class c {}`)
         })
 
         it('should not parse sending messages calling the method with a "," at the end of the parameters', () => {
-          'a.m(p,)'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Send.parse('a.m(p,)'))
         })
 
         it('should not parse sending messages calling the method with a "," at the start of the parameters', () => {
-          'a.m(,q)'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Send.parse('a.m(,q)'))
         })
 
         it('should not parse sending messages without parentheses', () => {
-          'a.m'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Send.parse('a.m'))
         })
 
         it('should not parse an expression with a "." at the end', () => {
-          'a.'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Send.parse('a.'))
         })
 
         it('should not parse an expression with a "." at the start', () => {
-          '.m'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Send.parse('.m'))
         })
 
         it('should recover from malformed message send without arguments', () => {
-          'm()'.should.be.parsedBy(parser)
-            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({
+          const result = parse.Send.parse('m()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
               args: [],
-            }))
+            })
+          )
         })
 
         it('should recover from malformed message send with one argument', () => {
-          'm(p)'.should.be.parsedBy(parser)
-            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({
+          const result = parse.Send.parse('m(p)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
               args: [new Reference({ name: 'p' })],
@@ -3173,9 +3186,10 @@ class c {}`)
         })
 
         it('should recover from malformed message send with multiple arguments', () => {
-          'm(p,q)'.should.be.parsedBy(parser)
-            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 1)
-            .into(new Send({
+          const result = parse.Send.parse('m(p,q)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Send({
               receiver: new Literal({ value: null }),
               message: 'm',
               args: [
@@ -3186,30 +3200,32 @@ class c {}`)
         })
 
         it('should parse malformed message sends with a closure as an argument', () => {
-          'm1 {p => p}'.should.be.parsedBy(parser)
-            .recoveringFrom(parse.MALFORMED_MESSAGE_SEND, 0, 2)
-            .into(
-              new Send({
-                receiver: new Literal({ value: null }),
-                message: 'm1',
-                args: [
-                  Closure({
-                    parameters: [new Parameter({ name: 'p' })],
-                    sentences: [new Return({ value: new Reference({ name: 'p' }) })],
-                    code: '{p => p}',
-                  }),
-                ],
-              })
-            )
-            .and.exist.tracedTo(0, 11)
-            .and.have.nested.property('args.0').tracedTo(3, 11)
-            .and.also.have.nested.property('args.0.members.0.parameters.0').tracedTo(4, 5)
-            .and.also.have.nested.property('args.0.members.0.body.sentences.0.value').tracedTo(9, 10)
+          const result = parse.Send.parse('m1 {p => p}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Send({
+              receiver: new Literal({ value: null }),
+              message: 'm1',
+              args: [
+                Closure({
+                  parameters: [new Parameter({ name: 'p' })],
+                  sentences: [new Return({ value: new Reference({ name: 'p' }) })],
+                  code: '{p => p}',
+                }),
+              ],
+            })
+          )
+          expect(result.value).tracedTo([0, 11])
+          expect((result.value as Send).args[0]).tracedTo([3, 11])
+          expect((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).parameters![0]).tracedTo([4, 5])
+          expect(((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).sentences![0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse chained send with malformed receiver', () => {
-          'm1().m2()'.should.be.parsedBy(parser)
-            .into(new Send({
+          const result = parse.Send.parse('m1().m2()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Send({
               receiver: new Send({
                 receiver: new Literal({ value: null }),
                 message: 'm1',
@@ -3224,15 +3240,20 @@ class c {}`)
 
       describe('New', () => {
 
-        const parser = parse.New
-
         it('should parse instantiations without parameters', () => {
-          'new C()'.should.be.parsedBy(parser).into(new New({ instantiated: new Reference({ name: 'C' }) })).and.be.tracedTo(0, 7)
-            .and.have.nested.property('instantiated').tracedTo(4, 5)
+          const result = parse.New.parse('new C()')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new New({ instantiated: new Reference({ name: 'C' }) })
+          )
+          expect(result.value).tracedTo([0, 7])
+          expect((result.value as New).instantiated).tracedTo([4, 5])
         })
 
         it('should parse instantiation with named arguments', () => {
-          'new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
+          const result = parse.New.parse('new C(a = 1, b = 2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new New({
               instantiated: new Reference({ name: 'C' }),
               args: [
@@ -3240,16 +3261,19 @@ class c {}`)
                 new NamedArgument({ name: 'b', value: new Literal({ value: 2 }) }),
               ],
             })
-          ).and.be.tracedTo(0, 19)
-            .and.have.nested.property('instantiated').tracedTo(4, 5)
-            .and.also.have.nested.property('args.0').tracedTo(6, 11)
-            .and.also.have.nested.property('args.0.value').tracedTo(10, 11)
-            .and.also.have.nested.property('args.1').tracedTo(13, 18)
-            .and.also.have.nested.property('args.1.value').tracedTo(17, 18)
+          )
+          expect(result.value).tracedTo([0, 19])
+          expect((result.value as New).instantiated).tracedTo([4, 5])
+          expect((result.value as New).args[0]).tracedTo([6, 11])
+          expect(((result.value as New).args[0] as NamedArgument).value).tracedTo([10, 11])
+          expect((result.value as New).args[1]).tracedTo([13, 18])
+          expect(((result.value as New).args[1] as NamedArgument).value).tracedTo([17, 18])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x = 1) new C(a = 1, b = 2)'.should.be.parsedBy(parser).into(
+          const result = parse.New.parse('@A(x = 1) new C(a = 1, b = 2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new New({
               instantiated: new Reference({ name: 'C' }),
               args: [
@@ -3262,7 +3286,9 @@ class c {}`)
         })
 
         it('should parse inner annotated nodes', () => {
-          'new C(a = 1,@A(x = 1) b = 2)'.should.be.parsedBy(parser).into(
+          const result = parse.New.parse('new C(a = 1,@A(x = 1) b = 2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new New({
               instantiated: new Reference({ name: 'C' }),
               args: [
@@ -3274,128 +3300,153 @@ class c {}`)
         })
 
         it('should not parse instantiations without parameter names', () => {
-          'new C(1,2)'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.New.parse('new C(1,2)'))
         })
 
         it('should not parse "new" keyword without arguments', () => {
-          'new C'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.New.parse('new C'))
         })
 
         it('should not parse "new" keyword without a class name', () => {
-          'new'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.New.parse('new'))
         })
 
       })
 
       describe('Super', () => {
-        const parser = parse.Super
 
         it('should parse super call without parameters', () => {
-          'super()'.should.be.parsedBy(parser).into(new Super()).and.be.tracedTo(0, 7)
+          const result = parse.Super.parse('super()')
+          verifyParse(result)
+          expect(result.value).parsedInto(new Super())
+          expect(result.value).tracedTo([0, 7])
         })
 
         it('should parse super call with parameters', () => {
-          'super(1,2)'.should.be.parsedBy(parser).into(
+          const result = parse.Super.parse('super(1,2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Super({ args: [new Literal({ value: 1 }), new Literal({ value: 2 })] })
-          ).and.be.tracedTo(0, 10)
-            .and.have.nested.property('args.0').tracedTo(6, 7)
-            .and.also.have.nested.property('args.1').tracedTo(8, 9)
+          )
+          expect(result.value).tracedTo([0, 10])
+          expect((result.value as Super).args[0]).tracedTo([6, 7])
+          expect((result.value as Super).args[1]).tracedTo([8, 9])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x = 1) super(1,2)'.should.be.parsedBy(parser).into(
+          const result = parse.Super.parse('@A(x = 1) super(1,2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Super({ args: [new Literal({ value: 1 }), new Literal({ value: 2 })], metadata: [new Annotation('A', { x: 1 })] })
           )
         })
 
         it('should parse inner annotated nodes', () => {
-          'super(1,@A(x = 1) 2)'.should.be.parsedBy(parser).into(
+          const result = parse.Super.parse('super(1,@A(x = 1) 2)')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Super({ args: [new Literal({ value: 1 }), new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] })] })
           )
         })
 
         it('should not parse "super" keyword without parentheses', () => {
-          'super'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Super.parse('super'))
         })
 
         it('should not parse sending messages to a super call ', () => {
-          'super.m()'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Super.parse('super.m()'))
         })
 
       })
 
       describe('If', () => {
-        const parser = parse.If
 
         it('should parse "if" with "then" body', () => {
-          'if(a) x'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a) x')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
             })
-          ).and.be.tracedTo(0, 7)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(6, 7)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+          )
+          expect(result.value).tracedTo([0, 7])
+          expect((result.value as If).condition).tracedTo([3, 4])
+          expect((result.value as If).thenBody).tracedTo([6, 7])
+          expect(((result.value as If).thenBody as Body).sentences[0]).tracedTo([6, 7])
         })
 
         it('should parse "if" with "then" curly-braced body', () => {
-          'if(a){x}'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a){x}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
             })
-          ).and.be.tracedTo(0, 8)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(5, 8)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
+          )
+          expect(result.value).tracedTo([0, 8])
+          expect((result.value as If).condition).tracedTo([3, 4])
+          expect((result.value as If).thenBody).tracedTo([5, 8])
+          expect(((result.value as If).thenBody as Body).sentences[0]).tracedTo([6, 7])
         })
 
         it('should parse "if" with "then" with a multi-sentence curly-braced body', () => {
-          'if(a){x;y}'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a){x;y}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' }), new Reference({ name: 'y' })] }),
             })
-          ).and.be.tracedTo(0, 10)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(5, 10)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-            .and.also.have.nested.property('thenBody.sentences.1').tracedTo(8, 9)
+          )
+          expect(result.value).tracedTo([0, 10])
+          expect((result.value as If).condition).tracedTo([3, 4])
+          expect((result.value as If).thenBody).tracedTo([5, 10])
+          expect(((result.value as If).thenBody as Body).sentences[0]).tracedTo([6, 7])
+          expect(((result.value as If).thenBody as Body).sentences[1]).tracedTo([8, 9])
         })
 
         it('should parse "if" with "then" and "else" body', () => {
-          'if(a) x else y'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a) x else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
               elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
             })
-          ).and.be.tracedTo(0, 14)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(6, 7)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-            .and.also.have.nested.property('elseBody').tracedTo(13, 14)
-            .and.also.have.nested.property('elseBody.sentences.0').tracedTo(13, 14)
+          )
+          expect(result.value).tracedTo([0, 14])
+          expect(result.value.condition).tracedTo([3, 4])
+          expect(result.value.thenBody).tracedTo([6, 7])
+          expect(result.value.thenBody.sentences[0]).tracedTo([6, 7])
+          expect(result.value.elseBody).tracedTo([13, 14])
+          expect(result.value.elseBody.sentences[0]).tracedTo([13, 14])
         })
 
         it('should parse "if" with "then" and "else" curly-braced body', () => {
-          'if(a){x} else {y}'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a){x} else {y}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
               elseBody: new Body({ sentences: [new Reference({ name: 'y' })] }),
             })
-          ).and.be.tracedTo(0, 17)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(5, 8)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 7)
-            .and.also.have.nested.property('elseBody').tracedTo(14, 17)
-            .and.also.have.nested.property('elseBody.sentences.0').tracedTo(15, 16)
+          )
+          expect(result.value).tracedTo([0, 17])
+          expect(result.value.condition).tracedTo([3, 4])
+          expect(result.value.thenBody).tracedTo([5, 8])
+          expect(result.value.thenBody.sentences[0]).tracedTo([6, 7])
+          expect(result.value.elseBody).tracedTo([14, 17])
+          expect(result.value.elseBody.sentences[0]).tracedTo([15, 16])
         })
 
         it('should parse if inside other if', () => {
-          'if(a) if(b) x else y'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a) if(b) x else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({
@@ -3408,19 +3459,21 @@ class c {}`)
                 ],
               }),
             })
-          ).and.be.tracedTo(0, 20)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(6, 20)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 20)
-            .and.also.have.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
-            .and.also.have.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
-            .and.also.have.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
-            .and.also.have.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
-            .and.also.have.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
+          )
+          expect(result.value).tracedTo([0, 20])
+          expect(result.value.condition).tracedTo([3, 4])
+          expect(result.value.thenBody).tracedTo([6, 20])
+          expect(result.value.thenBody.sentences[0]).tracedTo([6, 20])
+          expect((result.value.thenBody.sentences[0] as If).condition).tracedTo([9, 10])
+          expect((result.value.thenBody.sentences[0] as If).thenBody).tracedTo([12, 13])
+          expect((result.value.thenBody.sentences[0] as If).elseBody).tracedTo([19, 20])
+          expect((result.value.thenBody.sentences[0] as If).elseBody.sentences[0]).tracedTo([19, 20])
         })
 
         it('should parse "if" inside other "if" that have an else', () => {
-          'if(a) if(b) x else y else z'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('if(a) if(b) x else y else z')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({
@@ -3434,21 +3487,23 @@ class c {}`)
               }),
               elseBody: new Body({ sentences: [new Reference({ name: 'z' })] }),
             })
-          ).and.be.tracedTo(0, 27)
-            .and.have.nested.property('condition').tracedTo(3, 4)
-            .and.also.have.nested.property('thenBody').tracedTo(6, 20)
-            .and.also.have.nested.property('thenBody.sentences.0').tracedTo(6, 20)
-            .and.also.have.nested.property('thenBody.sentences.0.condition').tracedTo(9, 10)
-            .and.also.have.nested.property('thenBody.sentences.0.thenBody').tracedTo(12, 13)
-            .and.also.have.nested.property('thenBody.sentences.0.thenBody.sentences.0').tracedTo(12, 13)
-            .and.also.have.nested.property('thenBody.sentences.0.elseBody').tracedTo(19, 20)
-            .and.also.have.nested.property('thenBody.sentences.0.elseBody.sentences.0').tracedTo(19, 20)
-            .and.also.have.nested.property('elseBody').tracedTo(26, 27)
-            .and.also.have.nested.property('elseBody.sentences.0').tracedTo(26, 27)
+          )
+          expect(result.value).tracedTo([0, 27])
+          expect(result.value.condition).tracedTo([3, 4])
+          expect(result.value.thenBody).tracedTo([6, 20])
+          expect(result.value.thenBody.sentences[0]).tracedTo([6, 20])
+          expect((result.value.thenBody.sentences[0] as If).condition).tracedTo([9, 10])
+          expect((result.value.thenBody.sentences[0] as If).thenBody).tracedTo([12, 13])
+          expect((result.value.thenBody.sentences[0] as If).elseBody).tracedTo([19, 20])
+          expect((result.value.thenBody.sentences[0] as If).elseBody.sentences[0]).tracedTo([19, 20])
+          expect(result.value.elseBody).tracedTo([26, 27])
+          expect(result.value.elseBody.sentences[0]).tracedTo([26, 27])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x=1) if(a) x else y'.should.be.parsedBy(parser).into(
+          const result = parse.If.parse('@A(x=1) if(a) x else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
@@ -3459,7 +3514,9 @@ class c {}`)
         })
 
         it('should parse inner annotated nodes', () => {
-          'if(@A(x=1) a) x else y'.should.be.parsedBy(parser).into(
+          let result = parse.If.parse('if(@A(x=1) a) x else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
@@ -3467,7 +3524,9 @@ class c {}`)
             })
           )
 
-          'if(a) { @A(x=1) x } else y'.should.be.parsedBy(parser).into(
+          result = parse.If.parse('if(a) { @A(x=1) x } else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
@@ -3475,7 +3534,9 @@ class c {}`)
             })
           )
 
-          'if(a) @A(x=1) x else y'.should.be.parsedBy(parser).into(
+          result = parse.If.parse('if(a) @A(x=1) x else y')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
@@ -3483,7 +3544,9 @@ class c {}`)
             })
           )
 
-          'if(a) x else @A(x=1){ y }'.should.be.parsedBy(parser).into(
+          result = parse.If.parse('if(a) x else @A(x=1){ y }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new If({
               condition: new Reference({ name: 'a' }),
               thenBody: new Body({ sentences: [new Reference({ name: 'x' })] }),
@@ -3493,40 +3556,46 @@ class c {}`)
         })
 
         it('should not parse "if" that doesn\'t have the condition inside parentheses', () => {
-          'if a x else y'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.If.parse('if a x else y'))
         })
 
         it('should not parse "if" with an explicit empty "else"', () => {
-          'if(a) x else'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.If.parse('if(a) x else'))
         })
 
         it('should not parse "if" without a body', () => {
-          'if(a)'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.If.parse('if(a)'))
         })
 
       })
 
       describe('Try', () => {
-        const parser = parse.Try
-
         it('should parse try expressions', () => {
-          'try x'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({ body: new Body({ sentences: [new Reference({ name: 'x' })] }) })
-          ).and.be.tracedTo(0, 5)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+          )
+          expect(result.value).tracedTo([0, 5])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
         })
 
         it('should parse try expressions with a curly-braced body', () => {
-          'try{x}'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try{x}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({ body: new Body({ sentences: [new Reference({ name: 'x' })] }) })
-          ).and.be.tracedTo(0, 6)
-            .and.have.nested.property('body').tracedTo(3, 6)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
+          )
+          expect(result.value).tracedTo([0, 6])
+          expect(result.value.body).tracedTo([3, 6])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
         })
 
         it('should parse try expressions with a catch', () => {
-          'try x catch e h'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e h')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3536,17 +3605,20 @@ class c {}`)
                 }),
               ],
             })
-          ).and.be.tracedTo(0, 15)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 15)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
-            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
+          )
+          expect(result.value).tracedTo([0, 15])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 15])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].body).tracedTo([14, 15])
+          expect(result.value.catches[0].body.sentences[0]).tracedTo([14, 15])
         })
 
         it('should parse try expressions with a curly-braced body', () => {
-          'try x catch e{h}'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e{h}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3556,17 +3628,20 @@ class c {}`)
                 }),
               ],
             })
-          ).and.be.tracedTo(0, 16)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 16)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.body').tracedTo(13, 16)
-            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
+          )
+          expect(result.value).tracedTo([0, 16])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 16])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].body).tracedTo([13, 16])
+          expect(result.value.catches[0].body.sentences[0]).tracedTo([14, 15])
         })
 
         it('should parse try expressions with a catch with the parameter type', () => {
-          'try x catch e:E h'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e:E h')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3577,18 +3652,21 @@ class c {}`)
                 }),
               ],
             })
-          ).and.be.tracedTo(0, 17)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 17)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.parameterType').tracedTo(14, 15)
-            .and.also.have.nested.property('catches.0.body').tracedTo(16, 17)
-            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(16, 17)
+          )
+          expect(result.value).tracedTo([0, 17])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 17])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].parameterType).tracedTo([14, 15])
+          expect(result.value.catches[0].body).tracedTo([16, 17])
+          expect(result.value.catches[0].body.sentences[0]).tracedTo([16, 17])
         })
 
         it('should parse try expressions with a catch with fully qualified parameter type', () => {
-          'try x catch e:wollok.lang.E h'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e:wollok.lang.E h')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3599,45 +3677,53 @@ class c {}`)
                 }),
               ],
             })
-          ).and.be.tracedTo(0, 29)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 29)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.parameterType').tracedTo(14, 27)
-            .and.also.have.nested.property('catches.0.body').tracedTo(28, 29)
-            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(28, 29)
+          )
+          expect(result.value).tracedTo([0, 29])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 29])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].parameterType).tracedTo([14, 27])
+          expect(result.value.catches[0].body).tracedTo([28, 29])
+          expect(result.value.catches[0].body.sentences[0]).tracedTo([28, 29])
         })
 
         it('should parse try expressions with a "then always" body', () => {
-          'try x then always a'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               always: new Body({ sentences: [new Reference({ name: 'a' })] }),
             })
-          ).and.be.tracedTo(0, 19)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('always').tracedTo(18, 19)
-            .and.also.have.nested.property('always').tracedTo(18, 19)
-            .and.also.have.nested.property('always.sentences.0').tracedTo(18, 19)
+          )
+          expect(result.value).tracedTo([0, 19])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.always).tracedTo([18, 19])
+          expect(result.value.always.sentences[0]).tracedTo([18, 19])
         })
 
         it('should parse try expressions with a "then always" curly-braced body', () => {
-          'try x then always{a}'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x then always{a}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               always: new Body({ sentences: [new Reference({ name: 'a' })] }),
             })
-          ).and.be.tracedTo(0, 20)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('always').tracedTo(17, 20)
-            .and.also.have.nested.property('always.sentences.0').tracedTo(18, 19)
+          )
+          expect(result.value).tracedTo([0, 20])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.always).tracedTo([17, 20])
+          expect(result.value.always.sentences[0]).tracedTo([18, 19])
         })
 
         it('should parse try expressions with a catch and a "then always" body', () => {
-          'try x catch e h then always a'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3648,19 +3734,22 @@ class c {}`)
               ],
               always: new Body({ sentences: [new Reference({ name: 'a' })] }),
             })
-          ).and.be.tracedTo(0, 29)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 15)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
-            .and.also.have.nested.property('catches.0.body.sentences.0').tracedTo(14, 15)
-            .and.also.have.nested.property('always').tracedTo(28, 29)
-            .and.also.have.nested.property('always.sentences.0').tracedTo(28, 29)
+          )
+          expect(result.value).tracedTo([0, 29])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 15])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].body).tracedTo([14, 15])
+          expect(result.value.catches[0].body.sentences[0]).tracedTo([14, 15])
+          expect(result.value.always).tracedTo([28, 29])
+          expect(result.value.always.sentences[0]).tracedTo([28, 29])
         })
 
         it('should parse try expressions with more than one catch', () => {
-          'try x catch e h catch e i then always a'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('try x catch e h catch e i then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3675,20 +3764,24 @@ class c {}`)
               ],
               always: new Body({ sentences: [new Reference({ name: 'a' })] }),
             })
-          ).and.be.tracedTo(0, 39)
-            .and.have.nested.property('body').tracedTo(4, 5)
-            .and.also.have.nested.property('body.sentences.0').tracedTo(4, 5)
-            .and.also.have.nested.property('catches.0').tracedTo(6, 15)
-            .and.also.have.nested.property('catches.0.parameter').tracedTo(12, 13)
-            .and.also.have.nested.property('catches.0.body').tracedTo(14, 15)
-            .and.also.have.nested.property('catches.1').tracedTo(16, 25)
-            .and.also.have.nested.property('catches.1.parameter').tracedTo(22, 23)
-            .and.also.have.nested.property('catches.1.body').tracedTo(24, 25)
-            .and.also.have.nested.property('always').tracedTo(38, 39)
+          )
+          expect(result.value).tracedTo([0, 39])
+          expect(result.value.body).tracedTo([4, 5])
+          expect(result.value.body.sentences[0]).tracedTo([4, 5])
+          expect(result.value.catches[0]).tracedTo([6, 15])
+          expect(result.value.catches[0].parameter).tracedTo([12, 13])
+          expect(result.value.catches[0].body).tracedTo([14, 15])
+          expect(result.value.catches[1]).tracedTo([16, 25])
+          expect(result.value.catches[1].parameter).tracedTo([22, 23])
+          expect(result.value.catches[1].body).tracedTo([24, 25])
+          expect(result.value.always).tracedTo([38, 39])
+          expect(result.value.always.sentences[0]).tracedTo([38, 39])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x=1) try x catch e h then always a'.should.be.parsedBy(parser).into(
+          const result = parse.Try.parse('@A(x=1) try x catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3704,7 +3797,9 @@ class c {}`)
         })
 
         it('should parse inner annotated nodes', () => {
-          'try @A(x=1) x catch e h then always a'.should.be.parsedBy(parser).into(
+          let result = parse.Try.parse('try @A(x=1) x catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
               catches: [
@@ -3717,7 +3812,9 @@ class c {}`)
             })
           )
 
-          'try @A(x=1) { x } catch e h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try @A(x=1) { x } catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })], metadata: [new Annotation('A', { x: 1 })] }),
               catches: [
@@ -3730,7 +3827,9 @@ class c {}`)
             })
           )
 
-          'try { @A(x=1) x } catch e h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try { @A(x=1) x } catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x', metadata: [new Annotation('A', { x: 1 })] })] }),
               catches: [
@@ -3743,7 +3842,9 @@ class c {}`)
             })
           )
 
-          'try x @A(x=1) catch e h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x @A(x=1) catch e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3757,7 +3858,9 @@ class c {}`)
             })
           )
 
-          'try x catch @A(x=1)e h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch @A(x=1)e h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3770,7 +3873,9 @@ class c {}`)
             })
           )
 
-          'try x catch e: @A(x=1)E h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e: @A(x=1)E h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3784,7 +3889,9 @@ class c {}`)
             })
           )
 
-          'try x catch e @A(x=1)h then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e @A(x=1)h then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3797,7 +3904,9 @@ class c {}`)
             })
           )
 
-          'try x catch e @A(x=1){h} then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e @A(x=1){h} then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3810,7 +3919,9 @@ class c {}`)
             })
           )
 
-          'try x catch e {@A(x=1) h} then always a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e {@A(x=1) h} then always a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3823,7 +3934,9 @@ class c {}`)
             })
           )
 
-          'try x catch e h then always @A(x=1) a'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e h then always @A(x=1) a')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3836,7 +3949,9 @@ class c {}`)
             })
           )
 
-          'try x catch e h then always @A(x=1){a}'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e h then always @A(x=1){a}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3849,7 +3964,9 @@ class c {}`)
             })
           )
 
-          'try x catch e h then always { @A(x=1) a }'.should.be.parsedBy(parser).into(
+          result = parse.Try.parse('try x catch e h then always { @A(x=1) a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Try({
               body: new Body({ sentences: [new Reference({ name: 'x' })] }),
               catches: [
@@ -3864,103 +3981,122 @@ class c {}`)
         })
 
         it('should not parse try expressions with an incomplete "then always" body', () => {
-          'try x catch e h then always'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Try.parse('try x catch e h then always'))
         })
 
         it('should not parse try expressions with an incomplete catch body', () => {
-          'try x catch e'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Try.parse('try x catch e'))
         })
 
         it('should not parse try expressions with a malformed catch body', () => {
-          'try x catch{h}'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Try.parse('try x catch{h}'))
         })
 
         it('should not parse "try" keyword without a body', () => {
-          'try'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Try.parse('try'))
         })
 
         it('should not parse a catch body without a try body', () => {
-          'catch e {}'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Try.parse('catch e {}'))
         })
 
       })
 
       describe('Throw', () => {
-        const parser = parse.Throw
 
         it('should parse throw expressions', () => {
-          'throw e'.should.be.parsedBy(parser).into(
+          const result = parse.Throw.parse('throw e')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Throw({ exception: new Reference({ name: 'e' }) })
-          ).and.be.tracedTo(0, 7)
-            .and.have.nested.property('exception').tracedTo(6, 7)
+          )
+          expect(result.value).tracedTo([0, 7])
+          expect(result.value.exception).tracedTo([6, 7])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x=1) throw e'.should.be.parsedBy(parser).into(
+          const result = parse.Throw.parse('@A(x=1) throw e')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Throw({ exception: new Reference({ name: 'e' }), metadata: [new Annotation('A', { x: 1 })] })
           )
         })
 
         it('should parse inner annotated nodes', () => {
-          'throw @A(x=1) e'.should.be.parsedBy(parser).into(
+          const result = parse.Throw.parse('throw @A(x=1) e')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Throw({ exception: new Reference({ name: 'e', metadata: [new Annotation('A', { x: 1 })] }) })
           )
         })
 
         it('should not parse "throw" keyword without a exception', () => {
-          'throw'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Throw.parse('throw'))
         })
 
       })
 
       describe('Objects', () => {
 
-        const parser = parse.Singleton
-
         it('should parse empty literal objects', () => {
-
-          'object {}'.should.be.parsedBy(parser).into(new Singleton({})).and.be.tracedTo(0, 9)
+          const result = parse.Singleton.parse('object {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Singleton({})
+          )
+          expect(result.value).tracedTo([0, 9])
         })
 
         it('should parse non-empty literal objects', () => {
-          'object { var v method m(){} }'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object { var v method m(){} }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               members: [
                 new Field({ name: 'v', isConstant: false }),
                 new Method({ name: 'm', body: new Body() }),
               ],
             }),
-          ).and.be.tracedTo(0, 29)
-            .and.have.nested.property('members.0').tracedTo(9, 14)
-            .and.also.have.nested.property('members.1').tracedTo(15, 27)
+          )
+          expect(result.value).tracedTo([0, 29])
+          expect(result.value.members[0]).tracedTo([9, 14])
+          expect(result.value.members[1]).tracedTo([15, 27])
         })
 
         it('should parse literal objects that inherit from a class', () => {
-          'object inherits D {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits D {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
               ],
             }),
-          ).and.be.tracedTo(0, 20)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
+          )
+          expect(result.value).tracedTo([0, 20])
+          expect(result.value.supertypes[0]).tracedTo([16, 17])
+          expect(result.value.supertypes[0].reference).tracedTo([16, 17])
         })
 
         it('should parse literal objects that inherit from a class referenced with a FQN', () => {
-          'object inherits p.D {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits p.D {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({ reference: new Reference({ name: 'p.D' }) }),
               ],
             }),
-          ).and.be.tracedTo(0, 22)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 19)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 19)
+          )
+          expect(result.value).tracedTo([0, 22])
+          expect(result.value.supertypes[0]).tracedTo([16, 19])
+          expect(result.value.supertypes[0].reference).tracedTo([16, 19])
         })
 
         it('should parse literal objects that inherit from a class with explicit builders', () => {
-          'object inherits D(v = 5) {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits D(v = 5) {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({
@@ -3969,30 +4105,36 @@ class c {}`)
                   ],
                 }),
               ],
-            }),
-          ).and.be.tracedTo(0, 27)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 24)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.0.args.0').tracedTo(18, 23)
+            })
+          )
+          expect(result.value).tracedTo([0, 27])
+          expect(result.value.supertypes?.[0]).tracedTo([16, 24])
+          expect(result.value.supertypes?.[0].reference).tracedTo([16, 17])
+          expect(result.value.supertypes?.[0].args?.[0]).tracedTo([18, 23])
         })
 
         it('should parse literal objects that inherit from a class and have a mixin', () => {
-          'object inherits M and D {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits M and D {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({ reference: new Reference({ name: 'M' }) }),
                 new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
               ],
             }),
-          ).and.be.tracedTo(0, 26)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.1').tracedTo(22, 23)
-            .and.also.have.nested.property('supertypes.1.reference').tracedTo(22, 23)
+          )
+          expect(result.value).tracedTo([0, 26])
+          expect(result.value.supertypes?.[0]).tracedTo([16, 17])
+          expect(result.value.supertypes?.[0].reference).tracedTo([16, 17])
+          expect(result.value.supertypes?.[1]).tracedTo([22, 23])
+          expect(result.value.supertypes?.[1].reference).tracedTo([22, 23])
         })
 
         it('should parse literal objects that inherit from a class and have multiple mixins', () => {
-          'object inherits N and M and D {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits N and M and D {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({ reference: new Reference({ name: 'N' }) }),
@@ -4000,149 +4142,175 @@ class c {}`)
                 new ParameterizedType({ reference: new Reference({ name: 'D' }) }),
               ],
             }),
-          ).and.be.tracedTo(0, 32)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.1').tracedTo(22, 23)
-            .and.also.have.nested.property('supertypes.1.reference').tracedTo(22, 23)
-            .and.also.have.nested.property('supertypes.2').tracedTo(28, 29)
-            .and.also.have.nested.property('supertypes.2.reference').tracedTo(28, 29)
+          )
+          expect(result.value).tracedTo([0, 32])
+          expect(result.value.supertypes?.[0]).tracedTo([16, 17])
+          expect(result.value.supertypes?.[0].reference).tracedTo([16, 17])
+          expect(result.value.supertypes?.[1]).tracedTo([22, 23])
+          expect(result.value.supertypes?.[1].reference).tracedTo([22, 23])
+          expect(result.value.supertypes?.[2]).tracedTo([28, 29])
+          expect(result.value.supertypes?.[2].reference).tracedTo([28, 29])
         })
 
         it('should parse literal objects that have multiple mixins', () => {
-          'object inherits N and M {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('object inherits N and M {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({
               supertypes: [
                 new ParameterizedType({ reference: new Reference({ name: 'N' }) }),
                 new ParameterizedType({ reference: new Reference({ name: 'M' }) }),
               ],
             }),
-          ).and.be.tracedTo(0, 26)
-            .and.have.nested.property('supertypes.0').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.0.reference').tracedTo(16, 17)
-            .and.also.have.nested.property('supertypes.1').tracedTo(22, 23)
-            .and.also.have.nested.property('supertypes.1.reference').tracedTo(22, 23)
+          )
+          expect(result.value).tracedTo([0, 26])
+          expect(result.value.supertypes?.[0]).tracedTo([16, 17])
+          expect(result.value.supertypes?.[0].reference).tracedTo([16, 17])
+          expect(result.value.supertypes?.[1]).tracedTo([22, 23])
+          expect(result.value.supertypes?.[1].reference).tracedTo([22, 23])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x = 1) object {}'.should.be.parsedBy(parser).into(
+          const result = parse.Singleton.parse('@A(x = 1) object {}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             new Singleton({ metadata: [new Annotation('A', { x: 1 })] })
           )
         })
 
         it('should parse multiply annotated nodes', () => {
-          `@A(x = 1)
+          const result = parse.Singleton.parse(`@A(x = 1)
            @B
-           object {}`.should.be.parsedBy(parser).into(
-              new Singleton({ metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
-            )
+           object {}`)
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Singleton({ metadata: [new Annotation('A', { x: 1 }), new Annotation('B')] })
+          )
         })
 
         it('should parse annotated subnodes', () => {
-          `object {
+          const result = parse.Singleton.parse(`object {
             var f
             @A(x = 1)
             var g
             @B(x = 1)
             method m(){}
             method n(){}
-          }`.should.be.parsedBy(parser).into(
-              new Singleton({
-                members: [
-                  new Field({ name: 'f', isConstant: false }),
-                  new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
-                  new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
-                  new Method({ name: 'n', body: new Body() }),
-                ],
-              }),
-            )
+          }`)
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            new Singleton({
+              members: [
+                new Field({ name: 'f', isConstant: false }),
+                new Field({ name: 'g', isConstant: false, metadata: [new Annotation('A', { x: 1 })] }),
+                new Method({ name: 'm', body: new Body(), metadata: [new Annotation('B', { x: 1 })] }),
+                new Method({ name: 'n', body: new Body() }),
+              ],
+            }),
+          )
         })
 
         it('should not parse the "object" keyword without a body', () => {
-          'object'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object'))
         })
 
         it('should not parse objects that inherit from more than one class', () => {
-          'object inherits D inherits E'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object inherits D inherits E'))
         })
 
         it('should not parse objects that use the "inherits" keyword without a superclass', () => {
-          'object inherits {}'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object inherits {}'))
         })
 
         it('should not parse the "object inherits" keyword sequence without a body and superclass', () => {
-          'object inherits'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object inherits'))
         })
 
         it('should not parse the "and" keyword without "inherits"', () => {
-          'object and D {}'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object and D {}'))
         })
 
         it('should not parse the "and" keyword without a trailing supertype', () => {
-          'object inherits M and {}'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object inherits M and {}'))
         })
 
         it('should not parse the "and" keyword without a trailing supertype or body', () => {
-          'object inherits M and'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Singleton.parse('object inherits M and'))
         })
       })
 
       describe('Closure', () => {
 
-        const parser = parse.Expression
-
         it('should parse empty closures', () => {
-          '{}'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{}')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({ sentences: [], code: '{}' })
-          ).and.be.tracedTo(0, 2)
+          )
+          expect(result.value).tracedTo([0, 2])
         })
 
         it('should parse closures that do not receive parameters and returns nothing', () => {
-          '{ => }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ => }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({ sentences: [], code: '{ => }' })
-          ).and.be.tracedTo(0, 6)
+          )
+          expect(result.value).tracedTo([0, 6])
         })
 
         it('should parse closures without parameters', () => {
-          '{ a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               sentences: [new Return({ value: new Reference({ name: 'a' }) })],
               code: '{ a }',
             })
-          ).and.be.tracedTo(0, 5)
-            .and.have.nested.property('members.0.body.sentences.0.value').tracedTo(2, 3)
+          )
+          expect(result.value).tracedTo([0, 5])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([2, 3])
         })
 
         it('should parse closures with return in their body', () => {
-          '{ return a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ return a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({ sentences: [new Return({ value: new Reference({ name: 'a' }) })], code: '{ return a }' })
-          ).and.be.tracedTo(0, 12)
-            .and.have.nested.property('members.0.body.sentences.0').tracedTo(2, 10)
-            .and.also.have.nested.property('members.0.body.sentences.0.value').tracedTo(9, 10)
+          )
+          expect(result.value).tracedTo([0, 12])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse closure with parameters and no body', () => {
-          '{ a => }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a => }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({ parameters: [new Parameter({ name: 'a' })], sentences: [], code: '{ a => }' })
-          ).and.be.tracedTo(0, 8)
-            .and.have.nested.property('members.0.parameters.0').tracedTo(2, 3)
+          )
+          expect(result.value).tracedTo([0, 8])
+          expect(((result.value as ClosurePayload).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
         })
 
         it('should parse closures with parameters and body', () => {
-          '{ a => a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a => a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' })],
               sentences: [new Return({ value: new Reference({ name: 'a' }) })],
               code: '{ a => a }',
             })
-          ).and.be.tracedTo(0, 10)
-            .and.have.nested.property('members.0.parameters.0').tracedTo(2, 3)
-            .and.also.have.nested.property('members.0.body.sentences.0.value').tracedTo(7, 8)
-
+          )
+          expect(result.value).tracedTo([0, 10])
+          expect(((result.value as ClosurePayload).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([7, 8])
         })
 
         it('should parse closures with multiple sentence separated by ";"', () => {
-          '{ a => a; b }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a => a; b }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' })],
               sentences: [
@@ -4151,40 +4319,49 @@ class c {}`)
               ],
               code: '{ a => a; b }',
             })
-          ).and.be.tracedTo(0, 13)
-            .and.have.nested.property('members.0.parameters.0').tracedTo(2, 3)
-            .and.also.have.nested.property('members.0.body.sentences.0').tracedTo(7, 8)
-            .and.also.have.nested.property('members.0.body.sentences.1.value').tracedTo(10, 11)
+          )
+          expect(result.value).tracedTo([0, 13])
+          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0]).tracedTo([7, 8])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![1] as Return).value).tracedTo([10, 11])
         })
 
         it('should parse closures that receive two parameters and return the first one', () => {
-          '{ a,b => a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a,b => a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b' })],
               sentences: [new Return({ value: new Reference({ name: 'a' }) })],
               code: '{ a,b => a }',
             })
-          ).and.be.tracedTo(0, 12)
-            .and.have.nested.property('members.0.parameters.0').tracedTo(2, 3)
-            .and.also.have.nested.property('members.0.parameters.1').tracedTo(4, 5)
-            .and.also.have.nested.property('members.0.body.sentences.0.value').tracedTo(9, 10)
+          )
+          expect(result.value).tracedTo([0, 12])
+          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect(((result.value as ClosurePayload).members![0] as Method).parameters![1]).tracedTo([4, 5])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse closures with vararg parameters', () => {
-          '{ a,b... => a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('{ a,b... => a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' }), new Parameter({ name: 'b', isVarArg: true })],
               sentences: [new Return({ value: new Reference({ name: 'a' }) })],
               code: '{ a,b... => a }',
             })
-          ).and.be.tracedTo(0, 15)
-            .and.have.nested.property('members.0.parameters.0').tracedTo(2, 3)
-            .and.also.have.nested.property('members.0.parameters.1').tracedTo(4, 8)
-            .and.also.have.nested.property('members.0.body.sentences.0.value').tracedTo(12, 13)
+          )
+          expect(result.value).tracedTo([0, 15])
+          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect(((result.value as ClosurePayload).members![0] as Method).parameters![1]).tracedTo([4, 8])
+          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([12, 13])
         })
 
         it('should parse annotated nodes', () => {
-          '@A(x = 1) { a => a }'.should.be.parsedBy(parser).into(
+          const result = parse.Expression.parse('@A(x = 1) { a => a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' })],
               sentences: [new Reference({ name: 'a' })],
@@ -4195,20 +4372,24 @@ class c {}`)
         })
 
         it('should parse multiply annotated nodes', () => {
-          `@A(x = 1)
+          const result = parse.Expression.parse(`@A(x = 1)
            @B
-           { a => a }`.should.be.parsedBy(parser).into(
-              Closure({
-                parameters: [new Parameter({ name: 'a' })],
-                sentences: [new Reference({ name: 'a' })],
-                code: '{ a => a }',
-                metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
-              })
-            )
+           { a => a }`)
+          verifyParse(result)
+          expect(result.value).parsedInto(
+            Closure({
+              parameters: [new Parameter({ name: 'a' })],
+              sentences: [new Reference({ name: 'a' })],
+              code: '{ a => a }',
+              metadata: [new Annotation('A', { x: 1 }), new Annotation('B')],
+            })
+          )
         })
 
         it('should parse annotated subnodes', () => {
-          '{ @A(x = 1) a => a }'.should.be.parsedBy(parser).into(
+          let result = parse.Expression.parse('{ @A(x = 1) a => a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })],
               sentences: [new Reference({ name: 'a' })],
@@ -4216,7 +4397,9 @@ class c {}`)
             })
           )
 
-          '{ a => @A(x = 1) a }'.should.be.parsedBy(parser).into(
+          result = parse.Expression.parse('{ a => @A(x = 1) a }')
+          verifyParse(result)
+          expect(result.value).parsedInto(
             Closure({
               parameters: [new Parameter({ name: 'a' })],
               sentences: [new Reference({ name: 'a', metadata: [new Annotation('A', { x: 1 })] })],
@@ -4226,26 +4409,33 @@ class c {}`)
         })
 
         it('should not parse malformed closures', () => {
-          '{ a, b c }'.should.not.be.parsedBy(parser)
+          shouldNotParse(parse.Expression.parse('{ a, b c }'))
         })
 
       })
 
       describe('Literals', () => {
-        const parser = parse.Literal
 
         describe('Booleans', () => {
 
           it('should parse "true"', () => {
-            'true'.should.be.parsedBy(parser).into(new Literal({ value: true })).and.be.tracedTo(0, 4)
+            const result = parse.Literal.parse('true')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: true }))
+            expect(result.value).tracedTo([0, 4])
           })
 
           it('should parse "false"', () => {
-            'false'.should.be.parsedBy(parser).into(new Literal({ value: false })).and.be.tracedTo(0, 5)
+            const result = parse.Literal.parse('false')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: false }))
+            expect(result.value).tracedTo([0, 5])
           })
 
           it('should parse annotated nodes', () => {
-            '@A(x=1) true'.should.be.parsedBy(parser).into(new Literal({ value: true, metadata: [new Annotation('A', { x: 1 })] }))
+            const result = parse.Literal.parse('@A(x=1) true')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: true, metadata: [new Annotation('A', { x: 1 })] }))
           })
 
         })
@@ -4253,42 +4443,63 @@ class c {}`)
         describe('Null', () => {
 
           it('should parse "null"', () => {
-            'null'.should.be.parsedBy(parser).into(new Literal({ value: null })).and.be.tracedTo(0, 4)
+            const result = parse.Literal.parse('null')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: null }))
+            expect(result.value).tracedTo([0, 4])
           })
 
           it('should parse annotated nodes', () => {
-            '@A(x=1) null'.should.be.parsedBy(parser).into(new Literal({ value: null, metadata: [new Annotation('A', { x: 1 })] }))
+            const result = parse.Literal.parse('@A(x=1) null')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: null, metadata: [new Annotation('A', { x: 1 })] }))
+            expect(result.value).tracedTo([8, 12])
           })
         })
 
         describe('Numbers', () => {
 
           it('should parse positive whole numbers', () => {
-            '10'.should.be.parsedBy(parser).into(new Literal({ value: 10 })).and.be.tracedTo(0, 2)
+            const result = parse.Literal.parse('10')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 10 }))
+            expect(result.value).tracedTo([0, 2])
           })
 
           it('should parse negative whole numbers', () => {
-            '-1'.should.be.parsedBy(parser).into(new Literal({ value: -1 })).and.be.tracedTo(0, 2)
+            const result = parse.Literal.parse('-1')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: -1 }))
+            expect(result.value).tracedTo([0, 2])
           })
 
           it('should parse fractional numbers', () => {
-            '1.5'.should.be.parsedBy(parser).into(new Literal({ value: 1.5 })).and.be.tracedTo(0, 3)
+            const result = parse.Literal.parse('1.5')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 1.5 }))
+            expect(result.value).tracedTo([0, 3])
           })
 
           it('should parse negative fractional numbers', () => {
-            '-1.5'.should.be.parsedBy(parser).into(new Literal({ value: -1.5 })).and.be.tracedTo(0, 4)
+            const result = parse.Literal.parse('-1.5')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: -1.5 }))
+            expect(result.value).tracedTo([0, 4])
           })
 
           it('should parse annotated nodes', () => {
-            '@A(x=1) 10'.should.be.parsedBy(parser).into(new Literal({ value: 10, metadata: [new Annotation('A', { x: 1 })] }))
+            const result = parse.Literal.parse('@A(x=1) 10')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 10, metadata: [new Annotation('A', { x: 1 })] }))
+            expect(result.value).tracedTo([8, 10])
           })
 
           it('should not parse fractional numbers without decimal part', () => {
-            '1.'.should.not.be.parsedBy(parser)
+            shouldNotParse(parse.Literal.parse('1.'))
           })
 
           it('should not parse fractional numbers without whole part', () => {
-            '.5'.should.not.be.parsedBy(parser)
+            shouldNotParse(parse.Literal.parse('.5'))
           })
 
         })
@@ -4296,30 +4507,48 @@ class c {}`)
         describe('Strings', () => {
 
           it('should parse valid strings with double quote', () => {
-            '"foo"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo' })).and.be.tracedTo(0, 5)
+            const result = parse.Literal.parse('"foo"')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 'foo' }))
+            expect(result.value).tracedTo([0, 5])
           })
 
           it('should parse valid strings with single quote', () => {
-            '\'foo\''.should.be.parsedBy(parser).into(new Literal({ value: 'foo' })).and.be.tracedTo(0, 5)
+            const result = parse.Literal.parse('\'foo\'')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 'foo' }))
+            expect(result.value).tracedTo([0, 5])
           })
 
           it('should parse empty strings', () => {
-            '""'.should.be.parsedBy(parser).into(new Literal({ value: '' })).and.be.tracedTo(0, 2)
+            const result = parse.Literal.parse('""')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: '' }))
+            expect(result.value).tracedTo([0, 2])
           })
+
           it('should parse strings with escape sequences', () => {
-            '"foo\\nbar"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo\nbar' })).and.be.tracedTo(0, 10)
+            const result = parse.Literal.parse('"foo\\nbar"')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 'foo\nbar' }))
+            expect(result.value).tracedTo([0, 10])
           })
 
           it('should parse strings with the escaped escape character without escaping the whole sequence', () => {
-            '"foo\\\\nbar"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo\\nbar' })).and.be.tracedTo(0, 11)
+            const result = parse.Literal.parse('"foo\\\\nbar"')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 'foo\\nbar' }))
+            expect(result.value).tracedTo([0, 11])
           })
 
           it('should parse annotated nodes', () => {
-            '@A(x=1) "foo"'.should.be.parsedBy(parser).into(new Literal({ value: 'foo', metadata: [new Annotation('A', { x: 1 })] }))
+            const result = parse.Literal.parse('@A(x=1) "foo"')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: 'foo', metadata: [new Annotation('A', { x: 1 })] }))
           })
 
           it('should not parse strings with invalid escape sequences', () => {
-            raw`"foo\xbar"`.should.not.be.parsedBy(parser)
+            shouldNotParse(parse.Literal.parse(raw`"foo\xbar"`))
           })
 
         })
@@ -4327,13 +4556,16 @@ class c {}`)
         describe('Collections', () => {
 
           it('should parse empty lists', () => {
-            '[]'.should.be.parsedBy(parser).into(
-              new Literal({ value: [new Reference({ name: LIST_MODULE }), []] })
-            ).and.be.tracedTo(0, 2)
+            const result = parse.Literal.parse('[]')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: [new Reference({ name: LIST_MODULE }), []] }))
+            expect(result.value).tracedTo([0, 2])
           })
 
           it('should parse non-empty lists', () => {
-            '[1,2,3]'.should.be.parsedBy(parser).into(
+            const result = parse.Literal.parse('[1,2,3]')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
                 value: [new Reference({ name: LIST_MODULE }), [
                   new Literal({ value: 1 }),
@@ -4341,20 +4573,26 @@ class c {}`)
                   new Literal({ value: 3 }),
                 ]],
               })
-            ).and.be.tracedTo(0, 7)
-              .and.have.nested.property('value.1.0').tracedTo(1, 2)
-              .and.also.have.nested.property('value.1.1').tracedTo(3, 4)
-              .and.also.have.nested.property('value.1.2').tracedTo(5, 6)
+            )
+            expect(result.value).tracedTo([0, 7])
+            const literalValue = result.value.value as [any, any[]]
+
+            expect(literalValue[1][0]).tracedTo([1, 2])
+            expect(literalValue[1][1]).tracedTo([3, 4])
+            expect(literalValue[1][2]).tracedTo([5, 6])
           })
 
           it('should parse empty sets', () => {
-            '#{}'.should.be.parsedBy(parser).into(
-              new Literal({ value: [new Reference({ name: SET_MODULE }), []] })
-            ).and.be.tracedTo(0, 3)
+            const result = parse.Literal.parse('#{}')
+            verifyParse(result)
+            expect(result.value).parsedInto(new Literal({ value: [new Reference({ name: SET_MODULE }), []] }))
+            expect(result.value).tracedTo([0, 3])
           })
 
           it('should parse non-empty sets', () => {
-            '#{1,2,3}'.should.be.parsedBy(parser).into(
+            const result = parse.Literal.parse('#{1,2,3}')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
                 value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
@@ -4362,14 +4600,19 @@ class c {}`)
                   new Literal({ value: 3 }),
                 ]],
               })
-            ).and.be.tracedTo(0, 8)
-              .and.have.nested.property('value.1.0').tracedTo(2, 3)
-              .and.also.have.nested.property('value.1.1').tracedTo(4, 5)
-              .and.also.have.nested.property('value.1.2').tracedTo(6, 7)
+            )
+            expect(result.value).tracedTo([0, 8])
+            const literalValue = result.value.value as [any, any[]]
+
+            expect(literalValue[1][0]).tracedTo([2, 3])
+            expect(literalValue[1][1]).tracedTo([4, 5])
+            expect(literalValue[1][2]).tracedTo([6, 7])
           })
 
           it('should parse annotated nodes', () => {
-            '@A(x=1)[1,2,3]'.should.be.parsedBy(parser).into(
+            let result = parse.Literal.parse('@A(x=1)[1,2,3]')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
                 value: [new Reference({ name: LIST_MODULE }), [
                   new Literal({ value: 1 }),
@@ -4379,8 +4622,16 @@ class c {}`)
                 metadata: [new Annotation('A', { x: 1 })],
               })
             )
+            expect(result.value).tracedTo([7, 14])
+            let literalValue = result.value.value as [any, any[]]
 
-            '@A(x=1)#{1,2,3}'.should.be.parsedBy(parser).into(
+            expect(literalValue[1][0]).tracedTo([8, 9])
+            expect(literalValue[1][1]).tracedTo([10, 11])
+            expect(literalValue[1][2]).tracedTo([12, 13])
+
+            result = parse.Literal.parse('@A(x=1)#{1,2,3}')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
                 value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
@@ -4390,20 +4641,38 @@ class c {}`)
                 metadata: [new Annotation('A', { x: 1 })],
               })
             )
+            expect(result.value).tracedTo([7, 15])
+            literalValue = result.value.value as [any, any[]]
+
+            expect(literalValue[1][0]).tracedTo([9, 10])
+            expect(literalValue[1][1]).tracedTo([11, 12])
+            expect(literalValue[1][2]).tracedTo([13, 14])
           })
 
           it('should parse inner annotated nodes', () => {
-            '[1,@A(x=1) 2,3]'.should.be.parsedBy(parser).into(
+            let result = parse.Literal.parse('[1,@A(x=1) 2,3]')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
-                value: [new Reference({ name: LIST_MODULE }), [
-                  new Literal({ value: 1 }),
-                  new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
-                  new Literal({ value: 3 }),
-                ]],
+                value: [
+                  new Reference({ name: LIST_MODULE }), [
+                    new Literal({ value: 1 }),
+                    new Literal({ value: 2, metadata: [new Annotation('A', { x: 1 })] }),
+                    new Literal({ value: 3 }),
+                  ],
+                ],
               })
             )
+            expect(result.value).tracedTo([0, 15])
+            let literalValue = result.value.value as [any, any[]]
 
-            '#{1,@A(x=1) 2,3}'.should.be.parsedBy(parser).into(
+            expect(literalValue[1][0]).tracedTo([1, 2])
+            expect(literalValue[1][1]).tracedTo([11, 12])
+            expect(literalValue[1][2]).tracedTo([13, 14])
+
+            result = parse.Literal.parse('#{1,@A(x=1) 2,3}')
+            verifyParse(result)
+            expect(result.value).parsedInto(
               new Literal({
                 value: [new Reference({ name: SET_MODULE }), [
                   new Literal({ value: 1 }),
@@ -4412,6 +4681,12 @@ class c {}`)
                 ]],
               })
             )
+            expect(result.value).tracedTo([0, 16])
+            literalValue = result.value.value as [any, any[]]
+
+            expect(literalValue[1][0]).tracedTo([2, 3])
+            expect(literalValue[1][1]).tracedTo([12, 13])
+            expect(literalValue[1][2]).tracedTo([14, 15])
           })
 
         })
@@ -4445,29 +4720,28 @@ class Bird {
 class OtherClass {
 
 }
-`
+  `
     const textFor = ([from, to]: SourceIndex[], input: string): string => input.substring(from.offset, to.offset)
 
     it('should return same input if there are no whitespaces', () => {
       const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 2, column: 1, offset: 1 }), new SourceIndex({ line: 2, column: 6, offset: 6 }), input)
-      textFor(result, expect(input)).toBe('class')
+
+      expect(textFor(result, input)).toBe('class')
     })
 
     it('should trim trailing whitespaces', () => {
       const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 2, column: 1, offset: 1 }), new SourceIndex({ line: 2, column: 7, offset: 7 }), input)
-      textFor(result, expect(input)).toBe('class')
+      expect(textFor(result, input)).toBe('class')
     })
 
     it('should trim beginning whitespaces for the input', () => {
       const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 4, column: 16, offset: 57 }), new SourceIndex({ line: 6, column: 15, offset: 73 }), input)
-      textFor(result, expect(input)).toBe('method fly()')
+      expect(textFor(result, input)).toBe('method fly()')
     })
 
     it('should trim beginning & trailing whitespaces for the input', () => {
       const result = parse.sanitizeWhitespaces(new SourceIndex({ line: 4, column: 16, offset: 57 }), new SourceIndex({ line: 6, column: 16, offset: 74 }), input)
-      textFor(result, expect(input)).toBe('method fly()')
+      expect(textFor(result, input)).toBe('method fly()')
     })
-
   })
-
 })
