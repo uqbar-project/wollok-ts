@@ -56,12 +56,12 @@
     "@types/yargs": "17.0.22",
     "@typescript-eslint/eslint-plugin": "8.48.1",
     "@typescript-eslint/parser": "8.48.1",
-    "@vitest/coverage-istanbul": "1.0.4",
-    "@vitest/coverage-v8": "1.0.4",
-    "@vitest/ui": "1.0.4",
+    "@vitest/coverage-istanbul": "2.1.9",
+    "@vitest/coverage-v8": "2.1.9",
+    "@vitest/ui": "2.1.9",
     "dedent": "1.7.0",
     "eslint": "9.39.1",
-    "eslint-plugin-vitest": "0.5.2",
+    "eslint-plugin-vitest": "0.5.4",
     "fast-glob": "3.3.3",
     "jiti": "2.6.1",
     "simple-git": "3.30.0",
@@ -69,7 +69,7 @@
     "typescript": "5.4.5",
     "typescript-eslint": "8.48.1",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "1.0.4",
+    "vitest": "2.1.9",
     "yargs": "17.7.2"
   }
 }
