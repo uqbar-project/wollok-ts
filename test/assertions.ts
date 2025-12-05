@@ -2,13 +2,11 @@
 // test/assertions.ts
 import { expect } from 'vitest'
 import dedent from 'dedent'
-import { formatError } from 'parsimmon'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
 import { Name, Node, Package, Reference, SourceIndex } from '../src/model'
 import { ParseError } from '../src/parser'
-import { Validation } from '../src/validator'
 
 // -----------------------------------------------------------------------------
 // helpers
@@ -61,24 +59,6 @@ const deepCompare = (a: any, b: any): boolean =>
 // -----------------------------------------------------------------------------
 
 expect.extend({
-
-  // ---------------------- PARSER ----------------------
-  parsedBy(actual, parser) {
-    const result = parser.parse(actual)
-
-    return {
-      pass: result.status,
-      message: () => {
-        if (result.status) return ''
-
-        const errorDetails = formatError(actual, result)
-        const expectedMsg = 'A valid parse result'
-        const actualMsg = `Parse error: ${errorDetails}`
-
-        return `Expected: ${expectedMsg}\nReceived: ${actualMsg}`
-      },
-    }
-  },
 
   parsedInto(actual: any, expected: any) {
     const plucked = dropKeys('sourceMap', 'problems')
@@ -206,28 +186,6 @@ ${sections.join('\n\n')}`
     return {
       pass: ok,
       message: () => `Expected reference target ${actual.target?.id} to equal ${expectedNode.id}`,
-    }
-  },
-
-  // ---------------------- VALIDATOR ----------------------
-  pass(actual: Node, validation: Validation<Node>) {
-    const result = validation(actual, '')
-    const ok = result === null
-
-    return {
-      pass: ok,
-      message: () => `Validation failed with: ${JSON.stringify(result)}`,
-    }
-  },
-
-  // ---------------------- deepEquals ----------------------
-  deepEquals(actual: any, expected: any) {
-    const ok = deepCompare(actual, expected)
-
-    return {
-      pass: ok,
-      message: () =>
-        `Expected ${JSON.stringify(actual)} to deeply equal ${JSON.stringify(expected)}`,
     }
   },
 
