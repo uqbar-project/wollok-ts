@@ -1,17 +1,14 @@
 import { fail } from 'assert'
-import { should } from 'chai'
 import { join } from 'path'
 import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
 import { allExpectations, buildEnvironmentForEachFile, validateExpectationProblem } from './utils'
+import { describe, expect, it } from 'vitest'
 
 const TESTS_PATH = join('language', 'test', 'typesystem')
 
-should()
-
 describe('Wollok Type System Inference', () => {
-
 
   buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
@@ -43,7 +40,7 @@ describe('Wollok Type System Inference', () => {
           }
         }
 
-        problems.should.be.empty
+        expect(problems.length).toBe(0)
       })
     })
   })

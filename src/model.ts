@@ -903,12 +903,13 @@ export class Catch extends Node {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-type ClosurePayload = {
+export type ClosurePayload = {
   parameters?: List<Parameter>
   sentences?: List<Sentence>
   code?: string
   sourceMap?: SourceMap
   metadata?: List<Annotation>
+  members?: List<Method | Field>
 }
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
@@ -978,7 +979,7 @@ export class Environment extends Node {
   }
 
   replNode(): Package {
-    return this.getNodeByFQN<Package>(REPL)
+    return this.getNodeByFQN(REPL)
   }
 
 }

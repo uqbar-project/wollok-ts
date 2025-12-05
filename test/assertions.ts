@@ -1,228 +1,192 @@
+
+// test/assertions.ts
+import { expect } from 'vitest'
 import dedent from 'dedent'
-import { formatError, Parser } from 'parsimmon'
 import { buildEnvironment as buildEnv, print } from '../src'
 import { List } from '../src/extensions'
 import link from '../src/linker'
 import { Name, Node, Package, Reference, SourceIndex } from '../src/model'
 import { ParseError } from '../src/parser'
-import { Validation } from '../src/validator'
 
-declare global {
-  export namespace Chai {
-    interface Assertion { // TODO: split into the separate modules
-      also: Assertion
-      parsedBy(parser: Parser<any>): Assertion
-      into(expected: any): Assertion
-      tracedTo(start: number, end: number): Assertion
-      sourceMap(start: SourceIndex, end: SourceIndex): Assertion
-      recoveringFrom(code: Name, start: number, end: number): Assertion
+// -----------------------------------------------------------------------------
+// helpers
+// -----------------------------------------------------------------------------
 
-      formattedTo(expected: string): Assertion
-
-      linkedInto(expected: List<Package>): Assertion
-      target(node: Node): Assertion
-
-      pass<N extends Node>(validation: Validation<N>): Assertion
-
-      anyType(): Assertion
-
-      deepEquals(excepted: any): Assertion
-    }
-
-    interface ArrayAssertion {
-      be: Assertion
-    }
-  }
-}
-
-// TODO: Implement this without calling JSON?
 const dropKeys = (...keys: string[]) => (obj: any) =>
   JSON.parse(JSON.stringify(obj, (k, v) => keys.includes(k) ? undefined : v))
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// ALSO
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// primitive compare utilities
+const comparePrimitives = (a: unknown, b: unknown): boolean => a === b
+const compareObjects = (a: any, b: any): boolean =>
+  a !== null &&
+  b !== null &&
+  typeof a === 'object' &&
+  typeof b === 'object' &&
+  Object.keys(a).length === Object.keys(b).length &&
+  Object.keys(a).every(k => deepCompare(a[k], b[k]))
 
-export const also: Chai.ChaiPlugin = ({ Assertion }, { flag }) => {
+const compareArrays = (a: any, b: any): boolean =>
+  Array.isArray(a) &&
+  Array.isArray(b) &&
+  a.length === b.length &&
+  a.every((x, i) => deepCompare(x, b[i]))
 
-  Assertion.overwriteMethod('property', base => function (this: Chai.AssertionStatic, ...args: any[]) {
-    if (!flag(this, 'objectBeforePropertyChain')) flag(this, 'objectBeforePropertyChain', this._obj)
+const compareMaps = (a: any, b: any): boolean =>
+  a instanceof Map &&
+  b instanceof Map &&
+  a.size === b.size &&
+  [...a].every(([key, value]) =>
+    deepCompare(value, b.get(key)) &&
+    deepCompare(key, [...b].find(([k]) => deepCompare(k, key))?.[0])
+  )
 
-    base.apply(this, args)
-  })
+const compareSets = (a: any, b: any): boolean =>
+  a instanceof Set &&
+  b instanceof Set &&
+  a.size === b.size &&
+  [...a].every(elem => b.has(elem))
+
+const deepCompare = (a: any, b: any): boolean =>
+  comparePrimitives(a, b) ||
+  compareObjects(a, b) ||
+  compareArrays(a, b) ||
+  compareMaps(a, b) ||
+  compareSets(a, b)
 
 
-  Assertion.addProperty('also', function () {
-    this._obj = flag(this, 'objectBeforePropertyChain')
-  })
+// -----------------------------------------------------------------------------
+// Vitest matchers
+// -----------------------------------------------------------------------------
 
-}
+expect.extend({
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// PARSER ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  parsedInto(actual: any, expected: any) {
+    const plucked = dropKeys('sourceMap', 'problems')
 
-export const parserAssertions: Chai.ChaiPlugin = (chai, utils) => {
-  const { Assertion } = chai
-  const { flag } = utils
+    const actualClean = plucked(actual)
+    const expectedClean = plucked(expected)
 
-  also(chai, utils)
-  chai.config.truncateThreshold = 0
+    const ok =
+      deepCompare(actual.metadata ?? [], expected.metadata ?? []) &&
+    deepCompare(actualClean, expectedClean)
 
-  chai.use(function (_chai, utils) {
-    utils.objDisplay = function (obj) { return '!!!' + obj + '!!!' }
-  })
+    return {
+      pass: ok,
+      message: () => {
+        const formatValue = (value: any) => JSON.stringify(value, null, 2)
+        const sections: string[] = []
 
-  Assertion.addMethod('parsedBy', function (parser: Parser<any>) {
-    const result = parser.parse(this._obj)
+        if (!deepCompare(actual.metadata ?? [], expected.metadata ?? [])) {
+          sections.push(`Metadata mismatch!
 
-    this.assert(
-      result.status,
-      () => formatError(this._obj, result),
-      'Expected parser to fail for input #{this}',
-      true,
-      result.status,
+Actual metadata:
+${formatValue(actual.metadata)}
+
+Expected metadata:
+${formatValue(expected.metadata)}`)
+        }
+
+        if (!deepCompare(actualClean, expectedClean)) {
+          sections.push(`Structure mismatch!
+
+Actual structure (cleaned):
+${formatValue(actualClean)}
+
+Expected structure (cleaned):
+${formatValue(expectedClean)}`)
+        }
+
+        return `Expected structures to match
+
+${sections.join('\n\n')}`
+      },
+    }
+  },
+
+  tracedTo(actual: any, [start, end]: [number, number]) {
+    const actualStart = actual?.sourceMap?.start?.offset
+    const actualEnd = actual?.sourceMap?.end?.offset
+    const ok = actualStart === start && actualEnd === end
+
+    return {
+      pass: ok,
+      message: () =>
+        `Expected node to be traced to (${start}, ${end}) but got (${actualStart}, ${actualEnd})`,
+    }
+  },
+
+  sourceMap(actual: any, [start, end]: [SourceIndex, SourceIndex]) {
+    const ok =
+      deepCompare(actual?.sourceMap?.start, start) &&
+      deepCompare(actual?.sourceMap?.end, end)
+
+    return {
+      pass: ok,
+      message: () => 'Expected sourceMap to match',
+    }
+  },
+
+  recoveringFrom(actual: any, problem: { code: Name; start: number; end: number }) {
+    if (!actual?.problems) {
+      return {
+        pass: false,
+        message: () => 'Expected object to have problems[]',
+      }
+    }
+
+    const found = actual.problems.some((p: ParseError) =>
+      p.code === problem.code &&
+      p.sourceMap.start.offset === problem.start &&
+      p.sourceMap.end.offset === problem.end
     )
 
-    if (result.status) this._obj = result.value
-  })
+    return {
+      pass: found,
+      message: () => `Expected to be recovering from: ${JSON.stringify(problem)}. Problems: ${JSON.stringify(actual.problems, null, 2)}`,
+    }
+  },
 
-
-  Assertion.addMethod('into', function (this: Chai.AssertionStatic, expected: any) {
-    const plucked = dropKeys('sourceMap', 'problems')
-    const expectedProblems = flag(this, 'expectedProblems') ?? []
-    const actualProblems = this._obj.problems?.map(({ code, sourceMap: { start, end } }: ParseError) => ({ code, start: start.offset, end: end.offset })) ?? []
-
-    new Assertion(this._obj.metadata ?? []).to.have.deep.members(expected.metadata ?? [])
-    new Assertion(expectedProblems).to.deep.contain.all.members(actualProblems, 'Unexpected problem found')
-    new Assertion(actualProblems).to.deep.contain.all.members(expectedProblems, 'Expected problem not found')
-    new Assertion(plucked(this._obj)).to.deep.equal(plucked(expected))
-  })
-
-
-  Assertion.addMethod('tracedTo', function (start: number, end: number) {
-    new Assertion(this._obj)
-      .to.have.nested.property('sourceMap.start.offset', start).and.also
-      .to.have.nested.property('sourceMap.end.offset', end)
-  })
-
-  Assertion.addMethod('sourceMap', function (start: SourceIndex, end: SourceIndex) {
-    new Assertion(this._obj)
-      .to.have.nested.property('sourceMap.start').deep.eq(start).and.also
-      .to.have.nested.property('sourceMap.end').deep.eq(end)
-  })
-
-  Assertion.addMethod('recoveringFrom', function (this: Chai.AssertionStatic, code: Name, start: number, end: number) {
-    flag(this, 'expectedProblems', [...flag(this, 'expectedProblems') ?? [], { code, start, end }])
-  })
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// PRINTER ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-
-export const printerAssertions: Chai.ChaiPlugin = (chai) => {
-  const { Assertion } = chai
-
-  Assertion.addMethod('formattedTo', function (expected: string) {
+  // ---------------------- PRINTER ----------------------
+  formattedTo(actual: string, expected: string) {
     const name = 'formatted'
-    const environment = buildEnv([{ name, content: this._obj }])
+    const environment = buildEnv([{ name, content: actual }])
     const printerConfig = { maxWidth: 80, useSpaces: true, abbreviateAssignments: true }
     const formatted = print(environment.getNodeByFQN(name), printerConfig)
-    new Assertion(formatted).to.equal(dedent(expected))
-  })
-}
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// LINKER ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+    const ok = formatted === dedent(expected)
 
-export const linkerAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
+    return {
+      pass: ok,
+      message: () => `Expected formatted text:\n${formatted}\nto equal:\n${expected}`,
+    }
+  },
 
-  Assertion.addMethod('linkedInto', function (expected: List<Package>) {
+  // ---------------------- LINKER ----------------------
+  linkedInto(actual: any, expectedPkgs: List<Package>) {
     const dropLinkedFields = dropKeys('id', 'scope')
-    const actualEnvironment = link(this._obj)
-    const expectedEnvironment = link(expected)
 
-    new Assertion(dropLinkedFields(actualEnvironment)).to.deep.equal(dropLinkedFields(expectedEnvironment))
-  })
+    const actualEnv = link(actual)
+    const expectedEnv = link(expectedPkgs)
 
+    const ok = deepCompare(dropLinkedFields(actualEnv), dropLinkedFields(expectedEnv))
 
-  Assertion.addMethod('target', function (node: Node) {
-    const reference: Reference<Node> = this._obj
+    return {
+      pass: ok,
+      message: () => 'Expected linked env to match',
+    }
+  },
 
-    new Assertion(reference.is(Reference), `can't check "target" of ${reference.kind} node`).to.be.true
-    new Assertion(this._obj.target.id).to.equal(node.id)
-  })
-}
+  target(actual: Reference<Node>, expectedNode: Node) {
+    if (!actual.is(Reference)) {
+      return { pass: false, message: () => 'Object is not a Reference' }
+    }
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// VALIDATOR ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+    const ok = actual.target?.id === expectedNode.id
 
-export const validatorAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
+    return {
+      pass: ok,
+      message: () => `Expected reference target ${actual.target?.id} to equal ${expectedNode.id}`,
+    }
+  },
 
-  Assertion.addMethod('pass', function (validation: Validation<Node>) {
-    const result = validation(this._obj, '')
-
-    this.assert(
-      result === null,
-      `Expected ${this._obj.kind} to pass validation, but got #{act} instead`,
-      `Expected ${this._obj.kind} to not pass validation`,
-      null,
-      result
-    )
-  })
-
-}
-
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// COMPARES ASSERTIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-export const compareAssertions: Chai.ChaiPlugin = ({ Assertion }) => {
-
-  const comparePrimitives = (obj1: unknown, obj2: unknown): boolean => obj1 === obj2
-
-  const compareObjects = (obj1: unknown, obj2: unknown): boolean =>
-    obj1 !== null && obj2 !== null &&
-    typeof obj1 === 'object' && typeof obj2 === 'object' &&
-    Object.keys(obj1).length === Object.keys(obj2).length &&
-    Object.keys(obj1).every(key => deepCompare((obj1 as Record<string, unknown>)[key], (obj2 as Record<string, unknown>)[key]))
-
-  const compareArrays = (arr1: unknown, arr2: unknown): boolean =>
-    Array.isArray(arr1) && Array.isArray(arr2) &&
-    arr1.length === arr2.length &&
-    arr1.every((elem, index) => deepCompare(elem, arr2[index]))
-
-  const compareMaps = (map1: unknown, map2: unknown): boolean =>
-    map1 instanceof Map && map2 instanceof Map &&
-    map1.size === map2.size &&
-    [...map1].every(([key, value]) =>
-      deepCompare(value, map2.get(key)) && deepCompare(key, [...map2].find(([k]) => deepCompare(k, key))?.[0])
-    )
-
-  const compareSets = (set1: unknown, set2: unknown): boolean =>
-    set1 instanceof Set && set2 instanceof Set &&
-    set1.size === set2.size &&
-    [...set1].every(elem => set2.has(elem))
-
-  const deepCompare = (obj1: unknown, obj2: unknown): boolean =>
-    comparePrimitives(obj1, obj2) ||
-    compareObjects(obj1, obj2) ||
-    compareArrays(obj1, obj2) ||
-    compareMaps(obj1, obj2) ||
-    compareSets(obj1, obj2)
-
-  Assertion.addMethod('deepEquals', function (this: Chai.AssertionStatic, expected: any) {
-    const actual = this._obj
-    const result = deepCompare(actual, expected)
-
-    this.assert(
-      result,
-      `Expected ${expected} to deeply equal ${actual}`,
-      `Expected ${expected} to not deeply equal ${actual}`,
-      expected,
-      actual
-    )
-  })
-}
+})

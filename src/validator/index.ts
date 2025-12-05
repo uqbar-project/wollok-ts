@@ -42,15 +42,15 @@ const problem = (level: Level) => <N extends Node>(
   values: (node: N) => string[] = () => [],
   source: (node: N) => SourceMap | undefined = (node) => node.sourceMap,
 ) => (node: N, code: Code): Problem | null =>
-    !expectation(node)
-      ? {
-        level,
-        code,
-        node,
-        values: values(node),
-        sourceMap: source(node),
-      }
-      : null
+  !expectation(node)
+    ? {
+      level,
+      code,
+      node,
+      values: values(node),
+      sourceMap: source(node),
+    }
+    : null
 
 const warning = problem('warning')
 

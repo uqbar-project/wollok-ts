@@ -1,10 +1,9 @@
-import { should } from 'chai'
+
 import { buildEnvironment, Closure, Literal, Method, Name, Parameter, Self, Send, Singleton } from '../src'
 import { bindReceivedMessages, maxTypeFromMessages, propagateMaxTypes, propagateMessages, propagateMinTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import { newSyntheticTVar, newTypeVariables, TypeVariable, typeVariableFor } from '../src/typeSystem/typeVariables'
 import { AtomicType, RETURN, WollokAtomicType, WollokClosureType, WollokMethodType, WollokParameterType, WollokParametricType } from '../src/typeSystem/wollokTypes'
-
-should()
+import { describe, expect, it, beforeEach } from 'vitest'
 
 describe('Wollok Type System', () => {
   let tVar: TypeVariable
@@ -23,7 +22,7 @@ describe('Wollok Type System', () => {
 
       propagateMinTypes(tVar)
 
-      supertype.allMinTypes()[0].should.be.equal(stubType)
+      expect(supertype.allMinTypes()[0]).toBe(stubType)
     })
 
     it('should propagate min types from type variable to supertypes with other min types', () => {
@@ -34,7 +33,7 @@ describe('Wollok Type System', () => {
 
       propagateMinTypes(tVar)
 
-      supertype.allMinTypes().should.be.have.length(2)
+      expect(supertype.allMinTypes()).toHaveLength(2)
     })
 
     it('should not propagate min types if already exist in supertypes', () => {
@@ -45,7 +44,7 @@ describe('Wollok Type System', () => {
 
       propagateMinTypes(tVar)
 
-      supertype.allMinTypes().should.have.length(1)
+      expect(supertype.allMinTypes()).toHaveLength(1)
     })
 
     it('should not propagate max types', () => {
@@ -55,7 +54,7 @@ describe('Wollok Type System', () => {
 
       propagateMinTypes(tVar)
 
-      supertype.allMaxTypes().should.be.empty
+      expect(supertype.allMaxTypes()).toHaveLength(0)
     })
 
     it('propagate to a closed type variables should report a problem', () => {
@@ -63,11 +62,11 @@ describe('Wollok Type System', () => {
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
 
-      supertype.closed.should.be.true
+      expect(supertype.closed).toBe(true)
       propagateMinTypes(tVar)
 
-      supertype.allMinTypes().should.have.length(1); // Not propagated
-      (tVar.hasProblems || supertype.hasProblems).should.be.true
+      expect(supertype.allMinTypes().length).toBe(1) // Not propagated
+      expect(tVar.hasProblems || supertype.hasProblems).toBe(true)
     })
 
     it('propagate to a closed type variables with same type should not report a problem', () => {
@@ -75,10 +74,10 @@ describe('Wollok Type System', () => {
       tVar.addSupertype(supertype)
       tVar.addMinType(stubType)
 
-      supertype.closed.should.be.true
-      propagateMinTypes(tVar);
+      expect(supertype.closed).toBe(true)
+      propagateMinTypes(tVar)
 
-      (tVar.hasProblems || supertype.hasProblems).should.be.false
+      expect(tVar.hasProblems || supertype.hasProblems).toBe(false)
     })
 
   })
@@ -93,52 +92,52 @@ describe('Wollok Type System', () => {
     })
 
     it('should propagate max types from type variable to subtypes without max types', () => {
-      propagateMaxTypes(tVar).should.be.true
+      expect(propagateMaxTypes(tVar)).toBe(true)
 
-      subtype.allMaxTypes()[0].should.be.equal(stubType)
+      expect(subtype.allMaxTypes()[0]).toBe(stubType)
     })
 
     it('should propagate max types from type variable to subtypes with other max types', () => {
       subtype.addMaxType(otherStubType)
 
-      propagateMaxTypes(tVar).should.be.true
+      expect(propagateMaxTypes(tVar)).toBe(true)
 
-      subtype.allMaxTypes().should.be.have.length(2)
+      expect(subtype.allMaxTypes()).toHaveLength(2)
     })
 
     it('should not propagate max types if already exist in subtypes', () => {
       subtype.addMaxType(stubType)
 
-      propagateMaxTypes(tVar).should.be.false
+      expect(propagateMaxTypes(tVar)).toBe(false)
 
-      subtype.allMaxTypes().should.have.length(1)
+      expect(subtype.allMaxTypes().length).toBe(1)
     })
 
     it('should not propagate min types', () => {
       tVar.addMinType(otherStubType)
 
-      propagateMaxTypes(tVar).should.be.true // There is a max type
+      expect(propagateMaxTypes(tVar)).toBe(true) // There is a max type
 
-      subtype.allPossibleTypes().should.not.include(otherStubType)
+      expect(subtype.allPossibleTypes().includes(otherStubType)).toBe(false)
     })
 
     it('propagate to a closed type variables should report a problem', () => {
       subtype.setType(otherStubType)
-      subtype.closed.should.be.true
+      expect(subtype.closed).toBe(true)
 
-      propagateMaxTypes(tVar).should.be.true
+      expect(propagateMaxTypes(tVar)).toBe(true)
 
-      subtype.allMaxTypes().should.have.length(1); // Not propagated
-      (tVar.hasProblems || subtype.hasProblems).should.be.true
+      expect(subtype.allMaxTypes().length).toBe(1) // Not propagated
+      expect(tVar.hasProblems || subtype.hasProblems).toBe(true)
     })
 
     it('propagate to a closed type variables with same type should not report a problem', () => {
       subtype.setType(stubType)
-      subtype.closed.should.be.true
+      expect(subtype.closed).toBe(true)
 
-      propagateMaxTypes(tVar).should.be.false;
+      expect(propagateMaxTypes(tVar)).toBe(false)
 
-      (tVar.hasProblems || subtype.hasProblems).should.be.false
+      expect(tVar.hasProblems || subtype.hasProblems).toBe(false)
     })
   })
 
@@ -153,44 +152,44 @@ describe('Wollok Type System', () => {
     })
 
     it('should propagate messages from type variable to subtypes without messages', () => {
-      propagateMessages(tVar).should.be.true
+      expect(propagateMessages(tVar)).toBe(true)
 
-      subtype.messages.should.be.deep.equal([testSend])
+      expect(subtype.messages).toEqual([testSend])
     })
 
     it('should propagate messages from type variable to subtypes with other messages', () => {
       const otherSend = testSend.copy()
       subtype.addSend(otherSend)
 
-      propagateMessages(tVar).should.be.true
+      expect(propagateMessages(tVar)).toBe(true)
 
-      subtype.messages.should.be.deep.equal([otherSend, testSend])
+      expect(subtype.messages).toEqual([otherSend, testSend])
     })
 
     it('should not propagate messages if already exist in subtypes', () => {
       subtype.addSend(testSend)
 
-      propagateMessages(tVar).should.be.false
+      expect(propagateMessages(tVar)).toBe(false)
 
-      subtype.messages.should.have.length(1)
+      expect(subtype.messages.length).toBe(1)
     })
 
     it('propagate to a closed type variables with MNU types should report a problem', () => {
       subtype.setType(mnuStubType)
 
-      propagateMessages(tVar).should.be.true
+      expect(propagateMessages(tVar)).toBe(true)
 
-      subtype.messages.should.be.empty // Not propagated
-      subtype.hasProblems.should.be.true
+      expect(subtype.messages.length).toBe(0) // Not propagated
+      expect(subtype.hasProblems).toBe(true)
     })
 
     it('propagate to a closed type variables with types that understand the message should not report a problem', () => {
       subtype.setType(otherStubType)
 
-      propagateMessages(tVar).should.be.true
+      expect(propagateMessages(tVar)).toBe(true)
 
-      subtype.messages.should.be.deep.equal([testSend]);
-      (tVar.hasProblems || subtype.hasProblems).should.be.false
+      expect(subtype.messages).toEqual([testSend])
+      expect(tVar.hasProblems || subtype.hasProblems).toBe(false)
     })
   })
 
@@ -203,19 +202,20 @@ describe('Wollok Type System', () => {
     })
 
     function assertReturnSendBinding(method: Method, send?: Send) {
-      typeVariableFor(method).atParam(RETURN).supertypes.should.deep.equal([...send ? [typeVariableFor(send)] : []])
+      expect(typeVariableFor(method).atParam(RETURN).supertypes).toEqual([...send ? [typeVariableFor(send)] : []])
     }
+
     function assertArgsSendBinding(method: Method, send?: Send) {
-      method.parameters.should.not.be.empty
+      expect(method.parameters.length).toBeGreaterThan(0)
       method.parameters.forEach((param, index) => {
-        typeVariableFor(param).subtypes.should.deep.equal([...send ? [typeVariableFor(send.args[index])] : []])
+        expect(typeVariableFor(param).subtypes).toEqual([...send ? [typeVariableFor(send.args[index])] : []])
       })
     }
 
     it('should add send as return supertype (for next propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar).should.be.true
+      expect(bindReceivedMessages(tVar)).toBe(true)
 
       assertReturnSendBinding(testMethod, testSend)
     })
@@ -223,7 +223,7 @@ describe('Wollok Type System', () => {
     it('should add send arguments as parameters subtypes (for next propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar).should.be.true
+      expect(bindReceivedMessages(tVar)).toBe(true)
 
       assertArgsSendBinding(testMethod, testSend)
     })
@@ -231,12 +231,12 @@ describe('Wollok Type System', () => {
     it('send should not have references to the method (for avoiding errors propagation)', () => {
       tVar.setType(stubType)
 
-      bindReceivedMessages(tVar).should.be.true
+      expect(bindReceivedMessages(tVar)).toBe(true)
 
-      typeVariableFor(testSend).subtypes.should.be.empty
-      testSend.args.should.not.be.empty
+      expect(typeVariableFor(testSend).subtypes.length).toBe(0)
+      expect(testSend.args.length).toBeGreaterThan(0)
       testSend.args.forEach(arg => {
-        typeVariableFor(arg).supertypes.should.be.empty
+        expect(typeVariableFor(arg).supertypes.length).toBe(0)
       })
     })
 
@@ -244,7 +244,7 @@ describe('Wollok Type System', () => {
       tVar.addMinType(stubType)
       tVar.addMaxType(otherStubType)
 
-      bindReceivedMessages(tVar).should.be.true;
+      expect(bindReceivedMessages(tVar)).toBe(true);
 
       [testMethod, otherTestMethod].forEach(method => {
         assertReturnSendBinding(method, testSend)
@@ -256,7 +256,7 @@ describe('Wollok Type System', () => {
       tVar.setType(stubType)
       tVar.node = new Self()
 
-      bindReceivedMessages(tVar).should.be.false
+      expect(bindReceivedMessages(tVar)).toBe(false)
 
       assertReturnSendBinding(testMethod)
       assertArgsSendBinding(testMethod)
@@ -266,27 +266,27 @@ describe('Wollok Type System', () => {
   describe('Max types from methods', () => {
 
     function assertMaxTypes(_tVar: TypeVariable, ...types: string[]) {
-      _tVar.allMaxTypes().map(type => type.name).should.be.deep.eq(types)
+      expect(_tVar.allMaxTypes().map(type => type.name)).toEqual(types)
     }
 
     it('should do nothing when there is no messages', () => {
-      tVar.messages.should.be.empty
+      expect(tVar.messages.length).toBe(0)
 
-      maxTypeFromMessages(tVar).should.be.false
+      expect(maxTypeFromMessages(tVar)).toBe(false)
 
-      tVar.allMaxTypes().should.be.empty
+      expect(tVar.allMaxTypes().length).toBe(0)
     })
 
     it('should infer maximal types', () => {
       tVar.addSend(newSend('even'))
-      maxTypeFromMessages(tVar).should.be.true
+      expect(maxTypeFromMessages(tVar)).toBe(true)
 
       assertMaxTypes(tVar, 'Number')
     })
 
     it('should infer all maximal types', () => {
       tVar.addSend(newSend('+', 1))
-      maxTypeFromMessages(tVar).should.be.true
+      expect(maxTypeFromMessages(tVar)).toBe(true)
 
       assertMaxTypes(tVar, 'Collection<Any>', 'Set<Any>', 'List<Any>', 'Number', 'String') // TODO: check params and return types
     })
@@ -294,14 +294,14 @@ describe('Wollok Type System', () => {
     it('should infer maximal types that implements all messages', () => {
       tVar.addSend(newSend('+', 1))
       tVar.addSend(newSend('even'))
-      maxTypeFromMessages(tVar).should.be.true
+      expect(maxTypeFromMessages(tVar)).toBe(true)
 
       assertMaxTypes(tVar, 'Number')
     })
 
     it('should not infer maximal types if there is no method implementation', () => {
       tVar.addSend(testSend)
-      maxTypeFromMessages(tVar).should.be.false
+      expect(maxTypeFromMessages(tVar)).toBe(false)
 
       assertMaxTypes(tVar, ...[])
     })
@@ -314,10 +314,10 @@ describe('Wollok Type System', () => {
         tVar.addSend(problemSend)
         tVar.node = problemSend.receiver
 
-        maxTypeFromMessages(tVar).should.be.true
+        expect(maxTypeFromMessages(tVar)).toBe(true)
 
         assertMaxTypes(tVar, 'Number')
-        problemSend.receiver.problems!.should.have.length(1)
+        expect(problemSend.receiver.problems!.length).toBe(1)
       })
 
       it('between two different types (reverse)', () => {
@@ -326,22 +326,22 @@ describe('Wollok Type System', () => {
         tVar.addSend(problemSend)
         tVar.node = problemSend.receiver
 
-        maxTypeFromMessages(tVar).should.be.true
+        expect(maxTypeFromMessages(tVar)).toBe(true)
 
         assertMaxTypes(tVar, 'String')
-        problemSend.receiver.problems!.should.have.length(1)
+        expect(problemSend.receiver.problems!.length).toBe(1)
       })
 
       // TODO: Improve inferMaxTypesFromMessages algorithm
-      xit('between a type and not implemented method', () => {
+      it.skip('between a type and not implemented method', () => {
         tVar.addSend(testSend)
         tVar.node = testSend.receiver
         tVar.addSend(newSend('toLowerCase'))
 
-        maxTypeFromMessages(tVar).should.be.true
+        expect(maxTypeFromMessages(tVar)).toBe(true)
 
         assertMaxTypes(tVar, 'String')
-        testSend.receiver.problems!.should.have.length(1)
+        expect(testSend.receiver.problems!.length).toBe(1)
       })
 
       it('between a type and not implemented method (reverse)', () => {
@@ -349,10 +349,10 @@ describe('Wollok Type System', () => {
         tVar.addSend(testSend)
         tVar.node = testSend.receiver
 
-        maxTypeFromMessages(tVar).should.be.true
+        expect(maxTypeFromMessages(tVar)).toBe(true)
 
         assertMaxTypes(tVar, 'String')
-        testSend.receiver.problems!.should.have.length(1)
+        expect(testSend.receiver.problems!.length).toBe(1)
       })
     })
 
@@ -378,7 +378,7 @@ describe('Wollok Type System', () => {
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
-          supertype.allMinTypes()[0].should.be.equal(parametricType)
+          expect(supertype.allMinTypes()[0]).toBe(parametricType)
         })
 
         it('To param inside an equivalent type', () => {
@@ -388,8 +388,8 @@ describe('Wollok Type System', () => {
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
-          param.allMinTypes()[0].should.be.equal(stubType)
-          supertype.hasType(parametricType).should.be.true
+          expect(param.allMinTypes()[0]).toBe(stubType)
+          expect(supertype.hasType(parametricType)).toBe(true)
         })
 
         it('To partial params inside an equivalent type', () => {
@@ -406,9 +406,9 @@ describe('Wollok Type System', () => {
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
-          param1.allMinTypes()[0].should.be.equal(stubType)
-          param2.allMinTypes()[0].should.be.equal(otherStubType)
-          param3.allMinTypes().should.be.empty
+          expect(param1.allMinTypes()[0]).toBe(stubType)
+          expect(param2.allMinTypes()[0]).toBe(otherStubType)
+          expect(param3.allMinTypes().length).toBe(0)
           supertype.hasType(parametricType)
         })
 
@@ -420,8 +420,8 @@ describe('Wollok Type System', () => {
         const instance = newSyntheticTVar().setType(new WollokParametricType(module, { 'ELEMENT_TEST': innerInstance }))
         const newInstance = tVar.instanceFor(instance)
 
-        newInstance.should.not.be.eq(tVar) // New TVAR
-        newInstance.atParam('param').should.be.eq(innerInstance)
+        expect(newInstance).not.toBe(tVar) // New TVAR
+        expect(newInstance.atParam('param')).toBe(innerInstance)
       })
 
       it('Create message type variables', () => {
@@ -430,8 +430,8 @@ describe('Wollok Type System', () => {
         const send = newSyntheticTVar() // Without send there is no instance
         const newInstance = tVar.instanceFor(instance, send)
 
-        newInstance.should.not.be.eq(tVar) // New TVAR
-        newInstance.atParam('param').should.not.be.eq(innerTVar)  // New inner TVAR
+        expect(newInstance).not.toBe(tVar) // New TVAR
+        expect(newInstance.atParam('param')).not.toBe(innerTVar)  // New inner TVAR
       })
 
       it('Link message type variables between them', () => {
@@ -444,41 +444,39 @@ describe('Wollok Type System', () => {
         const send = newSyntheticTVar() // Without send there is no instance
         const newInstance = tVar.instanceFor(instance, send)
 
-        newInstance.should.not.be.eq(tVar) // New TVAR
-        newInstance.atParam('innerType').should.not.be.eq(innerType)  // New inner TVAR
-        newInstance.atParam('otherInnerType').should.not.be.eq(otherInnerType)  // New inner TVAR
-        newInstance.atParam('innerType').should.be.eq(newInstance.atParam('otherInnerType')) // Same instance
+        expect(newInstance).not.toBe(tVar) // New TVAR
+        expect(newInstance.atParam('innerType')).not.toBe(innerType)  // New inner TVAR
+        expect(newInstance.atParam('otherInnerType')).not.toBe(otherInnerType)  // New inner TVAR
+        expect(newInstance.atParam('innerType')).toBe(newInstance.atParam('otherInnerType')) // Same instance
       })
 
       it('Not create new type variables if there is not new intances (optimised)', () => {
         const newInstance = tVar.instanceFor(newSyntheticTVar(), newSyntheticTVar())
-        newInstance.should.be.eq(tVar)
+        expect(newInstance).toBe(tVar)
       })
 
     })
 
     it('Generic type string', () => {
       const parametricType = new WollokParametricType(module, { 'param': newSyntheticTVar().setType(stubType) })
-      parametricType.name.should.be.eq(`${module.name}<${stubType.name}>`)
+      expect(parametricType.name).toBe(`${module.name}<${stubType.name}>`)
     })
 
     it('Method type string', () => {
       const methodType = new WollokMethodType(newSyntheticTVar().setType(stubType), [newSyntheticTVar().setType(otherStubType)])
-      methodType.name.should.be.eq(`(${otherStubType.name}) => ${stubType.name}`)
+      expect(methodType.name).toBe(`(${otherStubType.name}) => ${stubType.name}`)
 
     })
     it('Closure type string', () => {
       const closureType = new WollokClosureType(newSyntheticTVar().setType(stubType), [newSyntheticTVar().setType(otherStubType)], Closure({ code: 'TEST' }))
-      closureType.name.should.be.eq(`{ (${otherStubType.name}) => ${stubType.name} }`)
+      expect(closureType.name).toBe(`{ (${otherStubType.name}) => ${stubType.name} }`)
     })
 
   })
 
 })
 
-
 const env = buildEnvironment([])
-
 
 class TestWollokType extends WollokAtomicType {
   method: Method

@@ -1,11 +1,7 @@
-import { expect, should, use } from 'chai'
-import sinonChai from 'sinon-chai'
-import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return, possiblyReferenced } from '../src'
+import { BOOLEAN_MODULE, Body, Class, Describe, Environment, Evaluation, Field, Import, Interpreter, isError, LIST_MODULE, Literal, Method, methodByFQN, NUMBER_MODULE, New, OBJECT_MODULE, Package, Parameter, Reference, STRING_MODULE, Self, Send, Singleton, Test, Variable, WRENatives, allAvailableMethods, allScopedVariables, allVariables, implicitImport, isNamedSingleton, isNotImportedIn, link, linkInNode, literalValueToClass, mayExecute, parentModule, parse, projectPackages, hasNullValue, hasBooleanValue, projectToJSON, getNodeDefinition, ParameterizedType, sendDefinitions, Super, SourceMap, isVoid, VOID_WKO, REPL, buildEnvironment, assertNotVoid, showParameter, getMethodContainer, Program, getExpressionFor, Expression, If, Return, possiblyReferenced, Referenciable } from '../src'
 import { WREEnvironment, environmentWithEntities, environmentWithREPLInitializedFile } from './utils'
 import { RuntimeObject } from '../src/interpreter/runtimeModel'
-
-use(sinonChai)
-should()
+import { beforeEach, describe, expect, it } from 'vitest'
 
 const basicEnvironmentWithSingleClass = () => link([new Package({
   name: 'aves',
@@ -32,25 +28,24 @@ describe('Wollok helpers', () => {
 
     it('should work for numbers', () => {
       const numberClass = environment.getNodeByFQN(NUMBER_MODULE)
-      literalValueToClass(environment, 2).should.equal(numberClass)
+      expect(literalValueToClass(environment, 2)).toBe(numberClass)
     })
 
     it('should work for strings', () => {
       const stringClass = environment.getNodeByFQN(STRING_MODULE)
-      literalValueToClass(environment, 'hello').should.equal(stringClass)
+      expect(literalValueToClass(environment, 'hello')).toBe(stringClass)
     })
 
     it('should work for booleans', () => {
       const booleanClass = environment.getNodeByFQN(BOOLEAN_MODULE)
-      literalValueToClass(environment, false).should.equal(booleanClass)
+      expect(literalValueToClass(environment, false)).toBe(booleanClass)
     })
 
     it('should work for instances of a class', () => {
       const listClass = environment.getNodeByFQN(LIST_MODULE)
-      literalValueToClass(environment, [new Reference({ name: LIST_MODULE }), [
+      expect(literalValueToClass(environment, [new Reference({ name: LIST_MODULE }), [
         new Literal({ value: 1 }),
-      ]],
-      ).should.equal(listClass)
+      ]])).toBe(listClass)
     })
 
   })
@@ -75,7 +70,8 @@ describe('Wollok helpers', () => {
     ], MINIMAL_LANG)
 
     it('should bring all methods', () => {
-      allAvailableMethods(baseEnvironment).map((method: Method) => method.name).should.deep.equal([
+      const methodNames = allAvailableMethods(baseEnvironment).map((method: Method) => method.name)
+      expect(methodNames).toEqual([
         'volar',
         'comer',
         'initialize',
@@ -106,7 +102,8 @@ describe('Wollok helpers', () => {
 
     it('should detect a module as a method parent module', () => {
       const aveClass = environment.getNodeByFQN('aves.Ave') as Class
-      parentModule(aveClass.lookupMethod('volar', 0)!).should.equal(aveClass)
+      const method = aveClass.lookupMethod('volar', 0)!
+      expect(parentModule(method)).toBe(aveClass)
     })
 
   })
@@ -117,12 +114,12 @@ describe('Wollok helpers', () => {
 
     it('should be true for a lang class', () => {
       const listClass = environment.getNodeByFQN(LIST_MODULE)
-      implicitImport(listClass).should.be.true
+      expect(implicitImport(listClass)).toBe(true)
     })
 
     it('should be false for a custom class', () => {
       const customClass = environment.getNodeByFQN('aves.Ave')
-      implicitImport(customClass).should.be.false
+      expect(implicitImport(customClass)).toBe(false)
     })
 
   })
@@ -180,15 +177,15 @@ describe('Wollok helpers', () => {
     const packageD = environment.getNodeByFQN('D') as Package
 
     it('should return false if a definition is imported, using a specific import', () => {
-      isNotImportedIn(packageB, packageA).should.be.false
+      expect(isNotImportedIn(packageB, packageA)).toBe(false)
     })
 
     it('should return false if a definition is imported, using generic import', () => {
-      isNotImportedIn(packageD, packageA).should.be.false
+      expect(isNotImportedIn(packageD, packageA)).toBe(false)
     })
 
     it('should return true if a definition is not imported', () => {
-      isNotImportedIn(packageC, packageA).should.be.true
+      expect(isNotImportedIn(packageC, packageA)).toBe(true)
     })
   })
 
@@ -217,9 +214,9 @@ describe('Wollok helpers', () => {
     it('should return all possible imports that match a references name', () => {
       const pepitaReferences = possiblyReferenced(new Reference({ name: 'pepita' }), environment)
 
-      pepitaReferences.should.be.of.length(2)
-      pepitaReferences.should.include(environment.getNodeByFQN('def1.pepita'))
-      pepitaReferences.should.include(environment.getNodeByFQN('def2.pepita'))
+      expect(pepitaReferences).toHaveLength(2)
+      expect(pepitaReferences).toContain(environment.getNodeByFQN('def1.pepita'))
+      expect(pepitaReferences).toContain(environment.getNodeByFQN('def2.pepita'))
     })
   })
 
@@ -255,21 +252,21 @@ describe('Wollok helpers', () => {
       const assignmentForConst = parse.Variable.tryParse('const a = 1')
       linkInNode(assignmentForConst, baseEnvironment.getNodeByFQN('repl'))
 
-      mayExecute(testMethod)(assignmentForConst).should.be.false
+      expect(mayExecute(testMethod)(assignmentForConst)).toBe(false)
     })
 
     it('should not execute if method is different', () => {
       const sendDifferentMethod = parse.Send.tryParse('aves.pepita.comer()')
       linkInNode(sendDifferentMethod, baseEnvironment.getNodeByFQN('repl'))
 
-      mayExecute(testMethod)(sendDifferentMethod).should.be.false
+      expect(mayExecute(testMethod)(sendDifferentMethod)).toBe(false)
     })
 
     it('should execute if node receiver is a singleton and is the same method', () => {
       const sendOkSentence = parse.Send.tryParse('aves.pepita.volar()')
       linkInNode(sendOkSentence, baseEnvironment.getNodeByFQN('repl'))
 
-      mayExecute(testMethod)(sendOkSentence).should.be.true
+      expect(mayExecute(testMethod)(sendOkSentence)).toBe(true)
     })
 
   })
@@ -437,7 +434,7 @@ describe('Wollok helpers', () => {
     it('should return the methods of a class when using new', () => {
       const sendToNewBird = trainerWKO.allMethods[0].sentences[0] as Send
       const definitions = getNodeDefinition(environment)(sendToNewBird)
-      definitions.should.deep.equal([birdFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod])
     })
 
     it('should return all methods with same interface if using new to an unreferenced class', () => {
@@ -446,25 +443,25 @@ describe('Wollok helpers', () => {
         receiver: new New({ instantiated: new Reference({ name: 'UnexistentBird' }) }) as unknown,
       } as Send
       const definitions = sendDefinitions(environment)(sendToNew)
-      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod, anotherTrainerFlyMethod])
     })
 
     it('should return the methods of a singleton when calling to the WKO', () => {
       const sendToTrainer = anotherTrainerWKO.allMethods[0].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToTrainer)
-      definitions.should.deep.equal([trainerPickMethod])
+      expect(definitions).toEqual([trainerPickMethod])
     })
 
     it('should return all methods definitions matching message & arity when calling to a class', () => {
       const sendToBird = anotherTrainerWKO.allMethods[0].sentences[1] as Send
       const definitions = sendDefinitions(environment)(sendToBird)
-      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod, anotherTrainerFlyMethod])
     })
 
     it('should return the methods of a class when calling to self', () => {
       const sendToSelf = birdClass.allMethods[1].sentences[0] as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
-      definitions.should.deep.equal([birdFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod])
     })
 
     it('should return the properties of an entity when calling to wko', () => {
@@ -473,7 +470,7 @@ describe('Wollok helpers', () => {
         message: 'displayName',
       })
       const definitions = sendDefinitions(environment)(sendToName)
-      definitions.should.deep.equal([trainerWKO.allFields[0]])
+      expect(definitions).toEqual([trainerWKO.allFields[0]])
     })
 
     it('should return the properties of an entity when calling to class methods', () => {
@@ -482,7 +479,7 @@ describe('Wollok helpers', () => {
         message: 'energy',
       })
       const definitions = sendDefinitions(environment)(sendToName)
-      definitions.should.deep.equal([birdClass.allFields[0]])
+      expect(definitions).toEqual([birdClass.allFields[0]])
     })
 
     it('should return all methods with the same interface when calling to self is not linked to a module', () => {
@@ -491,7 +488,7 @@ describe('Wollok helpers', () => {
         message: 'fly',
       })
       const definitions = sendDefinitions(environment)(sendToSelf)
-      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod, anotherTrainerFlyMethod])
     })
 
     it('should return all methods with the same name when an error is thrown', () => {
@@ -500,32 +497,32 @@ describe('Wollok helpers', () => {
         receiver: undefined as unknown,
       } as Send
       const definitions = sendDefinitions(environment)(sendToSelf)
-      definitions.should.deep.equal([birdFlyMethod, anotherTrainerFlyMethod])
+      expect(definitions).toEqual([birdFlyMethod, anotherTrainerFlyMethod])
     })
 
     it('should match a reference to the corresponding field', () => {
       const pepitaReference = (anotherTrainerPlayMethod.sentences[1] as Send).receiver
       const pepitaField = anotherTrainerWKO.allFields[0]
       const definitions = getNodeDefinition(environment)(pepitaReference)
-      definitions.should.deep.equal([pepitaField])
+      expect(definitions).toEqual([pepitaField])
     })
 
     it('should match a reference to the corresponding class for a new instance', () => {
       const newBirdReference = ((trainerPlayMethod.sentences[0] as Send).receiver as New).instantiated
       const definitions = getNodeDefinition(environment)(newBirdReference)
-      definitions.should.deep.equal([birdClass])
+      expect(definitions).toEqual([birdClass])
     })
 
     it('should return the parent method when asking for a super definition', () => {
       const callToSuperCageSize = (specialCageSizeMethod.sentences[0] as Send).receiver as Super
       const definitions = getNodeDefinition(environment)(callToSuperCageSize)
-      definitions.should.deep.equal([cageSizeMethod])
+      expect(definitions).toEqual([cageSizeMethod])
     })
 
     it('should return self when asking for a self definition', () => {
       const callToSelfTrainer = (trainerPickMethod.sentences[0] as Send).receiver as Self
       const definitions = getNodeDefinition(environment)(callToSelfTrainer)
-      definitions.should.deep.equal([trainerWKO])
+      expect(definitions).toEqual([trainerWKO])
     })
 
   })
@@ -547,7 +544,7 @@ describe('Wollok helpers', () => {
           ],
         }),
       })
-      allVariables(method).should.deep.equal([aNumberVariable, aStringVariable, anotherNumberVariable])
+      expect(allVariables(method)).toEqual([aNumberVariable, aStringVariable, anotherNumberVariable])
     })
 
     it('should return all variables for a test', () => {
@@ -563,7 +560,7 @@ describe('Wollok helpers', () => {
           ],
         }),
       })
-      allVariables(test).should.deep.equal([aNumberVariable, anotherVariable])
+      expect(allVariables(test)).toEqual([aNumberVariable, anotherVariable])
     })
 
   })
@@ -601,7 +598,8 @@ describe('Wollok helpers', () => {
       const birdClass = environment.getNodeByFQN('A.Bird') as Class
       const method = birdClass.allMethods[0] as Method
 
-      allScopedVariables(method).map(variable => variable.name).should.deep.equal(['energy', 'aNumber', 'aString', 'anotherNumber'])
+      const variableNames = allScopedVariables(method).map((variable) => variable.name)
+      expect(variableNames).toEqual(['energy', 'aNumber', 'aString', 'anotherNumber'])
     })
 
     it('should return all variables for a lonely test (not surrounded by a describe)', () => {
@@ -626,7 +624,8 @@ describe('Wollok helpers', () => {
       const aPackage = environment.getNodeByFQN('A') as Package
       const method = aPackage.members[0] as Test
 
-      allScopedVariables(method).map(variable => variable.name).should.deep.equal(['aNumber', 'anotherNumber'])
+      const variableNames = allScopedVariables(method).map((variable: Referenciable) => variable.name)
+      expect(variableNames).toEqual(['aNumber', 'anotherNumber'])
     })
 
     it('should return all variables for a test inside a describe', () => {
@@ -658,7 +657,8 @@ describe('Wollok helpers', () => {
       const aDescribe = aPackage.members[0] as Describe
       const aTest = aDescribe.members[1] as Test
 
-      allScopedVariables(aTest).map(variable => variable.name).should.deep.equal(['describeVariable', 'aNumber', 'anotherNumber'])
+      const testVariableNames = allScopedVariables(aTest).map(variable => variable.name)
+      expect(testVariableNames).toEqual(['describeVariable', 'aNumber', 'anotherNumber'])
     })
 
   })
@@ -666,15 +666,15 @@ describe('Wollok helpers', () => {
   describe('isNamedSingleton', () => {
 
     it('should return true for a named singleton', () => {
-      isNamedSingleton(new Singleton({ name: 'entrenador' })).should.be.true
+      expect(isNamedSingleton(new Singleton({ name: 'entrenador' }))).toBe(true)
     })
 
     it('should return false for an unnamed singleton', () => {
-      isNamedSingleton(new Singleton({})).should.be.false
+      expect(isNamedSingleton(new Singleton({}))).toBe(false)
     })
 
-    it('should return false for an named module which is not a singleton', () => {
-      isNamedSingleton(new Class({ name: 'Bird' })).should.be.false
+    it('should return false for a named module which is not a singleton', () => {
+      expect(isNamedSingleton(new Class({ name: 'Bird' }))).toBe(false)
     })
 
   })
@@ -710,23 +710,23 @@ describe('Wollok helpers', () => {
     const noParameterMethod = classA.members[1]
 
     it('should return a method if a correct fqn is sent', () => {
-      methodByFQN(environment, 'A.Bird.m/1')!.should.equal(aMethod)
+      expect(methodByFQN(environment, 'A.Bird.m/1')).toBe(aMethod)
     })
 
     it('should return a method if a fqn with no arity is sent', () => {
-      methodByFQN(environment, 'A.Bird.m2')!.should.equal(noParameterMethod)
+      expect(methodByFQN(environment, 'A.Bird.m2')).toBe(noParameterMethod)
     })
 
     it('should return undefined if an incorrect fqn is sent', () => {
-      methodByFQN(environment, 'A.Bird.m1/1')?.should.be.undefined
+      expect(methodByFQN(environment, 'A.Bird.m1/1')).toBeUndefined()
     })
 
     it('should return undefined if an incorrect fqn is sent', () => {
-      methodByFQN(environment, 'A.Bird.m/2')?.should.be.undefined
+      expect(methodByFQN(environment, 'A.Bird.m/2')).toBeUndefined()
     })
 
     it('should return undefined if a Class fqn is sent', () => {
-      methodByFQN(environment, 'A.Bird')?.should.be.undefined
+      expect(methodByFQN(environment, 'A.Bird')).toBeUndefined()
     })
 
   })
@@ -734,11 +734,11 @@ describe('Wollok helpers', () => {
   describe('isError', () => {
 
     it('should return true if problem has an error level', () => {
-      isError({ level: 'error', node: new Body(), code: '', values: [] }).should.be.true
+      expect(isError({ level: 'error', node: new Body(), code: '', values: [] })).toBe(true)
     })
 
     it('should return false if problem has an warning level', () => {
-      isError({ level: 'warning', node: new Body(), code: '', values: [] }).should.be.false
+      expect(isError({ level: 'warning', node: new Body(), code: '', values: [] })).toBe(false)
     })
 
   })
@@ -746,11 +746,11 @@ describe('Wollok helpers', () => {
   describe('hasNullValue', () => {
 
     it('should return true for a null expression', () => {
-      hasNullValue(new Literal({ value: null })).should.be.true
+      expect(hasNullValue(new Literal({ value: null }))).toBe(true)
     })
 
     it('should return false for a non null expression', () => {
-      hasNullValue(new Literal({ value: 2 })).should.be.false
+      expect(hasNullValue(new Literal({ value: 2 }))).toBe(false)
     })
 
   })
@@ -758,11 +758,11 @@ describe('Wollok helpers', () => {
   describe('hasBooleanValue', () => {
 
     it('should return true if boolean value matches', () => {
-      hasBooleanValue(new Literal({ value: true }), true).should.be.true
+      expect(hasBooleanValue(new Literal({ value: true }), true)).toBe(true)
     })
 
     it('should return false if boolean value does not match', () => {
-      hasBooleanValue(new Literal({ value: true }), false).should.be.false
+      expect(hasBooleanValue(new Literal({ value: true }), false)).toBe(false)
     })
 
   })
@@ -790,11 +790,11 @@ describe('Wollok helpers', () => {
         }),
       ], MINIMAL_LANG))
       const projectAsJSON = projectToJSON(environment)
-      projectAsJSON.should.be.not.empty
-      projectAsJSON.should.contain('AwesomePackage')
-      projectAsJSON.should.contain('AwesomeClass')
-      projectAsJSON.should.contain('awesomeMethod')
-      projectAsJSON.should.contain('awesomeParameter')
+      expect(projectAsJSON).not.toBeNull()
+      expect(projectAsJSON).toContain('AwesomePackage')
+      expect(projectAsJSON).toContain('AwesomeClass')
+      expect(projectAsJSON).toContain('awesomeMethod')
+      expect(projectAsJSON).toContain('awesomeParameter')
     })
 
   })
@@ -811,15 +811,15 @@ describe('Wollok helpers', () => {
     const evaluation = Evaluation.build(replEnvironment, WRENatives)
 
     it('should return true for void singleton', () => {
-      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(VOID_WKO), evaluation.currentFrame, undefined)).should.be.true
+      expect(isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(VOID_WKO), evaluation.currentFrame, undefined))).toBe(true)
     })
 
     it('should return false for Wollok elements', () => {
-      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 42)).should.be.false
+      expect(isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 42))).toBe(false)
     })
 
     it('should return false for custom definitions', () => {
-      isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined)).should.be.false
+      expect(isVoid(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined))).toBe(false)
     })
 
   })
@@ -857,15 +857,15 @@ describe('Wollok helpers', () => {
     const evaluation = Evaluation.build(replEnvironment, WRENatives)
 
     it('should show a number', () => {
-      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 2)).should.equal('"2"')
+      expect(showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(NUMBER_MODULE), evaluation.currentFrame, 2))).toEqual('"2"')
     })
 
     it('should show a string', () => {
-      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(STRING_MODULE), evaluation.currentFrame, 'pepita')).should.equal('"pepita"')
+      expect(showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(STRING_MODULE), evaluation.currentFrame, 'pepita'))).toEqual('"pepita"')
     })
 
     it('should show fqn for custom modules', () => {
-      showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined)).should.equal(`"${REPL}.pajarito"`)
+      expect(showParameter(new RuntimeObject(replEnvironment.getNodeByFQN(REPL + '.pajarito'), evaluation.currentFrame, undefined))).toEqual(`"${REPL}.pajarito"`)
     })
 
   })
@@ -905,20 +905,20 @@ describe('Wollok helpers', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const volarMethod = birdSingleton.allMethods[0] as Method
       const volarSentence = volarMethod.sentences[0]
-      getMethodContainer(volarSentence)!.should.equal(volarMethod)
+      expect(getMethodContainer(volarSentence)).toEqual(volarMethod)
     })
 
     it('should find method container for a test', () => {
       const firstDescribe = replEnvironment.getNodeByFQN('test."some describe"') as Describe
       const firstTest = firstDescribe.allMembers[0] as Test
       const assertSentence = firstTest.sentences[0]
-      getMethodContainer(assertSentence)!.should.equal(firstTest)
+      expect(getMethodContainer(assertSentence)).toEqual(firstTest)
     })
 
     it('should find method container for a program', () => {
       const program = replEnvironment.getNodeByFQN('program.Prueba') as Program
       const anySentence = program.sentences()[3]
-      getMethodContainer(anySentence)!.should.equal(program)
+      expect(getMethodContainer(anySentence)).toEqual(program)
     })
 
   })
@@ -952,42 +952,42 @@ describe('Wollok helpers', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const volarMethod = birdSingleton.allMethods[1] as Method
       const ifExpression = volarMethod.sentences[0] as Expression
-      getExpressionFor(ifExpression)!.should.equal('if expression')
+      expect(getExpressionFor(ifExpression)).toEqual('if expression')
     })
 
     it('should show send expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const volarMethod = birdSingleton.allMethods[1] as Method
       const sendExpression = (volarMethod.sentences[0] as If).thenBody.sentences[0] as Expression
-      getExpressionFor(sendExpression)!.should.equal('message jugar/0')
+      expect(getExpressionFor(sendExpression)).toEqual('message jugar/0')
     })
 
     it('should show reference expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const volarMethod = birdSingleton.allMethods[1] as Method
       const referenceExpression = (volarMethod.sentences[1] as Return).value as Expression
-      getExpressionFor(referenceExpression)!.should.equal('reference \'energia\'')
+      expect(getExpressionFor(referenceExpression)).toEqual('reference \'energia\'')
     })
 
     it('should show literal expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const valorBaseMethod = birdSingleton.allMethods[2] as Method
       const literalExpression = (valorBaseMethod.sentences[0] as Return).value as Expression
-      getExpressionFor(literalExpression)!.should.equal('literal 2')
+      expect(getExpressionFor(literalExpression)).toEqual('literal 2')
     })
 
     it('should show self expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const volarMethod = birdSingleton.allMethods[1] as Method
       const selfExpression = ((volarMethod.sentences[0] as If).thenBody.sentences[0] as Send).receiver as Expression
-      getExpressionFor(selfExpression)!.should.equal('self')
+      expect(getExpressionFor(selfExpression)).toEqual('self')
     })
 
     it('should show default expression', () => {
       const birdSingleton = replEnvironment.getNodeByFQN(REPL + '.pajarito') as Singleton
       const badMethod = birdSingleton.allMethods[3] as Method
       const throwException = badMethod.sentences[0] as Expression
-      getExpressionFor(throwException)!.should.equal('expression')
+      expect(getExpressionFor(throwException)).toEqual('expression')
     })
 
   })

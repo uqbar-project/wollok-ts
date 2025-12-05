@@ -17,9 +17,9 @@ export function getCache(target: any): Cache {
 
 export function cached(_target: any, propertyKey: string, descriptor: PropertyDescriptor): void {
   const handler =
-      typeof descriptor.value === 'function' ? { get(){ return descriptor.value }, set(value: any){ descriptor.value = value } } :
-      typeof descriptor.get === 'function' ? { get(){ return descriptor.get }, set(value: any){ descriptor.get = value } } :
-      raise(new TypeError(`Can't cache ${propertyKey}: Only methods and properties can be cached`))
+    typeof descriptor.value === 'function' ? { get(){ return descriptor.value }, set(value: any){ descriptor.value = value } } :
+    typeof descriptor.get === 'function' ? { get(){ return descriptor.get }, set(value: any){ descriptor.get = value } } :
+    raise(new TypeError(`Can't cache ${propertyKey}: Only methods and properties can be cached`))
 
   const originalDefinition = handler.get()
   handler.set(function (this: any, ...args: any[]) {

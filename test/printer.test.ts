@@ -1,11 +1,9 @@
-import { use, should, expect } from 'chai'
-import { printerAssertions } from './assertions'
-import { buildEnvironment, print } from '../src'
 
-use(printerAssertions)
-should()
+import { buildEnvironment, print } from '../src'
+import { describe, it, expect } from 'vitest'
 
 describe('Wollok Printer', () => {
+
   it('aborts on malformed nodes', () => {
     expect(() => print(buildEnvironment([{
       name: 'formatted', content: `object pepita {
@@ -18,16 +16,17 @@ describe('Wollok Printer', () => {
       useSpaces: true,
     })).to.throw('Failed to print, found malformed node')
   })
+
   describe('Basic expressions', () => {
     describe('Send', () => {
       it('Send long parameters', () => {
-        `object pepita {
+        expect(`object pepita {
           method volar(a,b,c,d,e){}
   
           method prueba() {
             self.volar("aaaaaaaaaaaa", "bbbbbbbbbbb", "cccccccccc", "dddddddddd", "eeeeeeeeee")
           }
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
           object pepita {
             method volar(a, b, c, d, e) {
               
@@ -46,14 +45,14 @@ describe('Wollok Printer', () => {
         `)
       })
       it('Send short parameters', () => {
-        `object pepita {
+        expect(`object pepita {
           method volar(a,b){}
   
           method prueba() {
             self.volar("aaaaaaaaaaaa",
             "bbbbbbbbbbb")
           }
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
           object pepita {
             method volar(a, b) {
               
@@ -66,11 +65,11 @@ describe('Wollok Printer', () => {
         `)
       })
       it('Prefix operator', () => {
-        `object pepita {
+        expect(`object pepita {
           method prueba() {
             return not(!false && false.negate()) && (-1 < +2)
           }
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
           object pepita {
             method prueba() = (not ((!false) && false.negate())) && ((-1) < (+2))
           }
@@ -80,9 +79,9 @@ describe('Wollok Printer', () => {
 
     describe('If', () => {
       it('full then and else body', () => {
-        `program prueba {
+        expect(`program prueba {
           if(true){return 1}else{return 2}
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           if (true) {
             return 1
@@ -92,11 +91,10 @@ describe('Wollok Printer', () => {
         }`)
       })
 
-
       it('with no else body', () => {
-        `program prueba {
+        expect(`program prueba {
           if(true){return 1}
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           if (true) {
             return 1
@@ -105,22 +103,22 @@ describe('Wollok Printer', () => {
       })
 
       it('if expression short', () => {
-        `program prueba {
+        expect(`program prueba {
           if(true)1    
           else      2
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           if (true) 1 else 2
         }`)
       })
 
       it('if expression long', () => {
-        `program prueba {
+        expect(`program prueba {
           const pepita = object {
             method volar(param){}
           }
           if ("a very very very very very very very very long string".length() > 0)pepita.volar("a very very very very very very very very long argument")    else      2
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           const pepita = object {
             method volar(param) {
@@ -136,12 +134,12 @@ describe('Wollok Printer', () => {
 
     describe('Comments', () => {
       it('single line comment', () => {
-        `program prueba {
+        expect(`program prueba {
           // comentario
           const a = 1 // other comment but this comment is actually very veeeeeeeeeeeeery veeeeeeeeeery long
           const b = 2
           // last comentario
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           // comentario
           const a = 1
@@ -151,10 +149,10 @@ describe('Wollok Printer', () => {
       })
 
       it('comments on send', () => {
-        `program prueba {
+        expect(`program prueba {
           // ok
           5.even() // ok
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           // ok
           5.even() // ok
@@ -162,11 +160,11 @@ describe('Wollok Printer', () => {
       })
 
       it('many comments', () => {
-        `program prueba {
+        expect(`program prueba {
           // comentario
           // comentario
           const a = 1
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           // comentario
           // comentario
@@ -176,11 +174,11 @@ describe('Wollok Printer', () => {
 
       //ToDo smarter trimming
       it('multi line comments', () => {
-        `program prueba {
+        expect(`program prueba {
           /* comentario
            comentario */
           const a = 1
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         program prueba {
           /* comentario
           comentario */
@@ -189,20 +187,20 @@ describe('Wollok Printer', () => {
       })
 
       it('side comment', () => {
-        `program prueba {
+        expect(`program prueba {
           const a = 1 // comentario
-          }`.should.be.formattedTo(`
+          }`).formattedTo(`
           program prueba {
             const a = 1 // comentario
           }`)
       })
 
-      xit('comment on a list', () => {
-        `program prueba {
+      it.skip('comment on a list', () => {
+        expect(`program prueba {
           const a = [1
             ,2//comment on a lista
             ,3]
-          }`.should.be.formattedTo(`
+          }`).formattedTo(`
           program prueba {
             const a = [
               1,
@@ -215,7 +213,7 @@ describe('Wollok Printer', () => {
 
     describe('Test', () => {
       it('only test', () => {
-        'only test "aSimpleTest"{assert.that(true)} test "anotherTest" {assert.that(true)}'.should.be.formattedTo(`
+        expect('only test "aSimpleTest"{assert.that(true)} test "anotherTest" {assert.that(true)}').formattedTo(`
         only test "aSimpleTest" {
           assert.that(true)
         }
@@ -226,12 +224,13 @@ describe('Wollok Printer', () => {
       })
     })
   })
+
   describe('Object', () => {
     it('testBasicObjectDefinition', () => {
-      `object        pepita     { var energia = 0  
+      expect(`object        pepita     { var energia = 0  
             method volar() { energia    += 10 }     
       }     
-		`.should.be.formattedTo(`
+		`).formattedTo(`
             object pepita {
               var energia = 0
               
@@ -242,14 +241,14 @@ describe('Wollok Printer', () => {
     })
 
     it('testBasicUnnamedObjectDefinition', () => {
-      `program prueba{    
+      expect(`program prueba{    
 
              const pepita =         object{
             var energia  = 0
             method volar() { 
               energia+=1 }
         }        	
-     }`.should.be.formattedTo(`
+     }`).formattedTo(`
         program prueba {
           const pepita = object {
             var energia = 0
@@ -263,7 +262,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testInheritingPositionalUnnamedObjectDefinition', () => {
-      `
+      expect(`
       class A { var _n = 0              }
           program prueba {    
             
@@ -277,7 +276,7 @@ describe('Wollok Printer', () => {
       method volar() {energia+=1 }
     }        	
    }          
-      `.should.be.formattedTo(`
+      `).formattedTo(`
         class A {
           var _n = 0
         }
@@ -292,12 +291,12 @@ describe('Wollok Printer', () => {
           }
         }
       `
-        )
+      )
     })
 
     it('testInheritingNamedParametersUnnamedObjectDefinition', () => {
 
-      `
+      expect(`
       class A { var edad = 0 var nombre = ""}
           program prueba {    
             
@@ -322,7 +321,7 @@ describe('Wollok Printer', () => {
       method volar() {energia+=1 }
     }        	
    }          
-      `.should.be.formattedTo(`
+      `).formattedTo(`
         class A {
           var edad = 0
           var nombre = ""
@@ -338,11 +337,11 @@ describe('Wollok Printer', () => {
           }
         }
       `
-        )
+      )
     })
 
     it('testUnnamedObjectDefinitionInAnExpression', () => {
-      `
+      expect(`
           program prueba {    
   
   assert.equals(
@@ -352,7 +351,7 @@ describe('Wollok Printer', () => {
     var energia = 0  
   var color = "rojo"     }
   )        	
-   }`.should.be.formattedTo(`
+   }`).formattedTo(`
         program prueba {
           assert.equals(
             object {
@@ -367,14 +366,14 @@ describe('Wollok Printer', () => {
     })
 
     it('testInheritingPositionalParametersObjectDefinition', () => {
-      `class Ave{}
+      expect(`class Ave{}
         object pepita  
           inherits 
           Ave           { 
                     var energia = 0  
                           method volar() { energia    = energia +10 }  
         }        
-		`.should.be.formattedTo(`
+		`).formattedTo(`
       class Ave {
         
       }
@@ -389,10 +388,10 @@ describe('Wollok Printer', () => {
     })
 
     it('classFormatting_oneLineBetweenVarsAndMethods', () => {
-      `class Golondrina { 
+      expect(`class Golondrina { 
     		const energia = 10 
     		const kmRecorridos = 0
-            method comer(gr){energia=energia+gr} method jugar(){     return true      }}`.should.be.formattedTo(`
+            method comer(gr){energia=energia+gr} method jugar(){     return true      }}`).formattedTo(`
       class Golondrina {
         const energia = 10
         const kmRecorridos = 0
@@ -406,44 +405,44 @@ describe('Wollok Printer', () => {
     })
 
     it('testObjectDefinitionWithOneVariableOnly', () => {
-      `
+      expect(`
       object        pepita  {
       
 
           var        
           
           z   }
-      `.should.be.formattedTo(`
+      `).formattedTo(`
         object pepita {
           var z
         }`)
     })
 
     it('testObjectDefinitionWithOneMethodOnly', () => {
-      `
+      expect(`
           object        pepita  
           
 
               { method volar() { return 2 }    }      
-		`.should.be.formattedTo(`
+		`).formattedTo(`
       object pepita {
         method volar() = 2
       }`)
     })
 
     it('testClassDefinitionWithOneMethodOnly', () => {
-      `
+      expect(`
           class                 Ave  
           
 
-              { method volar() { return 2 }  }`.should.be.formattedTo(`
+              { method volar() { return 2 }  }`).formattedTo(`
         class Ave {
           method volar() = 2
         }`)
     })
 
     it('testInheritingObjectDefinitionWithDefinitionItself', () => {
-      `class Ave{method volar() {}
+      expect(`class Ave{method volar() {}
 				
 			}
           object        pepita  
@@ -453,12 +452,11 @@ describe('Wollok Printer', () => {
       inherits                    
       Ave
 
-
               { var energia = 0  
               
               
               override            method volar() { energia    +=
-      10 }}`.should.be.formattedTo(`
+      10 }}`).formattedTo(`
       class Ave {
         method volar() {
           
@@ -475,7 +473,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testInheritingObjectDefinitionWithDefinitionItselfAfter', () => {
-      `
+      expect(`
           object        pepita  
                 
                 
@@ -483,17 +481,15 @@ describe('Wollok Printer', () => {
       inherits                    
       Ave
 
-
                     { var energia = 0  
                     
                     
                     override            method volar() { energia    +=
       10 }          }
 
-
 			class Ave{method volar() {}}
 
-		`.should.be.formattedTo(`
+		`).formattedTo(`
       object pepita inherits Ave {
         var energia = 0
         
@@ -510,20 +506,20 @@ describe('Wollok Printer', () => {
     })
 
     it('testClassDefinitionWithVar', () => {
-      `
+      expect(`
       class          Ave {  
       
       
       var energia
 
-                                                                 }`.should.be.formattedTo(`
+                                                                 }`).formattedTo(`
       class Ave {
         var energia
       }`)
     })
 
     it('testBasicMixinDefinition', () => {
-      `
+      expect(`
           
              mixin           Volador {  
           
@@ -531,7 +527,7 @@ describe('Wollok Printer', () => {
           var energia
 
               method volar(lugar) {energia             = 0 }}   
-		  `.should.be.formattedTo(`
+		  `).formattedTo(`
         mixin Volador {
           var energia
           
@@ -542,7 +538,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testBasicMixinUse', () => {
-      ` 
+      expect(` 
              mixin           Volador {  
           
           
@@ -556,8 +552,8 @@ describe('Wollok Printer', () => {
               	
               	method                 comer() { energia = 100
               	}
-              }`.should.be.formattedTo(
-          `
+              }`).formattedTo(
+        `
       mixin Volador {
         var energia
         
@@ -575,7 +571,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testObjectInheritingNamedParametersForWKO', () => {
-      `class Musico{var calidad}
+      expect(`class Musico{var calidad}
               object luisAlberto inherits Musico (calidad
                 
                 
@@ -591,7 +587,7 @@ describe('Wollok Printer', () => {
               ) {
 
                 var guitarra
-              }`.should.be.formattedTo(`
+              }`).formattedTo(`
       class Musico {
         var calidad
       }
@@ -605,23 +601,20 @@ describe('Wollok Printer', () => {
     })
 
     it('testClassDefinition', () => {
-      `
+      expect(`
          
-
-
-
 
         class Cancion {
           
           
-          }`.should.be.formattedTo(`
+          }`).formattedTo(`
       class Cancion {
         
       }`)
     })
 
     it('objectDefinition', () => {
-      `
+      expect(`
       class Musico{} object luisAlberto inherits Musico {
 
         var guitarra = null
@@ -641,7 +634,7 @@ describe('Wollok Printer', () => {
 
         override method interpretaBien(cancion) = true
 
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
         class Musico {
           
         }
@@ -673,11 +666,11 @@ describe('Wollok Printer', () => {
           
           override method interpretaBien(cancion) = true
         }`
-        )
+      )
     })
 
     it('testPresentacion', () => {
-      `class Presentacion {
+      expect(`class Presentacion {
 
         const fecha
         const locacion
@@ -719,7 +712,7 @@ describe('Wollok Printer', () => {
           return costo
         }
       
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       class Presentacion {
         const fecha
         const locacion
@@ -764,7 +757,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testObjectVarsInitialized', () => {
-      `class Musico{}
+      expect(`class Musico{}
       object luisAlberto inherits Musico {
 
         const valorFechaTope = 1200
@@ -785,7 +778,7 @@ describe('Wollok Printer', () => {
 
         method costo(presentacion) = if (presentacion.fecha() < fechaTope) valorFechaNoTope else valorFechaTope
 
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       class Musico {
         
       }
@@ -812,16 +805,16 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
+
   describe('Methods', () => {
     it('testBasicFormattingInMethod', () => {
-      `
+      expect(`
       object        foo     {
       method bar(     param  ,  param2      ) {
       console.println("")
       console.println("")
       }
-      }
-		  `.should.be.formattedTo(`
+      }`).formattedTo(`
       object foo {
         method bar(param, param2) {
           console.println("")
@@ -831,17 +824,15 @@ describe('Wollok Printer', () => {
     })
 
     it('testBasicFormattingSeveralMethods', () => {
-      `
+      expect(`
       object        foo     {
       method bar(     param  ,  param2      ) {
       console.println("")
       console.println("")
       }method bar2() { return 3 }
 
-
       method bar3() { assert.that(true)		var a = 1 + 1 console.println(a)}		
-      }
-      `.should.be.formattedTo(`
+      }`).formattedTo(`
       object foo {
         method bar(param, param2) {
           console.println("")
@@ -859,14 +850,13 @@ describe('Wollok Printer', () => {
     })
 
     it('testReturnMethod', () => {
-      `
+      expect(`
       object        foo     {
       method bar(     param  ,  param2      )     
       = 2 
       
             method      bar2()          =                                self.bar(1, "hola")
-      }
-      `.should.be.formattedTo(`
+      }`).formattedTo(`
       object foo {
         method bar(param, param2) = 2
         
@@ -875,7 +865,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testOverrideMethod', () => {
-      `
+      expect(`
       class Parent        {
       method bar(     param  ,  param2      )     
       = 2 
@@ -890,8 +880,7 @@ describe('Wollok Printer', () => {
                 
                 + 10
                 override method bar2() { a+=1        }   
-      }
-      `.should.be.formattedTo(`
+      }`).formattedTo(`
       class Parent {
         method bar(param, param2) = 2
         
@@ -910,7 +899,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testNativeMethod', () => {
-      `
+      expect(`
       object        foo     {
       method bar(     param  ,  param2      )           native
       method bar2()
@@ -918,8 +907,7 @@ describe('Wollok Printer', () => {
       
       native
       
-      }
-      `.should.be.formattedTo(`
+      }`).formattedTo(`
       object foo {
         method bar(param, param2) native
         
@@ -928,7 +916,7 @@ describe('Wollok Printer', () => {
     })
 
     it('abstractMethods', () => {
-      `class Vehicle {
+      expect(`class Vehicle {
           method numberOfPassengers()   method maxSpeed() 
           method expenseFor100Km() 
           method efficiency() {
@@ -937,8 +925,7 @@ describe('Wollok Printer', () => {
               
               self.expenseFor100Km()
           } 
-      }
-      `.should.be.formattedTo(`
+      }`).formattedTo(`
       class Vehicle {
         method numberOfPassengers()
         
@@ -951,10 +938,10 @@ describe('Wollok Printer', () => {
     })
 
     it('testClassFormattingOneLineMethod', () => {
-      `class    Golondrina {    const    energia      =      10 
+      expect(`class    Golondrina {    const    energia      =      10 
 		
 		
-        const                  kmRecorridos= 0 method comer(gr) { energia = energia + gr } }`.should.be.formattedTo(`
+        const                  kmRecorridos= 0 method comer(gr) { energia = energia + gr } }`).formattedTo(`
       class Golondrina {
         const energia = 10
         const kmRecorridos = 0
@@ -966,9 +953,9 @@ describe('Wollok Printer', () => {
     })
 
     it('testClassFormattingOneLineMethodStaysInNewLine', () => {
-      `class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
+      expect(`class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
     		energia = energia + gr
-    	} }`.should.be.formattedTo(`
+    	} }`).formattedTo(`
       class Golondrina {
         const energia = 10
         const kmRecorridos = 0
@@ -980,7 +967,7 @@ describe('Wollok Printer', () => {
     })
 
     it('keepNewlinesInSequences', () => {
-      `object foo {
+      expect(`object foo {
         method bar() {
           self.bar().bar().bar()
           
@@ -990,7 +977,7 @@ describe('Wollok Printer', () => {
           console.println("")
 
         }
-      }`.should.be.formattedTo( `
+      }`).formattedTo( `
       object foo {
         method bar() {
           self.bar().bar().bar()
@@ -1005,9 +992,9 @@ describe('Wollok Printer', () => {
     })
 
     it('testClassFormattingOneLineMethodStaysInNewLine', () => {
-      `class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
+      expect(`class Golondrina { const energia = 10 const kmRecorridos = 0 method comer(gr) { 
     		energia = energia + gr
-    	} }`.should.be.formattedTo(`
+    	} }`).formattedTo(`
       class Golondrina {
         const energia = 10
         const kmRecorridos = 0
@@ -1019,7 +1006,7 @@ describe('Wollok Printer', () => {
     })
 
     it('keepNewlinesInSequences', () => {
-      `
+      expect(`
       object foo {
         method bar() {
           self.bar().bar().bar()
@@ -1029,7 +1016,7 @@ describe('Wollok Printer', () => {
           console.println("") 
           console.println("")
         }
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       object foo {
         method bar() {
           self.bar().bar().bar()
@@ -1044,14 +1031,14 @@ describe('Wollok Printer', () => {
     })
 
     it('messageSendParameters', () => {
-      `program p {
+      expect(`program p {
     		const a = null
 
     		a . doSomething  ( a, a,    a , a ,  a   )
     		a. doSomething  ( a, a,    a , a ,  a   )
     		a. doSomething  ({=> a .doSomething()})
-    	}`.should.be.formattedTo(`
-      program p {
+    	}`).formattedTo(`
+        program p {
         const a = null
         
         a.doSomething(a, a, a, a, a)
@@ -1060,9 +1047,8 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-
     it('listWithPreviousConflicts', () => {
-      `
+      expect(`
         class Presentacion {
         var fecha
         var musicos = []
@@ -1089,7 +1075,7 @@ describe('Wollok Printer', () => {
             musico.precioPorPresentacion(self)
         }
       }		
-		  `.should.be.formattedTo(`
+		  `).formattedTo(`
       class Presentacion {
         var fecha
         var musicos = []
@@ -1121,9 +1107,8 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-
     it('testSuperInvocation', () => {
-      `class   Ave { 
+      expect(`class   Ave { 
 			
 			
 			var energia = 0
@@ -1133,7 +1118,7 @@ describe('Wollok Printer', () => {
 				override method volar(minutos) {  super
 				
 				(minutos * ( 10 - 2 ) ) }        
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       class Ave {
         var energia = 0
         
@@ -1149,9 +1134,8 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-
     it('methodReturningValuesFromIfExpression', () => {
-      `
+      expect(`
 			object luisAlberto inherits Musico (       valor
 			
 			 =    8) {
@@ -1177,7 +1161,7 @@ describe('Wollok Printer', () => {
 				}
 			
 			}
-			`.should.be.formattedTo(`
+			`).formattedTo(`
       object luisAlberto inherits Musico (valor = 8) {
         var guitarra
         
@@ -1198,7 +1182,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testWithSeveralExpressions', () => {
-      `
+      expect(`
         class Presentacion {
         
           var escenario
@@ -1212,7 +1196,7 @@ describe('Wollok Printer', () => {
             return self
           }
         }
-        `.should.be.formattedTo(`
+        `).formattedTo(`
         class Presentacion {
           var escenario
           var dia
@@ -1227,16 +1211,16 @@ describe('Wollok Printer', () => {
         }`)
     })
   })
+
   describe('Package', () => {
     it('testBasicPackageDefinition', () => {
-      `
+      expect(`
       package           aves
-
 
       {
               object        pepita     { var energia = 0  method volar() { energia    +=
       10 }}
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
       package aves {
         object pepita {
           var energia = 0
@@ -1249,7 +1233,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testBasicImportDefinition', () => {
-      `import wollok.   game.*
+      expect(`import wollok.   game.*
       import     pepita
 
 			 program abc{
@@ -1257,7 +1241,7 @@ describe('Wollok Printer', () => {
 				game.start()         pepita.vola(100)
 
 			}
-      `.should.be.formattedTo(`
+      `).formattedTo(`
       import wollok.game.*
       import pepita
 
@@ -1268,9 +1252,10 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
+
   describe('Program', () => {
     it('testSimpleProgramWithVariablesAndMessageSend', () => {
-      'program p { const a = 10 const b = 20 self.println(a + b) }'.should.be.formattedTo(`
+      expect('program p { const a = 10 const b = 20 self.println(a + b) }').formattedTo(`
       program p {
         const a = 10
         const b = 20
@@ -1279,14 +1264,14 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleProgramWithSpacesBetweenSends', () => {
-      `program p {
+      expect(`program p {
         self.println(1)
         self.println(2)
 
         self.println(3)
 
         self.println(4)
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       program p {
         self.println(1)
         self.println(2)
@@ -1297,13 +1282,14 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
+
   describe('Testing', () => {
     it('testConstantsFormatting', () => {
-      `const a = new Sobreviviente()
+      expect(`const a = new Sobreviviente()
         
         
         const b = new Sobreviviente()
-        test "aSimpleTest"{              assert.that(true)           }`.should.be.formattedTo( `
+        test "aSimpleTest"{              assert.that(true)           }`).formattedTo( `
         const a = new Sobreviviente()
         
         const b = new Sobreviviente()
@@ -1314,9 +1300,8 @@ describe('Wollok Printer', () => {
       `)
     })
 
-
     it('testSimpleTestFormatting', () => {
-      'test "aSimpleTest"{              assert.that(true)           }'.should.be.formattedTo(`
+      expect('test "aSimpleTest"{              assert.that(true)           }').formattedTo(`
         test "aSimpleTest" {
           assert.that(true)
         }
@@ -1324,7 +1309,7 @@ describe('Wollok Printer', () => {
     })
 
     it('severalTestsSimplesTestFormatting', () => {
-      `test "aSimpleTest" {
+      expect(`test "aSimpleTest" {
               assert.that(true)
             } test "secondTest"
             
@@ -1333,7 +1318,7 @@ describe('Wollok Printer', () => {
             
         assert.equals(4, text.length()       )		
         assert.equals(4    -     0, (   -   4)   .   inverted()       )
-        }`.should.be.formattedTo( `
+        }`).formattedTo( `
         test "aSimpleTest" {
           assert.that(true)
         }
@@ -1348,11 +1333,11 @@ describe('Wollok Printer', () => {
     })
 
     it('testTestSeveralLinesFormatting', () => {
-      `test "aSimpleTest"{assert.that(true) assert.notThat(false)
+      expect(`test "aSimpleTest"{assert.that(true) assert.notThat(false)
         
         const a = 1 assert.equals(  1 , a)
         assert.equals(a, a)
-        }`.should.be.formattedTo(`
+        }`).formattedTo(`
         test "aSimpleTest" {
           assert.that(true)
           assert.notThat(false)
@@ -1365,7 +1350,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleDescribeFormatting', () => {
-      `describe            "group of tests" 
+      expect(`describe            "group of tests" 
   { 
   
   
@@ -1374,7 +1359,7 @@ describe('Wollok Printer', () => {
   
   
   
-  assert.that(true)}}`.should.be.formattedTo(`
+  assert.that(true)}}`).formattedTo(`
         describe "group of tests" {
           test "aSimpleTest" {
             assert.that(true)
@@ -1383,7 +1368,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleDescribeFormatting2', () => {
-      'describe            "group of tests"{test "aSimpleTest"{assert.that(true)}}'.should.be.formattedTo(`
+      expect('describe            "group of tests"{test "aSimpleTest"{assert.that(true)}}').formattedTo(`
         describe "group of tests" {
           test "aSimpleTest" {
             assert.that(true)
@@ -1392,7 +1377,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleDescribeWithInitializeMethod', () => {
-      `describe            "group of tests" 
+      expect(`describe            "group of tests" 
         { 
           var a method
         initialize() { a = 1 }
@@ -1402,7 +1387,7 @@ describe('Wollok Printer', () => {
         
         
         
-        assert.equals(1, a)}}`.should.be.formattedTo(`
+        assert.equals(1, a)}}`).formattedTo(`
         describe "group of tests" {
           var a
           
@@ -1417,7 +1402,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSimpleDescribeWithInitializeMethodInSeveralLines', () => {
-      `describe            "group of tests" 
+      expect(`describe            "group of tests" 
         { 
           var a var b var c           = 3
         method                   
@@ -1437,7 +1422,7 @@ describe('Wollok Printer', () => {
         
         assert.equals(b.length() - 1, c)
         }}
-      `.should.be.formattedTo( `
+      `).formattedTo( `
         describe "group of tests" {
           var a
           var b
@@ -1461,7 +1446,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testDescribeWithObjectDefinition', () => {
-      `object foo { method bar() = 1 }describe            "group of tests" 
+      expect(`object foo { method bar() = 1 }describe            "group of tests" 
       { 
         var a  
         = foo.bar()
@@ -1474,7 +1459,7 @@ describe('Wollok Printer', () => {
       assert.equals(1, a)
       
       
-       }}`.should.be.formattedTo(`
+       }}`).formattedTo(`
       object foo {
         method bar() = 1
       }
@@ -1489,7 +1474,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testComplexInitializeDefinition', () => {
-      `
+      expect(`
       
       describe "tests - entrega 1" {
       
@@ -1518,7 +1503,7 @@ describe('Wollok Printer', () => {
       
   
   }
-      `.should.be.formattedTo(`
+      `).formattedTo(`
         describe "tests - entrega 1" {
           var cisne
           var laFamilia
@@ -1555,7 +1540,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testUsingPreviousExpressions', () => {
-      `
+      expect(`
           test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           
             var dia = new Date(              
@@ -1565,7 +1550,7 @@ describe('Wollok Printer', () => {
           }
           
              
-        `.should.be.formattedTo(`
+        `).formattedTo(`
         test "La capacidad del Luna Park el 08 de agosto de 2017 es 9290" {
           var dia = new Date(day = 8, month = 8, year = 2017)
           
@@ -1574,7 +1559,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testAnotherInitializeWithComplexDefinition', () => {
-      `
+      expect(`
       describe "testDeMusicGuide" {
       
         var soledad
@@ -1623,7 +1608,7 @@ describe('Wollok Printer', () => {
         
         test "fake" { assert.that(true) }
         }			
-      `.should.be.formattedTo(`
+      `).formattedTo(`
         describe "testDeMusicGuide" {
           var soledad
           var kike
@@ -1745,7 +1730,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testDescribeWithMethodDefinition', () => {
-      `describe "group of tests"              
+      expect(`describe "group of tests"              
         
         
         
@@ -1779,7 +1764,7 @@ describe('Wollok Printer', () => {
       }}
   
   
-      `.should.be.formattedTo(`
+      `).formattedTo(`
       describe "group of tests" {
         method bar() = 1
         
@@ -1791,13 +1776,14 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
+
   describe('Variables', () => {
     it('testSeveralVariableDefinitionsToConstantsInMethods', () => {
-      `
+      expect(`
       class Foo {
         var x var y var z		
         method addition() { var   a    =    x x   =     1         y   = 2 z=x+y	}
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       class Foo {
         var x
         var y
@@ -1813,7 +1799,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSeveralVariableDefinitionsToConstantsInMethods2', () => {
-      `
+      expect(`
       class Foo {
         var x var y =     5 var z		
         method addition() { 
@@ -1828,7 +1814,7 @@ describe('Wollok Printer', () => {
           y = 2             z = x + y	}
           
           
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       class Foo {
         var x
         var y = 5
@@ -1848,7 +1834,7 @@ describe('Wollok Printer', () => {
     })
 
     it('testSeveralVariableDefinitionsToConstantsInMethods3', () => {
-      `
+      expect(`
       class Foo {
               var x var y var z		
               method      addition   ()           { 
@@ -1858,7 +1844,7 @@ describe('Wollok Printer', () => {
                       z = x + y	}
           
           
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       class Foo {
         var x
         var y
@@ -1873,14 +1859,13 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-
     it('testSeveralVariableDefinitionsToConstantsInMethods4', () => {
-      `
+      expect(`
       class Foo {
         var x		
         method addition() { x = 1 var a = 2 a = x a   +=  1       a  .  inverted() }
-      }`.should.be.formattedTo (
-          `
+      }`).formattedTo (
+        `
       class Foo {
         var x
         
@@ -1894,9 +1879,8 @@ describe('Wollok Printer', () => {
       }`)
     })
 
-
     it('propertyDefinitionInClass', () => {
-      `
+      expect(`
       class Foo {
         var              property 
         
@@ -1910,7 +1894,7 @@ describe('Wollok Printer', () => {
          y
             =    
               1		
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       class Foo {
         var property x
         const property y = 1
@@ -1918,7 +1902,7 @@ describe('Wollok Printer', () => {
     })
 
     it('propertyDefinitionInWko', () => {
-      `
+      expect(`
       object romualdo {
         var      property 
         
@@ -1933,17 +1917,15 @@ describe('Wollok Printer', () => {
           y
             =    
               1		
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       object romualdo {
         var property x
         const property y = 1
       }`)
     })
 
-
     it('propertyDefinitionInMixin', () => {
-      `
-      mixin Jugable {
+      expect(`mixin Jugable {
                  var   property 
         
         
@@ -1956,17 +1938,15 @@ describe('Wollok Printer', () => {
           y
             =    
               1		
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       mixin Jugable {
         var property x
         const property y = 1
       }`)
     })
 
-
     it('propertyDefinitionInDescribe', () => {
-
-      `
+      expect(`
       describe
       
        "group of tests"  
@@ -1984,7 +1964,7 @@ describe('Wollok Printer', () => {
               1		
               
               test "true is true" { assert.that(true) }
-      }`.should.be.formattedTo (`
+      }`).formattedTo (`
       describe "group of tests" {
         var property x
         const property y = 1
@@ -1995,9 +1975,10 @@ describe('Wollok Printer', () => {
       }`)
     })
   })
+
   describe('Constructor call', () => {
     it('constructorCallFormatting', () => {
-      `class A { var a
+      expect(`class A { var a
       var b = 2 var c var d 
       }
       class B {
@@ -2018,7 +1999,7 @@ describe('Wollok Printer', () => {
       
       , d=#{1   , 8} )	
       }}
-      `.should.be.formattedTo(`
+      `).formattedTo(`
       class A {
         var a
         var b = 2
@@ -2034,9 +2015,10 @@ describe('Wollok Printer', () => {
     })
 
   })
+
   describe('Complex flow', () => {
     it('program_ifInline', () => {
-      `program p {
+      expect(`program p {
         const a = 10
         const b = 0
     		
@@ -2044,7 +2026,7 @@ describe('Wollok Printer', () => {
     			   
     			   
     			   0
-    	}`.should.be.formattedTo( `
+    	}`).formattedTo( `
     program p {
       const a = 10
       const b = 0
@@ -2054,12 +2036,12 @@ describe('Wollok Printer', () => {
     })
 
     it('program_ifInlineWithExpressions', () => {
-      `program p {
+      expect(`program p {
     		const a = 10
     		const b = 0
     		
     		const c = if (a > 0) b+1 else b-1
-    	}`.should.be.formattedTo( `
+    	}`).formattedTo( `
     program p {
       const a = 10
       const b = 0
@@ -2069,7 +2051,7 @@ describe('Wollok Printer', () => {
     })
 
     it('issue702_forEachAndIf', () => {
-      `
+      expect(`
 		object foo {
 		    method bar() {
 		        [3,              4        ,50,      100 ].forEach({ it => if (it > 4) { console.println(4) } else {console.println(it)
@@ -2077,7 +2059,7 @@ describe('Wollok Printer', () => {
 		        })
 		    }
 		}
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     object foo {
       method bar() {
         [3, 4, 50, 100].forEach(
@@ -2088,7 +2070,7 @@ describe('Wollok Printer', () => {
     })
 
     it('issue702_forEachAndIf_2', () => {
-      `
+      expect(`
 		object foo {
 		    method bar() {
 		        [3,              4        ,50,      100 ].forEach({ it => if (it > 4) console.println(4) else console.println(it)
@@ -2096,7 +2078,7 @@ describe('Wollok Printer', () => {
 		        })
 		    }
 		}
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     object foo {
       method bar() {
         [3, 4, 50, 100].forEach(
@@ -2107,14 +2089,14 @@ describe('Wollok Printer', () => {
     })
 
     it('program_maxOneLineBreakBetweenLines', () => {
-      `program p {
+      expect(`program p {
         const a = 10
         const b = 0
         
         
         
         const c = a + b
-      }`.should.be.formattedTo( `
+      }`).formattedTo( `
       program p {
         const a = 10
         const b = 0
@@ -2126,7 +2108,7 @@ describe('Wollok Printer', () => {
     })
 
     it('basicTryCatch', () => {
-      `
+      expect(`
 program abc {
     console.println(4)
     try
@@ -2138,7 +2120,7 @@ program abc {
                 console.println(e)
             }
         }		
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     program abc {
       console.println(4)
       try {
@@ -2150,7 +2132,7 @@ program abc {
     })
 
     it('tryBlockWithSeveralCatchsAndAFinally', () => {
-      `
+      expect(`
     program abc {
     console.println(4)
     try{5 + 5}
@@ -2167,7 +2149,7 @@ program abc {
             
             }
         }		
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     program abc {
       console.println(4)
       try {
@@ -2184,7 +2166,7 @@ program abc {
     })
 
     it('oneLineTryCatch', () => {
-      `
+      expect(`
     program abc {
         console.println(4)
     try
@@ -2200,7 +2182,7 @@ program abc {
     
                 console.println(e)
         }		
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     program abc {
       console.println(4)
       try {
@@ -2213,7 +2195,7 @@ program abc {
 
     it('throwFormattingTest', () => {
 
-      `
+      expect(`
 		object foo {
     method attack(target) {
                               var attackers = self.standingMembers()
@@ -2233,7 +2215,7 @@ program abc {
                                             attack(target) })
     }		
     }
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     object foo {
       method attack(target) {
         var attackers = self.standingMembers()
@@ -2247,14 +2229,14 @@ program abc {
 
     it('testAllWithClosure', () => {
 
-      `
+      expect(`
 		class Cantante { const albumes = new Set()
 method esMinimalista() = albumes.all{
 				album =>
 					album.sonTodasCancionesCortas()
 			}
 	}	
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     class Cantante {
       const albumes = new Set()
       
@@ -2266,7 +2248,7 @@ method esMinimalista() = albumes.all{
 
     it('testForEachWithComplexClosure', () => {
 
-      `
+      expect(`
 		class Cantante { const albumes = new Set()
       method mejorarAlbumes() {
 	        albumes.forEach{
@@ -2275,7 +2257,7 @@ method esMinimalista() = albumes.all{
 					album.sumarCosto(100)
 			}}
 	      }	
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     class Cantante {
       const albumes = new Set()
       
@@ -2291,7 +2273,7 @@ method esMinimalista() = albumes.all{
     })
 
     it('doubleIfInMethod', () => {
-      `
+      expect(`
 		object pepita {
 			const posicion = game.at(2, 0)
 			var energia = 50
@@ -2306,7 +2288,7 @@ method esMinimalista() = albumes.all{
 			
 			
 			}
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     object pepita {
       const posicion = game.at(2, 0)
       var energia = 50
@@ -2327,7 +2309,7 @@ method esMinimalista() = albumes.all{
 
     it('testWithIfExpression', () => {
 
-      `
+      expect(`
 		object laTrastienda {
 		
 			const capacidadPlantaBaja = 400
@@ -2345,7 +2327,7 @@ method esMinimalista() = albumes.all{
 			}
 		
 		}
-		`.should.be.formattedTo(`
+		`).formattedTo(`
     object laTrastienda {
       const capacidadPlantaBaja = 400
       const capacidadPrimerPiso = 300
@@ -2362,7 +2344,7 @@ method esMinimalista() = albumes.all{
     })
 
     it('testFold', () => {
-      `
+      expect(`
       class Mashup inherits Cancion {
 
       var nombre = ""
@@ -2373,8 +2355,6 @@ method esMinimalista() = albumes.all{
               
               
 
-
-
         method concatenarNombres(canciones) {
           return canciones.fold(""      ,       { acum , cancion => acum + cancion.nombre() } 
           
@@ -2383,7 +2363,7 @@ method esMinimalista() = albumes.all{
         }
 
 			}
-			`.should.be.formattedTo(`
+			`).formattedTo(`
       class Mashup inherits Cancion {
         var nombre = ""
         var duracion = 0
@@ -2398,7 +2378,7 @@ method esMinimalista() = albumes.all{
     })
 
     it( 'testReturnAndIf', () => {
-      `
+      expect(`
     object lucia {
 
       const costePresentacionNoConcurrida = 400
@@ -2413,7 +2393,7 @@ method esMinimalista() = albumes.all{
         return 0
       }
 			}
-			`.should.be.formattedTo(`
+			`).formattedTo(`
       object lucia {
         const costePresentacionNoConcurrida = 400
         const costePresentacionConcurrida = 500
@@ -2429,11 +2409,11 @@ method esMinimalista() = albumes.all{
           return 0
         }
       }`
-        )
+      )
     })
 
     it('testReturnSelfExpression', () => {
-      `
+      expect(`
     class AlbumBuilder {
 
       var fechaLanzamiento
@@ -2443,7 +2423,7 @@ method esMinimalista() = albumes.all{
         return self
       }
 
-    }		`.should.be.formattedTo(`
+    }		`).formattedTo(`
     class AlbumBuilder {
       var fechaLanzamiento
       
@@ -2455,14 +2435,14 @@ method esMinimalista() = albumes.all{
     })
 
     it('unaryWordExpression', () => {
-      `
+      expect(`
 		object lunaPark {}
 		class Presentacion { var fecha var lugar var musicos }
     object pdpalooza inherits Presentacion(fecha = new Date(day = 15, month = 12, year = 2017), lugar = lunaPark, musicos = []){
       const restriccionHabilidad = { musico => if (musico.habilidad() < 70) throw new Exception(message = "La habilidad del músico debe ser mayor a 70")}
       const restriccionCompusoAlgunaCancion = {musico => if (!  musico.compusoAlgunaCancion()) throw new Exception(message = "El músico debe haber compuesto al menos una canción")}
     }		
-    `.should.be.formattedTo(`
+    `).formattedTo(`
     object lunaPark {
       
     }
@@ -2494,7 +2474,7 @@ method esMinimalista() = albumes.all{
 
     it('testObjectWithClosureImplementingRestrictions', () => {
 
-      `
+      expect(`
     object restriccionCompositor {
 
       method verificarMusico(musico) {
@@ -2504,7 +2484,7 @@ method esMinimalista() = albumes.all{
       }
 
     }
-    `.should.be.formattedTo(`
+    `).formattedTo(`
     object restriccionCompositor {
       method verificarMusico(musico) {
         if (!musico.cancionesPublicadas().any(
@@ -2518,6 +2498,7 @@ method esMinimalista() = albumes.all{
     }`)
     })
   })
+
   describe('Comments', () => {
     it('empty object should keep comments', () => {
       const code = `
@@ -2525,15 +2506,15 @@ method esMinimalista() = albumes.all{
       object pepita {
         // inner comment
       }`
-      code.should.be.formattedTo(code)
+      expect(code).formattedTo(code)
     })
     it('empty object should keep multiline comments', () => {
-      `// outside comment
+      expect(`// outside comment
       object pepita {
         /* multi
                 line
         comment */
-      }`.should.be.formattedTo(`
+      }`).formattedTo(`
       // outside comment
       object pepita {
         /* multi
@@ -2547,7 +2528,7 @@ method esMinimalista() = albumes.all{
       object pepita {
         /* inner comment */
       }`
-      code.should.be.formattedTo(code)
+      expect(code).formattedTo(code)
     })
     it('empty object should keep multiple comments', () => {
       const code = `
@@ -2557,7 +2538,7 @@ method esMinimalista() = albumes.all{
         // inner comment 2
         // inner comment 3
       }`
-      code.should.be.formattedTo(code)
+      expect(code).formattedTo(code)
     })
     it('object with method should keep comments', () => {
       const code = `
@@ -2566,7 +2547,7 @@ method esMinimalista() = albumes.all{
           // internal comment
           method fly() = 1
         }`
-      code.should.be.formattedTo(code)
+      expect(code).formattedTo(code)
     })
     it('object with method should keep multi line comments', () => {
       const code = `
@@ -2577,7 +2558,7 @@ method esMinimalista() = albumes.all{
           comment */
           method fly() = 1
         }`
-      code.should.be.formattedTo(code)
+      expect(code).formattedTo(code)
     })
   })
 

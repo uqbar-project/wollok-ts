@@ -1,7 +1,6 @@
-import { expect, should } from 'chai'
-import { getMessage, LANGUAGES } from '../src'
 
-should()
+import { getMessage, LANGUAGES } from '../src'
+import { describe, expect, it } from 'vitest'
 
 const MISSING_WOLLOK_TS_CLI = 'missing_wollok_ts_cli'
 const EXAMPLE_WITH_VALUES = 'example'

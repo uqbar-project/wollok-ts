@@ -1,7 +1,6 @@
-import { v4 as uuid } from 'uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { assertNotVoid, compilePropertyMethod, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, hasMoreThanOneSuperclass, isNamedSingleton, isVoid, loopInAssignment, showParameter, superclassIsLastInLinearization, superMethodDefinition, targetName } from '../helpers'
+import { assertNotVoid, compilePropertyMethod, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, hasMoreThanOneSuperclass, isNamedSingleton, isVoid, loopInAssignment, showParameter, superclassIsLastInLinearization, superMethodDefinition, targetName, uuid } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 

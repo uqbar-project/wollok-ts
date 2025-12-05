@@ -1,8 +1,6 @@
 import { fail } from 'assert'
-import { expect, should } from 'chai'
+import { describe, it, expect } from 'vitest'
 import { InstanceOf, is, match, Mixable, MixinDefinition, MIXINS, valueAsListOrEmpty, when } from '../src/extensions'
-
-should()
 
 const mixinOf = <T extends object>(S: Mixable<T>) => (M: MixinDefinition<T>): Mixable<T> => {
   return class extends S {
@@ -42,10 +40,10 @@ describe('extensions', () => {
     it('identifies instances of classes', () => {
       const anA = new A() as A | B
 
-      if(is(A)(anA)) {
-        anA.a().should.equal('a')
+      if (is(A)(anA)) {
+        expect(anA.a()).toBe('a')
       } else {
-        anA.b().should.equal('b')
+        expect(anA.b()).toBe('b')
         fail('value is not of type B')
       }
     })
@@ -54,12 +52,12 @@ describe('extensions', () => {
       const anM = new (M(C))() as M | N
 
       if(is(M)(anM)) {
-        anM.m().should.equal('m')
+        expect(anM.m()).toBe('m')
         if(is(C)(anM)) {
-          anM.c().should.equal('c')
+          expect(anM.c()).toBe('c')
         } else fail('value is instance of C')
       } else {
-        anM.n().should.equal('n')
+        expect(anM.n()).toBe('n')
         fail('value is not of type N')
       }
     })
@@ -76,7 +74,7 @@ describe('extensions', () => {
         [B, b => b.b()],
       )
 
-      s.should.equal('a')
+      expect(s).toBe('a')
     })
 
     it('chooses the matching path from a mixin-based configuration', () => {
@@ -87,7 +85,7 @@ describe('extensions', () => {
         [N, n => n.n()],
       )
 
-      s.should.equal('m')
+      expect(s).toBe('m')
     })
 
     it('chooses the first matching definition', () => {
@@ -99,7 +97,7 @@ describe('extensions', () => {
         [C, c => c.c()],
       )
 
-      s.should.equal('m')
+      expect(s).toBe('m')
     })
 
     it('fails if no matching definition is found', () => {
@@ -118,7 +116,7 @@ describe('extensions', () => {
         when(B)(b => b.b()),
       )
 
-      s.should.equal('a')
+      expect(s).toBe('a')
     })
 
   })
@@ -126,12 +124,12 @@ describe('extensions', () => {
   describe('valuesAsList', () => {
 
     it('returns empty list if value is falsy', () => {
-      valueAsListOrEmpty<string | undefined>(undefined).should.deep.equal([])
-      valueAsListOrEmpty<string | null>(null).should.deep.equal([])
+      expect(valueAsListOrEmpty<string | undefined>(undefined)).toEqual([])
+      expect(valueAsListOrEmpty<string | null>(null)).toEqual([])
     })
 
     it('returns a list with a value if value is truthy', () => {
-      valueAsListOrEmpty<number | undefined>(1).should.deep.equal([1])
+      expect(valueAsListOrEmpty<number | undefined>(1)).toEqual([1])
     })
 
   })

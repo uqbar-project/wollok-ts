@@ -3,6 +3,7 @@ import { getPotentiallyUninitializedLazy } from './decorators'
 import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
 import { Execution, NativeFunction, RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
+import * as crypto from 'crypto'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
 
@@ -313,7 +314,7 @@ export const literalValueToClass = (environment: Environment, literal: LiteralVa
         try {
           const referenceClasses = literal as unknown as Reference<Class>[]
           return referenceClasses[0].name
-        } catch (e) {
+        } catch {
           return OBJECT_MODULE
         }
     }
@@ -411,7 +412,7 @@ export const sendDefinitions = (environment: Environment) => (send: Send): (Meth
           (module) => valueAsListOrEmpty(module.lookupMethod(send.message, send.args.length))
         )),
       )
-    } catch (error) {
+    } catch {
       return allMethodDefinitions(environment, send)
     }
   }
@@ -518,6 +519,24 @@ export const compilePropertyMethod = (method: Method): NativeFunction => {
 export const compileGetter = (message: string): NativeFunction => function* (self: RuntimeObject): Execution<RuntimeValue> {
   return self.get(message)
 }
+
 export const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
   self.set(message, value)
+}
+
+export function uuid(): string {
+  const bytes = crypto.randomBytes(16)
+
+  bytes[6] = bytes[6] & 0x0f | 0x40
+  bytes[8] = bytes[8] & 0x3f | 0x80
+
+  const hex = bytes.toString('hex')
+
+  return (
+    hex.slice(0, 8) + '-' +
+    hex.slice(8, 12) + '-' +
+    hex.slice(12, 16) + '-' +
+    hex.slice(16, 20) + '-' +
+    hex.slice(20)
+  )
 }
