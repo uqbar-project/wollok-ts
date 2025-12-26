@@ -1,6 +1,6 @@
-import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
+import { CLOSURE_EVALUATE_METHOD } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
-import { overridenMethod, superMethodDefinition } from '../helpers'
+import { moduleDefinition, overriddenMethod, superMethodDefinition } from '../helpers'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, SELF, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
@@ -146,8 +146,8 @@ const inferNamedArgument = (n: NamedArgument) => {
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
 
-  if (m.isOverride && overridenMethod(m))
-    typeVariableFor(overridenMethod(m)!).beSupertypeOf(method)
+  if (m.isOverride && overriddenMethod(m))
+    typeVariableFor(overriddenMethod(m)!).beSupertypeOf(method)
 
   // Base methods should be typed by annotations, avoid complex inference.
   // eslint-disable-next-line @typescript-eslint/semi
@@ -240,10 +240,6 @@ const inferSelf = (self: Self) => {
   if (!module) throw new Error('Module for Self not found')
   return typeVariableFor(self).setType(new WollokModuleType(module))
 }
-
-// TODO: Use helpers
-const moduleDefinition = (node: Node) => node.ancestors.find<Module>((node: Node): node is Module =>
-  node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
 
 const inferSuper = (_super: Super) => {
   const module = moduleDefinition(_super)
