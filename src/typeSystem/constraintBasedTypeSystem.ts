@@ -1,4 +1,4 @@
-import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD, WOLLOK_BASE_PACKAGE } from '../constants'
+import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
 import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
@@ -132,8 +132,8 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
   let changed = false
 
-  const [allPossibleModules, mnuMessages] = inferModulesFromMessages(tVar.messages) // Maybe we should remove from original collection for performance reason?
-  const compatibleModules = compatiblesModulesForInference(allPossibleModules)
+  const [allPossibleModules, mnuMessages] = inferModulesFromMessages(tVar.messages)
+  const compatibleModules = compatiblesModulesForMaxInference(allPossibleModules)
   const maxTypes = compatibleModules.map(module => typeVariableFor(module).instanceFor(tVar).type())
 
   for (const type of maxTypes)
@@ -152,19 +152,12 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
 
   return changed
 }
-
-function compatiblesModulesForInference(modules: Module[]): Module[] {
-  modules = modules.reduce((acc, module) => [
-    ...acc.filter(m => !m.inherits(module)),
-    ...acc.some(m => module.inherits(m)) ? [] : [module]],
-    [] as Module[])
-  const languageModules = modules.filter(m => m.fullyQualifiedName.startsWith(WOLLOK_BASE_PACKAGE))
-  if (languageModules.length > 1) return []
-  return modules
-}
-
+/**
+ * Find the modules that understand a set of messages sent to a TVar.
+ * If none is found, the algorithm use a subset of the messages until some module match.
+ */
 function inferModulesFromMessages(messages: Send[]): [Module[], Send[]] {
-  const { environment } = messages[0] // TODO: More global access
+  const { environment } = messages[0] // TODO: Better global access
   if (messages.every(allObjectsUnderstand)) return [[], []] // Do NOT infer Object
   let possibleTypes = allModulesThatUnderstand(environment, messages)
   messages = [...messages] // Copy for pop
@@ -199,6 +192,21 @@ function matchArgumentTypes(method: Method, send: Send) {
       param.type() instanceof WollokParameterType || arg.type() instanceof WollokParameterType ||
       param.type().contains(arg.type())
   })
+}
+
+/**
+ * Avoid to suggest 'imcompatible' base Wollok types.
+ * eg: (String | Number) for the message +/1
+ */
+function compatiblesModulesForMaxInference(modules: Module[]): Module[] {
+  // Simplify all possible modules to its common superclasses
+  modules = modules.reduce((acc, module) => [
+    ...acc.filter(m => !m.inherits(module)),
+    ...acc.some(m => module.inherits(m)) ? [] : [module]],
+    [] as Module[])
+  // Should not have more than one base Wollok type
+  const languageModules = modules.filter(m => m.isBaseWollokCode)
+  return languageModules.length > 1 ? [] : modules
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
