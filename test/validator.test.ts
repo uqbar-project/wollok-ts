@@ -2,7 +2,7 @@ import { fail } from 'assert'
 import { should } from 'chai'
 import { join } from 'path'
 import validate from '../src/validator'
-import { allExpectations, buildEnvironmentForEachFile, errorLocation, matchesExpectationProblem, validateExpectationProblem } from './utils'
+import { allExpectations, buildEnvironmentForEachPackage, matchesExpectationProblem, validateExpectationProblem } from './utils'
 
 const TESTS_PATH = join('language', 'test', 'validations')
 
@@ -10,7 +10,7 @@ should()
 
 describe('Wollok Validations', () => {
 
-  buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
+  buildEnvironmentForEachPackage(TESTS_PATH, (filePackage, fileContent) => {
 
     it(filePackage.fileName!, () => {
       const allProblems = validate(filePackage)
@@ -26,7 +26,7 @@ describe('Wollok Validations', () => {
 
         for (const problem of problems) {
           if (!expectedProblems.some(expectedProblem => matchesExpectationProblem(problem, node, expectedProblem)))
-            fail(`Unexpected ${problem.code} ${problem.level} at ${errorLocation(node)}`)
+            fail(`Unexpected ${problem.code} ${problem.level} at ${node}`)
         }
       })
     })

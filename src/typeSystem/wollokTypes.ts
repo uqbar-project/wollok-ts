@@ -7,6 +7,7 @@ const { entries, fromEntries } = Object
 
 export const ANY = 'Any'
 export const VOID = 'Void'
+export const SELF = 'Self'
 export const ELEMENT = 'Element'
 export const RETURN = 'RETURN'
 export const PARAM = 'PARAM'
@@ -62,9 +63,9 @@ export class WollokModuleType {
   }
 
   contains(type: WollokType): boolean {
-    return type instanceof WollokModuleType && (this.module === type.module ||
-      this.module instanceof Singleton && type.module instanceof Singleton
-      && this.module.isClosure() && type.module.isClosure())
+    return type instanceof WollokModuleType && (this.module === type.module
+      || this.module instanceof Singleton && type.module instanceof Singleton && this.module.isClosure() && type.module.isClosure()
+      || !(type.module instanceof Singleton && type.module.isClosure()) && type.module.inherits(this.module))
   }
 
   atParam(_name: string): TypeVariable { throw new Error('Module types has no params') }
@@ -101,7 +102,7 @@ export class WollokParametricType extends WollokModuleType {
     let changed = false
     const resolvedParamTypes = fromEntries([...this.params])
     this.params.forEach((tVar, paramName) => {
-      // Possible name callision
+      // Possible name collision
       const newInstance = tVar.instanceFor(instance, send, `${name}.${paramName}`)
       if (newInstance !== tVar) {
         resolvedParamTypes[paramName] = newInstance
@@ -112,10 +113,13 @@ export class WollokParametricType extends WollokModuleType {
     // If nothing changes, we can use the original TVar
     if (!changed) return super.instanceFor(instance, send)
 
-    // TODO: Creating a new syntetic TVar *each time* is not the best solution.
-    //      We should attach this syntetic TVar to the instance, so we can reuse it.
-    //      We also need to take care of MethodType (subclasses of ParametricType)
-    return instance.newInstance(name).setType(new WollokParametricType(this.module, resolvedParamTypes), false)
+    // Here inside there is a cache system
+    const maybeNewInstance = instance.newInstance(name)
+    const newType = this.newFrom(resolvedParamTypes)
+    if (!maybeNewInstance.type().contains(newType)) {
+      maybeNewInstance.setType(newType, false)
+    }
+    return maybeNewInstance
   }
 
   addMinType(minType: WollokParametricType): void {
@@ -149,7 +153,12 @@ export class WollokParametricType extends WollokModuleType {
 
   sameParams(type: WollokParametricType): boolean {
     return [...this.params.entries()].every(([name, tVar]) =>
-      type.atParam(name).type().name == ANY || tVar.type().contains(type.atParam(name).type()))
+      type.atParam(name) && (type.atParam(name).type().name == ANY ||
+        new WollokUnionType(tVar.allPossibleTypes()).contains(type.atParam(name).type())))
+  }
+
+  newFrom(newParams: Record<string, TypeVariable>): WollokParametricType {
+    return new WollokParametricType(this.module, newParams)
   }
 }
 
@@ -171,6 +180,10 @@ export class WollokMethodType extends WollokParametricType {
     const returnType = this.atParam(RETURN).type().name
     return `(${params}) => ${returnType}`
   }
+
+  override newFrom(newParams: Record<string, TypeVariable>): WollokMethodType {
+    return new WollokMethodType(newParams[RETURN], [], newParams, this.module)
+  }
 }
 
 export class WollokClosureType extends WollokMethodType {
@@ -181,6 +194,9 @@ export class WollokClosureType extends WollokMethodType {
 
   get name(): string { return `{ ${super.name} }` }
 
+  override newFrom(newParams: Record<string, TypeVariable>): WollokClosureType {
+    return new WollokClosureType(newParams[RETURN], Object.values(newParams).filter(tVar => tVar != newParams[RETURN]), this.module)
+  }
 }
 
 
@@ -192,7 +208,9 @@ export class WollokParameterType {
   }
 
   instanceFor(instance: TypeVariable, send?: TypeVariable): TypeVariable | null {
-    return instance.atParam(this.name) || send?.newInstance(this.name)
+    if (this.id === SELF)
+      return instance
+    return instance.atParam(this.name) || send?.newInstance(this.name) || null
   }
 
   lookupMethod(_name: Name, _arity: number, _options?: { lookupStartFQN?: Name, allowAbstractMethods?: boolean }): Method {
@@ -204,14 +222,14 @@ export class WollokParameterType {
   }
 
   contains(type: WollokType): boolean {
-    if (this === type) return true
-    throw new Error('Parameters types don\'t contain other types')
+    return type instanceof WollokParameterType && this.id === type.id
   }
 
   asList(): WollokType[] { return [this] }
 
+  // Parameters types cannot be subtype of other types (invariant)
   isSubtypeOf(_type: WollokType): boolean {
-    throw new Error('Parameters types cannot be subtype of other types (invariant)')
+    return false
   }
 
   get name(): string { return this.id }
@@ -231,20 +249,20 @@ export class WollokUnionType {
     throw new Error('Halt')
   }
 
-  atParam(_name: string): TypeVariable { throw new Error('Union types has no params') }
+  atParam(_name: string): TypeVariable | null { return null }
   instanceFor(_instance: TypeVariable): TypeVariable | null { return null }
 
   contains(type: WollokType): boolean {
     return type.asList().every(t => this.types.some(_ => _.contains(t)))
   }
 
-  asList(): WollokType[] { return this.types }
+  asList(): WollokType[] { return this.simplifiedTypes }
 
   isSubtypeOf(type: WollokType): boolean { return this.types.every(t => t.isSubtypeOf(type)) }
 
   get simplifiedTypes(): WollokType[] {
     return this.types
-      .reduce((acc, type) => [...acc.filter(t => !t.isSubtypeOf(type)), type] // Remove subtypes (are redundants)
+      .reduce((acc, type) => [...acc.filter(t => !type.asList().some(innerType => t.isSubtypeOf(innerType))), ...type.asList()] // Remove subtypes (are redundants)
         , [] as WollokType[])
   }
 
@@ -252,6 +270,7 @@ export class WollokUnionType {
   get kind(): string { return this.printBy(_ => _.kind) }
 
   printBy(property: (type: WollokType) => string): string {
+    if (this.simplifiedTypes.length === 1) return this.simplifiedTypes[0].name
     return `(${this.simplifiedTypes.map(property).join(' | ')})`
   }
 
@@ -264,9 +283,14 @@ export class WollokUnionType {
 export class TypeRegistry {
   constructor(private tVars: Map<Node, TypeVariable>) { }
 
+  typeVariableFor(node: Node): TypeVariable {
+    const tVar = this.tVars.get(node)
+    if (!tVar) throw new Error(`No tVar variable for node: ${node}`)
+    return tVar
+
+  }
+
   getType(node: Node): WollokType {
-    const type = this.tVars.get(node)?.type()
-    if (!type) throw new Error(`No type variable for node ${node}`)
-    return type
+    return this.typeVariableFor(node).type()
   }
 }

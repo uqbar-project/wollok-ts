@@ -789,6 +789,10 @@ export class Literal<T extends LiteralValue = LiteralValue> extends Expression(N
   isBoolean(): this is { value: boolean } { return typeof this.value === 'boolean' }
   isNull(): this is { value: null } { return this.value === null }
   isCollection(): this is { value: readonly [Reference<Class>, List<Expression>] } { return isArray(this.value) }
+
+  override get label(): string {
+    return `${this.value} ${super.label}`
+  }
 }
 
 
@@ -860,7 +864,8 @@ export class If extends Expression(Node) {
   }
 
   isIfExpression(): boolean {
-    return !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression)
+    return  !!last(this.thenBody.sentences)?.is(Expression) && !!last(this.elseBody.sentences)?.is(Expression) &&
+            !last(this.thenBody.sentences)!.is(Return) && !last(this.elseBody.sentences)!.is(Return)
   }
 }
 
@@ -913,7 +918,7 @@ type ClosurePayload = {
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {
   const initialSentences = sentences?.slice(0, -1) ?? []
-  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
+  const lastSentence = sentences?.slice(-1).map(value => value.is(Expression) && !value.is(Return) && (!value.is(If) || value.isIfExpression()) ? new Return({ value }) : value) ?? []
 
   return new Singleton({
     supertypes: [new ParameterizedType({ reference: new Reference({ name: CLOSURE_MODULE }) })],

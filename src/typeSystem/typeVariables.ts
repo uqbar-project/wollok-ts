@@ -1,7 +1,8 @@
-import { CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE } from '../constants'
+import { CLOSURE_EVALUATE_METHOD } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
+import { moduleDefinition, overriddenMethod, superMethodDefinition } from '../helpers'
 import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
-import { ANY, AtomicType, ELEMENT, RETURN, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
+import { ANY, AtomicType, ELEMENT, RETURN, SELF, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -35,7 +36,7 @@ function newTVarFor(node: Node) {
     const methodApply = node.methods.find(_ => _.name === CLOSURE_EVALUATE_METHOD)!
     const parameters = methodApply.parameters.map(typeVariableFor)
     // annotatedVar = newSynteticTVar() // But for methods, annotations reference to return tVar
-    const returnType = typeVariableFor(methodApply).atParam(RETURN)
+    const returnType = typeVariableFor(methodApply).atParam(RETURN)!
     newTVar.setType(new WollokClosureType(returnType, parameters, node), false)
   }
 
@@ -47,6 +48,7 @@ function newTVarFor(node: Node) {
 
 function doNewTVarFor(node: Node) {
   const newTVar = new TypeVariable(node)
+  if (tVars.get(node)) throw new Error('Overriding type variable!')
   tVars.set(node, newTVar)
   return newTVar
 }
@@ -82,7 +84,7 @@ function inferTypeVariables(node: Node): TypeVariable | void {
 
     when(Literal)(inferLiteral),
     when(Self)(inferSelf),
-    when(Super)(inferSelf),
+    when(Super)(inferSuper),
 
     otherwise(skip) //TODO: Not implemented?
   )
@@ -144,22 +146,23 @@ const inferNamedArgument = (n: NamedArgument) => {
 const inferMethod = (m: Method) => {
   const method = typeVariableFor(m)
 
+  if (m.isOverride && overriddenMethod(m))
+    typeVariableFor(overriddenMethod(m)!).beSupertypeOf(method)
+
   // Base methods should be typed by annotations, avoid complex inference.
   // eslint-disable-next-line @typescript-eslint/semi
-  if(m.parentPackage?.isBaseWollokCode) return;
+  if (m.parentPackage?.isBaseWollokCode && !m.isSynthetic) return
 
   // Abstract methods are infered from overrides
   // eslint-disable-next-line @typescript-eslint/semi
-  if(!m.isConcrete()) return;
+  if (!m.isConcrete()) return
 
   m.sentences.forEach(inferTypeVariables)
   if (m.sentences.length) {
-    const lastSentence = last(m.sentences)!
-    if (!lastSentence.is(Return) && !lastSentence.is(If)) { // Return inference already propagate type to method
-      method.atParam(RETURN).beSupertypeOf(typeVariableFor(lastSentence))
-    }
+    const returns = m.descendants.filter(is(Return)).filter(ret => ret.ancestors.find(is(Method)) == m)
+    if (!returns.length) method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   } else { // Empty body
-    method.atParam(RETURN).setType(new WollokAtomicType(VOID))
+    method.atParam(RETURN)!.setType(new WollokAtomicType(VOID))
   }
   return method
 }
@@ -198,11 +201,15 @@ const inferParameter = (p: Parameter) => {
 const inferReturn = (r: Return) => {
   const method = r.ancestors.find(is(Method))
   if (!method) throw new Error('Method for Return not found')
-  if (r.value)
-    typeVariableFor(method).atParam(RETURN).beSupertypeOf(inferTypeVariables(r.value)!)
-  else
-    typeVariableFor(method).atParam(RETURN).setType(new WollokAtomicType(VOID))
-  return typeVariableFor(r).setType(new WollokAtomicType(VOID))
+  if (r.value) {
+    const tVar = inferTypeVariables(r.value)!
+    typeVariableFor(method).atParam(RETURN)!.beSupertypeOf(tVar)
+    return typeVariableFor(r).beSupertypeOf(tVar)
+  }
+  else {
+    typeVariableFor(method).atParam(RETURN)!.setType(new WollokAtomicType(VOID))
+    return typeVariableFor(r).setType(new WollokAtomicType(VOID))
+  }
 }
 
 const inferIf = (_if: If) => {
@@ -228,20 +235,28 @@ const inferReference = (r: Reference<Node>) => {
   return referenceTVar
 }
 
-const inferSelf = (self: Self | Super) => {
-  const module = self.ancestors.find<Module>((node: Node): node is Module =>
-    node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
+const inferSelf = (self: Self) => {
+  const module = moduleDefinition(self)
   if (!module) throw new Error('Module for Self not found')
   return typeVariableFor(self).setType(new WollokModuleType(module))
+}
+
+const inferSuper = (_super: Super) => {
+  const module = moduleDefinition(_super)
+  if (!module) throw new Error('Module for Self not found')
+  const method = superMethodDefinition(_super, module)
+  if (!method) throw new Error('Super method not found') // TODO: report error
+  const returnVar = typeVariableFor(method).atParam(RETURN)!
+  return typeVariableFor(_super).beSupertypeOf(returnVar)
 }
 
 const inferLiteral = (l: Literal) => {
   const tVar = typeVariableFor(l)
   const { numberClass, stringClass, booleanClass } = l.environment
   switch (typeof l.value) {
-    case 'number': return tVar.setType(new WollokModuleType(numberClass))
-    case 'string': return tVar.setType(new WollokModuleType(stringClass))
-    case 'boolean': return tVar.setType(new WollokModuleType(booleanClass))
+    case 'number': return tVar.setType(new WollokParametricType(numberClass))
+    case 'string': return tVar.setType(new WollokParametricType(stringClass))
+    case 'boolean': return tVar.setType(new WollokParametricType(booleanClass))
     case 'object':
       if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
       if (l.isNull()) return tVar //tVar.setType('Nullable?')
@@ -276,7 +291,7 @@ export class TypeVariable {
 
 
   type(): WollokType { return this.typeInfo.type() }
-  atParam(name: string): TypeVariable { return this.type().atParam(name) }
+  atParam(name: string): TypeVariable /** | null */ { return this.type().atParam(name)! }
   newInstance(name: string): TypeVariable {
     return this.cachedParams.get(name) ??
       this.cachedParams.set(name, newSyntheticTVar(this.node)).get(name)!
@@ -395,6 +410,8 @@ class TypeInfo {
   }
 
   setType(type: WollokType, closed = true) {
+    if (this.minTypes.length + this.maxTypes.length > 0)
+      console.warn(`Overriding type for ${this.minTypes} and ${this.maxTypes} with ${type}`)
     this.minTypes = [type]
     this.maxTypes = [type]
     this.closed = closed
@@ -417,9 +434,7 @@ class TypeInfo {
 
   addMaxType(type: WollokType) {
     if (this.maxTypes.some(maxType => maxType.contains(type))) return
-    if (this.minTypes.some(minType => minType.contains(type))) return // TODO: Check min/max types compatibility
-    if (this.closed)
-      throw new Error('Variable inference finalized')
+    if (this.closed) throw new Error('Variable inference finalized')
 
     // Try to fill inner types!
     // This technique implies union inference by kind: A<T1> | A<T2> -> A<T1 | T2>
@@ -444,8 +459,12 @@ function typeAnnotation(node: Node) {
 function annotatedTypeName(node: Node): string | undefined {
   return typeAnnotation(node)?.args['name'] as string
 }
-function annotatedVariableName(node: Node): string | undefined {
-  return typeAnnotation(node)?.args['variable'] as string
+function annotatedVariableNames(node: Node): string[] {
+  const oneVariable = typeAnnotation(node)?.args['variable'] as string
+  if (oneVariable) return [oneVariable]
+  const manyVariables = typeAnnotation(node)?.args['variables'] as string
+  if (!manyVariables) return []
+  return manyVariables.split(',')
 }
 
 
@@ -467,6 +486,12 @@ function annotatedWollokType(annotatedType: string, node: Node): WollokType {
   if (annotatedType.includes('<') && annotatedType.includes('>')) {
     return parseAnnotatedGeneric(annotatedType, node)
   }
+
+  // Second try union
+  if (annotatedType.includes('|')) {
+    return parseAnnotatedUnion(annotatedType, node)
+  }
+
 
   // Then try defined modules
   let module = node.environment.getNodeOrUndefinedByFQN<Module>(annotatedType)
@@ -495,15 +520,20 @@ function parseAnnotatedGeneric(annotatedType: string, node: Node) {
   return baseType
 }
 
-function isParameterName(name: string, node: Node) {
-  return [node, ...node.ancestors].find(n => annotatedVariableName(n) === name)
+function parseAnnotatedUnion(annotatedType: string, node: Node) {
+  const innerTypes = annotatedType.slice(1, -1).split('|').map(_ => _.trim())
+  return new WollokUnionType(innerTypes.map(annotatedInnerType => annotatedWollokType(annotatedInnerType, node)))
 }
 
-// TODO: Support many variables
+function isParameterName(name: string, node: Node) {
+  return name == SELF || [node, ...node.ancestors].find(n => annotatedVariableNames(n).includes(name))
+}
+
 function annotatedVariableMap(n: Node) {
-  const varName = annotatedVariableName(n)
-  if (varName) return { [varName]: newSyntheticTVar(n) }
-  return {}
+  const varNames = annotatedVariableNames(n)
+  const map = {} as Record<string, TypeVariable>
+  for (const varName of varNames) map[varName] = newSyntheticTVar(n)
+  return map
 }
 
 export function typeForModule(m: Module): WollokParametricType {

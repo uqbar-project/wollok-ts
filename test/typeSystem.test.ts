@@ -284,11 +284,20 @@ describe('Wollok Type System', () => {
       assertMaxTypes(tVar, 'Number')
     })
 
-    it('should infer all maximal types', () => {
-      tVar.addSend(newSend('+', 1))
+    xit('should infer all maximal types', () => { // TODO: Add test package to env
+      tVar.addSend(testSend)
       maxTypeFromMessages(tVar).should.be.true
 
-      assertMaxTypes(tVar, 'Collection<Any>', 'Set<Any>', 'List<Any>', 'Number', 'String') // TODO: check params and return types
+      assertMaxTypes(tVar, stubType.name, otherStubType.name)
+    })
+
+    xit('should match argument types', () => {
+      const numberComparison = newSend('>', 1)
+      // TODO: Type argument as Number
+      tVar.addSend(numberComparison)
+      maxTypeFromMessages(tVar).should.be.true
+
+      assertMaxTypes(tVar, 'Number')
     })
 
     it('should infer maximal types that implements all messages', () => {
@@ -300,10 +309,10 @@ describe('Wollok Type System', () => {
     })
 
     it('should not infer maximal types if there is no method implementation', () => {
-      tVar.addSend(testSend)
+      tVar.addSend(newSend('NOT_EXIST'))
       maxTypeFromMessages(tVar).should.be.false
 
-      assertMaxTypes(tVar, ...[])
+      assertMaxTypes(tVar)
     })
 
     describe('should infer maximal types from a subset of messages', () => {
@@ -356,6 +365,35 @@ describe('Wollok Type System', () => {
       })
     })
 
+    describe('should NOT infer incompatible types', () => {
+
+      it('for arithmetic', () => {
+        tVar.addSend(newSend('+', 1))
+        maxTypeFromMessages(tVar).should.be.false
+      })
+
+      it('for comparisons', () => {
+        tVar.addSend(newSend('>', 1))
+        maxTypeFromMessages(tVar).should.be.false
+      })
+
+      it('for rages', () => {
+        tVar.addSend(newSend('start', 0))
+        maxTypeFromMessages(tVar).should.be.false
+      })
+
+      it('for dictionaries', () => {
+        tVar.addSend(newSend('clear', 0))
+        maxTypeFromMessages(tVar).should.be.false
+      })
+
+      it('for game', () => {
+        tVar.addSend(newSend('center', 0))
+        maxTypeFromMessages(tVar).should.be.false
+      })
+
+    })
+
   })
 
   describe('Wollok types', () => {
@@ -393,16 +431,15 @@ describe('Wollok Type System', () => {
         })
 
         it('To partial params inside an equivalent type', () => {
-          parametricType = new WollokParametricType(module, {
+          tVar = newSyntheticTVar().setType(new WollokParametricType(module, {
             'param1': newSyntheticTVar(),
             'param2': newSyntheticTVar().setType(otherStubType),
             'param3': newSyntheticTVar(),
-          })
+          }))
           const param1 = newSyntheticTVar().setType(stubType)
           const param2 = newSyntheticTVar()
           const param3 = newSyntheticTVar()
           const supertype = newSyntheticTVar().setType(new WollokParametricType(module, { param1, param2, param3 }), false)
-          tVar.setType(parametricType)
           tVar.addSupertype(supertype)
           propagateMinTypes(tVar)
 
@@ -438,7 +475,7 @@ describe('Wollok Type System', () => {
         const parameter = new WollokParameterType('MAP_TEST')
         const innerType = newSyntheticTVar().setType(parameter)
         const otherInnerType = newSyntheticTVar().setType(parameter)
-        tVar.setType(new WollokParametricType(module, { innerType, otherInnerType }))
+        tVar = newSyntheticTVar().setType(new WollokParametricType(module, { innerType, otherInnerType }))
 
         const instance = newSyntheticTVar().setType(new WollokParametricType(module)) // Empty for parameter // Mismatche with basic types... :(
         const send = newSyntheticTVar() // Without send there is no instance
@@ -476,9 +513,7 @@ describe('Wollok Type System', () => {
 
 })
 
-
 const env = buildEnvironment([])
-
 
 class TestWollokType extends WollokAtomicType {
   method: Method
