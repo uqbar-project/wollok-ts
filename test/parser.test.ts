@@ -30,7 +30,6 @@ describe('Wollok parser', () => {
       const importNode = parsed.value
       const entityNode = importNode.entity
 
-      // Comparación estructural del nodo raíz
       expect(parsed.value).parsedInto(
         new Import({
           entity: new Reference({
@@ -51,10 +50,8 @@ describe('Wollok parser', () => {
         })
       )
 
-      // Ubicación del nodo import completo
       expect(importNode).tracedTo([16, 49])
 
-      // Ubicación del entity
       expect(entityNode).tracedTo([48, 49])
     })
 

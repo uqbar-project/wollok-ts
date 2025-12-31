@@ -1,4 +1,3 @@
-// eslint.config.mjs
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import stylistic from '@stylistic/eslint-plugin'
@@ -16,7 +15,6 @@ export default tseslint.config(
   {
     plugins: { '@stylistic': stylistic },
     rules: {
-      // Reglas de @stylistic
       '@stylistic/quotes': ['warn', 'single'],
       '@stylistic/semi': ['error', 'never'],
       '@stylistic/no-extra-parens': 'warn',
@@ -28,7 +26,6 @@ export default tseslint.config(
           flatTernaryExpressions: true,
         },
       ],
-      // ... y el resto de tus reglas que no son de @stylistic
       '@typescript-eslint/no-unused-expressions': 'off',
       '@typescript-eslint/explicit-module-boundary-types': [
         'warn',
