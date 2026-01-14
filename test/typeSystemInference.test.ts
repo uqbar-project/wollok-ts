@@ -19,7 +19,7 @@ describe('Wollok Type System Inference', function () {
     // Uncomment next line to filter the files to analyze
     // if (!filePackage.name.includes('collections')) return;
 
-    it(filePackage.name, function (done) {
+    it(filePackage.name, () => {
       inferTypes(environment, logger)
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
@@ -44,7 +44,6 @@ describe('Wollok Type System Inference', function () {
 
         expect(problems.length).toBe(0)
       })
-      // done()
     }, 20 * 1000)
   })
 })

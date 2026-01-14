@@ -203,7 +203,7 @@ function compatiblesModulesForMaxInference(modules: Module[]): Module[] {
   modules = modules.reduce((acc, module) => [
     ...acc.filter(m => !m.inherits(module)),
     ...acc.some(m => module.inherits(m)) ? [] : [module]],
-    [] as Module[])
+  [] as Module[])
   // Should not have more than one base Wollok type
   const languageModules = modules.filter(m => m.isBaseWollokCode)
   return languageModules.length > 1 ? [] : modules
