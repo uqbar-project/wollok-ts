@@ -15,6 +15,7 @@
     "prepare": "tsx scripts/fetchLanguage.ts && npm run buildWRE && npm run copy:translations",
     "copy:translations": "cp ./language/src/resources/validationMessages/*.json ./src/validator",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
+    "clean": "rm -rf dist && rm -rf node_modules && rm -rf language",
     "test": "npm run test:lint && npm run test:unit && npm run test:sanity && npm run test:examples",
     "test:lint": "eslint .",
     "test:coverage": "vitest run --coverage",
