@@ -1,8 +1,8 @@
 import { APPLY_METHOD, CLOSURE_EVALUATE_METHOD } from '../constants'
 import { anyPredicate, is, isEmpty, notEmpty } from '../extensions'
 import { Environment, Method, Module, Node, Reference, Send } from '../model'
-import { newTypeVariables, typeForModule, TypeVariable, typeVariableFor } from './typeVariables'
-import { PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokModuleType, WollokType, WollokUnionType } from './wollokTypes'
+import { newTypeVariables, TypeVariable, typeVariableFor } from './typeVariables'
+import { ANY, PARAM, RETURN, TypeRegistry, TypeSystemProblem, WollokParameterType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
 
@@ -89,8 +89,12 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
   let changed = false
   for (const type of types) {
     for (const send of tVar.messages) {
-      if (send.receiver !== tVar.node) continue // should only bind the methods from the receiver types
-
+      /**
+       * Only bind the sends from the receiver node!
+       * The Tvar could have other sends because of the propagation
+       *  -> The send propagation is important for maxTypeFromMessages pass
+       */
+      if (send.receiver !== tVar.node) continue
       const message = send.message == APPLY_METHOD ? CLOSURE_EVALUATE_METHOD : send.message // 'apply' is a special case for closures
       const method = type.lookupMethod(message, send.args.length, { allowAbstractMethods: true })
       if (!method)
@@ -105,7 +109,7 @@ export function bindReceivedMessages(tVar: TypeVariable): boolean {
 
 function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean {
   const methodInstance = typeVariableFor(method).instanceFor(receiver, typeVariableFor(send))
-  const returnParam = methodInstance.atParam(RETURN)
+  const returnParam = methodInstance.atParam(RETURN)!
   if (returnParam.hasSupertype(typeVariableFor(send))) return false
 
   logger.log(`\nBIND MESSAGE |${send}| WITH METHOD |${method}|`)
@@ -113,7 +117,7 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
   logger.log(`NEW SUPERTYPE |${typeVariableFor(send)}| FOR |${returnParam}|`)
   method.parameters.forEach((_param, i) => {
     const argTVAR = typeVariableFor(send.args[i])
-    const currentParam = methodInstance.atParam(`${PARAM}${i}`)
+    const currentParam = methodInstance.atParam(`${PARAM}${i}`)!
     currentParam.addSubtype(argTVAR)
     logger.log(`NEW SUBTYPE |${argTVAR}| FOR |${currentParam}|`)
   })
@@ -122,14 +126,17 @@ function bindMethod(receiver: TypeVariable, method: Method, send: Send): boolean
 
 export function maxTypeFromMessages(tVar: TypeVariable): boolean {
   if (tVar.closed) return false
+  if (tVar.node?.is(Send)) return false // Bind messages from receiver types in message chain
   if (!tVar.messages.length) return false
   if (tVar.allMinTypes().length) return false
   if (tVar.messages.every(send => send.message == APPLY_METHOD)) return false // Avoid messages to closure
   let changed = false
 
-  const [possibleTypes, mnuMessages] = inferMaxTypesFromMessages([...tVar.messages]) // Maybe we should remove from original collection for performance reason?
+  const [allPossibleModules, mnuMessages] = inferModulesFromMessages(tVar.messages)
+  const compatibleModules = compatiblesModulesForMaxInference(allPossibleModules)
+  const maxTypes = compatibleModules.map(module => typeVariableFor(module).instanceFor(tVar).type())
 
-  for (const type of possibleTypes)
+  for (const type of maxTypes)
     if (!tVar.hasType(type)) {
       tVar.addMaxType(type)
       logger.log(`NEW MAX TYPE |${type}| FOR |${tVar}|`)
@@ -145,40 +152,61 @@ export function maxTypeFromMessages(tVar: TypeVariable): boolean {
 
   return changed
 }
-
-function inferMaxTypesFromMessages(messages: Send[]): [WollokModuleType[], Send[]] {
-  if (messages.every(allObjectsUnderstand)) return [[objectType(messages[0])], []]
-  let possibleTypes = allTypesThatUndestand(messages)
-  const mnuMessages = [] // Maybe we should check this when max types are propagated?
+/**
+ * Find the modules that understand a set of messages sent to a TVar.
+ * If none is found, the algorithm use a subset of the messages until some module match.
+ */
+function inferModulesFromMessages(messages: Send[]): [Module[], Send[]] {
+  const { environment } = messages[0] // TODO: Better global access
+  if (messages.every(allObjectsUnderstand)) return [[], []] // Do NOT infer Object
+  let possibleTypes = allModulesThatUnderstand(environment, messages)
+  messages = [...messages] // Copy for pop
+  const mnuMessages: Send[] = [] // Maybe we should check this when max types are propagated?
   while (!possibleTypes.length) { // Here we have a problem
-    mnuMessages.push(messages.pop()!) // Search in a subset
+    mnuMessages.push(messages.pop()!) // Search in a subset (TODO: check all combinations)
     if (!messages.length) return [[], []] // Avoid inference for better error message? (Probably this is a bug)
-    possibleTypes = allTypesThatUndestand(messages)
+    possibleTypes = allModulesThatUnderstand(environment, messages)
   }
   return [possibleTypes, mnuMessages]
-}
-
-function allTypesThatUndestand(messages: Send[]): WollokModuleType[] {
-  const { environment } = messages[0]
-  return allModulesThatUnderstand(environment, messages).map(typeForModule)
 }
 
 function allObjectsUnderstand(send: Send) {
   return send.environment.objectClass.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
 }
 
-function objectType(node: Node) {
-  return typeForModule(node.environment.objectClass)
-}
-
-function allModulesThatUnderstand(environment: Environment, sends: Send[]) {
+function allModulesThatUnderstand(environment: Environment, sends: Send[]): Module[] {
   return environment.descendants
     .filter(is(Module))
-    .filter(module => sends.every(send =>
-      // TODO: check params and return types
-      module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
-    ))
+    .filter(module => sends.every(send => {
+      const method = module.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true })
+      if (!method || method.hasProblems) return false
+      return matchArgumentTypes(method, send)
+    }))
+}
 
+function matchArgumentTypes(method: Method, send: Send) {
+  return method.parameters.every((p, index) => {
+    const param = typeVariableFor(p)
+    const arg = typeVariableFor(send.args[index])
+    return param.type().name == ANY || arg.type().name == ANY ||
+      param.type() instanceof WollokParameterType || arg.type() instanceof WollokParameterType ||
+      param.type().contains(arg.type())
+  })
+}
+
+/**
+ * Avoid to suggest 'imcompatible' base Wollok types.
+ * eg: (String | Number) for the message +/1
+ */
+function compatiblesModulesForMaxInference(modules: Module[]): Module[] {
+  // Simplify all possible modules to its common superclasses
+  modules = modules.reduce((acc, module) => [
+    ...acc.filter(m => !m.inherits(module)),
+    ...acc.some(m => module.inherits(m)) ? [] : [module]],
+    [] as Module[])
+  // Should not have more than one base Wollok type
+  const languageModules = modules.filter(m => m.isBaseWollokCode)
+  return languageModules.length > 1 ? [] : modules
 }
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -232,12 +260,12 @@ const guessTypes = [closeTypes]
 
 export function closeTypes(tVar: TypeVariable): boolean {
   let changed = false
-  if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes)) {
+  if (isEmpty(tVar.allMaxTypes()) && notEmpty(tVar.allMinTypes()) && isEmpty(tVar.supertypes.filter(_super => _super.hasSubtype(tVar)))) {
     tVar.typeInfo.maxTypes = tVar.allMinTypes()
     logger.log(`MAX TYPES |${new WollokUnionType(tVar.typeInfo.maxTypes).name}| FROM MIN FOR |${tVar}|`)
     changed = true
   }
-  if (isEmpty(tVar.allMinTypes()) && notEmpty(tVar.allMaxTypes()) && isEmpty(tVar.subtypes)) {
+  if (isEmpty(tVar.allMinTypes()) && notEmpty(tVar.allMaxTypes()) && isEmpty(tVar.subtypes.filter(_super => _super.hasSupertype(tVar)))) {
     tVar.typeInfo.minTypes = tVar.allMaxTypes()
     logger.log(`MIN TYPES |${new WollokUnionType(tVar.typeInfo.minTypes).name}| FROM MAX FOR |${tVar}|`)
     changed = true
@@ -284,6 +312,7 @@ function selectVictim(source: TypeVariable, type: WollokType, target: TypeVariab
 function validateUnderstandMessage(tVar: TypeVariable, send: Send, source?: TypeVariable) {
   for (const type of tVar.allPossibleTypes()) {
     if (!type.lookupMethod(send.message, send.args.length, { allowAbstractMethods: true }))
+      // TODO: check tVar and Source have different types
       return source?.hasTypeInfered() ? reportTypeMismatch(tVar, source.type(), type) : reportMethodNotFound(tVar, send, type)
   }
   return false

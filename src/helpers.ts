@@ -5,7 +5,7 @@ import { Execution, NativeFunction, RuntimeObject, RuntimeValue } from './interp
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 import { randomUUID } from 'node:crypto'
 
-export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.vm', 'wollok.mirror']
+export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.mirror']
 
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS FOR VALIDATIONS
@@ -467,7 +467,15 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
   return methodModule.lookupMethod(currentMethod.name, superNode.args.length, { lookupStartFQN: currentMethod.parent.fullyQualifiedName })
 }
 
+export const overriddenMethod = (method: Method): Method | undefined =>
+  method.parent.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName, allowAbstractMethods: true })
+
+
 const getParentModule = (node: Node): Module => node.ancestors.find(is(Module)) as Module
+
+export const moduleDefinition = (node: Node): Module | undefined =>
+  node.ancestors.find<Module>((node: Node): node is Module =>
+    node.is(Module) && !node.fullyQualifiedName.startsWith(CLOSURE_MODULE)) // Ignore closures
 
 export const isVoid = (obj: RuntimeValue | RuntimeObject): boolean => obj?.module?.fullyQualifiedName === VOID_WKO
 

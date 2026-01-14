@@ -1,25 +1,28 @@
 import { fail } from 'assert'
 import { join } from 'path'
-import { getPotentiallyUninitializedLazy } from '../src/decorators'
 import { inferTypes } from '../src/typeSystem/constraintBasedTypeSystem'
 import validate from '../src/validator'
-import { allExpectations, buildEnvironmentForEachFile, validateExpectationProblem } from './utils'
+import { allExpectations, forEachFileBuildEnvironment, validateExpectationProblem } from './utils'
 import { describe, expect, it } from 'vitest'
 
 const TESTS_PATH = join('language', 'test', 'typesystem')
 
-describe('Wollok Type System Inference', () => {
 
-  buildEnvironmentForEachFile(TESTS_PATH, (filePackage, fileContent) => {
+describe('Wollok Type System Inference', function () {
+
+  forEachFileBuildEnvironment(TESTS_PATH, (filePackage, fileContent) => {
     const { environment } = filePackage
-    if (!getPotentiallyUninitializedLazy(environment, 'typeRegistry')) { // Just run type inference once
-      const logger = undefined
-      // You can use the logger to debug the type system inference in customized way, for example:
-      // { log: (message: string) => { if (message.includes('[Reference]')) console.log(message) } }
-      inferTypes(environment, logger)
-    }
+    const logger = undefined
+    // You can use the logger to debug the type system inference in customized way, for example:
+    // { log: (message: string) => { if (message.includes('collections.wlk:144')) console.log(message) } }
 
-    it(filePackage.name, () => {
+    // Uncomment next line to filter the files to analyze
+    // if (!filePackage.name.includes('collections')) return;
+
+    it(filePackage.name, function (done) {
+      // this.timeout(20 * 1000)
+
+      inferTypes(environment, logger)
       const allProblems = validate(filePackage)
       const expectations = allExpectations(filePackage)
 
@@ -32,7 +35,8 @@ describe('Wollok Type System Inference', () => {
 
           if (type) { // Assert type
             const nodeType = node.type.name
-            if (type !== nodeType) fail(`Expected ${type} but got ${nodeType} for ${node}`)
+            if (type !== nodeType)
+              fail(`Expected ${type} but got ${nodeType} for ${node}`)
 
           } else { // Assert problem
             const expectedProblem = validateExpectationProblem(expectation, problems, node, fileContent)
@@ -42,6 +46,7 @@ describe('Wollok Type System Inference', () => {
 
         expect(problems.length).toBe(0)
       })
+      // done()
     })
   })
 })
