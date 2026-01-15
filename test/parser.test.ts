@@ -1,9 +1,9 @@
 
 import { Result } from 'parsimmon'
-import { LIST_MODULE, SET_MODULE } from '../src'
-import { Annotation, Assignment, Body, Catch, Class, Closure, ClosurePayload, Describe, Field, If, Import, Literal, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
-import * as parse from '../src/parser'
 import { describe, expect, it } from 'vitest'
+import { LIST_MODULE, SET_MODULE } from '../src'
+import { Annotation, Assignment, Body, Catch, Class, Closure, ClosurePayload, Describe, Field, If, Import, Literal, LiteralCollection, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
+import * as parse from '../src/parser'
 
 const { raw } = String
 
@@ -4572,7 +4572,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([0, 7])
-            const literalValue = result.value.value as [any, any[]]
+            const literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([1, 2])
             expect(literalValue[1][1]).tracedTo([3, 4])
@@ -4599,7 +4599,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([0, 8])
-            const literalValue = result.value.value as [any, any[]]
+            const literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([2, 3])
             expect(literalValue[1][1]).tracedTo([4, 5])
@@ -4620,7 +4620,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([7, 14])
-            let literalValue = result.value.value as [any, any[]]
+            let literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([8, 9])
             expect(literalValue[1][1]).tracedTo([10, 11])
@@ -4639,7 +4639,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([7, 15])
-            literalValue = result.value.value as [any, any[]]
+            literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([9, 10])
             expect(literalValue[1][1]).tracedTo([11, 12])
@@ -4661,7 +4661,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([0, 15])
-            let literalValue = result.value.value as [any, any[]]
+            let literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([1, 2])
             expect(literalValue[1][1]).tracedTo([11, 12])
@@ -4679,7 +4679,7 @@ class c {}`)
               })
             )
             expect(result.value).tracedTo([0, 16])
-            literalValue = result.value.value as [any, any[]]
+            literalValue = result.value.value as LiteralCollection
 
             expect(literalValue[1][0]).tracedTo([2, 3])
             expect(literalValue[1][1]).tracedTo([12, 13])

@@ -776,8 +776,8 @@ export class Self extends Expression(Node) {
   constructor(payload: Payload<Self> = {}) { super(payload) }
 }
 
-
-export type LiteralValue = number | string | boolean | null | readonly [Reference<Class>, List<Expression>]
+export type LiteralCollection = readonly [Reference<Class>, List<Expression>]
+export type LiteralValue = number | string | boolean | null | LiteralCollection
 export class Literal<T extends LiteralValue = LiteralValue> extends Expression(Node) {
   get kind(): 'Literal' { return 'Literal' }
   readonly value!: T
@@ -788,7 +788,7 @@ export class Literal<T extends LiteralValue = LiteralValue> extends Expression(N
   isString(): this is { value: string } { return typeof this.value === 'string' }
   isBoolean(): this is { value: boolean } { return typeof this.value === 'boolean' }
   isNull(): this is { value: null } { return this.value === null }
-  isCollection(): this is { value: readonly [Reference<Class>, List<Expression>] } { return isArray(this.value) }
+  isCollection(): this is { value: LiteralCollection } { return isArray(this.value) }
 
   override get label(): string {
     return `${this.value} ${super.label}`

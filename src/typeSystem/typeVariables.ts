@@ -1,7 +1,7 @@
 import { CLOSURE_EVALUATE_METHOD } from '../constants'
 import { is, last, List, match, otherwise, when } from '../extensions'
 import { moduleDefinition, overriddenMethod, superMethodDefinition } from '../helpers'
-import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
+import { Assignment, Body, Class, Closure, Describe, Environment, Expression, Field, If, Import, Literal, LiteralCollection, Method, Module, NamedArgument, New, Node, Package, Parameter, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { ANY, AtomicType, ELEMENT, RETURN, SELF, TypeSystemProblem, VOID, WollokAtomicType, WollokClosureType, WollokMethodType, WollokModuleType, WollokParameterType, WollokParametricType, WollokType, WollokUnionType } from './wollokTypes'
 
 const { assign } = Object
@@ -258,13 +258,13 @@ const inferLiteral = (l: Literal) => {
     case 'string': return tVar.setType(new WollokParametricType(stringClass))
     case 'boolean': return tVar.setType(new WollokParametricType(booleanClass))
     case 'object':
-      if (Array.isArray(l.value)) return tVar.setType(arrayLiteralType(l.value))
+      if (Array.isArray(l.value)) return tVar.setType(literalCollectionType(l.value))
       if (l.isNull()) return tVar //tVar.setType('Nullable?')
   }
   throw new Error('Literal type not found')
 }
 
-const arrayLiteralType = (value: readonly [Reference<Class>, List<Expression>]) => {
+const literalCollectionType = (value: LiteralCollection) => {
   const arrayTVar = typeForModule(value[0].target!)
   const elementTVar = arrayTVar.atParam(ELEMENT)
   value[1].map(inferTypeVariables).forEach(inner =>
