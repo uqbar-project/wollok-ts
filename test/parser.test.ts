@@ -17,6 +17,12 @@ const shouldNotParse = (result: Result<any>) => {
   expect(result.status).toBe(false)
 }
 
+const expectProblem = (code: string) => (start: number, end: number) => ({ code, start, end })
+const malformedSend = expectProblem(parse.MALFORMED_MESSAGE_SEND)
+const malformedEntity = expectProblem(parse.MALFORMED_ENTITY)
+const malformedMember = expectProblem(parse.MALFORMED_MEMBER)
+const malformedSentence = expectProblem(parse.MALFORMED_SENTENCE)
+
 describe('Wollok parser', () => {
 
   describe('Comments', () => {
@@ -96,7 +102,7 @@ describe('Wollok parser', () => {
         message: 'vola',
         metadata: [new Annotation('comment', { text: '//some comment', position: 'end' })],
       }))
-      expect(result.value).recoveringFrom({ code: parse.MALFORMED_MESSAGE_SEND, start: 0, end: 4 })
+      expect(result.value).recoveringFrom(malformedSend(0, 4))
     })
 
     it('comments after variable should be parsed', () => {
@@ -570,6 +576,7 @@ describe('Wollok parser', () => {
           new Class({ name: 'C' }),
         ],
       }))
+      expect(result.value).recoveringFrom(malformedEntity(11, 36))
     })
 
   })
@@ -717,6 +724,7 @@ describe('Wollok parser', () => {
             new Class({ name: 'C' }),
           ],
         }))
+        expect(result.value).recoveringFrom(malformedEntity(23, 48))
       })
 
       it('should recover from intial member parse error', () => {
@@ -731,6 +739,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedEntity(12, 37))
       })
 
       it('should recover from final member parse error', () => {
@@ -745,6 +754,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedEntity(34, 58))
       })
 
       it('should recover from multiple member parse errors', () => {
@@ -756,6 +766,8 @@ describe('Wollok parser', () => {
             members: [new Class({ name: 'C' })],
           })
         )
+        expect(result.value).recoveringFrom(malformedEntity(12, 48))
+        expect(result.value).recoveringFrom(malformedEntity(58, 106))
       })
 
       it('should not parse packages without a body', () => {
@@ -896,6 +908,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(18, 35))
       })
 
       it('should recover from intial member parse error', () => {
@@ -910,6 +923,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(9, 16))
       })
 
       it('should recover from final member parse error', () => {
@@ -924,6 +938,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(27, 34))
       })
 
       it('should recover from multiple member parse errors', () => {
@@ -935,6 +950,8 @@ describe('Wollok parser', () => {
             members: [new Field({ name: 'var4', isConstant: false })],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(9, 32))
+        expect(result.value).recoveringFrom(malformedMember(42, 57))
       })
 
       it('should recover from annotated member parse error', () => {
@@ -949,6 +966,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(18, 28))
       })
 
       it('should not parse "class" keyword without a body', () => {
@@ -1107,6 +1125,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(18, 25))
       })
 
       it('should recover from intial member parse error', () => {
@@ -1121,6 +1140,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(9, 16))
       })
 
       it('should recover from final member parse error', () => {
@@ -1135,6 +1155,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(27, 34))
       })
 
       it('should recover from multiple member parse errors', () => {
@@ -1146,6 +1167,8 @@ describe('Wollok parser', () => {
             members: [new Field({ name: 'var4', isConstant: false })],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(9, 32))
+        expect(result.value).recoveringFrom(malformedMember(42, 57))
       })
 
       it('should not parse "mixin" keyword without name and body', () => {
@@ -1363,6 +1386,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(19, 26))
       })
 
       it('should recover from intial member parse error', () => {
@@ -1377,6 +1401,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(10, 17))
       })
 
       it('should recover from final member parse error', () => {
@@ -1391,6 +1416,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(28, 35))
       })
 
       it('should recover from multiple member parse errors', () => {
@@ -1402,6 +1428,8 @@ describe('Wollok parser', () => {
             members: [new Field({ name: 'var4', isConstant: false })],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(10, 33))
+        expect(result.value).recoveringFrom(malformedMember(43, 58))
       })
 
       it('should not parse the "object" keyword without a body', () => {
@@ -1710,6 +1738,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(26, 33))
       })
 
       it('should recover from intial member parse error', () => {
@@ -1724,6 +1753,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(17, 24))
       })
 
       it('should recover from final member parse error', () => {
@@ -1737,6 +1767,7 @@ describe('Wollok parser', () => {
             ],
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(35, 42))
       })
 
       it('should recover from multiple member parse errors', () => {
@@ -1745,6 +1776,8 @@ describe('Wollok parser', () => {
         expect(result.value).parsedInto(
           new Describe({ name: '"name"', members: [new Field({ name: 'var4', isConstant: false })] })
         )
+        expect(result.value).recoveringFrom(malformedMember(17, 40))
+        expect(result.value).recoveringFrom(malformedMember(50, 65))
       })
 
       it('should not parse describes with names that aren\'t a string', () => {
@@ -2212,6 +2245,7 @@ class c {}`)
             body: undefined,
           })
         )
+        expect(result.value).recoveringFrom(malformedMember(8, 12))
       })
     })
 
@@ -2227,6 +2261,7 @@ class c {}`)
           new Reference({ name: 'felicidad' }),
         ],
       }))
+      expect(result.value).recoveringFrom(malformedSentence(11, 12))
     })
   })
 
@@ -3168,6 +3203,7 @@ class c {}`)
               args: [],
             })
           )
+          expect(result.value).recoveringFrom(malformedSend(0, 1))
         })
 
         it('should recover from malformed message send with one argument', () => {
@@ -3179,6 +3215,7 @@ class c {}`)
               message: 'm',
               args: [new Reference({ name: 'p' })],
             }))
+          expect(result.value).recoveringFrom(malformedSend(0, 1))
         })
 
         it('should recover from malformed message send with multiple arguments', () => {
@@ -3193,9 +3230,10 @@ class c {}`)
                 new Reference({ name: 'q' }),
               ],
             }))
+          expect(result.value).recoveringFrom(malformedSend(0, 1))
         })
 
-        it('should parse malformed message sends with a closure as an argument', () => {
+        it('should recover from malformed message sends with a closure as an argument', () => {
           const result = parse.Send.parse('m1 {p => p}')
           verifyParse(result)
           expect(result.value).parsedInto(
@@ -3211,6 +3249,7 @@ class c {}`)
               ],
             })
           )
+          expect(result.value).recoveringFrom(malformedSend(0, 2))
           expect(result.value).tracedTo([0, 11])
           expect((result.value as Send).args[0]).tracedTo([3, 11])
           expect((((result.value as Send).args[0] as Singleton).members![0] as Method).parameters![0]).tracedTo([4, 5])
