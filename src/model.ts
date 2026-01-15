@@ -908,13 +908,12 @@ export class Catch extends Node {
 // SYNTHETICS
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export type ClosurePayload = {
+type ClosurePayload = {
   parameters?: List<Parameter>
   sentences?: List<Sentence>
   code?: string
   sourceMap?: SourceMap
   metadata?: List<Annotation>
-  members?: List<Method | Field>
 }
 
 export const Closure = ({ sentences, parameters, code, ...payload }: ClosurePayload): Singleton => {

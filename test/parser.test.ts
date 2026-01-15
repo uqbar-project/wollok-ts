@@ -2,7 +2,7 @@
 import { Result } from 'parsimmon'
 import { describe, expect, it } from 'vitest'
 import { LIST_MODULE, SET_MODULE } from '../src'
-import { Annotation, Assignment, Body, Catch, Class, Closure, ClosurePayload, Describe, Field, If, Import, Literal, LiteralCollection, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
+import { Annotation, Assignment, Body, Catch, Class, Closure, Describe, Field, If, Import, Literal, LiteralCollection, Method, Mixin, Name, NamedArgument, New, Package, Parameter, ParameterizedType, Program, Reference, Return, Self, Send, Singleton, SourceIndex, Super, Test, Throw, Try, Variable } from '../src/model'
 import * as parse from '../src/parser'
 
 const { raw } = String
@@ -3004,11 +3004,10 @@ class c {}`)
           expect(result.value).tracedTo([0, 11])
           expect((result.value as Send).receiver).tracedTo([0, 1])
           expect((result.value as Send).args[0]).tracedTo([3, 11])
-          expect((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).parameters![0]).tracedTo([4, 5])
-          expect((((((result.value as Send).args[0] as ClosurePayload).members![0] as Method).body! as Body).sentences[0] as Return).value).tracedTo([9, 10])
+          expect((((result.value as Send).args[0] as Singleton).members![0] as Method).parameters![0]).tracedTo([4, 5])
+          expect((((((result.value as Send).args[0] as Singleton).members![0] as Method).body! as Body).sentences[0] as Return).value).tracedTo([9, 10])
         })
 
-        /* Hasta acá */
         it('should parse sending messages to fully qualified singleton references', () => {
           const result = parse.Send.parse('p.o.m()')
           verifyParse(result)
@@ -3214,8 +3213,8 @@ class c {}`)
           )
           expect(result.value).tracedTo([0, 11])
           expect((result.value as Send).args[0]).tracedTo([3, 11])
-          expect((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).parameters![0]).tracedTo([4, 5])
-          expect(((((result.value as Send).args[0] as ClosurePayload).members![0] as ClosurePayload).sentences![0] as Return).value).tracedTo([9, 10])
+          expect((((result.value as Send).args[0] as Singleton).members![0] as Method).parameters![0]).tracedTo([4, 5])
+          expect(((((result.value as Send).args[0] as Singleton).members![0] as Method).sentences![0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse chained send with malformed receiver', () => {
@@ -4266,7 +4265,7 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 5])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([2, 3])
+          expect(((((result.value as Singleton).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([2, 3])
         })
 
         it('should parse closures with return in their body', () => {
@@ -4276,7 +4275,7 @@ class c {}`)
             Closure({ sentences: [new Return({ value: new Reference({ name: 'a' }) })], code: '{ return a }' })
           )
           expect(result.value).tracedTo([0, 12])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([9, 10])
+          expect(((((result.value as Singleton).members![0] as Method).body as Body).sentences[0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse closure with parameters and no body', () => {
@@ -4286,7 +4285,7 @@ class c {}`)
             Closure({ parameters: [new Parameter({ name: 'a' })], sentences: [], code: '{ a => }' })
           )
           expect(result.value).tracedTo([0, 8])
-          expect(((result.value as ClosurePayload).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
+          expect(((result.value as Singleton).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
         })
 
         it('should parse closures with parameters and body', () => {
@@ -4300,8 +4299,8 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 10])
-          expect(((result.value as ClosurePayload).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([7, 8])
+          expect(((result.value as Singleton).members?.[0] as Method).parameters?.[0]).tracedTo([2, 3])
+          expect(((((result.value as Singleton).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([7, 8])
         })
 
         it('should parse closures with multiple sentence separated by ";"', () => {
@@ -4318,9 +4317,9 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 13])
-          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
-          expect((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0]).tracedTo([7, 8])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![1] as Return).value).tracedTo([10, 11])
+          expect(((result.value as Singleton).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect((((result.value as Singleton).members![0] as Method).body! as Body).sentences![0]).tracedTo([7, 8])
+          expect(((((result.value as Singleton).members![0] as Method).body! as Body).sentences![1] as Return).value).tracedTo([10, 11])
         })
 
         it('should parse closures that receive two parameters and return the first one', () => {
@@ -4334,9 +4333,9 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 12])
-          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
-          expect(((result.value as ClosurePayload).members![0] as Method).parameters![1]).tracedTo([4, 5])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([9, 10])
+          expect(((result.value as Singleton).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect(((result.value as Singleton).members![0] as Method).parameters![1]).tracedTo([4, 5])
+          expect(((((result.value as Singleton).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([9, 10])
         })
 
         it('should parse closures with vararg parameters', () => {
@@ -4350,9 +4349,9 @@ class c {}`)
             })
           )
           expect(result.value).tracedTo([0, 15])
-          expect(((result.value as ClosurePayload).members![0] as Method).parameters![0]).tracedTo([2, 3])
-          expect(((result.value as ClosurePayload).members![0] as Method).parameters![1]).tracedTo([4, 8])
-          expect(((((result.value as ClosurePayload).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([12, 13])
+          expect(((result.value as Singleton).members![0] as Method).parameters![0]).tracedTo([2, 3])
+          expect(((result.value as Singleton).members![0] as Method).parameters![1]).tracedTo([4, 8])
+          expect(((((result.value as Singleton).members![0] as Method).body! as Body).sentences![0] as Return).value).tracedTo([12, 13])
         })
 
         it('should parse annotated nodes', () => {
