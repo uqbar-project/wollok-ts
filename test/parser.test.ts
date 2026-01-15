@@ -13,7 +13,7 @@ const verifyParse: AssertionFunction = <T>(result: Result<T>): asserts result is
   if (!result.status) throw new Error(`Parse failed: ${JSON.stringify(result)}`)
 }
 
-const shouldNotParse = <T>(result: Result<T>) => {
+const shouldNotParse = (result: Result<any>) => {
   expect(result.status).toBe(false)
 }
 
@@ -148,17 +148,17 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse elements inside line comment', () => {
-      shouldNotParse<Class>(parse.Class.parse('// import p'))
+      shouldNotParse(parse.Class.parse('// import p'))
     })
 
     it('should not parse elements inside multiline comment', () => {
-      shouldNotParse<Import>(parse.Import.parse(`/*
+      shouldNotParse(parse.Import.parse(`/*
         import p
       */`))
     })
 
     it('should not parse elements with an unclosed multiline comment', () => {
-      shouldNotParse<Import>(parse.Import.parse('import p /* non-closed comment'))
+      shouldNotParse(parse.Import.parse('import p /* non-closed comment'))
     })
 
     describe('as entities metadata', () => {
@@ -448,14 +448,14 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse malformed annotations', () => {
-      shouldNotParse<Annotation>(parser.parse('Annotation'))
-      shouldNotParse<Annotation>(parser.parse('Annotation(x = true)'))
-      shouldNotParse<Annotation>(parser.parse('@ Annotation'))
-      shouldNotParse<Annotation>(parser.parse('@ Annotation(x = true)'))
-      shouldNotParse<Annotation>(parser.parse('@Annotation(x = y)'))
-      shouldNotParse<Annotation>(parser.parse('@Annotation(true)'))
-      shouldNotParse<Annotation>(parser.parse('@Annotation('))
-      shouldNotParse<Annotation>(parser.parse('@Annotation)'))
+      shouldNotParse(parser.parse('Annotation'))
+      shouldNotParse(parser.parse('Annotation(x = true)'))
+      shouldNotParse(parser.parse('@ Annotation'))
+      shouldNotParse(parser.parse('@ Annotation(x = true)'))
+      shouldNotParse(parser.parse('@Annotation(x = y)'))
+      shouldNotParse(parser.parse('@Annotation(true)'))
+      shouldNotParse(parser.parse('@Annotation('))
+      shouldNotParse(parser.parse('@Annotation)'))
     })
   })
 
@@ -476,23 +476,23 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse names with spaces', () => {
-      shouldNotParse<Name>(parser.parse('foo bar'))
+      shouldNotParse(parser.parse('foo bar'))
     })
 
     it('should not parse names that begin with numbers', () => {
-      shouldNotParse<Name>(parser.parse('4foo'))
+      shouldNotParse(parser.parse('4foo'))
     })
 
     it('should not parse operators as names', () => {
-      shouldNotParse<Name>(parser.parse('=='))
+      shouldNotParse(parser.parse('=='))
     })
 
     it('should not parse strings as names', () => {
-      shouldNotParse<Name>(parser.parse('"foo"'))
+      shouldNotParse(parser.parse('"foo"'))
     })
 
     it('should not parse strings containing unicode as names', () => {
-      shouldNotParse<Name>(parser.parse('"foö"'))
+      shouldNotParse(parser.parse('"foö"'))
     })
   })
 
@@ -616,15 +616,15 @@ describe('Wollok parser', () => {
     })
 
     it('should not parse malformed import statements', () => {
-      shouldNotParse<Import>(parser.parse('importp'))
+      shouldNotParse(parser.parse('importp'))
     })
 
     it('should not parse malformed import references', () => {
-      shouldNotParse<Import>(parser.parse('import p.*.q'))
+      shouldNotParse(parser.parse('import p.*.q'))
     })
 
     it('should not parse "import" keyword without a package', () => {
-      shouldNotParse<Import>(parser.parse('import *'))
+      shouldNotParse(parser.parse('import *'))
     })
 
   })
@@ -1348,7 +1348,7 @@ describe('Wollok parser', () => {
       })
 
       it('should not parse dashed objects', () => {
-        shouldNotParse<Singleton>(parser.parse('object my-object {}'))
+        shouldNotParse(parser.parse('object my-object {}'))
       })
 
       it('should recover from member parse error', () => {
@@ -1405,39 +1405,39 @@ describe('Wollok parser', () => {
       })
 
       it('should not parse the "object" keyword without a body', () => {
-        shouldNotParse<Singleton>(parser.parse('object'))
+        shouldNotParse(parser.parse('object'))
       })
 
       it('should not parse objects without body', () => {
-        shouldNotParse<Singleton>(parser.parse('object o'))
+        shouldNotParse(parser.parse('object o'))
       })
 
       it('should not parse objects that inherit from more than one class', () => {
-        shouldNotParse<Singleton>(parser.parse('object o inherits D inherits E'))
+        shouldNotParse(parser.parse('object o inherits D inherits E'))
       })
 
       it('should not parse objects that use the "inherits" keyword without a superclass', () => {
-        shouldNotParse<Singleton>(parser.parse('object o inherits {}'))
+        shouldNotParse(parser.parse('object o inherits {}'))
       })
 
       it('should not parse objects that use the "inherits" keyword without a body and superclass', () => {
-        shouldNotParse<Singleton>(parser.parse('object o inherits'))
+        shouldNotParse(parser.parse('object o inherits'))
       })
 
       it('should not parse the "and" keyword without "inherits"', () => {
-        shouldNotParse<Singleton>(parser.parse('object o and D {}'))
+        shouldNotParse(parser.parse('object o and D {}'))
       })
 
       it('should not parse the "and" keyword without inherits or supertype', () => {
-        shouldNotParse<Singleton>(parser.parse('object o and {}'))
+        shouldNotParse(parser.parse('object o and {}'))
       })
 
       it('should not parse the "and" keyword without a trailing supertype', () => {
-        shouldNotParse<Singleton>(parser.parse('object o inherits M and {}'))
+        shouldNotParse(parser.parse('object o inherits M and {}'))
       })
 
       it('should not parse the "and" keyword without a trailing supertype or body', () => {
-        shouldNotParse<Singleton>(parser.parse('object o inherits M and'))
+        shouldNotParse(parser.parse('object o inherits M and'))
       })
 
     })
@@ -1509,11 +1509,11 @@ describe('Wollok parser', () => {
       })
 
       it('should not parse programs without name', () => {
-        shouldNotParse<Program>(parser.parse('program { }'))
+        shouldNotParse(parser.parse('program { }'))
       })
 
       it('should not parse "program" keyword without name and body', () => {
-        shouldNotParse<Program>(parser.parse('program'))
+        shouldNotParse(parser.parse('program'))
       })
 
     })
@@ -1593,15 +1593,15 @@ describe('Wollok parser', () => {
       })
 
       it('should not parse tests with names that aren\'t a string', () => {
-        shouldNotParse<Test>(parser.parse('test name { }'))
+        shouldNotParse(parser.parse('test name { }'))
       })
 
       it('should not parse tests without name', () => {
-        shouldNotParse<Test>(parser.parse('test { }'))
+        shouldNotParse(parser.parse('test { }'))
       })
 
       it('should not parse tests without name and body', () => {
-        shouldNotParse<Test>(parser.parse('test'))
+        shouldNotParse(parser.parse('test'))
       })
 
     })
