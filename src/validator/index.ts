@@ -388,21 +388,13 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 , valuesForNodeName,
 sourceMapForNodeName)
 
-export const hasSideEffects = (sentences: readonly Sentence[]): boolean =>
-  sentences.some(sentence =>
-    sentence.is(Throw) ||
-    sentence.is(Assignment) ||
-    sentence.is(Send)
-  )
-
 export const shouldUseConditionalExpression = warning<If>(node => {
   const thenSentences = node.thenBody.sentences
   const elseSentences = node.elseBody.sentences
 
-  // Verify there are no side effects before suggesting conditional expression
-  if (hasSideEffects([...thenSentences]) || hasSideEffects([...elseSentences])) {
+  if (thenSentences.length > 1 ||
+      elseSentences.length > 1)
     return true
-  }
 
   const thenValue = isEmpty(thenSentences) ? undefined : valueFor(last(thenSentences))
   const elseValue = isEmpty(elseSentences) ? undefined : valueFor(last(elseSentences))
