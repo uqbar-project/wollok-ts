@@ -389,8 +389,15 @@ export const overridingMethodShouldHaveABody = error<Method>(node =>
 sourceMapForNodeName)
 
 export const shouldUseConditionalExpression = warning<If>(node => {
-  const thenValue = isEmpty(node.thenBody.sentences) ? undefined : valueFor(last(node.thenBody.sentences))
-  const elseValue = isEmpty(node.elseBody.sentences) ? undefined : valueFor(last(node.elseBody.sentences))
+  const thenSentences = node.thenBody.sentences
+  const elseSentences = node.elseBody.sentences
+
+  if (thenSentences.length > 1 ||
+      elseSentences.length > 1)
+    return true
+
+  const thenValue = isEmpty(thenSentences) ? undefined : valueFor(last(thenSentences))
+  const elseValue = isEmpty(elseSentences) ? undefined : valueFor(last(elseSentences))
   const nextSentence = node.parent.children[node.parent.children.indexOf(node) + 1]
   return (
     thenValue === undefined ||
