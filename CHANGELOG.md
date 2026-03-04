@@ -1,13 +1,19 @@
 # Changelog
 
+## v4.2.4
+**Wollok Version: `3.4.1`**
+- 🛸 Types on lang
+- 🔦 Validation fixes for _should use conditional expressions_
+
 ## v4.2.3
 **Wollok Version: `3.4.0`**
+- ❌ Avoid definitions in REPL by default
 
 ## v4.2.2
 **Wollok Version: `3.3.1`**
 - 📦 REPL accepts class, wkos and mixins definitions
 - 📟 Multisentence REPL support
-- 🔦 Validation fixes for should return a value on all flows
+- 🔦 Validation fixes for _should return a value on all flows_
 - 🎮 Fix game board height & width
 
 ## v4.2.1

@@ -1,7 +1,7 @@
 {
   "name": "wollok-ts",
   "version": "4.2.4",
-  "wollokVersion": ":master",
+  "wollokVersion": "3.4.1",
   "description": "TypeScript based Wollok language implementation",
   "repository": "https://github.com/uqbar-project/wollok-ts",
   "license": "MIT",
@@ -12,6 +12,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc && cp -r dist/temp/src/* dist && rm -r dist/temp && cp -r language/src/* dist/wre/",
     "buildWRE": "ts-node scripts/buildWRE.ts",
+    "clear": "rm -rf node_modules && rm -rf language && rm -rf dist",
     "prepare": "ts-node scripts/fetchLanguage.ts && npm run buildWRE && npm run copy:translations",
     "copy:translations": "cp ./language/src/resources/validationMessages/*.json ./src/validator",
     "diagnostic": "tsc --noEmit --diagnostics --extendedDiagnostics",
