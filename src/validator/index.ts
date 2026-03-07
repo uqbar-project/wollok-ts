@@ -62,7 +62,7 @@ const error = problem('error')
 // ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const shouldNotBeEmpty = warning<Body>(node =>
-  node.isEmpty()
+  node.isEmpty() || node.parent.is(Catch)
 )
 
 export const isNotWithin = <N extends Node>(kind: TypeDefinition<N>): (node: N, code: Code) => Problem | null =>
