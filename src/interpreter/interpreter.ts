@@ -129,7 +129,7 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
   return undefined
 }
 
-const isDefinition = _ => is(Class)(_) || (is(Singleton)(_) && (!_.isClosure())) || is(Mixin)(_)
+const isDefinition = (_: unknown) => is(Class)(_) || (is(Singleton)(_) && (!_.isClosure())) || is(Mixin)(_)
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
@@ -177,7 +177,7 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
   }
 
   const result = allowDefinitions && isDefinition(expression) ?
-    addDefinitionToREPL(expression, interpreter) :
+    addDefinitionToREPL(expression as Class | Singleton | Mixin, interpreter) :
     frame ?
       interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
       interpreter.exec(expression)
