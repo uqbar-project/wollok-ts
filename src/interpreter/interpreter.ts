@@ -118,18 +118,25 @@ export class Interpreter extends AbstractInterpreter {
 
 }
 
-const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter) => {
+const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpreter: Interpreter): RuntimeObject | undefined => {
   const environment = interpreter.evaluation.environment
   environment.scope.register([REPL, newDefinition])
-  if (newDefinition.is(Singleton)) interpreter.evaluation.instantiateSingleton(newDefinition)
+  if (newDefinition.is(Singleton)) {
+    interpreter.evaluation.instantiateSingleton(newDefinition)
+    
+    return !newDefinition.name ? interpreter.evaluation.object(newDefinition.fullyQualifiedName) : undefined
+  }
+  return undefined
 }
 
+const isDefinition = _ => is(Class)(_) || (is(Singleton)(_) && (!_.isClosure())) || is(Mixin)(_)
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
     const parsedLine = parse.MultilineSentence.tryParse(line)
     if (!allowDefinitions) {
-      const definitions = parsedLine.filter(_ => is(Class)(_) || is(Singleton)(_) && !_.isClosure() || is(Mixin)(_)) as (Class | Singleton | Mixin)[]
+       const definitions = parsedLine.filter(isDefinition) as (Class | Singleton | Mixin)[]
+
       if (notEmpty(definitions)) {
         return failureResult(`Definitions are not allowed here: ${definitions.map(_ => _.name ?? '').join(', ')}`)
       }
@@ -169,7 +176,7 @@ function interpreteExpression(expression: REPLExpression, interpreter: AbstractI
     } else return failureResult(`Unknown reference at ${unlinkedNode.sourceInfo}`)
   }
 
-  const result = allowDefinitions && expression.is(Class) || expression.is(Mixin) || expression.is(Singleton) && !expression.isClosure() ?
+  const result = allowDefinitions && isDefinition(expression) ?
     addDefinitionToREPL(expression, interpreter) :
     frame ?
       interpreter.do(function () { return interpreter.evaluation.exec(expression, frame) }) :
