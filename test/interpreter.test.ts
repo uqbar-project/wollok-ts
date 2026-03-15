@@ -337,7 +337,9 @@ describe('Wollok Interpreter', () => {
       })
 
       it('unnamed singleton', () => {
-        checkSuccessfulResultForDefinition('object { } ', '')
+        const { result, errored } = interprete(interpreter, 'object { } ', undefined, true)
+        errored.should.be.false
+        result.should.contain('an Object#')
       })
 
     })
