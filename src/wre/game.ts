@@ -89,14 +89,6 @@ const game: Natives = {
       return yield* getObjectsIn.call(this, position, ...otherVisuals)
     },
 
-    *showAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      visual.set('showAttributes', yield* this.reify(true))
-    },
-
-    *hideAttributes(_self: RuntimeObject, visual: RuntimeObject): Execution<void> {
-      visual.set('showAttributes', yield* this.reify(false))
-    },
-
   },
 
   Sound: {
