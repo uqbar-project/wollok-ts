@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.3.0
+**Wollok Version: `4.0.0`**
+- 🧤 Support empty `catch` on validations
+- 💻 Support anonymous objects on REPL
+- 👾 Remove _show and hide attributes_ for games
+- 🚥 Better development for sanity tests
+
 ## v4.2.4
 **Wollok Version: `3.4.1`**
 - 🛸 Types on lang

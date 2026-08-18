@@ -123,19 +123,19 @@ const addDefinitionToREPL = (newDefinition: Class | Singleton | Mixin, interpret
   environment.scope.register([REPL, newDefinition])
   if (newDefinition.is(Singleton)) {
     interpreter.evaluation.instantiateSingleton(newDefinition)
-    
+
     return !newDefinition.name ? interpreter.evaluation.object(newDefinition.fullyQualifiedName) : undefined
   }
   return undefined
 }
 
-const isDefinition = (_: unknown) => is(Class)(_) || (is(Singleton)(_) && (!_.isClosure())) || is(Mixin)(_)
+const isDefinition = (_: unknown) => is(Class)(_) || is(Singleton)(_) && !_.isClosure() || is(Mixin)(_)
 
 export function interprete(interpreter: AbstractInterpreter, line: string, frame?: Frame, allowDefinitions = false): ExecutionResult {
   try {
     const parsedLine = parse.MultilineSentence.tryParse(line)
     if (!allowDefinitions) {
-       const definitions = parsedLine.filter(isDefinition) as (Class | Singleton | Mixin)[]
+      const definitions = parsedLine.filter(isDefinition) as (Class | Singleton | Mixin)[]
 
       if (notEmpty(definitions)) {
         return failureResult(`Definitions are not allowed here: ${definitions.map(_ => _.name ?? '').join(', ')}`)
