@@ -1,4 +1,4 @@
-import { v4 as uuid } from 'uuid'
+import { v4 as uuid } from '@lukeed/uuid'
 import { KEYWORDS, LIST_MODULE, REPL, WOLLOK_BASE_PACKAGE } from '../constants'
 import { uniqueBy } from '../extensions'
 import { Node, Package, Variable } from '../model'
