@@ -43,11 +43,11 @@
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@lukeed/uuid": "^2.0.1",
     "@types/parsimmon": "^1.10.8",
     "parsimmon": "^1.18.1",
     "prettier-printer": "^1.1.4",
-    "unraw": "^3.0.0",
-    "uuid": "^11.0.1"
+    "unraw": "^3.0.0"
   },
   "devDependencies": {
     "@types/chai": "^4.3.9",

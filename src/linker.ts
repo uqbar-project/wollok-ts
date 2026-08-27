@@ -1,4 +1,4 @@
-import { v4 as uuid } from 'uuid'
+import { v4 as uuid } from '@lukeed/uuid'
 import { divideOn, is, List } from './extensions'
 import { BaseProblem, Class, Entity, Environment, Field, Id, Import, Level, Mixin, Module, Name, Node, Package, Parameter, ParameterizedType, Reference, Scope, Sentence, Singleton, SourceMap, Variable } from './model'
 import { REPL } from './constants'
