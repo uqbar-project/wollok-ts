@@ -20,9 +20,33 @@ class GameSpatialGrid {
   private cells = new Map<string, RuntimeObject[]>()
   private visualToKey = new Map<RuntimeObject, string>()
   private visualToPos = new Map<RuntimeObject, RuntimeValue>()
+  private multiObjectCellCount = 0
+  private clean = false
   static key(x: number, y: number): string {
     return `${x},${y}`
   }
+
+  isClean(): boolean {
+    return this.clean
+  }
+
+  markClean(): void {
+    if (!this.clean) {
+      this.clean = true
+      queueMicrotask(() => {
+        this.clean = false
+      })
+    }
+  }
+
+  markDirty(): void {
+    this.clean = false
+  }
+
+  hasAnyCollisions(): boolean {
+    return this.multiObjectCellCount > 0
+  }
+
   get(x: number, y: number): RuntimeObject[] {
     return this.cells.get(GameSpatialGrid.key(x, y)) ?? []
   }
@@ -49,7 +73,9 @@ class GameSpatialGrid {
     const cell = this.cells.get(newKey)
     if (cell) {
       cell.push(visual)
-
+      if (cell.length === 2) {
+        this.multiObjectCellCount++
+      }
     } else {
       this.cells.set(newKey, [visual])
     }
@@ -78,6 +104,8 @@ class GameSpatialGrid {
     this.cells.clear()
     this.visualToKey.clear()
     this.visualToPos.clear()
+    this.multiObjectCellCount = 0
+    this.markDirty()
   }
 
   private removeFromCell(visual: RuntimeObject, key: string): void {
@@ -85,7 +113,9 @@ class GameSpatialGrid {
     if (cell) {
       const idx = cell.indexOf(visual)
       if (idx !== -1) cell.splice(idx, 1)
-      if (cell.length === 0) {
+      if (cell.length === 1) {
+        this.multiObjectCellCount--
+      } else if (cell.length === 0) {
         this.cells.delete(key)
       }
     }
@@ -199,6 +229,9 @@ const safeGetCoordinates = function* (this: Evaluation, visual: RuntimeObject): 
 const syncGrid = function* (this: Evaluation, game: RuntimeObject, visuals: RuntimeObject[]): Execution<GameSpatialGrid> {
   const grid = getGrid(game)
 
+  if (grid.isClean()) {
+    return grid
+  }
 
   grid.retainOnly(visuals)
 
@@ -219,6 +252,7 @@ const syncGrid = function* (this: Evaluation, game: RuntimeObject, visuals: Runt
     }
   }
 
+  grid.markClean()
   return grid
 }
 
@@ -234,6 +268,7 @@ const game: Natives = {
       const visuals = self.get('visuals')!.innerCollection!
       if (visuals.includes(positionable)) throw new RangeError('Visual is already in the game! You cannot add duplicate elements')
       visuals.push(positionable)
+      getGrid(self).markDirty()
     },
 
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
@@ -260,6 +295,7 @@ const game: Natives = {
       const grid = yield* syncGrid.call(this, self, visuals)
       const matches = grid.get(coords.x, coords.y)
 
+      if (matches.length === 0) return yield* this.list()
       return yield* this.list(...matches)
     },
 
@@ -279,8 +315,17 @@ const game: Natives = {
       const visuals = self.get('visuals')!.innerCollection!
       const grid = yield* syncGrid.call(this, self, visuals)
 
+      // Step 1 & 2: If no cell in the whole grid has multiple objects and visual is tracked, no collision is possible
+      if (!grid.hasAnyCollisions() && visuals.includes(visual)) {
+        return yield* this.list()
+      }
 
-      const matches = grid.get(coords.x, coords.y).filter(obj => obj !== visual)
+      const cellObjects = grid.get(coords.x, coords.y)
+      if (cellObjects.length === 0 || cellObjects.length === 1 && cellObjects[0] === visual) {
+        return yield* this.list()
+      }
+
+      const matches = cellObjects.filter(obj => obj !== visual)
       return yield* this.list(...matches)
     },
     *onCollideDo(_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject): Execution<void> {},
