@@ -15,29 +15,215 @@ const getPosition = getter('position')
 const getX = getter('x')
 const getY = getter('y')
 
-const getObjectsIn = function* (this: Evaluation, position: RuntimeObject, ...visuals: RuntimeObject[]): Execution<RuntimeObject> {
-  const result: RuntimeObject[] = []
 
-  const x = (yield* getX.call(this, position))?.innerNumber
-  const y = (yield* getY.call(this, position))?.innerNumber
-
-  if (x == undefined || y == undefined) throw new RangeError('Position without coordinates')
-
-  const roundedX = round(x)
-  const roundedY = round(y)
-  for (const visual of visuals) {
-    const otherPosition = (yield* getPosition.call(this, visual))!
-    const otherX = (yield* getX.call(this, otherPosition))?.innerNumber
-    const otherY = (yield* getY.call(this, otherPosition))?.innerNumber
-
-    if (otherX == undefined || otherY == undefined) continue // Do NOT throw exception
-
-    if (roundedX == round(otherX) && roundedY == round(otherY))
-      result.push(visual)
+class GameSpatialGrid {
+  private cells = new Map<string, RuntimeObject[]>()
+  private visualToKey = new Map<RuntimeObject, string>()
+  private visualToPos = new Map<RuntimeObject, RuntimeValue>()
+  static key(x: number, y: number): string {
+    return `${x},${y}`
+  }
+  get(x: number, y: number): RuntimeObject[] {
+    return this.cells.get(GameSpatialGrid.key(x, y)) ?? []
   }
 
-  return yield* this.list(...result)
+  hasCachedPosition(visual: RuntimeObject, currentPosObj: RuntimeValue): boolean {
+    return this.visualToPos.get(visual) === currentPosObj
+  }
+
+  update(visual: RuntimeObject, x: number, y: number, posObj?: RuntimeValue): void {
+    const newKey = GameSpatialGrid.key(x, y)
+    const oldKey = this.visualToKey.get(visual)
+
+    if (posObj !== undefined) {
+      this.visualToPos.set(visual, posObj)
+    }
+
+    if (oldKey === newKey) return
+
+    if (oldKey !== undefined) {
+      this.removeFromCell(visual, oldKey)
+    }
+
+    this.visualToKey.set(visual, newKey)
+    const cell = this.cells.get(newKey)
+    if (cell) {
+      cell.push(visual)
+
+    } else {
+      this.cells.set(newKey, [visual])
+    }
+  }
+
+  remove(visual: RuntimeObject): void {
+    const oldKey = this.visualToKey.get(visual)
+    if (oldKey !== undefined) {
+      this.removeFromCell(visual, oldKey)
+      this.visualToKey.delete(visual)
+      this.visualToPos.delete(visual)
+      this.markDirty()
+    }
+  }
+
+  retainOnly(currentVisuals: RuntimeObject[]): void {
+    const currentSet = new Set(currentVisuals)
+    for (const visual of this.visualToKey.keys()) {
+      if (!currentSet.has(visual)) {
+        this.remove(visual)
+      }
+    }
+  }
+
+  clear(): void {
+    this.cells.clear()
+    this.visualToKey.clear()
+    this.visualToPos.clear()
+  }
+
+  private removeFromCell(visual: RuntimeObject, key: string): void {
+    const cell = this.cells.get(key)
+    if (cell) {
+      const idx = cell.indexOf(visual)
+      if (idx !== -1) cell.splice(idx, 1)
+      if (cell.length === 0) {
+        this.cells.delete(key)
+      }
+    }
+  }
 }
+
+const grids = new WeakMap<RuntimeObject, GameSpatialGrid>()
+
+function getGrid(game: RuntimeObject): GameSpatialGrid {
+  let grid = grids.get(game)
+  if (!grid) {
+    grid = new GameSpatialGrid()
+    grids.set(game, grid)
+  }
+  return grid
+}
+
+function tryFastGetCoordinates(visual: RuntimeObject): { x: number, y: number, posObj: RuntimeValue } | null {
+  const posMethod = visual.module.lookupMethod('position', 0)
+  if (!posMethod || !posMethod.isSynthetic) return null
+
+  const posVal = visual.get('position')
+  if (!(posVal instanceof RuntimeObject)) return null
+
+  const xMethod = posVal.module.lookupMethod('x', 0)
+  const yMethod = posVal.module.lookupMethod('y', 0)
+  if (!xMethod || !xMethod.isSynthetic || !yMethod || !yMethod.isSynthetic) return null
+
+  const xVal = posVal.get('x')
+  const yVal = posVal.get('y')
+
+  const x = xVal instanceof RuntimeObject ? xVal.innerNumber : undefined
+  const y = yVal instanceof RuntimeObject ? yVal.innerNumber : undefined
+  if (x === undefined || y === undefined) return null
+
+  return { x: round(x), y: round(y), posObj: posVal }
+}
+
+function tryFastPosCoordinates(posVal: RuntimeObject): { x: number, y: number } | null {
+  const xMethod = posVal.module.lookupMethod('x', 0)
+  const yMethod = posVal.module.lookupMethod('y', 0)
+  if (!xMethod || !xMethod.isSynthetic || !yMethod || !yMethod.isSynthetic) return null
+
+  const xVal = posVal.get('x')
+  const yVal = posVal.get('y')
+
+  const x = xVal instanceof RuntimeObject ? xVal.innerNumber : undefined
+  const y = yVal instanceof RuntimeObject ? yVal.innerNumber : undefined
+  if (x === undefined || y === undefined) return null
+
+  return { x: round(x), y: round(y) }
+}
+
+const getPosCoordinates = function* (this: Evaluation, posVal: RuntimeObject): Execution<{ x: number, y: number }> {
+  const fast = tryFastPosCoordinates(posVal)
+  if (fast) return fast
+
+  const xMethod = posVal.module.lookupMethod('x', 0)
+  const yMethod = posVal.module.lookupMethod('y', 0)
+
+  const xVal = xMethod?.isSynthetic ? posVal.get('x') : yield* getX.call(this, posVal)
+  const yVal = yMethod?.isSynthetic ? posVal.get('y') : yield* getY.call(this, posVal)
+
+  const x = xVal?.innerNumber
+  const y = yVal?.innerNumber
+  if (x === undefined || y === undefined) throw new RangeError('Position without coordinates')
+
+  return { x: round(x), y: round(y) }
+}
+
+const getCoordinates = function* (this: Evaluation, visual: RuntimeObject): Execution<{ x: number, y: number }> {
+  const fast = tryFastGetCoordinates(visual)
+  if (fast) return { x: fast.x, y: fast.y }
+
+  const posMethod = visual.module.lookupMethod('position', 0)
+  const posVal = posMethod?.isSynthetic ? visual.get('position') : yield* getPosition.call(this, visual)
+
+  if (!(posVal instanceof RuntimeObject)) throw new RangeError('Position without coordinates')
+
+  return yield* getPosCoordinates.call(this, posVal)
+}
+
+const safeGetCoordinates = function* (this: Evaluation, visual: RuntimeObject): Execution<{ x: number, y: number } | undefined> {
+  const fast = tryFastGetCoordinates(visual)
+  if (fast) return { x: fast.x, y: fast.y }
+
+  try {
+    const posMethod = visual.module.lookupMethod('position', 0)
+    if (!posMethod) return undefined
+
+    const posVal = posMethod.isSynthetic ? visual.get('position') : yield* getPosition.call(this, visual)
+    if (!(posVal instanceof RuntimeObject)) return undefined
+
+    const xMethod = posVal.module.lookupMethod('x', 0)
+    const yMethod = posVal.module.lookupMethod('y', 0)
+    if (!xMethod || !yMethod) return undefined
+
+    const xVal = xMethod.isSynthetic ? posVal.get('x') : yield* getX.call(this, posVal)
+    const yVal = yMethod.isSynthetic ? posVal.get('y') : yield* getY.call(this, posVal)
+
+    const x = xVal?.innerNumber
+    const y = yVal?.innerNumber
+    if (x === undefined || y === undefined) return undefined
+
+    return { x: round(x), y: round(y) }
+  } catch {
+    return undefined
+  }
+}
+
+const syncGrid = function* (this: Evaluation, game: RuntimeObject, visuals: RuntimeObject[]): Execution<GameSpatialGrid> {
+  const grid = getGrid(game)
+
+
+  grid.retainOnly(visuals)
+
+  for (const visual of visuals) {
+    const fastCoords = tryFastGetCoordinates(visual)
+    if (fastCoords) {
+      if (grid.hasCachedPosition(visual, fastCoords.posObj) && (fastCoords.posObj as RuntimeObject).module.name === 'Position') {
+        continue
+      }
+      grid.update(visual, fastCoords.x, fastCoords.y, fastCoords.posObj)
+    } else {
+      const coords = yield* safeGetCoordinates.call(this, visual)
+      if (coords) {
+        grid.update(visual, coords.x, coords.y)
+      } else {
+        grid.remove(visual)
+      }
+    }
+  }
+
+  return grid
+}
+
+
+const processCollisions = function* (this: Evaluation, _game: RuntimeObject): Execution<void> {}
 
 const game: Natives = {
   game: {
@@ -53,6 +239,7 @@ const game: Natives = {
     *removeVisual(self: RuntimeObject, visual: RuntimeObject): Execution<void> {
       const visuals = self.get('visuals')!
       yield* this.send('remove', visuals, visual)
+      getGrid(self).remove(visual)
     },
 
     *allVisuals(self: RuntimeObject): Execution<RuntimeValue> {
@@ -66,8 +253,14 @@ const game: Natives = {
     },
 
     *getObjectsIn(self: RuntimeObject, position: RuntimeObject): Execution<RuntimeValue> {
-      const visuals = self.get('visuals')!
-      return yield* getObjectsIn.call(this, position, ...visuals.innerCollection!)
+      assertIsNotNull(position, 'getObjectsIn', 'position')
+      const coords = yield* getPosCoordinates.call(this, position)
+
+      const visuals = self.get('visuals')!.innerCollection!
+      const grid = yield* syncGrid.call(this, self, visuals)
+      const matches = grid.get(coords.x, coords.y)
+
+      return yield* this.list(...matches)
     },
 
     *say(self: RuntimeObject, visual: RuntimeObject, message: RuntimeObject): Execution<void> {
@@ -81,12 +274,41 @@ const game: Natives = {
 
     *colliders(self: RuntimeObject, visual: RuntimeObject): Execution<RuntimeValue> {
       assertIsNotNull(visual, 'colliders', 'visual')
+      const coords = yield* getCoordinates.call(this, visual)
 
-      const visuals = self.get('visuals')!
-      const otherVisuals = visuals.innerCollection!.filter(obj => obj != visual)
-      const position = (yield* getPosition.call(this, visual))!
+      const visuals = self.get('visuals')!.innerCollection!
+      const grid = yield* syncGrid.call(this, self, visuals)
 
-      return yield* getObjectsIn.call(this, position, ...otherVisuals)
+
+      const matches = grid.get(coords.x, coords.y).filter(obj => obj !== visual)
+      return yield* this.list(...matches)
+    },
+    *onCollideDo(_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject): Execution<void> {},
+
+    *whenCollideDo(_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject): Execution<void> {},
+
+    *flushEvents(self: RuntimeObject, time: RuntimeObject): Execution<void> {
+      const io = this.object('wollok.lang.io')
+      yield* this.send('flushEvents', io, time)
+    },
+
+
+    *onCollideDo(self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<void> {
+      assertIsNotNull(visual, 'onCollideDo', 'visual')
+      assertIsNotNull(action, 'onCollideDo', 'action')
+      getGrid(self).addListener(visual, action, 'on')
+    },
+
+    *whenCollideDo(self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<void> {
+      assertIsNotNull(visual, 'whenCollideDo', 'visual')
+      assertIsNotNull(action, 'whenCollideDo', 'action')
+      getGrid(self).addListener(visual, action, 'when')
+    },
+
+    *flushEvents(self: RuntimeObject, time: RuntimeObject): Execution<void> {
+      const io = this.object('wollok.lang.io')
+      yield* this.send('flushEvents', io, time)
+      yield* processCollisions.call(this, self)
     },
 
   },

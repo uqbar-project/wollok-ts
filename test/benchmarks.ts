@@ -46,6 +46,7 @@ describe('Benchmarks', () => {
     benchmark('onCollide_1', 11)
     benchmark('onCollide_10_same_position', 5000)
     benchmark('onCollide_100_diff_positions', 675)
+    benchmark('onCollide_200_diff_positions', 1400)
 
   })
 })
