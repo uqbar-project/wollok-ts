@@ -1,5 +1,6 @@
 import { GAME_MODULE } from '../constants'
-import { assertIsNotNull, assertIsNumber, Evaluation, Execution, NativeFunction, Natives, RuntimeObject, RuntimeValue } from '../interpreter/runtimeModel'
+import { assertIsNotNull, assertIsNumber, Evaluation, Execution, NativeFunction, Natives, RuntimeObject, RuntimeValue, WollokException } from '../interpreter/runtimeModel'
+import { Class } from '../model'
 const { round } = Math
 
 
@@ -15,6 +16,12 @@ const getPosition = getter('position')
 const getX = getter('x')
 const getY = getter('y')
 
+interface CollisionListener {
+  visual: RuntimeObject
+  action: RuntimeObject
+  mode: 'on' | 'when'
+  lastColliders: Set<RuntimeObject>
+}
 
 class GameSpatialGrid {
   private cells = new Map<string, RuntimeObject[]>()
@@ -22,6 +29,25 @@ class GameSpatialGrid {
   private visualToPos = new Map<RuntimeObject, RuntimeValue>()
   private multiObjectCellCount = 0
   private clean = false
+  listeners: CollisionListener[] = []
+
+  addListener(visual: RuntimeObject, action: RuntimeObject, mode: 'on' | 'when'): void {
+    this.listeners.push({
+      visual,
+      action,
+      mode,
+      lastColliders: new Set(),
+    })
+  }
+
+  clearListeners(): void {
+    this.listeners = []
+  }
+
+  removeListenersFor(visual: RuntimeObject): void {
+    this.listeners = this.listeners.filter(l => l.visual !== visual)
+  }
+
   static key(x: number, y: number): string {
     return `${x},${y}`
   }
@@ -87,6 +113,7 @@ class GameSpatialGrid {
       this.removeFromCell(visual, oldKey)
       this.visualToKey.delete(visual)
       this.visualToPos.delete(visual)
+      this.removeListenersFor(visual)
       this.markDirty()
     }
   }
@@ -104,6 +131,7 @@ class GameSpatialGrid {
     this.cells.clear()
     this.visualToKey.clear()
     this.visualToPos.clear()
+    this.listeners = []
     this.multiObjectCellCount = 0
     this.markDirty()
   }
@@ -256,8 +284,85 @@ const syncGrid = function* (this: Evaluation, game: RuntimeObject, visuals: Runt
   return grid
 }
 
+const runHandlerSafe = function* (this: Evaluation, io: RuntimeObject, action: RuntimeObject, target: RuntimeObject): Execution<void> {
+  try {
+    yield* this.send('apply', action, target)
+  } catch (error) {
+    if (error instanceof WollokException) {
+      const domainExceptionClass = this.environment.getNodeByFQN<Class>('wollok.lang.DomainException')
+      const isDomain = domainExceptionClass && error.instance.module.inherits(domainExceptionClass)
+      const handlerName = isDomain ? 'domainExceptionHandler' : 'exceptionHandler'
+      const handler = io.get(handlerName)
+      if (handler instanceof RuntimeObject) {
+        yield* this.send('apply', handler, error.instance)
+      } else {
+        throw error
+      }
+    } else {
+      throw error
+    }
+  }
+}
 
-const processCollisions = function* (this: Evaluation, _game: RuntimeObject): Execution<void> {}
+const processCollisions = function* (this: Evaluation, game: RuntimeObject): Execution<void> {
+  const grid = getGrid(game)
+  const listeners = grid.listeners
+
+  if (listeners.length === 0) return
+
+  const visuals = game.get('visuals')?.innerCollection ?? []
+  yield* syncGrid.call(this, game, visuals)
+
+  if (!grid.hasAnyCollisions()) {
+    for (const listener of listeners) {
+      if (listener.mode === 'on') {
+        listener.lastColliders.clear()
+      }
+    }
+    return
+  }
+
+  const io = this.object('wollok.lang.io')
+
+  for (const listener of listeners) {
+    const visual = listener.visual
+
+    if (!visuals.includes(visual)) {
+      if (listener.mode === 'on') listener.lastColliders.clear()
+      continue
+    }
+
+    const fastCoords = tryFastGetCoordinates(visual)
+    const coords = fastCoords ?? (yield* safeGetCoordinates.call(this, visual))
+    if (!coords) {
+      if (listener.mode === 'on') listener.lastColliders.clear()
+      continue
+    }
+
+    const cellObjects = grid.get(coords.x, coords.y)
+    if (cellObjects.length <= 1) {
+      if (listener.mode === 'on') listener.lastColliders.clear()
+      continue
+    }
+
+    const currentColliders = cellObjects.filter(obj => obj !== visual)
+
+    if (listener.mode === 'when') {
+      for (const other of currentColliders) {
+        if (!visuals.includes(visual)) break
+        yield* runHandlerSafe.call(this, io, listener.action, other)
+      }
+    } else {
+      const newColliders = currentColliders.filter(obj => !listener.lastColliders.has(obj))
+      listener.lastColliders = new Set(currentColliders)
+
+      for (const other of newColliders) {
+        if (!visuals.includes(visual)) break
+        yield* runHandlerSafe.call(this, io, listener.action, other)
+      }
+    }
+  }
+}
 
 const game: Natives = {
   game: {
@@ -328,15 +433,6 @@ const game: Natives = {
       const matches = cellObjects.filter(obj => obj !== visual)
       return yield* this.list(...matches)
     },
-    *onCollideDo(_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject): Execution<void> {},
-
-    *whenCollideDo(_self: RuntimeObject, _visual: RuntimeObject, _action: RuntimeObject): Execution<void> {},
-
-    *flushEvents(self: RuntimeObject, time: RuntimeObject): Execution<void> {
-      const io = this.object('wollok.lang.io')
-      yield* this.send('flushEvents', io, time)
-    },
-
 
     *onCollideDo(self: RuntimeObject, visual: RuntimeObject, action: RuntimeObject): Execution<void> {
       assertIsNotNull(visual, 'onCollideDo', 'visual')

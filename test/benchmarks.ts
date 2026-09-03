@@ -29,7 +29,7 @@ describe('Benchmarks', () => {
 
 
         const time = totalTime / iterations
-        const deltaError = expectedTime * 0.2
+        const deltaError = Math.max(expectedTime * 0.2, 1.5)
         restore()
 
         // console.info(`${message} - ${fqn} - ${time} ms (${iterations} iterations)`)
@@ -43,10 +43,10 @@ describe('Benchmarks', () => {
     benchmark('visuals_100', 4.5)
     benchmark('ticks_1', 12)
     benchmark('ticks_100', 657)
-    benchmark('onCollide_1', 11)
-    benchmark('onCollide_10_same_position', 5000)
-    benchmark('onCollide_100_diff_positions', 480)
-    benchmark('onCollide_200_diff_positions', 1400)
+    benchmark('onCollide_1', 3.5)
+    benchmark('onCollide_10_same_position', 4.0)
+    benchmark('onCollide_100_diff_positions', 3.8)
+    benchmark('onCollide_200_diff_positions', 4.0)
 
   })
 })

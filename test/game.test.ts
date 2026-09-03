@@ -110,5 +110,13 @@ describe('Wollok Game', () => {
 
       const objectsInPos = interpreter.send('getObjectsIn', game, pos)
       objectsInPos!.innerCollection!.should.deep.equal([m1, m2])
-    })  })
+    })
+
+    it('triggers onCollideDo and whenCollideDo correctly during flushEvents', () => {
+      interpreter.run('actions.collisionCallbacks')
+      const tracker = interpreter.object('actions.collisionTracker')
+      tracker.get('onCount')!.innerNumber!.should.equal(1)
+      tracker.get('whenCount')!.innerNumber!.should.equal(2)
+    })
+  })
 })
