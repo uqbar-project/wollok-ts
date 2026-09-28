@@ -10,13 +10,15 @@
     "declaration": true,
     "strict": true,
     "removeComments": true,
+    "types": ["mocha", "node"],
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "experimentalDecorators": true
-  },
+    },
   "include": [
     "src/**/*.ts",
+    "test/**/*",
     "test/**/*.ts",
     "scripts/**/*.ts",
     "src/**/*.json",

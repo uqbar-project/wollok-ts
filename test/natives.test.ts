@@ -1,7 +1,7 @@
 import { expect, should, use } from 'chai'
 import { restore } from 'sinon'
 import sinonChai from 'sinon-chai'
-import {  REPL, Evaluation, WRENatives, buildEnvironment } from '../src'
+import {  REPL, Evaluation, WRENatives, buildEnvironment, List, Natives } from '../src'
 import { interprete, Interpreter } from '../src/interpreter/interpreter'
 import natives from '../src/wre/natives'
 import { compareAssertions } from './assertions'
@@ -20,6 +20,17 @@ const myModelNative = {
   },
 }
 
+const customServeNative = {
+  wollok: {
+    lang: {
+      io: {
+        *serve(this: any): any {
+          return yield* this.reify(true)
+        },
+      },
+    },
+  },
+}
 
 describe('Native functions', () => {
 
@@ -34,6 +45,10 @@ describe('Native functions', () => {
     expect(nat['wollok']).to.be.equals( WRENatives['wollok'])
     expect(nat['model']).to.be.equals( myModelNative['model'])
   })
+
+  //it('"x', () => {
+    //const natives = (nativeList: List<Natives> = []): Natives => merge(mergeList(nativeList), WRENatives)
+  //})
 
   describe('Evaluation with wre native functions only', () => {
     let interpreter: Interpreter
@@ -98,5 +113,29 @@ describe('Native functions', () => {
       expect(result).to.equal('1')
       expect(error).to.be.undefined
     })
+  })
+
+  it('allows user natives to override io.serve', () => {
+    const environment = buildEnvironment([{
+      name: REPL,
+      content: `
+        object testit {
+          method serve() = io.serve()
+        }
+      `,
+    }])
+    const interpreter = new Interpreter(
+      Evaluation.build(environment, natives([customServeNative])),
+    )
+
+    const { error, result } = interprete(interpreter, 'testit.serve()')
+
+    console.log('Hello, World!')
+    console.log(error)
+    console.log(result)
+
+
+    expect(error).to.be.undefined
+    expect(result).to.equal('true')
   })
 })
