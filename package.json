@@ -40,7 +40,7 @@
     "validate:wollokVersion": "ts-node scripts/validateWollokVersion.ts",
     "prepublishOnly": "npm run validate:wollokVersion && npm run build && npm test",
     "postpublish": "git tag v$npm_package_version && git push --tags",
-    "prepack": "npm run build"
+    "prepack": "npm run build"  
   },
   "dependencies": {
     "@lukeed/uuid": "^2.0.1",
