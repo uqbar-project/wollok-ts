@@ -527,13 +527,18 @@ export function Module<S extends Mixable<Node>>(supertype: S) {
       return this.hierarchy.flatMap(module => module.methods.filter(method => method.isAbstract()))
     }
 
-    @cached
     defaultValueFor(field: Field): Expression {
       if (!this.allFields.includes(field)) throw new Error('Field does not belong to the module')
 
-      return this.hierarchy.reduceRight((defaultValue, module) =>
-        module.supertypes.flatMap(_ => _.args).find(({ name }) => name === field.name)?.value ?? defaultValue
-      , field.value)
+      return this.supertypeArgumentFor(field.name) ?? field.value
+    }
+
+    // Cached by field name instead of by field: an object argument is serialized on every call to build the cache key
+    @cached
+    supertypeArgumentFor(fieldName: Name): Expression | undefined {
+      return this.hierarchy.reduceRight<Expression | undefined>((argument, module) =>
+        module.supertypes.flatMap(_ => _.args).find(({ name }) => name === fieldName)?.value ?? argument
+      , undefined)
     }
 
     inherits(other: ModuleType): boolean { return this.hierarchy.includes(other) }
