@@ -9,7 +9,7 @@ should()
 function generatorValue<T>(gen: Execution<T>): T {
   let result = gen.next()
   while (!result.done) result = gen.next()
-  return result.value  
+  return result.value
 }
 
 function execNative(native: NativeFunction, evaluation: Evaluation, self: RuntimeObject, ...params: RuntimeObject[]): RuntimeObject | void {
@@ -33,9 +33,7 @@ describe('Compiler', () => {
 
       const native = compilePropertyMethod(getter)
 
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `object o { var x = 10 }`,
-      }])
+      const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { var x = 10 }' }])
       const evaluation = Evaluation.build(replEnvironment, WRENatives)
       const obj = evaluation.rootFrame.get(REPL + '.o')!
       const value = execNative(native, evaluation, obj)
@@ -59,9 +57,7 @@ describe('Compiler', () => {
 
       const native = compilePropertyMethod(setter)
 
-      const replEnvironment = buildEnvironment([{
-        name: REPL, content: `object o { var x = 10 }`,
-      }])
+      const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { var x = 10 }' }])
       const evaluation = Evaluation.build(replEnvironment, WRENatives)
       const obj = evaluation.rootFrame.get(REPL + '.o')!
       execNative(native, evaluation, obj, generatorValue(evaluation.reify(20)) )
