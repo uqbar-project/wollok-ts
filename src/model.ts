@@ -711,7 +711,6 @@ export type Sentence = InstanceType<ConstructorFor<typeof Sentence>>
 // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export function Sentence<S extends Mixable<Node>>(supertype: S) {
   abstract class SentenceType extends supertype {
-    #isSentence: any
     static [MIXINS] = [Sentence, ...supertype[MIXINS] ?? []]
   }
   return SentenceType
