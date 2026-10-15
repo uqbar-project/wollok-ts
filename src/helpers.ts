@@ -529,3 +529,18 @@ export const compileGetter = (message: string): NativeFunction => function* (sel
 export const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
   self.set(message, value)
 }
+
+/** Literal that can be returned by a constant method, e.g. `method image() = "player.png"` */
+export type ConstantLiteral = Literal<number | string | boolean | null>
+
+export const constantLiteralReturnedBy = (method: Method): ConstantLiteral | undefined => {
+  if (notEmpty(method.parameters) || method.sentences.length !== 1) return undefined
+  const [sentence] = method.sentences
+  if (!sentence.is(Return)) return undefined
+  const returnedValue = sentence.value
+  return returnedValue?.is(Literal) && !returnedValue.isCollection() ? returnedValue as ConstantLiteral : undefined
+}
+
+export const compileConstantLiteralMethod = (literal: ConstantLiteral): NativeFunction => function* (): Execution<RuntimeValue> {
+  return yield* this.reify(literal.value)
+}
