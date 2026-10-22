@@ -1,10 +1,14 @@
 name: Run Benchmarks
 
-on: [pull_request, tags]
+on:
+  pull_request:
+  push:
+    tags:
+      - '*'
 
 jobs:
   run-benchmarks:
-    if: ${{ contains(github.event.pull_request.body, '[Run benchmarks]') }}
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.body, '[Run benchmarks]') }}
     runs-on: ubuntu-latest
 
     steps:
