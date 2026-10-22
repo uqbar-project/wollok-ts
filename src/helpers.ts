@@ -516,6 +516,16 @@ export const superclassIsLastInLinearization = (node: Class | Singleton): boolea
 /**
  * NATIVES
  */
+export const compile = (method: Method): NativeFunction | undefined => {
+  // Compile properties
+  if (method.fromProperty) return compilePropertyMethod(method)
+  // Compile contant methods
+  const literal = constantLiteralReturnedBy(method)
+  if (literal) return compileConstantLiteralMethod(literal)
+  // Not supported
+  return undefined
+}
+
 export const compilePropertyMethod = (method: Method): NativeFunction => {
   const message = method.name
   return method.parameters.length == 0
@@ -534,7 +544,7 @@ export const compileSetter = (message: string): NativeFunction => function* (sel
 export type ConstantLiteral = Literal<number | string | boolean | null>
 
 export const constantLiteralReturnedBy = (method: Method): ConstantLiteral | undefined => {
-  if (notEmpty(method.parameters) || method.sentences.length !== 1) return undefined
+  if (method.sentences.length !== 1) return undefined
   const [sentence] = method.sentences
   if (!sentence.is(Return)) return undefined
   const returnedValue = sentence.value
