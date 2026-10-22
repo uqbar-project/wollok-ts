@@ -533,10 +533,10 @@ export const compilePropertyMethod = (method: Method): NativeFunction => {
     : compileSetter(message)
 }
 
-export const compileGetter = (message: string): NativeFunction => function* (self: RuntimeObject): Execution<RuntimeValue> {
+const compileGetter = (message: string): NativeFunction => function* (self: RuntimeObject): Execution<RuntimeValue> {
   return self.get(message)
 }
-export const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
+const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
   self.set(message, value)
 }
 
