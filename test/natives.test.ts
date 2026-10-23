@@ -99,4 +99,50 @@ describe('Native functions', () => {
       expect(error).to.be.undefined
     })
   })
+
+  describe('Dictionary', () => {
+    let interpreter: Interpreter
+
+    beforeEach(() => {
+      const replEnvironment = buildEnvironment([{
+        name: REPL, content: `
+        import wollok.game.*
+
+        object counter {
+          var property count = 0
+          method increment() { count += 1 }
+        }
+
+        object dictionaries {
+          method visitedRemovingEach(size) {
+            const dictionary = new Dictionary()
+            (1 .. size).forEach({ i => dictionary.put(i, i) })
+            var visited = 0
+            dictionary.forEach({ key, value =>
+              visited += 1
+              dictionary.remove(key)
+            })
+            return visited
+          }
+        }
+        `,
+      }])
+      interpreter = new Interpreter(Evaluation.build(replEnvironment, natives()))
+    })
+
+    it('forEach visits every entry even if the closure removes them', () => {
+      const { error, result } = interprete(interpreter, 'dictionaries.visitedRemovingEach(50)')
+      expect(result).to.equal('50')
+      expect(error).to.be.undefined
+    })
+
+    it('schedules due at the same time run on the same flush', () => {
+      interprete(interpreter, '(1 .. 50).forEach({ i => game.schedule(100, { counter.increment() }) })')
+      interprete(interpreter, 'io.flushEvents(100)')
+
+      const { error, result } = interprete(interpreter, 'counter.count()')
+      expect(result).to.equal('50')
+      expect(error).to.be.undefined
+    })
+  })
 })
