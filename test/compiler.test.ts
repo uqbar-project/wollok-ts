@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import { describe, it } from 'mocha'
 import sinonChai from 'sinon-chai'
-import { Assignment, Body, buildEnvironment, compilePropertyMethod, Evaluation, Execution, Method, NativeFunction, Parameter, Reference, REPL, Return, RuntimeObject, WRENatives } from '../src'
+import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Evaluation, Execution, Literal, Method, NativeFunction, Parameter, Reference, REPL, Return, RuntimeObject, WRENatives } from '../src'
 
 use(sinonChai)
 should()
@@ -60,9 +60,29 @@ describe('Compiler', () => {
       const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { var x = 10 }' }])
       const evaluation = Evaluation.build(replEnvironment, WRENatives)
       const obj = evaluation.rootFrame.get(REPL + '.o')!
-      execNative(native, evaluation, obj, generatorValue(evaluation.reify(20)) )
+      execNative(native, evaluation, obj, generatorValue(evaluation.reify(20)))
 
       obj.get(name)!.innerNumber!.should.equal(20)
+    })
+
+    it('compiles constant method', () => {
+      const constantMethod = new Method({
+        name,
+        body: new Body({
+          sentences: [
+            new Return({
+              value: new Literal({ value: 8 }),
+            }),
+          ],
+        }),
+      })
+      const native = compileConstantLiteralMethod(constantLiteralReturnedBy(constantMethod)!)
+
+      const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { }' }])
+      const evaluation = Evaluation.build(replEnvironment, WRENatives)
+      const obj = evaluation.rootFrame.get(REPL + '.o')!
+      const value = execNative(native, evaluation, obj)
+      value!.innerNumber!.should.equal(8)
     })
   })
 })
