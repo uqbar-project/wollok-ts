@@ -1,7 +1,7 @@
 import { v4 as uuid } from '@lukeed/uuid'
 import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, DATE_MODULE, DICTIONARY_MODULE, EXCEPTION_MODULE, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, PAIR_MODULE, RANGE_MODULE, SET_MODULE, STRING_MODULE, TO_STRING_METHOD, VOID_WKO, WOLLOK_BASE_PACKAGE, WOLLOK_EXTRA_STACK_TRACE_HEADER } from '../constants'
 import { get, is, last, List, match, otherwise, raise, when } from '../extensions'
-import { assertNotVoid, compilePropertyMethod, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, hasMoreThanOneSuperclass, isNamedSingleton, isVoid, loopInAssignment, showParameter, superclassIsLastInLinearization, superMethodDefinition, targetName } from '../helpers'
+import { assertNotVoid, compile, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, getExpressionFor, getMethodContainer, getUninitializedAttributesForInstantiation, hasMoreThanOneSuperclass, isNamedSingleton, isVoid, loopInAssignment, showParameter, superclassIsLastInLinearization, superMethodDefinition, targetName } from '../helpers'
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
@@ -233,7 +233,7 @@ export class RuntimeObject extends Context {
 
   getShortLabel(): string {
     if (!this.innerValue) return `a ${this.module.fullyQualifiedName}`
-    return this.innerString !== undefined ? `"${this.getShortRepresentation()}"`: this.getShortRepresentation()
+    return this.innerString !== undefined ? `"${this.getShortRepresentation()}"` : this.getShortRepresentation()
   }
 
   getShortRepresentation(): string {
@@ -326,9 +326,12 @@ export class Evaluation {
       if (node.is(Method))
         if (node.isNative())
           evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
-        else if (node.fromProperty) {
-          evaluation.natives.set(node, compilePropertyMethod(node))
-          node.compiled = true
+        else {
+          const native = compile(node)
+          if (native) {
+            evaluation.natives.set(node, native)
+            node.compiled = true
+          }
         }
     })
 
@@ -504,7 +507,7 @@ export class Evaluation {
   protected *execVariable(node: Variable): Execution<void> {
     const variableFullName = targetName(node, node.name)
 
-    if(this.currentFrame.locals.get(variableFullName)){
+    if (this.currentFrame.locals.get(variableFullName)) {
       throw new Error('Can\'t redefine a variable')
     }
 
@@ -646,7 +649,7 @@ export class Evaluation {
     const condition: RuntimeObject = yield* this.exec(node.condition)
 
     const methodContainer = getMethodContainer(node)
-    assertNotVoid(condition, `${methodContainer ? 'Message ' + methodContainer.name + ' - ': ''}if condition produces no value, cannot use it`)
+    assertNotVoid(condition, `${methodContainer ? 'Message ' + methodContainer.name + ' - ' : ''}if condition produces no value, cannot use it`)
     assertIsBoolean(condition, 'if', 'condition')
 
     if (this.pausable) yield node
