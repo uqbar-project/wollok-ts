@@ -4,7 +4,7 @@ import sinonChai from 'sinon-chai'
 import { buildEnvironment, Evaluation, EXCEPTION_MODULE, REPL, WRENatives } from '../src'
 import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 import link from '../src/linker'
-import { Body, Class, Field, Literal, Method, Package, ParameterizedType, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
+import { Body, Class, Field, Literal, Method, Node, Package, ParameterizedType, Program, Reference, Return, Send, Singleton, SourceIndex, SourceMap } from '../src/model'
 import { environmentWithREPLInitializedFile, INIT_FILE, INIT_PACKAGE_NAME, WREEnvironment } from './utils'
 
 use(sinonChai)
@@ -984,6 +984,29 @@ describe('Wollok Interpreter', () => {
 
       state.done.should.be.false
       state.should.have.property('next').equal(breakpoint)
+    })
+
+    it('should go through every executed node', () => {
+      const environment = buildEnvironment([{ name: 'main.wpgm', content: 'program p { const a = 2 + 3 }' }])
+      const program = environment.getNodeByFQN<Program>('main.p')
+      const interpreter = new DirectedInterpreter(Evaluation.build(environment, WRENatives))
+      const nodes: Node[] = []
+
+      const state = interpreter.exec(program).resume(node => { nodes.push(node); return false })
+
+      state.done.should.be.true
+      nodes.should.include.members([program, program.body, ...program.body.sentences])
+    })
+
+  })
+
+  describe('Evaluation', () => {
+
+    it('should not yield the executed nodes unless it is pausable', () => {
+      const environment = buildEnvironment([{ name: 'main.wpgm', content: 'program p { const a = 2 + 3 }' }])
+      const evaluation = Evaluation.build(environment, WRENatives)
+
+      evaluation.exec(environment.getNodeByFQN('main.p')).next().done!.should.be.true
     })
 
   })
