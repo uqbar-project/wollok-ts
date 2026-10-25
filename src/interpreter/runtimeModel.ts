@@ -5,7 +5,7 @@ import { assertNotVoid, compile, compileConstantLiteralMethod, compilePropertyMe
 import { Assignment, Body, Catch, Class, Describe, Entity, Environment, Expression, Field, Id, If, Literal, LiteralValue, Method, Module, Name, New, Node, Program, Reference, Return, Self, Send, Singleton, Super, Test, Throw, Try, Variable } from '../model'
 import { Interpreter } from './interpreter'
 
-const COMPILE_CONSTANTS_FLAG = false
+const COMPILE_CONSTANTS_FLAG = true;
 
 const { isArray } = Array
 const { keys, entries } = Object
