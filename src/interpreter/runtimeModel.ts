@@ -307,6 +307,12 @@ export class Evaluation {
   protected readonly stringCache: Map<string, WeakRef<RuntimeObject>>
   console: Console = console
 
+  /**
+   * Whether the nodes are yielded as they are executed, so the execution can be paused on any of them.
+   * Yielding goes through every execution in progress, so it is only done for directed executions.
+   */
+  pausable = false
+
   frameStack: Frame[]
 
   get rootFrame(): Frame { return this.frameStack[0] }
@@ -456,7 +462,7 @@ export class Evaluation {
   }
 
   protected *execTest(node: Test): Execution<void> {
-    yield node
+    if (this.pausable) yield node
 
     yield* this.exec(node.body, new Frame(node, node.parent.is(Describe)
       ? yield* this.instantiate(node.parent)
@@ -465,13 +471,13 @@ export class Evaluation {
   }
 
   protected *execProgram(node: Program): Execution<void> {
-    yield node
+    if (this.pausable) yield node
 
     yield* this.exec(node.body, new Frame(node, this.currentFrame))
   }
 
   protected *execMethod(node: Method): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
 
     if (node.hasNativeImplementation) {
       const native = this.natives.get(node)
@@ -492,7 +498,7 @@ export class Evaluation {
   }
 
   protected *execBody(node: Body): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
 
     let result: RuntimeValue
     for (const sentence of node.sentences)
@@ -512,7 +518,7 @@ export class Evaluation {
 
     assertNotVoid(value, `Cannot assign to variable '${node.name}': ${getExpressionFor(node.value)} produces no value, cannot assign it to a variable`)
 
-    yield node
+    if (this.pausable) yield node
 
     this.currentFrame.set(variableFullName, value)
   }
@@ -522,7 +528,7 @@ export class Evaluation {
 
     const value = yield* this.exec(node.value)
     assertNotVoid(value, `${value.getShortLabel()} produces no value, cannot assign it to reference ${variableName}`)
-    yield node
+    if (this.pausable) yield node
     if (node.variable.target?.isConstant) throw new Error(`Can't assign the constant ${variableName}`)
     const target = node.variable.target
 
@@ -531,12 +537,12 @@ export class Evaluation {
 
   protected *execReturn(node: Return): Execution<RuntimeValue> {
     const value = node.value && (yield* this.exec(node.value))
-    yield node
+    if (this.pausable) yield node
     throw WollokReturn.of(value)
   }
 
   protected *execReference(node: Reference<Node>): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
 
     if (!node.scope) return this.currentFrame.get(node.name) ?? raise(new Error(`Could not resolve unlinked reference to ${node.name}`))
 
@@ -549,7 +555,7 @@ export class Evaluation {
   }
 
   protected *execSelf(node: Self): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
     return this.currentFrame.get(KEYWORDS.SELF)
   }
 
@@ -561,12 +567,12 @@ export class Evaluation {
       const values: RuntimeObject[] = []
       for (const arg of args) values.push(yield* this.exec(arg))
 
-      yield node
+      if (this.pausable) yield node
 
       return yield* module.name === 'List' ? this.list(...values) : this.set(...values)
     }
 
-    yield node
+    if (this.pausable) yield node
 
     return yield* this.reify(node.value as any)
   }
@@ -583,7 +589,7 @@ export class Evaluation {
       args[arg.name] = value
     }
 
-    yield node
+    if (this.pausable) yield node
 
     const target = node.instantiated.target ?? raise(new Error(`Could not resolve reference to instantiated module ${node.instantiated.name}`))
     const name = node.instantiated.name
@@ -617,7 +623,7 @@ export class Evaluation {
       values.push(value)
     }
 
-    yield node
+    if (this.pausable) yield node
 
     const result = yield* this.send(node.message, receiver, ...values)
     return result === undefined ? yield* this.reifyVoid() : result
@@ -632,7 +638,7 @@ export class Evaluation {
       args.push(value)
     }
 
-    yield node
+    if (this.pausable) yield node
 
     const receiver = this.currentFrame.get(KEYWORDS.SELF)!
     const method = superMethodDefinition(node, receiver.module)
@@ -649,13 +655,13 @@ export class Evaluation {
     assertNotVoid(condition, `${methodContainer ? 'Message ' + methodContainer.name + ' - ' : ''}if condition produces no value, cannot use it`)
     assertIsBoolean(condition, 'if', 'condition')
 
-    yield node
+    if (this.pausable) yield node
 
     return yield* this.exec(condition.innerBoolean ? node.thenBody : node.elseBody, new Frame(node, this.currentFrame))
   }
 
   protected *execTry(node: Try): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
 
     let result: RuntimeValue
     try {
@@ -684,13 +690,13 @@ export class Evaluation {
   protected *execThrow(node: Throw): Execution<RuntimeValue> {
     const exception = yield* this.exec(node.exception)
 
-    yield node
+    if (this.pausable) yield node
 
     throw new WollokException(this, exception)
   }
 
   protected *execSingleton(node: Singleton): Execution<RuntimeValue> {
-    yield node
+    if (this.pausable) yield node
     return yield* this.instantiate(node, {})
   }
 
