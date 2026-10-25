@@ -2,10 +2,12 @@
   "compilerOptions": {
     "target": "es2017",
     "module": "commonjs",
+    "rootDir": "./src",
     "outDir": "dist/temp",
     "sourceMap": true,
     "lib": [
-      "es2021"
+      "es2021",
+      "DOM"
     ],
     "declaration": true,
     "strict": true,
@@ -13,6 +15,8 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "experimentalDecorators": true
+    
+    
   },
   "include": [
     "src/**/*.ts",
