@@ -516,14 +516,18 @@ export const superclassIsLastInLinearization = (node: Class | Singleton): boolea
 /**
  * NATIVES
  */
-export const compile = (method: Method): NativeFunction | undefined => {
+export const compile = (method: Method, compileConstants = true): NativeFunction | undefined => {
   // Compile properties
   if (method.fromProperty) return compilePropertyMethod(method)
-  // Compile contant methods
-  const literal = constantLiteralReturnedBy(method)
-  if (literal) return compileConstantLiteralMethod(literal)
+
+  if (compileConstants) {
+    const literal = constantLiteralReturnedBy(method)
+    if (literal) return compileConstantLiteralMethod(literal)
+  }
+
   // Not supported
   return undefined
+
 }
 
 export const compilePropertyMethod = (method: Method): NativeFunction => {

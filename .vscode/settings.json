@@ -9,10 +9,5 @@
   "typescript.format.semicolons": "remove",
   "editor.tabSize": 2,
   "editor.insertSpaces": true,
-  "eslint.validate": [
-    "typescript"
-  ],
-  "editor.codeActionsOnSave": {
-    "source.fixAll": "always"
-  }
+  "eslint.validate": ["typescript"]
 }
