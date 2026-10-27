@@ -484,9 +484,28 @@ export class Evaluation {
 
       return (yield* native.call(this, this.currentFrame.get(KEYWORDS.SELF)!, ...args)) ?? (yield* this.reifyVoid())
     } else if (node.isConcrete()) {
+      const body = node.body as Body
+      const sentences = body.sentences
+      const lastSentence = sentences[sentences.length - 1]
+
       try {
-        yield* this.exec(node.body!)
-        return
+        if (!lastSentence?.is(Return)) {
+          yield* this.exec(body)
+          return
+        }
+
+        // Most methods end with a return. Its value is answered directly, instead of throwing it through every execution
+        // in between. The nodes are executed and yielded in the same order as executing the body would do.
+        this.currentFrame.currentNode = body
+        if (this.pausable) yield body
+
+        for (let index = 0; index < sentences.length - 1; index++)
+          yield* this.exec(sentences[index])
+
+        this.currentFrame.currentNode = lastSentence
+        const value = lastSentence.value && (yield* this.exec(lastSentence.value))
+        if (this.pausable) yield lastSentence
+        return value
       } catch (error) {
         if (error instanceof WollokReturn) return error.instance
         else throw error
