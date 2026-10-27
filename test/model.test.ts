@@ -1,5 +1,5 @@
 import { expect, should } from 'chai'
-import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Parameter, Entity } from '../src/model'
+import { Class, Field, Method, Body, Reference, ParameterizedType, Package, Environment, Import, Singleton, Parameter, Entity, Literal, NamedArgument } from '../src/model'
 import { getCache } from '../src/decorators'
 import { restore, stub } from 'sinon'
 import { Evaluation, Interpreter, WRENatives, fromJSON, link } from '../src'
@@ -35,6 +35,58 @@ describe('Wollok model', () => {
       node.lookupMethod(method.name, method.parameters.length)!.should.equal(otherMethod)
     })
 
+    it('should build the key from the name and the arguments', () => {
+      const method = new Method({ name: 'm', body: 'native', isOverride: false, parameters: [] })
+      const node = new Class({ name: 'C', supertypes: [], members: [method] })
+      stub(node, 'hierarchy').value([node])
+
+      node.methods
+      node.lookupMethod('m', 0, undefined)
+      node.lookupMethod('m', 0, { allowAbstractMethods: true })
+
+      const keys = [...getCache(node).keys()]
+      keys.should.include('methods()')
+      keys.should.include('lookupMethod(m,0,)')
+      keys.should.include('lookupMethod(m,0,{"allowAbstractMethods":true})')
+    })
+
+  })
+
+  describe('defaultValueFor', () => {
+    const value = new Literal({ value: 1 })
+    const field = new Field({ name: 'f', isConstant: false, value })
+    const parent = new Class({ name: 'P', supertypes: [], members: [field] })
+
+    it('should be the value of the field if no supertype sets it', () => {
+      const node = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'P' }) })] })
+      stub(node, 'hierarchy').value([node, parent])
+
+      node.defaultValueFor(field).should.equal(value)
+    })
+
+    it('should be the argument passed to the supertype', () => {
+      const argument = new Literal({ value: 2 })
+      const node = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'P' }), args: [new NamedArgument({ name: 'f', value: argument })] })] })
+      stub(node, 'hierarchy').value([node, parent])
+
+      node.defaultValueFor(field).should.equal(argument)
+    })
+
+    it('should fail if the field does not belong to the module', () => {
+      const node = new Class({ name: 'C', supertypes: [] })
+      stub(node, 'hierarchy').value([node])
+
+      expect(() => node.defaultValueFor(field)).to.throw('Field does not belong to the module')
+    })
+
+    it('should not use the field as cache key', () => {
+      const node = new Class({ name: 'C', supertypes: [new ParameterizedType({ reference: new Reference({ name: 'P' }) })] })
+      stub(node, 'hierarchy').value([node, parent])
+
+      node.defaultValueFor(field)
+
+      getCache(node).has('supertypeArgumentFor(f)').should.be.true
+    })
   })
 
   describe('Node', () => {
