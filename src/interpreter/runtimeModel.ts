@@ -318,7 +318,7 @@ export class Evaluation {
   get currentNode(): Node { return this.currentFrame.node }
   get environment(): Environment { return this.rootFrame.node as Environment }
 
-  static build(environment: Environment, natives: Natives): Evaluation {
+  static build(environment: Environment, natives: Natives, shouldCompile = true): Evaluation {
     const evaluation = new Evaluation(new Map(), [new Frame(environment)], new Map(), new Map())
 
     // Set natives
@@ -326,11 +326,13 @@ export class Evaluation {
       if (node.is(Method))
         if (node.isNative())
           evaluation.natives.set(node, get(natives, `${node.parent.fullyQualifiedName}.${node.name}`)!)
-        else {
+        else if (shouldCompile) {
           const native = compile(node)
           if (native) {
             evaluation.natives.set(node, native)
             node.compiled = true
+            // eslint-disable-next-line no-console
+            console.debug(`Compiled native: ${node.fullyQualifiedName}`)
           }
         }
     })
