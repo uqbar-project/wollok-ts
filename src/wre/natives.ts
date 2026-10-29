@@ -3,15 +3,14 @@ import { Natives } from '../interpreter/runtimeModel'
 import { List } from '../extensions'
 
 /**
- * Combines a list of `Natives` objects with the `WRENatives` object.
- * If no values are passed, the function will return `WRENatives` alone.
+ * Combines user-provided natives with the `WRENatives` object.
+ * User-provided natives take precedence when both define the same native.
  *
  * @param nativeList - A list of `Natives` objects to be merged with `WRENatives`.
  *                     The default value is an empty list `[]`.
- * @returns A `Natives` object resulting from merging `WRENatives` with the objects
- *          in the `nativeList`. If the list is empty, only `WRENatives` is returned.
+ * @returns A `Natives` object containing the WRE and user-provided natives.
  */
-const natives = (nativeList: List<Natives> = []): Natives => merge(mergeList(nativeList), WRENatives)
+const natives = (nativeList: List<Natives> = []): Natives => merge(WRENatives, mergeList(nativeList))
 
 const mergeList = (nativeList: List<Natives> = []): Natives => nativeList.reduce((merged, current) => merge(merged, current), {})
 
@@ -20,11 +19,13 @@ const merge = (base: Natives, incoming: Natives): Natives => {
   return [...keys].reduce<Natives>((result, key) => {
     const baseValue = base[key]
     const incomingValue = incoming[key]
-    result[key] = baseValue && incomingValue
-      ? merge(baseValue as Natives, incomingValue as Natives)
-      : baseValue ?? incomingValue
+    result[key] = isNativesMap(baseValue) && isNativesMap(incomingValue)
+      ? merge(baseValue, incomingValue)
+      : incomingValue ?? baseValue
     return result
   }, {})
 }
+
+const isNativesMap = (value: unknown): value is Natives => typeof value === 'object' && value !== null
 
 export default natives
