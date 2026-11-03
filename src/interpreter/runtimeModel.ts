@@ -615,8 +615,11 @@ export class Evaluation {
     const values: RuntimeObject[] = []
     for (const [i, arg] of node.args.entries()) {
       const value = yield* this.exec(arg)
-      const methodContainer = getMethodContainer(node)
-      assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
+      // Building the error message walks the ancestors of the node, so it is only done when it is going to be used
+      if (isVoid(value)) {
+        const methodContainer = getMethodContainer(node)
+        assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${i + 1} produces no value, cannot use it`)
+      }
       values.push(value)
     }
 
