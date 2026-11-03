@@ -215,6 +215,7 @@ export class ExecutionDirector<T> {
 
   constructor(evaluation: Evaluation, execution: ExecutionDefinition<T>) {
     this.evaluation = evaluation
+    this.evaluation.pausable = true
     this.execution = execution.call(evaluation)
   }
 
