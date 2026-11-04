@@ -331,8 +331,7 @@ export class Evaluation {
           if (native) {
             evaluation.natives.set(node, native)
             node.compiled = true
-            // eslint-disable-next-line no-console
-            console.debug(`Compiled native: ${node.fullyQualifiedName}`)
+            console.debug(`Compiled native: ${node.parent.fullyQualifiedName}.${node.name}`)
           }
         }
     })

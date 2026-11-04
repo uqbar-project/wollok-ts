@@ -3,6 +3,7 @@ import { describe, it } from 'mocha'
 import sinonChai from 'sinon-chai'
 import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Evaluation, Execution, Literal, Method, NativeFunction, Parameter, Reference, REPL, Return, RuntimeObject, WRENatives } from '../src'
 
+
 use(sinonChai)
 should()
 
@@ -85,4 +86,23 @@ describe('Compiler', () => {
       value!.innerNumber!.should.equal(8)
     })
   })
+  
+   
+      const testCompilation = (flag: boolean, shouldCompile: boolean) => {
+      const environment = buildEnvironment([{ name: REPL, content: 'object o { method doSomething() = 1 }' }])
+      const evaluation = Evaluation.build(environment, WRENatives, flag)
+      const compiledMethods = Array.from(evaluation.natives.keys())
+      
+      // Validamos si está o no está compilado según lo que esperemos
+      compiledMethods.some(m => m.name === 'doSomething').should.equal(shouldCompile)
+    }
+
+    it('should compile natives when feature flag is true', () => {
+      testCompilation(true, true) // Flag en true, esperamos que compile (true)
+    })
+
+    it('should not compile natives when feature flag is false', () => {
+      testCompilation(false, false) // Flag en false, esperamos que NO compile (false)
+    })
+
 })
