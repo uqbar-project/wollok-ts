@@ -1,7 +1,7 @@
 import { should } from 'chai'
 import { resolve } from 'path'
 import { restore, stub } from 'sinon'
-import { PROGRAM_FILE_EXTENSION, WOLLOK_FILE_EXTENSION } from '../src'
+import { buildEnvironment as buildEnvironmentFromFiles, Method, PROGRAM_FILE_EXTENSION } from '../src'
 import { interpret } from '../src/interpreter/interpreter'
 import natives from '../src/wre/wre.natives'
 import { buildEnvironment } from './utils'
@@ -49,22 +49,29 @@ describe('Benchmarks', () => {
 
   })
 
-  describe('constant literal methods', () => {
+  describe('compiled methods', () => {
 
-    it('are faster than equivalent interpreted methods', async () => {
-      stub(console)
-      const message = 'image'
-      const sends = 50000
+    function benchmark(message: string) {
+      it(message, () => {
+        const sends = 50000
 
-      const compiledTime = await measureSends('constants.constantMethod', message, sends)
-      const interpretedTime = await measureSends('constants.computedMethod', message, sends)
-      restore()
+        const compiledTime = measureSends(message, sends, true)
+        const interpretedTime = measureSends(message, sends, false)
 
-      results.push({ message, fqn: 'constants.constantMethod', time: compiledTime, iterations: sends })
-      results.push({ message, fqn: 'constants.computedMethod', time: interpretedTime, iterations: sends })
+        results.push({ message, fqn: 'compiled', time: compiledTime, iterations: sends })
+        results.push({ message, fqn: 'interpreted', time: interpretedTime, iterations: sends })
 
-      compiledTime.should.be.lessThan(interpretedTime)
-    })
+        compiledTime.should.be.lessThan(interpretedTime)
+      })
+    }
+
+    benchmark('constant')
+    benchmark('parameter')
+    benchmark('attribute')
+    benchmark('global')
+    benchmark('message')
+    benchmark('instance')
+    benchmark('instanceWithMessage')
 
   })
 })
@@ -86,15 +93,37 @@ async function measure(programFQN: string, message: string): Promise<number> {
   return elapsedTime
 }
 
-async function measureSends(objectFQN: string, message: string, sends: number): Promise<number> {
-  const environment = await buildEnvironment(`**/*.${WOLLOK_FILE_EXTENSION}`, resolve('language', 'benchmarks'))
-  const interpreter = interpret(environment, natives)
-  const receiver = interpreter.object(objectFQN)
+const COMPILED_METHODS = `
+  class Point {
+    const property x
+    const property y
+  }
 
-  interpreter.send(message, receiver) // Fill caches
+  object methods {
+    var x = 1
+
+    method constant(param) = "player.png"
+    method parameter(param) = param
+    method attribute(param) = x
+    method global(param) = console
+    method message(param) = param + x
+    method instance(param) = new Point(x = x, y = param)
+    method instanceWithMessage(param) = new Point(x = param + x, y = param)
+  }
+`
+
+function measureSends(message: string, sends: number, compiled: boolean): number {
+  const environment = buildEnvironmentFromFiles([{ name: 'compiled.wlk', content: COMPILED_METHODS }])
+  const interpreter = interpret(environment, natives)
+  if (!compiled) environment.forEach(node => { if (node.is(Method) && !node.isSynthetic) node.compiled = false })
+
+  const receiver = interpreter.object('compiled.methods')
+  const param = interpreter.reify(1)
+
+  interpreter.send(message, receiver, param) // Fill caches
   const startTime = performance.now()
   for (let send = 0; send < sends; send++)
-    interpreter.send(message, receiver)
+    interpreter.send(message, receiver, param)
   const endTime = performance.now()
 
   return endTime - startTime
