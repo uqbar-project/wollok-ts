@@ -201,7 +201,7 @@ export class DirectedInterpreter extends AbstractInterpreter {
 }
 
 export const executionFor = (environment: Environment, natives: Natives = WRENatives): DirectedInterpreter =>
-  new DirectedInterpreter(Evaluation.build(environment, natives))
+  new DirectedInterpreter(Evaluation.build(environment, natives, false))
 
 // TODO:
 // - track history
