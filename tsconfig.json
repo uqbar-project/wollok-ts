@@ -4,9 +4,7 @@
     "module": "commonjs",
     "outDir": "dist/temp",
     "sourceMap": true,
-    "lib": [
-      "es2021"
-    ],
+    "lib": ["es2021"],
     "declaration": true,
     "strict": true,
     "removeComments": true,
@@ -22,9 +20,5 @@
     "scripts/**/*.json",
     "package.json"
   ],
-  "exclude": [
-    "**/*.js",
-    "build",
-    "node_modules"
-  ]
+  "exclude": ["**/*.js", "build", "node_modules"]
 }
