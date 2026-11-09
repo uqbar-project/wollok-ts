@@ -15,6 +15,18 @@ export function getCache(target: any): Cache {
   return target[CACHE]
 }
 
+// Builds the same key as `${propertyKey}(${args.map(...)})` without allocating an array and a closure on every call
+function cacheKey(propertyKey: string, args: any[]): string {
+  let key = propertyKey + '('
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index]
+    if (index > 0) key += ','
+    if (typeof arg === 'object') key += JSON.stringify(arg)
+    else if (arg !== undefined) key += arg
+  }
+  return key + ')'
+}
+
 export function cached(_target: any, propertyKey: string, descriptor: PropertyDescriptor): void {
   const handler =
       typeof descriptor.value === 'function' ? { get(){ return descriptor.value }, set(value: any){ descriptor.value = value } } :
@@ -22,9 +34,10 @@ export function cached(_target: any, propertyKey: string, descriptor: PropertyDe
       raise(new TypeError(`Can't cache ${propertyKey}: Only methods and properties can be cached`))
 
   const originalDefinition = handler.get()
+  const keyWithoutArgs = `${propertyKey}()`
   handler.set(function (this: any, ...args: any[]) {
     const cache = getCache(this)
-    const key = `${propertyKey}(${args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg)})`
+    const key = args.length ? cacheKey(propertyKey, args) : keyWithoutArgs
     if (cache.has(key)) return cache.get(key)
     const result = originalDefinition.apply(this, args)
     cache.set(key, result)
