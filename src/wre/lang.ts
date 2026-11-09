@@ -428,11 +428,12 @@ const lang: Natives = {
 
       const buckets = self.get('<buckets>')!.innerCollection!
 
-      for (const bucket of buckets) {
-        for (const entry of bucket.innerCollection!) {
-          const [entryKey, entryValue] = entry.innerCollection!
-          yield* this.send(APPLY_METHOD, closure, entryKey, entryValue)
-        }
+      // Iterates over a copy, like lists do, so entries removed by the closure don't make it skip others
+      const entries = buckets.flatMap(bucket => [...bucket.innerCollection!])
+
+      for (const entry of entries) {
+        const [entryKey, entryValue] = entry.innerCollection!
+        yield* this.send(APPLY_METHOD, closure, entryKey, entryValue)
       }
     },
 
