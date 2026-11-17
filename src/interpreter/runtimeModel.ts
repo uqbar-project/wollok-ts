@@ -604,7 +604,9 @@ export class Evaluation {
 
     return yield* this.instantiate(target, args)
   }
-
+  execNewArgument(node: Expression): Execution<RuntimeObject> {
+    return this.exec(node, new Frame(node, this.currentFrame))
+  }
   protected *execSend(node: Send): Execution<RuntimeValue> {
     const receiver = yield* this.exec(node.receiver)
 

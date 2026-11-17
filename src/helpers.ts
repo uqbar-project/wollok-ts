@@ -1,7 +1,7 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
-import { count, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
-import { Execution, NativeFunction, RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
+import { count, is, isEmpty, last, List, match, notEmpty, otherwise, raise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
+import { Execution, ExecutionDefinition, NativeFunction, RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.mirror']
@@ -484,6 +484,26 @@ export const assertNotVoid = (value: RuntimeObject, errorMessage: string): void 
   }
 }
 
+export const assertReceiverNotVoid = (node: Send, receiver: RuntimeObject): void =>
+  assertNotVoid(receiver, `Cannot send message ${node.message}, receiver is an expression that produces no value.`)
+
+export const assertArgumentNotVoid = (node: Send, receiver: RuntimeObject, value: RuntimeObject, index: number): void => {
+  if (!isVoid(value)) return
+  const methodContainer = getMethodContainer(node)
+  assertNotVoid(value, `${methodContainer ? methodContainer.name + ' - while sending message' : 'Message'} ${receiver.module.name ? receiver.module.name + '.' : ''}${node.message}/${node.args.length}: parameter #${index + 1} produces no value, cannot use it`)
+}
+
+export const assertNewArgumentNotVoid = (node: New, argumentName: Name, value: RuntimeObject): void => {
+  if (isVoid(value)) assertNotVoid(value, `new ${node.instantiated.target?.fullyQualifiedName}: value of parameter '${argumentName}' produces no value, cannot use it`)
+}
+
+export const shortCircuits = (message: Name, receiver: RuntimeObject): boolean =>
+  (message === '&&' || message === 'and') && receiver.innerBoolean === false ||
+  (message === '||' || message === 'or') && receiver.innerBoolean === true
+
+export const isInsideGlobalVariable = (node: Node): boolean =>
+  node.ancestors.some(ancestor => ancestor.is(Variable) && ancestor.isAtPackageLevel)
+
 export const getExpressionFor = (node: Expression): string =>
   match(node)(
     when(Send)(nodeSend =>
@@ -522,6 +542,9 @@ export const compile = (method: Method): NativeFunction | undefined => {
   // Compile contant methods
   const literal = constantLiteralReturnedBy(method)
   if (literal) return compileConstantLiteralMethod(literal)
+  // Compile methods that only return a reference, a message or a new instance
+  const expression = returnedExpression(method)
+  if (expression) return compileExpression(expression)
   // Not supported
   return undefined
 }
@@ -543,14 +566,103 @@ const compileSetter = (message: string): NativeFunction => function* (self: Runt
 /** Literal that can be returned by a constant method, e.g. `method image() = "player.png"` */
 export type ConstantLiteral = Literal<number | string | boolean | null>
 
-export const constantLiteralReturnedBy = (method: Method): ConstantLiteral | undefined => {
+const isConstantLiteral = (node: Expression): node is ConstantLiteral => node.is(Literal) && !node.isCollection()
+
+const returnedExpression = (method: Method): Expression | undefined => {
   if (method.sentences.length !== 1) return undefined
   const [sentence] = method.sentences
-  if (!sentence.is(Return)) return undefined
-  const returnedValue = sentence.value
-  return returnedValue?.is(Literal) && !returnedValue.isCollection() ? returnedValue as ConstantLiteral : undefined
+  return sentence.is(Return) ? sentence.value : undefined
 }
 
-export const compileConstantLiteralMethod = (literal: ConstantLiteral): NativeFunction => function* (): Execution<RuntimeValue> {
+export const constantLiteralReturnedBy = (method: Method): ConstantLiteral | undefined => {
+  const returnedValue = returnedExpression(method)
+  return returnedValue && isConstantLiteral(returnedValue) ? returnedValue : undefined
+}
+
+/**
+ * Expression compiled to run on the frame of the method that returns it, doing the same as the interpreter.
+ * Whatever would fail or needs a special treatment is not compiled, so it keeps being interpreted.
+ */
+type CompiledExpression = ExecutionDefinition<RuntimeObject>
+
+export const compileConstantLiteralMethod = (literal: ConstantLiteral): CompiledExpression => function* () {
+  this.currentFrame.currentNode = literal
   return yield* this.reify(literal.value)
+}
+
+const compileExpression = (node: Expression): CompiledExpression | undefined => match(node)(
+  when(New)(compileNew),
+  when(Send)(compileSend),
+  otherwise(compileOperand),
+)
+
+const compileOperand = (node: Expression): CompiledExpression | undefined => {
+  if (node.is(Reference)) return compileReference(node)
+  return isConstantLiteral(node) ? compileConstantLiteralMethod(node) : undefined
+}
+
+// It asks the scope because Reference.target would cache the failure, and the definition may be added later from the REPL
+const resolveTarget = <N extends Node>(reference: Reference<N>): N | undefined => reference.scope?.resolve<N>(reference.name)
+
+const compileReference = (node: Reference<Node>): CompiledExpression | undefined => {
+  const target = resolveTarget(node)
+  if (!target || target.is(Field) && loopInAssignment(target.value, target.name)) return undefined
+
+  const name = targetName(target, node.name)
+  return function* () {
+    this.currentFrame.currentNode = node
+    return this.currentFrame.get(name) ?? raise(new Error(`Could not resolve reference to ${node.name}`))
+  }
+}
+
+const compileSend = (node: Send): CompiledExpression | undefined => {
+  const receiver = compileOperand(node.receiver)
+  const args = excludeNullish(node.args.map(compileOperand))
+  if (!receiver || args.length !== node.args.length) return undefined
+
+  return function* () {
+    const receiverValue = yield* receiver.call(this)
+
+    if (shortCircuits(node.message, receiverValue)) return receiverValue
+
+    assertReceiverNotVoid(node, receiverValue)
+
+    const values: RuntimeObject[] = []
+    for (const [i, arg] of args.entries()) {
+      const value = yield* arg.call(this)
+      assertArgumentNotVoid(node, receiverValue, value, i)
+      values.push(value)
+    }
+
+    return (yield* this.send(node.message, receiverValue, ...values)) ?? (yield* this.reifyVoid())
+  }
+}
+
+const compileNew = (node: New): CompiledExpression | undefined => {
+  const target = resolveTarget(node.instantiated)
+  if (!target?.is(Class) || target.isAbstract || [LIST_MODULE, SET_MODULE].includes(target.fullyQualifiedName)) return undefined
+  if (isInsideGlobalVariable(node) || notEmpty(getUninitializedAttributesForInstantiation(node))) return undefined
+
+  const values = excludeNullish(node.args.map(arg => compileNewArgument(arg.value)))
+  if (values.length !== node.args.length) return undefined
+
+  return function* () {
+    const args: Record<Name, RuntimeObject> = {}
+    for (const [i, arg] of node.args.entries()) {
+      const value = yield* values[i].call(this)
+      assertNewArgumentNotVoid(node, arg.name, value)
+      args[arg.name] = value
+    }
+
+    this.currentFrame.currentNode = node
+    return yield* this.instantiate(target, args)
+  }
+}
+
+// Messages are interpreted because they run on a frame of their own, which is part of the stack trace if they fail
+const compileNewArgument = (node: Expression): CompiledExpression | undefined => {
+  if (!node.is(Send)) return compileOperand(node)
+  return compileSend(node) && function* () {
+    return yield* this.execNewArgument(node)
+  }
 }
