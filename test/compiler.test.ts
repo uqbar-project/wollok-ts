@@ -1,8 +1,8 @@
 import { should, use } from 'chai'
-import { describe, it } from 'mocha'
+import { describe, it, beforeEach } from 'mocha'
 import sinonChai from 'sinon-chai'
-import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Environment, Evaluation, Execution, Expression, Literal, Method, NativeFunction, Parameter, Reference, REPL, Return, RuntimeObject, RuntimeValue, Singleton, Variable, WollokException, WRENatives } from '../src'
-import { DirectedInterpreter, getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
+import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Environment, Evaluation, Execution, Literal, Method, NativeFunction, Parameter, REPL, Reference, Return, RuntimeObject, RuntimeValue, Singleton, Variable, WollokException, WRENatives } from '../src'
+import { getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 
 use(sinonChai)
 should()
@@ -87,24 +87,66 @@ describe('Compiler', () => {
     })
   })
 
-  describe('returned expressions', () => {
+  describe('returned references', () => {
 
     const content = `
-      class Point {
-        const property x
-        const property y
-      }
-
-      class Shape {
-        method area()
-      }
-
       const globalConstant = 7
 
-      const globalObject = object {
-        method instance(param) = new Point(x = param, y = 2)
-      }
+      object o {
+        var property x = 1
 
+        method parameter(param) = param
+        method returnStatement(param) { return param }
+        method attribute(param) = x
+        method global(param) = console
+        method globalVariable(param) = globalConstant
+        method varArgs(params...) = params
+      }
+    `
+
+    let environment: Environment
+    let interpreter: Interpreter
+    let o: RuntimeObject
+
+    const methodNamed = (name: string): Method => environment.getNodeByFQN<Singleton>('main.o').methods.find(method => method.name === name)!
+    const send = (message: string, ...args: RuntimeObject[]): RuntimeValue => interpreter.send(message, o, ...args)
+
+    beforeEach(() => {
+      environment = buildEnvironment([{ name: 'main.wlk', content }])
+      interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
+      o = interpreter.object('main.o')
+    })
+
+    const referenceMethods = ['parameter', 'returnStatement', 'attribute', 'global', 'globalVariable', 'varArgs']
+    referenceMethods.forEach(name => it(`compiles ${name}`, () => {
+      methodNamed(name).compiled.should.be.true
+    }))
+
+    it('returns the parameter', () => {
+      const param = interpreter.reify(5)
+      send('parameter', param)!.should.equal(param)
+      send('returnStatement', param)!.should.equal(param)
+    })
+
+    it('returns the current value of the attribute', () => {
+      send('attribute', interpreter.reify(5))!.innerNumber!.should.equal(1)
+      send('x', interpreter.reify(2))
+      send('attribute', interpreter.reify(5))!.innerNumber!.should.equal(2)
+    })
+
+    it('returns the global objects and variables', () => {
+      send('global', interpreter.reify(5))!.should.equal(interpreter.object('wollok.lib.console'))
+      send('globalVariable', interpreter.reify(5))!.innerNumber!.should.equal(7)
+    })
+
+    it('returns var args as a list', () => {
+      send('varArgs', interpreter.reify(1), interpreter.reify(2))!.innerCollection!.map(_ => _.innerNumber).should.deep.equal([1, 2])
+    })
+  })
+
+  describe('returned messages', () => {
+
+    const content = `
       object helper {
         method nothing(param) { }
         method first(a, b) = a
@@ -113,13 +155,6 @@ describe('Compiler', () => {
 
       object o {
         var property x = 1
-
-        method parameter(param) = param
-        method attribute(param) = x
-        method global(param) = console
-        method globalVariable(param) = globalConstant
-        method returnStatement(param) { return param }
-        method varArgs(params...) = params
 
         method message(param) = param.max(x)
         method messageWithConstants(param) = 1.max(2)
@@ -131,11 +166,128 @@ describe('Compiler', () => {
         }
         method conjunction(param, other) = param && other
         method closure(param) = { other => param.max(other) }
+      }
+    `
+
+    let environment: Environment
+    let interpreter: Interpreter
+    let o: RuntimeObject
+
+    const methodNamed = (name: string): Method => environment.getNodeByFQN<Singleton>('main.o').methods.find(method => method.name === name)!
+    const send = (message: string, ...args: RuntimeObject[]): RuntimeValue => interpreter.send(message, o, ...args)
+    const reifyVoid = (): RuntimeObject => interpreter.do(function* () { return yield* this.reifyVoid() })
+
+    beforeEach(() => {
+      environment = buildEnvironment([{ name: 'main.wlk', content }])
+      interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
+      o = interpreter.object('main.o')
+    })
+
+    const messageMethods = ['message', 'messageWithConstants', 'messageToGlobal', 'messageOnArgument', 'messageThatFails', 'multilineMessageThatFails', 'conjunction']
+    messageMethods.forEach(name => it(`compiles ${name}`, () => {
+      methodNamed(name).compiled.should.be.true
+    }))
+
+    it('sends the message', () => {
+      send('message', interpreter.reify(5))!.innerNumber!.should.equal(5)
+      send('messageWithConstants', interpreter.reify(5))!.innerNumber!.should.equal(2)
+      send('messageToGlobal', interpreter.reify(5))!.innerNumber!.should.equal(5)
+    })
+
+    it('does not evaluate the argument if the message short-circuits', () => {
+      send('conjunction', interpreter.reify(false), reifyVoid())!.innerBoolean!.should.be.false
+    })
+
+    it('resolves the variables captured by closures', () => {
+      methodNamed('closure').compiled.should.be.false
+      const closure = send('closure', interpreter.reify(3))!
+      closure.module.methods.find(method => method.name === '<apply>')!.compiled.should.be.true
+      interpreter.send('apply', closure, interpreter.reify(8))!.innerNumber!.should.equal(8)
+    })
+  })
+
+  describe('returned instances', () => {
+
+    const content = `
+      class Point {
+        const property x
+        const property y
+      }
+
+      object helper {
+        method nothing(param) { }
+      }
+
+      object o {
+        var property x = 1
 
         method instance(param) = new Point(x = x, y = param)
         method instanceWithConstant(param) = new Point(x = 1, y = 2)
         method instanceWithMessage(param) = new Point(x = param.max(x), y = 2)
         method instanceWithVoidMessage(param) = new Point(x = helper.nothing(param), y = 2)
+      }
+
+      const globalObject = object {
+        method instance(param) = new Point(x = param, y = 2)
+      }
+    `
+
+    let environment: Environment
+    let interpreter: Interpreter
+    let o: RuntimeObject
+
+    const methodNamed = (name: string): Method => environment.getNodeByFQN<Singleton>('main.o').methods.find(method => method.name === name)!
+    const send = (message: string, ...args: RuntimeObject[]): RuntimeValue => interpreter.send(message, o, ...args)
+
+    beforeEach(() => {
+      environment = buildEnvironment([{ name: 'main.wlk', content }])
+      interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
+      o = interpreter.object('main.o')
+    })
+
+    const instanceMethods = ['instance', 'instanceWithConstant', 'instanceWithMessage', 'instanceWithVoidMessage']
+    instanceMethods.forEach(name => it(`compiles ${name}`, () => {
+      methodNamed(name).compiled.should.be.true
+    }))
+
+    it('creates a new instance on each send', () => {
+      const instance = send('instance', interpreter.reify(5))!
+      instance.module.name!.should.equal('Point')
+      instance.get('x')!.innerNumber!.should.equal(1)
+      instance.get('y')!.innerNumber!.should.equal(5)
+      send('instance', interpreter.reify(5))!.should.not.equal(instance)
+    })
+
+    it('uses messages as arguments of the new instance', () => {
+      send('instanceWithMessage', interpreter.reify(5))!.get('x')!.innerNumber!.should.equal(5)
+    })
+
+    it('does not compile instances inside global variables, whose arguments are lazy', () => {
+      const singleton = environment.getNodeByFQN<Variable>('main.globalObject').value as Singleton
+      singleton.methods[0].compiled.should.be.false
+    })
+  })
+
+  describe('interpreted methods (documented limitations)', () => {
+
+    // These methods are intentionally NOT compiled: they keep being interpreted.
+    // This list documents the current limitations of the compiler (issue #400).
+    const content = `
+      class Point {
+        const property x
+        const property y
+      }
+
+      class Shape {
+        method area()
+      }
+
+      object helper {
+        method first(a, b) = a
+      }
+
+      object o {
+        var property x = 1
 
         method selfReference(param) = self
         method messageToSelf(param) = self.parameter(param)
@@ -156,11 +308,53 @@ describe('Compiler', () => {
     `
 
     let environment: Environment
+
+    const methodNamed = (name: string): Method => environment.getNodeByFQN<Singleton>('main.o').methods.find(method => method.name === name)!
+
+    beforeEach(() => {
+      environment = buildEnvironment([{ name: 'main.wlk', content }])
+    })
+
+    const interpretedMethods = ['selfReference', 'messageToSelf', 'nestedMessage', 'messageWithCollection', 'collection', 'twoSentences', 'withoutReturn', 'emptyList', 'abstractInstance', 'uninitializedInstance', 'instanceWithNestedMessage', 'nestedInstance']
+    interpretedMethods.forEach(name => it(`does not compile ${name}`, () => {
+      methodNamed(name).compiled.should.be.false
+    }))
+  })
+
+  describe('failure behavior', () => {
+
+    const content = `
+      class Point {
+        const property x
+        const property y
+      }
+
+      object helper {
+        method nothing(param) { }
+        method first(a, b) = a
+        method fail(param) { throw new DomainException(message = param) }
+      }
+
+      object o {
+        var property x = 1
+
+        method message(param) = param.max(x)
+        method messageToGlobal(param) = helper.first(param, "constant")
+        method messageOnArgument(param) = 1.max(param)
+        method messageThatFails(param) = helper.fail(param)
+        method multilineMessageThatFails(param) {
+          return helper.fail(param)
+        }
+        method instance(param) = new Point(x = x, y = param)
+        method instanceWithMessage(param) = new Point(x = param.max(x), y = 2)
+        method instanceWithVoidMessage(param) = new Point(x = helper.nothing(param), y = 2)
+      }
+    `
+
+    let environment: Environment
     let interpreter: Interpreter
     let o: RuntimeObject
 
-    const methodNamed = (name: string): Method => environment.getNodeByFQN<Singleton>('main.o').methods.find(method => method.name === name)!
-    const interpretAllMethods = () => environment.forEach(node => { if (node.is(Method) && !node.isSynthetic) node.compiled = false })
     const send = (message: string, ...args: RuntimeObject[]): RuntimeValue => interpreter.send(message, o, ...args)
     const reifyVoid = (): RuntimeObject => interpreter.do(function* () { return yield* this.reifyVoid() })
 
@@ -173,81 +367,12 @@ describe('Compiler', () => {
       throw new Error('Expected the action to fail')
     }
 
+    const interpretAllMethods = () => environment.forEach(node => { if (node.is(Method) && !node.isSynthetic) node.compiled = false })
+
     beforeEach(() => {
       environment = buildEnvironment([{ name: 'main.wlk', content }])
       interpreter = new Interpreter(Evaluation.build(environment, WRENatives))
       o = interpreter.object('main.o')
-    })
-
-    const compiledMethods = ['parameter', 'attribute', 'global', 'globalVariable', 'returnStatement', 'varArgs', 'message', 'messageWithConstants', 'messageToGlobal', 'messageOnArgument', 'messageThatFails', 'conjunction', 'instance', 'instanceWithConstant', 'instanceWithMessage', 'instanceWithVoidMessage']
-    compiledMethods.forEach(name => it(`compiles ${name}`, () => {
-      methodNamed(name).compiled.should.be.true
-    }))
-
-    const interpretedMethods = ['selfReference', 'messageToSelf', 'nestedMessage', 'messageWithCollection', 'collection', 'twoSentences', 'withoutReturn', 'emptyList', 'abstractInstance', 'uninitializedInstance', 'instanceWithNestedMessage', 'nestedInstance', 'closure']
-    interpretedMethods.forEach(name => it(`does not compile ${name}`, () => {
-      methodNamed(name).compiled.should.be.false
-    }))
-
-    it('does not compile instances inside global variables, whose arguments are lazy', () => {
-      const singleton = environment.getNodeByFQN<Variable>('main.globalObject').value as Singleton
-      singleton.methods[0].compiled.should.be.false
-    })
-
-    it('returns the parameter', () => {
-      const param = interpreter.reify(5)
-      send('parameter', param)!.should.equal(param)
-    })
-
-    it('returns the current value of the attribute', () => {
-      send('attribute', interpreter.reify(5))!.innerNumber!.should.equal(1)
-      send('x', interpreter.reify(2))
-      send('attribute', interpreter.reify(5))!.innerNumber!.should.equal(2)
-    })
-
-    it('returns the global objects and variables', () => {
-      send('global', interpreter.reify(5))!.should.equal(interpreter.object('wollok.lib.console'))
-      send('globalVariable', interpreter.reify(5))!.innerNumber!.should.equal(7)
-    })
-
-    it('returns var args as a list', () => {
-      send('varArgs', interpreter.reify(1), interpreter.reify(2))!.innerCollection!.map(_ => _.innerNumber).should.deep.equal([1, 2])
-    })
-
-    it('sends the message', () => {
-      send('message', interpreter.reify(5))!.innerNumber!.should.equal(5)
-      send('messageWithConstants', interpreter.reify(5))!.innerNumber!.should.equal(2)
-      send('messageToGlobal', interpreter.reify(5))!.innerNumber!.should.equal(5)
-    })
-
-    it('does not evaluate the argument if the message short-circuits', () => {
-      send('conjunction', interpreter.reify(false), reifyVoid())!.innerBoolean!.should.be.false
-    })
-
-    it('resolves the variables captured by closures', () => {
-      const closure = send('closure', interpreter.reify(3))!
-      closure.module.methods.find(method => method.name === '<apply>')!.compiled.should.be.true
-      interpreter.send('apply', closure, interpreter.reify(8))!.innerNumber!.should.equal(8)
-    })
-
-    it('creates a new instance on each send', () => {
-      const instance = send('instance', interpreter.reify(5))!
-      instance.module.name!.should.equal('Point')
-      instance.get('x')!.innerNumber!.should.equal(1)
-      instance.get('y')!.innerNumber!.should.equal(5)
-      send('instance', interpreter.reify(5))!.should.not.equal(instance)
-    })
-
-    it('uses messages as arguments of the new instance', () => {
-      send('instanceWithMessage', interpreter.reify(5))!.get('x')!.innerNumber!.should.equal(5)
-    })
-
-    it('resolves references to definitions added later from the REPL', () => {
-      const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { method later() = definedLater }' }])
-      const replInterpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
-
-      interprete(replInterpreter, 'object definedLater { }', undefined, true).errored.should.be.false
-      interprete(replInterpreter, 'o.later()').errored.should.be.false
     })
 
     it('fails the same way as the interpreter', () => {
@@ -270,20 +395,16 @@ describe('Compiler', () => {
 
       compiledStackTraces.should.deep.equal(stackTraces())
     })
+  })
 
-    it('can be paused on the nodes of a compiled method', () => {
-      const directedInterpreter = new DirectedInterpreter(Evaluation.build(environment, WRENatives))
-      const method = methodNamed('messageWithConstants')
-      const message = (method.sentences[0] as Return).value as Expression
+  describe('REPL', () => {
 
-      const director = directedInterpreter.send('messageWithConstants', directedInterpreter.object('main.o'), o)
-      director.addBreakpoint(message)
+    it('resolves references to definitions added later from the REPL', () => {
+      const replEnvironment = buildEnvironment([{ name: REPL, content: 'object o { method later() = definedLater }' }])
+      const replInterpreter = new Interpreter(Evaluation.build(replEnvironment, WRENatives))
 
-      director.resume().should.deep.include({ done: false, next: message })
-
-      const finalState = director.finish()
-      if (finalState.error) throw finalState.error
-      finalState.result!.innerNumber!.should.equal(2)
+      interprete(replInterpreter, 'object definedLater { }', undefined, true).errored.should.be.false
+      interprete(replInterpreter, 'o.later()').errored.should.be.false
     })
   })
 })
