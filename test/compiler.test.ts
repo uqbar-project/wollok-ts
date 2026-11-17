@@ -1,7 +1,7 @@
 import { should, use } from 'chai'
 import { describe, it, beforeEach } from 'mocha'
 import sinonChai from 'sinon-chai'
-import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Environment, Evaluation, Execution, Literal, Method, NativeFunction, Parameter, REPL, Reference, Return, RuntimeObject, RuntimeValue, Singleton, Variable, WollokException, WRENatives } from '../src'
+import { Assignment, Body, buildEnvironment, compileConstantLiteralMethod, compilePropertyMethod, constantLiteralReturnedBy, Environment, Evaluation, Execution, executionFor, Literal, Method, NativeFunction, Parameter, REPL, Reference, Return, RuntimeObject, RuntimeValue, Singleton, Variable, WollokException, WRENatives } from '../src'
 import { getStackTraceSanitized, interprete, Interpreter } from '../src/interpreter/interpreter'
 
 use(sinonChai)
@@ -405,6 +405,32 @@ describe('Compiler', () => {
 
       interprete(replInterpreter, 'object definedLater { }', undefined, true).errored.should.be.false
       interprete(replInterpreter, 'o.later()').errored.should.be.false
+    })
+  })
+  describe('feature flag', () => {
+
+    const testCompilation = (flag: boolean, shouldCompile: boolean) => {
+      const environment = buildEnvironment([{ name: REPL, content: 'object o { method doSomething() = 1 }' }])
+      const evaluation = Evaluation.build(environment, WRENatives, flag)
+      const compiledMethods = Array.from(evaluation.natives.keys())
+
+      compiledMethods.some(m => m.name === 'doSomething').should.equal(shouldCompile)
+    }
+
+    it('compiles natives when feature flag is true', () => {
+      testCompilation(true, true)
+    })
+
+    it('does not compile natives when feature flag is false', () => {
+      testCompilation(false, false)
+    })
+
+    it('does not compile methods when using DirectedInterpreter', () => {
+      const environment = buildEnvironment([{ name: REPL, content: 'object o { method doSomething() = 1 }' }])
+      const interpreter = executionFor(environment)
+      const compiledMethods = Array.from(interpreter.evaluation.natives.keys())
+
+      compiledMethods.some(m => m.name === 'doSomething').should.be.false
     })
   })
 })
