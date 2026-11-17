@@ -10,6 +10,8 @@ import WRE from './wre/wre.json'
 import WRENatives from './wre/wre.natives'
 import natives from './wre/natives'
 
+export * from './compiler'
+
 export type FileContent = {
   name: string,
   content: string,

@@ -1,14 +1,11 @@
-import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, LIST_MODULE, NUMBER_MODULE, OBJECT_MODULE, SET_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
+import { BOOLEAN_MODULE, CLOSURE_EVALUATE_METHOD, CLOSURE_MODULE, CLOSURE_TO_STRING_METHOD, INITIALIZE_METHOD, KEYWORDS, NUMBER_MODULE, OBJECT_MODULE, STRING_MODULE, VOID_WKO, WOLLOK_BASE_PACKAGE } from './constants'
 import { getPotentiallyUninitializedLazy } from './decorators'
-import { count, is, isEmpty, last, List, match, notEmpty, otherwise, raise, valueAsListOrEmpty, when, excludeNullish } from './extensions'
-import { Execution, ExecutionDefinition, NativeFunction, RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
+import { count, excludeNullish, is, isEmpty, last, List, match, notEmpty, otherwise, valueAsListOrEmpty, when } from './extensions'
+import { RuntimeObject, RuntimeValue } from './interpreter/runtimeModel'
 import { Assignment, Body, Class, CodeContainer, Describe, Entity, Environment, Expression, Field, If, Import, Literal, LiteralValue, Method, Module, Name, NamedArgument, New, Node, Package, Parameter, ParameterizedType, Problem, Program, Reference, Referenciable, Return, Self, Send, Sentence, Singleton, Super, Test, Throw, Try, Variable } from './model'
 
 export const LIBRARY_PACKAGES = ['wollok.lang', 'wollok.lib', 'wollok.game', 'wollok.mirror']
 
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS FOR VALIDATIONS
-// ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 export const allParents = (module: Module): Module[] =>
   module.supertypes.map(supertype => supertype.reference.target).flatMap(supertype => supertype?.hierarchy ?? [])
@@ -43,7 +40,6 @@ export const getUninitializedAttributesIn = (node: Module, fields: Field[], init
     })
     .map(field => field.name)
 
-// TODO: Fix because it won´t work if an initialize method is overriden by subclass
 export const initializesInsideInitMethod = (node: Module, field: Field): boolean => {
   const allInitMethods = node.allMethods.filter(method => method.matchesSignature(INITIALIZE_METHOD, 0))
   return allInitMethods.some(method => initializesReference(method, field))
@@ -62,7 +58,6 @@ export const hasBooleanValue = (node: Expression, value: boolean): boolean => no
 
 export const hasNullValue = (node: Expression): boolean => node.is(Literal) && node.isNull()
 
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const targetSupertypes = (node: Class | Singleton) => node.supertypes.map(_ => _?.reference.target)
 
 export const superclassMethod = (node: Method): Method | undefined => node.parent.lookupMethod(node.name, node.parameters.length, { lookupStartFQN: node.parent.fullyQualifiedName, allowAbstractMethods: true })
@@ -71,7 +66,6 @@ export const finishesFlow = (sentence: Sentence, node: Node): boolean => {
   const parent = node.parent
   const lastLineOnMethod = parent.is(Body) ? last(parent.sentences) : undefined
   const returnCondition = (sentence.is(Return) && lastLineOnMethod !== node && lastLineOnMethod?.is(Return) || lastLineOnMethod?.is(Throw)) ?? false
-  // TODO: For Send, check if expression returns a value (we need a Type System)
   return sentence.is(Variable) || sentence.is(Throw) || sentence.is(Send) || sentence.is(Super) || sentence.is(Assignment) || sentence.is(If) || sentence.is(Try) || returnCondition
 }
 
@@ -96,7 +90,6 @@ export const allScopedVariables = (node: CodeContainer): Referenciable[] => {
   const fields = node.parent.allFields ?? []
   const params = node.is(Method) ? node.parameters : []
   const codeContainerVars = allVariables(node)
-
   return [...fields, ...params, ...codeContainerVars]
 }
 
@@ -153,10 +146,8 @@ export const sendsMessageToAssert = (node: Node): boolean =>
     otherwise(_ => false),
   )
 
-// TODO: this should be no longer necessary when the type system is implemented
 export const findMethod = (messageSend: Send): Method | undefined => {
   const findModule = (node: Send) => node.receiver.ancestors.find(ancestor => ancestor.is(Module)) as Module
-
   const module: Module | undefined = match(messageSend.receiver)(
     when(Reference)(nodeRef => {
       const target = nodeRef.target
@@ -166,7 +157,6 @@ export const findMethod = (messageSend: Send): Method | undefined => {
     when(Self)(_ => findModule(messageSend)),
     when(Expression)(_ => undefined),
   )
-
   return module?.lookupMethod(messageSend.message, messageSend.args.length)
 }
 
@@ -181,7 +171,6 @@ export const callsToSuper = (node: Node): boolean =>
 
 export const isGetter = (node: Method): boolean => node.parent.allFields.map(_ => _.name).includes(node.name) && isEmpty(node.parameters)
 
-// TODO: Import could offer a list of imported entities
 export const entityIsAlreadyUsedInImport = (target: Entity | undefined, entityName: string): boolean | undefined => target && match(target)(
   when(Package)(node => node.members.some(member => member.name == entityName)),
   when(Entity)(node => node.name == entityName),
@@ -194,7 +183,6 @@ export const isAlreadyUsedInImport = (target: Entity | undefined, node: Entity |
 
 export const duplicatesLocalVariable = (node: Variable): boolean => {
   if (node.ancestors.some(is(Program)) || node.isAtPackageLevel) return false
-
   const container = getVariableContainer(node)
   if (!container) return false
   const duplicateReference = count(allVariables(container), reference => reference.name == node.name) > 1
@@ -237,7 +225,6 @@ export const usesField = (node: Node, field: Field): boolean =>
     when(Reference)(node => node.target === field || !!node.target && node.target.is(Field) && usesField(node.target, field)),
     when(Field)(node => node.value && usesField(node.value, field)),
     when(Literal)(node =>
-      // See type LiteralValue for collection values
       Array.isArray(node.value) && node.value[1].some((expression: any) => usesField(expression, field))),
     when(Send)(node => usesField(node.receiver, field) || node.args.some(arg => usesField(arg, field))),
     when(If)(node => usesField(node.condition, field) || usesField(node.thenBody, field) || node.elseBody && usesField(node.elseBody, field)),
@@ -351,7 +338,6 @@ export const parentImport = (node: Node): Import | undefined => node.ancestors.f
 
 export const implicitImport = (node: Node): boolean => ['wollok/lang.wlk', 'wollok/lib.wlk'].includes(node.sourceFileName ?? '')
 
-// @ToDo Workaround because package fqn is absolute in the lsp.
 export const fqnRelativeToPackage =
   (pckg: Package, node: Entity): string =>
     node.fullyQualifiedName.replace(pckg.fullyQualifiedName, pckg.name)
@@ -378,7 +364,6 @@ export const belongsTo = (node: Node, mainPackage: Package): boolean =>
 export const mayExecute = (method: Method) => (node: Node): boolean =>
   node.is(Send) &&
   node.message === method.name &&
-  // exclude cases where a message is sent to a different singleton
   !(node.receiver.is(Reference) && node.receiver.target?.is(Singleton) && node.receiver.target !== method.parent)
 
 export const allVariables = (node: CodeContainer): List<Variable> => node.sentences.filter(is(Variable))
@@ -418,7 +403,6 @@ export const sendDefinitions = (environment: Environment) => (send: Send): (Meth
   const getDefinitionFromSyntheticMethod = (method: Method) => {
     return method.parent.allFields.find((field) => field.name === method.name && field.isProperty)
   }
-
   return excludeNullish<Method | Field>(originalDefinitions().map((method: Method) => method.isSynthetic ? getDefinitionFromSyntheticMethod(method) : method))
 }
 
@@ -468,7 +452,6 @@ export const superMethodDefinition = (superNode: Super, methodModule: Module): M
 
 export const overriddenMethod = (method: Method): Method | undefined =>
   method.parent.lookupMethod(method.name, method.parameters.length, { lookupStartFQN: method.parent.fullyQualifiedName, allowAbstractMethods: true })
-
 
 const getParentModule = (node: Node): Module => node.ancestors.find(is(Module)) as Module
 
@@ -521,7 +504,6 @@ export const showParameter = (obj: RuntimeObject): string =>
 export const getMethodContainer = (node: Node): Method | Program | Test | undefined =>
   last(node.ancestors.filter(parent => parent.is(Method) || parent.is(Program) || parent.is(Test))) as unknown as Method | Program | Test
 
-
 export const possiblyReferenced = (reference: Reference<Node>, environment: Environment): List<Node> => environment.scope.resolveAll(reference.name)
 
 export const hasMoreThanOneSuperclass = (node: Class | Singleton): boolean => count(targetSupertypes(node), _ => !!_ && _.is(Class)) > 1
@@ -531,138 +513,4 @@ export const superclassIsLastInLinearization = (node: Class | Singleton): boolea
   const hasSuperclass = notEmpty(parents.filter(_ => !!_ && _.is(Class)))
   const lastParentInHierarchy = last(parents)
   return !hasSuperclass || !!lastParentInHierarchy && lastParentInHierarchy.is(Class)
-}
-
-/**
- * NATIVES
- */
-export const compile = (method: Method): NativeFunction | undefined => {
-  // Compile properties
-  if (method.fromProperty) return compilePropertyMethod(method)
-  // Compile contant methods
-  const literal = constantLiteralReturnedBy(method)
-  if (literal) return compileConstantLiteralMethod(literal)
-  // Compile methods that only return a reference, a message or a new instance
-  const expression = returnedExpression(method)
-  if (expression) return compileExpression(expression)
-  // Not supported
-  return undefined
-}
-
-export const compilePropertyMethod = (method: Method): NativeFunction => {
-  const message = method.name
-  return method.parameters.length == 0
-    ? compileGetter(message)
-    : compileSetter(message)
-}
-
-const compileGetter = (message: string): NativeFunction => function* (self: RuntimeObject): Execution<RuntimeValue> {
-  return self.get(message)
-}
-const compileSetter = (message: string): NativeFunction => function* (self: RuntimeObject, value: RuntimeObject): Execution<void> {
-  self.set(message, value)
-}
-
-/** Literal that can be returned by a constant method, e.g. `method image() = "player.png"` */
-export type ConstantLiteral = Literal<number | string | boolean | null>
-
-const isConstantLiteral = (node: Expression): node is ConstantLiteral => node.is(Literal) && !node.isCollection()
-
-const returnedExpression = (method: Method): Expression | undefined => {
-  if (method.sentences.length !== 1) return undefined
-  const [sentence] = method.sentences
-  return sentence.is(Return) ? sentence.value : undefined
-}
-
-export const constantLiteralReturnedBy = (method: Method): ConstantLiteral | undefined => {
-  const returnedValue = returnedExpression(method)
-  return returnedValue && isConstantLiteral(returnedValue) ? returnedValue : undefined
-}
-
-/**
- * Expression compiled to run on the frame of the method that returns it, doing the same as the interpreter.
- * Whatever would fail or needs a special treatment is not compiled, so it keeps being interpreted.
- */
-type CompiledExpression = ExecutionDefinition<RuntimeObject>
-
-export const compileConstantLiteralMethod = (literal: ConstantLiteral): CompiledExpression => function* () {
-  this.currentFrame.currentNode = literal
-  return yield* this.reify(literal.value)
-}
-
-const compileExpression = (node: Expression): CompiledExpression | undefined => match(node)(
-  when(New)(compileNew),
-  when(Send)(compileSend),
-  otherwise(compileOperand),
-)
-
-const compileOperand = (node: Expression): CompiledExpression | undefined => {
-  if (node.is(Reference)) return compileReference(node)
-  return isConstantLiteral(node) ? compileConstantLiteralMethod(node) : undefined
-}
-
-// It asks the scope because Reference.target would cache the failure, and the definition may be added later from the REPL
-const resolveTarget = <N extends Node>(reference: Reference<N>): N | undefined => reference.scope?.resolve<N>(reference.name)
-
-const compileReference = (node: Reference<Node>): CompiledExpression | undefined => {
-  const target = resolveTarget(node)
-  if (!target || target.is(Field) && loopInAssignment(target.value, target.name)) return undefined
-
-  const name = targetName(target, node.name)
-  return function* () {
-    this.currentFrame.currentNode = node
-    return this.currentFrame.get(name) ?? raise(new Error(`Could not resolve reference to ${node.name}`))
-  }
-}
-
-const compileSend = (node: Send): CompiledExpression | undefined => {
-  const receiver = compileOperand(node.receiver)
-  const args = excludeNullish(node.args.map(compileOperand))
-  if (!receiver || args.length !== node.args.length) return undefined
-
-  return function* () {
-    const receiverValue = yield* receiver.call(this)
-
-    if (shortCircuits(node.message, receiverValue)) return receiverValue
-
-    assertReceiverNotVoid(node, receiverValue)
-
-    const values: RuntimeObject[] = []
-    for (const [i, arg] of args.entries()) {
-      const value = yield* arg.call(this)
-      assertArgumentNotVoid(node, receiverValue, value, i)
-      values.push(value)
-    }
-
-    return (yield* this.send(node.message, receiverValue, ...values)) ?? (yield* this.reifyVoid())
-  }
-}
-
-const compileNew = (node: New): CompiledExpression | undefined => {
-  const target = resolveTarget(node.instantiated)
-  if (!target?.is(Class) || target.isAbstract || [LIST_MODULE, SET_MODULE].includes(target.fullyQualifiedName)) return undefined
-  if (isInsideGlobalVariable(node) || notEmpty(getUninitializedAttributesForInstantiation(node))) return undefined
-
-  const values = excludeNullish(node.args.map(arg => compileNewArgument(arg.value)))
-  if (values.length !== node.args.length) return undefined
-
-  return function* () {
-    const args: Record<Name, RuntimeObject> = {}
-    for (const [i, arg] of node.args.entries()) {
-      const value = yield* values[i].call(this)
-      assertNewArgumentNotVoid(node, arg.name, value)
-      args[arg.name] = value
-    }
-
-    this.currentFrame.currentNode = node
-    return yield* this.instantiate(target, args)
-  }
-}
-
-// Messages are interpreted because they run on a frame of their own, which is part of the stack trace if they fail
-const compileNewArgument = (node: Expression): CompiledExpression | undefined => {
-  if (!node.is(Send)) return compileOperand(node)
-  return compileSend(node) && function* () {
-    return yield* this.execNewArgument(node)
-  }
 }
